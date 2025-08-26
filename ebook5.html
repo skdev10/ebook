@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Publishing Studio — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <meta name="color-scheme" content="dark light">
+</head>
+<body class="min-h-screen bg-neutral-950 text-neutral-100 antialiased" style="font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial">
+  <!-- App Container -->
+  <div class="min-h-screen grid grid-cols-1 lg:grid-cols-[260px_1fr]">
+    <!-- Sidebar -->
+    <aside class="hidden lg:flex flex-col border-r border-white/10 bg-neutral-950/80 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/50">
+      <div class="p-4 flex items-center gap-3">
+        <div class="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+          <i data-lucide="book-open-text" class="h-5 w-5 text-white"></i>
+        </div>
+        <div>
+          <div class="text-lg tracking-tight font-semibold">Publishing Studio</div>
+          <div class="text-xs text-neutral-400">Creator Dashboard</div>
+        </div>
+      </div>
+      <nav class="px-2 py-3 overflow-y-auto">
+        <div class="text-xs uppercase tracking-wider text-neutral-500 px-3 mb-2">Main</div>
+        <ul class="space-y-1">
+          <li><button data-target="dashboard" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 transition"><i data-lucide="layout-dashboard" class="h-5 w-5"></i><span>Dashboard</span></button></li>
+          <li><button data-target="ebook1" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="file-plus-2" class="h-5 w-5"></i><span>Ebook-1</span></button></li>
+          <li><button data-target="ebooks" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="library" class="h-5 w-5"></i><span>Ebooks</span></button></li>
+        </ul>
+        <div class="text-xs uppercase tracking-wider text-neutral-500 px-3 mt-4 mb-2">Workflow</div>
+        <ul class="space-y-1">
+          <li><button data-target="editing" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="pen-square" class="h-5 w-5"></i><span>Editing & Formatting</span></button></li>
+          <li><button data-target="proofreading" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="check-check" class="h-5 w-5"></i><span>Proofreading</span></button></li>
+          <li><button data-target="publishing" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="send" class="h-5 w-5"></i><span>Publishing</span></button></li>
+          <li><button data-target="audiobook" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="headphones" class="h-5 w-5"></i><span>Audiobook</span></button></li>
+          <li><button data-target="authorcopies" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="package" class="h-5 w-5"></i><span>Author Copies</span></button></li>
+          <li><button data-target="coverdesign" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="image" class="h-5 w-5"></i><span>Cover Design</span></button></li>
+          <li><button data-target="analytics" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="line-chart" class="h-5 w-5"></i><span>Analytics</span></button></li>
+        </ul>
+        <div class="text-xs uppercase tracking-wider text-neutral-500 px-3 mt-4 mb-2">Account</div>
+        <ul class="space-y-1">
+          <li><button data-target="plans" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="badge-dollar-sign" class="h-5 w-5"></i><span>Plans</span></button></li>
+          <li><button data-target="settings" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="settings" class="h-5 w-5"></i><span>Settings</span></button></li>
+          <li><button data-target="help" class="nav-link w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i data-lucide="life-buoy" class="h-5 w-5"></i><span>Help</span></button></li>
+        </ul>
+      </nav>
+      <div class="mt-auto p-3">
+        <div class="rounded-xl bg-gradient-to-br from-white/5 to-white/0 border border-white/10 p-3">
+          <div class="flex items-center gap-3">
+            <div class="h-9 w-9 rounded-lg bg-indigo-600/30 flex items-center justify-center">
+              <i data-lucide="sparkles" class="h-5 w-5 text-indigo-300"></i>
+            </div>
+            <div class="text-sm">
+              <div class="font-medium">Pro Trial</div>
+              <div class="text-xs text-neutral-400">7 days left</div>
+            </div>
+          </div>
+          <button id="upgradeBtn" class="mt-3 w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 transition">Upgrade</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex flex-col">
+      <!-- Topbar -->
+      <header class="sticky top-0 z-30 border-b border-white/10 bg-neutral-950/80 backdrop-blur supports-[backdrop-filter]:bg-neutral-950/50">
+        <div class="flex items-center gap-3 px-4 py-3">
+          <button id="mobileNavToggle" class="lg:hidden p-2 rounded-md hover:bg-white/10">
+            <i data-lucide="menu" class="h-5 w-5"></i>
+          </button>
+          <div class="hidden md:flex items-center gap-2 flex-1 max-w-xl">
+            <i data-lucide="search" class="h-4 w-4 text-neutral-400"></i>
+            <input id="globalSearch" type="text" placeholder="Search projects, files, distribution…" class="w-full bg-transparent outline-none placeholder:text-neutral-500 text-sm">
+          </div>
+          <div class="flex-1 md:hidden"></div>
+          <div class="flex items-center gap-2">
+            <button id="tourBtnTop" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Start Tour</button>
+            <button id="newProjectBtn" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium tracking-tight">New Project</button>
+            <button id="chatLauncher" class="p-2 rounded-lg hover:bg-white/10 relative" title="Live Chat">
+              <i data-lucide="message-circle" class="h-5 w-5"></i>
+              <span id="chatDot" class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400"></span>
+            </button>
+            <div class="relative">
+              <button id="userMenuBtn" class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/10">
+                <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=160&auto=format&fit=crop" class="h-7 w-7 rounded-full object-cover" alt="User">
+                <span class="hidden md:block text-sm">You</span>
+                <i data-lucide="chevron-down" class="h-4 w-4 text-neutral-400"></i>
+              </button>
+              <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 rounded-lg border border-white/10 bg-neutral-900 shadow-xl">
+                <button data-target="settings" class="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sm"><i data-lucide="user" class="h-4 w-4"></i>Profile</button>
+                <button class="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sm"><i data-lucide="bell" class="h-4 w-4"></i>Notifications</button>
+                <button class="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/5 text-sm"><i data-lucide="log-out" class="h-4 w-4"></i>Sign out</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Views -->
+      <main class="flex-1 overflow-y-auto">
+        <!-- Hero Banner -->
+        <section class="hidden lg:block">
+          <div class="relative">
+            <img src="https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=2000&auto=format&fit=crop" class="h-44 w-full object-cover opacity-60" alt="Hero">
+            <div class="absolute inset-0 bg-gradient-to-t from-neutral-950 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 right-0 px-6 py-5">
+              <h1 class="text-2xl md:text-3xl tracking-tight font-semibold">Build, polish, and ship your book—end to end</h1>
+              <p class="text-neutral-300 text-sm md:text-base mt-1">One place for manuscript, layout, audio, cover, and distribution with a click.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="view-dashboard" class="view px-4 md:px-6 py-6 space-y-6">
+          <!-- Quick Pipeline -->
+          <div id="pipeline" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="rounded-xl border border-white/10 p-4 bg-white/5">
+              <div class="flex items-center justify-between">
+                <div class="text-sm text-neutral-300">Editing</div>
+                <i data-lucide="pen-square" class="h-4 w-4 text-neutral-400"></i>
+              </div>
+              <div class="mt-2 text-2xl tracking-tight font-semibold" id="statEditing">2</div>
+              <div class="text-xs text-neutral-400">in progress</div>
+            </div>
+            <div class="rounded-xl border border-white/10 p-4 bg-white/5">
+              <div class="flex items-center justify-between">
+                <div class="text-sm text-neutral-300">Proofreading</div>
+                <i data-lucide="check-check" class="h-4 w-4 text-neutral-400"></i>
+              </div>
+              <div class="mt-2 text-2xl tracking-tight font-semibold" id="statProof">1</div>
+              <div class="text-xs text-neutral-400">awaiting review</div>
+            </div>
+            <div class="rounded-xl border border-white/10 p-4 bg-white/5">
+              <div class="flex items-center justify-between">
+                <div class="text-sm text-neutral-300">Publishing</div>
+                <i data-lucide="send" class="h-4 w-4 text-neutral-400"></i>
+              </div>
+              <div class="mt-2 text-2xl tracking-tight font-semibold" id="statPublish">0</div>
+              <div class="text-xs text-neutral-400">queued</div>
+            </div>
+            <div class="rounded-xl border border-white/10 p-4 bg-white/5">
+              <div class="flex items-center justify-between">
+                <div class="text-sm text-neutral-300">Revenue (30d)</div>
+                <i data-lucide="badge-dollar-sign" class="h-4 w-4 text-neutral-400"></i>
+              </div>
+              <div class="mt-2 text-2xl tracking-tight font-semibold">$1,284</div>
+              <div class="text-xs text-emerald-400">+18%</div>
+            </div>
+          </div>
+
+          <!-- Actions + Upload -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="rounded-xl border border-white/10 bg-white/5 p-4 lg:col-span-2">
+              <div class="flex items-center justify-between">
+                <h2 class="text-xl tracking-tight font-semibold">Quick Actions</h2>
+                <div class="flex items-center gap-2">
+                  <button class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm" id="tourBtn">How to start</button>
+                  <button id="quickCreateBtn" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Create Project</button>
+                </div>
+              </div>
+              <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button data-target="editing" class="action-tile group rounded-lg border border-white/10 p-3 bg-neutral-900/50 hover:bg-neutral-900 transition flex items-center gap-3">
+                  <i data-lucide="file-edit" class="h-5 w-5 text-indigo-300"></i>
+                  <div class="text-sm">Start Editing</div>
+                </button>
+                <button data-target="proofreading" class="action-tile group rounded-lg border border-white/10 p-3 bg-neutral-900/50 hover:bg-neutral-900 transition flex items-center gap-3">
+                  <i data-lucide="scan-text" class="h-5 w-5 text-indigo-300"></i>
+                  <div class="text-sm">Proofread</div>
+                </button>
+                <button data-target="coverdesign" class="action-tile group rounded-lg border border-white/10 p-3 bg-neutral-900/50 hover:bg-neutral-900 transition flex items-center gap-3">
+                  <i data-lucide="paintbrush" class="h-5 w-5 text-indigo-300"></i>
+                  <div class="text-sm">Design Cover</div>
+                </button>
+                <button data-target="publishing" class="action-tile group rounded-lg border border-white/10 p-3 bg-neutral-900/50 hover:bg-neutral-900 transition flex items-center gap-3">
+                  <i data-lucide="rocket" class="h-5 w-5 text-indigo-300"></i>
+                  <div class="text-sm">Publish</div>
+                </button>
+              </div>
+              <div class="mt-5">
+                <div id="dropzone" class="relative rounded-lg border-2 border-dashed border-white/10 p-6 text-center hover:border-white/20 transition">
+                  <input id="fileInput" type="file" class="absolute inset-0 opacity-0 cursor-pointer" multiple />
+                  <div class="flex items-center justify-center gap-3">
+                    <i data-lucide="upload-cloud" class="h-5 w-5 text-neutral-400"></i>
+                    <div class="text-sm text-neutral-300">Drop manuscript or click to upload</div>
+                  </div>
+                  <div id="uploadList" class="mt-3 text-left text-sm"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 class="text-xl tracking-tight font-semibold">Performance</h3>
+              <p class="text-sm text-neutral-400">Views and downloads</p>
+              <div class="mt-3">
+                <div class="rounded-lg bg-neutral-900 p-2">
+                  <div class="h-40">
+                    <div class="relative">
+                      <h4 class="sr-only">Chart</h4>
+                      <p class="sr-only">Traffic chart</p>
+                      <div class="p-1">
+                        <div>
+                          <canvas id="trafficChart" height="140"></canvas>
+                        </div>
+                      </div>
+                      <div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button data-target="analytics" class="mt-3 w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Open Analytics</button>
+            </div>
+          </div>
+
+          <!-- Projects -->
+          <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xl tracking-tight font-semibold">Recent Projects</h3>
+              <button data-target="ebooks" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">View all</button>
+            </div>
+            <div id="projectList" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+          </div>
+        </section>
+
+        <!-- Ebook-1 -->
+        <section id="view-ebook1" class="view px-4 md:px-6 py-6 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 rounded-xl border border-white/10 bg-white/5 p-4">
+              <div class="flex items-center justify-between">
+                <h2 class="text-xl tracking-tight font-semibold">Ebook-1</h2>
+                <div class="flex items-center gap-2">
+                  <button data-target="editing" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Edit</button>
+                  <button data-target="publishing" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Publish</button>
+                </div>
+              </div>
+              <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400 mb-2">Preview (Mobile)</div>
+                  <div class="aspect-[9/16] rounded-lg bg-neutral-900 overflow-hidden p-3">
+                    <div class="h-full w-full rounded-md bg-neutral-800 p-3 flex flex-col">
+                      <div class="text-xs text-neutral-400">Chapter 1</div>
+                      <div class="mt-2 text-base leading-6">It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, his chin nuzzled into his breast...</div>
+                      <div class="mt-auto text-xs text-neutral-500">12 min read</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400 mb-2">Metadata</div>
+                  <dl class="text-sm grid grid-cols-3 gap-2">
+                    <dt class="text-neutral-400">Title</dt><dd class="col-span-2">Untitled Manuscript</dd>
+                    <dt class="text-neutral-400">Author</dt><dd class="col-span-2">You</dd>
+                    <dt class="text-neutral-400">Status</dt><dd class="col-span-2"><span class="px-2 py-0.5 rounded-full text-xs bg-amber-500/15 text-amber-300">Draft</span></dd>
+                    <dt class="text-neutral-400">Words</dt><dd class="col-span-2">38,210</dd>
+                    <dt class="text-neutral-400">Updated</dt><dd class="col-span-2">Today</dd>
+                  </dl>
+                  <div class="mt-4 flex items-center gap-2">
+                    <button data-target="coverdesign" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Design Cover</button>
+                    <button data-target="proofreading" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Run Proofread</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 class="text-xl tracking-tight font-semibold">Tasks</h3>
+              <ul id="ebook1Tasks" class="mt-3 space-y-2 text-sm">
+                <li class="flex items-center gap-2">
+                  <input type="checkbox" class="peer appearance-none h-4 w-4 rounded border border-white/20 bg-neutral-900 checked:bg-indigo-600 checked:border-indigo-600">
+                  <span class="peer-checked:line-through peer-checked:text-neutral-500">Add dedication page</span>
+                </li>
+                <li class="flex items-center gap-2">
+                  <input type="checkbox" class="peer appearance-none h-4 w-4 rounded border border-white/20 bg-neutral-900 checked:bg-indigo-600 checked:border-indigo-600">
+                  <span class="peer-checked:line-through peer-checked:text-neutral-500">Fix widows/orphans in chapter 3</span>
+                </li>
+              </ul>
+              <button id="addTaskBtn" class="mt-3 w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Add Task</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ebooks -->
+        <section id="view-ebooks" class="view px-4 md:px-6 py-6 hidden">
+          <div class="flex items-center justify-between">
+            <h2 class="text-2xl tracking-tight font-semibold">Ebooks</h2>
+            <button id="createEbookFromList" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">New Ebook</button>
+          </div>
+          <div id="ebookList" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- Editing & Formatting -->
+        <section id="view-editing" class="view px-4 md:px-6 py-6 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
+            <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 class="text-xl tracking-tight font-semibold">Tools</h3>
+              <div class="mt-3 space-y-2 text-sm">
+                <button id="btnApplyGrammar" class="w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 flex items-center justify-between px-3">
+                  Grammar <i data-lucide="wand-2" class="h-4 w-4"></i>
+                </button>
+                <button id="btnFormat" class="w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 flex items-center justify-between px-3">
+                  Auto-format <i data-lucide="type" class="h-4 w-4"></i>
+                </button>
+                <button id="btnExtractTOC" class="w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 flex items-center justify-between px-3">
+                  Build TOC <i data-lucide="list-ordered" class="h-4 w-4"></i>
+                </button>
+                <button id="btnSaveEdit" class="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500">Save changes</button>
+              </div>
+              <div class="mt-4">
+                <label class="text-xs text-neutral-400">Theme</label>
+                <div class="mt-2 flex items-center gap-2">
+                  <button data-editor-theme="serif" class="theme-btn px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs">Serif</button>
+                  <button data-editor-theme="sans" class="theme-btn px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs">Sans</button>
+                  <button data-editor-theme="mono" class="theme-btn px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs">Mono</button>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/5">
+              <div class="border-b border-white/10 flex items-center justify-between px-4 py-3">
+                <div class="text-sm text-neutral-400">Manuscript</div>
+                <div class="flex items-center gap-2">
+                  <button id="btnTrackChanges" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-xs">Track changes</button>
+                  <button id="btnPreview" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-xs">Preview</button>
+                </div>
+              </div>
+              <textarea id="editor" class="w-full h-[460px] p-4 bg-transparent outline-none leading-7 text-[15px]" spellcheck="false">Chapter One
+
+The rain came in sheets, hammering the old skylight. Liora pressed a palm to the glass and counted the seconds between lightning and thunder.
+
+“Three,” she whispered. “Close.”
+
+Her phone buzzed. A new submission: the final chapter she’d been waiting on for weeks.</textarea>
+            </div>
+          </div>
+        </section>
+
+        <!-- Proofreading -->
+        <section id="view-proofreading" class="view px-4 md:px-6 py-6 hidden">
+          <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div class="flex items-center justify-between">
+              <h2 class="text-2xl tracking-tight font-semibold">Proofreading</h2>
+              <button id="btnRunProof" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Run checks</button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="text-sm text-neutral-400">Document</div>
+                <div id="proofDoc" class="mt-2 text-sm leading-7">
+                  This is a sample paragraf with a few errrors to demonstrate the proofread pipeline. It contain repeated words words and a mispelled sentence.
+                </div>
+              </div>
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="text-sm text-neutral-400">Suggestions</div>
+                <ul id="proofList" class="mt-2 space-y-2 text-sm"></ul>
+                <div class="mt-3 flex items-center gap-2">
+                  <button id="btnAcceptAll" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Accept all</button>
+                  <button id="btnExportClean" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Export clean</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Publishing -->
+        <section id="view-publishing" class="view px-4 md:px-6 py-6 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 rounded-xl border border-white/10 bg-white/5 p4">
+              <h2 class="text-2xl tracking-tight font-semibold">Publishing</h2>
+              <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400">Distribution</div>
+                  <div class="mt-3 space-y-2 text-sm">
+                    <label class="flex items-center justify-between gap-2 p-2 rounded-lg bg-neutral-900 border border-white/10">
+                      <span>Global Stores</span>
+                      <input type="checkbox" class="peer appearance-none h-5 w-9 rounded-full bg-neutral-800 outline-none border border-white/10 relative transition checked:bg-indigo-600">
+                    </label>
+                    <label class="flex items-center justify-between gap-2 p-2 rounded-lg bg-neutral-900 border border-white/10">
+                      <span>Library Network</span>
+                      <input type="checkbox" class="peer appearance-none h-5 w-9 rounded-full bg-neutral-800 outline-none border border-white/10 relative transition checked:bg-indigo-600">
+                    </label>
+                    <label class="flex items-center justify-between gap-2 p-2 rounded-lg bg-neutral-900 border border-white/10">
+                      <span>Direct Sales</span>
+                      <input type="checkbox" class="peer appearance-none h-5 w-9 rounded-full bg-neutral-800 outline-none border border-white/10 relative transition checked:bg-indigo-600">
+                    </label>
+                  </div>
+                </div>
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400">Pricing</div>
+                  <div class="mt-3 grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-xs text-neutral-400">Ebook</label>
+                      <div class="mt-1 flex items-center rounded-lg bg-neutral-900 border border-white/10 px-2">
+                        <span class="text-neutral-400">$</span>
+                        <input id="priceEbook" type="number" value="4.99" step="0.01" class="w-full bg-transparent px-2 py-2 outline-none">
+                      </div>
+                    </div>
+                    <div>
+                      <label class="text-xs text-neutral-400">Paperback</label>
+                      <div class="mt-1 flex items-center rounded-lg bg-neutral-900 border border-white/10 px-2">
+                        <span class="text-neutral-400">$</span>
+                        <input id="pricePrint" type="number" value="12.99" step="0.01" class="w-full bg-transparent px-2 py-2 outline-none">
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-3 text-xs text-neutral-400">Royalty estimate: <span id="royaltyEstimate" class="text-neutral-200">$0.00</span></div>
+                </div>
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400">Schedule</div>
+                  <div class="mt-2">
+                    <input id="publishDate" type="date" class="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                  </div>
+                </div>
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400">Final Checks</div>
+                  <ul class="mt-2 text-sm space-y-2">
+                    <li class="flex items-center gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Metadata complete</li>
+                    <li class="flex items-center gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Cover attached</li>
+                    <li class="flex items-center gap-2"><i data-lucide="alert-circle" class="h-4 w-4 text-amber-400"></i>Proofreading recommended</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center gap-2">
+                <button id="btnPreviewStore" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Preview store page</button>
+                <button id="btnPublishNow" class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm">Publish Now</button>
+              </div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 class="text-xl tracking-tight font-semibold">Store Preview</h3>
+              <div class="mt-3 rounded-lg border border-white/10 bg-neutral-900 p-3">
+                <img id="storeCover" src="https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=600&auto=format&fit=crop" class="w-full h-40 object-cover rounded-md" alt="Cover preview">
+                <div class="mt-2">
+                  <div class="font-medium">Untitled Manuscript</div>
+                  <div class="text-xs text-neutral-400">by You</div>
+                  <div class="mt-1 text-sm">$4.99</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Audiobook -->
+        <section id="view-audiobook" class="view px-4 md:px-6 py-6 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 rounded-xl border border-white/10 bg-white/5 p-4">
+              <div class="flex items-center justify-between">
+                <h2 class="text-2xl tracking-tight font-semibold">Audiobook</h2>
+                <div class="flex items-center gap-2">
+                  <button id="btnGenerateTTS" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Generate TTS</button>
+                  <label class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm cursor-pointer">
+                    <input id="audioUpload" type="file" accept="audio/*" multiple class="hidden"> Upload Audio
+                  </label>
+                </div>
+              </div>
+              <ul id="audioList" class="mt-4 space-y-2 text-sm"></ul>
+              <div class="mt-4 rounded-lg border border-white/10 p-3">
+                <div class="text-sm text-neutral-400">Player</div>
+                <audio id="audioPlayer" controls class="mt-2 w-full"></audio>
+              </div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 class="text-xl tracking-tight font-semibold">Distribution</h3>
+              <p class="text-sm text-neutral-400">Send to partners</p>
+              <div class="mt-3 space-y-2">
+                <button class="w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm flex items-center justify-between px-3"><span>Audible</span><i data-lucide="chevron-right" class="h-4 w-4"></i></button>
+                <button class="w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm flex items-center justify-between px-3"><span>Spotify</span><i data-lucide="chevron-right" class="h-4 w-4"></i></button>
+                <button class="w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm flex items-center justify-between px-3"><span>Apple Books</span><i data-lucide="chevron-right" class="h-4 w-4"></i></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Author Copies -->
+        <section id="view-authorcopies" class="view px-4 md:px-6 py-6 hidden">
+          <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <h2 class="text-2xl tracking-tight font-semibold">Order Author Copies</h2>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="rounded-lg border border-white/10 p-3">
+                <label class="text-xs text-neutral-400">Quantity</label>
+                <input id="copyQty" type="number" value="25" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                <label class="text-xs text-neutral-400 mt-3 block">Paper</label>
+                <select id="paperType" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                  <option>Matte</option>
+                  <option>Gloss</option>
+                </select>
+                <label class="text-xs text-neutral-400 mt-3 block">Size</label>
+                <select id="trimSize" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                  <option>6 x 9 in</option>
+                  <option>5 x 8 in</option>
+                </select>
+              </div>
+              <div class="rounded-lg border border-white/10 p-3">
+                <label class="text-xs text-neutral-400">Shipping Address</label>
+                <input id="shipName" placeholder="Full name" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                <input id="shipAddress" placeholder="Address" class="mt-2 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                <div class="grid grid-cols-2 gap-2 mt-2">
+                  <input id="shipCity" placeholder="City" class="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                  <input id="shipZip" placeholder="ZIP" class="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                </div>
+              </div>
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="text-sm text-neutral-400">Estimate</div>
+                <div class="mt-2 text-3xl tracking-tight font-semibold" id="copyEstimate">$0.00</div>
+                <div class="text-xs text-neutral-400">Includes print + shipping</div>
+                <button id="btnPlaceOrder" class="mt-4 w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm">Place order</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Cover Design -->
+        <section id="view-coverdesign" class="view px-4 md:px-6 py-6 hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 rounded-xl border border-white/10 bg-white/5 p-4">
+              <h2 class="text-2xl tracking-tight font-semibold">Cover Design</h2>
+              <div class="mt-4 grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4">
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400">Canvas</div>
+                  <div class="mt-2 bg-neutral-900 rounded-lg p-3">
+                    <canvas id="coverCanvas" class="w-full h-[380px] bg-neutral-800 rounded-md"></canvas>
+                  </div>
+                </div>
+                <div class="rounded-lg border border-white/10 p-3">
+                  <div class="text-sm text-neutral-400">Controls</div>
+                  <label class="text-xs text-neutral-400 mt-2 block">Title</label>
+                  <input id="coverTitle" value="Untitled Manuscript" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                  <label class="text-xs text-neutral-400 mt-3 block">Author</label>
+                  <input id="coverAuthor" value="You" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                  <label class="text-xs text-neutral-400 mt-3 block">Theme</label>
+                  <select id="coverTheme" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+                    <option value="mountains">Mountains</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="render">3D Render</option>
+                    <option value="face">Face</option>
+                  </select>
+                  <label class="text-xs text-neutral-400 mt-3 block">Accent Color</label>
+                  <input id="coverColor" type="color" value="#6366F1" class="mt-2 w-full h-10 bg-transparent p-0">
+                  <div class="mt-4 flex items-center gap-2">
+                    <button id="btnRenderCover" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Render</button>
+                    <button id="btnDownloadCover" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Download PNG</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 class="text-xl tracking-tight font-semibold">Presets</h3>
+              <div class="mt-3 grid grid-cols-2 gap-2">
+                <button data-preset="mountains" class="preset h-24 rounded-lg overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1549880338-65ddcdfd017b?q=80&w=400&auto=format&fit=crop" class="h-full w-full object-cover" alt="Mountains">
+                </button>
+                <button data-preset="minimal" class="preset h-24 rounded-lg overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1527799820374-dcf8d8a64f00?q=80&w=400&auto=format&fit=crop" class="h-full w-full object-cover" alt="Minimal">
+                </button>
+                <button data-preset="render" class="preset h-24 rounded-lg overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=400&auto=format&fit=crop" class="h-full w-full object-cover" alt="3D">
+                </button>
+                <button data-preset="face" class="preset h-24 rounded-lg overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=400&auto=format&fit=crop" class="h-full w-full object-cover" alt="Face">
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Analytics -->
+        <section id="view-analytics" class="view px-4 md:px-6 py-6 hidden">
+          <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div class="flex items-center justify-between">
+              <h2 class="text-2xl tracking-tight font-semibold">Analytics</h2>
+              <div class="flex items-center gap-2">
+                <button class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">30 days</button>
+                <button class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">90 days</button>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="text-sm text-neutral-400">Sales</div>
+                <div class="mt-2">
+                  <div class="p-1">
+                    <div class="bg-neutral-900 rounded-md p-2">
+                      <div>
+                        <canvas id="salesChart" height="160"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="text-sm text-neutral-400">Downloads</div>
+                <div class="mt-2">
+                  <div class="p-1">
+                    <div class="bg-neutral-900 rounded-md p-2">
+                      <div>
+                        <canvas id="downloadsChart" height="160"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Plans -->
+        <section id="view-plans" class="view px-4 md:px-6 py-6 hidden">
+          <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div class="flex items-center justify-between">
+              <h2 class="text-2xl tracking-tight font-semibold">Plans</h2>
+              <div class="flex items-center gap-2 text-sm">
+                <span>Monthly</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input id="billingToggle" type="checkbox" class="sr-only peer">
+                  <div class="w-10 h-5 bg-neutral-700 peer-checked:bg-indigo-600 rounded-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:h-4 after:w-4 after:rounded-full after:transition peer-checked:after:translate-x-5"></div>
+                </label>
+                <span>Yearly</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div class="rounded-lg border border-white/10 p-4">
+                <div class="text-sm text-neutral-400">Starter</div>
+                <div class="mt-1 text-3xl tracking-tight font-semibold"><span class="price" data-m="0" data-y="0">$0</span></div>
+                <ul class="mt-3 text-sm space-y-2">
+                  <li class="flex gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Ebook builder</li>
+                  <li class="flex gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Basic proofreading</li>
+                </ul>
+                <button class="mt-4 w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Current plan</button>
+              </div>
+              <div class="rounded-lg border border-indigo-500/40 p-4 bg-indigo-500/5">
+                <div class="text-sm text-indigo-300">Pro</div>
+                <div class="mt-1 text-3xl tracking-tight font-semibold"><span class="price" data-m="24" data-y="19">$24</span><span class="text-sm text-neutral-400">/mo</span></div>
+                <ul class="mt-3 text-sm space-y-2">
+                  <li class="flex gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Advanced editing</li>
+                  <li class="flex gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Audiobook tools</li>
+                  <li class="flex gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Priority support</li>
+                </ul>
+                <button class="mt-4 w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Upgrade to Pro</button>
+              </div>
+              <div class="rounded-lg border border-white/10 p-4">
+                <div class="text-sm text-neutral-400">Business</div>
+                <div class="mt-1 text-3xl tracking-tight font-semibold"><span class="price" data-m="49" data-y="39">$49</span><span class="text-sm text-neutral-400">/mo</span></div>
+                <ul class="mt-3 text-sm space-y-2">
+                  <li class="flex gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Team seats</li>
+                  <li class="flex gap-2"><i data-lucide="check" class="h-4 w-4 text-emerald-400"></i>Priority distribution</li>
+                </ul>
+                <button class="mt-4 w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Contact sales</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Settings -->
+        <section id="view-settings" class="view px-4 md:px-6 py-6 hidden">
+          <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <h2 class="text-2xl tracking-tight font-semibold">Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div class="rounded-lg border border-white/10 p-3">
+                <label class="text-xs text-neutral-400">Display Name</label>
+                <input class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none" value="You">
+                <label class="text-xs text-neutral-400 mt-3 block">Email</label>
+                <input class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none" value="you@example.com">
+              </div>
+              <div class="rounded-lg border border-white/10 p-3">
+                <label class="text-xs text-neutral-400">Notifications</label>
+                <label class="mt-2 flex items-center gap-2">
+                  <input type="checkbox" class="peer appearance-none h-5 w-9 rounded-full bg-neutral-800 border border-white/10 checked:bg-indigo-600">
+                  <span class="text-sm">Email updates</span>
+                </label>
+                <label class="mt-2 flex items-center gap-2">
+                  <input type="checkbox" class="peer appearance-none h-5 w-9 rounded-full bg-neutral-800 border border-white/10 checked:bg-indigo-600">
+                  <span class="text-sm">Product tips</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Help -->
+        <section id="view-help" class="view px-4 md:px-6 py-6 hidden">
+          <div class="rounded-xl border border-white/10 bg-white/5 p-4">
+            <h2 class="text-2xl tracking-tight font-semibold">Help & Docs</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="flex items-center gap-2"><i data-lucide="book" class="h-4 w-4 text-neutral-400"></i><div class="text-sm">Getting started</div></div>
+                <p class="text-xs text-neutral-400 mt-2">Create, upload, and publish your first book.</p>
+                <button id="helpStartTour" class="mt-3 w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Start Tour</button>
+              </div>
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="flex items-center gap-2"><i data-lucide="sparkles" class="h-4 w-4 text-neutral-400"></i><div class="text-sm">Formatting guide</div></div>
+                <p class="text-xs text-neutral-400 mt-2">Best practices for layout and typography.</p>
+              </div>
+              <div class="rounded-lg border border-white/10 p-3">
+                <div class="flex items-center gap-2"><i data-lucide="life-buoy" class="h-4 w-4 text-neutral-400"></i><div class="text-sm">Contact support</div></div>
+                <p class="text-xs text-neutral-400 mt-2">We reply within a few minutes.</p>
+                <button id="openChatFromHelp" class="mt-3 w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Open Live Chat</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Mobile Drawer -->
+  <div id="mobileDrawer" class="fixed inset-0 z-40 hidden">
+    <div class="absolute inset-0 bg-black/60"></div>
+    <div class="absolute inset-y-0 left-0 w-72 bg-neutral-950 border-r border-white/10 p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+            <i data-lucide="book-open-text" class="h-4 w-4 text-white"></i>
+          </div>
+          <div class="font-medium">Publishing Studio</div>
+        </div>
+        <button id="closeMobileDrawer" class="p-2 rounded-md hover:bg-white/10"><i data-lucide="x" class="h-5 w-5"></i></button>
+      </div>
+      <div class="mt-4 space-y-1">
+        <button data-target="dashboard" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Dashboard</button>
+        <button data-target="ebooks" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Ebooks</button>
+        <button data-target="editing" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Editing & Formatting</button>
+        <button data-target="proofreading" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Proofreading</button>
+        <button data-target="publishing" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Publishing</button>
+        <button data-target="audiobook" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Audiobook</button>
+        <button data-target="coverdesign" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Cover Design</button>
+        <button data-target="analytics" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Analytics</button>
+        <button data-target="plans" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Plans</button>
+        <button data-target="settings" class="nav-link w-full text-left px-3 py-2 rounded-lg hover:bg-white/10">Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Project Wizard -->
+  <div id="projectWizard" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/60"></div>
+    <div class="absolute inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 top-10 md:w-[720px] rounded-xl border border-white/10 bg-neutral-950 p-0 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div class="text-lg tracking-tight font-semibold">New Project</div>
+        <button id="closeWizard" class="p-2 rounded-md hover:bg-white/10"><i data-lucide="x" class="h-5 w-5"></i></button>
+      </div>
+      <div class="p-4">
+        <div class="flex items-center gap-2 text-sm">
+          <div class="step-dot h-6 w-6 rounded-full flex items-center justify-center bg-indigo-600">1</div>
+          <div class="step-dot h-6 w-6 rounded-full flex items-center justify-center bg-white/10">2</div>
+          <div class="step-dot h-6 w-6 rounded-full flex items-center justify-center bg-white/10">3</div>
+          <div class="step-dot h-6 w-6 rounded-full flex items-center justify-center bg-white/10">4</div>
+        </div>
+        <div class="mt-4 space-y-4">
+          <div class="wizard-step" data-step="1">
+            <label class="text-xs text-neutral-400">Title</label>
+            <input id="wTitle" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none" placeholder="Project title">
+            <label class="text-xs text-neutral-400 mt-3 block">Author</label>
+            <input id="wAuthor" class="mt-1 w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none" placeholder="Author name" value="You">
+          </div>
+          <div class="wizard-step hidden" data-step="2">
+            <div id="wDrop" class="relative rounded-lg border-2 border-dashed border-white/10 p-6 text-center hover:border-white/20 transition">
+              <input id="wFiles" type="file" class="absolute inset-0 opacity-0 cursor-pointer" multiple />
+              <div class="flex items-center justify-center gap-3">
+                <i data-lucide="upload" class="h-5 w-5 text-neutral-400"></i>
+                <div class="text-sm text-neutral-300">Upload manuscript files</div>
+              </div>
+              <div id="wFilesList" class="mt-3 text-left text-sm"></div>
+            </div>
+          </div>
+          <div class="wizard-step hidden" data-step="3">
+            <div class="text-sm text-neutral-400">Formats</div>
+            <div class="mt-3 grid grid-cols-3 gap-2">
+              <label class="flex items-center gap-2 rounded-lg bg-neutral-900 border border-white/10 p-3">
+                <input id="fmtEbook" type="checkbox" class="peer appearance-none h-4 w-4 rounded border border-white/20 bg-neutral-900 checked:bg-indigo-600 checked:border-indigo-600" checked>
+                <span class="text-sm">Ebook</span>
+              </label>
+              <label class="flex items-center gap-2 rounded-lg bg-neutral-900 border border-white/10 p-3">
+                <input id="fmtPrint" type="checkbox" class="peer appearance-none h-4 w-4 rounded border border-white/20 bg-neutral-900 checked:bg-indigo-600 checked:border-indigo-600">
+                <span class="text-sm">Paperback</span>
+              </label>
+              <label class="flex items-center gap-2 rounded-lg bg-neutral-900 border border-white/10 p-3">
+                <input id="fmtAudio" type="checkbox" class="peer appearance-none h-4 w-4 rounded border border-white/20 bg-neutral-900 checked:bg-indigo-600 checked:border-indigo-600">
+                <span class="text-sm">Audiobook</span>
+              </label>
+            </div>
+          </div>
+          <div class="wizard-step hidden" data-step="4">
+            <div class="text-sm text-neutral-400">Ready to create</div>
+            <ul class="mt-2 text-sm space-y-1" id="wSummary"></ul>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center justify-between px-4 py-3 border-t border-white/10">
+        <button id="prevStep" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Back</button>
+        <button id="nextStep" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Store Preview Modal -->
+  <div id="storeModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/60"></div>
+    <div class="absolute inset-x-4 md:inset-x-auto md:left-1/2 md:-translate-x-1/2 top-14 md:w-[720px] rounded-xl border border-white/10 bg-neutral-950 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div class="text-lg tracking-tight font-semibold">Store Page Preview</div>
+        <button id="closeStoreModal" class="p-2 rounded-md hover:bg-white/10"><i data-lucide="x" class="h-5 w-5"></i></button>
+      </div>
+      <div class="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <img src="https://images.unsplash.com/photo-1526318472351-c75fcf070305?q=80&w=600&auto=format&fit=crop" class="rounded-lg border border-white/10 md:col-span-1" alt="Cover">
+        <div class="md:col-span-2">
+          <div class="text-xl tracking-tight font-semibold">Untitled Manuscript</div>
+          <div class="text-sm text-neutral-400">by You</div>
+          <div class="mt-2 text-2xl tracking-tight font-semibold">$4.99</div>
+          <p class="mt-3 text-sm text-neutral-300">A gripping story about creativity and courage. Enjoy an immersive world with crisp typography and seamless reading experience.</p>
+          <div class="mt-4 flex items-center gap-2">
+            <button class="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-sm">Buy now</button>
+            <button class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Sample</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Chat -->
+  <div id="chatWindow" class="fixed bottom-4 right-4 z-50 hidden">
+    <div class="w-[320px] md:w-[360px] rounded-xl border border-white/10 bg-neutral-950 shadow-xl overflow-hidden">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
+        <div class="flex items-center gap-2">
+          <div class="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
+            <i data-lucide="message-circle" class="h-4 w-4 text-emerald-300"></i>
+          </div>
+          <div>
+            <div class="text-sm font-medium">Live Support</div>
+            <div class="text-xs text-emerald-400">Online</div>
+          </div>
+        </div>
+        <button id="closeChat" class="p-1.5 rounded-md hover:bg-white/10"><i data-lucide="x" class="h-4 w-4"></i></button>
+      </div>
+      <div id="chatLog" class="h-64 overflow-y-auto p-3 space-y-3 text-sm">
+        <div class="flex items-start gap-2">
+          <div class="h-6 w-6 rounded-full bg-emerald-500/20 flex items-center justify-center"><i data-lucide="bot" class="h-3.5 w-3.5 text-emerald-300"></i></div>
+          <div class="bg-white/5 border border-white/10 rounded-lg px-3 py-2">Hi! Need help? Try the Start Tour button or ask me anything.</div>
+        </div>
+      </div>
+      <div class="p-2 border-t border-white/10">
+        <div class="flex items-center gap-2">
+          <input id="chatInput" placeholder="Type a message…" class="flex-1 bg-neutral-900 border border-white/10 rounded-lg px-3 py-2 outline-none">
+          <button id="sendChat" class="p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500"><i data-lucide="send" class="h-4 w-4"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guided Tour -->
+  <div id="tourOverlay" class="fixed inset-0 z-50 hidden pointer-events-none">
+    <div class="absolute inset-0 bg-black/60"></div>
+    <div id="tourTooltip" class="pointer-events-auto absolute max-w-sm rounded-xl border border-white/10 bg-neutral-900 p-4 shadow-xl">
+      <div class="text-sm" id="tourText">Welcome!</div>
+      <div class="mt-3 flex items-center justify-between">
+        <button id="tourSkip" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Skip</button>
+        <div class="flex items-center gap-2">
+          <button id="tourPrev" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm">Back</button>
+          <button id="tourNext" class="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm">Next</button>
+        </div>
+      </div>
+    </div>
+    <div id="tourSpotlight" class="absolute rounded-xl ring-4 ring-indigo-500/60 transition-all"></div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toasts" class="fixed top-4 right-4 z-[60] space-y-2"></div>
+
+  <script>
+    // Utilities
+    const $ = (sel, ctx=document) => ctx.querySelector(sel);
+    const $$ = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+    const show = (el) => el.classList.remove('hidden');
+    const hide = (el) => el.classList.add('hidden');
+    const toast = (msg, type='default') => {
+      const t = document.createElement('div');
+      t.className = 'rounded-lg border border-white/10 px-3 py-2 bg-neutral-900 shadow flex items-center gap-2 text-sm';
+      const icon = document.createElement('i');
+      icon.setAttribute('data-lucide', type === 'success' ? 'check-circle' : type === 'error' ? 'alert-triangle' : 'info');
+      icon.className = 'h-4 w-4 text-neutral-300';
+      t.append(icon);
+      const span = document.createElement('span'); span.textContent = msg;
+      t.append(span);
+      $('#toasts').append(t);
+      lucide.createIcons({attrs:{class:'h-4 w-4'}});
+      setTimeout(()=>{ t.classList.add('opacity-0','translate-y-1','transition'); setTimeout(()=>t.remove(),300); }, 2400);
+    };
+
+    // Navigation
+    const views = $$('.view');
+    const setView = (name) => {
+      views.forEach(v => v.id === 'view-'+name ? show(v) : hide(v));
+      // highlight nav
+      $$('.nav-link').forEach(b => {
+        if (b.dataset.target === name) b.classList.add('bg-white/10');
+        else b.classList.remove('bg-white/10');
+      });
+      window.location.hash = name;
+    };
+    $$('.nav-link').forEach(b => b.addEventListener('click', () => setView(b.dataset.target)));
+    window.addEventListener('hashchange', ()=> {
+      const target = location.hash.replace('#','') || 'dashboard';
+      setView(target);
+    });
+
+    // Mobile drawer
+    $('#mobileNavToggle').addEventListener('click', ()=> show($('#mobileDrawer')));
+    $('#closeMobileDrawer').addEventListener('click', ()=> hide($('#mobileDrawer')));
+    $$('#mobileDrawer .nav-link').forEach(b => b.addEventListener('click', ()=> hide($('#mobileDrawer'))));
+
+    // User menu
+    $('#userMenuBtn').addEventListener('click', (e)=> {
+      e.stopPropagation();
+      $('#userMenu').classList.toggle('hidden');
+    });
+    document.addEventListener('click', ()=> $('#userMenu').classList.add('hidden'));
+
+    // Chart.js
+    const trafficCtx = $('#trafficChart');
+    new Chart(trafficCtx, {
+      type: 'line',
+      data: {
+        labels: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+        datasets: [{
+          data: [12, 19, 15, 22, 24, 18, 26],
+          borderColor: '#6366F1',
+          backgroundColor: 'rgba(99,102,241,0.15)',
+          tension: 0.35,
+          fill: true
+        }]
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#9CA3AF' }, grid: { color: 'rgba(255,255,255,0.05)'} },
+          y: { ticks: { color: '#9CA3AF' }, grid: { color: 'rgba(255,255,255,0.05)'}, suggestedMin: 0 }
+        }
+      }
+    });
+
+    // Analytics charts
+    const initAnalytics = () => {
+      const sc = $('#salesChart');
+      const dc = $('#downloadsChart');
+      if (!sc || sc.dataset.init) return;
+      sc.dataset.init = '1';
+      new Chart(sc, { type: 'bar', data: { labels: ['Jan','Feb','Mar','Apr','May','Jun'], datasets:[{label:'Sales', data:[120,148,132,189,240,210], backgroundColor:'#22C55E'}]}, options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#9CA3AF'}}, y:{ticks:{color:'#9CA3AF'}, grid:{color:'rgba(255,255,255,0.05)'}}} }});
+      new Chart(dc, { type: 'line', data: { labels: ['Jan','Feb','Mar','Apr','May','Jun'], datasets:[{data:[420,520,480,610,720,680], borderColor:'#F59E0B', tension:0.35}]}, options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#9CA3AF'}}, y:{ticks:{color:'#9CA3AF'}, grid:{color:'rgba(255,255,255,0.05)'}}} }});
+    };
+
+    // Uploads in dashboard
+    const uploadList = $('#uploadList');
+    $('#fileInput').addEventListener('change', (e)=> {
+      [...e.target.files].forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between text-sm';
+        row.innerHTML = `<div class="truncate">${f.name}</div><div class="text-neutral-400">${(f.size/1024).toFixed(1)} KB</div>`;
+        uploadList.append(row);
+      });
+      toast('Files added', 'success');
+    });
+
+    // Projects state
+    const state = {
+      projects: JSON.parse(localStorage.getItem('ps_projects') || '[]')
+    };
+    const saveState = () => localStorage.setItem('ps_projects', JSON.stringify(state.projects));
+    const projectCard = (p) => `
+      <div class="rounded-lg border border-white/10 bg-neutral-900 p-3 flex flex-col">
+        <img src="${p.cover}" class="h-28 w-full object-cover rounded-md" alt="Cover">
+        <div class="mt-2 font-medium truncate">${p.title}</div>
+        <div class="text-xs text-neutral-400 truncate">by ${p.author}</div>
+        <div class="mt-2 flex items-center gap-2">
+          <button class="px-2 py-1 rounded bg-white/10 hover:bg-white/15 text-xs" data-open="editing" data-id="${p.id}">Edit</button>
+          <button class="px-2 py-1 rounded bg-white/10 hover:bg-white/15 text-xs" data-open="publishing" data-id="${p.id}">Publish</button>
+          <button class="px-2 py-1 rounded bg-white/10 hover:bg-white/15 text-xs" data-open="coverdesign" data-id="${p.id}">Cover</button>
+        </div>
+      </div>`;
+    const refreshProjects = () => {
+      $('#projectList').innerHTML = state.projects.slice(-3).reverse().map(projectCard).join('') || '<div class="text-sm text-neutral-400">No projects yet. Create one to get started.</div>';
+      $('#ebookList').innerHTML = state.projects.map(projectCard).join('') || '<div class="text-sm text-neutral-400">Nothing here yet.</div>';
+      $$('#projectList [data-open], #ebookList [data-open]').forEach(btn => {
+        btn.addEventListener('click', () => setView(btn.dataset.open));
+      });
+    };
+
+    // Wizard
+    let wStep = 1;
+    const maxStep = 4;
+    const setWizardStep = (s) => {
+      wStep = s;
+      $$('.wizard-step').forEach(el => el.dataset.step === String(s) ? show(el) : hide(el));
+      const dots = $$('.step-dot');
+      dots.forEach((d,i)=> d.className = 'step-dot h-6 w-6 rounded-full flex items-center justify-center ' + (i < s ? 'bg-indigo-600' : 'bg-white/10'));
+      $('#prevStep').disabled = s === 1;
+      $('#nextStep').textContent = s === maxStep ? 'Create Project' : 'Next';
+    };
+    const openWizard = () => { show($('#projectWizard')); setWizardStep(1); };
+    const closeWizard = () => hide($('#projectWizard'));
+    $('#newProjectBtn').addEventListener('click', openWizard);
+    $('#quickCreateBtn').addEventListener('click', openWizard);
+    $('#createEbookFromList').addEventListener('click', openWizard);
+    $('#closeWizard').addEventListener('click', closeWizard);
+    $('#prevStep').addEventListener('click', ()=> setWizardStep(Math.max(1, wStep-1)));
+    $('#nextStep').addEventListener('click', ()=> {
+      if (wStep < maxStep) setWizardStep(wStep+1);
+      else {
+        const p = {
+          id: crypto.randomUUID(),
+          title: $('#wTitle').value || 'Untitled',
+          author: $('#wAuthor').value || 'You',
+          cover: pickCover($('#coverTheme')?.value || 'minimal')
+        };
+        state.projects.push(p); saveState(); refreshProjects();
+        closeWizard(); setView('ebooks'); toast('Project created', 'success');
+      }
+    });
+    $('#wFiles').addEventListener('change', (e)=> {
+      $('#wFilesList').innerHTML = [...e.target.files].map(f=> `<div class="text-sm">${f.name}</div>`).join('');
+    });
+    const buildSummary = () => {
+      $('#wSummary').innerHTML = `
+        <li>Title: <span class="text-neutral-300">${$('#wTitle').value || 'Untitled'}</span></li>
+        <li>Author: <span class="text-neutral-300">${$('#wAuthor').value || 'You'}</span></li>
+        <li>Formats: ${$('#fmtEbook').checked?'Ebook ':''}${$('#fmtPrint').checked?'Paperback ':''}${$('#fmtAudio').checked?'Audiobook ':''}</li>`;
+    };
+    $$('.wizard-step input').forEach(i => i.addEventListener('input', buildSummary));
+    $$('.wizard-step input[type=checkbox]').forEach(i => i.addEventListener('change', buildSummary));
+
+    // Editing actions
+    $('#btnApplyGrammar').addEventListener('click', ()=> {
+      let t = $('#editor').value;
+      t = t.replace(/\s{2,}/g,' ').replace(/\bi\b/g,'I');
+      $('#editor').value = t;
+      toast('Grammar suggestions applied','success');
+    });
+    $('#btnFormat').addEventListener('click', ()=> {
+      $('#editor').value = $('#editor').value.replace(/\n{3,}/g,'\n\n');
+      toast('Formatted for readability','success');
+    });
+    $('#btnExtractTOC').addEventListener('click', ()=> toast('Table of Contents generated'));
+    $('#btnSaveEdit').addEventListener('click', ()=> toast('Manuscript saved','success'));
+    $$('.theme-btn').forEach(b => b.addEventListener('click', ()=> {
+      const theme = b.dataset.editorTheme;
+      $('#editor').style.fontFamily = theme==='serif'?'Georgia, Cambria, Times, serif': theme==='mono'?'ui-monospace, SFMono-Regular, Menlo, monospace':'Inter, system-ui';
+    }));
+    $('#btnTrackChanges').addEventListener('click', ()=> toast('Tracking enabled'));
+    $('#btnPreview').addEventListener('click', ()=> toast('Preview opened'));
+
+       // Proofreading
+    const proofRules = [
+      { find: /paragraf/gi, replace: 'paragraph', msg: '“paragraf” → “paragraph”' },
+      { find: /errrors/gi, replace: 'errors', msg: '“errrors” → “errors”' },
+      { find: /mispelled/gi, replace: 'misspelled', msg: '“mispelled” → “misspelled”' },
+      { find: /(\s)contain(\s)/gi, replace: '$1contains$2', msg: '“contain” → “contains” (subject-verb agreement)' },
+      { find: /\b(\w+)\s+\1\b/gi, replace: '$1', msg: 'Removed repeated word' }
+    ];
+    const proofDoc = $('#proofDoc');
+    const proofList = $('#proofList');
+
+    const runProof = () => {
+      const original = proofDoc.textContent;
+      const suggestions = [];
+      let temp = original;
+      // Collect matches for summary list
+      proofRules.forEach(rule => {
+        if (rule.find.global) rule.find.lastIndex = 0;
+        const matches = [...temp.matchAll(rule.find)];
+        matches.forEach(m => suggestions.push(rule.msg));
+      });
+      proofList.innerHTML = suggestions.length
+        ? suggestions.map(s => `<li class="flex items-center gap-2"><i data-lucide="wand-2" class="h-4 w-4 text-indigo-300"></i><span>${s}</span></li>`).join('')
+        : '<li class="text-neutral-400">No issues found 🎉</li>';
+      lucide.createIcons();
+      toast(suggestions.length ? `Found ${suggestions.length} suggestion${suggestions.length>1?'s':''}` : 'All good!', suggestions.length ? 'default' : 'success');
+    };
+    const acceptAllProof = () => {
+      let txt = proofDoc.textContent;
+      proofRules.forEach(rule => txt = txt.replace(rule.find, rule.replace));
+      proofDoc.textContent = txt;
+      proofList.innerHTML = '<li class="text-neutral-400">Applied all suggestions.</li>';
+      toast('All suggestions applied', 'success');
+    };
+    const exportClean = () => {
+      const blob = new Blob([proofDoc.textContent], {type: 'text/plain'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'cleaned.txt';
+      a.click();
+      setTimeout(()=> URL.revokeObjectURL(a.href), 500);
+      toast('Exported cleaned document', 'success');
+    };
+    $('#btnRunProof').addEventListener('click', runProof);
+    $('#btnAcceptAll').addEventListener('click', acceptAllProof);
+    $('#btnExportClean').addEventListener('click', exportClean);
+
+    // Publishing — Pricing/Royalty + Store Preview
+    const fmtMoney = (n) => `$${Number(n).toFixed(2)}`;
+    const updateRoyalty = () => {
+      const ebook = parseFloat($('#priceEbook').value || 0);
+      const pb = parseFloat($('#pricePrint').value || 0);
+      const ebookRoyalty = Math.max(ebook * 0.7, 0);
+      const printRoyalty = Math.max(pb * 0.4, 0);
+      $('#royaltyEstimate').textContent = `E: ${fmtMoney(ebookRoyalty)} • P: ${fmtMoney(printRoyalty)}`;
+    };
+    $('#priceEbook').addEventListener('input', updateRoyalty);
+    $('#pricePrint').addEventListener('input', updateRoyalty);
+    $('#btnPublishNow').addEventListener('click', () => {
+      toast('Your book has been published!', 'success');
+      const p = $('#statPublish');
+      p.textContent = String(Number(p.textContent)+1);
+    });
+    $('#btnPreviewStore').addEventListener('click', () => show($('#storeModal')));
+    $('#closeStoreModal').addEventListener('click', () => hide($('#storeModal')));
+    $('#storeModal').addEventListener('click', (e)=> { if (e.target.id==='storeModal') hide($('#storeModal')); });
+
+    // Audiobook
+    const audioTracks = [];
+    const audioPlayer = $('#audioPlayer');
+    const audioList = $('#audioList');
+
+    const updateAudioList = () => {
+      audioList.innerHTML = audioTracks.length ? audioTracks.map((t, i) => `
+        <li class="flex items-center justify-between rounded-lg border border-white/10 bg-neutral-900 px-3 py-2">
+          <span class="truncate">${t.name}</span>
+          <div class="flex items-center gap-2">
+            <button class="px-2 py-1 text-xs rounded bg-white/10 hover:bg-white/15" data-play="${i}">Play</button>
+            <button class="px-2 py-1 text-xs rounded bg-white/10 hover:bg-white/15" data-remove="${i}">Remove</button>
+          </div>
+        </li>`).join('') : '<li class="text-sm text-neutral-400">No audio yet.</li>';
+      // Bind
+      $$('#audioList [data-play]').forEach(b => b.addEventListener('click', () => {
+        const tr = audioTracks[Number(b.dataset.play)];
+        if (tr) { audioPlayer.src = tr.url; audioPlayer.play(); }
+      }));
+      $$('#audioList [data-remove]').forEach(b => b.addEventListener('click', () => {
+        const idx = Number(b.dataset.remove);
+        if (audioTracks[idx]) {
+          URL.revokeObjectURL(audioTracks[idx].url);
+          audioTracks.splice(idx,1);
+          updateAudioList();
+          toast('Removed track');
+        }
+      }));
+    };
+    $('#audioUpload').addEventListener('change', (e)=> {
+      [...e.target.files].forEach(f => {
+        const url = URL.createObjectURL(f);
+        audioTracks.push({ name: f.name, url });
+      });
+      updateAudioList();
+      toast('Audio uploaded', 'success');
+    });
+    $('#btnGenerateTTS').addEventListener('click', () => {
+      // Demo TTS track (sample)
+      audioTracks.push({ name: 'Chapter 1 (TTS demo)', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' });
+      updateAudioList();
+      toast('Generated sample TTS', 'success');
+    });
+
+    // Author copies — Estimate
+    const updateCopyEstimate = () => {
+      const qty = Math.max(0, parseInt($('#copyQty').value || '0', 10));
+      const paper = $('#paperType').value;
+      const size = $('#trimSize').value;
+      const base = paper === 'Gloss' ? 2.8 : 2.5;
+      const sizeMult = size.includes('5 x 8') ? 0.9 : 1.0;
+      const printCost = base * sizeMult;
+      const shipping = qty ? 6 + 0.5 * qty : 0;
+      const total = qty * printCost + shipping;
+      $('#copyEstimate').textContent = fmtMoney(total);
+    };
+    $('#copyQty').addEventListener('input', updateCopyEstimate);
+    $('#paperType').addEventListener('change', updateCopyEstimate);
+    $('#trimSize').addEventListener('change', updateCopyEstimate);
+    $('#btnPlaceOrder').addEventListener('click', () => {
+      const required = ['#shipName','#shipAddress','#shipCity','#shipZip'];
+      const missing = required.some(sel => !$(sel).value.trim());
+      if (missing) return toast('Please fill shipping details', 'error');
+      toast('Order placed successfully', 'success');
+    });
+
+    // Cover design
+    const canvas = $('#coverCanvas');
+    const ctx = canvas.getContext('2d');
+    const resizeCanvas = () => {
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(rect.width * ratio);
+      canvas.height = Math.floor(rect.height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+    const drawTheme = (theme, accent) => {
+      const w = canvas.clientWidth, h = canvas.clientHeight;
+      // Background
+      const bg = ctx.createLinearGradient(0, 0, w, h);
+      if (theme === 'mountains') {
+        bg.addColorStop(0, '#0B1020'); bg.addColorStop(1, '#1F2A44');
+      } else if (theme === 'render') {
+        bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#1e293b');
+      } else if (theme === 'face') {
+        bg.addColorStop(0, '#1a0b1f'); bg.addColorStop(1, '#3b1d49');
+      } else {
+        bg.addColorStop(0, '#0b0b0b'); bg.addColorStop(1, '#1a1a1a');
+      }
+      ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
+
+      // Decorative shapes
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = accent;
+      if (theme === 'mountains') {
+        ctx.beginPath(); ctx.moveTo(0,h*0.75); ctx.lineTo(w*0.35,h*0.5); ctx.lineTo(w*0.6,h*0.78); ctx.lineTo(w,h*0.58); ctx.lineTo(w,h); ctx.lineTo(0,h); ctx.closePath(); ctx.fill();
+      } else if (theme === 'minimal') {
+        const r = Math.min(w,h)*0.35;
+        ctx.beginPath(); ctx.arc(w*0.75,h*0.3,r,0,Math.PI*2); ctx.fill();
+      } else if (theme === 'render') {
+        for (let i=0;i<6;i++){ ctx.fillRect(i*30, h*0.2 + i*10, w*0.6, 8); }
+      } else if (theme === 'face') {
+        ctx.beginPath(); ctx.ellipse(w*0.75, h*0.35, 90, 130, 0, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      // Text
+      const title = $('#coverTitle').value || 'Untitled Manuscript';
+      const author = $('#coverAuthor').value || 'You';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '700 28px Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial';
+      // Fit title to max width
+      const maxWidth = w - 40;
+      const words = title.split(' ');
+      let lines = [], line = '';
+      words.forEach(word => {
+        const test = (line ? line + ' ' : '') + word;
+        if (ctx.measureText(test).width < maxWidth) line = test;
+        else { lines.push(line); line = word; }
+      });
+      if (line) lines.push(line);
+      const startY = 60;
+      lines.slice(0,3).forEach((ln, i)=> ctx.fillText(ln, 20, startY + i*34));
+      ctx.font = '500 16px Inter, system-ui';
+      ctx.fillStyle = accent;
+      ctx.fillText(`by ${author}`, 20, startY + lines.length*34 + 16 + 8);
+    };
+    const renderCover = () => {
+      resizeCanvas();
+      const theme = $('#coverTheme').value;
+      const accent = $('#coverColor').value;
+      drawTheme(theme, accent);
+    };
+    $('#btnRenderCover').addEventListener('click', ()=> { renderCover(); toast('Cover rendered', 'success'); });
+    $('#btnDownloadCover').addEventListener('click', ()=> {
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a'); a.href = url; a.download = 'cover.png'; a.click();
+      toast('Cover downloaded', 'success');
+      // Update store preview
+      $('#storeCover').src = url;
+    });
+    $$('#view-coverdesign .preset').forEach(p => p.addEventListener('click', ()=> {
+      const t = p.dataset.preset;
+      $('#coverTheme').value = t;
+      renderCover();
+      toast(`Applied ${t} preset`);
+    }));
+    $('#coverTheme').addEventListener('change', renderCover);
+    $('#coverTitle').addEventListener('input', ()=> requestAnimationFrame(renderCover));
+    $('#coverAuthor').addEventListener('input', ()=> requestAnimationFrame(renderCover));
+    $('#coverColor').addEventListener('input', renderCover);
+
+    // Pick cover for cards based on theme
+    const pickCover = (theme='minimal') => {
+      const sources = {
+        mountains: 'https://images.unsplash.com/photo-1549880338-65ddcdfd017b?q=80&w=800&auto=format&fit=crop',
+        minimal: 'https://images.unsplash.com/photo-1527799820374-dcf8d8a64f00?q=80&w=800&auto=format&fit=crop',
+        render: 'https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=800&auto=format&fit=crop',
+        face: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=800&auto=format&fit=crop'
+      };
+      return sources[theme] || sources.minimal;
+    };
+
+    // Global search
+    $('#globalSearch').addEventListener('keydown', (e)=> {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        toast(`Search for “${e.currentTarget.value.trim() || 'all'}”`);
+        setView('ebooks');
+      }
+    });
+
+    // Drag & drop highlight
+    const drop = $('#dropzone');
+    const setDz = (on)=> drop.classList[on?'add':'remove']('border-white/20', 'bg-white/5');
+    ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); setDz(true); }));
+    ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); setDz(false); }));
+    drop.addEventListener('drop', (e)=> {
+      const files = [...e.dataTransfer.files];
+      if (!files.length) return;
+      files.forEach(f => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between text-sm';
+        row.innerHTML = `<div class="truncate">${f.name}</div><div class="text-neutral-400">${(f.size/1024).toFixed(1)} KB</div>`;
+        uploadList.append(row);
+      });
+      toast('Files added', 'success');
+    });
+
+    // Ebooks + project actions
+    const armProjectButtons = () => {
+      $$('#projectList [data-open], #ebookList [data-open]').forEach(btn => {
+        btn.addEventListener('click', () => setView(btn.dataset.open));
+      });
+    };
+    const ensureAnalyticsInit = (target) => {
+      if (target === 'analytics') setTimeout(initAnalytics, 50);
+    };
+    $$('[data-target]').forEach(b => b.addEventListener('click', () => {
+      setView(b.dataset.target);
+      ensureAnalyticsInit(b.dataset.target);
+    }));
+
+    // Plans billing toggle
+    const updatePrices = () => {
+      const yearly = $('#billingToggle').checked;
+      $$('.price').forEach(el => {
+        const m = el.dataset.m, y = el.dataset.y;
+        el.textContent = `$${yearly ? y : m}`;
+      });
+    };
+    $('#billingToggle').addEventListener('change', updatePrices);
+    $('#upgradeBtn').addEventListener('click', () => {
+      setView('plans');
+      $('#billingToggle').checked = true;
+      updatePrices();
+      toast('Viewing Pro plans', 'success');
+    });
+
+    // Task add
+    $('#addTaskBtn').addEventListener('click', () => {
+      const t = prompt('New task');
+      if (t) {
+        const li = document.createElement('li');
+        li.className = 'flex items-center gap-2';
+        li.innerHTML = `<input type="checkbox" class="peer appearance-none h-4 w-4 rounded border border-white/20 bg-neutral-900 checked:bg-indigo-600 checked:border-indigo-600">
+                        <span class="peer-checked:line-through peer-checked:text-neutral-500">${t}</span>`;
+        $('#ebook1Tasks').append(li);
+        toast('Task added', 'success');
+      }
+    });
+
+    // Live chat
+    const openChat = () => { hide($('#chatDot')); show($('#chatWindow')); };
+    const closeChat = () => hide($('#chatWindow'));
+    $('#chatLauncher').addEventListener('click', openChat);
+    $('#openChatFromHelp').addEventListener('click', openChat);
+    $('#closeChat').addEventListener('click', closeChat);
+
+    const addChatMsg = (text, who='user') => {
+      const wrap = document.createElement('div');
+      wrap.className = 'flex items-start gap-2 ' + (who==='user' ? 'justify-end' : '');
+      wrap.innerHTML = who==='user'
+        ? `<div class="bg-indigo-600/20 border border-indigo-500/30 rounded-lg px-3 py-2 max-w-[80%]">${text}</div>`
+        : `<div class="h-6 w-6 rounded-full bg-emerald-500/20 flex items-center justify-center"><i data-lucide="bot" class="h-3.5 w-3.5 text-emerald-300"></i></div>
+           <div class="bg-white/5 border border-white/10 rounded-lg px-3 py-2 max-w-[80%]">${text}</div>`;
+      $('#chatLog').append(wrap);
+      $('#chatLog').scrollTop = $('#chatLog').scrollHeight;
+      lucide.createIcons();
+    };
+    const reply = (q) => {
+      const answers = [
+        'Try the New Project button to get started quickly.',
+        'Open Cover Design to render a quick, beautiful cover.',
+        'Use Proofreading to run automated checks and “Accept all”.',
+        'Need performance? Open Analytics for charts.'
+      ];
+      const pick = answers[Math.floor(Math.random()*answers.length)];
+      addChatMsg(pick, 'bot');
+    };
+    const sendChat = () => {
+      const val = $('#chatInput').value.trim();
+      if (!val) return;
+      addChatMsg(val, 'user');
+      $('#chatInput').value = '';
+      setTimeout(()=> reply(val), 500);
+    };
+    $('#sendChat').addEventListener('click', sendChat);
+    $('#chatInput').addEventListener('keydown', (e)=> { if (e.key==='Enter') sendChat(); });
+
+    // Guided Tour
+    const tour = {
+      step: 0,
+      steps: [
+        { view: 'dashboard', selector: '#newProjectBtn', text: 'Create a new project from scratch or import files.' },
+        { view: 'dashboard', selector: '.action-tile[data-target="editing"]', text: 'Jump right into Editing & Formatting.' },
+        { view: 'dashboard', selector: '#projectList', text: 'Your recent projects appear here. Open any to continue.' },
+        { view: 'editing', selector: '#editor', text: 'Write and format your manuscript with helpful tools.' },
+        { view: 'proofreading', selector: '#proofList', text: 'Run automated checks and accept suggestions in one click.' },
+        { view: 'coverdesign', selector: '#coverCanvas', text: 'Design a cover. Pick a theme and Render.' },
+        { view: 'publishing', selector: '#btnPublishNow', text: 'Set pricing, preview the store page, and publish.' },
+        { view: 'analytics', selector: '#view-analytics', text: 'Track sales and downloads over time.' }
+      ]
+    };
+    const spotlight = $('#tourSpotlight');
+    const tooltip = $('#tourTooltip');
+    const tourText = $('#tourText');
+    const openTour = () => {
+      tour.step = 0;
+      show($('#tourOverlay'));
+      nextTourStep();
+    };
+    const closeTour = () => hide($('#tourOverlay'));
+    const placeTooltip = (rect) => {
+      const pad = 10;
+      // Default bottom placement
+      tooltip.style.top = `${rect.bottom + pad}px`;
+      tooltip.style.left = `${Math.max(16, rect.left)}px`;
+    };
+    const nextTourStep = () => {
+      if (tour.step >= tour.steps.length) return closeTour();
+      const s = tour.steps[tour.step];
+      if (location.hash.replace('#','') !== s.view) setView(s.view);
+      // Wait for view render
+      setTimeout(()=> {
+        const el = document.querySelector(s.selector);
+        if (!el) { tour.step++; return nextTourStep(); }
+        const r = el.getBoundingClientRect();
+        spotlight.style.top = `${window.scrollY + r.top - 8}px`;
+        spotlight.style.left = `${window.scrollX + r.left - 8}px`;
+        spotlight.style.width = `${r.width + 16}px`;
+        spotlight.style.height = `${r.height + 16}px`;
+        tourText.textContent = s.text;
+        placeTooltip(r);
+        ensureAnalyticsInit(s.view);
+      }, 50);
+    };
+    $('#tourNext').addEventListener('click', ()=> { tour.step++; nextTourStep(); });
+    $('#tourPrev').addEventListener('click', ()=> { tour.step = Math.max(0, tour.step-1); nextTourStep(); });
+    $('#tourSkip').addEventListener('click', closeTour);
+    $('#tourBtn').addEventListener('click', openTour);
+    $('#tourBtnTop').addEventListener('click', openTour);
+    $('#helpStartTour').addEventListener('click', openTour);
+
+    // Analytics when navigating
+    window.addEventListener('hashchange', ()=> {
+      const target = location.hash.replace('#','');
+      ensureAnalyticsInit(target);
+    });
+
+    // Icon rendering refresh helper
+    const refreshIcons = () => lucide.createIcons({ attrs: { class: 'h-5 w-5' }});
+
+    // Initial load
+    refreshProjects();
+    armProjectButtons();
+    buildSummary();
+    updatePrices();
+    updateRoyalty();
+    updateCopyEstimate();
+    renderCover();
+    // Default view
+    const initial = location.hash.replace('#','') || 'dashboard';
+    setView(initial);
+    ensureAnalyticsInit(initial);
+    // Icons
+    refreshIcons();
+  </script>
+  <script>
+    // Initialize lucide icons after full DOM paint as a fallback
+    window.addEventListener('load', () => lucide.createIcons());
+  </script>
+</body>
+</html>
