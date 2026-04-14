@@ -9,7 +9,7 @@
 	  <NoWarn>$(NoWarn);NU1605;CS8618;CS8604;CS8601;CS8600;CS8602;CS8603;CS8605;CS8629;CS8619;CS0168;CS1998;CS0472;CS0169;CS0649</NoWarn>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <OutputType>WinExe</OutputType>
+<!-- <OutputType>WinExe</OutputType> -->
   </PropertyGroup>
 
   <!-- Debug: do not emit/copy apphost.exe → EBookDashboard.exe (avoids MSB3027 when the app is still running). -->
