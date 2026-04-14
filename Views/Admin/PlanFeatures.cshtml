@@ -621,7 +621,8 @@
             <div class="form-card-title">{{ editingFeature ? 'Edit Feature' : 'Add New Feature' }}</div>
         </div>
 
-        <form @@submit.prevent="onSubmit">
+        @* v-on instead of @@submit: avoids FormTagHelper / Razor RZ1030 parse issues with @@submit.prevent *@
+        <form method="get" asp-antiforgery="false" v-on:submit.prevent="onSubmit">
             <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">
@@ -679,7 +680,8 @@
                 <div class="form-group">
                     <label class="toggle-label">
                         <span class="toggle-switch">
-                            <input type="checkbox" v-model="newFeature.IsActive" :true-value="1" :false-value="0" />
+                            @* v-bind instead of : — avoids InputTagHelper RZ errors on leading ':' *@
+                            <input type="checkbox" v-model="newFeature.IsActive" v-bind:true-value="1" v-bind:false-value="0" />
                             <span class="toggle-slider"></span>
                         </span>
                         <span>

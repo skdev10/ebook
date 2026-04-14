@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    Build writes many temp files under obj (e.g. *.cache, *.*~). On some machines the project
+    folder on Desktop is blocked by sync (OneDrive), antivirus, or Windows Controlled Folder Access,
+    which surfaces as MSB3491 / UnauthorizedAccessException. Sending intermediates to LocalAppData
+    keeps the repo clean and avoids those locks. Must live in Directory.Build.props so it applies
+    before the .NET SDK evaluates paths.
+  -->
+  <PropertyGroup>
+    <EBookDashboardBuildRoot>$(LOCALAPPDATA)\EBookDashboard-MSBuild\</EBookDashboardBuildRoot>
+    <BaseIntermediateOutputPath>$(EBookDashboardBuildRoot)obj\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(EBookDashboardBuildRoot)bin\</BaseOutputPath>
+    <!-- Extra safety: never compile stray generated .cs left under the repo's obj (see dotnet/msbuild#6899). -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildThisFileDirectory)obj\**\*.cs</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

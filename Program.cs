@@ -32,11 +32,18 @@ builder.Services.AddControllersWithViews(options =>
 builder.Services.AddSession();  // ✅ add session support
 
 // ✅ Configure MySQL DbContext
+var defaultConnection = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(defaultConnection))
+    throw new InvalidOperationException("Connection string 'DefaultConnection' is missing. Set it in appsettings.json, appsettings.Development.json, or user secrets.");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseMySql(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        new MySqlServerVersion(new Version(8, 0, 34)) // adjust version to your MySQL
-    ));
+        defaultConnection,
+        new MySqlServerVersion(new Version(8, 0, 34)),
+        mysql => mysql.EnableRetryOnFailure(
+            maxRetryCount: 5,
+            maxRetryDelay: TimeSpan.FromSeconds(30),
+            errorNumbersToAdd: null)));
 
 // ✅ Dual cookie schemes so Admin and User can be logged in in different tabs simultaneously.
 // Path-based: /Admin/* uses AdminCookie, everything else uses UserCookie.

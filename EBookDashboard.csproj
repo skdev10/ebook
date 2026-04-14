@@ -5,6 +5,8 @@
     <!-- Razor: ensure source generator runs and IDE can find result (fixes "no run result found") -->
     <RazorLangVersion>8.0</RazorLangVersion>
     <UseRazorSourceGenerator>true</UseRazorSourceGenerator>
+    <!-- With UseRazorSourceGenerator=true, the compiler already gets MVC/Razor assembly attributes from the Razor SG; do not also emit RazorAssemblyInfo.cs (duplicate CS0579). -->
+    <GenerateRazorAssemblyInfo>false</GenerateRazorAssemblyInfo>
 	  <!-- Suppress nullable and common compiler warnings -->
 	  <NoWarn>$(NoWarn);NU1605;CS8618;CS8604;CS8601;CS8600;CS8602;CS8603;CS8605;CS8629;CS8619;CS0168;CS1998;CS0472;CS0169;CS0649</NoWarn>
     <Nullable>enable</Nullable>
