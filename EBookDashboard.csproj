@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <!-- Razor: ensure source generator runs and IDE can find result (fixes "no run result found") -->
     <RazorLangVersion>8.0</RazorLangVersion>
     <UseRazorSourceGenerator>true</UseRazorSourceGenerator>
