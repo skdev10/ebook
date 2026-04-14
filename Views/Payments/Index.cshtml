@@ -1,0 +1,99 @@
+﻿@model IEnumerable<EBookDashboard.Models.PlanFeatures>
+
+@{
+    ViewData["Title"] = "Select Your Plan Features";
+}
+
+<h2 class="text-center mb-4">Select Plan Features</h2>
+
+<div class="container">
+    <div class="row" id="featureContainer">
+        @foreach (var f in Model)
+        {
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 border-2 rounded-4 shadow-sm">
+                    <div class="card-body text-center">
+                        <h5 class="fw-bold text-primary">@f.FeatureName</h5>
+                        <p class="text-muted">@f.Description</p>
+                        <h4 class="text-success">
+                            @f.Currency@f.FeatureRate.ToString("N2")
+                        </h4>
+                        <button class="btn btn-outline-primary select-feature"
+                                data-id="@f.FeatureId"
+                                data-name="@f.FeatureName"
+                                data-rate="@f.FeatureRate">
+                            Select
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="text-center mt-4">
+        <button id="confirmSelection" class="btn btn-success btn-lg rounded-pill" disabled>
+            Confirm & Pay
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let selectedFeatures = [];
+
+        // Select Feature Card
+        document.querySelectorAll('.select-feature').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                const name = btn.dataset.name;
+                const rate = parseFloat(btn.dataset.rate);
+
+                if (selectedFeatures.find(f => f.id === id)) {
+                    selectedFeatures = selectedFeatures.filter(f => f.id !== id);
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-outline-primary');
+                } else {
+                    selectedFeatures.push({ id, name, rate });
+                    btn.classList.add('btn-primary');
+                    btn.classList.remove('btn-outline-primary');
+                }
+
+                document.getElementById("confirmSelection").disabled = selectedFeatures.length === 0;
+            });
+        });
+
+        // Confirm Selection & Show Bill
+        document.getElementById("confirmSelection").addEventListener("click", async () => {
+            const total = selectedFeatures.reduce((sum, f) => sum + f.rate, 0);
+
+            let html = `<ul style='text-align:left;'>`;
+            selectedFeatures.forEach(f => html += `<li>${f.name} - $${f.rate.toFixed(2)}</li>`);
+            html += `</ul><h4>Total: $${total.toFixed(2)}</h4>`;
+
+            const result = await Swal.fire({
+                title: "Confirm Your Purchase",
+                html: html,
+                showCancelButton: true,
+                confirmButtonText: "Pay with Stripe"
+            });
+
+            if (result.isConfirmed) {
+                const featureIds = selectedFeatures.map(f => f.id);
+
+                const response = await fetch('/Payments/CreateSession', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(featureIds)
+                });
+
+                const data = await response.json();
+                if (data.url) {
+                    window.location = data.url; // Redirect to Stripe Checkout
+                } else {
+                    Swal.fire("Error", "Unable to create payment session.", "error");
+                }
+            }
+        });
+    </script>
+}

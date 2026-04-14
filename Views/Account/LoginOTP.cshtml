@@ -1,0 +1,621 @@
+@{
+    ViewData["Title"] = "OTP Verification - eBook Publisher";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        /* Reuse the same styles from Login.cshtml with some additions */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background: #f5f7f9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
+            padding: 50px;
+            width: 100%;
+            max-width: 480px;
+            animation: slideUp 0.8s ease-out;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        @@keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+            .logo i {
+                font-size: 3rem;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }
+
+            .logo h1 {
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                font-size: 2.5rem;
+                font-weight: 700;
+                margin: 15px 0 5px;
+            }
+
+            .logo p {
+                color: #666;
+                font-size: 1.1rem;
+            }
+
+        .form-title {
+            text-align: center;
+            color: #333;
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                color: #333;
+                font-weight: 600;
+                font-size: 0.95rem;
+            }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+            .input-wrapper i {
+                position: absolute;
+                left: 20px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: #667eea;
+                font-size: 1.1rem;
+            }
+
+        .form-control {
+            width: 100%;
+            padding: 18px 20px 18px 55px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+            .form-control:focus {
+                outline: none;
+                border-color: #667eea;
+                background: white;
+                box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+                transform: translateY(-2px);
+            }
+
+        /* OTP Input Styles */
+        .otp-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0;
+        }
+
+        .otp-input {
+            width: 60px;
+            height: 70px;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: bold;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+            .otp-input:focus {
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+                outline: none;
+                transform: scale(1.05);
+            }
+
+            .otp-input.filled {
+                border-color: #10b981;
+                background: rgba(16, 185, 129, 0.05);
+            }
+
+        .timer {
+            text-align: center;
+            color: #666;
+            font-size: 1rem;
+            margin: 20px 0;
+        }
+
+            .timer.expiring {
+                color: #ef4444;
+                font-weight: bold;
+            }
+
+        .resend-otp {
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .resend-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+            .resend-link:hover {
+                color: #764ba2;
+                text-decoration: underline;
+            }
+
+            .resend-link.disabled {
+                color: #999;
+                cursor: not-allowed;
+                text-decoration: none;
+            }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+            .btn::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+                transition: left 0.5s;
+            }
+
+            .btn:hover::before {
+                left: 100%;
+            }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            margin-bottom: 20px;
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4);
+            }
+
+        .btn-secondary {
+            background: rgba(0, 0, 0, 0.05);
+            color: #666;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+        }
+
+            .btn-secondary:hover {
+                background: rgba(0, 0, 0, 0.1);
+                transform: translateY(-2px);
+            }
+
+        .user-email {
+            text-align: center;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            font-weight: 500;
+            border: 1px solid;
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #16a34a;
+            border-color: rgba(34, 197, 94, 0.2);
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #2563eb;
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        /* Mobile Responsive */
+        @@media (max-width: 768px) {
+            .auth-container {
+                padding: 30px 25px;
+                margin: 10px;
+            }
+
+            .logo h1 {
+                font-size: 2rem;
+            }
+
+            .form-title {
+                font-size: 1.5rem;
+            }
+
+            .otp-input {
+                width: 50px;
+                height: 60px;
+                font-size: 1.5rem;
+            }
+
+            .otp-container {
+                gap: 10px;
+            }
+        }
+
+        /* Loading Animation */
+        .loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+            .loading::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 20px;
+                height: 20px;
+                margin: -10px 0 0 -10px;
+                border: 2px solid transparent;
+                border-top: 2px solid white;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+            }
+
+        @@keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="auth-container" data-aos="fade-up">
+        <div class="logo">
+            <i class="fas fa-shield-alt"></i>
+            <h1>OTP Verification</h1>
+            <p>Enter the verification code sent to your email</p>
+        </div>
+
+        <h2 class="form-title">Verify Your Identity</h2>
+
+        @if (!string.IsNullOrEmpty(ViewBag.Success as string))
+        {
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> @ViewBag.Success
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(ViewBag.Error as string))
+        {
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-circle"></i> @ViewBag.Error
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(ViewBag.UserEmail as string))
+        {
+            <div class="user-email">
+                <i class="fas fa-envelope"></i>
+                @ViewBag.UserEmail
+            </div>
+        }
+
+        <form method="post" id="otpForm" asp-action="VerifyOtp">
+            <input type="hidden" name="UserEmail" value="@ViewBag.UserEmail" />
+
+            <div class="form-group" data-aos="fade-up" data-aos-delay="100">
+                <label>Enter 6-digit OTP</label>
+                <div class="otp-container" id="otpContainer">
+                    <input type="text" class="otp-input" maxlength="1" data-index="0" autocomplete="off">
+                    <input type="text" class="otp-input" maxlength="1" data-index="1" autocomplete="off">
+                    <input type="text" class="otp-input" maxlength="1" data-index="2" autocomplete="off">
+                    <input type="text" class="otp-input" maxlength="1" data-index="3" autocomplete="off">
+                    <input type="text" class="otp-input" maxlength="1" data-index="4" autocomplete="off">
+                    <input type="text" class="otp-input" maxlength="1" data-index="5" autocomplete="off">
+                </div>
+                <input type="hidden" id="OtpCode" name="OtpCode" required />
+            </div>
+
+            <div class="timer" id="timer" data-aos="fade-up" data-aos-delay="200">
+                Code expires in: <span id="countdown">05:00</span>
+            </div>
+
+            <div class="resend-otp" data-aos="fade-up" data-aos-delay="300">
+                Didn't receive the code?
+                <a id="resendLink" class="resend-link" asp-action="ResendOtp" asp-route-userEmail="@ViewBag.UserEmail">Resend OTP</a>
+            </div>
+
+            <button type="submit" class="btn btn-primary" data-aos="fade-up" data-aos-delay="400" id="verifyBtn">
+                <i class="fas fa-check-circle"></i>
+                <span>Verify & Continue</span>
+            </button>
+
+            <button type="button" class="btn btn-secondary" data-aos="fade-up" data-aos-delay="500" onclick="goBack()">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back to Login</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 600,
+            easing: 'ease-out',
+            once: true
+        });
+
+        // OTP Input Handling
+        const otpInputs = document.querySelectorAll('.otp-input');
+        const otpHiddenInput = document.getElementById('OtpCode');
+        const verifyBtn = document.getElementById('verifyBtn');
+
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const value = e.target.value;
+
+                // Only allow numbers
+                if (!/^\d*$/.test(value)) {
+                    e.target.value = '';
+                    return;
+                }
+
+                if (value.length === 1) {
+                    // Move to next input
+                    if (index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
+                    }
+                    e.target.classList.add('filled');
+                } else if (value.length === 0) {
+                    e.target.classList.remove('filled');
+                }
+
+                updateOTPValue();
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+            });
+
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pasteData = e.clipboardData.getData('text');
+                const numbers = pasteData.replace(/\D/g, '').split('').slice(0, 6);
+
+                numbers.forEach((num, numIndex) => {
+                    if (otpInputs[numIndex]) {
+                        otpInputs[numIndex].value = num;
+                        otpInputs[numIndex].classList.add('filled');
+                    }
+                });
+
+                if (numbers.length === 6) {
+                    verifyBtn.focus();
+                } else if (numbers.length > 0) {
+                    otpInputs[numbers.length].focus();
+                }
+
+                updateOTPValue();
+            });
+        });
+
+        function updateOTPValue() {
+            const otp = Array.from(otpInputs).map(input => input.value).join('');
+            otpHiddenInput.value = otp;
+
+            // Enable/disable verify button based on OTP length
+            verifyBtn.disabled = otp.length !== 6;
+        }
+
+        // Timer functionality
+        let timeLeft = 300; // 5 minutes in seconds
+        const timerElement = document.getElementById('countdown');
+        const timerContainer = document.getElementById('timer');
+        const resendLink = document.getElementById('resendLink');
+
+        function updateTimer() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+            if (timeLeft <= 30) {
+                timerContainer.classList.add('expiring');
+            }
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timerElement.textContent = '00:00';
+                resendLink.classList.remove('disabled');
+                verifyBtn.disabled = true;
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'OTP Expired',
+                    text: 'The OTP has expired. Please request a new one.',
+                    confirmButtonColor: '#667eea'
+                });
+            } else {
+                timeLeft--;
+            }
+        }
+
+        const timerInterval = setInterval(updateTimer, 1000);
+
+        // Form submission
+        document.getElementById('otpForm').addEventListener('submit', function(e) {
+            const otp = otpHiddenInput.value;
+
+            if (otp.length !== 6) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid OTP',
+                    text: 'Please enter a complete 6-digit OTP code.',
+                    confirmButtonColor: '#667eea'
+                });
+                return;
+            }
+
+            if (timeLeft <= 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'OTP Expired',
+                    text: 'The OTP has expired. Please request a new one.',
+                    confirmButtonColor: '#667eea'
+                });
+                return;
+            }
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const btnText = submitBtn.querySelector('span');
+
+            submitBtn.classList.add('loading');
+            btnText.textContent = 'Verifying...';
+
+            Swal.fire({
+                title: 'Verifying OTP',
+                text: 'Please wait while we verify your code...',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+        });
+
+        // Resend OTP functionality
+        resendLink.addEventListener('click', function(e) {
+            if (this.classList.contains('disabled')) {
+                e.preventDefault();
+                return;
+            }
+
+            e.preventDefault();
+
+            Swal.fire({
+                title: 'Resend OTP?',
+                text: 'A new verification code will be sent to your email.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#667eea',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, resend it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading
+                    Swal.fire({
+                        title: 'Sending OTP',
+                        text: 'Please wait...',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+
+                    // Redirect to resend action
+                    window.location.href = this.href;
+                }
+            });
+        });
+
+        function goBack() {
+            window.location.href = '/Account/Login';
+        }
+
+        // Auto-focus first OTP input
+        document.addEventListener('DOMContentLoaded', function() {
+            otpInputs[0].focus();
+        });
+    </script>
+</body>
+</html>

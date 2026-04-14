@@ -1,0 +1,286 @@
+@model EBookDashboard.Controllers.FeaturesViewModel
+@{
+    ViewData["Title"] = "Select Features - eBook Publisher";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+@* CSS for small buttons *@
+<style>
+    .custom-small-btn {
+        padding: 0.25rem 0.75rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        border-radius: 0.2rem;
+    }
+</style>
+<div class="features-header">
+    <h1>Select Your Features</h1>
+    <p>Choose the features you want to include in your plan</p>
+</div>
+
+<div class="features-grid" id="featuresGrid">
+    @foreach (var feature in Model.Features)
+    {
+        <div class="feature-card" data-feature-id="@feature.FeatureId">
+            <div class="feature-icon">
+                @if (feature.FeatureName == "EBook Creation")
+                {
+                    <i class="fas fa-book"></i>
+                }
+                else if (feature.FeatureName == "Cover Design")
+                {
+                    <i class="fas fa-palette"></i>
+                }
+                else if (feature.FeatureName == "Audio Book")
+                {
+                    <i class="fas fa-microphone"></i>
+                }
+                else if (feature.FeatureName == "Proofreading")
+                {
+                    <i class="fas fa-spell-check"></i>
+                }
+                else if (feature.FeatureName == "Analytics")
+                {
+                    <i class="fas fa-chart-line"></i>
+                }
+                else if (feature.FeatureName == "Marketing Tools")
+                {
+                    <i class="fas fa-bullhorn"></i>
+                }
+                else
+                {
+                    <i class="fas fa-star"></i>
+                }
+            </div>
+            <h3>@feature.FeatureName</h3>
+            <p>@feature.Description</p>
+            <div class="feature-type">Feature</div>
+            <div class="feature-price">@feature.FeatureRate.ToString("C")</div>
+            <button class="btn btn-primary add-to-cart" data-feature-id="@feature.FeatureId">
+                <i class="fas fa-plus"></i> Add to Cart
+            </button>
+        </div>
+    }
+</div>
+
+<!-- Plan Suggestion Section -->
+<div id="planSuggestionSection" style="display: none; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+    <h2>Recommended Plan</h2>
+    <div id="suggestedPlanContent">
+        <!-- Suggested plan will be displayed here -->
+    </div>
+   @*  <div style="margin-top: 20px; display: flex; gap: 10px;">
+        <button class="btn btn-primary" id="confirmPlanBtn">Confirm Plan</button>
+        <button class="btn btn-success" id="checkoutBtn">Checkout</button>
+        <button class="btn btn-secondary" id="viewAllPlansBtn">View All Plans</button>
+    </div> *@
+    <div class="premium-buttons">
+        <button class="btn btn-primary custom-small-btn" id="confirmPlanBtn">
+            <i class="fas fa-crown"></i> Confirm Plan
+        </button>
+        <button class="btn btn-success custom-small-btn" id="checkoutBtn">
+            <i class="fas fa-crown"></i> Checkout
+        </button>
+
+        <button class="btn btn-secondary custom-small-btn" id="viewAllPlansBtn">
+            <i class="fas fa-info-circle"></i> View All Plans
+        </button>
+    </div>
+</div>
+
+<!-- Antiforgery token for AJAX requests -->
+@Html.AntiForgeryToken()
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add to cart buttons
+            const addToCartButtons = document.querySelectorAll('.add-to-cart');
+            
+            addToCartButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const featureId = this.getAttribute('data-feature-id');
+                    
+                    // AddAntiForgeryToken is required for POST requests
+                    const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                    
+                    fetch('/Features/AddToCart', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': token
+                        },
+                        body: JSON.stringify({
+                            featureId: parseInt(featureId)
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update cart badge
+                            const cartBadge = document.getElementById('cartBadge');
+                            if (cartBadge) {
+                                cartBadge.textContent = data.totalItems;
+                                cartBadge.style.display = data.totalItems > 0 ? 'flex' : 'none';
+                            }
+                            
+                            // Show success message
+                            Swal.fire({
+                                title: 'Added to Cart!',
+                                text: 'Feature has been added to your cart.',
+                                icon: 'success',
+                                timer: 2000,
+                                timerProgressBar: true,
+                                showConfirmButton: false,
+                                toast: true,
+                                position: 'top-end'
+                            });
+                            
+                            // Show plan suggestion if available
+                            if (data.suggestedPlan) {
+                                showSuggestedPlan(data.suggestedPlan);
+                            }
+                            
+                            // Disable the button to prevent duplicate adds
+                            this.disabled = true;
+                            this.innerHTML = '<i class="fas fa-check"></i> Added';
+                        } else {
+                            Swal.fire({
+                                title: 'Error',
+                                text: data.message || 'Failed to add feature to cart',
+                                icon: 'error'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to add feature to cart',
+                            icon: 'error'
+                        });
+                    });
+                });
+            });
+            
+            // Confirm plan button
+            const confirmPlanBtn = document.getElementById('confirmPlanBtn');
+            if (confirmPlanBtn) {
+                confirmPlanBtn.addEventListener('click', function() {
+                    const suggestedPlanId = this.getAttribute('data-plan-id');
+                    
+                    if (!suggestedPlanId) {
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'No plan selected',
+                            icon: 'error'
+                        });
+                        return;
+                    }
+                    
+                    Swal.fire({
+                        title: 'Confirm Plan',
+                        text: 'Are you sure you want to confirm this plan?',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonColor: '#4a6cf7',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'Yes, confirm'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                            
+                            fetch('/Features/ConfirmPlan', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'RequestVerificationToken': token
+                                },
+                                body: JSON.stringify({
+                                    planId: parseInt(suggestedPlanId)
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    Swal.fire({
+                                        title: 'Plan Confirmed!',
+                                        text: 'Your plan has been confirmed successfully.',
+                                        icon: 'success',
+                                        timer: 2000,
+                                        timerProgressBar: true,
+                                        showConfirmButton: false
+                                    }).then(() => {
+                                        window.location.href = data.redirect;
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        title: 'Error',
+                                        text: data.message || 'Failed to confirm plan',
+                                        icon: 'error'
+                                    });
+                                }
+                            })
+                            .catch(error => {
+                                Swal.fire({
+                                    title: 'Error',
+                                    text: 'Failed to confirm plan',
+                                    icon: 'error'
+                                });
+                            });
+                        }
+                    });
+                });
+            }
+            
+            // View all plans button
+            const viewAllPlansBtn = document.getElementById('viewAllPlansBtn');
+            if (viewAllPlansBtn) {
+                viewAllPlansBtn.addEventListener('click', function() {
+                    window.location.href = '/Dashboard/PlanSuggestion';
+                });
+            }
+
+            // Checkout button
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            if (checkoutBtn) {
+                checkoutBtn.addEventListener('click', function() {
+                    const suggestedPlanId = this.getAttribute('data-plan-id');
+
+                    if (!suggestedPlanId) {
+                        Swal.fire({
+                            title: 'Cart Incomplete',
+                            text: 'Please add at least one feature to get a recommended plan before checkout.',
+                            icon: 'info'
+                        });
+                        return;
+                    }
+
+                    // Navigate to Payments/Checkout with the suggested plan
+                    window.location.href = `/Payments/Checkout?planId=${parseInt(suggestedPlanId)}`;
+                });
+            }
+        });
+        
+        function showSuggestedPlan(plan) {
+            const planSuggestionSection = document.getElementById('planSuggestionSection');
+            const suggestedPlanContent = document.getElementById('suggestedPlanContent');
+            const confirmPlanBtn = document.getElementById('confirmPlanBtn');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            
+            if (planSuggestionSection && suggestedPlanContent && confirmPlanBtn) {
+                suggestedPlanContent.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div style="flex: 1;">
+                            <h3>${plan.name}</h3>
+                            <p>Based on your selected features, we recommend the ${plan.name}.</p>
+                            <div style="font-size: 1.5rem; font-weight: bold; color: #4a6cf7;">$${plan.price.toFixed(2)}</div>
+                        </div>
+                    </div>
+                `;
+                
+                confirmPlanBtn.setAttribute('data-plan-id', plan.id);
+                if (checkoutBtn) checkoutBtn.setAttribute('data-plan-id', plan.id);
+                planSuggestionSection.style.display = 'block';
+            }
+        }
+    </script>
+}

@@ -1,0 +1,1514 @@
+@{
+    ViewData["Title"] = "Settings - Author Dashboard";
+    Layout = "~/Views/Shared/_AuthorLayout.cshtml";
+
+}
+
+<div class="settings-container">
+    <!-- Header Section -->
+    <div class="page-header" data-aos="fade-down">
+        <div class="header-content">
+            <h1><i class="fas fa-cog"></i> Account Settings</h1>
+            <p>Manage your profile, preferences, and account security</p>
+        </div>
+    </div>
+
+    <!-- Settings Navigation -->
+    <div class="settings-nav" data-aos="fade-up" data-aos-delay="100">
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="profile">Profile</button>
+            <button class="nav-tab" data-tab="security">Security</button>
+            <button class="nav-tab" data-tab="notifications">Notifications</button>
+            <button class="nav-tab" data-tab="preferences">Preferences</button>
+            <button class="nav-tab" data-tab="billing">Billing</button>
+        </div>
+    </div>
+
+    <!-- Settings Content -->
+    <div class="settings-content" data-aos="fade-up" data-aos-delay="200">
+        <!-- Profile Settings -->
+        <div class="settings-tab active" id="profile-tab">
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-user"></i> Personal Information</h3>
+                    <p>Update your personal details and profile information</p>
+                </div>
+                <div class="card-body">
+                    <form id="profileForm">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="avatar-upload">
+                                    <div class="avatar-preview" id="avatarPreview">
+                                        <div class="default-avatar">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                                    <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('avatarUpload').click()">
+                                        <i class="fas fa-camera"></i> Change Avatar
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="firstName">First Name</label>
+                                            <input type="text" class="form-control" id="firstName" placeholder="Enter first name">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label for="lastName">Last Name</label>
+                                            <input type="text" class="form-control" id="lastName" placeholder="Enter last name">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="email">Email Address</label>
+                                    <input type="email" class="form-control" id="email" placeholder="Enter email address" readonly>
+                                </div>
+                                <div class="form-group">
+                                    <label for="bio">Author Bio</label>
+                                    <textarea class="form-control" id="bio" rows="4" placeholder="Tell readers about yourself..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="website">Website</label>
+                                    <input type="url" class="form-control" id="website" placeholder="https://yourwebsite.com">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveProfile()">
+                                <i class="fas fa-save"></i> Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-map-marker-alt"></i> Location Information</h3>
+                    <p>Your location information for reader engagement</p>
+                </div>
+                <div class="card-body">
+                    <form id="locationForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="country">Country</label>
+                                    <select class="form-control" id="country">
+                                        <option value="">Select Country</option>
+                                        <option value="US">United States</option>
+                                        <option value="UK">United Kingdom</option>
+                                        <option value="CA">Canada</option>
+                                        <option value="AU">Australia</option>
+                                        <option value="DE">Germany</option>
+                                        <option value="FR">France</option>
+                                        <option value="IN">India</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="city">City</label>
+                                    <input type="text" class="form-control" id="city" placeholder="Enter city">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="timezone">Timezone</label>
+                            <select class="form-control" id="timezone">
+                                <option value="">Select Timezone</option>
+                                <option value="UTC-12">(UTC-12:00) International Date Line West</option>
+                                <option value="UTC-11">(UTC-11:00) Midway Island, Samoa</option>
+                                <option value="UTC-10">(UTC-10:00) Hawaii</option>
+                                <option value="UTC-9">(UTC-09:00) Alaska</option>
+                                <option value="UTC-8">(UTC-08:00) Pacific Time (US & Canada)</option>
+                                <option value="UTC-7">(UTC-07:00) Mountain Time (US & Canada)</option>
+                                <option value="UTC-6">(UTC-06:00) Central Time (US & Canada)</option>
+                                <option value="UTC-5">(UTC-05:00) Eastern Time (US & Canada)</option>
+                                <option value="UTC-4">(UTC-04:00) Atlantic Time (Canada)</option>
+                                <option value="UTC-3">(UTC-03:00) Buenos Aires, Georgetown</option>
+                                <option value="UTC-2">(UTC-02:00) Mid-Atlantic</option>
+                                <option value="UTC-1">(UTC-01:00) Azores</option>
+                                <option value="UTC0">(UTC+00:00) London, Dublin, Lisbon</option>
+                                <option value="UTC+1">(UTC+01:00) Paris, Berlin, Rome</option>
+                                <option value="UTC+2">(UTC+02:00) Cairo, Helsinki, Jerusalem</option>
+                                <option value="UTC+3">(UTC+03:00) Moscow, Nairobi, Baghdad</option>
+                                <option value="UTC+4">(UTC+04:00) Abu Dhabi, Tbilisi, Yerevan</option>
+                                <option value="UTC+5">(UTC+05:00) Islamabad, Karachi, Tashkent</option>
+                                <option value="UTC+6">(UTC+06:00) Dhaka, Almaty, Novosibirsk</option>
+                                <option value="UTC+7">(UTC+07:00) Bangkok, Hanoi, Jakarta</option>
+                                <option value="UTC+8">(UTC+08:00) Beijing, Singapore, Perth</option>
+                                <option value="UTC+9">(UTC+09:00) Tokyo, Seoul, Osaka</option>
+                                <option value="UTC+10">(UTC+10:00) Sydney, Melbourne, Guam</option>
+                                <option value="UTC+11">(UTC+11:00) Magadan, Solomon Islands</option>
+                                <option value="UTC+12">(UTC+12:00) Auckland, Fiji, Kamchatka</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveLocation()">
+                                <i class="fas fa-save"></i> Save Location
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Settings -->
+        <div class="settings-tab" id="security-tab">
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-lock"></i> Change Password</h3>
+                    <p>Update your account password for enhanced security</p>
+                </div>
+                <div class="card-body">
+                    <form id="passwordForm">
+                        <div class="form-group">
+                            <label for="currentPassword">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" placeholder="Enter current password">
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" placeholder="Enter new password">
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm new password">
+                        </div>
+                        <div class="password-requirements">
+                            <h5>Password Requirements:</h5>
+                            <ul>
+                                <li id="length-req">At least 8 characters</li>
+                                <li id="uppercase-req">Contains uppercase letter</li>
+                                <li id="lowercase-req">Contains lowercase letter</li>
+                                <li id="number-req">Contains a number</li>
+                                <li id="special-req">Contains special character</li>
+                            </ul>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="changePassword()">
+                                <i class="fas fa-key"></i> Update Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-shield-alt"></i> Two-Factor Authentication</h3>
+                    <p>Add an extra layer of security to your account</p>
+                </div>
+                <div class="card-body">
+                    <div class="two-factor-status">
+                        <div class="status-indicator disabled">
+                            <i class="fas fa-times-circle"></i>
+                            <span>Two-Factor Authentication is currently disabled</span>
+                        </div>
+                        <button class="btn btn-success" onclick="enableTwoFactor()">
+                            <i class="fas fa-plus-circle"></i> Enable 2FA
+                        </button>
+                    </div>
+                    <div class="security-info">
+                        <p><i class="fas fa-info-circle"></i> Two-factor authentication adds an extra layer of security to your account by requiring more than just a password to sign in.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> Login History</h3>
+                    <p>Recent login activity on your account</p>
+                </div>
+                <div class="card-body">
+                    <div class="login-history">
+                        <div class="login-item">
+                            <div class="login-icon">
+                                <i class="fas fa-desktop"></i>
+                            </div>
+                            <div class="login-details">
+                                <div class="login-location">New York, United States</div>
+                                <div class="login-time">Today, 10:30 AM</div>
+                                <div class="login-ip">IP: 192.168.1.100</div>
+                            </div>
+                            <div class="login-status success">
+                                <i class="fas fa-check-circle"></i> Successful
+                            </div>
+                        </div>
+                        <div class="login-item">
+                            <div class="login-icon">
+                                <i class="fas fa-mobile-alt"></i>
+                            </div>
+                            <div class="login-details">
+                                <div class="login-location">London, United Kingdom</div>
+                                <div class="login-time">Yesterday, 3:45 PM</div>
+                                <div class="login-ip">IP: 212.45.67.89</div>
+                            </div>
+                            <div class="login-status success">
+                                <i class="fas fa-check-circle"></i> Successful
+                            </div>
+                        </div>
+                        <div class="login-item">
+                            <div class="login-icon">
+                                <i class="fas fa-laptop"></i>
+                            </div>
+                            <div class="login-details">
+                                <div class="login-location">Sydney, Australia</div>
+                                <div class="login-time">Oct 25, 2023</div>
+                                <div class="login-ip">IP: 203.12.160.45</div>
+                            </div>
+                            <div class="login-status failed">
+                                <i class="fas fa-exclamation-circle"></i> Failed Attempt
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="settings-tab" id="notifications-tab">
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-bell"></i> Notification Preferences</h3>
+                    <p>Choose how you want to be notified about important events</p>
+                </div>
+                <div class="card-body">
+                    <div class="notification-group">
+                        <h4>Account Activity</h4>
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <h5>Login Notifications</h5>
+                                <p>Get notified when someone logs into your account</p>
+                            </div>
+                            <div class="notification-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <h5>Password Changes</h5>
+                                <p>Get notified when your password is changed</p>
+                            </div>
+                            <div class="notification-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="notification-group">
+                        <h4>Book Activity</h4>
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <h5>New Sales</h5>
+                                <p>Get notified when your books are purchased</p>
+                            </div>
+                            <div class="notification-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <h5>Royalty Payments</h5>
+                                <p>Get notified when royalty payments are processed</p>
+                            </div>
+                            <div class="notification-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <h5>Reviews & Ratings</h5>
+                                <p>Get notified when readers review your books</p>
+                            </div>
+                            <div class="notification-toggle">
+                                <label class="switch">
+                                    <input type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="notification-group">
+                        <h4>Marketing & Promotions</h4>
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <h5>Newsletter</h5>
+                                <p>Receive updates about platform features and tips</p>
+                            </div>
+                            <div class="notification-toggle">
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="notification-item">
+                            <div class="notification-info">
+                                <h5>Promotional Offers</h5>
+                                <p>Get notified about special offers and discounts</p>
+                            </div>
+                            <div class="notification-toggle">
+                                <label class="switch">
+                                    <input type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-primary" onclick="saveNotifications()">
+                            <i class="fas fa-save"></i> Save Preferences
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preferences Settings -->
+        <div class="settings-tab" id="preferences-tab">
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-sliders-h"></i> Writing Preferences</h3>
+                    <p>Customize your writing and publishing experience</p>
+                </div>
+                <div class="card-body">
+                    <form id="preferencesForm">
+                        <div class="form-group">
+                            <label for="defaultGenre">Default Genre</label>
+                            <select class="form-control" id="defaultGenre">
+                                <option value="">Select Default Genre</option>
+                                <option value="Fiction">Fiction</option>
+                                <option value="Non-Fiction">Non-Fiction</option>
+                                <option value="Romance">Romance</option>
+                                <option value="Thriller">Thriller</option>
+                                <option value="Biography">Biography</option>
+                                <option value="Sci-Fi">Sci-Fi</option>
+                                <option value="Fantasy">Fantasy</option>
+                                <option value="Mystery">Mystery</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="wordCountGoal">Daily Word Count Goal</label>
+                            <input type="number" class="form-control" id="wordCountGoal" placeholder="Enter daily word count goal" value="1000">
+                        </div>
+                        <div class="form-group">
+                            <label for="writingTime">Preferred Writing Time</label>
+                            <select class="form-control" id="writingTime">
+                                <option value="">Select Preferred Time</option>
+                                <option value="morning">Morning (6AM - 12PM)</option>
+                                <option value="afternoon">Afternoon (12PM - 6PM)</option>
+                                <option value="evening">Evening (6PM - 12AM)</option>
+                                <option value="night">Night (12AM - 6AM)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="writingEnvironment">Writing Environment</label>
+                            <select class="form-control" id="writingEnvironment">
+                                <option value="">Select Environment</option>
+                                <option value="quiet">Quiet Environment</option>
+                                <option value="music">With Background Music</option>
+                                <option value="cafe">Cafe Atmosphere</option>
+                                <option value="any">Any Environment</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editorTheme">Editor Theme</label>
+                            <select class="form-control" id="editorTheme">
+                                <option value="light">Light Theme</option>
+                                <option value="dark">Dark Theme</option>
+                                <option value="sepia">Sepia Theme</option>
+                                <option value="blue">Blue Theme</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="savePreferences()">
+                                <i class="fas fa-save"></i> Save Preferences
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-language"></i> Language & Region</h3>
+                    <p>Set your preferred language and regional settings</p>
+                </div>
+                <div class="card-body">
+                    <form id="languageForm">
+                        <div class="form-group">
+                            <label for="language">Language</label>
+                            <select class="form-control" id="language">
+                                <option value="en">English</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="it">Italian</option>
+                                <option value="pt">Portuguese</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="currency">Currency</label>
+                            <select class="form-control" id="currency">
+                                <option value="USD">US Dollar (USD)</option>
+                                <option value="EUR">Euro (EUR)</option>
+                                <option value="GBP">British Pound (GBP)</option>
+                                <option value="CAD">Canadian Dollar (CAD)</option>
+                                <option value="AUD">Australian Dollar (AUD)</option>
+                                <option value="INR">Indian Rupee (INR)</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveLanguage()">
+                                <i class="fas fa-save"></i> Save Language Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Billing Settings -->
+        <div class="settings-tab" id="billing-tab">
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-credit-card"></i> Payment Methods</h3>
+                    <p>Manage your payment methods for royalty payments</p>
+                </div>
+                <div class="card-body">
+                    <div class="payment-methods">
+                        <div class="payment-method active">
+                            <div class="payment-icon">
+                                <i class="fab fa-cc-visa"></i>
+                            </div>
+                            <div class="payment-details">
+                                <div class="payment-type">Visa ending in 4532</div>
+                                <div class="payment-expiry">Expires 12/2025</div>
+                            </div>
+                            <div class="payment-actions">
+                                <button class="btn btn-sm btn-outline-primary">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger">Remove</button>
+                            </div>
+                        </div>
+                        <div class="payment-method">
+                            <div class="payment-icon">
+                                <i class="fab fa-cc-paypal"></i>
+                            </div>
+                            <div class="payment-details">
+                                <div class="payment-type">PayPal</div>
+                                <div class="payment-email">user@example.com</div>
+                            </div>
+                            <div class="payment-actions">
+                                <button class="btn btn-sm btn-outline-primary">Edit</button>
+                                <button class="btn btn-sm btn-outline-danger">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-primary" onclick="addPaymentMethod()">
+                            <i class="fas fa-plus"></i> Add Payment Method
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-file-invoice-dollar"></i> Payout Preferences</h3>
+                    <p>Set your preferred method for receiving royalty payments</p>
+                </div>
+                <div class="card-body">
+                    <form id="payoutForm">
+                        <div class="form-group">
+                            <label for="payoutMethod">Primary Payout Method</label>
+                            <select class="form-control" id="payoutMethod">
+                                <option value="bank">Bank Transfer</option>
+                                <option value="paypal">PayPal</option>
+                                <option value="check">Check by Mail</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="payoutThreshold">Payout Threshold</label>
+                            <select class="form-control" id="payoutThreshold">
+                                <option value="25">$25.00</option>
+                                <option value="50">$50.00</option>
+                                <option value="100" selected>$100.00</option>
+                                <option value="250">$250.00</option>
+                                <option value="500">$500.00</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="payoutSchedule">Payout Schedule</label>
+                            <select class="form-control" id="payoutSchedule">
+                                <option value="monthly">Monthly</option>
+                                <option value="quarterly">Quarterly</option>
+                                <option value="annually">Annually</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="savePayout()">
+                                <i class="fas fa-save"></i> Save Payout Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-receipt"></i> Tax Information</h3>
+                    <p>Provide tax information for royalty payments</p>
+                </div>
+                <div class="card-body">
+                    <form id="taxForm">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="taxId">Tax ID / SSN</label>
+                                    <input type="text" class="form-control" id="taxId" placeholder="Enter tax identification number">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="taxCountry">Tax Country</label>
+                                    <select class="form-control" id="taxCountry">
+                                        <option value="">Select Country</option>
+                                        <option value="US">United States</option>
+                                        <option value="UK">United Kingdom</option>
+                                        <option value="CA">Canada</option>
+                                        <option value="AU">Australia</option>
+                                        <option value="DE">Germany</option>
+                                        <option value="FR">France</option>
+                                        <option value="IN">India</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="saveTaxInfo()">
+                                <i class="fas fa-save"></i> Save Tax Information
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .settings-container {
+        padding: 20px;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .header-content h1 {
+        margin: 0;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .header-content p {
+        margin: 5px 0 0;
+        color: #666;
+        font-size: 1rem;
+    }
+
+    .settings-nav {
+        margin-bottom: 30px;
+    }
+
+    .nav-tabs {
+        display: flex;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        padding: 5px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .nav-tab {
+        flex: 1;
+        padding: 15px 20px;
+        border: none;
+        background: transparent;
+        border-radius: 12px;
+        font-weight: 600;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .nav-tab:hover {
+        color: #667eea;
+    }
+
+    .nav-tab.active {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .settings-content {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+    }
+
+    .settings-tab {
+        display: none;
+    }
+
+    .settings-tab.active {
+        display: block;
+        animation: fadeIn 0.5s ease;
+    }
+
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .settings-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .card-header {
+        padding: 20px 25px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        background: rgba(102, 126, 234, 0.05);
+    }
+
+    .card-header h3 {
+        margin: 0 0 5px;
+        color: #333;
+        font-size: 1.3rem;
+    }
+
+    .card-header h3 i {
+        margin-right: 10px;
+        color: #667eea;
+    }
+
+    .card-header p {
+        margin: 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .card-body {
+        padding: 25px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-actions {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        text-align: right;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+    }
+
+    .btn-outline-primary {
+        background: transparent;
+        border: 2px solid #667eea;
+        color: #667eea;
+    }
+
+    .btn-outline-primary:hover {
+        background: #667eea;
+        color: white;
+    }
+
+    .btn-outline-danger {
+        background: transparent;
+        border: 2px solid #dc3545;
+        color: #dc3545;
+    }
+
+    .btn-outline-danger:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+    }
+
+    .avatar-upload {
+        text-align: center;
+    }
+
+    .avatar-preview {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        margin: 0 auto 15px;
+        overflow: hidden;
+        border: 3px solid #667eea;
+    }
+
+    .default-avatar {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2.5rem;
+    }
+
+    .notification-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .notification-item:last-child {
+        border-bottom: none;
+    }
+
+    .notification-info h5 {
+        margin: 0 0 5px;
+        color: #333;
+        font-size: 1rem;
+    }
+
+    .notification-info p {
+        margin: 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 24px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    input:checked + .slider {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+
+    .login-history {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .login-item {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        background: rgba(102, 126, 234, 0.05);
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
+    }
+
+    .login-icon {
+        font-size: 1.5rem;
+        color: #667eea;
+        margin-right: 15px;
+    }
+
+    .login-details {
+        flex: 1;
+    }
+
+    .login-location {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 3px;
+    }
+
+    .login-time, .login-ip {
+        font-size: 0.85rem;
+        color: #666;
+        margin-bottom: 2px;
+    }
+
+    .login-status {
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .login-status.success {
+        background: rgba(40, 167, 69, 0.1);
+        color: #28a745;
+    }
+
+    .login-status.failed {
+        background: rgba(220, 53, 69, 0.1);
+        color: #dc3545;
+    }
+
+    .two-factor-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+    }
+
+    .status-indicator.disabled {
+        color: #dc3545;
+    }
+
+    .status-indicator.enabled {
+        color: #28a745;
+    }
+
+    .security-info {
+        background: rgba(102, 126, 234, 0.05);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 4px solid #667eea;
+    }
+
+    .security-info p {
+        margin: 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .security-info i {
+        color: #667eea;
+        margin-right: 8px;
+    }
+
+    .password-requirements {
+        background: rgba(255, 193, 7, 0.1);
+        padding: 15px;
+        border-radius: 10px;
+        margin: 20px 0;
+    }
+
+    .password-requirements h5 {
+        margin-top: 0;
+        color: #333;
+    }
+
+    .password-requirements ul {
+        margin: 10px 0 0;
+        padding-left: 20px;
+    }
+
+    .password-requirements li {
+        margin-bottom: 5px;
+        color: #666;
+    }
+
+    .payment-methods {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .payment-method {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        background: rgba(102, 126, 234, 0.05);
+        border-radius: 10px;
+        border-left: 4px solid #ccc;
+    }
+
+    .payment-method.active {
+        border-left: 4px solid #667eea;
+    }
+
+    .payment-icon {
+        font-size: 2rem;
+        margin-right: 15px;
+        color: #667eea;
+    }
+
+    .payment-details {
+        flex: 1;
+    }
+
+    .payment-type {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 3px;
+    }
+
+    .payment-expiry, .payment-email {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .payment-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    @@media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .nav-tabs {
+            flex-direction: column;
+        }
+
+        .avatar-upload {
+            margin-bottom: 20px;
+        }
+
+        .notification-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .login-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .two-factor-status {
+            flex-direction: column;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .payment-method {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .payment-actions {
+            align-self: stretch;
+            justify-content: flex-end;
+        }
+    }
+</style>
+
+<script>
+    // Tab navigation
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Remove active class from all tabs and content
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+            
+            // Add active class to clicked tab
+            this.classList.add('active');
+            
+            // Show corresponding content
+            const tabId = this.getAttribute('data-tab') + '-tab';
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+
+    // Avatar preview
+    document.getElementById('avatarUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.querySelector('#avatarPreview').innerHTML = `<img src="${e.target.result}" style="width: 100%; height: 100%; object-fit: cover;">`;
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Password strength validation
+    document.getElementById('newPassword').addEventListener('input', function() {
+        const password = this.value;
+        const requirements = {
+            length: password.length >= 8,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            number: /[0-9]/.test(password),
+            special: /[^A-Za-z0-9]/.test(password)
+        };
+        
+        // Update requirement indicators
+        document.getElementById('length-req').style.color = requirements.length ? '#28a745' : '#666';
+        document.getElementById('uppercase-req').style.color = requirements.uppercase ? '#28a745' : '#666';
+        document.getElementById('lowercase-req').style.color = requirements.lowercase ? '#28a745' : '#666';
+        document.getElementById('number-req').style.color = requirements.number ? '#28a745' : '#666';
+        document.getElementById('special-req').style.color = requirements.special ? '#28a745' : '#666';
+    });
+
+    // Save functions
+    function saveProfile() {
+        Swal.fire({
+            title: 'Saving Profile',
+            text: 'Please wait while we update your profile...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Profile Updated!',
+                text: 'Your profile information has been updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function saveLocation() {
+        Swal.fire({
+            title: 'Saving Location',
+            text: 'Please wait while we update your location...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Location Updated!',
+                text: 'Your location information has been updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function changePassword() {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            Swal.fire({
+                title: 'Missing Information',
+                text: 'Please fill in all password fields.',
+                icon: 'warning',
+                confirmButtonColor: '#667eea'
+            });
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            Swal.fire({
+                title: 'Password Mismatch',
+                text: 'New password and confirmation do not match.',
+                icon: 'error',
+                confirmButtonColor: '#667eea'
+            });
+            return;
+        }
+        
+        Swal.fire({
+            title: 'Updating Password',
+            text: 'Please wait while we update your password...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Password Updated!',
+                text: 'Your password has been changed successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+            document.getElementById('passwordForm').reset();
+        }, 1500);
+    }
+
+    function saveNotifications() {
+        Swal.fire({
+            title: 'Saving Preferences',
+            text: 'Please wait while we update your notification settings...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Preferences Saved!',
+                text: 'Your notification preferences have been updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function savePreferences() {
+        Swal.fire({
+            title: 'Saving Preferences',
+            text: 'Please wait while we update your writing preferences...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Preferences Saved!',
+                text: 'Your writing preferences have been updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function saveLanguage() {
+        Swal.fire({
+            title: 'Saving Language Settings',
+            text: 'Please wait while we update your language preferences...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Language Settings Saved!',
+                text: 'Your language and region settings have been updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function savePayout() {
+        Swal.fire({
+            title: 'Saving Payout Settings',
+            text: 'Please wait while we update your payout preferences...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Payout Settings Saved!',
+                text: 'Your payout preferences have been updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function saveTaxInfo() {
+        Swal.fire({
+            title: 'Saving Tax Information',
+            text: 'Please wait while we update your tax information...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Tax Information Saved!',
+                text: 'Your tax information has been updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function enableTwoFactor() {
+        Swal.fire({
+            title: 'Enable Two-Factor Authentication',
+            html: `
+                <div style="text-align: left;">
+                    <p>Scan the QR code below with your authenticator app:</p>
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; text-align: center; margin: 15px 0;">
+                        <div style="background: white; padding: 10px; display: inline-block; border-radius: 5px;">
+                            <div style="width: 150px; height: 150px; background: #333; display: flex; align-items: center; justify-content: center; color: white; margin: 0 auto;">
+                                QR CODE PLACEHOLDER
+                            </div>
+                        </div>
+                    </div>
+                    <p>Or enter this code manually:</p>
+                    <div style="background: #e9ecef; padding: 10px; border-radius: 5px; font-family: monospace; text-align: center;">
+                        ABCD-EFGH-IJKL-MNOP
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <label for="twoFactorCode">Enter 6-digit code:</label>
+                        <input type="text" id="twoFactorCode" class="swal2-input" placeholder="123456" style="width: 100%;">
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonColor: '#667eea',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Verify & Enable',
+            preConfirm: () => {
+                const code = document.getElementById('twoFactorCode').value;
+                if (!code) {
+                    Swal.showValidationMessage('Please enter the 6-digit code');
+                    return false;
+                }
+                return code;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Verifying...',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Simulate verification
+                setTimeout(() => {
+                    Swal.fire({
+                        title: 'Two-Factor Authentication Enabled!',
+                        text: 'Your account is now more secure with 2FA.',
+                        icon: 'success',
+                        confirmButtonColor: '#667eea'
+                    });
+                }, 1500);
+            }
+        });
+    }
+
+    function addPaymentMethod() {
+        Swal.fire({
+            title: 'Add Payment Method',
+            html: `
+                <div style="text-align: left;">
+                    <div style="margin-bottom: 15px;">
+                        <label for="paymentType">Payment Method Type</label>
+                        <select id="paymentType" class="swal2-select" style="width: 100%;">
+                            <option value="bank">Bank Account</option>
+                            <option value="paypal">PayPal</option>
+                            <option value="card">Credit/Debit Card</option>
+                        </select>
+                    </div>
+                    <div id="paymentFormFields">
+                        <div style="margin-bottom: 15px;">
+                            <label for="accountHolder">Account Holder Name</label>
+                            <input type="text" id="accountHolder" class="swal2-input" placeholder="Enter account holder name" style="width: 100%;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label for="accountNumber">Account Number</label>
+                            <input type="text" id="accountNumber" class="swal2-input" placeholder="Enter account number" style="width: 100%;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label for="routingNumber">Routing Number</label>
+                            <input type="text" id="routingNumber" class="swal2-input" placeholder="Enter routing number" style="width: 100%;">
+                        </div>
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonColor: '#667eea',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Add Payment Method',
+            preConfirm: () => {
+                const accountHolder = document.getElementById('accountHolder').value;
+                const accountNumber = document.getElementById('accountNumber').value;
+                const routingNumber = document.getElementById('routingNumber').value;
+                
+                if (!accountHolder || !accountNumber || !routingNumber) {
+                    Swal.showValidationMessage('Please fill in all required fields');
+                    return false;
+                }
+                return { accountHolder, accountNumber, routingNumber };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Adding Payment Method...',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Simulate adding payment method
+                setTimeout(() => {
+                    Swal.fire({
+                        title: 'Payment Method Added!',
+                        text: 'Your payment method has been added successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#667eea'
+                    });
+                }, 1500);
+            }
+        });
+    }
+
+    // Initialize AOS
+    AOS.init({
+        duration: 600,
+        easing: 'ease-out',
+        once: true
+    });
+</script>

@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proofreading - eBook Publisher</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #4a6cf7;
+            --primary-light: #6b86f9;
+            --secondary: #6c757d;
+            --success: #198754;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --dark-bg: #121826;
+            --dark-card: #1a243a;
+            --premium: #ffd700;
+            --transition-speed: 0.3s;
+            --border-radius: 12px;
+        }
+
+        body {
+            background-color: #f5f7f9;
+            color: #333;
+            line-height: 1.6;
+            overflow-x: hidden;
+            transition: background-color 0.3s, color 0.3s;
+            position: relative;
+        }
+
+            body.dark-mode {
+                background-color: var(--dark-bg);
+                color: #e0e0e0;
+            }
+
+        /* Main Content Styles - Full Width */
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            width: 93%;
+            max-width: none;
+            margin-left: 115px;
+        }
+
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        body.dark-mode .top-header {
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .header-left h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+            transition: transform var(--transition-speed);
+        }
+
+        body.dark-mode .header-left h1 {
+            color: #f0f0f0;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Button Styles */
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            font-size: 0.95rem;
+        }
+
+            button::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 5px;
+                height: 5px;
+                background: rgba(255, 255, 255, 0.5);
+                opacity: 0;
+                border-radius: 100%;
+                transform: scale(1, 1) translate(-50%);
+                transform-origin: 50% 50%;
+            }
+
+            button:active::after {
+                animation: ripple 1s ease-out;
+            }
+
+        @@keyframes ripple {
+            0%
+
+        {
+            transform: scale(0, 0);
+            opacity: 0.5;
+        }
+
+        100% {
+            transform: scale(20, 20);
+            opacity: 0;
+        }
+
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(74, 108, 247, 0.3);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(74, 108, 247, 0.4);
+                background: var(--primary-light);
+            }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+
+            .btn-secondary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4);
+            }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+            .btn-danger:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+            }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #ffd700 0%, #ff9800 100%);
+            color: #333;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+        }
+
+            .btn-premium:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(255, 215, 0, 0.4);
+            }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+
+        .theme-toggle {
+            background: var(--dark);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+            .theme-toggle:hover {
+                transform: rotate(30deg);
+            }
+
+        /* Subscription Section */
+        .subscription-section {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 30px;
+            transition: transform var(--transition-speed) ease, box-shadow 0.3s ease;
+        }
+
+        body.dark-mode .subscription-section {
+            background: var(--dark-card);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .subscription-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .subscription-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .subscription-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        body.dark-mode .subscription-title {
+            color: #f0f0f0;
+        }
+
+        .subscription-plans {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .subscription-plan {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        body.dark-mode .subscription-plan {
+            border-color: #2a2a2a;
+            background: var(--dark-card);
+        }
+
+        .subscription-plan.featured {
+            border-color: #4a6cf7;
+            transform: scale(1.03);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+            .subscription-plan.featured::before {
+                content: "Most Popular";
+                position: absolute;
+                top: -12px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #4a6cf7;
+                color: white;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 4px 15px;
+                border-radius: 20px;
+            }
+
+        .plan-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        body.dark-mode .plan-name {
+            color: #f0f0f0;
+        }
+
+        .plan-price {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 15px;
+            color: #4a6cf7;
+        }
+
+            .plan-price span {
+                font-size: 1rem;
+                color: var(--secondary);
+            }
+
+        body.dark-mode .plan-price span {
+            color: #b0b0b0;
+        }
+
+        .plan-features {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+
+            .plan-features li {
+                padding: 8px 0;
+                border-bottom: 1px solid #f1f1f1;
+                color: var(--secondary);
+            }
+
+        body.dark-mode .plan-features li {
+            border-bottom: 1px solid #2a2a2a;
+            color: #b0b0b0;
+        }
+
+        .plan-button {
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Proofreading Content */
+        .proofreading-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .proofreading-panel, .content-preview {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform var(--transition-speed) ease, box-shadow 0.3s ease;
+        }
+
+        body.dark-mode .proofreading-panel,
+        body.dark-mode .content-preview {
+            background: var(--dark-card);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .proofreading-panel:hover, .content-preview:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .proofreading-panel h3, .content-preview h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        body.dark-mode .proofreading-panel h3,
+        body.dark-mode .content-preview h3 {
+            color: #f0f0f0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .premium-badge {
+            background: var(--premium);
+            color: #333;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        /* Proofreading Tiers */
+        .proofreading-tiers {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .tier-option {
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        body.dark-mode .tier-option {
+            border-color: #2a2a2a;
+            background: var(--dark-card);
+        }
+
+        .tier-option.selected {
+            border-color: #4a6cf7;
+            background-color: rgba(74, 108, 247, 0.1);
+        }
+
+        .tier-option.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            position: relative;
+        }
+
+            .tier-option.disabled::after {
+                content: "Premium";
+                position: absolute;
+                top: -10px;
+                right: -10px;
+                background: #ffd700;
+                color: #333;
+                font-size: 10px;
+                font-weight: bold;
+                padding: 3px 8px;
+                border-radius: 10px;
+            }
+
+        .tier-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--dark);
+        }
+
+        body.dark-mode .tier-name {
+            color: #f0f0f0;
+        }
+
+        .tier-desc {
+            font-size: 0.9rem;
+            color: var(--secondary);
+        }
+
+        body.dark-mode .tier-desc {
+            color: #b0b0b0;
+        }
+
+        /* AI Selector */
+        .ai-options {
+            margin-bottom: 20px;
+        }
+
+            .ai-options label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 600;
+                color: var(--dark);
+            }
+
+        body.dark-mode .ai-options label {
+            color: #f0f0f0;
+        }
+
+        .ai-select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: white;
+            font-size: 1rem;
+        }
+
+        body.dark-mode .ai-select {
+            background-color: #1e2a4a;
+            border-color: #2a3a5a;
+            color: #e0e0e0;
+        }
+
+        /* Proofreading Actions */
+        .proofreading-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            height: 8px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        body.dark-mode .progress-container {
+            background-color: #2a2a2a;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #4a6cf7;
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        /* Proofreading Stats */
+        .proofreading-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-box {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        body.dark-mode .stat-box {
+            background-color: #1e2a4a;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #4a6cf7;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--secondary);
+        }
+
+        body.dark-mode .stat-label {
+            color: #b0b0b0;
+        }
+
+        /* Page Info */
+        .page-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        body.dark-mode .page-info {
+            background-color: #1e2a4a;
+        }
+
+        /* Content Preview */
+        .preview-text {
+            flex-grow: 1;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background: #f8f9fa;
+            overflow-y: auto;
+            max-height: 400px;
+            min-height: 300px;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        body.dark-mode .preview-text {
+            background: #1e2a4a;
+            border-color: #2a2a2a;
+            color: #e0e0e0;
+        }
+
+        .spelling-error {
+            background-color: rgba(255, 100, 100, 0.2);
+            border-bottom: 2px dashed #ff6464;
+            cursor: pointer;
+        }
+
+        .grammar-error {
+            background-color: rgba(255, 200, 100, 0.2);
+            border-bottom: 2px dashed #ffc864;
+            cursor: pointer;
+        }
+
+        .style-suggestion {
+            background-color: rgba(100, 200, 255, 0.2);
+            border-bottom: 2px dashed #64c8ff;
+            cursor: pointer;
+        }
+
+        /* Editing Tools */
+        .editing-tools {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* Correction Popup */
+        .correction-popup {
+            position: absolute;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            padding: 15px;
+            z-index: 100;
+            min-width: 200px;
+            border-left: 4px solid #4a6cf7;
+            display: none;
+        }
+
+        body.dark-mode .correction-popup {
+            background: var(--dark-card);
+            color: #e0e0e0;
+        }
+
+        .correction-popup h4 {
+            margin-bottom: 10px;
+            color: var(--dark);
+        }
+
+        body.dark-mode .correction-popup h4 {
+            color: #f0f0f0;
+        }
+
+        .correction-options {
+            list-style: none;
+            margin-bottom: 10px;
+        }
+
+            .correction-options li {
+                padding: 8px 10px;
+                border-radius: 5px;
+                margin-bottom: 5px;
+                cursor: pointer;
+                transition: background-color 0.2s;
+            }
+
+                .correction-options li:hover {
+                    background-color: #f0f4f8;
+                }
+
+        body.dark-mode .correction-options li:hover {
+            background-color: #2a3a5a;
+        }
+
+        .correction-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+        body.dark-mode .toast {
+            background: var(--dark-card);
+            color: #e0e0e0;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        .toast-icon {
+            font-size: 24px;
+        }
+
+        .toast.success .toast-icon {
+            color: var(--success);
+        }
+
+        .toast.error .toast-icon {
+            color: var(--danger);
+        }
+
+        .toast.warning .toast-icon {
+            color: var(--warning);
+        }
+
+        /* Button Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @@keyframes spin {
+            to
+
+        {
+            transform: rotate(360deg);
+        }
+
+        }
+
+        /* Improved button focus states */
+        button:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* Responsive Styles */
+       @@media (max-width: 1200px) {
+            .subscription-plans
+
+        {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        }
+
+       @@media (max-width: 992px) {
+            .proofreading-content
+
+        {
+            grid-template-columns: 1fr;
+        }
+
+        .proofreading-tiers, .subscription-plans {
+            grid-template-columns: 1fr;
+        }
+
+        .top-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        .header-right {
+            width: 100%;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+        }
+
+        .theme-toggle {
+            width: 40px;
+            height: 40px;
+        }
+
+        }
+
+       @@media (max-width: 768px) {
+            .top-header
+
+        {
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-left p {
+            font-size: 1rem;
+        }
+
+        .proofreading-panel, .content-preview {
+            padding: 20px;
+        }
+
+            .proofreading-panel h3, .content-preview h3 {
+                font-size: 1.3rem;
+            }
+
+        .subscription-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .proofreading-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .editing-tools {
+            flex-direction: column;
+        }
+
+        }
+
+       @@media (max-width: 576px) {
+            .main-content
+
+        {
+            padding: 15px;
+        }
+
+        .header-left h1 {
+            font-size: 1.4rem;
+        }
+
+        .proofreading-panel, .content-preview {
+            padding: 15px;
+        }
+
+            .proofreading-panel h3, .content-preview h3 {
+                font-size: 1.2rem;
+            }
+
+        .toast {
+            left: 15px;
+            right: 15px;
+            width: auto;
+            padding: 12px 20px;
+        }
+
+        }
+
+       @@media (max-width: 400px) {
+            .header-right
+
+        {
+            flex-direction: row;
+            gap: 10px;
+        }
+
+        .header-right button {
+            width: 38%;
+            justify-content: center;
+        }
+
+        .theme-toggle {
+            align-self: center;
+        }
+
+        .proofreading-panel h3, .content-preview h3 {
+            font-size: 1.1rem;
+        }
+
+        }
+
+        .header-left p {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+        }
+
+        body.dark-mode .header-left p {
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <h1>Proofreading Service</h1>
+                <p>Professional proofreading and error detection</p>
+            </div>
+            <div class="header-right">
+                <button class="btn-primary" id="startProofreadingBtn"><i class="fas fa-play"></i> Start Proofreading</button>
+                <button class="btn-secondary" id="uploadDocBtn"><i class="fas fa-upload"></i> Upload Document</button>
+                <button class="theme-toggle" id="themeToggle">🌙</button>
+            </div>
+        </header>
+
+        <!-- Subscription Section -->
+        <div class="subscription-section">
+            <div class="subscription-header">
+                <h2 class="subscription-title">Choose Your Proofreading Plan</h2>
+                <button class="btn-premium" id="premiumBtn"><i class="fas fa-crown"></i> Upgrade to Premium</button>
+            </div>
+
+            <div class="subscription-plans">
+                <div class="subscription-plan">
+                    <div class="plan-name">Basic Plan</div>
+                    <div class="plan-price">Free<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>5 pages per month</li>
+                        <li>Basic grammar check</li>
+                        <li>Spelling correction</li>
+                        <li>Email support</li>
+                    </ul>
+                    <button class="plan-button btn-secondary">Current Plan</button>
+                </div>
+
+                <div class="subscription-plan featured">
+                    <div class="plan-name">Professional</div>
+                    <div class="plan-price">$19<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>50 pages per month</li>
+                        <li>Advanced grammar check</li>
+                        <li>Style suggestions</li>
+                        <li>Priority support</li>
+                        <li>Plagiarism detection</li>
+                    </ul>
+                    <button class="plan-button btn-primary">Upgrade Now</button>
+                </div>
+
+                <div class="subscription-plan">
+                    <div class="plan-name">Enterprise</div>
+                    <div class="plan-price">$49<span>/month</span></div>
+                    <ul class="plan-features">
+                        <li>Unlimited pages</li>
+                        <li>AI-powered suggestions</li>
+                        <li>Human proofreader review</li>
+                        <li>24/7 phone support</li>
+                        <li>Custom style guides</li>
+                    </ul>
+                    <button class="plan-button btn-premium">Contact Sales</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="proofreading-content">
+            <div class="proofreading-panel">
+                <h3>
+                    Proofreading Controls
+                    <span class="premium-badge">Premium</span>
+                </h3>
+
+                <!-- Proofreading Tiers -->
+                <div class="proofreading-tiers">
+                    <div class="tier-option selected" data-tier="basic">
+                        <div class="tier-name">Basic Check</div>
+                        <div class="tier-desc">Grammar & Spelling</div>
+                    </div>
+                    <div class="tier-option disabled" data-tier="advanced">
+                        <div class="tier-name">Advanced</div>
+                        <div class="tier-desc">Style & Flow</div>
+                    </div>
+                    <div class="tier-option disabled" data-tier="professional">
+                        <div class="tier-name">Professional</div>
+                        <div class="tier-desc">Human Review</div>
+                    </div>
+                </div>
+
+                <div class="ai-options">
+                    <label for="aiSelector">AI Proofreading Engine:</label>
+                    <select id="aiSelector" class="ai-select">
+                        <option value="basic">Basic Engine (Free)</option>
+                        <option value="advanced" disabled>Advanced Engine (Premium)</option>
+                        <option value="premium" disabled>Premium Engine (Pro)</option>
+                    </select>
+                </div>
+
+                <div class="proofreading-actions">
+                    <button class="btn-primary" id="analyzeBtn"><i class="fas fa-search"></i> Analyze Text</button>
+                    <button class="btn-secondary" id="clearBtn"><i class="fas fa-trash"></i> Clear</button>
+                </div>
+
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+
+                <div class="proofreading-stats">
+                    <div class="stat-box">
+                        <div class="stat-value" id="errorsFound">0</div>
+                        <div class="stat-label">Errors Found</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="wordsChecked">0</div>
+                        <div class="stat-label">Words Checked</div>
+                    </div>
+                </div>
+
+                <div class="page-info">
+                    <span>Page 1 of 1</span>
+                    <div>
+                        <button class="btn-small" id="prevPageBtn"><i class="fas fa-chevron-left"></i></button>
+                        <button class="btn-small" id="nextPageBtn"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-preview">
+                <h3>Document Preview</h3>
+                <div class="preview-text" id="previewText" contenteditable="true">
+                    <p>Welcome to the proofreading service. Upload your document or paste your text here to begin the proofreading process.</p>
+
+                    <p>This advanced system will detect <span class="spelling-error" data-suggestion="grammar">grammer</span> errors, spelling mistakes, and provide <span class="style-suggestion" data-suggestion="style">suggestions for improvement</span>. The AI-powered engine analyzes your text for clarity, readability, and <span class="grammar-error" data-suggestion="consistent">consistency</span>.</p>
+
+                    <p>Click on any highlighted text to see suggested corrections. Premium users get access to advanced features including style recommendations and human proofreader reviews.</p>
+                </div>
+
+                <div class="editing-tools">
+                    <button class="btn-small" id="acceptAllBtn"><i class="fas fa-check-double"></i> Accept All</button>
+                    <button class="btn-small" id="rejectAllBtn"><i class="fas fa-times"></i> Reject All</button>
+                    <button class="btn-small" id="exportBtn"><i class="fas fa-download"></i> Export</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Correction Popup -->
+    <div id="correctionPopup" class="correction-popup">
+        <h4>Suggested Correction</h4>
+        <ul class="correction-options" id="correctionOptions">
+            <!-- Dynamic suggestions will be inserted here -->
+        </ul>
+        <div class="correction-actions">
+            <button class="btn-small btn-primary" id="acceptBtn">Accept</button>
+            <button class="btn-small btn-secondary" id="ignoreBtn">Ignore</button>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Operation completed successfully!</span>
+    </div>
+
+    <script>
+        // DOM Elements
+        const themeToggle = document.getElementById('themeToggle');
+        const startProofreadingBtn = document.getElementById('startProofreadingBtn');
+        const uploadDocBtn = document.getElementById('uploadDocBtn');
+        const premiumBtn = document.getElementById('premiumBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const acceptAllBtn = document.getElementById('acceptAllBtn');
+        const rejectAllBtn = document.getElementById('rejectAllBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const acceptBtn = document.getElementById('acceptBtn');
+        const ignoreBtn = document.getElementById('ignoreBtn');
+        const progressBar = document.getElementById('progressBar');
+        const errorsFound = document.getElementById('errorsFound');
+        const wordsChecked = document.getElementById('wordsChecked');
+        const previewText = document.getElementById('previewText');
+        const correctionPopup = document.getElementById('correctionPopup');
+        const correctionOptions = document.getElementById('correctionOptions');
+        const aiSelector = document.getElementById('aiSelector');
+        const tierOptions = document.querySelectorAll('.tier-option');
+        const planButtons = document.querySelectorAll('.plan-button');
+        const toast = document.getElementById('toast');
+
+        // Current state
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+        let currentTier = 'basic';
+        let isAnalyzing = false;
+
+        // Apply saved theme on load
+        if (isDarkMode) {
+            document.body.classList.add('dark-mode');
+            themeToggle.textContent = '☀️';
+        }
+
+        // Theme toggle functionality
+        themeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode');
+            themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+            localStorage.setItem('darkMode', isDarkMode);
+            showToast(`Dark mode ${isDarkMode ? 'enabled' : 'disabled'}`, 'success');
+        });
+
+        // Start Proofreading Button
+        startProofreadingBtn.addEventListener('click', function() {
+            showToast('Starting proofreading process...', 'success');
+
+            // Simulate proofreading process
+            const btn = this;
+            const originalText = btn.innerHTML;
+
+            btn.innerHTML = '<span class="loading"></span> Processing...';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                showToast('Proofreading completed!', 'success');
+            }, 3000);
+        });
+
+        // Upload Document Button
+        uploadDocBtn.addEventListener('click', function() {
+            // Create a file input element dynamically
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.doc,.docx,.pdf,.txt';
+
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    showToast(`Document "${this.files[0].name}" uploaded successfully!`, 'success');
+                }
+            });
+
+            fileInput.click();
+        });
+
+        // Premium Button
+        premiumBtn.addEventListener('click', function() {
+            showToast('Redirecting to premium plans...', 'success');
+        });
+
+        // Analyze Button
+        analyzeBtn.addEventListener('click', function() {
+            if (isAnalyzing) return;
+
+            isAnalyzing = true;
+            progressBar.style.width = '0%';
+            errorsFound.textContent = '0';
+            wordsChecked.textContent = '0';
+
+            const btn = this;
+            const originalText = btn.innerHTML;
+
+            btn.innerHTML = '<span class="loading"></span> Analyzing...';
+            btn.disabled = true;
+
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+                wordsChecked.textContent = Math.floor(progress * 2.5);
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    errorsFound.textContent = '3';
+                    wordsChecked.textContent = '250';
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    isAnalyzing = false;
+                    showToast('Proofreading analysis completed!', 'success');
+                }
+            }, 200);
+        });
+
+        // Clear Button
+        clearBtn.addEventListener('click', function() {
+            previewText.innerHTML = `
+                <p>Welcome to the proofreading service. Upload your document or paste your text here to begin the proofreading process.</p>
+
+                <p>This advanced system will detect <span class="spelling-error" data-suggestion="grammar">grammer</span> errors, spelling mistakes, and provide <span class="style-suggestion" data-suggestion="style">suggestions for improvement</span>. The AI-powered engine analyzes your text for clarity, readability, and <span class="grammar-error" data-suggestion="consistent">consistency</span>.</p>
+
+                <p>Click on any highlighted text to see suggested corrections. Premium users get access to advanced features including style recommendations and human proofreader reviews.</p>
+            `;
+            progressBar.style.width = '0%';
+            errorsFound.textContent = '0';
+            wordsChecked.textContent = '0';
+            showToast('Text cleared successfully!', 'success');
+        });
+
+        // Accept All Button
+        acceptAllBtn.addEventListener('click', function() {
+            const errors = previewText.querySelectorAll('.spelling-error, .grammar-error, .style-suggestion');
+            errors.forEach(error => {
+                const suggestion = error.getAttribute('data-suggestion');
+                error.outerHTML = suggestion;
+            });
+            showToast('All corrections accepted!', 'success');
+        });
+
+        // Reject All Button
+        rejectAllBtn.addEventListener('click', function() {
+            const errors = previewText.querySelectorAll('.spelling-error, .grammar-error, .style-suggestion');
+            errors.forEach(error => {
+                error.classList.remove('spelling-error', 'grammar-error', 'style-suggestion');
+                error.style.backgroundColor = 'transparent';
+                error.style.borderBottom = 'none';
+            });
+            showToast('All corrections rejected!', 'success');
+        });
+
+        // Export Button
+        exportBtn.addEventListener('click', function() {
+            showToast('Exporting corrected document...', 'success');
+        });
+
+        // Page Navigation Buttons
+        prevPageBtn.addEventListener('click', function() {
+            showToast('Previous page', 'success');
+        });
+
+        nextPageBtn.addEventListener('click', function() {
+            showToast('Next page', 'success');
+        });
+
+        // Tier Selection
+        tierOptions.forEach(tier => {
+            tier.addEventListener('click', function() {
+                if (this.classList.contains('disabled')) {
+                    showToast('This tier requires a premium subscription', 'warning');
+                    return;
+                }
+
+                tierOptions.forEach(t => t.classList.remove('selected'));
+                this.classList.add('selected');
+                currentTier = this.getAttribute('data-tier');
+                showToast(`${this.querySelector('.tier-name').textContent} tier selected`, 'success');
+            });
+        });
+
+        // Plan Buttons
+        planButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const planName = this.closest('.subscription-plan').querySelector('.plan-name').textContent;
+                showToast(`Selected plan: ${planName}`, 'success');
+            });
+        });
+
+        // AI Selector
+        aiSelector.addEventListener('change', function() {
+            if (this.options[this.selectedIndex].disabled) {
+                showToast('This AI engine requires a premium subscription', 'warning');
+                this.value = 'basic';
+                return;
+            }
+            showToast(`AI engine changed to: ${this.options[this.selectedIndex].text}`, 'success');
+        });
+
+        // Error correction popup
+        previewText.addEventListener('click', function(e) {
+            if (e.target.classList.contains('spelling-error') ||
+                e.target.classList.contains('grammar-error') ||
+                e.target.classList.contains('style-suggestion')) {
+
+                const rect = e.target.getBoundingClientRect();
+                correctionPopup.style.display = 'block';
+                correctionPopup.style.left = rect.left + 'px';
+                correctionPopup.style.top = (rect.bottom + 10) + 'px';
+
+                const suggestion = e.target.getAttribute('data-suggestion');
+                correctionOptions.innerHTML = '';
+
+                if (suggestion === 'grammar') {
+                    correctionOptions.innerHTML = '<li>grammar</li><li>spelling</li>';
+                } else if (suggestion === 'style') {
+                    correctionOptions.innerHTML = '<li>improvements</li><li>enhancements</li>';
+                } else if (suggestion === 'consistent') {
+                    correctionOptions.innerHTML = '<li>consistency</li><li>coherence</li>';
+                }
+
+                // Store the current error element for later use
+                correctionPopup.currentError = e.target;
+            }
+        });
+
+        // Accept Correction
+        acceptBtn.addEventListener('click', function() {
+            if (correctionPopup.currentError && correctionOptions.querySelector('li')) {
+                const selectedOption = correctionOptions.querySelector('li:hover') || correctionOptions.querySelector('li');
+                correctionPopup.currentError.outerHTML = selectedOption.textContent;
+                correctionPopup.style.display = 'none';
+                showToast('Correction accepted!', 'success');
+            }
+        });
+
+        // Ignore Correction
+        ignoreBtn.addEventListener('click', function() {
+            if (correctionPopup.currentError) {
+                correctionPopup.currentError.classList.remove('spelling-error', 'grammar-error', 'style-suggestion');
+                correctionPopup.currentError.style.backgroundColor = 'transparent';
+                correctionPopup.currentError.style.borderBottom = 'none';
+                correctionPopup.style.display = 'none';
+                showToast('Correction ignored!', 'success');
+            }
+        });
+
+        // Close popup when clicking elsewhere
+        document.addEventListener('click', function(e) {
+            if (!correctionPopup.contains(e.target) && !e.target.closest('.spelling-error, .grammar-error, .style-suggestion')) {
+                correctionPopup.style.display = 'none';
+            }
+        });
+
+        // Toast Notification
+        function showToast(message, type = 'success') {
+            toast.className = `toast ${type}`;
+            toast.querySelector('.toast-message').textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize page
+        window.addEventListener('DOMContentLoaded', function() {
+            showToast('Proofreading dashboard loaded successfully!');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,992 @@
+@{
+    ViewData["Title"] = "Order Author Copy - eBook Publisher";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Author Copy - eBook Publisher</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Prevent layout shift from scrollbar */
+        html {
+            overflow-y: scroll;
+        }
+
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #4a6cf7;
+            --secondary: #6c757d;
+            --success: #198754;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --sidebar-bg: #1e2a4a;
+            --sidebar-hover: #2c3e50;
+            --content-bg: #f5f7f9;
+            --premium: #ffd700;
+            --transition-speed: 0.3s;
+        }
+
+        body {
+            background-color: var(--content-bg);
+            color: #333;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Dashboard Layout - Full Width */
+        .dashboard-container {
+            min-height: 100vh;
+        }
+
+        /* Main Content Styles - Full Width */
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            width: 93%;
+            max-width: none;
+            margin-left: 115px;
+        }
+
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-left h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .header-left p {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        /* Button Styles */
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 6px rgba(76, 175, 80, 0.2);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
+            }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+        }
+
+            .btn-secondary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+            }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #ffd700 0%, #ff9800 100%);
+            color: #333;
+            font-weight: bold;
+        }
+
+            .btn-premium:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(255, 215, 0, 0.3);
+            }
+
+        .theme-toggle {
+            background: var(--dark);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+        }
+
+        /* Order Content Styles */
+        .order-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .order-options, .order-preview {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+            .order-options h3 {
+                margin-bottom: 15px;
+                color: var(--dark);
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+            }
+
+        .size-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .size-option {
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #eee;
+        }
+
+            .size-option:hover, .size-option.selected {
+                border-color: var(--primary);
+                background-color: rgba(74, 108, 247, 0.1);
+            }
+
+        .size-display {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .price {
+            font-weight: bold;
+            color: var(--primary);
+            margin-top: 5px;
+        }
+
+        .quantity-selection, .shipping-options {
+            margin-bottom: 25px;
+        }
+
+            .quantity-selection label, .shipping-options label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 500;
+            }
+
+            .quantity-selection input {
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+            }
+
+                .quantity-selection input:focus {
+                    border-color: var(--primary);
+                    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+                    outline: none;
+                }
+
+        .radio-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+            .radio-group:hover {
+                background-color: #f8f9fa;
+            }
+
+            .radio-group input {
+                margin-right: 10px;
+            }
+
+        .cover-design-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .design-options {
+            display: flex;
+            gap: 15px;
+        }
+
+        .design-card {
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #eee;
+        }
+
+            .design-card:hover, .design-card.selected {
+                border-color: var(--primary);
+                background-color: rgba(74, 108, 247, 0.1);
+            }
+
+        .design-preview {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .book-mockup {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+
+        .book-3d {
+            display: flex;
+            perspective: 1000px;
+        }
+
+        .book-front {
+            width: 150px;
+            height: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px 0 0 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transform: rotateY(-10deg);
+            transform-style: preserve-3d;
+        }
+
+        .book-spine {
+            width: 15px;
+            height: 200px;
+            background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+            transform: rotateY(80deg) translateX(-8px);
+        }
+
+        .order-summary {
+            margin-bottom: 25px;
+        }
+
+            .order-summary h3 {
+                margin-bottom: 15px;
+                color: var(--dark);
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+            }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .summary-divider {
+            height: 1px;
+            background: #eee;
+            margin: 15px 0;
+        }
+
+        .summary-total {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--dark);
+        }
+
+        .shipping-address {
+            margin-top: 25px;
+        }
+
+            .shipping-address h4 {
+                margin-bottom: 10px;
+                color: var(--dark);
+            }
+
+            .shipping-address textarea {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+                min-height: 120px;
+                resize: vertical;
+            }
+
+                .shipping-address textarea:focus {
+                    border-color: var(--primary);
+                    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+                    outline: none;
+                }
+
+        .order-btn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            margin-top: 20px;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+            .toast.show {
+                transform: translateX(0);
+            }
+
+            .toast.success {
+                border-left: 4px solid var(--success);
+            }
+
+            .toast.error {
+                border-left: 4px solid var(--danger);
+            }
+
+            .toast.warning {
+                border-left: 4px solid var(--warning);
+            }
+
+        .toast-icon {
+            font-size: 24px;
+        }
+
+        .toast.success .toast-icon {
+            color: var(--success);
+        }
+
+        .toast.error .toast-icon {
+            color: var(--danger);
+        }
+
+        .toast.warning .toast-icon {
+            color: var(--warning);
+        }
+
+        /* Success Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+            .modal.show {
+                display: flex;
+            }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, var(--success) 0%, #0f5132 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .modal-header h3 {
+                font-size: 1.3rem;
+            }
+
+        .close {
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .modal-icon {
+            font-size: 4rem;
+            color: var(--success);
+            margin-bottom: 15px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        /* Responsive Styles */
+          @@media (max-width: 1200px) {
+            .order-content
+
+        {
+            grid-template-columns: 1fr;
+        }
+
+        }
+
+          @@media (max-width: 768px) {
+            .top-header
+
+        {
+            margin-top: 20px;
+            flex-direction: column;
+            text-align: center;
+            gap: 20px;
+        }
+
+        .header-right {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .size-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .design-options {
+            flex-direction: column;
+        }
+
+        .book-3d {
+            transform: scale(0.9);
+        }
+
+        }
+
+          @@media (max-width: 576px) {
+            .main-content
+
+        {
+            padding: 15px;
+        }
+
+        .order-options, .order-preview {
+            padding: 15px;
+        }
+
+        .header-right {
+            flex-direction: row;
+            width: 100%;
+        }
+
+            .header-right button {
+                width: 49%;
+                justify-content: center;
+            }
+
+        #publishEbookBtn {
+            font-size: 14px;
+        }
+
+        button#themeToggle {
+            border-radius: 50%;
+            width: 54px;
+        }
+
+        .top-header {
+            margin-top: 10px;
+        }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-left p {
+            font-size: 1rem;
+        }
+
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container" id="dashboardContainer">
+        <main class="main-content">
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>Order Author Copy</h1>
+                    <p>Order Author Book Easily</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn-secondary" id="publishEbookBtn"><i class="fas fa-upload"></i> Publish Your E-Book Now!</button>
+                    <button class="btn-primary" id="previewBtn"><i class="fas fa-eye"></i> Preview</button>
+                    <button class="theme-toggle" id="themeToggle">🌙</button>
+                </div>
+            </header>
+
+            <div class="order-content">
+                <div class="order-options">
+                    <div class="format-selection">
+                        <h3>Paperback Size</h3>
+                        <div class="size-grid">
+                            <div class="size-option" data-type="paperback" data-size="5" data-price="8.99">
+                                <div class="size-display">5"</div>
+                                <span>Pocket Book</span>
+                                <span>5.0" x 8.0"</span>
+                                <div class="price">$8.99</div>
+                            </div>
+                            <div class="size-option" data-type="paperback" data-size="5.5" data-price="9.99">
+                                <div class="size-display">5.5"</div>
+                                <span>Digest</span>
+                                <span>5.5" x 8.5"</span>
+                                <div class="price">$9.99</div>
+                            </div>
+                            <div class="size-option selected" data-type="paperback" data-size="6" data-price="10.99">
+                                <div class="size-display">6"</div>
+                                <span>US Trade</span>
+                                <span>6.0" x 9.0"</span>
+                                <div class="price">$10.99</div>
+                            </div>
+                            <div class="size-option" data-type="paperback" data-size="6.14" data-price="11.99">
+                                <div class="size-display">6.14"</div>
+                                <span>A5</span>
+                                <span>6.14" x 9.21"</span>
+                                <div class="price">$11.99</div>
+                            </div>
+                        </div>
+
+                        <h3>Hardback Size</h3>
+                        <div class="size-grid">
+                            <div class="size-option" data-type="hardback" data-size="6" data-price="18.99">
+                                <div class="size-display">6"</div>
+                                <span>Standard</span>
+                                <span>6.0" x 9.0"</span>
+                                <div class="price">$18.99</div>
+                            </div>
+                            <div class="size-option" data-type="hardback" data-size="7" data-price="19.99">
+                                <div class="size-display">7"</div>
+                                <span>Royal</span>
+                                <span>7.0" x 10.0"</span>
+                                <div class="price">$19.99</div>
+                            </div>
+                            <div class="size-option" data-type="hardback" data-size="8" data-price="22.99">
+                                <div class="size-display">8"</div>
+                                <span>Crown Quarto</span>
+                                <span>8.0" x 10.0"</span>
+                                <div class="price">$22.99</div>
+                            </div>
+                            <div class="size-option" data-type="hardback" data-size="8.5" data-price="24.99">
+                                <div class="size-display">8.5"</div>
+                                <span>US Letter</span>
+                                <span>8.5" x 11.0"</span>
+                                <div class="price">$24.99</div>
+                            </div>
+                        </div>
+
+                        <div class="quantity-selection">
+                            <label><i class="fas fa-box"></i> Quantity Selection</label>
+                            <input type="number" value="1" min="1" max="100" id="quantity">
+                        </div>
+
+                        <div class="shipping-options">
+                            <h3>Shipping Options</h3>
+                            <div class="radio-group">
+                                <input type="radio" id="standard" name="shipping" value="standard" data-price="0" checked>
+                                <label for="standard"><i class="fas fa-truck"></i> Standard Shipping (5-7 business days) - Free</label>
+                            </div>
+                            <div class="radio-group">
+                                <input type="radio" id="express" name="shipping" value="express" data-price="9.99">
+                                <label for="express"><i class="fas fa-shipping-fast"></i> Express Shipping (2-3 business days) - $9.99</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="cover-design-section">
+                        <h3>Book Cover Design</h3>
+                        <div class="design-options">
+                            <div class="design-card selected" data-design="current">
+                                <div class="design-preview">📖</div>
+                                <span>Current Design</span>
+                            </div>
+                            <div class="design-card" data-design="alternative">
+                                <div class="design-preview">🎨</div>
+                                <span>Alternative Design</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-preview">
+                    <div class="book-mockup">
+                        <div class="book-3d">
+                            <div class="book-front">
+                                <h3>Book Cover</h3>
+                                <p>by Author Name</p>
+                            </div>
+                            <div class="book-spine"></div>
+                        </div>
+                    </div>
+
+                    <div class="order-summary">
+                        <h3>Order Summary</h3>
+                        <div class="summary-item">
+                            <span>Paperback (6" US Trade)</span>
+                            <span>$10.99</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>Quantity: <span id="summaryQuantity">1</span></span>
+                            <span id="subtotal">$10.99</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>Shipping</span>
+                            <span id="shippingCost">Free</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-total">
+                            <span>Total</span>
+                            <span id="totalCost">$10.99</span>
+                        </div>
+
+                        <div class="shipping-address">
+                            <h4><i class="fas fa-map-marker-alt"></i> Shipping Address</h4>
+                            <textarea id="address" placeholder="Enter your complete shipping address including:&#10;&#10;Full Name&#10;Street Address&#10;City, State, ZIP Code&#10;Country&#10;Phone Number (optional)"></textarea>
+                        </div>
+
+                        <button class="btn-primary order-btn" id="orderBtn"><i class="fas fa-shopping-cart"></i> Order Your Author Book</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-check-circle"></i> Order Successful!</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h3>Your Order Has Been Placed!</h3>
+                <p>Your author copies will be shipped to your address within 3-5 business days.</p>
+                <p>Order ID: <strong>#AUTH-2023-7892</strong></p>
+                <p>Expected Delivery: <strong id="deliveryDate"></strong></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="continueShopping">Continue Shopping</button>
+                <button class="btn-primary" id="viewOrderDetails">View Order Details</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Operation completed successfully!</span>
+    </div>
+
+    <script>
+        // DOM Elements
+        const themeToggle = document.getElementById('themeToggle');
+        const publishEbookBtn = document.getElementById('publishEbookBtn');
+        const previewBtn = document.getElementById('previewBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const orderBtn = document.getElementById('orderBtn');
+        const quantityInput = document.getElementById('quantity');
+        const addressTextarea = document.getElementById('address');
+        const successModal = document.getElementById('successModal');
+        const closeButtons = document.querySelectorAll('.close');
+        const toast = document.getElementById('toast');
+        const deliveryDate = document.getElementById('deliveryDate');
+
+        // Summary Elements
+        const summaryQuantity = document.getElementById('summaryQuantity');
+        const subtotal = document.getElementById('subtotal');
+        const shippingCost = document.getElementById('shippingCost');
+        const totalCost = document.getElementById('totalCost');
+
+        // Current state
+        let selectedBook = {
+            type: 'paperback',
+            size: '6',
+            price: 10.99
+        };
+        let selectedShipping = {
+            type: 'standard',
+            price: 0
+        };
+        let selectedDesign = 'current';
+        let quantity = 1;
+
+        // Theme Toggle
+        let isDarkMode = false;
+        themeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode');
+            themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+
+            if (isDarkMode) {
+                document.body.style.backgroundColor = '#1a1a1a';
+                document.body.style.color = '#f0f0f0';
+
+                document.querySelectorAll('.order-options, .order-preview').forEach(el => {
+                    el.style.backgroundColor = '#2d2d2d';
+                    el.style.color = '#f0f0f0';
+                });
+
+                document.querySelectorAll('h1, h2, h3, h4').forEach(el => {
+                    el.style.color = '#f0f0f0';
+                });
+
+                document.querySelectorAll('.book-front').forEach(el => {
+                    el.style.background = 'linear-gradient(135deg, #4a5568 0%, #2d3748 100%)';
+                });
+            } else {
+                document.body.style.backgroundColor = '#f5f7f9';
+                document.body.style.color = '#333';
+
+                document.querySelectorAll('.order-options, .order-preview').forEach(el => {
+                    el.style.backgroundColor = 'white';
+                    el.style.color = '#333';
+                });
+
+                document.querySelectorAll('h1, h2, h3, h4').forEach(el => {
+                    el.style.color = '#212529';
+                });
+
+                document.querySelectorAll('.book-front').forEach(el => {
+                    el.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                });
+            }
+        });
+
+        // Publish Ebook Button
+        publishEbookBtn.addEventListener('click', () => {
+            showToast('Redirecting to publishing page...', 'success');
+            // In a real app: window.location.href = 'publishing.html';
+        });
+
+        // Preview Button
+        previewBtn.addEventListener('click', () => {
+            updateOrderSummary();
+            showToast('Order preview updated', 'success');
+        });
+
+        // Size Options
+        document.querySelectorAll('.size-option').forEach(option => {
+            option.addEventListener('click', () => {
+                // Remove selected class from all options of the same type
+                document.querySelectorAll(`.size-option[data-type="${option.dataset.type}"]`).forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+
+                // Add selected class to clicked option
+                option.classList.add('selected');
+
+                // Update selected book
+                selectedBook = {
+                    type: option.dataset.type,
+                    size: option.dataset.size,
+                    price: parseFloat(option.dataset.price)
+                };
+
+                // Update order summary
+                updateOrderSummary();
+
+                showToast(`${option.dataset.type.charAt(0).toUpperCase() + option.dataset.type.slice(1)} ${option.dataset.size}" selected`, 'success');
+            });
+        });
+
+        // Design Options
+        document.querySelectorAll('.design-card').forEach(card => {
+            card.addEventListener('click', () => {
+                // Remove selected class from all options
+                document.querySelectorAll('.design-card').forEach(c => {
+                    c.classList.remove('selected');
+                });
+
+                // Add selected class to clicked card
+                card.classList.add('selected');
+
+                // Update selected design
+                selectedDesign = card.dataset.design;
+
+                showToast(`"${card.querySelector('span').textContent}" design selected`, 'success');
+            });
+        });
+
+        // Shipping Options
+        document.querySelectorAll('input[name="shipping"]').forEach(option => {
+            option.addEventListener('change', () => {
+                selectedShipping = {
+                    type: option.value,
+                    price: parseFloat(option.dataset.price)
+                };
+
+                updateOrderSummary();
+
+                showToast(`${option.value.charAt(0).toUpperCase() + option.value.slice(1)} shipping selected`, 'success');
+            });
+        });
+
+        // Quantity Input
+        quantityInput.addEventListener('change', () => {
+            quantity = parseInt(quantityInput.value);
+            if (quantity < 1) quantity = 1;
+            if (quantity > 100) quantity = 100;
+            quantityInput.value = quantity;
+
+            updateOrderSummary();
+        });
+
+        // Update order summary
+        function updateOrderSummary() {
+            const bookPrice = selectedBook.price;
+            const shippingPrice = selectedShipping.price;
+            const total = (bookPrice * quantity) + shippingPrice;
+
+            summaryQuantity.textContent = quantity;
+            subtotal.textContent = `$${(bookPrice * quantity).toFixed(2)}`;
+            shippingCost.textContent = shippingPrice === 0 ? 'Free' : `$${shippingPrice.toFixed(2)}`;
+            totalCost.textContent = `$${total.toFixed(2)}`;
+        }
+
+        // Order Button
+        orderBtn.addEventListener('click', () => {
+            if (!addressTextarea.value.trim()) {
+                showToast('Please enter your shipping address', 'error');
+                addressTextarea.focus();
+                return;
+            }
+
+            // Calculate delivery date (3-5 business days from now)
+            const delivery = new Date();
+            let daysToAdd = selectedShipping.type === 'express' ? 3 : 5;
+
+            // Add business days (skip weekends)
+            while (daysToAdd > 0) {
+                delivery.setDate(delivery.getDate() + 1);
+                if (delivery.getDay() !== 0 && delivery.getDay() !== 6) {
+                    daysToAdd--;
+                }
+            }
+
+            // Format delivery date
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            deliveryDate.textContent = delivery.toLocaleDateString('en-US', options);
+
+            // Show success modal
+            successModal.classList.add('show');
+
+            showToast('Order placed successfully!', 'success');
+        });
+
+        // Close modals
+        closeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                successModal.classList.remove('show');
+            });
+        });
+
+        // Close modals when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === successModal) {
+                successModal.classList.remove('show');
+            }
+        });
+
+        // Modal buttons
+        document.getElementById('continueShopping').addEventListener('click', () => {
+            successModal.classList.remove('show');
+        });
+
+        document.getElementById('viewOrderDetails').addEventListener('click', () => {
+            successModal.classList.remove('show');
+            showToast('Redirecting to order details...', 'success');
+        });
+
+        // Toast Notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.className = `toast ${type}`;
+            toast.querySelector('.toast-message').textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Initialize page
+        window.addEventListener('DOMContentLoaded', function() {
+            // Initial summary update
+            updateOrderSummary();
+        });
+    </script>
+</body>
+</html>

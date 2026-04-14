@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Royalties - eBook Publisher</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #4a6cf7;
+            --secondary: #6c757d;
+            --success: #198754;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --content-bg: #f5f7f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            background-color: var(--content-bg);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+            body.dark-mode {
+                --content-bg: #121826;
+                --card-bg: #1a243a;
+                --text-color: #e0e0e0;
+                --border-color: #2a2a2a;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                --secondary: #8b9bb4;
+            }
+
+        /* Main Content Styles */
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            width: 93%;
+            max-width: none;
+            margin-left: 115px;
+        }
+
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .header-left h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-color);
+            transition: color 0.3s ease;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Button Styles */
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 6px rgba(76, 175, 80, 0.2);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(76, 175, 80, 0.3);
+            }
+
+            .btn-primary:active {
+                transform: translateY(0);
+                box-shadow: 0 2px 4px rgba(76, 175, 80, 0.2);
+            }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+        }
+
+            .btn-secondary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+            }
+
+            .btn-secondary:active {
+                transform: translateY(0);
+                box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+            }
+
+        .theme-toggle {
+            background: var(--dark);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+            .theme-toggle:hover {
+                background: var(--primary);
+                transform: scale(1.05);
+            }
+
+        /* Royalties-specific styles */
+        .royalties-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .earnings-overview, .payment-history, .royalty-breakdown, .tax-information {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+            .earnings-overview:hover, .payment-history:hover, .royalty-breakdown:hover, .tax-information:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            }
+
+            .earnings-overview h3, .payment-history h3, .royalty-breakdown h3, .tax-information h3 {
+                margin-bottom: 15px;
+                color: var(--text-color);
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 10px;
+                transition: all 0.3s ease;
+            }
+
+        .earnings-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .earnings-card {
+            background: var(--content-bg);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+
+            .earnings-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            }
+
+            .earnings-card h4 {
+                font-size: 0.9rem;
+                color: var(--secondary);
+                margin-bottom: 10px;
+            }
+
+            .earnings-card .amount {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: var(--text-color);
+            }
+
+            .earnings-card .change {
+                font-size: 0.85rem;
+                margin-top: 5px;
+            }
+
+        .change.positive {
+            color: var(--success);
+        }
+
+        .chart-container {
+            height: 200px;
+            position: relative;
+            margin-top: 20px;
+        }
+
+        .chart-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(74, 108, 247, 0.1) 0%, rgba(201, 224, 255, 0.2) 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-weight: 600;
+            border: 1px dashed var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        body.dark-mode .chart-placeholder {
+            background: linear-gradient(135deg, rgba(74, 108, 247, 0.2) 0%, rgba(201, 224, 255, 0.1) 100%);
+        }
+
+        .platform-earnings {
+            margin-top: 20px;
+        }
+
+        .platform-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            transition: background-color 0.3s ease;
+        }
+
+            .platform-item:hover {
+                background-color: var(--content-bg);
+            }
+
+        .platform-info {
+            flex: 1;
+        }
+
+        .platform-name {
+            font-weight: 500;
+            margin-bottom: 5px;
+            color: var(--text-color);
+        }
+
+        .platform-bar {
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .bar-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+            transition: width 0.5s ease-in-out;
+        }
+
+        .platform-percentage {
+            font-size: 0.9rem;
+            color: var(--secondary);
+        }
+
+        .platform-amount {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-left: 15px;
+        }
+
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+            .payment-table th, .payment-table td {
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid var(--border-color);
+                transition: all 0.3s ease;
+            }
+
+            .payment-table th {
+                font-weight: 600;
+                color: var(--secondary);
+            }
+
+        .status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+            .status.paid {
+                background: rgba(25, 135, 84, 0.1);
+                color: var(--success);
+            }
+
+            .status.pending {
+                background: rgba(255, 193, 7, 0.1);
+                color: var(--warning);
+            }
+
+            .status.processing {
+                background: rgba(13, 202, 240, 0.1);
+                color: var(--info);
+            }
+
+        .tax-summary {
+            margin-top: 20px;
+        }
+
+        .tax-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+            .tax-item:last-child {
+                border-bottom: none;
+            }
+
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            background-color: var(--content-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-color);
+        }
+
+            .btn-small:hover {
+                background-color: var(--primary);
+                color: white;
+                border-color: var(--primary);
+            }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg);
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.3s;
+            z-index: 1000;
+            color: var(--text-color);
+            border-left: 4px solid var(--success);
+        }
+
+            .toast.show {
+                transform: translateX(0);
+            }
+
+            .toast.success {
+                border-left-color: var(--success);
+            }
+
+            .toast.error {
+                border-left-color: var(--danger);
+            }
+
+            .toast.warning {
+                border-left-color: var(--warning);
+            }
+
+        .toast-icon {
+            font-size: 24px;
+        }
+
+        .toast.success .toast-icon {
+            color: var(--success);
+        }
+
+        .toast.error .toast-icon {
+            color: var(--danger);
+        }
+
+        .toast.warning .toast-icon {
+            color: var(--warning);
+        }
+
+        /* Responsive Styles */
+         @@media (max-width: 1200px) {
+            .royalties-content
+
+        {
+            grid-template-columns: 1fr;
+        }
+
+        }
+
+         @@media (max-width: 992px) {
+            .top-header
+
+        {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        .header-right {
+            width: 100%;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        }
+
+         @@media (max-width: 768px) {
+            .top-header
+
+        {
+            flex-direction: column;
+            text-align: center;
+            gap: 20px;
+        }
+
+        .header-right {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .earnings-cards {
+            grid-template-columns: 1fr;
+        }
+
+        .platform-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .platform-amount {
+            margin-left: 0;
+            margin-top: 10px;
+        }
+
+        .payment-table {
+            display: block;
+            overflow-x: auto;
+        }
+
+        .tax-item {
+            flex-direction: column;
+            gap: 5px;
+        }
+
+            .tax-item button {
+                width: 100%;
+                justify-content: center;
+            }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+        }
+
+        }
+
+         @@media (max-width: 576px) {
+            .main-content
+
+        {
+            padding: 15px;
+        }
+
+        .earnings-overview, .payment-history, .royalty-breakdown, .tax-information {
+            padding: 15px;
+        }
+
+        .header-right {
+            flex-direction: row;
+            width: 100%;
+            gap: 10px;
+        }
+
+        .theme-toggle {
+            width: 100%;
+        }
+
+        .header-right button {
+            width: 35%;
+            justify-content: center;
+        }
+
+        }
+
+        .header-left p {
+            font-size: 1.2rem;
+            color: var(--secondary);
+        }
+
+        /* Dark mode specific improvements */
+        body.dark-mode .btn-secondary {
+            background: #5a6268;
+        }
+
+        body.dark-mode .btn-small {
+            background-color: #2a2a2a;
+            border-color: #3a3a3a;
+        }
+
+        body.dark-mode .earnings-card {
+            background: #1e2a4a;
+        }
+
+        body.dark-mode .payment-table {
+            color: var(--text-color);
+        }
+
+            body.dark-mode .payment-table th {
+                color: #8b9bb4;
+            }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <h1>Royalties & Earnings</h1>
+                <p>All your Earnings</p>
+            </div>
+            <div class="header-right">
+                <button class="btn-secondary" id="downloadReportBtn"><i class="fas fa-download"></i> Download Report</button>
+                <button class="btn-primary" id="requestPaymentBtn"><i class="fas fa-money-check"></i> Request Payment</button>
+                <button class="theme-toggle" id="themeToggle">🌙</button>
+            </div>
+        </header>
+
+        <div class="royalties-content">
+            <div class="earnings-overview">
+                <h3>Earnings Overview</h3>
+                <div class="earnings-cards">
+                    <div class="earnings-card">
+                        <h4>Total Earnings</h4>
+                        <div class="amount">$2,847.50</div>
+                        <div class="change positive">+12.5% this month</div>
+                    </div>
+
+                    <div class="earnings-card">
+                        <h4>Pending Payment</h4>
+                        <div class="amount">$456.20</div>
+                        <div class="change">Next payout: Jan 15</div>
+                    </div>
+
+                    <div class="earnings-card">
+                        <h4>Books Sold</h4>
+                        <div class="amount">1,234</div>
+                        <div class="change positive">+89 this month</div>
+                    </div>
+
+                    <div class="earnings-card">
+                        <h4>Average Royalty</h4>
+                        <div class="amount">$2.31</div>
+                        <div class="change">per book</div>
+                    </div>
+                </div>
+
+                <h4>Earnings Over Time</h4>
+                <div class="chart-container">
+                    <div class="chart-placeholder">
+                        <i class="fas fa-chart-line"></i> Earnings Chart
+                    </div>
+                </div>
+            </div>
+
+            <div class="royalty-breakdown">
+                <h3>Royalty Breakdown by Platform</h3>
+                <div class="platform-earnings">
+                    <div class="platform-item">
+                        <div class="platform-info">
+                            <div class="platform-name">Amazon KDP</div>
+                            <div class="platform-bar">
+                                <div class="bar-fill" style="width: 65%"></div>
+                            </div>
+                            <div class="platform-percentage">65%</div>
+                        </div>
+                        <div class="platform-amount">$1,850.88</div>
+                    </div>
+
+                    <div class="platform-item">
+                        <div class="platform-info">
+                            <div class="platform-name">Apple Books</div>
+                            <div class="platform-bar">
+                                <div class="bar-fill" style="width: 20%"></div>
+                            </div>
+                            <div class="platform-percentage">20%</div>
+                        </div>
+                        <div class="platform-amount">$569.50</div>
+                    </div>
+
+                    <div class="platform-item">
+                        <div class="platform-info">
+                            <div class="platform-name">Google Play</div>
+                            <div class="platform-bar">
+                                <div class="bar-fill" style="width: 10%"></div>
+                            </div>
+                            <div class="platform-percentage">10%</div>
+                        </div>
+                        <div class="platform-amount">$284.75</div>
+                    </div>
+
+                    <div class="platform-item">
+                        <div class="platform-info">
+                            <div class="platform-name">Barnes & Noble</div>
+                            <div class="platform-bar">
+                                <div class="bar-fill" style="width: 5%"></div>
+                            </div>
+                            <div class="platform-percentage">5%</div>
+                        </div>
+                        <div class="platform-amount">$142.37</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-history">
+                <h3>Payment History</h3>
+                <table class="payment-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Platform</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Dec 15, 2024</td>
+                            <td>Amazon KDP</td>
+                            <td>$234.50</td>
+                            <td><span class="status paid">Paid</span></td>
+                        </tr>
+                        <tr>
+                            <td>Nov 15, 2024</td>
+                            <td>Apple Books</td>
+                            <td>$89.20</td>
+                            <td><span class="status paid">Paid</span></td>
+                        </tr>
+                        <tr>
+                            <td>Jan 15, 2025</td>
+                            <td>All Platforms</td>
+                            <td>$456.20</td>
+                            <td><span class="status pending">Pending</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="tax-information">
+                <h3>Tax Information</h3>
+                <div class="tax-summary">
+                    <div class="tax-item">
+                        <span>Total Taxable Income (2024)</span>
+                        <span>$2,847.50</span>
+                    </div>
+                    <div class="tax-item">
+                        <span>Tax Withheld</span>
+                        <span>$284.75</span>
+                    </div>
+                    <div class="tax-item">
+                        <span>Tax Documents</span>
+                        <button class="btn-secondary btn-small" id="downloadTaxBtn">Download 1099</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Operation completed successfully!</span>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM Elements
+            const themeToggle = document.getElementById('themeToggle');
+            const downloadReportBtn = document.getElementById('downloadReportBtn');
+            const requestPaymentBtn = document.getElementById('requestPaymentBtn');
+            const downloadTaxBtn = document.getElementById('downloadTaxBtn');
+            const toast = document.getElementById('toast');
+
+            // Dark Mode State - Check localStorage first
+            let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+            // Also check system preference
+            if (!localStorage.getItem('darkMode') && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                isDarkMode = true;
+            }
+
+            // Apply theme on load
+            function applyTheme() {
+                if (isDarkMode) {
+                    document.body.classList.add('dark-mode');
+                    themeToggle.textContent = '☀️';
+                    themeToggle.title = 'Switch to Light Mode';
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    themeToggle.textContent = '🌙';
+                    themeToggle.title = 'Switch to Dark Mode';
+                }
+            }
+
+            applyTheme();
+
+            // Theme Toggle
+            themeToggle.addEventListener('click', () => {
+                isDarkMode = !isDarkMode;
+                applyTheme();
+
+                // Save preference to localStorage
+                localStorage.setItem('darkMode', isDarkMode);
+
+                // Show toast notification
+                showToast(`Switched to ${isDarkMode ? 'Dark' : 'Light'} Mode`, 'success');
+            });
+
+            // Download Report Button
+            downloadReportBtn.addEventListener('click', function() {
+                // Show loading state
+                const originalText = downloadReportBtn.innerHTML;
+                downloadReportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+                downloadReportBtn.disabled = true;
+
+                setTimeout(() => {
+                    showToast('Earnings report downloaded successfully!', 'success');
+
+                    // Restore button state
+                    downloadReportBtn.innerHTML = originalText;
+                    downloadReportBtn.disabled = false;
+                }, 2000);
+            });
+
+            // Request Payment Button
+            requestPaymentBtn.addEventListener('click', function() {
+                const pendingAmount = document.querySelector('.earnings-card:nth-child(2) .amount').textContent;
+
+                // Show loading state
+                const originalText = requestPaymentBtn.innerHTML;
+                requestPaymentBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                requestPaymentBtn.disabled = true;
+
+                setTimeout(() => {
+                    showToast(`Payment request submitted for ${pendingAmount}!`, 'success');
+
+                    // Update status
+                    const pendingStatus = document.querySelector('.status.pending');
+                    if (pendingStatus) {
+                        pendingStatus.textContent = 'Processing';
+                        pendingStatus.className = 'status processing';
+
+                        // Update pending amount to $0
+                        document.querySelector('.earnings-card:nth-child(2) .amount').textContent = '$0.00';
+                        document.querySelector('.earnings-card:nth-child(2) .change').textContent = 'Payment requested';
+                    }
+
+                    // Restore button state
+                    requestPaymentBtn.innerHTML = originalText;
+                    requestPaymentBtn.disabled = false;
+                }, 2000);
+            });
+
+            // Download Tax Button
+            downloadTaxBtn.addEventListener('click', function() {
+                // Show loading state
+                const originalText = downloadTaxBtn.innerHTML;
+                downloadTaxBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Downloading...';
+                downloadTaxBtn.disabled = true;
+
+                setTimeout(() => {
+                    showToast('Tax document downloaded successfully!', 'success');
+
+                    // Restore button state
+                    downloadTaxBtn.innerHTML = originalText;
+                    downloadTaxBtn.disabled = false;
+                }, 1500);
+            });
+
+            // Toast function
+            function showToast(message, type = 'success') {
+                toast.className = `toast ${type}`;
+                toast.querySelector('.toast-message').textContent = message;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            }
+
+            // Animate platform bars on load
+            setTimeout(() => {
+                const barFills = document.querySelectorAll('.bar-fill');
+                barFills.forEach(bar => {
+                    const width = bar.style.width;
+                    bar.style.width = '0';
+                    setTimeout(() => {
+                        bar.style.width = width;
+                    }, 300);
+                });
+            }, 500);
+
+            // Listen for system theme changes
+            if (window.matchMedia) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+                    if (!localStorage.getItem('darkMode')) {
+                        isDarkMode = e.matches;
+                        applyTheme();
+                    }
+                });
+            }
+
+            // Initialize page
+            setTimeout(() => {
+                showToast('Royalties dashboard loaded successfully!', 'success');
+            }, 1000);
+
+            // Debug function to check dark mode status
+            console.log('Dark mode is currently:', isDarkMode ? 'ON' : 'OFF');
+            console.log('Stored preference:', localStorage.getItem('darkMode'));
+        });
+    </script>
+</body>
+</html>

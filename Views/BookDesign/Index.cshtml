@@ -1,0 +1,118 @@
+﻿@model EBookDashboard.Models.ViewModels.BookDesignVM
+@{
+    ViewData["Title"] = "Select Book Design";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css" />
+<style>
+    .book-card {
+        text-align: center;
+        padding: 10px;
+        cursor: pointer;
+        position: relative;
+    }
+
+    .img-wrapper {
+        overflow: hidden;
+        height: 260px;
+    }
+
+        .img-wrapper img {
+            transition: transform 0.4s ease;
+            width: 100%;
+        }
+
+    .book-card:hover img {
+        transform: scale(1.15);
+    }
+
+    .book-card.disabled {
+        opacity: 0.4;
+        pointer-events: none;
+    }
+
+    .overlay {
+        position: absolute;
+        top: 40%;
+        left: 0;
+        right: 0;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 10px;
+    }
+   
+</style>
+
+
+<div class="swiper mySwiper">
+    <div class="swiper-wrapper">
+
+        @foreach (var d in Model.Designs)
+        {
+            bool disabled = Model.TotalPages < d.MinPages;
+
+            <div class="swiper-slide">
+                <div class="book-card @(disabled ? "disabled" : "")"
+                     onclick="selectDesign(@d.DesignId, @disabled.ToString().ToLower())">
+
+                    <div class="img-wrapper">
+                        <img src="@d.ImagePath" />
+                    </div>
+
+                    <h6>@d.DesignName</h6>
+                    <p>@d.SizeName (@d.Orientation)</p>
+
+                    <small>
+                        @d.WidthMM mm × @d.HeightMM mm<br />
+                        @(Math.Round(d.WidthMM / 25.4M, 2)) in ×
+                        @(Math.Round(d.HeightMM / 25.4M, 2)) in
+                    </small>
+
+                    @if (disabled)
+                    {
+                        <div class="overlay">Requires @d.MinPages+ pages</div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<button id="nextBtn" class="btn btn-primary mt-3" disabled>
+    Continue Formatting
+</button>
+
+<script src="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.js"></script>
+<script>
+    let selectedDesign = 0;
+
+    function selectDesign(designId, disabled) {
+        if (disabled) return;
+
+        selectedDesign = designId;
+        document.getElementById("nextBtn").disabled = false;
+    }
+
+    document.getElementById("nextBtn").addEventListener("click", function () {
+        fetch('/BookDesign/SaveSelection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `bookId=@Model.BookId&designId=${selectedDesign}`
+        })
+        .then(res => res.json())
+        .then(r => {
+            if (r.success) {
+                window.location.href = '/Book/Format?bookId=@Model.BookId';
+            }
+        });
+    });
+
+    new Swiper(".mySwiper", {
+        slidesPerView: 1.2,
+        spaceBetween: 10,
+        breakpoints: {
+            768: { slidesPerView: 3 }
+        }
+    });
+</script>
+

@@ -1,0 +1,841 @@
+﻿
+@{
+    ViewData["Title"] = "Write Now - Author Studio";
+    Layout = "~/Views/Shared/_AuthorLayout.cshtml";
+
+}
+
+<!-- Writing Interface Styles -->
+<style>
+    /* Top Header */
+    .top-header {
+        background: rgba(255, 253, 245, 0.95);
+        backdrop-filter: blur(20px);
+        padding: 20px 30px;
+        border-bottom: 1px solid rgba(210, 180, 140, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 5px 15px rgba(210, 180, 140, 0.1);
+    }
+
+    .document-info h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #5d4037;
+        margin-bottom: 5px;
+    }
+
+    .document-info p {
+        color: #8d6e63;
+        font-size: 0.9rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 15px;
+    }
+
+    /* Toolbar */
+    .toolbar {
+        background: rgba(255, 253, 245, 0.95);
+        backdrop-filter: blur(20px);
+        padding: 15px 30px;
+        border-bottom: 1px solid rgba(210, 180, 140, 0.3);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .tool-group {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 10px;
+        background: rgba(255, 253, 245, 0.7);
+    }
+
+    .tool-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: #8d6e63;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+        .tool-btn:hover {
+            background: rgba(212, 165, 116, 0.1);
+            color: #5d4037;
+        }
+
+        .tool-btn.active {
+            background: rgba(212, 165, 116, 0.2);
+            color: #a67c52;
+        }
+
+    .tool-divider {
+        width: 1px;
+        height: 30px;
+        background: rgba(210, 180, 140, 0.3);
+        margin: 0 10px;
+    }
+
+    /* Editor Area */
+    .editor-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 30px;
+        gap: 30px;
+    }
+
+    .editor-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .editor-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #5d4037;
+        border: none;
+        background: transparent;
+        width: 100%;
+        padding: 10px 0;
+        margin-bottom: 10px;
+    }
+
+        .editor-title:focus {
+            outline: none;
+            border-bottom: 2px solid #d4a574;
+        }
+
+    .editor-meta {
+        display: flex;
+        gap: 20px;
+        color: #8d6e63;
+        font-size: 0.9rem;
+    }
+
+    .editor-area {
+        flex: 1;
+        background: rgba(255, 253, 245, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        padding: 40px;
+        box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+        border: 1px solid rgba(210, 180, 140, 0.3);
+        min-height: 500px;
+    }
+
+    .editor-content {
+        width: 100%;
+        height: 100%;
+        border: none;
+        background: transparent;
+        color: #5d4037;
+        font-size: 1.1rem;
+        line-height: 1.8;
+        resize: none;
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+        min-height: 400px;
+    }
+
+        .editor-content:focus {
+            outline: none;
+        }
+
+    /* AI Assistant */
+    .ai-assistant {
+        background: rgba(255, 253, 245, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+        border: 1px solid rgba(210, 180, 140, 0.3);
+    }
+
+    .ai-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+        .ai-header h3 {
+            font-size: 1.2rem;
+            color: #5d4037;
+        }
+
+    .ai-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #d4a574, #a67c52);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+    }
+
+    .ai-suggestions {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+
+    .ai-suggestion {
+        background: rgba(212, 165, 116, 0.1);
+        border-radius: 10px;
+        padding: 15px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+        .ai-suggestion:hover {
+            background: rgba(212, 165, 116, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .ai-suggestion h4 {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            color: #5d4037;
+        }
+
+        .ai-suggestion p {
+            font-size: 0.8rem;
+            color: #8d6e63;
+        }
+
+    /* Buttons */
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 15px;
+        cursor: pointer;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #d4a574, #a67c52);
+        color: white;
+        box-shadow: 0 8px 25px rgba(212, 165, 116, 0.3);
+    }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(212, 165, 116, 0.4);
+        }
+
+    .btn-secondary {
+        background: rgba(255, 253, 245, 0.9);
+        color: #5d4037;
+        border: 1px solid rgba(210, 180, 140, 0.3);
+    }
+
+        .btn-secondary:hover {
+            background: #fffdf5;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(210, 180, 140, 0.2);
+        }
+
+    /* Writing Stats */
+    .writing-stats {
+        display: flex;
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 15px;
+        background: rgba(255, 253, 245, 0.7);
+        border-radius: 10px;
+        min-width: 100px;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #d4a574;
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+        color: #8d6e63;
+    }
+
+    /* Focus Mode */
+    .focus-mode .author-sidebar,
+    .focus-mode .top-header,
+    .focus-mode .toolbar,
+    .focus-mode .ai-assistant {
+        display: none;
+    }
+
+    .focus-mode .main-content {
+        margin-left: 0;
+    }
+
+    .focus-mode .editor-area {
+        border-radius: 0;
+        box-shadow: none;
+        border: none;
+        padding: 20px;
+    }
+
+    /* Recent Documents */
+    .recent-docs {
+        padding: 20px;
+    }
+
+    .doc-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+        .doc-item:hover {
+            background: rgba(212, 165, 116, 0.1);
+        }
+
+    /* Mobile Responsive */
+    @@media (max-width: 768px) {
+        .top-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .toolbar {
+            padding: 10px 15px;
+        }
+
+        .editor-container {
+            padding: 15px;
+        }
+
+        .editor-area {
+            padding: 20px;
+        }
+
+        .ai-suggestions {
+            grid-template-columns: 1fr;
+        }
+
+        .writing-stats {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .tool-group {
+            padding: 5px;
+        }
+
+        .tool-btn {
+            width: 35px;
+            height: 35px;
+        }
+
+        .editor-title {
+            font-size: 1.5rem;
+        }
+
+        .header-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<!-- Writing Interface Content -->
+<header class="top-header" data-aos="fade-down">
+    <div class="document-info">
+        <h1>Write Now - New Document</h1>
+        <p>Last saved: Just now • Auto-save enabled</p>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-secondary" onclick="toggleFocusMode()">
+            <i class="fas fa-expand"></i>
+            <span>Focus Mode</span>
+        </button>
+        <button class="btn btn-secondary" onclick="shareDocument()">
+            <i class="fas fa-share"></i>
+            <span>Share</span>
+        </button>
+        <button class="btn btn-primary" onclick="saveDocument()">
+            <i class="fas fa-save"></i>
+            <span>Save</span>
+        </button>
+    </div>
+</header>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <div class="tool-group">
+        <button class="tool-btn active" title="Paragraph" onclick="formatText('paragraph')">
+            <i class="fas fa-paragraph"></i>
+        </button>
+        <button class="tool-btn" title="Heading 1" onclick="formatText('h1')">
+            <i class="fas fa-heading"></i>
+        </button>
+        <button class="tool-btn" title="Heading 2" onclick="formatText('h2')">
+            <strong>H2</strong>
+        </button>
+    </div>
+
+    <div class="tool-divider"></div>
+
+    <div class="tool-group">
+        <button class="tool-btn" title="Bold" onclick="formatText('bold')">
+            <i class="fas fa-bold"></i>
+        </button>
+        <button class="tool-btn" title="Italic" onclick="formatText('italic')">
+            <i class="fas fa-italic"></i>
+        </button>
+        <button class="tool-btn" title="Underline" onclick="formatText('underline')">
+            <i class="fas fa-underline"></i>
+        </button>
+    </div>
+
+    <div class="tool-divider"></div>
+
+    <div class="tool-group">
+        <button class="tool-btn" title="Bullet List" onclick="formatText('ul')">
+            <i class="fas fa-list-ul"></i>
+        </button>
+        <button class="tool-btn" title="Numbered List" onclick="formatText('ol')">
+            <i class="fas fa-list-ol"></i>
+        </button>
+        <button class="tool-btn" title="Blockquote" onclick="formatText('blockquote')">
+            <i class="fas fa-quote-right"></i>
+        </button>
+    </div>
+
+    <div class="tool-divider"></div>
+
+    <div class="tool-group">
+        <button class="tool-btn" title="Undo" onclick="undo()">
+            <i class="fas fa-undo"></i>
+        </button>
+        <button class="tool-btn" title="Redo" onclick="redo()">
+            <i class="fas fa-redo"></i>
+        </button>
+    </div>
+
+    <div class="tool-divider"></div>
+
+    <div class="tool-group">
+        <button class="tool-btn" title="Word Count" onclick="showWordCount()">
+            <i class="fas fa-font"></i>
+        </button>
+        <button class="tool-btn" title="Spell Check" onclick="toggleSpellCheck()">
+            <i class="fas fa-spell-check"></i>
+        </button>
+        <button class="tool-btn" title="AI Assistant" onclick="toggleAIAssistant()">
+            <i class="fas fa-robot"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Editor Area -->
+<div class="editor-container">
+    <div class="editor-header">
+        <div style="flex: 1;">
+            <input type="text" class="editor-title" placeholder="Untitled Document" value="The Adventure Begins">
+            <div class="editor-meta">
+                <span><i class="far fa-clock"></i> Started 2 hours ago</span>
+                <span><i class="far fa-edit"></i> <span id="wordCount">1,245</span> words</span>
+                <span><i class="far fa-eye"></i> Reading time: 5 min</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="editor-area">
+        <textarea class="editor-content" placeholder="Start writing your masterpiece..." id="editorContent">The sun dipped below the horizon, casting long shadows across the ancient forest. Elara tightened her grip on the worn leather satchel, her heart pounding in rhythm with the distant drums. She had been traveling for days, following the cryptic map her grandfather had left her.
+
+The path ahead was treacherous, winding through gnarled trees and overgrown thickets. But Elara was determined. She knew what lay at the end of this journey could change everything—not just for her, but for the entire kingdom.
+
+A twig snapped somewhere to her left. She froze, her hand instinctively moving to the hilt of her dagger. The forest had grown unnaturally silent, the usual chorus of birds and insects suddenly absent.
+
+"Who's there?" she called out, her voice barely a whisper against the gathering darkness.
+
+From between the trees emerged a figure cloaked in shadows. "You're heading in the right direction, traveler," a deep voice echoed. "But are you prepared for what you'll find?"
+
+Elara stood her ground, though every fiber of her being screamed to run. "I have to be," she replied, her voice steadier than she felt. "The fate of Eldoria depends on it."</textarea>
+    </div>
+
+    <!-- Writing Stats -->
+    <div class="writing-stats">
+        <div class="stat-item">
+            <div class="stat-value" id="statWords">1,245</div>
+            <div class="stat-label">Words</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="statCharacters">7,890</div>
+            <div class="stat-label">Characters</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">5:12</div>
+            <div class="stat-label">Reading Time</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">78%</div>
+            <div class="stat-label">Readability</div>
+        </div>
+    </div>
+
+    <!-- AI Assistant -->
+    <div class="ai-assistant" id="aiAssistant">
+        <div class="ai-header">
+            <div class="ai-icon">
+                <i class="fas fa-robot"></i>
+            </div>
+            <h3>AI Writing Assistant</h3>
+        </div>
+        <p>Need help with your writing? Try these suggestions:</p>
+        <div class="ai-suggestions">
+            <div class="ai-suggestion" onclick="applySuggestion('improve')">
+                <h4>Improve Writing</h4>
+                <p>Enhance clarity and flow</p>
+            </div>
+            <div class="ai-suggestion" onclick="applySuggestion('expand')">
+                <h4>Expand Section</h4>
+                <p>Add more detail to selected text</p>
+            </div>
+            <div class="ai-suggestion" onclick="applySuggestion('shorten')">
+                <h4>Make Concise</h4>
+                <p>Shorten while keeping meaning</p>
+            </div>
+            <div class="ai-suggestion" onclick="applySuggestion('rephrase')">
+                <h4>Rephrase</h4>
+                <p>Say it in a different way</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Toolbar button interactions
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (!this.classList.contains('active')) {
+                    this.classList.add('active');
+                    // Remove active from other buttons in the same group
+                    const group = this.closest('.tool-group');
+                    group.querySelectorAll('.tool-btn').forEach(otherBtn => {
+                        if (otherBtn !== this) {
+                            otherBtn.classList.remove('active');
+                        }
+                    });
+                }
+            });
+        });
+
+        // Focus mode toggle
+        function toggleFocusMode() {
+            document.body.classList.toggle('focus-mode');
+            const btn = document.querySelector('.btn-secondary');
+            if (document.body.classList.contains('focus-mode')) {
+                btn.innerHTML = '<i class="fas fa-compress"></i><span>Exit Focus</span>';
+                Swal.fire({
+                    title: 'Focus Mode Enabled',
+                    text: 'Minimal distractions for maximum creativity',
+                    icon: 'success',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                });
+            } else {
+                btn.innerHTML = '<i class="fas fa-expand"></i><span>Focus Mode</span>';
+            }
+        }
+
+        // Save document
+        function saveDocument() {
+            Swal.fire({
+                title: 'Document Saved!',
+                text: 'Your work has been safely stored in the cloud.',
+                icon: 'success',
+                timer: 2000,
+                timerProgressBar: true,
+                showConfirmButton: false
+            });
+        }
+
+        // Share document
+        function shareDocument() {
+            Swal.fire({
+                title: 'Share Document',
+                html: `
+                    <div style="text-align: left;">
+                        <p>Share your document with others:</p>
+                        <input type="email" class="swal2-input" placeholder="Enter email address">
+                        <select class="swal2-input">
+                            <option>Can view</option>
+                            <option>Can comment</option>
+                            <option>Can edit</option>
+                        </select>
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Send Invite',
+                confirmButtonColor: '#d4a574',
+                cancelButtonColor: '#d33'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire('Invite Sent!', 'Your document has been shared.', 'success');
+                }
+            });
+        }
+
+        // AI Suggestions
+        function applySuggestion(type) {
+            const suggestions = {
+                improve: 'I can help enhance the clarity and flow of your writing. Would you like me to suggest improvements for the selected text?',
+                expand: 'Let me help you expand this section with more descriptive details and context.',
+                shorten: 'I can make this text more concise while preserving the original meaning.',
+                rephrase: 'I can help rephrase this to make it sound more natural or formal, depending on your needs.'
+            };
+
+            Swal.fire({
+                title: 'AI Assistant',
+                text: suggestions[type],
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#d4a574',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Apply Suggestion',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Suggestion Applied!',
+                        text: 'The AI has enhanced your writing.',
+                        icon: 'success',
+                        timer: 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false
+                    });
+                }
+            });
+        }
+
+        // Text formatting functions
+        function formatText(type) {
+            const editor = document.getElementById('editorContent');
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const selectedText = editor.value.substring(start, end);
+
+            let formattedText = selectedText;
+
+            switch(type) {
+                case 'bold':
+                    formattedText = `**${selectedText}**`;
+                    break;
+                case 'italic':
+                    formattedText = `*${selectedText}*`;
+                    break;
+                case 'underline':
+                    formattedText = `<u>${selectedText}</u>`;
+                    break;
+                case 'h1':
+                    formattedText = `# ${selectedText}`;
+                    break;
+                case 'h2':
+                    formattedText = `## ${selectedText}`;
+                    break;
+                case 'ul':
+                    formattedText = selectedText.split('\n').map(line => `- ${line}`).join('\n');
+                    break;
+                case 'ol':
+                    formattedText = selectedText.split('\n').map((line, index) => `${index + 1}. ${line}`).join('\n');
+                    break;
+                case 'blockquote':
+                    formattedText = `> ${selectedText}`;
+                    break;
+            }
+
+            editor.value = editor.value.substring(0, start) + formattedText + editor.value.substring(end);
+            updateWordCount();
+        }
+
+        // Word count functionality
+        function updateWordCount() {
+            const editor = document.getElementById('editorContent');
+            const text = editor.value;
+            const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+            const charCount = text.length;
+
+            document.getElementById('wordCount').textContent = wordCount.toLocaleString();
+            document.getElementById('statWords').textContent = wordCount.toLocaleString();
+            document.getElementById('statCharacters').textContent = charCount.toLocaleString();
+        }
+
+        // Initialize word count
+        document.getElementById('editorContent').addEventListener('input', updateWordCount);
+        updateWordCount();
+
+        // Auto-save simulation
+        setInterval(() => {
+            const saveIndicator = document.querySelector('.document-info p');
+            if (saveIndicator) {
+                saveIndicator.innerHTML = 'Last saved: Just now • Auto-save enabled';
+            }
+        }, 30000);
+
+        // Undo/Redo functionality (simplified)
+        let history = [document.getElementById('editorContent').value];
+        let historyIndex = 0;
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                document.getElementById('editorContent').value = history[historyIndex];
+                updateWordCount();
+            }
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                document.getElementById('editorContent').value = history[historyIndex];
+                updateWordCount();
+            }
+        }
+
+        // Save to history on input
+        document.getElementById('editorContent').addEventListener('input', function() {
+            if (this.value !== history[historyIndex]) {
+                history = history.slice(0, historyIndex + 1);
+                history.push(this.value);
+                historyIndex++;
+            }
+        });
+
+        // Toggle AI Assistant
+        function toggleAIAssistant() {
+            const assistant = document.getElementById('aiAssistant');
+            assistant.style.display = assistant.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Show word count details
+        function showWordCount() {
+            const editor = document.getElementById('editorContent');
+            const text = editor.value;
+            const wordCount = text.split(/\s+/).filter(word => word.length > 0).length;
+            const charCount = text.length;
+            const charNoSpace = text.replace(/\s/g, '').length;
+            const paragraphCount = text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
+
+            Swal.fire({
+                title: 'Document Statistics',
+                html: `
+                    <div style="text-align: left;">
+                        <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                            <span>Words:</span>
+                            <strong>${wordCount.toLocaleString()}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                            <span>Characters:</span>
+                            <strong>${charCount.toLocaleString()}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                            <span>Characters (no spaces):</span>
+                            <strong>${charNoSpace.toLocaleString()}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                            <span>Paragraphs:</span>
+                            <strong>${paragraphCount}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin: 10px 0;">
+                            <span>Reading Time:</span>
+                            <strong>${Math.ceil(wordCount / 200)} minutes</strong>
+                        </div>
+                    </div>
+                `,
+                confirmButtonColor: '#d4a574'
+            });
+        }
+
+        // Toggle spell check
+        function toggleSpellCheck() {
+            const editor = document.getElementById('editorContent');
+            editor.spellcheck = !editor.spellcheck;
+
+            Swal.fire({
+                title: `Spell Check ${editor.spellcheck ? 'Enabled' : 'Disabled'}`,
+                icon: 'info',
+                timer: 2000,
+                timerProgressBar: true,
+                showConfirmButton: false
+            });
+        }
+
+        // Welcome message for writing interface
+        document.addEventListener('DOMContentLoaded', function() {
+            Swal.fire({
+                title: 'Welcome to Write Now!',
+                text: 'Start creating your next masterpiece with our advanced writing tools.',
+                icon: 'success',
+                timer: 3000,
+                timerProgressBar: true,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                background: 'linear-gradient(135deg, #d4a574, #a67c52)',
+                color: 'white'
+            });
+        });
+    </script>
+}

@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Book - eBook Publisher</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        :root {
+            --primary: #7c3aed;
+            --primary-light: #8b5cf6;
+            --secondary: #6c757d;
+            --success: #198754;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --dark-bg: #0f172a;
+            --dark-card: #1f2937;
+            --premium: #ffd700;
+            --transition-speed: 0.3s;
+            --border-radius: 14px;
+        }
+
+        body {
+            background-color: #f5f7f9;
+            color: #333;
+            line-height: 1.6;
+            overflow-x: hidden;
+            transition: background-color 0.3s, color 0.3s;
+            position: relative;
+        }
+
+            body.dark-mode {
+                background-color: var(--dark-bg);
+                color: #e0e0e0;
+            }
+
+        /* Main Content Styles - Full Width */
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            width: 93%;
+            max-width: none;
+            margin-left: 115px;
+        }
+
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        body.dark-mode .top-header {
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .header-left h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: var(--dark);
+            transition: transform var(--transition-speed);
+        }
+
+        body.dark-mode .header-left h1 {
+            color: #f0f0f0;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Navigation Tabs */
+        .navigation-tabs {
+            display: flex;
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow-x: auto;
+        }
+
+        body.dark-mode .navigation-tabs {
+            background: var(--dark-card);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-tab {
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+            .nav-tab.active {
+                background: var(--primary);
+                color: white;
+            }
+
+            .nav-tab:hover:not(.active) {
+                background: #f5f7f9;
+            }
+
+        body.dark-mode .nav-tab:hover:not(.active) {
+            background: #1e2a4a;
+        }
+
+        /* Button Styles */
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            font-size: 0.95rem;
+        }
+
+            button::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 5px;
+                height: 5px;
+                background: rgba(255, 255, 255, 0.5);
+                opacity: 0;
+                border-radius: 100%;
+                transform: scale(1, 1) translate(-50%);
+                transform-origin: 50% 50%;
+            }
+
+            button:active::after {
+                animation: ripple 1s ease-out;
+            }
+
+        @@keyframes ripple {
+            0% {
+                transform: scale(0, 0);
+                opacity: 0.5;
+            }
+            100% {
+                transform: scale(20, 20);
+                opacity: 0;
+            }
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45);
+                background: var(--primary-light);
+            }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+
+            .btn-secondary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4);
+            }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+            .btn-danger:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+            }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.4);
+        }
+
+            .btn-premium:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 18px rgba(124, 58, 237, 0.5);
+            }
+
+        /* Full-screen lock (premium gate) — purple theme */
+        .audiobook-lock-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: linear-gradient(145deg, rgba(76, 29, 149, 0.94) 0%, rgba(109, 40, 217, 0.92) 40%, rgba(124, 58, 237, 0.9) 100%);
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+        }
+
+        .audiobook-lock-overlay.is-visible {
+            display: flex;
+        }
+
+        .audiobook-lock-card {
+            max-width: 420px;
+            width: 100%;
+            background: #fff;
+            border-radius: var(--border-radius);
+            padding: 28px 26px;
+            text-align: center;
+            box-shadow: 0 24px 50px -12px rgba(49, 46, 129, 0.45);
+            border: 1px solid #ede9fe;
+        }
+
+        .audiobook-lock-card h2 {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.45rem;
+            color: #4c1d95;
+            margin-bottom: 10px;
+        }
+
+        .audiobook-lock-card p {
+            color: #64748b;
+            font-size: 0.95rem;
+            line-height: 1.55;
+            margin-bottom: 22px;
+        }
+
+        .audiobook-lock-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .audiobook-lock-actions .btn-lock-primary {
+            width: 100%;
+            justify-content: center;
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+        }
+
+        .audiobook-lock-actions .btn-lock-secondary {
+            width: 100%;
+            justify-content: center;
+            background: #f5f3ff;
+            color: #5b21b6;
+            border: 1px solid #ddd6fe;
+        }
+
+        .main-content.is-screen-locked {
+            pointer-events: none;
+            user-select: none;
+            filter: blur(5px);
+        }
+
+        .elevenlabs-panel {
+            background: linear-gradient(135deg, #faf5ff 0%, #eff6ff 100%);
+            border: 1px solid #e9d5ff;
+            border-radius: var(--border-radius);
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .elevenlabs-panel h3 { margin: 0 0 0.75rem; font-size: 1rem; color: #5b21b6; display: flex; align-items: center; gap: 0.5rem; }
+        .elevenlabs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+        .elevenlabs-grid label { font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 4px; }
+        .elevenlabs-grid select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .premium-inline-hint { font-size: 0.75rem; color: #64748b; margin-top: 8px; }
+        #audiobookLockOverlay { display: none !important; }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+
+        .theme-toggle {
+            background: var(--dark);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+            .theme-toggle:hover {
+                transform: rotate(30deg);
+            }
+
+        /* Audio Book Content Styles */
+        .audiobook-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            transition: transform var(--transition-speed);
+        }
+
+        .audio-controls, .narration-settings {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 25px;
+            box-shadow: 0 16px 28px -18px rgba(124,58,237,0.45);
+            margin-bottom: 20px;
+            transition: transform var(--transition-speed) ease, box-shadow 0.3s ease;
+            border: 1px solid #ede9fe;
+        }
+
+        body.dark-mode .audio-controls,
+        body.dark-mode .narration-settings {
+            background: var(--dark-card);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .audio-controls:hover, .narration-settings:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 32px -20px rgba(124,58,237,0.55);
+        }
+
+        .audio-controls h3, .narration-settings h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        body.dark-mode .audio-controls h3,
+        body.dark-mode .narration-settings h3 {
+            color: #f0f0f0;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .premium-badge {
+            background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+            color: #5b21b6;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-weight: bold;
+            border: 1px solid #c4b5fd;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 600;
+                color: var(--dark);
+            }
+
+        body.dark-mode .form-group label {
+            color: #f0f0f0;
+        }
+
+        .form-group select, .form-group input[type="range"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            color: #333;
+        }
+
+        body.dark-mode .form-group select,
+        body.dark-mode .form-group input[type="range"] {
+            background: #1e2a4a;
+            border-color: #2a3a5a;
+            color: #e0e0e0;
+        }
+
+        /* Chapter Selector */
+        .chapter-selector {
+            margin-bottom: 20px;
+        }
+
+        /* Playback Controls */
+        .playback-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .speed-btn {
+            padding: 8px 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        body.dark-mode .speed-btn {
+            background-color: #1e2a4a;
+            border-color: #2a3a5a;
+            color: #e0e0e0;
+        }
+
+        .speed-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .speed-btn:hover:not(.active) {
+            background-color: #e9ecef;
+            transform: translateY(-2px);
+        }
+
+        body.dark-mode .speed-btn:hover:not(.active) {
+            background-color: #2a3a5a;
+        }
+
+        /* Audio Waveform */
+        .audio-waveform {
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+        }
+
+        body.dark-mode .audio-waveform {
+            background: #1e2a4a;
+        }
+
+        .waveform-bars {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            height: 100%;
+        }
+
+        .waveform-bar {
+            width: 8px;
+            background: #7c3aed;
+            border-radius: 4px;
+            transition: height 0.3s;
+        }
+
+        /* Audio Player */
+        .audio-player {
+            margin-bottom: 20px;
+        }
+
+        .time-display {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: var(--secondary);
+        }
+
+        body.dark-mode .time-display {
+            color: #b0b0b0;
+        }
+
+        .player-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: white;
+            font-size: 1.2rem;
+        }
+
+            .control-btn:hover {
+                transform: scale(1.1);
+            }
+
+        /* Recording Controls */
+        .recording-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Audio Editing */
+        .audio-editing {
+            margin-bottom: 20px;
+        }
+
+        .trim-waveform {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            color: var(--secondary);
+        }
+
+        body.dark-mode .trim-waveform {
+            background: #1e2a4a;
+            color: #b0b0b0;
+        }
+
+        .audio-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: var(--secondary);
+        }
+
+        body.dark-mode .audio-stats {
+            color: #b0b0b0;
+        }
+
+        /* Audio Files */
+        .audio-files {
+            margin-bottom: 20px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .audio-file {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        body.dark-mode .audio-file {
+            background: #1e2a4a;
+        }
+
+        /* Narration Settings */
+        .ai-voice-generator {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+            .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+            .toggle-slider:before {
+                position: absolute;
+                content: "";
+                height: 26px;
+                width: 26px;
+                left: 4px;
+                bottom: 4px;
+                background-color: white;
+                transition: .4s;
+                border-radius: 50%;
+            }
+
+        input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+
+            input:checked + .toggle-slider:before {
+                transform: translateX(26px);
+            }
+
+        .adjustment-group {
+            margin-bottom: 20px;
+        }
+
+            .adjustment-group label {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                font-weight: 600;
+            }
+
+            .adjustment-group input[type="range"] {
+                width: 100%;
+            }
+
+        .audio-quality {
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+            .checkbox-group input {
+                margin-right: 10px;
+            }
+
+        .background-music {
+            margin-bottom: 20px;
+        }
+
+        .export-options {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+        body.dark-mode .toast {
+            background: var(--dark-card);
+            color: #e0e0e0;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        .toast-icon {
+            font-size: 24px;
+        }
+
+        .toast.success .toast-icon {
+            color: var(--success);
+        }
+
+        .toast.error .toast-icon {
+            color: var(--danger);
+        }
+
+        .toast.warning .toast-icon {
+            color: var(--warning);
+        }
+
+        /* Premium Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1100;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity var(--transition-speed);
+        }
+
+            .modal.show {
+                display: flex;
+                opacity: 1;
+            }
+
+        .modal-content {
+            background-color: white;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 500px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transform: scale(0.9);
+            transition: transform var(--transition-speed);
+        }
+
+        body.dark-mode .modal-content {
+            background-color: var(--dark-card);
+            color: #e0e0e0;
+        }
+
+        .modal.show .modal-content {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+            color: #fff;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+            .modal-header h3 {
+                font-size: 1.3rem;
+                font-weight: bold;
+                margin: 0;
+            }
+
+        .close {
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color 0.3s, transform 0.3s;
+            background: transparent;
+            border: none;
+            color: #fff;
+        }
+
+            .close:hover {
+                color: var(--danger);
+                transform: rotate(90deg);
+            }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .premium-features {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .premium-feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+            .premium-feature i {
+                color: var(--premium);
+                font-size: 1.2rem;
+            }
+
+        .modal-footer {
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        body.dark-mode .modal-footer {
+            border-top: 1px solid #2a2a2a;
+        }
+
+        .btn-fixed-mobile {
+            min-width: 120px;
+        }
+
+        /* Button Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @@keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Improved button focus states */
+        button:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* Responsive Styles */
+         @@media (max-width: 1200px) {
+            .audiobook-content {
+                grid-template-columns: 1.5fr 1fr;
+                gap: 20px;
+            }
+        }
+
+         @@media (max-width: 992px) {
+            .audiobook-content {
+                grid-template-columns: 1fr;
+            }
+
+            .top-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            button {
+                padding: 10px 16px;
+                font-size: 0.9rem;
+            }
+
+            .theme-toggle {
+                width: 40px;
+                height: 40px;
+            }
+        }
+
+         @@media (max-width: 768px) {
+            .top-header {
+                flex-direction: column;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .header-left h1 {
+                font-size: 1.5rem;
+            }
+
+            .header-left p {
+                font-size: 1rem;
+            }
+
+            .audio-controls, .narration-settings {
+                padding: 20px;
+            }
+
+                .audio-controls h3, .narration-settings h3 {
+                    font-size: 1.3rem;
+                }
+
+            .player-controls {
+                gap: 10px;
+            }
+
+            .control-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
+            }
+
+            .recording-controls, .export-options {
+                flex-direction: column;
+            }
+
+                .recording-controls button, .export-options button {
+                    width: 100%;
+                    justify-content: center;
+                }
+        }
+
+         @@media (max-width: 576px) {
+            .main-content {
+                padding: 15px;
+            }
+
+            .header-left h1 {
+                font-size: 1.4rem;
+            }
+
+            .audio-controls, .narration-settings {
+                padding: 15px;
+            }
+
+                .audio-controls h3, .narration-settings h3 {
+                    font-size: 1.2rem;
+                }
+
+            .toast {
+                left: 15px;
+                right: 15px;
+                width: auto;
+                padding: 12px 20px;
+            }
+
+            .modal-content {
+                width: 95%;
+            }
+
+            .modal-header, .modal-body, .modal-footer {
+                padding: 15px;
+            }
+
+            .modal-footer {
+                flex-direction: column;
+            }
+
+            .btn-fixed-mobile {
+                width: 100%;
+            }
+        }
+
+         @@media (max-width: 400px) {
+            .header-right {
+                flex-direction: row;
+                gap: 10px;
+            }
+
+            .header-right button {
+                width: 38%;
+                justify-content: center;
+            }
+
+            .theme-toggle {
+                align-self: center;
+            }
+
+            .audio-controls h3, .narration-settings h3 {
+                font-size: 1.1rem;
+            }
+        }
+
+        .header-left p {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+        }
+
+        body.dark-mode .header-left p {
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div id="audioPremiumBanner" class="elevenlabs-panel" style="display:none;">
+            <strong style="color:#7c3aed;"><i class="fas fa-info-circle"></i> Preview mode</strong>
+            <span class="premium-inline-hint">ElevenLabs generation and export are visible but disabled until payment. Controls below stay interactive for exploration; generation uses the lock below.</span>
+        </div>
+
+        <div class="elevenlabs-panel">
+            <h3><i class="fas fa-wave-square"></i> ElevenLabs narration (demo)</h3>
+            <div class="elevenlabs-grid">
+                <div>
+                    <label for="elVoiceGender">Voice</label>
+                    <select id="elVoiceGender"><option value="female">Female</option><option value="male">Male</option></select>
+                </div>
+                <div>
+                    <label for="elAgeRange">Age range</label>
+                    <select id="elAgeRange"><option>Young adult</option><option selected>Middle</option><option>Senior</option></select>
+                </div>
+                <div>
+                    <label for="elAccent">Accent</label>
+                    <select id="elAccent"><option>American</option><option>British</option><option>Indian</option><option>Australian</option></select>
+                </div>
+                <div>
+                    <label for="elNarrationSpeed">Narration speed</label>
+                    <select id="elNarrationSpeed"><option>0.85x</option><option selected>1.0x</option><option>1.15x</option><option>1.3x</option></select>
+                </div>
+                <div>
+                    <label for="elTone">Emotional tone</label>
+                    <select id="elTone"><option>Neutral</option><option>Storytelling</option><option>Comedic</option><option>Dramatic</option></select>
+                </div>
+            </div>
+            <p class="premium-inline-hint">Simulated API: no keys required. After payment, the same controls call ElevenLabs for production audio.</p>
+            <audio id="elevenLabsPreviewAudio" style="width:100%; margin-top:12px;" controls preload="none" src=""></audio>
+            <p class="premium-inline-hint" id="elevenLabsPreviewHint">Preview player loads a short silent or placeholder clip after generation (demo).</p>
+        </div>
+
+        <header class="top-header">
+            <div class="header-left">
+                <h1>Audio Book Creation</h1>
+                <p>Create professional audiobooks with AI narration</p>
+            </div>
+            <div class="header-right">
+                <button class="btn-primary" id="generateAudioBtn"><i class="fas fa-microphone"></i> Generate Audio</button>
+                <button class="btn-secondary" id="recordBtn"><i class="fas fa-record-vinyl"></i> Record</button>
+                <button class="theme-toggle" id="themeToggle">🌙</button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <!-- <div class="navigation-tabs">
+            <div class="nav-tab" data-screen="home-screen">
+                <i class="fas fa-home"></i> Home
+            </div>
+            <div class="nav-tab" data-screen="ebook-screen">
+                <i class="fas fa-book"></i> E-Book
+            </div>
+            <div class="nav-tab" data-screen="cover-design-screen">
+                <i class="fas fa-palette"></i> Cover Design
+            </div>
+            <div class="nav-tab" data-screen="editing-screen">
+                <i class="fas fa-edit"></i> Editing & Formatting
+            </div>
+            <div class="nav-tab" data-screen="proofreading-screen">
+                <i class="fas fa-check-circle"></i> Proofreading
+            </div>
+            <div class="nav-tab" data-screen="copyright-screen">
+                <i class="fas fa-copyright"></i> Copyright
+            </div>
+            <div class="nav-tab" data-screen="publishing-screen">
+                <i class="fas fa-upload"></i> Publishing
+            </div>
+            <div class="nav-tab active" data-screen="audio-book-screen">
+                <i class="fas fa-volume-up"></i> Audio Book
+            </div>
+            <div class="nav-tab" data-screen="marketing-screen">
+                <i class="fas fa-chart-line"></i> Marketing
+            </div>
+            <div class="nav-tab" data-screen="royalties-screen">
+                <i class="fas fa-money-bill-wave"></i> Royalties
+            </div>
+            <div class="nav-tab" data-screen="author-copy-screen">
+                <i class="fas fa-copy"></i> Order Author Copy
+            </div>
+        </div> -->
+
+        <div class="audiobook-content">
+            <div class="audio-controls">
+                <h3>
+                    Audio Production Controls
+                    <span class="premium-badge">Premium</span>
+                </h3>
+
+                <div class="chapter-selector">
+                    <label for="chapterSelect">Select Chapter:</label>
+                    <select id="chapterSelect">
+                        <option value="1">Chapter 1: Introduction</option>
+                        <option value="2">Chapter 2: Getting Started</option>
+                        <option value="3">Chapter 3: Advanced Topics</option>
+                        <option value="4">Chapter 4: Conclusion</option>
+                    </select>
+                </div>
+
+                <div class="playback-controls">
+                    <button class="speed-btn" data-speed="0.5">0.5x</button>
+                    <button class="speed-btn active" data-speed="1.0">1.0x</button>
+                    <button class="speed-btn" data-speed="1.5">1.5x</button>
+                    <button class="speed-btn" data-speed="2.0">2.0x</button>
+                </div>
+
+                <div class="audio-waveform">
+                    <div class="waveform-bars">
+                        <div class="waveform-bar" style="height: 20px;"></div>
+                        <div class="waveform-bar" style="height: 35px;"></div>
+                        <div class="waveform-bar" style="height: 50px;"></div>
+                        <div class="waveform-bar" style="height: 30px;"></div>
+                        <div class="waveform-bar" style="height: 45px;"></div>
+                        <div class="waveform-bar" style="height: 25px;"></div>
+                        <div class="waveform-bar" style="height: 40px;"></div>
+                        <div class="waveform-bar" style="height: 55px;"></div>
+                        <div class="waveform-bar" style="height: 35px;"></div>
+                        <div class="waveform-bar" style="height: 60px;"></div>
+                    </div>
+                </div>
+
+                <div class="audio-player">
+                    <div class="time-display">
+                        <span id="currentTime">00:00</span>
+                        <span id="totalTime">00:00</span>
+                    </div>
+
+                    <div class="player-controls">
+                        <button class="control-btn" id="prevBtn"><i class="fas fa-step-backward"></i></button>
+                        <button class="control-btn" id="rewindBtn"><i class="fas fa-backward"></i></button>
+                        <button class="control-btn play-btn" id="playBtn"><i class="fas fa-play"></i></button>
+                        <button class="control-btn" id="forwardBtn"><i class="fas fa-forward"></i></button>
+                        <button class="control-btn" id="nextBtn"><i class="fas fa-step-forward"></i></button>
+                    </div>
+                </div>
+
+                <div class="recording-controls">
+                    <button class="btn-danger" id="recordingBtn"><i class="fas fa-microphone"></i> Start Recording</button>
+                    <button class="btn-secondary" id="pauseRecordingBtn" disabled><i class="fas fa-pause"></i> Pause</button>
+                    <button class="btn-success" id="saveRecordingBtn" disabled><i class="fas fa-save"></i> Save</button>
+                </div>
+
+                <div class="audio-editing">
+                    <h3>Audio Editing</h3>
+                    <div class="trim-waveform">
+                        <span>Drag to trim audio</span>
+                    </div>
+                    <div class="audio-stats">
+                        <span>Duration: 2:45</span>
+                        <span>Size: 3.2 MB</span>
+                        <span>Format: MP3</span>
+                    </div>
+                </div>
+
+                <div class="audio-files">
+                    <h3>Generated Audio Files</h3>
+                    <div class="file-list">
+                        <div class="audio-file">
+                            <span><i class="fas fa-file-audio"></i> Chapter_1.mp3</span>
+                            <button class="btn-small" data-action="play"><i class="fas fa-play"></i></button>
+                        </div>
+                        <div class="audio-file">
+                            <span><i class="fas fa-file-audio"></i> Chapter_2.mp3</span>
+                            <button class="btn-small" data-action="play"><i class="fas fa-play"></i></button>
+                        </div>
+                        <div class="audio-file">
+                            <span><i class="fas fa-file-audio"></i> Chapter_3.mp3</span>
+                            <button class="btn-small" data-action="play"><i class="fas fa-play"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="narration-settings">
+                <h3>Narration Settings</h3>
+
+                <div class="form-group">
+                    <label for="voiceSelect">Voice Selection:</label>
+                    <select id="voiceSelect">
+                        <option value="emma">Emma (Female, US)</option>
+                        <option value="brian">Brian (Male, UK)</option>
+                        <option value="amy">Amy (Female, UK)</option>
+                        <option value="justin">Justin (Male, US)</option>
+                    </select>
+                </div>
+
+                <div class="ai-voice-generator">
+                    <h4>AI Voice Generator</h4>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="aiVoiceToggle">
+                        <label for="aiVoiceToggle" class="toggle-slider"></label>
+                    </div>
+                </div>
+
+                <div class="adjustment-group">
+                    <label for="speedSlider">Speed: <span id="speedValue">1.0x</span></label>
+                    <input type="range" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0">
+                </div>
+
+                <div class="adjustment-group">
+                    <label for="pitchSlider">Pitch: <span id="pitchValue">0</span></label>
+                    <input type="range" id="pitchSlider" min="-20" max="20" step="1" value="0">
+                </div>
+
+                <div class="adjustment-group">
+                    <label for="volumeSlider">Volume: <span id="volumeValue">100%</span></label>
+                    <input type="range" id="volumeSlider" min="0" max="100" step="5" value="100">
+                </div>
+
+                <div class="audio-quality">
+                    <h4>Audio Quality</h4>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="highQuality" checked>
+                        <label for="highQuality">High Quality (320kbps)</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="noiseReduction">
+                        <label for="noiseReduction">Noise Reduction</label>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="normalize">
+                        <label for="normalize">Normalize Audio</label>
+                    </div>
+                </div>
+
+                <div class="background-music">
+                    <h4>Background Music</h4>
+                    <select id="backgroundMusic">
+                        <option value="none">No Background Music</option>
+                        <option value="classical">Classical</option>
+                        <option value="ambient">Ambient</option>
+                        <option value="nature">Nature Sounds</option>
+                    </select>
+                </div>
+
+                <div class="export-options">
+                    <h4>Export Options</h4>
+                    <button class="btn-primary" id="exportChapterBtn"><i class="fas fa-download"></i> Export Chapter</button>
+                    <button class="btn-secondary" id="exportAllBtn"><i class="fas fa-download"></i> Export All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium Modal -->
+    <div id="premiumModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-crown"></i> Premium Feature</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>This feature is only available to premium members. Upgrade your account to access:</p>
+                <div class="premium-features">
+                    <div class="premium-feature">
+                        <i class="fas fa-unlock"></i>
+                        <span>Advanced audio editing options</span>
+                    </div>
+                    <div class="premium-feature">
+                        <i class="fas fa-robot"></i>
+                        <span>AI voice generation</span>
+                    </div>
+                    <div class="premium-feature">
+                        <i class="fas fa-file-export"></i>
+                        <span>Multiple export formats</span>
+                    </div>
+                    <div class="premium-feature">
+                        <i class="fas fa-cloud"></i>
+                        <span>Cloud storage</span>
+                    </div>
+                    <div class="premium-feature">
+                        <i class="fas fa-headset"></i>
+                        <span>Priority support</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-premium btn-fixed-mobile" id="upgradeNowBtn">Pay Now</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Operation completed successfully!</span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        var premiumAudioLocked = @(ViewBag.ShowUpgradePrompt == true ? "true" : "false");
+
+        function applyPremiumAudioBanner() {
+            var b = document.getElementById('audioPremiumBanner');
+            if (b && premiumAudioLocked) b.style.display = 'block';
+        }
+
+        // DOM Elements
+        const themeToggle = document.getElementById('themeToggle');
+        const generateAudioBtn = document.getElementById('generateAudioBtn');
+        const recordBtn = document.getElementById('recordBtn');
+        const recordingBtn = document.getElementById('recordingBtn');
+        const pauseRecordingBtn = document.getElementById('pauseRecordingBtn');
+        const saveRecordingBtn = document.getElementById('saveRecordingBtn');
+        const playBtn = document.getElementById('playBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const rewindBtn = document.getElementById('rewindBtn');
+        const forwardBtn = document.getElementById('forwardBtn');
+        const exportChapterBtn = document.getElementById('exportChapterBtn');
+        const exportAllBtn = document.getElementById('exportAllBtn');
+        const chapterSelect = document.getElementById('chapterSelect');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const aiVoiceToggle = document.getElementById('aiVoiceToggle');
+        const speedSlider = document.getElementById('speedSlider');
+        const pitchSlider = document.getElementById('pitchSlider');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const speedValue = document.getElementById('speedValue');
+        const pitchValue = document.getElementById('pitchValue');
+        const volumeValue = document.getElementById('volumeValue');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const highQuality = document.getElementById('highQuality');
+        const noiseReduction = document.getElementById('noiseReduction');
+        const normalize = document.getElementById('normalize');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const speedBtns = document.querySelectorAll('.speed-btn');
+        const audioFiles = document.querySelectorAll('.audio-file button');
+        const toast = document.getElementById('toast');
+        const premiumModal = document.getElementById('premiumModal');
+        const closeButtons = document.querySelectorAll('.close');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const upgradeNowBtn = document.getElementById('upgradeNowBtn');
+        const navTabs = document.querySelectorAll('.nav-tab');
+
+        // Current state
+        let isPlaying = false;
+        let isRecording = false;
+        let isPaused = false;
+        let isPremiumUser = false;
+        let audioDuration = 227; // in seconds (3:47)
+        let currentTime = 0;
+        let playbackInterval;
+
+        // Theme Toggle
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Apply saved theme on load
+        if (isDarkMode) {
+            document.body.classList.add('dark-mode');
+            themeToggle.textContent = '☀️';
+        }
+
+        themeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode');
+            themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+
+            // Save preference to localStorage
+            localStorage.setItem('darkMode', isDarkMode);
+
+            showToast(`Dark mode ${isDarkMode ? 'enabled' : 'disabled'}`, 'success');
+        });
+
+        // Navigation Tabs
+        navTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Update active tab
+                navTabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                // In a real app, this would navigate to the selected section
+                const screen = this.getAttribute('data-screen');
+                showToast(`Navigating to ${screen.replace('-', ' ')}`);
+            });
+        });
+
+        // Format time function
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Initialize time display
+        totalTimeEl.textContent = formatTime(audioDuration);
+        currentTimeEl.textContent = formatTime(0);
+
+        // Play/Pause functionality
+        playBtn.addEventListener('click', function() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+                simulatePlayback();
+            } else {
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                clearInterval(playbackInterval);
+            }
+        });
+
+        function simulatePlayback() {
+            clearInterval(playbackInterval);
+
+            playbackInterval = setInterval(function() {
+                if (currentTime >= audioDuration) {
+                    clearInterval(playbackInterval);
+                    isPlaying = false;
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>';
+                    currentTime = 0;
+                    currentTimeEl.textContent = formatTime(0);
+                    updateWaveforms(0);
+                    showToast('Playback completed', 'success');
+                } else {
+                    currentTime += 1;
+                }
+
+                currentTimeEl.textContent = formatTime(currentTime);
+
+                // Update waveforms
+                updateWaveforms(currentTime);
+
+            }, 1000);
+        }
+
+        // Previous and Next buttons
+        prevBtn.addEventListener('click', function() {
+            // Logic to go to previous chapter
+            if (chapterSelect.selectedIndex > 0) {
+                chapterSelect.selectedIndex--;
+                showToast('Previous chapter selected', 'success');
+                resetPlayback();
+            }
+        });
+
+        nextBtn.addEventListener('click', function() {
+            // Logic to go to next chapter
+            if (chapterSelect.selectedIndex < chapterSelect.options.length - 1) {
+                chapterSelect.selectedIndex++;
+                showToast('Next chapter selected', 'success');
+                resetPlayback();
+            }
+        });
+
+        // Rewind and Forward buttons
+        rewindBtn.addEventListener('click', function() {
+            currentTime = Math.max(0, currentTime - 10);
+            currentTimeEl.textContent = formatTime(currentTime);
+            updateWaveforms(currentTime);
+            showToast('Rewinded 10 seconds', 'success');
+        });
+
+        forwardBtn.addEventListener('click', function() {
+            currentTime = Math.min(audioDuration, currentTime + 10);
+            currentTimeEl.textContent = formatTime(currentTime);
+            updateWaveforms(currentTime);
+            showToast('Forwarded 10 seconds', 'success');
+        });
+
+        // Reset playback when changing chapters
+        function resetPlayback() {
+            isPlaying = false;
+            playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            clearInterval(playbackInterval);
+            currentTime = 0;
+            currentTimeEl.textContent = formatTime(0);
+            updateWaveforms(0);
+        }
+
+        // Playback speed controls
+        speedBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                speedBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const speed = this.getAttribute('data-speed');
+                showToast(`Playback speed set to ${speed}x`, 'success');
+            });
+        });
+
+        // Recording button functionality
+        recordingBtn.addEventListener('click', function() {
+            if (isRecording) {
+                isRecording = false;
+                recordingBtn.innerHTML = '<i class="fas fa-microphone"></i> Start Recording';
+                recordingBtn.classList.remove('btn-danger');
+                recordingBtn.classList.add('btn-danger');
+                pauseRecordingBtn.disabled = true;
+                saveRecordingBtn.disabled = true;
+                showToast('Recording stopped', 'success');
+            } else {
+                isRecording = true;
+                recordingBtn.innerHTML = '<i class="fas fa-stop"></i> Stop Recording';
+                recordingBtn.classList.remove('btn-danger');
+                recordingBtn.classList.add('btn-danger');
+                pauseRecordingBtn.disabled = false;
+                saveRecordingBtn.disabled = false;
+                showToast('Recording started', 'success');
+            }
+        });
+
+        // Pause recording button
+        pauseRecordingBtn.addEventListener('click', function() {
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseRecordingBtn.innerHTML = '<i class="fas fa-play"></i> Resume';
+                showToast('Recording paused', 'warning');
+            } else {
+                pauseRecordingBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                showToast('Recording resumed', 'success');
+            }
+        });
+
+        // Save recording button
+        saveRecordingBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to save this recording?')) {
+                showToast('Recording saved successfully!', 'success');
+            }
+        });
+
+        // Generate Audio — ElevenLabs simulation (gated when premiumAudioLocked)
+        generateAudioBtn.addEventListener('click', function() {
+            if (premiumAudioLocked) {
+                showToast('Available after payment — upgrade to run ElevenLabs.', 'warning');
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: 'Available after payment', text: 'Complete checkout to generate production audio.', confirmButtonColor: '#7c3aed' });
+                return;
+            }
+            const voice = voiceSelect.value;
+            const gender = document.getElementById('elVoiceGender')?.value || '';
+            const accent = document.getElementById('elAccent')?.value || '';
+            const tone = document.getElementById('elTone')?.value || '';
+            const elSpeed = document.getElementById('elNarrationSpeed')?.value || '';
+
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> ElevenLabs…';
+            btn.disabled = true;
+
+            showToast('Calling ElevenLabs (demo simulation)…', 'success');
+
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                var a = document.getElementById('elevenLabsPreviewAudio');
+                var hint = document.getElementById('elevenLabsPreviewHint');
+                if (a) {
+                    a.src = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+                    a.load();
+                }
+                if (hint) hint.textContent = 'Demo preview loaded. Voice: ' + gender + ', ' + accent + ', ' + tone + ', ' + elSpeed + ' (simulated job id: EL-' + Date.now() + ').';
+                showToast('Generation complete (demo). Press play on the preview player.', 'success');
+            }, 2200);
+        });
+
+        // Export buttons
+        exportChapterBtn.addEventListener('click', function() {
+            showToast('Exporting current chapter...', 'success');
+        });
+
+        exportAllBtn.addEventListener('click', function() {
+            showToast('Exporting all chapters...', 'success');
+        });
+
+        // Audio file play buttons
+        audioFiles.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const fileName = this.parentElement.querySelector('span').textContent;
+                showToast(`Playing ${fileName}`, 'success');
+            });
+        });
+
+        // Slider updates
+        speedSlider.addEventListener('input', function() {
+            speedValue.textContent = `${this.value}x`;
+        });
+
+        pitchSlider.addEventListener('input', function() {
+            pitchValue.textContent = this.value;
+        });
+
+        volumeSlider.addEventListener('input', function() {
+            volumeValue.textContent = `${this.value}%`;
+        });
+
+        // Chapter selection
+        chapterSelect.addEventListener('change', function() {
+            showToast(`Selected: ${this.options[this.selectedIndex].text}`, 'success');
+            resetPlayback();
+        });
+
+        // Voice selection
+        voiceSelect.addEventListener('change', function() {
+            showToast(`Voice changed to: ${this.options[this.selectedIndex].text}`, 'success');
+        });
+
+        // AI Voice Toggle
+        aiVoiceToggle.addEventListener('change', function() {
+            showToast(`AI Voice ${this.checked ? 'enabled' : 'disabled'}`, 'success');
+        });
+
+        // Background music selection
+        backgroundMusic.addEventListener('change', function() {
+            showToast(`Background music: ${this.options[this.selectedIndex].text}`, 'success');
+        });
+
+        // Audio quality options
+        highQuality.addEventListener('change', function() {
+            showToast(`High quality ${this.checked ? 'enabled' : 'disabled'}`, 'success');
+        });
+
+        noiseReduction.addEventListener('change', function() {
+            showToast(`Noise reduction ${this.checked ? 'enabled' : 'disabled'}`, 'success');
+        });
+
+        normalize.addEventListener('change', function() {
+            showToast(`Audio normalization ${this.checked ? 'enabled' : 'disabled'}`, 'success');
+        });
+
+        // Update waveforms based on current time
+        function updateWaveforms(currentTime) {
+            const progress = currentTime / audioDuration;
+            const waveformBars = document.querySelectorAll('.waveform-bar');
+
+            // Update waveform bars
+            waveformBars.forEach((bar, index) => {
+                const shouldHighlight = index / waveformBars.length <= progress;
+                bar.style.backgroundColor = shouldHighlight ? '#7c3aed' : '#a0a0a0';
+            });
+        }
+
+        // Show premium modal
+        function showPremiumModal() {
+            premiumModal.classList.add('show');
+        }
+
+        // Close modal
+        closeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                premiumModal.classList.remove('show');
+            });
+        });
+
+        if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => {
+                window.location.href = '/Books/EBookHub';
+            });
+        }
+
+        // Upgrade now button
+        upgradeNowBtn.addEventListener('click', () => {
+            window.location.href = '/Books/EBookHub';
+        });
+
+        // Toast Notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.className = `toast ${type}`;
+            toast.querySelector('.toast-message').textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            applyPremiumAudioBanner();
+
+            if (premiumAudioLocked && window.location.search.indexOf('showUpgrade=1') !== -1) {
+                Swal.fire({
+                    title: 'Premium audio',
+                    html: 'All controls are visible. <b>Generation</b> stays disabled until payment.',
+                    icon: 'info',
+                    confirmButtonText: 'View plans',
+                    confirmButtonColor: '#7c3aed'
+                }).then(function (result) {
+                    if (result.isConfirmed) window.location.href = '/Books/EBookHub';
+                });
+            }
+
+            generateDesignOptions();
+
+            if (!premiumAudioLocked) {
+                setTimeout(function () {
+                    Swal.fire({
+                        title: 'Audiobook Studio',
+                        text: 'Configure ElevenLabs-style voice options, then generate a demo preview.',
+                        icon: 'info',
+                        confirmButtonColor: '#7c3aed'
+                    });
+                }, 800);
+            }
+        });
+    </script>
+</body>
+</html>

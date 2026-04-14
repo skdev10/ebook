@@ -1,0 +1,1795 @@
+@model List<EBookDashboard.Models.UserManagementViewModel>
+@{
+    ViewData["Title"] = "User / Author Management";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="~/js/admin-animations.js"></script>
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --warm-gray: #E8E8E8;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --text-muted: #9B9B9B;
+        --border-light: #E5E5E5;
+        --shadow-soft: rgba(0, 0, 0, 0.05);
+        --primary: #7c3aed;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+    }
+
+    .users-container {
+        padding: 0;
+    }
+
+    /* Header Section */
+    .page-header {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 10px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        font-size: 14px;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #6d28d9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-secondary {
+        background: var(--light-gray);
+        color: var(--text-primary);
+        border: 1px solid var(--border-light);
+    }
+
+    .btn-secondary:hover {
+        background: var(--warm-gray);
+    }
+
+    /* Filters Section */
+    .filters-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        align-items: end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .filter-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .filter-input,
+    .filter-select {
+        padding: 10px 14px;
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        background: var(--white);
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+    }
+
+    .filter-input:focus,
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .search-bar {
+        position: relative;
+    }
+
+    .search-bar input {
+        padding-left: 40px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+
+    /* Table Section */
+    .table-container {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        overflow-x: auto;
+    }
+
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table-header {
+        background: var(--light-gray);
+        border-radius: 10px;
+    }
+
+    .table-header th {
+        padding: 16px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid var(--border-light);
+    }
+
+    .table-header th:first-child {
+        width: 40px;
+    }
+
+    .table-row {
+        border-bottom: 1px solid var(--border-light);
+        transition: all 0.3s ease;
+    }
+
+    .table-row:hover {
+        background: var(--light-gray);
+    }
+
+    .table-row.highlighted {
+        background: #FFF8DC;
+    }
+
+    .table-cell {
+        padding: 16px;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .user-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        /* background: linear-gradient(135deg, #6366f1 0%, #6366f1 100%); */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 18px;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+
+    .user-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .user-name {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .user-email {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+
+    .badge-active {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .badge-suspended {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .badge-deleted {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    .progress-bar-mini {
+        width: 80px;
+        height: 6px;
+        background: var(--warm-gray);
+        border-radius: 3px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: var(--success);
+        border-radius: 3px;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-icon {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: var(--light-gray);
+        color: var(--text-primary);
+        border: 1px solid var(--border-light);
+    }
+
+    .btn-icon:hover {
+        background: var(--primary);
+        color: white;
+        border-color: var(--primary);
+    }
+
+    .dropdown-menu {
+        position: relative;
+    }
+
+    .dropdown-content {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background: var(--white);
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        box-shadow: 0 4px 12px var(--shadow-soft);
+        z-index: 100;
+        min-width: 160px;
+        margin-top: 4px;
+    }
+
+    .dropdown-menu:hover .dropdown-content {
+        display: block;
+    }
+
+    .dropdown-item {
+        padding: 10px 16px;
+        font-size: 14px;
+        color: var(--text-primary);
+        text-decoration: none;
+        display: block;
+        transition: all 0.2s ease;
+    }
+
+    .dropdown-item:hover {
+        background: var(--light-gray);
+    }
+
+    .dropdown-item.danger {
+        color: var(--danger);
+    }
+
+    /* Floating Action Button */
+    .fab {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: white;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+        transition: all 0.3s ease;
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fab:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+    }
+
+    /* Responsive */
+    @@media (max-width: 1024px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .header-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .filters-row {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .page-header {
+            padding: 16px;
+        }
+
+        .page-title {
+            font-size: 20px;
+        }
+
+        .filters-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .filter-group {
+            width: 100%;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px;
+        }
+
+        .users-table {
+            min-width: 800px;
+            font-size: 13px;
+        }
+
+        .table-cell {
+            padding: 12px 8px;
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+        }
+
+        .btn-icon {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+        }
+
+        .action-buttons {
+            gap: 4px;
+        }
+
+        .status-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .users-container {
+            padding: 0;
+        }
+
+        .page-header {
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .page-title {
+            font-size: 18px;
+        }
+
+        .header-actions {
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .filters-section {
+            padding: 16px;
+        }
+
+        .table-container {
+            padding: 12px;
+        }
+
+        .users-table {
+            min-width: 700px;
+            font-size: 12px;
+        }
+
+        .table-cell {
+            padding: 10px 6px;
+        }
+
+        .user-name {
+            font-size: 13px;
+        }
+
+        .user-email {
+            font-size: 11px;
+        }
+
+        .btn-icon {
+            width: 24px;
+            height: 24px;
+            font-size: 11px;
+        }
+
+        /* Make modals responsive */
+        .swal2-popup {
+            width: 95% !important;
+            max-width: 95% !important;
+            padding: 16px !important;
+            font-size: 14px !important;
+        }
+
+        .swal2-title {
+            font-size: 18px !important;
+        }
+
+        .swal2-content {
+            font-size: 14px !important;
+        }
+    }
+</style>
+
+<div class="users-container">
+    @Html.AntiForgeryToken()
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">User / Author Management</h1>
+        <div class="header-actions">
+			<button class="btn btn-secondary" id="exportUsersBtn">
+                <i class="fas fa-download"></i> Export
+            </button>
+            <a href="#" class="btn btn-primary" id="addUserBtn">
+                <i class="fas fa-plus"></i> Add User
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <form method="get" action="@Url.Action("Users", "Admin")">
+            <div class="filters-row">
+                <div class="filter-group search-bar">
+                    <label class="filter-label">Search</label>
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" name="searchTerm" class="filter-input" placeholder="Search by name or email..." value="@ViewBag.SearchTerm" />
+            </div>
+                <div class="filter-group">
+                    <label class="filter-label">Role</label>
+                <select name="roleFilter" class="filter-select">
+                    <option value="">All Roles</option>
+                        @foreach (var role in ViewBag.Roles as List<string> ?? new List<string>())
+                        {
+                            if (ViewBag.RoleFilter as string == role)
+                            {
+                                <option value="@role" selected>@role</option>
+                            }
+                            else
+                            {
+                                <option value="@role">@role</option>
+                            }
+                    }
+                </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Status</label>
+                <select name="statusFilter" class="filter-select">
+                    <option value="">All Status</option>
+                    @if (ViewBag.StatusFilter as string == "Active") { <option value="Active" selected>Active</option> } else { <option value="Active">Active</option> }
+                    @if (ViewBag.StatusFilter as string == "Suspended") { <option value="Suspended" selected>Suspended</option> } else { <option value="Suspended">Suspended</option> }
+                    @if (ViewBag.StatusFilter as string == "Deleted") { <option value="Deleted" selected>Deleted</option> } else { <option value="Deleted">Deleted</option> }
+                </select>
+                </div>
+                <div class="filter-group">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-filter"></i> Apply Filters
+            </button>
+        </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="table-container">
+        <table class="users-table">
+            <thead class="table-header">
+                <tr>
+                    <th><input type="checkbox" id="selectAll" /></th>
+                    <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                    <th>Signup Method</th>
+                    <th>Profile Completion</th>
+                    <th>Books Created</th>
+                        <th>Last Login</th>
+                    <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                    <tr class="table-row" data-user-id="@user.UserId">
+                        <td class="table-cell">
+                            <input type="checkbox" class="user-checkbox" value="@user.UserId" />
+                        </td>
+                        <td class="table-cell">
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <div class="user-avatar">
+                                    @(user.FullName?.Substring(0, 1).ToUpper() ?? "U")
+                                </div>
+                                <div class="user-info">
+                                    <div class="user-name">@user.FullName</div>
+                                    </div>
+                                </div>
+                            </td>
+                        <td class="table-cell">@user.UserEmail</td>
+                        <td class="table-cell">@user.RoleName</td>
+                        <td class="table-cell">@user.SignupMethod</td>
+                        <td class="table-cell">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div class="progress-bar-mini">
+                                    <div class="progress-fill" style="width: @user.ProfileCompletionPercentage%"></div>
+                                </div>
+                                <span style="font-size: 12px; color: var(--text-muted);">@user.ProfileCompletionPercentage%</span>
+                            </div>
+                            </td>
+                        <td class="table-cell">@user.BooksCreated</td>
+                        <td class="table-cell">
+                            @(user.LastLoginAt?.ToString("MMM dd, yyyy") ?? "Never")
+                        </td>
+                        <td class="table-cell">
+                            <span class="status-badge @(user.Status == "Active" ? "badge-active" : user.Status == "Suspended" ? "badge-suspended" : "badge-deleted")">
+                                @user.Status
+                                </span>
+                            </td>
+                        <td class="table-cell">
+                            <div class="action-buttons">
+								<button class="btn-icon" data-action="view" data-user-id="@user.UserId" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+								<button class="btn-icon" data-action="edit" data-user-id="@user.UserId" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <button class="btn-icon" title="More Options">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                    <div class="dropdown-content">
+										@if (user.Status != "Active")
+										{
+											<a href="#" class="dropdown-item" data-action="reactivate" data-user-id="@user.UserId">
+												<i class="fas fa-user-check"></i> Reactivate
+											</a>
+										}
+										@if (user.Status != "Suspended")
+										{
+											<a href="#" class="dropdown-item" data-action="suspend" data-user-id="@user.UserId">
+												<i class="fas fa-ban"></i> Suspend
+											</a>
+										}
+										@if (user.Status != "Deactivated" && user.Status != "Deleted")
+										{
+											<a href="#" class="dropdown-item" data-action="deactivate" data-user-id="@user.UserId">
+												<i class="fas fa-user-slash"></i> Deactivate
+											</a>
+										}
+										@if (user.Status != "Deleted")
+										{
+											<a href="#" class="dropdown-item danger" data-action="delete" data-user-id="@user.UserId">
+												<i class="fas fa-trash"></i> Delete
+											</a>
+										}
+                                    </div>
+                                </div>
+                            </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<!-- Floating Action Button is handled by AdminLayout -->
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        // CRITICAL: Define all functions IMMEDIATELY at the top to ensure they're available
+        // before any onclick handlers execute
+        
+        // closeSearchModal - Define immediately
+        window.closeSearchModal = window.closeSearchModal || function() {
+            const searchModal = document.getElementById('searchModal');
+            if (searchModal) {
+                searchModal.classList.remove('active');
+            }
+        };
+
+        // Ensure SweetAlert is loaded
+        if (typeof Swal === 'undefined') {
+        console.warn('SweetAlert2 is not loaded. Loading now...');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+        document.head.appendChild(script);
+    }
+
+    // Initialize dropdown menus
+    document.addEventListener('DOMContentLoaded', function() {
+		// Export button listener
+		const exportBtn = document.getElementById('exportUsersBtn');
+		if (exportBtn) {
+			exportBtn.addEventListener('click', function(e) {
+				e.preventDefault();
+				exportUsers();
+			});
+		}
+
+		// Live search debounce and filter handling
+		const searchInput = document.querySelector('input[name="searchTerm"]');
+		const roleSelect = document.querySelector('select[name="roleFilter"]');
+		const statusSelect = document.querySelector('select[name="statusFilter"]');
+
+		function buildUsersUrl() {
+			const params = new URLSearchParams();
+			const s = searchInput?.value?.trim() || '';
+			const r = roleSelect?.value || '';
+			const st = statusSelect?.value || '';
+			if (s) params.set('searchTerm', s);
+			if (r) params.set('roleFilter', r);
+			if (st) params.set('statusFilter', st);
+			const base = '@Url.Action("Users", "Admin")';
+			const qs = params.toString();
+			return qs ? `${base}?${qs}` : base;
+		}
+
+		let debounceTimer;
+		if (searchInput) {
+			searchInput.addEventListener('input', function() {
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(() => {
+					window.location.href = buildUsersUrl();
+				}, 500);
+			});
+		}
+		if (roleSelect) roleSelect.addEventListener('change', () => window.location.href = buildUsersUrl());
+		if (statusSelect) statusSelect.addEventListener('change', () => window.location.href = buildUsersUrl());
+
+        // Select All Checkbox
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.user-checkbox');
+                checkboxes.forEach(cb => cb.checked = this.checked);
+            });
+        }
+
+        // Dropdown menu functionality
+        document.querySelectorAll('.dropdown-menu').forEach(dropdown => {
+            const button = dropdown.querySelector('button');
+            const content = dropdown.querySelector('.dropdown-content');
+            
+            if (button && content) {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    // Close other dropdowns
+                    document.querySelectorAll('.dropdown-content').forEach(menu => {
+                        if (menu !== content) {
+                            menu.style.display = 'none';
+                        }
+                    });
+                    // Toggle current dropdown
+                    content.style.display = content.style.display === 'block' ? 'none' : 'block';
+                });
+            }
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.dropdown-menu')) {
+                document.querySelectorAll('.dropdown-content').forEach(menu => {
+                    menu.style.display = 'none';
+                });
+            }
+        });
+
+		// Delegated row action handlers
+		document.querySelector('.table-container')?.addEventListener('click', function(e) {
+			const actionEl = e.target.closest('[data-action]');
+			if (!actionEl) return;
+			e.preventDefault();
+			const action = actionEl.getAttribute('data-action');
+			const userId = parseInt(actionEl.getAttribute('data-user-id') || '0');
+			if (!userId) return;
+			switch (action) {
+				case 'view': return viewUser(userId);
+				case 'edit': return editUser(userId);
+				case 'suspend': return suspendUser(userId);
+				case 'deactivate': return deactivateUser(userId);
+				case 'reactivate': return reactivateUser(userId);
+				case 'delete': return deleteUser(userId);
+			}
+		});
+    });
+
+    // User Actions
+    function togglePasswordVisibility(inputId, buttonId) {
+        const input = document.getElementById(inputId);
+        const button = document.getElementById(buttonId);
+        if (!input || !button) return;
+        if (input.type === 'password') {
+            input.type = 'text';
+            button.innerHTML = '<i class="fas fa-eye-slash"></i>';
+        } else {
+            input.type = 'password';
+            button.innerHTML = '<i class="fas fa-eye"></i>';
+        }
+    }
+
+    function viewUser(userId) {
+        Swal.fire({
+            title: 'Loading User Details...',
+            html: '<div style="text-align: center;"><i class="fas fa-spinner fa-spin" style="font-size: 32px; color: var(--primary);"></i><p style="margin-top: 16px;">Fetching user information...</p></div>',
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            width: '600px',
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Fetch user details from API
+        fetch(`@Url.Action("GetUserDetails", "Admin")?userId=${userId}`)
+            .then(async (response) => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to load user details. Invalid server response.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                }
+                
+                if (!response.ok || !data || !data.success || !data.user) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data?.message || 'Failed to load user details',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                }
+                
+                const user = data.user;
+                Swal.fire({
+                    title: 'User Details',
+                    html: `
+                            <div style="text-align: left; padding: 20px;">
+                                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--border-light);">
+                                    <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, var(--primary) 0%, #FFD700 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; font-weight: 600;">
+                                        ${user.fullName.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h3 style="margin: 0; color: var(--text-primary);">${user.fullName}</h3>
+                                        <p style="margin: 4px 0 0 0; color: var(--text-muted); font-size: 14px;">${user.userEmail}</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                                    <div>
+                                        <label style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Role</label>
+                                        <p style="margin: 4px 0 0 0; font-weight: 500; color: var(--text-primary);">${user.roleName}</p>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Status</label>
+                                        <p style="margin: 4px 0 0 0;">
+                                            <span class="status-badge ${user.status === 'Active' ? 'badge-active' : user.status === 'Suspended' ? 'badge-suspended' : 'badge-deleted'}" style="display: inline-block;">
+                                                ${user.status}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                                    <div>
+                                        <label style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Created At</label>
+                                        <p style="margin: 4px 0 0 0; font-weight: 500; color: var(--text-primary);">${user.createdAt}</p>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Last Login</label>
+                                        <p style="margin: 4px 0 0 0; font-weight: 500; color: var(--text-primary);">${user.lastLoginAt}</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-bottom: 16px;">
+                                    <label style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Books Created</label>
+                                    <p style="margin: 4px 0 0 0; font-weight: 500; color: var(--text-primary); font-size: 18px;">${user.booksCreated}</p>
+                                </div>
+                                
+                                <div style="margin-bottom: 16px;">
+                                    <label style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Profile Completion</label>
+                                    <div style="margin-top: 8px;">
+                                        <div style="width: 100%; height: 8px; background: var(--warm-gray); border-radius: 4px; overflow: hidden;">
+                                            <div style="width: ${user.profileCompletion}%; height: 100%; background: var(--success); border-radius: 4px; transition: width 0.3s ease;"></div>
+                                        </div>
+                                        <p style="margin: 4px 0 0 0; font-size: 12px; color: var(--text-muted);">${user.profileCompletion}% Complete</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `,
+                        showConfirmButton: true,
+                        confirmButtonText: 'Close',
+                        confirmButtonColor: '#6366F1',
+                        width: '600px'
+                    });
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'An error occurred while loading user details',
+                    confirmButtonColor: '#ef4444'
+                });
+            });
+    }
+
+    function editUser(userId) {
+        // Fetch user details and roles in parallel so we can build the Role dropdown with real IDs
+        Promise.all([
+            fetch(`@Url.Action("GetUserDetails", "Admin")?userId=${userId}`).then(r => r.json()),
+            fetch('@Url.Action("GetRoles", "Admin")').then(r => r.json())
+        ]).then(([userResponse, rolesResponse]) => {
+            if (!userResponse?.success || !userResponse?.user) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: userResponse?.message || 'User not found',
+                    confirmButtonColor: '#ef4444'
+                });
+                return;
+            }
+            const user = userResponse.user;
+            const roles = Array.isArray(rolesResponse?.roles) && rolesResponse.roles.length > 0
+                ? rolesResponse.roles
+                : [{ roleId: 1, roleName: 'Admin' }, { roleId: 2, roleName: 'Author' }, { roleId: 3, roleName: 'Reader' }];
+            const roleOptions = roles.map(r =>
+                `<option value="${r.roleId}" ${(user.roleId === r.roleId) ? 'selected' : ''}>${r.roleName}</option>`
+            ).join('');
+            Swal.fire({
+                title: 'Edit User',
+                html: `
+                    <form id="editUserForm" style="text-align: left;">
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500;">Full Name</label>
+                            <input type="text" id="editFullName" class="swal2-input" placeholder="Enter full name" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;" value="${(user.fullName || '').replace(/"/g, '&quot;')}">
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500;">Email</label>
+                            <input type="email" id="editUserEmail" class="swal2-input" placeholder="Enter email" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;" value="${(user.userEmail || '').replace(/"/g, '&quot;')}">
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500;">Role</label>
+                            <select id="editRoleId" class="swal2-input" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                                <option value="">Select Role</option>
+                                ${roleOptions}
+                            </select>
+                        </div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 500;">Status</label>
+                            <select id="editStatus" class="swal2-input" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                                <option value="Active" ${user.status === 'Active' ? 'selected' : ''}>Active</option>
+                                <option value="Suspended" ${user.status === 'Suspended' ? 'selected' : ''}>Suspended</option>
+                                <option value="Deactivated" ${user.status === 'Deactivated' ? 'selected' : ''}>Deactivated</option>
+                            </select>
+                        </div>
+                    </form>
+                `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Save Changes',
+                    confirmButtonColor: '#6366F1',
+                    cancelButtonColor: '#6b7280',
+                    width: '600px',
+                    preConfirm: () => {
+                        const fullName = document.getElementById('editFullName').value.trim();
+                        const userEmail = document.getElementById('editUserEmail').value.trim();
+                        const roleSelect = document.getElementById('editRoleId');
+                        const roleId = roleSelect.value;
+                        const status = document.getElementById('editStatus').value;
+                        
+                        if (!fullName || !userEmail || !roleId || !status) {
+                            Swal.showValidationMessage('Please fill in all fields');
+                            return false;
+                        }
+                        const roleName = roleSelect.options[roleSelect.selectedIndex].text;
+                        return { fullName, userEmail, roleId: parseInt(roleId), roleName, status };
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && result.value) {
+                        Swal.fire({
+                            title: 'Updating User...',
+                            text: 'Please wait',
+                            icon: 'info',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        
+                        const formData = new URLSearchParams();
+                        const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                        if (antiForgeryToken) formData.append('__RequestVerificationToken', antiForgeryToken);
+                        formData.append('userId', userId);
+                        formData.append('fullName', result.value.fullName);
+                        formData.append('userEmail', result.value.userEmail);
+                        formData.append('roleId', String(result.value.roleId));
+                        formData.append('status', result.value.status);
+                        
+                        const updateUrl = '@Url.Action("UpdateUser", "Admin")';
+                        fetch(updateUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                            },
+                            body: formData.toString()
+                        })
+                        .then(async (response) => {
+                            // Read body once as text (can only read response body once)
+                            const text = await response.text();
+                            let data = null;
+                            try {
+                                data = text ? JSON.parse(text) : null;
+                            } catch (e) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Invalid response',
+                                    text: response.ok ? 'Server did not return valid JSON.' : (text && text.length < 200 ? text : 'Status: ' + response.status + ' ' + response.statusText),
+                                    confirmButtonColor: '#ef4444'
+                                });
+                                return;
+                            }
+                            
+                            if (!response.ok || !data || data.success === false) {
+                                const msg = (data && data.message) ? data.message : ('Status: ' + response.status + ' ' + response.statusText);
+                                if (/unauthorized/i.test(msg)) {
+                                    Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Not Authorized',
+                                        text: 'Admin privileges are required to perform this action.',
+                                        confirmButtonColor: '#f59e0b'
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Error',
+                                        text: msg,
+                                        confirmButtonColor: '#ef4444'
+                                    });
+                                }
+                                return;
+                            }
+                            
+                            // Update the table row immediately so user sees the change right away
+                            const row = document.querySelector('tr[data-user-id="' + userId + '"]');
+                            if (row && result.value) {
+                                const nameEl = row.querySelector('.user-name');
+                                if (nameEl) nameEl.textContent = result.value.fullName;
+                                const avatarEl = row.querySelector('.user-avatar');
+                                if (avatarEl) avatarEl.textContent = (result.value.fullName || 'U').charAt(0).toUpperCase();
+                                if (row.cells[2]) row.cells[2].textContent = result.value.userEmail;
+                                if (row.cells[3]) row.cells[3].textContent = result.value.roleName || '';
+                                const statusBadge = row.cells[8] ? row.cells[8].querySelector('.status-badge') : null;
+                                if (statusBadge) {
+                                    statusBadge.textContent = result.value.status;
+                                    statusBadge.className = 'status-badge ' + (result.value.status === 'Active' ? 'badge-active' : result.value.status === 'Suspended' ? 'badge-suspended' : 'badge-deleted');
+                                }
+                            }
+                            
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Saved',
+                                text: data.message || 'User updated successfully',
+                                confirmButtonColor: '#10b981',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                            // Reload the page after a short delay so the full page reflects the saved state
+                            setTimeout(function() { location.reload(); }, 1200);
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.message || 'Network or server error. Check console (F12).',
+                                confirmButtonColor: '#ef4444'
+                            });
+                        });
+                    }
+                });
+            })
+            .catch((error) => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Failed to load user details',
+                    confirmButtonColor: '#ef4444'
+                });
+            });
+    }
+
+    function suspendUser(userId) {
+        Swal.fire({
+            title: 'Suspend User?',
+            text: 'Are you sure you want to suspend this user?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#f59e0b',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Suspend'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Suspending User...',
+                    text: 'Please wait',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Call API
+                fetch('@Url.Action("SuspendUser", "Admin")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    },
+                    body: `userId=${userId}`
+                })
+                .then(async (response) => {
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        const text = await response.text();
+                        throw new Error(text || 'Invalid server response');
+                    }
+                    
+                    if (!response.ok || !data || !data.success) {
+                        const errorMsg = data?.message || `Server error: ${response.status} ${response.statusText}`;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: errorMsg,
+                            confirmButtonColor: '#ef4444'
+                        });
+                        return;
+                    }
+                    
+                    // Hide/remove the row immediately
+                    const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(-20px)';
+                        setTimeout(() => {
+                            row.remove();
+                        }, 300);
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Suspended!',
+                        text: data.message || 'User suspended successfully',
+                        confirmButtonColor: '#10b981',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: error.message || 'An error occurred while suspending the user.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                });
+            }
+        });
+    }
+
+    function deactivateUser(userId) {
+        Swal.fire({
+            title: 'Deactivate User?',
+            text: 'Are you sure you want to deactivate this user?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Deactivate'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Deactivating User...',
+                    text: 'Please wait',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Call API to deactivate user
+                fetch('@Url.Action("DeactivateUser", "Admin")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    },
+                    body: `userId=${userId}`
+                })
+                .then(async (response) => {
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        const text = await response.text();
+                        throw new Error(text || 'Invalid server response');
+                    }
+                    
+                    if (!response.ok || !data || !data.success) {
+                        const errorMsg = data?.message || `Server error: ${response.status} ${response.statusText}`;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: errorMsg,
+                            confirmButtonColor: '#ef4444'
+                        });
+                        return;
+                    }
+                    
+                    // Hide/remove the row immediately
+                    const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(-20px)';
+                        setTimeout(() => {
+                            row.remove();
+                        }, 300);
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deactivated!',
+                        text: data.message || 'User deactivated successfully',
+                        confirmButtonColor: '#10b981',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: error.message || 'An error occurred while deactivating the user.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                });
+            }
+        });
+    }
+
+    function reactivateUser(userId) {
+        Swal.fire({
+            title: 'Reactivate User?',
+            text: 'Are you sure you want to reactivate this user?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#10b981',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Reactivate'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Reactivating User...',
+                    text: 'Please wait',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Call API to reactivate user (using UpdateUser with status=Active)
+                fetch('@Url.Action("UpdateUser", "Admin")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    },
+                    body: `userId=${userId}&status=Active`
+                })
+                .then(async (response) => {
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        const text = await response.text();
+                        throw new Error(text || 'Invalid server response');
+                    }
+                    
+                    if (!response.ok || !data || !data.success) {
+                        const errorMsg = data?.message || `Server error: ${response.status} ${response.statusText}`;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: errorMsg,
+                            confirmButtonColor: '#ef4444'
+                        });
+                        return;
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Reactivated!',
+                        text: data.message || 'User reactivated successfully',
+                        confirmButtonColor: '#10b981',
+                        timer: 2000,
+                        showConfirmButton: true
+                    }).then(() => {
+                        location.reload();
+                    });
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: error.message || 'An error occurred while reactivating the user.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                });
+            }
+        });
+    }
+
+    function deleteUser(userId) {
+        Swal.fire({
+            title: 'Delete User?',
+            text: 'This action cannot be undone!',
+            icon: 'error',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Delete'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Deleting User...',
+                    text: 'Please wait',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Call API
+                fetch('@Url.Action("DeleteUser", "Admin")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    },
+                    body: `userId=${userId}`
+                })
+                .then(async (response) => {
+                    let data;
+                    try {
+                        data = await response.json();
+                    } catch (e) {
+                        const text = await response.text();
+                        throw new Error(text || 'Invalid server response');
+                    }
+                    
+                    if (!response.ok || !data || !data.success) {
+                        const errorMsg = data?.message || `Server error: ${response.status} ${response.statusText}`;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: errorMsg,
+                            confirmButtonColor: '#ef4444'
+                        });
+                        return;
+                    }
+                    
+                    // Hide/remove the row immediately
+                    const row = document.querySelector(`tr[data-user-id="${userId}"]`);
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateX(-20px)';
+                        setTimeout(() => {
+                            row.remove();
+                        }, 300);
+                    }
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted!',
+                        text: data.message || 'User deleted successfully',
+                        confirmButtonColor: '#10b981',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: error.message || 'An error occurred while deleting the user.',
+                        confirmButtonColor: '#ef4444'
+                    });
+                });
+            }
+        });
+    }
+
+    // Alias for compatibility
+    window.showAddUserModal = function(event) {
+        if (event) event.preventDefault();
+        return window.openAddUserModal(event);
+    };
+    
+    window.openAddUserModal = function(event) {
+        if (event) event.preventDefault();
+        
+        // Fetch roles for dropdown (JSON)
+        fetch('@Url.Action("GetRoles", "Admin")')
+            .then(response => response.json())
+            .then(data => {
+                const roles = Array.isArray(data?.roles) && data.roles.length > 0
+                    ? data.roles.map(r => ({ id: r.roleId, name: r.roleName }))
+                    : [{ id: 1, name: 'Admin' }, { id: 2, name: 'Author' }, { id: 3, name: 'Reader' }];
+                const roleOptions = ['<option value="">-- Select User Role --</option>']
+                    .concat(roles.map(r => `<option value="${r.id}">${r.name}</option>`))
+                    .join('');
+                
+                Swal.fire({
+                    title: '<div style="display: flex; align-items: center; gap: 12px; padding: 8px 0;"><i class="fas fa-user-plus" style="font-size: 28px; color: var(--primary);"></i><span style="font-size: 24px; font-weight: 700; color: var(--text-primary);">Add New User</span></div>',
+                    html: `
+                        <form id="addUserForm" style="text-align: left; padding: 8px;">
+                            <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%); padding: 16px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid var(--primary);">
+                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                                    <i class="fas fa-info-circle" style="color: var(--primary);"></i>
+                                    <span style="font-weight: 600; color: var(--text-primary);">User Information</span>
+                                </div>
+                                <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Fill in all required fields to create a new user account.</p>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px; position: relative;">
+                                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
+                                    <i class="fas fa-user" style="color: var(--primary); font-size: 14px;"></i>
+                                    Full Name <span style="color: var(--danger);">*</span>
+                                </label>
+                                <input type="text" id="fullName" placeholder="Enter user's full name" required 
+                                       style="width: 100%; padding: 12px 16px; border: 2px solid var(--border-light); border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: var(--white);"
+                                       onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(99, 102, 241, 0.1)'"
+                                       onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                                    <i class="fas fa-check-circle" style="color: var(--success); margin-right: 4px;"></i>Required field
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px; position: relative;">
+                                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
+                                    <i class="fas fa-envelope" style="color: var(--primary); font-size: 14px;"></i>
+                                    Email Address <span style="color: var(--danger);">*</span>
+                                </label>
+                                <input type="email" id="userEmail" placeholder="user@example.com" required 
+                                       style="width: 100%; padding: 12px 16px; border: 2px solid var(--border-light); border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: var(--white);"
+                                       onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(99, 102, 241, 0.1)'"
+                                       onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                                    <i class="fas fa-shield-alt" style="color: var(--success); margin-right: 4px;"></i>Must be a valid email address
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px; position: relative;">
+                                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
+                                    <i class="fas fa-user-shield" style="color: var(--primary); font-size: 14px;"></i>
+                                    User Role <span style="color: var(--danger);">*</span>
+                                </label>
+                                <select id="roleId" required 
+                                        style="width: 100%; padding: 12px 16px; border: 2px solid var(--border-light); border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: var(--white); cursor: pointer; appearance: none; background-image: url('data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'12\\' height=\\'12\\' viewBox=\\'0 0 12 12\\'><path fill=\\'%23666\\' d=\\'M6 9L1 4h10z\\'/></svg>'); background-repeat: no-repeat; background-position: right 12px center; padding-right: 40px;"
+                                        onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(99, 102, 241, 0.1)'"
+                                        onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                                    ${roleOptions}
+                                </select>
+                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                                    <i class="fas fa-key" style="color: var(--warning); margin-right: 4px;"></i>Determines user permissions
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 20px; position: relative;">
+                                <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 14px;">
+                                    <i class="fas fa-lock" style="color: var(--primary); font-size: 14px;"></i>
+                                    Password <span style="color: var(--danger);">*</span>
+                                </label>
+                                <div style="position: relative;">
+                                    <input type="password" id="password" placeholder="Enter secure password" required 
+                                           style="width: 100%; padding: 12px 16px; padding-right: 45px; border: 2px solid var(--border-light); border-radius: 10px; font-size: 14px; transition: all 0.3s ease; background: var(--white);"
+                                           onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(99, 102, 241, 0.1)'"
+                                           onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                                    <button type="button" id="togglePassword" onclick="togglePasswordVisibility('password', 'togglePassword')" 
+                                            style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 4px;">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                                    <i class="fas fa-info-circle" style="color: var(--warning); margin-right: 4px;"></i>Minimum 6 characters recommended
+                                </div>
+                            </div>
+                            
+                            <div style="background: var(--light-gray); padding: 12px; border-radius: 8px; margin-top: 20px; border-left: 3px solid var(--success);">
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary);">
+                                    <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                                    <span>All fields marked with <span style="color: var(--danger);">*</span> are required</span>
+                                </div>
+                            </div>
+                        </form>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-user-plus"></i> Create User',
+                    cancelButtonText: '<i class="fas fa-times"></i> Cancel',
+                    confirmButtonColor: '#6366F1',
+                    cancelButtonColor: '#6b7280',
+                    width: '650px',
+                    customClass: {
+                        popup: 'swal2-popup-custom',
+                        title: 'swal2-title-custom'
+                    },
+                    preConfirm: () => {
+                        const form = document.getElementById('addUserForm');
+                        if (!form) return false;
+                        const fullName = document.getElementById('fullName').value.trim();
+                        const userEmail = document.getElementById('userEmail').value.trim();
+                        const roleId = document.getElementById('roleId').value;
+                        const password = document.getElementById('password').value.trim();
+                        
+                        if (!fullName || !userEmail || !roleId || !password) {
+                            Swal.showValidationMessage('Please fill in all fields');
+                            return false;
+                        }
+                        
+                        return { fullName, userEmail, roleId: parseInt(roleId), password };
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed && result.value) {
+                        
+
+                        Swal.fire({
+                            title: 'Creating User...',
+                            text: 'Please wait',
+                            icon: 'info',
+                            allowOutsideClick: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+                        
+                        // Call API
+                        const formData = new URLSearchParams();
+                        formData.append('fullName', result.value.fullName);
+                        formData.append('userEmail', result.value.userEmail);
+                        formData.append('roleId', String(result.value.roleId));
+                        formData.append('password', result.value.password);
+                        
+                        fetch('@Url.Action("CreateUser", "Admin")', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                            },
+                            body: formData
+                        })
+                        .then(async (response) => {
+                            let data;
+                            try {
+                                data = await response.json();
+                            } catch (e) {
+                                const txt = await response.text();
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: txt || 'Invalid server response',
+                                    confirmButtonColor: '#ef4444'
+                                });
+                                return;
+                            }
+
+                            if (!response.ok || !data || !data.success) {
+                                const msg = data?.message || `Server error: ${response.status} ${response.statusText}`;
+                                if (/unauthorized/i.test(msg)) {
+                                    Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Not Authorized',
+                                        text: 'Admin privileges are required to perform this action.',
+                                        confirmButtonColor: '#f59e0b'
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Error',
+                                        text: msg,
+                                        confirmButtonColor: '#ef4444'
+                                    });
+                                }
+                                return;
+                            }
+
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Success!',
+                                text: data.message || 'User created successfully',
+                                confirmButtonColor: '#10b981',
+                                timer: 2000,
+                                showConfirmButton: true
+                            }).then(() => {
+                                location.reload();
+                            });
+                        })
+                        .catch((error) => {
+                            const message = (error && error.message) ? error.message : 'An error occurred while creating the user.';
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: message,
+                                confirmButtonColor: '#ef4444'
+                            });
+                        });
+                    }
+                });
+            })
+            .catch(() => {
+                // Fallback if roles fetch fails
+                Swal.fire('Error', 'Could not load roles. Please try again.', 'error');
+            });
+    }
+
+    function exportUsers(format = 'csv') {
+        Swal.fire({
+            title: 'Export Users',
+            html: `
+                <div style="text-align: left; padding: 10px;">
+                    <p style="margin-bottom: 12px;">Choose export format:</p>
+                    <button id="exportCsv" class="btn btn-primary" style="width: 100%; margin-bottom: 8px;">
+                        <i class="fas fa-file-csv"></i> Export as CSV
+                    </button>
+                    <button id="exportExcel" class="btn btn-success" style="width: 100%; background: var(--success);">
+                        <i class="fas fa-file-excel"></i> Export as Excel
+                    </button>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCancelButton: true,
+            cancelButtonText: 'Cancel',
+            width: '400px',
+            didOpen: () => {
+                document.getElementById('exportCsv').addEventListener('click', () => {
+                    Swal.close();
+                    performExport('csv');
+                });
+                document.getElementById('exportExcel').addEventListener('click', () => {
+                    Swal.close();
+                    performExport('excel');
+                });
+            }
+        });
+    }
+    
+    function performExport(format) {
+        Swal.fire({
+            title: 'Exporting...',
+            html: `<div style="text-align: center;"><i class="fas fa-spinner fa-spin" style="font-size: 32px; color: var(--primary); margin-bottom: 12px;"></i><p>Preparing ${format.toUpperCase()} file...</p></div>`,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Get current filters
+        const roleFilter = document.querySelector('select[name="roleFilter"]')?.value || '';
+        const statusFilter = document.querySelector('select[name="statusFilter"]')?.value || '';
+        
+        // Build export URL
+        const exportUrl = '@Url.Action("ExportUsers", "Admin")' + 
+            `?format=${format}` +
+            (roleFilter ? `&roleFilter=${encodeURIComponent(roleFilter)}` : '') +
+            (statusFilter ? `&statusFilter=${encodeURIComponent(statusFilter)}` : '');
+        
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = exportUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Show success after a delay
+        setTimeout(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Export Complete!',
+                html: `<div style="text-align: center;"><i class="fas fa-check-circle" style="font-size: 48px; color: var(--success); margin-bottom: 12px;"></i><p>Users exported successfully as <strong>${format.toUpperCase()}</strong></p><p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Check your downloads folder</p></div>`,
+                timer: 3000,
+                showConfirmButton: false,
+                timerProgressBar: true
+            });
+        }, 1500);
+    }
+    
+    // Attach event listeners instead of inline onclick
+    document.addEventListener('DOMContentLoaded', function() {
+        const addUserBtn = document.getElementById('addUserBtn');
+        if (addUserBtn) {
+            addUserBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (typeof window.openAddUserModal === 'function') {
+                    window.openAddUserModal(e);
+                } else if (typeof window.showAddUserModal === 'function') {
+                    window.showAddUserModal(e);
+                } else {
+                    console.error('openAddUserModal function not found');
+                }
+            });
+        }
+    });
+</script>
+
+@section Scripts {
+    <script>
+        // Ensure all AdminLayout functions are available
+        document.addEventListener('DOMContentLoaded', function() {
+            // Functions should be available from AdminLayout
+            // If not available, define fallbacks
+            if (typeof window.showQuickActions === 'undefined') {
+                window.showQuickActions = function() {
+                    if (typeof window.openAddUserModal === 'function') {
+                        window.openAddUserModal();
+                    }
+                };
+            }
+            
+            if (typeof window.showSearch === 'undefined') {
+                window.showSearch = function() {
+                    const searchModal = document.getElementById('searchModal');
+                    if (searchModal) {
+                        searchModal.classList.add('active');
+                    }
+                };
+            }
+            
+            if (typeof window.toggleTheme === 'undefined') {
+                window.toggleTheme = function() {
+                    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+                    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', newTheme);
+                    localStorage.setItem('adminTheme', newTheme);
+                };
+            }
+            
+            if (typeof window.showNotifications === 'undefined') {
+                window.showNotifications = async function() {
+                    console.log('Notifications feature not fully implemented');
+                };
+            }
+            
+            // closeSearchModal - Define immediately
+            if (typeof window.closeSearchModal === 'undefined') {
+                window.closeSearchModal = function() {
+                    const searchModal = document.getElementById('searchModal');
+                    if (searchModal) {
+                        searchModal.classList.remove('active');
+                    }
+                };
+            }
+        });
+        
+        // Also define closeSearchModal immediately (before DOMContentLoaded)
+        window.closeSearchModal = window.closeSearchModal || function() {
+            const searchModal = document.getElementById('searchModal');
+            if (searchModal) {
+                searchModal.classList.remove('active');
+            }
+        };
+    </script>
+}

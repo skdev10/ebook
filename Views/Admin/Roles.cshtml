@@ -1,0 +1,1618 @@
+﻿@{
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    ViewData["Title"] = "Roles Management";
+}
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --warm-gray: #E8E8E8;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --text-muted: #9B9B9B;
+        --border-light: #E5E5E5;
+        --shadow-soft: rgba(0, 0, 0, 0.05);
+        --primary: #7c3aed;
+        --primary-light: #a78bfa;
+        --primary-dark: #6d28d9;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+    }
+    /* Outstanding Roles Management Styles */
+    .roles-management-container {
+        animation: fadeIn 0.8s ease-out;
+        padding: 20px;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Header with Gradient Animation */
+    .roles-management-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        border-radius: 25px;
+        padding: 35px;
+        color: white;
+        margin-bottom: 35px;
+        box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+        position: relative;
+        overflow: hidden;
+        border: none;
+        animation: slideInDown 0.6s ease-out;
+    }
+
+        .roles-management-header::before {
+            content: "";
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(30deg);
+            animation: shimmer 3s infinite;
+        }
+
+    @@keyframes shimmer {
+        0% {
+            transform: rotate(30deg) translateX(-20%);
+        }
+
+        50% {
+            transform: rotate(30deg) translateX(20%);
+        }
+
+        100% {
+            transform: rotate(30deg) translateX(-20%);
+        }
+    }
+
+    .roles-management-header h1 {
+        font-weight: 800;
+        margin-bottom: 10px;
+        font-size: 2.8rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        animation: textGlow 2s infinite alternate;
+    }
+
+    @@keyframes textGlow {
+        from {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        to {
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.4);
+        }
+    }
+
+    .roles-management-header p {
+        opacity: 0.9;
+        margin-bottom: 0;
+        font-size: 1.2rem;
+        max-width: 700px;
+    }
+
+    /* Stats Cards with Outstanding Design */
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+        margin-bottom: 40px;
+    }
+
+    .stat-card {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        border-radius: 25px;
+        padding: 35px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        border: none;
+        animation: floatIn 0.6s ease-out;
+        animation-fill-mode: both;
+    }
+
+        .stat-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-12px) scale(1.03);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+        }
+
+            .stat-card:hover::before {
+                transform: scaleX(1);
+            }
+
+    .stat-icon {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 25px;
+        font-size: 2.5rem;
+        transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        animation: pulseIcon 3s infinite;
+    }
+
+    @@keyframes pulseIcon {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        50% {
+            transform: scale(1.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        100% {
+            transform: scale(1);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+    }
+
+    .stat-card:hover .stat-icon {
+        transform: scale(1.2) rotate(10deg);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    .stat-card.admin .stat-icon {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+        color: white;
+    }
+
+    .stat-card.author .stat-icon {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        color: white;
+    }
+
+    .stat-card.reader .stat-icon {
+        background: linear-gradient(135deg, #4ecdc4, #44a08d);
+        color: white;
+    }
+
+    .stat-card.total .stat-icon {
+        background: linear-gradient(135deg, #ffd166, #ffb347);
+        color: white;
+    }
+
+    .stat-value {
+        font-size: 3.2rem;
+        font-weight: 800;
+        margin-bottom: 15px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        transition: all 0.3s ease;
+    }
+
+    .stat-card:hover .stat-value {
+        transform: scale(1.1);
+    }
+
+    .stat-label {
+        font-size: 1.1rem;
+        color: #6c757d;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+
+    /* Roles Carousel Section */
+    .roles-carousel-section {
+        margin-bottom: 50px;
+    }
+
+    .section-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 30px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        position: relative;
+        padding-bottom: 20px;
+    }
+
+        .section-title::after {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 80px;
+            height: 5px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+            border-radius: 3px;
+        }
+
+        .section-title i {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 1.6rem;
+        }
+
+    .roles-carousel {
+        position: relative;
+        border-radius: 25px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        padding: 30px;
+    }
+
+    .carousel-inner {
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+    .carousel-item {
+        transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .carousel-control-prev, .carousel-control-next {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(102, 126, 234, 0.9);
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0.8;
+        transition: all 0.3s ease;
+        margin: 0 20px;
+        box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    }
+
+        .carousel-control-prev:hover, .carousel-control-next:hover {
+            opacity: 1;
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+
+    .carousel-control-prev {
+        left: -30px;
+    }
+
+    .carousel-control-next {
+        right: -30px;
+    }
+
+    .carousel-indicators {
+        bottom: -50px;
+    }
+
+        .carousel-indicators button {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: rgba(102, 126, 234, 0.5);
+            transition: all 0.3s ease;
+            margin: 0 5px;
+        }
+
+            .carousel-indicators button.active {
+                background-color: var(--primary);
+                transform: scale(1.3);
+            }
+
+    /* Role Cards Grid */
+    .roles-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 30px;
+        margin-bottom: 50px;
+    }
+
+    .role-card {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        border-radius: 25px;
+        padding: 0;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        overflow: hidden;
+        border: none;
+        animation: floatIn 0.6s ease-out;
+        animation-fill-mode: both;
+        position: relative;
+    }
+
+        .role-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s ease;
+        }
+
+        .role-card:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+        }
+
+            .role-card:hover::before {
+                transform: scaleX(1);
+            }
+
+    .role-card-header {
+        padding: 30px 30px 20px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .role-icon {
+        width: 70px;
+        height: 70px;
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        color: white;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .role-card:hover .role-icon {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .role-card.admin .role-icon {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    }
+
+    .role-card.author .role-icon {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+    }
+
+    .role-card.reader .role-icon {
+        background: linear-gradient(135deg, #4ecdc4, #44a08d);
+    }
+
+    .role-card.moderator .role-icon {
+        background: linear-gradient(135deg, #ffd166, #ffb347);
+    }
+
+    .role-card.editor .role-icon {
+        background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+    }
+
+    .role-card.contributor .role-icon {
+        background: linear-gradient(135deg, #06d6a0, #05a17d);
+    }
+
+    .role-info h3 {
+        font-weight: 700;
+        margin-bottom: 5px;
+        font-size: 1.5rem;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .role-info p {
+        color: #6c757d;
+        margin-bottom: 0;
+        font-size: 0.95rem;
+    }
+
+    .role-card-body {
+        padding: 25px 30px;
+    }
+
+    .role-description {
+        color: #6c757d;
+        margin-bottom: 20px;
+        line-height: 1.6;
+    }
+
+    .permissions-list {
+        margin-bottom: 25px;
+    }
+
+        .permissions-list h5 {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+            .permissions-list h5 i {
+                color: var(--primary);
+            }
+
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+    }
+
+    .permission-badge {
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+
+        .permission-badge:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .permission-badge i {
+            font-size: 0.8rem;
+        }
+
+    .role-card-footer {
+        padding: 20px 30px;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .users-count {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #6c757d;
+        font-weight: 500;
+    }
+
+        .users-count i {
+            color: #667eea;
+        }
+
+    .role-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-role {
+        padding: 10px 20px;
+        border-radius: 15px;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        border: none;
+    }
+
+    .btn-role-primary {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        color: white;
+    }
+
+        .btn-role-primary:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+    .btn-role-outline {
+        background: transparent;
+        border: 2px solid var(--primary);
+        color: var(--primary);
+    }
+
+        .btn-role-outline:hover {
+            background: var(--primary);
+            color: white;
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+    /* Permissions Matrix Section */
+    .permissions-matrix-section {
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        padding: 40px;
+        border-radius: 25px;
+        margin-bottom: 50px;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        transition: all 0.4s ease;
+        border: none;
+        animation: slideInUp 0.6s ease-out;
+    }
+
+        .permissions-matrix-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15);
+        }
+
+    .matrix-container {
+        overflow-x: auto;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    .permissions-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 20px;
+        overflow: hidden;
+    }
+
+        .permissions-table thead th {
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+            padding: 20px 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .permissions-table tbody td {
+            padding: 20px 15px;
+            vertical-align: middle;
+            border-bottom: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .permissions-table tbody tr {
+            transition: all 0.3s ease;
+        }
+
+            .permissions-table tbody tr:hover {
+                background-color: rgba(102, 126, 234, 0.05);
+                transform: scale(1.01);
+            }
+
+    .permission-check {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(76, 209, 55, 0.2);
+        color: #4cd137;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .permission-denied {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(255, 107, 107, 0.2);
+        color: #ff6b6b;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+        .permission-check:hover, .permission-denied:hover {
+            transform: scale(1.2);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+    /* Modal Styles with Outstanding Design */
+    .modal-content {
+        border: none;
+        border-radius: 25px;
+        overflow: hidden;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+        animation: modalSlideIn 0.4s ease-out;
+    }
+
+    @@keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-50px) scale(0.9);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .modal-header {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        padding: 30px;
+    }
+
+    .modal-body {
+        padding: 35px;
+    }
+
+    .modal-footer {
+        padding: 30px;
+        border: none;
+        background: #f8f9fa;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 12px;
+        font-size: 1.1rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 15px;
+        padding: 15px 20px;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+        background: #ffffff;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+    }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+        border-radius: 15px;
+        padding: 12px 25px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 5px 15px rgba(108, 117, 125, 0.2);
+    }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(108, 117, 125, 0.3);
+        }
+
+    /* Animations */
+    @@keyframes slideInDown {
+        from {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(50px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @@keyframes floatIn {
+        from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    /* Responsive Design */
+    @@media (max-width: 1200px) {
+        .roles-grid {
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        }
+    }
+
+    @@media (max-width: 992px) {
+        .roles-management-container {
+            padding: 15px;
+        }
+
+        .roles-management-header {
+            padding: 30px 25px;
+        }
+
+            .roles-management-header h1 {
+                font-size: 2.3rem;
+            }
+
+        .stats-container {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .roles-grid {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .carousel-control-prev, .carousel-control-next {
+            width: 50px;
+            height: 50px;
+        }
+
+        .carousel-control-prev {
+            left: -20px;
+        }
+
+        .carousel-control-next {
+            right: -20px;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .roles-management-container {
+            padding: 10px;
+        }
+
+        .roles-management-header {
+            padding: 25px 20px;
+            text-align: center;
+        }
+
+            .roles-management-header h1 {
+                font-size: 2rem;
+            }
+
+        .stats-container {
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .stat-card {
+            padding: 25px;
+        }
+
+        .stat-icon {
+            width: 70px;
+            height: 70px;
+            font-size: 2rem;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+        }
+
+        .roles-grid {
+            grid-template-columns: 1fr;
+            gap: 25px;
+        }
+
+        .role-card-header {
+            padding: 25px 25px 15px;
+        }
+
+        .role-card-body {
+            padding: 20px 25px;
+        }
+
+        .role-card-footer {
+            padding: 15px 25px;
+            flex-direction: column;
+            gap: 15px;
+            align-items: flex-start;
+        }
+
+        .role-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .permissions-matrix-section {
+            padding: 30px 20px;
+        }
+
+        .permissions-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        }
+
+        .carousel-control-prev, .carousel-control-next {
+            display: none;
+        }
+    }
+
+    @@media (max-width: 576px) {
+        .roles-management-container {
+            padding: 5px;
+        }
+
+        .roles-management-header {
+            padding: 20px 15px;
+        }
+
+            .roles-management-header h1 {
+                font-size: 1.7rem;
+            }
+
+        .stats-container {
+            grid-template-columns: 1fr;
+        }
+
+        .stat-value {
+            font-size: 2.2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+        }
+
+        .roles-carousel {
+            padding: 20px;
+        }
+
+        .role-card-header {
+            flex-direction: column;
+            text-align: center;
+            gap: 15px;
+        }
+
+        .permissions-grid {
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        }
+
+        .btn-role {
+            padding: 8px 15px;
+            font-size: 0.9rem;
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+    }
+</style>
+
+<div class="roles-management-container">
+    <!-- Header Section -->
+    <div class="roles-management-header">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1><i class="fas fa-user-tag me-3"></i>Roles & Permissions</h1>
+                <p>Manage user roles, permissions, and access levels across the platform with precision control</p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <button class="btn btn-light" data-bs-toggle="modal" data-bs-target="#roleModal">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Role
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="stats-container">
+        <div class="stat-card admin" data-aos="fade-up" data-aos-delay="100">
+            <div class="stat-icon admin">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <div class="stat-value">5</div>
+            <div class="stat-label">Admin Roles</div>
+        </div>
+
+        <div class="stat-card author" data-aos="fade-up" data-aos-delay="200">
+            <div class="stat-icon author">
+                <i class="fas fa-pen-fancy"></i>
+            </div>
+            <div class="stat-value">8</div>
+            <div class="stat-label">Custom Roles</div>
+        </div>
+
+        <div class="stat-card reader" data-aos="fade-up" data-aos-delay="300">
+            <div class="stat-icon reader">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-value">1,248</div>
+            <div class="stat-label">Users Assigned</div>
+        </div>
+
+        <div class="stat-card total" data-aos="fade-up" data-aos-delay="400">
+            <div class="stat-icon total">
+                <i class="fas fa-key"></i>
+            </div>
+            <div class="stat-value">42</div>
+            <div class="stat-label">Permissions</div>
+        </div>
+    </div>
+
+    <!-- Roles Carousel Section -->
+    <div class="roles-carousel-section">
+        <h3 class="section-title">
+            <i class="fas fa-sliders-h"></i>
+            Featured Roles
+        </h3>
+
+        <div class="roles-carousel">
+            <div id="rolesCarousel" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    <div class="carousel-item active">
+                        <div class="row g-4">
+                            <div class="col-md-4">
+                                <div class="role-card admin h-100">
+                                    <div class="role-card-header">
+                                        <div class="role-icon">
+                                            <i class="fas fa-user-shield"></i>
+                                        </div>
+                                        <div class="role-info">
+                                            <h3>Administrator</h3>
+                                            <p>Full system access</p>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-body">
+                                        <p class="role-description">Complete access to all system features, user management, and administrative functions.</p>
+                                        <div class="permissions-list">
+                                            <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                                            <div class="permissions-grid">
+                                                <span class="permission-badge"><i class="fas fa-check"></i> All Access</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-footer">
+                                        <div class="users-count">
+                                            <i class="fas fa-users"></i> 5 Users
+                                        </div>
+                                        <div class="role-actions">
+                                            <button class="btn-role btn-role-outline">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn-role btn-role-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="role-card author h-100">
+                                    <div class="role-card-header">
+                                        <div class="role-icon">
+                                            <i class="fas fa-pen-fancy"></i>
+                                        </div>
+                                        <div class="role-info">
+                                            <h3>Content Author</h3>
+                                            <p>Create and manage content</p>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-body">
+                                        <p class="role-description">Create, edit, and publish content. Manage own articles but cannot access user management.</p>
+                                        <div class="permissions-list">
+                                            <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                                            <div class="permissions-grid">
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Create</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Edit</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Publish</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-footer">
+                                        <div class="users-count">
+                                            <i class="fas fa-users"></i> 42 Users
+                                        </div>
+                                        <div class="role-actions">
+                                            <button class="btn-role btn-role-outline">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn-role btn-role-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="role-card reader h-100">
+                                    <div class="role-card-header">
+                                        <div class="role-icon">
+                                            <i class="fas fa-book-reader"></i>
+                                        </div>
+                                        <div class="role-info">
+                                            <h3>Reader</h3>
+                                            <p>Content consumption only</p>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-body">
+                                        <p class="role-description">Access to read published content, comment on articles, and manage personal profile.</p>
+                                        <div class="permissions-list">
+                                            <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                                            <div class="permissions-grid">
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Read</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Comment</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-footer">
+                                        <div class="users-count">
+                                            <i class="fas fa-users"></i> 1,201 Users
+                                        </div>
+                                        <div class="role-actions">
+                                            <button class="btn-role btn-role-outline">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn-role btn-role-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item">
+                        <div class="row g-4">
+                            <div class="col-md-4">
+                                <div class="role-card moderator h-100">
+                                    <div class="role-card-header">
+                                        <div class="role-icon">
+                                            <i class="fas fa-gavel"></i>
+                                        </div>
+                                        <div class="role-info">
+                                            <h3>Moderator</h3>
+                                            <p>Content moderation</p>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-body">
+                                        <p class="role-description">Review and moderate user content, manage comments, and enforce community guidelines.</p>
+                                        <div class="permissions-list">
+                                            <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                                            <div class="permissions-grid">
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Moderate</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Review</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Delete</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-footer">
+                                        <div class="users-count">
+                                            <i class="fas fa-users"></i> 12 Users
+                                        </div>
+                                        <div class="role-actions">
+                                            <button class="btn-role btn-role-outline">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn-role btn-role-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="role-card editor h-100">
+                                    <div class="role-card-header">
+                                        <div class="role-icon">
+                                            <i class="fas fa-edit"></i>
+                                        </div>
+                                        <div class="role-info">
+                                            <h3>Editor</h3>
+                                            <p>Content editing & publishing</p>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-body">
+                                        <p class="role-description">Edit and publish content from multiple authors, manage categories, and schedule posts.</p>
+                                        <div class="permissions-list">
+                                            <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                                            <div class="permissions-grid">
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Edit All</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Publish</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Schedule</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-footer">
+                                        <div class="users-count">
+                                            <i class="fas fa-users"></i> 8 Users
+                                        </div>
+                                        <div class="role-actions">
+                                            <button class="btn-role btn-role-outline">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn-role btn-role-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="role-card contributor h-100">
+                                    <div class="role-card-header">
+                                        <div class="role-icon">
+                                            <i class="fas fa-feather"></i>
+                                        </div>
+                                        <div class="role-info">
+                                            <h3>Contributor</h3>
+                                            <p>Limited content creation</p>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-body">
+                                        <p class="role-description">Create and submit content for review, but cannot publish directly. Edit own drafts only.</p>
+                                        <div class="permissions-list">
+                                            <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                                            <div class="permissions-grid">
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Create</span>
+                                                <span class="permission-badge"><i class="fas fa-check"></i> Submit</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="role-card-footer">
+                                        <div class="users-count">
+                                            <i class="fas fa-users"></i> 25 Users
+                                        </div>
+                                        <div class="role-actions">
+                                            <button class="btn-role btn-role-outline">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                            <button class="btn-role btn-role-primary">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#rolesCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#rolesCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+                <div class="carousel-indicators">
+                    <button type="button" data-bs-target="#rolesCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+                    <button type="button" data-bs-target="#rolesCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Roles Grid -->
+    <div class="roles-grid-section">
+        <h3 class="section-title">
+            <i class="fas fa-th-large"></i>
+            All Roles
+        </h3>
+
+        <div class="roles-grid">
+            <!-- Admin Role Card -->
+            <div class="role-card admin">
+                <div class="role-card-header">
+                    <div class="role-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div class="role-info">
+                        <h3>Administrator</h3>
+                        <p>Full system access</p>
+                    </div>
+                </div>
+                <div class="role-card-body">
+                    <p class="role-description">Complete access to all system features, user management, and administrative functions with no restrictions.</p>
+                    <div class="permissions-list">
+                        <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                        <div class="permissions-grid">
+                            <span class="permission-badge"><i class="fas fa-check"></i> User Management</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> System Settings</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> Content Management</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> Analytics</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> All Permissions</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="role-card-footer">
+                    <div class="users-count">
+                        <i class="fas fa-users"></i> 5 Users
+                    </div>
+                    <div class="role-actions">
+                        <button class="btn-role btn-role-outline">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn-role btn-role-primary">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Author Role Card -->
+            <div class="role-card author">
+                <div class="role-card-header">
+                    <div class="role-icon">
+                        <i class="fas fa-pen-fancy"></i>
+                    </div>
+                    <div class="role-info">
+                        <h3>Content Author</h3>
+                        <p>Create and manage content</p>
+                    </div>
+                </div>
+                <div class="role-card-body">
+                    <p class="role-description">Create, edit, and publish content. Manage own articles but cannot access user management or system settings.</p>
+                    <div class="permissions-list">
+                        <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                        <div class="permissions-grid">
+                            <span class="permission-badge"><i class="fas fa-check"></i> Create Content</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> Edit Own Content</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> Publish Content</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> Media Upload</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="role-card-footer">
+                    <div class="users-count">
+                        <i class="fas fa-users"></i> 42 Users
+                    </div>
+                    <div class="role-actions">
+                        <button class="btn-role btn-role-outline">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn-role btn-role-primary">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reader Role Card -->
+            <div class="role-card reader">
+                <div class="role-card-header">
+                    <div class="role-icon">
+                        <i class="fas fa-book-reader"></i>
+                    </div>
+                    <div class="role-info">
+                        <h3>Reader</h3>
+                        <p>Content consumption only</p>
+                    </div>
+                </div>
+                <div class="role-card-body">
+                    <p class="role-description">Access to read published content, comment on articles, and manage personal profile settings.</p>
+                    <div class="permissions-list">
+                        <h5><i class="fas fa-key"></i> Key Permissions</h5>
+                        <div class="permissions-grid">
+                            <span class="permission-badge"><i class="fas fa-check"></i> Read Content</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> Comment</span>
+                            <span class="permission-badge"><i class="fas fa-check"></i> Profile Management</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="role-card-footer">
+                    <div class="users-count">
+                        <i class="fas fa-users"></i> 1,201 Users
+                    </div>
+                    <div class="role-actions">
+                        <button class="btn-role btn-role-outline">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn-role btn-role-primary">
+                            <i class="fas fa-eye"></i> View
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions Matrix Section -->
+    <div class="permissions-matrix-section">
+        <h3 class="section-title">
+            <i class="fas fa-table"></i>
+            Permissions Matrix
+        </h3>
+
+        <div class="matrix-container">
+            <table class="permissions-table">
+                <thead>
+                    <tr>
+                        <th>Permission</th>
+                        <th>Admin</th>
+                        <th>Author</th>
+                        <th>Reader</th>
+                        <th>Moderator</th>
+                        <th>Editor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>User Management</strong></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Content Creation</strong></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Content Publishing</strong></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Content Moderation</strong></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>System Settings</strong></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>Analytics Access</strong></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-denied"><i class="fas fa-times"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                        <td><span class="permission-check"><i class="fas fa-check"></i></span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Role Modal -->
+<div class="modal fade" id="roleModal" tabindex="-1" aria-labelledby="roleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="roleModalLabel">Create New Role</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="roleForm">
+                    <input type="hidden" id="roleId">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <label for="roleName" class="form-label">Role Name</label>
+                            <input type="text" class="form-control" id="roleName" required placeholder="Enter role name">
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <label for="roleDescription" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="roleDescription" required placeholder="Enter role description">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Permissions</label>
+                        <div class="permissions-grid">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permUserManagement">
+                                <label class="form-check-label" for="permUserManagement">
+                                    User Management
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permContentCreate">
+                                <label class="form-check-label" for="permContentCreate">
+                                    Content Creation
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permContentPublish">
+                                <label class="form-check-label" for="permContentPublish">
+                                    Content Publishing
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permContentModerate">
+                                <label class="form-check-label" for="permContentModerate">
+                                    Content Moderation
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permSystemSettings">
+                                <label class="form-check-label" for="permSystemSettings">
+                                    System Settings
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permAnalytics">
+                                <label class="form-check-label" for="permAnalytics">
+                                    Analytics Access
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRoleBtn">Create Role</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add entrance animations
+            const elements = document.querySelectorAll('.stat-card, .roles-carousel, .role-card, .permissions-matrix-section');
+            elements.forEach((el, index) => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(30px)';
+                setTimeout(() => {
+                    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                    el.style.opacity = '1';
+                    el.style.transform = 'translateY(0)';
+                }, 150 * index);
+            });
+
+            // Initialize carousel with custom settings
+            const rolesCarousel = new bootstrap.Carousel(document.getElementById('rolesCarousel'), {
+                interval: 5000,
+                wrap: true
+            });
+
+            // Save role functionality
+            document.getElementById('saveRoleBtn').addEventListener('click', function() {
+                const roleName = document.getElementById('roleName').value;
+
+                if (!roleName) {
+                    Swal.fire({
+                        title: 'Role Name Required',
+                        text: 'Please enter a name for the role.',
+                        icon: 'warning',
+                        confirmButtonColor: '#7c3aed'
+                    });
+                    return;
+                }
+
+                // Show loading state
+                const saveBtn = this;
+                const originalText = saveBtn.innerHTML;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Creating...';
+                saveBtn.disabled = true;
+
+                // Simulate save process
+                setTimeout(() => {
+                    Swal.fire({
+                        title: 'Role Created!',
+                        text: 'The role has been created successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#7c3aed'
+                    });
+
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('roleModal'));
+                    modal.hide();
+
+                    // Reset button
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
+
+                    // Reset form
+                    document.getElementById('roleForm').reset();
+                }, 1500);
+            });
+
+            // Edit role buttons
+            const editButtons = document.querySelectorAll('.btn-role-outline');
+            editButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    document.getElementById('roleModalLabel').textContent = 'Edit Role';
+                    document.getElementById('saveRoleBtn').textContent = 'Update Role';
+                    // In a real app, you would populate the form with role data
+                    document.getElementById('roleId').value = '123';
+                    document.getElementById('roleName').value = 'Administrator';
+                    document.getElementById('roleDescription').value = 'Full system access';
+
+                    // Check relevant permissions
+                    document.getElementById('permUserManagement').checked = true;
+                    document.getElementById('permContentCreate').checked = true;
+                    document.getElementById('permContentPublish').checked = true;
+                    document.getElementById('permContentModerate').checked = true;
+                    document.getElementById('permSystemSettings').checked = true;
+                    document.getElementById('permAnalytics').checked = true;
+
+                    new bootstrap.Modal(document.getElementById('roleModal')).show();
+                });
+            });
+
+            // View role buttons
+            const viewButtons = document.querySelectorAll('.btn-role-primary');
+            viewButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    Swal.fire({
+                        title: 'Role Details',
+                        html: `
+                            <div class="text-start">
+                                <h5>Administrator Role</h5>
+                                <p>Full system access with no restrictions.</p>
+                                <div class="mt-3">
+                                    <h6>Permissions:</h6>
+                                    <ul>
+                                        <li>User Management</li>
+                                        <li>Content Creation</li>
+                                        <li>Content Publishing</li>
+                                        <li>Content Moderation</li>
+                                        <li>System Settings</li>
+                                        <li>Analytics Access</li>
+                                    </ul>
+                                </div>
+                                <div class="mt-3">
+                                    <strong>Users with this role: 5</strong>
+                                </div>
+                            </div>
+                        `,
+                        icon: 'info',
+                        confirmButtonColor: '#7c3aed'
+                    });
+                });
+            });
+        });
+    </script>
+}

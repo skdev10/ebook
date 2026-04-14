@@ -1,0 +1,605 @@
+@model EBookDashboard.Models.PaymentSummaryViewModel
+
+@{
+    ViewData["Title"] = "Payment Summary";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        /* padding: 40px 20px; */
+    }
+
+    .payment-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .payment-header {
+        text-align: center;
+        margin-bottom: 20px;
+        color: white;
+    }
+
+    .payment-header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-bottom: 6px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .payment-header p {
+        font-size: 1rem;
+        opacity: 0.9;
+    }
+
+    .payment-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        overflow: hidden;
+        margin-bottom: 16px;
+    }
+
+    .payment-card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 16px 24px;
+        color: white;
+    }
+
+    .payment-card-header h2 {
+        font-size: 1.35rem;
+        font-weight: 800;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .payment-card-body {
+        padding: 20px 24px;
+    }
+
+    .order-items-section {
+        margin-bottom: 20px;
+    }
+
+    .order-items-section h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .order-item {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        transition: all 0.3s ease;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .order-item:hover {
+        border-color: #4a6cf7;
+        box-shadow: 0 4px 12px rgba(74, 108, 247, 0.1);
+        transform: translateX(4px);
+    }
+
+    .order-item-content {
+        flex: 1;
+    }
+
+    .order-item-name {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 2px;
+    }
+
+    .order-item-description {
+        color: #64748b;
+        font-size: 0.875rem;
+        margin-bottom: 2px;
+    }
+
+    .order-item-price {
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: #10b981;
+    }
+
+    .order-item-remove {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .order-item-remove:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+    }
+
+    .order-summary-card {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 20px;
+        position: sticky;
+        top: 20px;
+    }
+
+    .order-summary-card h3 {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .summary-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .summary-row:last-of-type {
+        border-bottom: none;
+    }
+
+    .summary-label {
+        font-size: 0.95rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .summary-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .summary-total {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 3px solid #4a6cf7;
+    }
+
+    .summary-total .summary-label {
+        font-size: 1.15rem;
+        color: #1e293b;
+    }
+
+    .summary-total .summary-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #4a6cf7, #667eea);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .summary-discount .summary-value {
+        color: #10b981;
+    }
+
+    .btn-payment {
+        width: 100%;
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 14px;
+        box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-payment-success {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+    }
+
+    .btn-payment-success:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-payment:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-back {
+        background: white;
+        color: #64748b;
+        border: 2px solid #e2e8f0;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        text-decoration: none;
+    }
+
+    .btn-back:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        transform: translateX(-4px);
+    }
+
+    .empty-cart-state {
+        text-align: center;
+        padding: 32px 24px;
+        background: white;
+        border-radius: 16px;
+        border: 2px dashed #cbd5e1;
+    }
+
+    .empty-cart-state i {
+        font-size: 3.5rem;
+        color: #cbd5e1;
+        margin-bottom: 12px;
+    }
+
+    .empty-cart-state h3 {
+        color: #64748b;
+        font-weight: 700;
+        font-size: 1.25rem;
+        margin-bottom: 8px;
+    }
+
+    .empty-cart-state p {
+        color: #94a3b8;
+        font-size: 1rem;
+        margin-bottom: 20px;
+    }
+
+    .alert-modern {
+        padding: 12px 18px;
+        border-radius: 10px;
+        border: none;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+    }
+
+    .alert-danger-modern {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .error-icon {
+        font-size: 1.5rem;
+    }
+
+    @@media (max-width: 992px) {
+        .order-summary-card {
+            position: relative;
+            top: 0;
+            margin-top: 16px;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .payment-header h1 {
+            font-size: 1.5rem;
+        }
+
+        .payment-header {
+            margin-bottom: 16px;
+        }
+
+        .order-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .order-item-remove {
+            align-self: flex-end;
+        }
+
+        .payment-card-body {
+            padding: 16px 20px;
+        }
+    }
+</style>
+
+<div class="payment-container">
+    <div class="payment-header">
+        <h1><i class="fas fa-shopping-cart"></i> Payment Summary</h1>
+        <p>Review your selected features and proceed to secure checkout</p>
+    </div>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-modern alert-danger-modern">
+            <i class="fas fa-exclamation-circle error-icon"></i>
+            <span>@TempData["Error"]</span>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="payment-card">
+                <div class="payment-card-header">
+                    <h2><i class="fas fa-list-ul"></i> Order Details</h2>
+                </div>
+                <div class="payment-card-body">
+                    @if (Model.CartItems != null && Model.CartItems.Any())
+                    {
+                        <div class="order-items-section">
+                            <h3><i class="fas fa-box"></i> Selected Features</h3>
+                            @foreach (var item in Model.CartItems)
+                            {
+                                <div class="order-item">
+                                    <div class="order-item-content">
+                                        <div class="order-item-name">@item.FeatureName</div>
+                                        <div class="order-item-description">@item.Description</div>
+                                        <div class="order-item-price">@item.FeatureRate.ToString("C")</div>
+                                    </div>
+                                    <button class="order-item-remove remove-item" data-feature-id="@item.FeatureId" type="button">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <div>
+                            <a href="@Url.Action("Index", "Dashboard")" class="btn-back">
+                                <i class="fas fa-arrow-left"></i> Continue Shopping
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-cart-state">
+                            <i class="fas fa-shopping-cart"></i>
+                            <h3>Your cart is empty</h3>
+                            <p>It looks like you haven't added any features to your cart yet.</p>
+                            <a href="@Url.Action("Index", "Dashboard")" class="btn-back">
+                                <i class="fas fa-arrow-left"></i> Back to Dashboard
+                            </a>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="order-summary-card">
+                <h3><i class="fas fa-receipt"></i> Order Summary</h3>
+                
+                <div class="summary-row">
+                    <span class="summary-label">Subtotal</span>
+                    <span class="summary-value">@Model.Subtotal.ToString("C")</span>
+                </div>
+                
+                <div class="summary-row">
+                    <span class="summary-label">Tax</span>
+                    <span class="summary-value">@Model.Tax.ToString("C")</span>
+                </div>
+                
+                @if (Model.Discount > 0)
+                {
+                    <div class="summary-row summary-discount">
+                        <span class="summary-label">Discount</span>
+                        <span class="summary-value">-@Model.Discount.ToString("C")</span>
+                    </div>
+                }
+                
+                <div class="summary-row summary-total">
+                    <span class="summary-label">Total</span>
+                    <span class="summary-value">@Model.Total.ToString("C")</span>
+                </div>
+
+                <button id="proceedToPaymentBtn" 
+                        class="btn-payment btn-payment-success" 
+                        @(Model.CartItems != null && Model.CartItems.Any() ? "" : "disabled")>
+                    <i class="fab fa-cc-stripe"></i> Pay with Stripe
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@Html.AntiForgeryToken()
+
+@section Scripts {
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Remove item from cart
+            document.querySelectorAll('.remove-item').forEach(button => {
+                button.addEventListener('click', function () {
+                    const featureId = this.getAttribute('data-feature-id');
+                    const itemElement = this.closest('.order-item');
+                    
+                    // Show loading state
+                    const originalHTML = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    this.disabled = true;
+                    
+                    fetch('/Features/RemoveFromCart', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                        },
+                        body: JSON.stringify({ featureId: parseInt(featureId) })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Animate removal
+                            itemElement.style.transition = 'all 0.3s ease';
+                            itemElement.style.opacity = '0';
+                            itemElement.style.transform = 'translateX(-20px)';
+                            
+                            setTimeout(() => {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Removed!',
+                                    text: 'Feature removed from cart successfully.',
+                                    timer: 2000,
+                                    showConfirmButton: false,
+                                    toast: true,
+                                    position: 'top-end'
+                                });
+                                
+                                // Reload the page to update the cart
+                                location.reload();
+                            }, 300);
+                        } else {
+                            this.innerHTML = originalHTML;
+                            this.disabled = false;
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Oops...',
+                                text: data.message || 'Failed to remove feature from cart.'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        this.innerHTML = originalHTML;
+                        this.disabled = false;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Oops...',
+                            text: 'An error occurred while removing the feature.'
+                        });
+                    });
+                });
+            });
+            
+            // Proceed to payment with Stripe
+            const proceedBtn = document.getElementById('proceedToPaymentBtn');
+            if (proceedBtn) {
+                proceedBtn.addEventListener('click', function () {
+                    // Show loading state
+                    const btn = this;
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                    btn.disabled = true;
+                    
+                    // Get CSRF token
+                    const csrfToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+                    if (!csrfToken) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Session Error',
+                            text: 'Please refresh the page and try again.'
+                        });
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        return;
+                    }
+                    
+                    // Create Stripe checkout session
+                    fetch('/Payments/CreateCheckoutSession', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': csrfToken,
+                            'X-CSRF-TOKEN': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'include'
+                    })
+                    .then(response => {
+                        // Check if response is OK
+                        if (!response.ok) {
+                            return response.json().then(err => {
+                                throw new Error(err.message || `HTTP error! status: ${response.status}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Checkout session response:', data);
+                        if (data.success) {
+                            if (data.url) {
+                                // Show success message before redirect
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Redirecting to Stripe...',
+                                    html: '<div style="text-align: center;"><div style="width: 60px; height: 60px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: white; font-size: 1.8rem;"><i class="fas fa-arrow-right"></i></div><p>You will be redirected to secure payment in a moment.</p></div>',
+                                    timer: 2000,
+                                    showConfirmButton: false,
+                                    allowOutsideClick: false
+                                }).then(() => {
+                                    // Redirect to Stripe checkout
+                                    window.location.href = data.url;
+                                });
+                            } else {
+                                throw new Error('Invalid checkout session URL received from server');
+                            }
+                        } else {
+                            throw new Error(data.message || 'Failed to create checkout session');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Checkout Error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Payment Error',
+                            html: `<div style="text-align: center;">
+                                      <p style="color: #64748b; margin-bottom: 12px;">An error occurred while processing your payment.</p>
+                                      <p style="color: #94a3b8; font-size: 0.9rem;">${error.message || 'Please try again or contact support.'}</p>
+                                  </div>`,
+                            confirmButtonText: 'Try Again',
+                            confirmButtonColor: '#4a6cf7'
+                        });
+                        // Reset button
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    });
+                });
+            }
+        });
+    </script>
+}

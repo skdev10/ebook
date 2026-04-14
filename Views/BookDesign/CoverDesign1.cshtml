@@ -1,0 +1,448 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoverGen AI - Prompt to Book Cover</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- Iconify -->
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Playfair Display', 'serif'],
+                    },
+                    colors: {
+                        zinc: {
+                            850: '#202023',
+                            900: '#18181b',
+                            950: '#0c0c0e',
+                        }
+                    },
+                    boxShadow: {
+                        'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
+                        'book': '20px 20px 60px rgba(0,0,0,0.3), 0px 5px 15px rgba(0,0,0,0.1)',
+                        'glow': '0 0 20px rgba(0,0,0,0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #fafafa;
+        }
+
+        /* 3D Book CSS */
+        .perspective-container {
+            perspective: 2000px;
+        }
+
+        .book-3d {
+            transform-style: preserve-3d;
+            transform: rotateY(-25deg) rotateX(10deg);
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+        }
+
+            /* Spine */
+            .book-3d::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 40px;
+                background: rgba(255,255,255,0.2);
+                transform: rotateY(-90deg) translateX(-20px) translateZ(-20px);
+                transform-origin: left;
+                z-index: -1;
+                border-radius: 2px 0 0 2px;
+                filter: brightness(0.9);
+            }
+
+            /* Pages */
+            .book-3d::after {
+                content: '';
+                position: absolute;
+                top: 3px;
+                right: 0;
+                bottom: 3px;
+                width: 20px;
+                background: #fdfdfd;
+                background-image: repeating-linear-gradient(90deg, transparent, transparent 1px, #e5e5e5 1px, #e5e5e5 2px);
+                transform: rotateY(90deg) translateZ(-10px);
+                z-index: -1;
+                box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+            }
+
+        .sheen-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(125deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 40%, rgba(255,255,255,0) 60%);
+            pointer-events: none;
+            z-index: 20;
+            mix-blend-mode: overlay;
+        }
+
+        .spine-crease {
+            position: absolute;
+            left: 12px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(0,0,0,0.15);
+            filter: blur(1px);
+            z-index: 10;
+        }
+
+        /* UI Inputs */
+        .float-input:placeholder-shown + label {
+            top: 14px;
+            font-size: 0.875rem;
+            color: #a1a1aa;
+        }
+
+        .float-input:focus + label,
+        .float-input:not(:placeholder-shown) + label {
+            top: 4px;
+            font-size: 0.65rem;
+            color: #52525b;
+            font-weight: 600;
+        }
+
+        .swatch-btn.active {
+            box-shadow: 0 0 0 2px white, 0 0 0 4px #18181b;
+        }
+
+        .magic-gradient {
+            background: linear-gradient(to right, #4f46e5, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #e4e4e7;
+            border-radius: 10px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: #d4d4d8;
+            }
+    </style>
+</head>
+<body class="bg-zinc-50 h-screen overflow-hidden flex flex-col md:flex-row text-zinc-900 selection:bg-zinc-900 selection:text-white">
+
+    <!-- LEFT PANEL: Input Form -->
+    <aside class="w-full md:w-[460px] lg:w-[500px] bg-white border-r border-zinc-200 flex flex-col h-full z-30 shadow-xl relative">
+
+        <!-- Header -->
+        <div class="h-16 flex items-center px-6 border-b border-zinc-100 bg-white/95 backdrop-blur z-20 sticky top-0 justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-zinc-900 text-white rounded-lg flex items-center justify-center shadow-lg shadow-zinc-900/20">
+                    <span class="iconify" data-icon="lucide:sparkles" data-width="16" style="stroke-width: 2;"></span>
+                </div>
+                <h1 class="font-bold text-lg tracking-tight text-zinc-900">Ebook<span class="text-zinc-400 font-medium">.pub</span></h1>
+            </div>
+            <!-- <div class="text-xs font-semibold bg-zinc-100 px-2 py-1 rounded text-zinc-500 uppercase tracking-wider">Beta</div>  -->
+        </div>
+
+        <!-- Scrollable Inputs -->
+        <div class="flex-1 overflow-y-auto p-6 pb-24 space-y-8">
+
+            <!-- 1. Color Picker -->
+            <div class="control-group">
+                <label class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500 mb-3">
+                    <span class="iconify" data-icon="lucide:palette" data-width="14"></span>
+                    Base Tone
+                </label>
+                <div class="grid grid-cols-6 gap-3">
+                    <button class="swatch-btn active w-10 h-10 rounded-full bg-zinc-900 transition-transform hover:scale-105" data-color="#18181b"></button>
+                    <button class="swatch-btn w-10 h-10 rounded-full bg-[#353b3c] transition-transform hover:scale-105" data-color="#353b3c"></button>
+                    <button class="swatch-btn w-10 h-10 rounded-full bg-[#4a4138] transition-transform hover:scale-105" data-color="#4a4138"></button>
+                    <button class="swatch-btn w-10 h-10 rounded-full bg-[#1e3a8a] transition-transform hover:scale-105" data-color="#1e3a8a"></button>
+                    <button class="swatch-btn w-10 h-10 rounded-full bg-[#881337] transition-transform hover:scale-105" data-color="#881337"></button>
+                    <div class="relative w-10 h-10 rounded-full border border-zinc-200 flex items-center justify-center hover:border-zinc-400 transition-colors cursor-pointer text-zinc-400 hover:text-zinc-600">
+                        <input type="color" id="bgPicker" class="absolute inset-0 w-[150%] h-[150%] -top-[25%] -left-[25%] cursor-pointer opacity-0">
+                        <span class="iconify" data-icon="lucide:plus" data-width="16"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Book Details -->
+            <div class="control-group space-y-4">
+                <label class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    <span class="iconify" data-icon="lucide:type" data-width="14"></span>
+                    Book Information
+                </label>
+
+                <!-- Title -->
+                <div class="relative group">
+                    <input type="text" id="titleInput" class="float-input w-full bg-zinc-50 border border-zinc-200 rounded-lg h-12 px-4 pt-4 outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition-all text-sm font-semibold text-zinc-900 placeholder-transparent" placeholder="Title" value="The Silent Echo">
+                    <label class="absolute left-4 transition-all pointer-events-none uppercase tracking-wide">Book Title</label>
+                </div>
+
+                <!-- Author -->
+                <div class="relative group">
+                    <input type="text" id="authorInput" class="float-input w-full bg-zinc-50 border border-zinc-200 rounded-lg h-12 px-4 pt-4 outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition-all text-sm font-semibold text-zinc-900 placeholder-transparent" placeholder="Author" value="Elena R. Vance">
+                    <label class="absolute left-4 transition-all pointer-events-none uppercase tracking-wide">Author Name</label>
+                </div>
+            </div>
+
+            <!-- 3. AI Prompt Area -->
+            <div class="control-group">
+                <div class="flex items-center justify-between mb-3">
+                    <label class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                        <span class="iconify text-indigo-500" data-icon="lucide:wand-2" data-width="14"></span>
+                        <span class="magic-gradient font-bold">AI Prompt</span>
+                    </label>
+                    <span class="text-[10px] text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">Pro 2.0</span>
+                </div>
+
+                <div class="relative group">
+                    <textarea id="promptInput" class="w-full bg-indigo-50/30 border border-indigo-100 hover:border-indigo-200 focus:border-indigo-500 rounded-xl p-4 text-sm min-h-[140px] resize-none outline-none transition-all placeholder-zinc-400 text-zinc-700 leading-relaxed shadow-sm focus:shadow-md focus:shadow-indigo-500/5" placeholder="Describe your vision... e.g. 'A lonely astronaut floating in deep space, minimal style, cyan and magenta lighting, cinematic fog'"></textarea>
+
+                    <div class="absolute bottom-3 right-3 flex gap-2">
+                        <button class="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-400 transition-colors" title="Surprise Me">
+                            <span class="iconify" data-icon="lucide:dices" data-width="16"></span>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-[10px] text-zinc-400 mt-2 px-1">Describe the mood, setting, and objects. The AI will generate a unique texture.</p>
+            </div>
+
+        </div>
+
+        <!-- Sticky Footer Action -->
+        <div class="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-zinc-100 z-30">
+            <button id="generateBtn" class="w-full bg-zinc-900 hover:bg-zinc-800 text-white font-medium h-12 rounded-lg shadow-lg hover:shadow-xl hover:shadow-zinc-900/20 transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2 overflow-hidden relative group">
+                <span id="btnText" class="relative z-10 flex items-center gap-2 font-semibold tracking-wide text-sm">
+                    <span class="iconify group-hover:rotate-12 transition-transform duration-300" data-icon="lucide:stars" data-width="18"></span>
+                    Generate Book Cover
+                </span>
+                <!-- Shimmer effect -->
+                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
+            </button>
+        </div>
+    </aside>
+
+    <!-- RIGHT PANEL: Live Preview -->
+    <main class="flex-1 bg-zinc-100 relative overflow-hidden flex flex-col items-center justify-center min-h-[500px]">
+
+        <!-- Grid Background -->
+        <div class="absolute inset-0" style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 24px 24px; opacity: 0.6;"></div>
+
+        <!-- UI Overlay -->
+        <div class="absolute top-6 right-6 flex items-center gap-2 bg-white/80 backdrop-blur px-3 py-1.5 rounded-full border border-white/50 shadow-sm z-10">
+            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span class="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Live Preview</span>
+        </div>
+
+        <!-- 3D Book Container -->
+        <div class="perspective-container relative p-10 transition-all duration-500" id="bookContainer">
+
+            <!-- Book Shadow -->
+            <div class="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 h-8 bg-black/30 blur-xl rounded-[100%] transform scale-x-150 opacity-50 transition-all duration-500" id="bookShadow"></div>
+
+            <!-- The Book Object -->
+            <div id="bookCover" class="book-3d w-[300px] h-[450px] md:w-[360px] md:h-[550px] bg-[#18181b] rounded-r-md rounded-l-[2px] shadow-book flex flex-col relative border-l border-white/10 overflow-hidden">
+
+                <!-- Texture Layers -->
+                <div class="sheen-overlay"></div>
+                <div class="spine-crease"></div>
+
+                <!-- AI Generated Background (Simulated) -->
+                <div id="aiArtLayer" class="absolute inset-0 opacity-40 mix-blend-soft-light transition-opacity duration-700 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')]"></div>
+
+                <!-- Content Content -->
+                <div class="relative z-10 flex-1 flex flex-col p-8 text-center text-white h-full justify-between py-16">
+
+                    <!-- Top: Title -->
+                    <div class="flex flex-col items-center justify-center gap-4">
+                        <h1 id="previewTitle" class="font-sans font-bold text-5xl md:text-6xl tracking-tight leading-[0.9] drop-shadow-xl break-words w-full">
+                            The Silent Echo
+                        </h1>
+                        <div class="w-12 h-0.5 bg-white/40 mt-6"></div>
+                    </div>
+
+                    <!-- Bottom: Author -->
+                    <div class="opacity-90">
+                        <p class="text-[10px] uppercase tracking-[0.2em] font-medium text-white/70 mb-2">Written By</p>
+                        <p id="previewAuthor" class="font-serif font-semibold text-lg md:text-xl tracking-wide">
+                            Elena R. Vance
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // GSAP Init Animation
+            gsap.from("aside", { x: -50, opacity: 0, duration: 1, ease: "power3.out" });
+            gsap.from("#bookContainer", { scale: 0.8, opacity: 0, y: 30, duration: 1.2, delay: 0.2, ease: "elastic.out(1, 0.75)" });
+
+            // Elements
+            const els = {
+                title: document.getElementById('titleInput'),
+                author: document.getElementById('authorInput'),
+                prompt: document.getElementById('promptInput'),
+                pTitle: document.getElementById('previewTitle'),
+                pAuthor: document.getElementById('previewAuthor'),
+                book: document.getElementById('bookCover'),
+                aiLayer: document.getElementById('aiArtLayer'),
+                btn: document.getElementById('generateBtn'),
+                btnText: document.getElementById('btnText'),
+                swatches: document.querySelectorAll('.swatch-btn'),
+                picker: document.getElementById('bgPicker'),
+                container: document.getElementById('bookContainer')
+            };
+
+            // 1. Live Text Updates
+            const updateText = (input, target) => {
+                target.innerText = input.value || " ";
+            };
+            els.title.addEventListener('input', () => updateText(els.title, els.pTitle));
+            els.author.addEventListener('input', () => updateText(els.author, els.pAuthor));
+
+            // 2. Color Logic
+            const setBg = (color) => {
+                gsap.to(els.book, { backgroundColor: color, duration: 0.4 });
+            };
+            els.swatches.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    els.swatches.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    setBg(btn.dataset.color);
+                });
+            });
+            els.picker.addEventListener('input', (e) => {
+                els.swatches.forEach(b => b.classList.remove('active'));
+                setBg(e.target.value);
+            });
+
+            // 3. GENERATE Logic (The AI Simulation)
+            const artStyles = [
+                "linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%)",
+                "radial-gradient(circle at 50% 50%, #208ea2 0%, #492f5c 100%)",
+                "linear-gradient(to top, #09203f 0%, #537895 100%)",
+                "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+                "url('https://www.transparenttextures.com/patterns/cubes.png')",
+                "url('https://www.transparenttextures.com/patterns/axiom-pattern.png')"
+            ];
+
+            els.btn.addEventListener('click', () => {
+                // Check if prompt is empty (visual feedback only)
+                if(!els.prompt.value.trim()) {
+                    els.prompt.focus();
+                    gsap.from(els.prompt, { x: 5, duration: 0.1, repeat: 3, yoyo: true });
+                    return;
+                }
+
+                // A. Button Loading State
+                els.btn.disabled = true;
+                const oldText = els.btnText.innerHTML;
+                els.btnText.innerHTML = `<span class="iconify animate-spin" data-icon="lucide:loader-2" data-width="18"></span> AI Generating...`;
+
+                // B. Book Animation
+                const tl = gsap.timeline();
+
+                // Lift book up
+                tl.to(els.container, { y: -20, scale: 1.05, duration: 0.5, ease: "power2.out" })
+                  .to(els.book, {
+                      rotateY: 0, rotateX: 0,
+                      boxShadow: "0 0 50px rgba(79, 70, 229, 0.6)", // Glow effect
+                      duration: 0.6
+                  }, "<");
+
+                // C. Simulate Processing Delay & "Creation"
+                setTimeout(() => {
+                    // Change Background Art randomly
+                    const randomStyle = artStyles[Math.floor(Math.random() * artStyles.length)];
+
+                    if(randomStyle.includes('url')) {
+                        els.aiLayer.style.backgroundImage = randomStyle;
+                        els.aiLayer.style.background = 'transparent';
+                        els.aiLayer.style.opacity = 0.2;
+                    } else {
+                        els.aiLayer.style.backgroundImage = 'none';
+                        els.aiLayer.style.background = randomStyle;
+                        els.aiLayer.style.opacity = 0.6;
+                    }
+
+                    // Return to rest state
+                    gsap.to(els.container, { y: 0, scale: 1, duration: 0.8, ease: "bounce.out" });
+                    gsap.to(els.book, {
+                        rotateY: -25, rotateX: 10,
+                        boxShadow: "20px 20px 60px rgba(0,0,0,0.3), 0px 5px 15px rgba(0,0,0,0.1)",
+                        duration: 0.8
+                    });
+
+                    // Reset Button
+                    els.btnText.innerHTML = `<span class="iconify" data-icon="lucide:check" data-width="18"></span> Generated!`;
+                    els.btn.classList.add('bg-zinc-800');
+
+                    setTimeout(() => {
+                        els.btnText.innerHTML = oldText;
+                        els.btn.disabled = false;
+                        els.btn.classList.remove('bg-zinc-800');
+                    }, 2000);
+
+                }, 1500); // 1.5s simulated delay
+            });
+
+            // 4. Mouse Move Parallax (3D Effect)
+            const main = document.querySelector('main');
+            main.addEventListener('mousemove', (e) => {
+                if(window.innerWidth < 768) return;
+                const { left, top, width, height } = main.getBoundingClientRect();
+                const x = (e.clientX - left) / width - 0.5;
+                const y = (e.clientY - top) / height - 0.5;
+
+                gsap.to(els.book, {
+                    rotateY: -25 + (x * 15),
+                    rotateX: 10 - (y * 15),
+                    duration: 0.5
+                });
+
+                // Move shadow opposite
+                gsap.to("#bookShadow", { x: -x * 60, opacity: 0.5 - Math.abs(x*0.5), duration: 0.5 });
+            });
+
+            main.addEventListener('mouseleave', () => {
+                gsap.to(els.book, { rotateY: -25, rotateX: 10, duration: 1 });
+                gsap.to("#bookShadow", { x: 0, opacity: 0.5, duration: 1 });
+            });
+        });
+    </script>
+</body>
+</html>

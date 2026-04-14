@@ -1,0 +1,240 @@
+@{
+    ViewData["Title"] = "Generate Format";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    :root {
+        --primary: #7c3aed;
+        --secondary: #06b6d4;
+        --surface: #ffffff;
+        --background: #f8fafc;
+        --text-primary: #1e293b;
+        --border: #e2e8f0;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        --radius: 16px;
+    }
+
+    .page-container {
+        width: 100%;
+        padding: 30px;
+        background: var(--background);
+        min-height: 100vh;
+    }
+
+    .page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+
+    .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        padding: 30px;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-size: 1rem;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+    }
+
+    .download-link {
+        display: inline-block;
+        padding: 12px 24px;
+        background: var(--success);
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        margin: 8px;
+        font-weight: 600;
+    }
+
+    .download-link:hover {
+        background: #059669;
+        color: white;
+    }
+</style>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1><i class="fas fa-file-export"></i> Generate Format</h1>
+        <p>Generate your book in EPUB or PDF format</p>
+    </div>
+
+    <!-- Book Selection -->
+    <div class="card">
+        <div class="card-header">Select Book</div>
+        <div class="form-group">
+            <label class="form-label">Choose Book to Generate</label>
+            <select id="bookSelect" class="form-control" onchange="loadBookFormats(this.value)">
+                <option value="">-- Select Book --</option>
+                @if (ViewBag.UserBooks != null)
+                {
+                    @foreach (var book in ViewBag.UserBooks)
+                    {
+                        var isSelected = ViewBag.SelectedBookId != null && ViewBag.SelectedBookId == book.BookId;
+                        if (isSelected)
+                        {
+                            <option value="@book.BookId" selected>@book.Title (@book.Status)</option>
+                        }
+                        else
+                        {
+                            <option value="@book.BookId">@book.Title (@book.Status)</option>
+                        }
+                    }
+                }
+            </select>
+        </div>
+        <input type="hidden" id="userId" value="@ViewBag.UserId" />
+        <input type="hidden" id="currentBookId" value="@ViewBag.SelectedBookId" />
+    </div>
+
+    <!-- Output Formats -->
+    <div class="card">
+        <div class="card-header">Output Formats</div>
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                <input type="checkbox" id="genEpub" checked style="width: 20px; height: 20px;">
+                <span style="font-size: 1.1rem;">Generate eBook (EPUB)</span>
+            </label>
+        </div>
+        <div class="form-group">
+            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                <input type="checkbox" id="genPdf" checked style="width: 20px; height: 20px;">
+                <span style="font-size: 1.1rem;">Generate Print (PDF)</span>
+            </label>
+        </div>
+        <div class="form-group">
+            <button class="btn" onclick="generateFormats()">
+                <i class="fas fa-download"></i> Generate Formats
+            </button>
+            <div id="genStatus" class="mt-3"></div>
+        </div>
+    </div>
+
+    <!-- Generated Files -->
+    @if (ViewBag.EpubPath != null || ViewBag.PdfPath != null)
+    {
+        <div class="card">
+            <div class="card-header">Generated Files</div>
+            <div>
+                @if (ViewBag.EpubPath != null)
+                {
+                    <a href="@ViewBag.EpubPath" class="download-link" target="_blank">
+                        <i class="fas fa-download"></i> Download EPUB
+                    </a>
+                }
+                @if (ViewBag.PdfPath != null)
+                {
+                    <a href="@ViewBag.PdfPath" class="download-link" target="_blank">
+                        <i class="fas fa-download"></i> Download PDF
+                    </a>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<script>
+    function getBookId() {
+        const bookId = document.getElementById('currentBookId')?.value || document.getElementById('bookSelect')?.value;
+        if (!bookId) {
+            alert('Please select a book first');
+            return null;
+        }
+        return parseInt(bookId);
+    }
+
+    function loadBookFormats(bookId) {
+        if (bookId) {
+            document.getElementById('currentBookId').value = bookId;
+            window.location.href = `/Dashboard/GenerateFormat?bookId=${bookId}`;
+        }
+    }
+
+    // Generate formats - Database connected
+    async function generateFormats() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const epub = document.getElementById('genEpub').checked;
+        const pdf = document.getElementById('genPdf').checked;
+
+        if (!epub && !pdf) {
+            alert('Please select at least one format');
+            return;
+        }
+
+        const status = document.getElementById('genStatus');
+        status.innerHTML = '<div class="spinner-border" role="status"></div> Generating...';
+
+        try {
+            const res = await fetch(`/Books/GenerateFormats?bookId=${bookId}&epub=${epub}&pdf=${pdf}`, {
+                method: 'POST'
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                let html = '<div class="mt-3"><strong>Generation complete!</strong><br>';
+                if (result.epubPath) {
+                    html += `<a href="${result.epubPath}" class="download-link" target="_blank"><i class="fas fa-download"></i> Download EPUB</a> `;
+                }
+                if (result.pdfPath) {
+                    html += `<a href="${result.pdfPath}" class="download-link" target="_blank"><i class="fas fa-download"></i> Download PDF</a>`;
+                }
+                html += '</div>';
+                status.innerHTML = html;
+            } else {
+                status.innerHTML = '<div class="text-danger">Generation failed: ' + (result.message || 'Unknown error') + '</div>';
+            }
+        } catch (e) {
+            status.innerHTML = '<div class="text-danger">Error: ' + e.message + '</div>';
+        }
+    }
+</script>
+

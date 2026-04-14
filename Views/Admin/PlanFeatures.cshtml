@@ -1,0 +1,1103 @@
+@model IEnumerable<EBookDashboard.Models.PlanFeatures>
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Plan Features";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var json = JsonSerializer.Serialize(Model ?? Enumerable.Empty<EBookDashboard.Models.PlanFeatures>());
+    json = json.Replace("</", "\\u003c/");
+    var initialFeaturesJson = Html.Raw(json);
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --warm-gray: #E8E8E8;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --text-muted: #9B9B9B;
+        --border-light: #E5E5E5;
+        --shadow-soft: rgba(0, 0, 0, 0.05);
+        --primary: #7c3aed;
+        --primary-light: #a78bfa;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+    }
+
+    .plan-features-container {
+        padding: 0;
+        animation: fadeIn 0.6s ease-out;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Page Header */
+    .page-header {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+        .page-title i {
+            font-size: 28px;
+            color: var(--primary);
+        }
+
+    .page-subtitle {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+
+    /* Add Feature Form Card */
+    .form-card {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+    }
+
+    .form-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid var(--light-gray);
+    }
+
+        .form-card-header i {
+            font-size: 24px;
+            color: var(--primary);
+        }
+
+    .form-card-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+        .form-label i {
+            font-size: 14px;
+            color: var(--primary);
+        }
+
+        .form-label .required {
+            color: var(--danger);
+            margin-left: 2px;
+        }
+
+    .form-input,
+    .form-select {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        color: var(--text-primary);
+        background: var(--white);
+        transition: all 0.3s ease;
+        font-family: 'Inter', sans-serif;
+    }
+
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+    /* Toggle Switch */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 56px;
+        height: 28px;
+    }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: 0.3s;
+        border-radius: 28px;
+    }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+    .toggle-switch input:checked + .toggle-slider {
+        background-color: var(--success);
+    }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(28px);
+        }
+
+    .toggle-label {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    /* Add Feature Button */
+    .btn-add-feature {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        color: white;
+        border: none;
+        padding: 14px 28px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        width: 100%;
+        max-width: 300px;
+        margin: 0 auto;
+    }
+
+        .btn-add-feature:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
+        }
+
+        .btn-add-feature:active {
+            transform: translateY(0);
+        }
+
+    /* Table Container */
+    .table-container {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        overflow-x: auto;
+    }
+
+    .table-header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .table-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+        .table-title i {
+            color: var(--primary);
+        }
+
+    .search-input {
+        padding: 10px 16px;
+        border: 2px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        width: 280px;
+        transition: all 0.3s ease;
+    }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        }
+
+    /* Table Styles */
+    .features-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+    }
+
+        .features-table thead {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        }
+
+            .features-table thead th {
+                padding: 16px;
+                text-align: left;
+                font-size: 13px;
+                font-weight: 600;
+                color: white;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+        .features-table tbody tr {
+            border-bottom: 1px solid var(--border-light);
+            transition: all 0.2s ease;
+        }
+
+            .features-table tbody tr:hover {
+                background: var(--light-gray);
+            }
+
+        .features-table tbody td {
+            padding: 16px;
+            font-size: 14px;
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+    .feature-id {
+        font-weight: 600;
+        color: var(--primary);
+    }
+
+    .feature-name {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .feature-description {
+        color: var(--text-secondary);
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .feature-rate {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    /* Badges */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .badge-currency {
+        background: rgba(124, 58, 237, 0.1);
+        color: var(--primary);
+    }
+
+    .badge-active {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .badge-inactive {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    /* Action Buttons */
+    .action-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-edit {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        margin-right: 8px;
+    }
+
+        .btn-edit:hover {
+            background: #3b82f6;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        }
+
+    .btn-delete {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+        .btn-delete:hover {
+            background: var(--danger);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+        }
+
+    /* Loading and Empty States */
+    .loading-state,
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-secondary);
+    }
+
+        .loading-state i,
+        .empty-state i {
+            font-size: 48px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+    /* Responsive */
+    @@media (max-width: 1024px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .form-grid {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .plan-features-container {
+            padding: 0;
+        }
+
+        .page-header {
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .page-title {
+            font-size: 20px;
+        }
+
+        .form-card {
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .table-container {
+            padding: 16px;
+        }
+
+        .table-header-section {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+        }
+
+        .search-input {
+            width: 100%;
+        }
+
+        .features-table {
+            font-size: 12px;
+            display: block;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .features-table thead,
+        .features-table tbody,
+        .features-table tr {
+            display: block;
+        }
+
+        .features-table thead {
+            display: none;
+        }
+
+        .features-table tbody tr {
+            margin-bottom: 12px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 12px;
+            background: var(--white);
+        }
+
+        .features-table tbody td {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border: none;
+            text-align: right;
+        }
+
+        .features-table tbody td:before {
+            content: attr(data-label);
+            font-weight: 600;
+            color: var(--text-primary);
+            text-align: left;
+        }
+
+        .features-table tbody td:last-child {
+            border-bottom: none;
+        }
+
+        .btn-add-feature {
+            max-width: 100%;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .page-header {
+            padding: 12px;
+        }
+
+        .page-title {
+            font-size: 18px;
+        }
+
+        .form-card {
+            padding: 12px;
+        }
+
+        .form-card-header {
+            margin-bottom: 16px;
+        }
+
+        .form-card-title {
+            font-size: 16px;
+        }
+
+        .form-input,
+        .form-select {
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+
+        .table-container {
+            padding: 12px;
+        }
+
+        .features-table tbody tr {
+            padding: 10px;
+        }
+
+        .features-table tbody td {
+            font-size: 12px;
+            padding: 6px 0;
+        }
+
+        .badge {
+            font-size: 10px;
+            padding: 4px 8px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* Responsive modals */
+        .swal2-popup {
+            width: 95% !important;
+            max-width: 95% !important;
+            padding: 16px !important;
+        }
+    }
+</style>
+
+<div class="plan-features-container" id="app">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">
+                <i class="fas fa-list-check"></i>
+                Plan Features Management
+            </h1>
+            <div class="page-subtitle">Create and manage features available in subscription plans</div>
+        </div>
+        <div v-if="features && features.length" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; padding: 12px 20px; border-radius: 12px; font-weight: 600; font-size: 16px;">
+            {{ features.length }} Features
+        </div>
+    </div>
+
+    <!-- Add Feature Form -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="fas fa-plus-circle"></i>
+            <div class="form-card-title">{{ editingFeature ? 'Edit Feature' : 'Add New Feature' }}</div>
+        </div>
+
+        <form @@submit.prevent="onSubmit">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-tag"></i>
+                        Feature Name <span class="required">*</span>
+                    </label>
+                    <input type="text"
+                           v-model="newFeature.FeatureName"
+                           class="form-input"
+                           placeholder="e.g., Premium Support, Advanced Analytics"
+                           required />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-align-left"></i>
+                        Description
+                    </label>
+                    <input type="text"
+                           v-model="newFeature.Description"
+                           class="form-input"
+                           placeholder="Brief description of the feature" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-dollar-sign"></i>
+                        Value / Rate <span class="required">*</span>
+                    </label>
+                    <input type="number"
+                           v-model="newFeature.FeatureRate"
+                           class="form-input"
+                           placeholder="0.00"
+                           step="0.01"
+                           min="0"
+                           required />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-coins"></i>
+                        Currency <span class="required">*</span>
+                    </label>
+                    <select v-model="newFeature.Currency" class="form-select" required>
+                        <option value="USD">USD - US Dollar</option>
+                        <option value="EUR">EUR - Euro</option>
+                        <option value="GBP">GBP - British Pound</option>
+                        <option value="INR">INR - Indian Rupee</option>
+                        <option value="PKR">PKR - Pakistani Rupee</option>
+                        <option value="AED">AED - UAE Dirham</option>
+                        <option value="SAR">SAR - Saudi Riyal</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="toggle-label">
+                        <span class="toggle-switch">
+                            <input type="checkbox" v-model="newFeature.IsActive" :true-value="1" :false-value="0" />
+                            <span class="toggle-slider"></span>
+                        </span>
+                        <span>
+                            <i class="fas fa-toggle-on" style="color: var(--success);"></i>
+                            Active Status
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                <button type="button" class="btn-add-feature" @@click="onSubmit">
+                    <i class="fas" :class="editingFeature ? 'fa-save' : 'fa-plus'"></i>
+                    {{ editingFeature ? 'Update Feature' : 'Add Feature' }}
+                </button>
+                <button v-if="editingFeature" type="button" @@click="cancelEdit" class="btn-add-feature" style="background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Server-rendered table: visible on load (full or AJAX); Vue hides it when it mounts -->
+    <div id="serverFeaturesTable" class="table-container">
+        <div class="table-header-section">
+            <div class="table-title">
+                <i class="fas fa-table"></i>
+                Existing Features
+            </div>
+        </div>
+        @if (Model != null && Model.Any())
+        {
+            <table class="features-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Feature Name</th>
+                        <th>Description</th>
+                        <th>Rate</th>
+                        <th>Currency</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in Model)
+                    {
+                        <tr>
+                            <td class="feature-id">@f.FeatureId</td>
+                            <td class="feature-name">@(f.FeatureName ?? "")</td>
+                            <td class="feature-description" title="@(f.Description ?? "")">@(f.Description ?? "No description")</td>
+                            <td class="feature-rate">@(f.Currency == "USD" ? string.Format("{0:C2}", f.FeatureRate) : f.FeatureRate.ToString("N2") + " " + (f.Currency ?? "USD"))</td>
+                            <td><span class="badge badge-currency">@(f.Currency ?? "USD")</span></td>
+                            <td>
+                                <span class="badge @((f.Status ?? "").ToLowerInvariant() == "active" || f.IsActive == 1 ? "badge-active" : "badge-inactive")">
+                                    @((f.Status ?? "").ToLowerInvariant() == "active" || f.IsActive == 1 ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td>
+                                <span class="text-muted" style="font-size: 12px;">Use form above to edit/delete</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <div>No features found.</div>
+            </div>
+        }
+    </div>
+
+    <!-- Vue-driven table (search, edit, delete); shown when Vue mounts -->
+    <div class="table-container" id="vueFeaturesTable" style="display: none;">
+        <div class="table-header-section">
+            <div class="table-title">
+                <i class="fas fa-table"></i>
+                Existing Features
+            </div>
+            <input type="text"
+                   v-model="searchTerm"
+                   class="search-input"
+                   placeholder="Search features..." />
+        </div>
+
+        <div v-if="loading" class="loading-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <div>Loading features...</div>
+        </div>
+
+        <div v-else-if="!loading && filteredFeatures.length === 0" class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <div>No features found.</div>
+        </div>
+
+        <table v-else class="features-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Feature Name</th>
+                    <th>Description</th>
+                    <th>Rate</th>
+                    <th>Currency</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="f in filteredFeatures" :key="getProp(f, 'FeatureId')">
+                    <td class="feature-id">{{ getProp(f, 'FeatureId') }}</td>
+                    <td class="feature-name">{{ getProp(f, 'FeatureName') }}</td>
+                    <td class="feature-description" :title="getProp(f, 'Description')">
+                        {{ getProp(f, 'Description') || 'No description' }}
+                    </td>
+                    <td class="feature-rate">
+                        {{ formatCurrency(getProp(f, 'FeatureRate'), getProp(f, 'Currency')) }}
+                    </td>
+                    <td>
+                        <span class="badge badge-currency">{{ getProp(f, 'Currency') || 'USD' }}</span>
+                    </td>
+                    <td>
+                        <span :class="['badge', (getProp(f, 'Status') || '').toLowerCase() === 'active' || getProp(f, 'IsActive') === 1 ? 'badge-active' : 'badge-inactive']">
+                            {{ (getProp(f, 'Status') || '').toLowerCase() === 'active' || getProp(f, 'IsActive') === 1 ? 'Active' : 'Inactive' }}
+                        </span>
+                    </td>
+                    <td>
+                        <button @@click="editFeature(f)" class="action-btn btn-edit">
+                            <i class="fas fa-edit"></i>
+                            Edit
+                        </button>
+                        <button @@click="deleteFeature(getProp(f, 'FeatureId'))" class="action-btn btn-delete">
+                            <i class="fas fa-trash"></i>
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Initial data from server (works for full load and when layout re-runs scripts after AJAX load) -->
+<script>
+    window.__INITIAL_FEATURES__ = @initialFeaturesJson;
+</script>
+<!-- Vue.js -->
+<script src="https://unpkg.com/vue@3"></script>
+<script>
+    (function initPlanFeaturesApp() {
+        if (typeof Vue === 'undefined') {
+            setTimeout(initPlanFeaturesApp, 30);
+            return;
+        }
+        const app = Vue.createApp({
+        data() {
+            return {
+                features: (window.__INITIAL_FEATURES__ && Array.isArray(window.__INITIAL_FEATURES__)) ? window.__INITIAL_FEATURES__ : [],
+                loading: false,
+                searchTerm: '',
+                editingFeature: null,
+                newFeature: {
+                    FeatureName: '',
+                    Description: '',
+                    FeatureRate: 0,
+                    Currency: 'USD',
+                    Status: 'Active',
+                    PlanId: 0,
+                    IsActive: 1
+                }
+            }
+        },
+        computed: {
+            filteredFeatures() {
+                const q = (this.searchTerm || '').toLowerCase().trim();
+                if (!q) return this.features;
+                return this.features.filter(f =>
+                    (f.FeatureName || '').toLowerCase().includes(q) ||
+                    (f.Description || '').toLowerCase().includes(q) ||
+                    (f.Currency || '').toLowerCase().includes(q) ||
+                    (String(f.FeatureRate || '')).toLowerCase().includes(q)
+                );
+            }
+        },
+        methods: {
+            formatCurrency(amount, currency) {
+                const formatter = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: currency || 'USD',
+                    minimumFractionDigits: 2
+                });
+                return formatter.format(amount || 0);
+            },
+            async loadFeatures() {
+                try {
+                    this.loading = true;
+                    console.log('Loading features from API...');
+
+                    const response = await fetch('/Admin/api/planfeatures');
+                    console.log('Response status:', response.status);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Features loaded:', data);
+                        // Handle both array and object with features property
+                        if (Array.isArray(data)) {
+                            this.features = data;
+                        } else if (data && Array.isArray(data.features)) {
+                            this.features = data.features;
+                        } else if (data && Array.isArray(data.data)) {
+                            this.features = data.data;
+                        } else {
+                            this.features = [];
+                        }
+                        console.log('Features array:', this.features);
+                    } else {
+                        const errorText = await response.text();
+                        console.error("Error loading features:", errorText);
+                        this.showError('Failed to load features', errorText);
+                        this.features = [];
+                    }
+                } catch (error) {
+                    console.error("Network error loading features:", error);
+                    this.showError('Network Error', 'Failed to load features. Please check your connection.');
+                    this.features = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async addFeature() {
+                if (!this.validateFeature()) return;
+
+                try {
+                    const response = await fetch('/Admin/api/planfeatures/add', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(this.newFeature)
+                    });
+
+                    if (response.ok) {
+                        this.showSuccess('Feature added successfully');
+                        await this.loadFeatures();
+                        this.resetForm();
+                    } else {
+                        const errorText = await response.text();
+                        this.showError('Failed to add feature', errorText);
+                    }
+                } catch (error) {
+                    console.error("Failed to add feature:", error);
+                    this.showError('Network Error', 'Failed to add feature');
+                }
+            },
+            // Get value from object with Pascal or camel case (API may return either)
+            getProp(obj, pascalKey) {
+                if (!obj) return undefined;
+                const camelKey = pascalKey.charAt(0).toLowerCase() + pascalKey.slice(1);
+                return obj[pascalKey] !== undefined && obj[pascalKey] !== null ? obj[pascalKey] : obj[camelKey];
+            },
+            onSubmit() {
+                if (this.editingFeature) this.updateFeature();
+                else this.addFeature();
+            },
+            async updateFeature() {
+                if (!this.validateFeature()) return;
+                const id = this.getProp(this.editingFeature, 'FeatureId');
+                if (!this.editingFeature || id == null || id === '') {
+                    this.showError('Error', 'No feature selected to update.');
+                    return;
+                }
+                const payload = {
+                    FeatureId: id,
+                    FeatureName: (this.newFeature.FeatureName || '').trim(),
+                    Description: (this.newFeature.Description || '').trim() || null,
+                    FeatureRate: Number(this.newFeature.FeatureRate) || 0,
+                    Currency: (this.newFeature.Currency || 'USD').trim(),
+                    Status: (this.newFeature.Status || 'Active').trim(),
+                    IsActive: this.newFeature.IsActive === 1 || this.newFeature.IsActive === true ? 1 : 0,
+                    PlanId: this.newFeature.PlanId == null || this.newFeature.PlanId === '' ? null : (Number(this.newFeature.PlanId) || null),
+                    UsageLimit: (this.newFeature.UsageLimit || '').trim() || null,
+                    FeatureType: (this.newFeature.FeatureType || '').trim() || null,
+                    IsUnlimited: this.newFeature.IsUnlimited !== false
+                };
+                try {
+                    const response = await fetch('/Admin/api/planfeatures/' + id, {
+                        method: 'PUT',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        this.showSuccess('Feature updated successfully');
+                        await this.loadFeatures();
+                        this.cancelEdit();
+                    } else {
+                        const errorText = await response.text();
+                        let msg = errorText;
+                        try {
+                            const j = JSON.parse(errorText);
+                            if (j.detail) msg = j.detail;
+                            else if (j.message) msg = j.message;
+                        } catch (_) {}
+                        this.showError('Failed to update feature', msg);
+                    }
+                } catch (error) {
+                    console.error("Failed to update feature:", error);
+                    this.showError('Network Error', error.message || 'Failed to update feature');
+                }
+            },
+            editFeature(feature) {
+                this.editingFeature = feature;
+                const g = (k) => this.getProp(feature, k);
+                this.newFeature = {
+                    FeatureName: g('FeatureName') || '',
+                    Description: g('Description') || '',
+                    FeatureRate: g('FeatureRate') ?? 0,
+                    Currency: g('Currency') || 'USD',
+                    Status: g('Status') || 'Active',
+                    IsActive: g('IsActive') === 1 || g('IsActive') === true ? 1 : 0,
+                    PlanId: g('PlanId') ?? 0,
+                    UsageLimit: g('UsageLimit') || '',
+                    FeatureType: g('FeatureType') || '',
+                    IsUnlimited: g('IsUnlimited') !== false
+                };
+            },
+            cancelEdit() {
+                this.editingFeature = null;
+                this.resetForm();
+            },
+            async deleteFeature(id) {
+                const result = await Swal.fire({
+                    title: 'Delete Feature?',
+                    text: 'This action cannot be undone.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Yes, Delete'
+                });
+
+                if (!result.isConfirmed) return;
+
+                try {
+                    const response = await fetch('/Admin/api/planfeatures/' + id, {
+                        method: 'DELETE'
+                    });
+
+                    if (response.ok) {
+                        this.showSuccess('Feature deleted successfully');
+                        await this.loadFeatures();
+                    } else {
+                        const errorText = await response.text();
+                        this.showError('Failed to delete feature', errorText);
+                    }
+                } catch (error) {
+                    console.error("Error deleting feature:", error);
+                    this.showError('Network Error', 'Failed to delete feature');
+                }
+            },
+            validateFeature() {
+                if (!this.newFeature.FeatureName?.trim()) {
+                    this.showError('Validation Error', 'Feature name is required');
+                    return false;
+                }
+                if (!this.newFeature.FeatureRate || this.newFeature.FeatureRate < 0) {
+                    this.showError('Validation Error', 'Feature rate must be a positive number');
+                    return false;
+                }
+                return true;
+            },
+            resetForm() {
+                this.newFeature = {
+                    FeatureName: '',
+                    Description: '',
+                    FeatureRate: 0,
+                    Currency: 'USD',
+                    Status: 'Active',
+                    PlanId: 0,
+                    IsActive: 1
+                };
+            },
+            showSuccess(message) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: message,
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            },
+            showError(title, message) {
+                Swal.fire({
+                    icon: 'error',
+                    title: title,
+                    text: message,
+                    confirmButtonColor: '#ef4444'
+                });
+            }
+        },
+        mounted() {
+            // Hide server-rendered table and show Vue table (search, edit, delete)
+            const serverEl = document.getElementById('serverFeaturesTable');
+            const vueEl = document.getElementById('vueFeaturesTable');
+            if (serverEl) serverEl.style.display = 'none';
+            if (vueEl) vueEl.style.display = 'block';
+            // Use server-injected data; only fetch if we have none (e.g. after add/delete we call loadFeatures() explicitly)
+            if (this.features.length === 0) this.loadFeatures();
+        }
+    });
+        app.mount('#app');
+    })();
+</script>

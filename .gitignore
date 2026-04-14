@@ -1,0 +1,30 @@
+## Build / IDE
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+*.user
+*.userosscache
+*.suo
+
+## Local build logs
+build.log
+*.log
+
+## Publish and internal check outputs (regenerate with dotnet publish)
+publish/
+_build_out/
+_buildcheck/
+
+## NuGet packages cache (if present)
+**/packages/*
+*.nupkg
+
+## OS
+Thumbs.db
+Desktop.ini
+
+## Local overrides with real secrets (optional)
+appsettings.*.local.json
+secrets.json

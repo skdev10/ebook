@@ -1,0 +1,150 @@
+﻿@model EBookDashboard.Models.ViewModels.BookChaptersViewModel
+@{
+    ViewData["Title"] = "BookChaptersList";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>eBook Chapters</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            background: #f4f6f8;
+            padding: 20px;
+        }
+
+        .ebook-container {
+            max-width: 1200px; /* or 1400px */
+            margin: auto;
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .page-title {
+            text-align: center;
+            font-size: 26px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px 10px;
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f0f3f6;
+            font-weight: 600;
+            text-align: left;
+        }
+
+        tr:nth-child(even) td {
+            background-color: #fafafa;
+        }
+
+        .chapter-no {
+            font-weight: 600;
+            color: #2c3e50;
+            white-space: nowrap;
+        }
+
+        .chapter-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .chapter-content {
+            line-height: 1.6;
+            white-space: pre-wrap; /* keeps formatting */
+        }
+
+        .description {
+            font-size: 14px;
+            color: #555;
+        }
+        /* Disable text selection */
+        .read-only {
+            pointer-events: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="ebook-container read-only">
+        <div class="page-title">@Model.Title</div>
+        @if (!string.IsNullOrEmpty(Model.Subtitle))
+        {
+            <p style="text-align:center;color:#666;font-size:16px;">
+                @Model.Subtitle
+            </p>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.Description))
+        {
+            <p style="text-align:center;margin:20px 0;color:#444;">
+                @Model.Description
+            </p>
+        }
+        <div class="page-title">eBook Chapters</div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:10%">Chapter</th>
+                    <th style="width:20%">Title</th>
+                    <th style="width:45%">Content</th>
+                    <th style="width:25%">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model != null && Model.Chapters.Any())
+                {
+                    foreach (var item in Model.Chapters)
+                    {
+                        <tr>
+                            <td class="chapter-no">@item.Chapter</td>
+                            <td>
+                                <div class="chapter-title">@item.Title</div>
+                                <small>@item.ChapterNames</small>
+                            </td>
+                            <td class="chapter-content">
+                                @item.Content
+                            </td>
+                            <td class="description">
+                                <strong>Status:</strong> @item.StatusCode <br />
+                                @if (!string.IsNullOrEmpty(item.ErrorMessage))
+                                {
+                                    <span style="color:red">@item.ErrorMessage</span>
+                                }
+                                else
+                                {
+                                    <span>No errors</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="4" style="text-align:center;color:#777;">No chapter data found</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+</body>
+</html>

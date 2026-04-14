@@ -1,0 +1,102 @@
+﻿@model EBookDashboard.Models.ViewModels.BookDesignViewModel
+@{
+    ViewData["Title"] = "SelectDesign";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>eBook Chapters</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+<style>
+        /* Center the entire row container */
+        .row {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-left: -15px;
+            margin-right: -15px;
+        }
+
+        /* Center each book card */
+        .col-md-4 {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Style for the book card */
+        .book-card {
+            cursor: pointer;
+            width: 100%;
+            max-width: 320px; /* Optional: Set a max width for cards */
+        }
+
+            .book-card input:checked + .card {
+                border: 3px solid #0d6efd;
+                box-shadow: 0 0 12px rgba(13, 110, 253, 0.5);
+            }
+
+        /* Center the image inside the card */
+        .book-img {
+            height: 260px;
+            object-fit: contain;
+            padding: 15px;
+            background: #f8f9fa;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Center the card content */
+        .card {
+            text-align: center;
+        }
+
+        /* Center the form button */
+        .text-center {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        /* Optional: Center the entire form if needed */
+        form {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+    </style>
+</head> 
+<body>
+<form asp-action="SelectDesign" method="post">
+    <div class="row">
+        @foreach (var item in Model.Designs)
+        {
+            <div class="col-md-4 mb-4">
+                <label class="book-card">
+                        <input type="radio" name="SelectedDesignId" value="@item.DesignId" hidden />
+
+                    <div class="card h-100 shadow-sm">
+                        <img src="@item.ImagePath" class="card-img-top book-img" />
+
+                        <div class="card-body text-center">
+                            <h6 class="fw-bold">@item.DesignName</h6>
+                            <p class="mb-1"><strong>Size:</strong> @item.SizeName</p>
+                            <p><strong>Orientation:</strong> @item.Orientation</p>
+                        </div>
+                    </div>
+                </label>
+            </div>
+        }
+    </div>
+
+    <div class="text-center mt-4">
+        <button type="submit" class="btn btn-primary px-5">
+            Continue to Formatting
+        </button>
+    </div>
+</form>
+</body>
+</html>

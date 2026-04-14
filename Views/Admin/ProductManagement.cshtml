@@ -1,0 +1,752 @@
+@{
+    ViewData["Title"] = "Product Management";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="~/js/admin-animations.js"></script>
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --warm-gray: #E8E8E8;
+        --soft-beige: #F5F1EB;
+        --cream-bg: #FAF8F3;
+        --cream-accent: #E8DCC6;
+        --gold-accent: #D4AF37;
+        --bronze-accent: #CD7F32;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --text-muted: #9B9B9B;
+        --border-light: #E5E5E5;
+        --shadow-soft: rgba(0, 0, 0, 0.05);
+        --primary: #8B7355;
+        --primary-light: #A68B6B;
+        --primary-dark: #6B5A47;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --info: #3b82f6;
+    }
+
+    .product-container {
+        padding: 0;
+    }
+
+    .page-header {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        position: relative;
+    }
+
+    .page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: linear-gradient(180deg, var(--primary) 0%, var(--gold-accent) 100%);
+    }
+
+    .page-header h1 {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+        padding-left: 16px;
+    }
+
+    .page-header p {
+        color: var(--text-secondary);
+        padding-left: 16px;
+        font-size: 14px;
+    }
+
+    .products-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .product-card {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .product-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--primary);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .product-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 12px var(--shadow-soft);
+    }
+
+    .product-card:hover::before {
+        opacity: 1;
+    }
+
+    .product-card.profitable {
+        border-left: 4px solid var(--success);
+    }
+
+    .product-card.profitable::before {
+        background: var(--success);
+        opacity: 1;
+    }
+
+    .product-card.loss {
+        border-left: 4px solid var(--danger);
+    }
+
+    .product-card.loss::before {
+        background: var(--danger);
+        opacity: 1;
+    }
+
+    .product-card.warning {
+        border-left: 4px solid var(--warning);
+    }
+
+    .product-card.warning::before {
+        background: var(--warning);
+        opacity: 1;
+    }
+
+    .product-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .product-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .product-subtitle {
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    .product-status {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .status-profitable {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .status-loss {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    .status-warning {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .product-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .metric-item {
+        text-align: center;
+        padding: 16px;
+        background: var(--cream-bg);
+        border-radius: 12px;
+    }
+
+    .metric-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 4px;
+    }
+
+    .metric-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .product-chart {
+        height: 200px;
+        margin-bottom: 20px;
+    }
+
+    .product-insights {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-light);
+    }
+
+    .insight-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        font-size: 14px;
+    }
+
+    .insight-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+    }
+
+    .insight-icon.success {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .insight-icon.danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    .insight-icon.warning {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .insight-icon.info {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--info);
+    }
+
+    .insight-text {
+        flex: 1;
+        color: var(--text-primary);
+    }
+
+    .strategy-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+    }
+
+    .strategy-section h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid var(--cream-accent);
+    }
+
+    .strategy-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+    }
+
+    .strategy-card {
+        padding: 20px;
+        background: var(--cream-bg);
+        border-radius: 12px;
+        border-left: 4px solid var(--primary);
+    }
+
+    .strategy-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+    }
+
+    .strategy-description {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+
+    .strategy-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: var(--primary);
+        color: white;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .strategy-action:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+    }
+
+    .investment-recommendation {
+        background: linear-gradient(135deg, rgba(139, 115, 85, 0.1) 0%, rgba(212, 175, 55, 0.1) 100%);
+        border: 2px solid var(--primary);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+    .recommendation-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .recommendation-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .recommendation-list li {
+        padding: 8px 0;
+        color: var(--text-secondary);
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .recommendation-list li::before {
+        content: '→';
+        color: var(--primary);
+        font-weight: bold;
+    }
+</style>
+
+<div class="product-container">
+    <div class="page-header">
+        <h1>Product Management & Strategy</h1>
+        <p>Analyze product performance, identify investment opportunities, and understand product downfall reasons</p>
+    </div>
+
+    <div class="products-grid">
+        <!-- AI Cover Product -->
+        <div class="product-card profitable">
+            <div class="product-header">
+                <div>
+                    <div class="product-title">AI Cover Generation</div>
+                    <div class="product-subtitle">AI-powered book cover creation</div>
+                </div>
+                <span class="product-status status-profitable">Profitable</span>
+            </div>
+            <div class="product-metrics">
+                <div class="metric-item">
+                    <div class="metric-value">$12,450</div>
+                    <div class="metric-label">Revenue (30d)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">1,234</div>
+                    <div class="metric-label">Covers Generated</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">$2.99</div>
+                    <div class="metric-label">Price per Cover</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">+18%</div>
+                    <div class="metric-label">Growth Rate</div>
+                </div>
+            </div>
+            <div class="product-chart">
+                <canvas id="aiCoverChart"></canvas>
+            </div>
+            <div class="product-insights">
+                <div class="insight-item">
+                    <div class="insight-icon success"><i class="fas fa-arrow-up"></i></div>
+                    <div class="insight-text">Revenue increased by 18% this month</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon info"><i class="fas fa-users"></i></div>
+                    <div class="insight-text">89 new users tried AI Cover this week</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="insight-text">12 covers flagged for review - needs attention</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Marketing Product -->
+        <div class="product-card loss">
+            <div class="product-header">
+                <div>
+                    <div class="product-title">Marketing Services</div>
+                    <div class="product-subtitle">Book promotion and marketing tools</div>
+                </div>
+                <span class="product-status status-loss">Loss Making</span>
+            </div>
+            <div class="product-metrics">
+                <div class="metric-item">
+                    <div class="metric-value">$3,200</div>
+                    <div class="metric-label">Revenue (30d)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">$8,500</div>
+                    <div class="metric-label">Cost (30d)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">-$5,300</div>
+                    <div class="metric-label">Net Profit</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">-38%</div>
+                    <div class="metric-label">ROI</div>
+                </div>
+            </div>
+            <div class="product-chart">
+                <canvas id="marketingChart"></canvas>
+            </div>
+            <div class="product-insights">
+                <div class="insight-item">
+                    <div class="insight-icon danger"><i class="fas fa-arrow-down"></i></div>
+                    <div class="insight-text">Operating at a loss - costs exceed revenue</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon warning"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="insight-text">High ad spend with low conversion rate</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon info"><i class="fas fa-lightbulb"></i></div>
+                    <div class="insight-text">Consider reducing ad budget or improving targeting</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Generation Ebook Product -->
+        <div class="product-card profitable">
+            <div class="product-header">
+                <div>
+                    <div class="product-title">AI Generation Ebook</div>
+                    <div class="product-subtitle">AI-powered ebook creation</div>
+                </div>
+                <span class="product-status status-profitable">Profitable</span>
+            </div>
+            <div class="product-metrics">
+                <div class="metric-item">
+                    <div class="metric-value">$28,900</div>
+                    <div class="metric-label">Revenue (30d)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">456</div>
+                    <div class="metric-label">Ebooks Created</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">$49.99</div>
+                    <div class="metric-label">Price per Ebook</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">+32%</div>
+                    <div class="metric-label">Growth Rate</div>
+                </div>
+            </div>
+            <div class="product-chart">
+                <canvas id="aiEbookChart"></canvas>
+            </div>
+            <div class="product-insights">
+                <div class="insight-item">
+                    <div class="insight-icon success"><i class="fas fa-arrow-up"></i></div>
+                    <div class="insight-text">Strong growth - highest revenue product</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon success"><i class="fas fa-star"></i></div>
+                    <div class="insight-text">High customer satisfaction (4.8/5)</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon info"><i class="fas fa-chart-line"></i></div>
+                    <div class="insight-text">Consider increasing capacity for higher demand</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscription Plans Product -->
+        <div class="product-card warning">
+            <div class="product-header">
+                <div>
+                    <div class="product-title">Subscription Plans</div>
+                    <div class="product-subtitle">Monthly/annual subscription services</div>
+                </div>
+                <span class="product-status status-warning">Needs Attention</span>
+            </div>
+            <div class="product-metrics">
+                <div class="metric-item">
+                    <div class="metric-value">$15,600</div>
+                    <div class="metric-label">Revenue (30d)</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">1,248</div>
+                    <div class="metric-label">Active Subscribers</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">-5%</div>
+                    <div class="metric-label">Churn Rate</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value">$12.50</div>
+                    <div class="metric-label">Avg. Revenue/User</div>
+                </div>
+            </div>
+            <div class="product-chart">
+                <canvas id="subscriptionChart"></canvas>
+            </div>
+            <div class="product-insights">
+                <div class="insight-item">
+                    <div class="insight-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="insight-text">Churn rate increased - need retention strategy</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon info"><i class="fas fa-user-minus"></i></div>
+                    <div class="insight-text">62 cancellations this month</div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-icon info"><i class="fas fa-lightbulb"></i></div>
+                    <div class="insight-text">Consider adding more value or reducing price</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Investment Strategy Section -->
+    @* <div class="strategy-section">
+        <h3><i class="fas fa-lightbulb"></i> Investment Strategy & Recommendations</h3>
+        <div class="strategy-grid">
+            <div class="strategy-card">
+                <div class="strategy-title">Where to Invest</div>
+                <div class="strategy-description">
+                    Based on current performance metrics, here are the recommended investment areas:
+                </div>
+                <div class="investment-recommendation">
+                    <div class="recommendation-title">
+                        <i class="fas fa-check-circle" style="color: var(--success);"></i>
+                        High Priority Investments
+                    </div>
+                    <ul class="recommendation-list">
+                        <li>AI Generation Ebook - Scale infrastructure to meet demand</li>
+                        <li>AI Cover Generation - Enhance AI models for better quality</li>
+                        <li>Customer Support - Improve retention for subscriptions</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="strategy-card">
+                <div class="strategy-title">Why Products Are Downfalling</div>
+                <div class="strategy-description">
+                    Analysis of products showing negative trends:
+                </div>
+                <div class="investment-recommendation">
+                    <div class="recommendation-title">
+                        <i class="fas fa-exclamation-circle" style="color: var(--danger);"></i>
+                        Critical Issues
+                    </div>
+                    <ul class="recommendation-list">
+                        <li>Marketing: High ad costs with low ROI - optimize targeting</li>
+                        <li>Subscriptions: High churn rate - improve value proposition</li>
+                        <li>Need better customer onboarding and engagement</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="strategy-card">
+                <div class="strategy-title">Action Plan</div>
+                <div class="strategy-description">
+                    Immediate actions to improve product performance:
+                </div>
+                <div class="investment-recommendation">
+                    <div class="recommendation-title">
+                        <i class="fas fa-tasks" style="color: var(--primary);"></i>
+                        Next Steps
+                    </div>
+                    <ul class="recommendation-list">
+                        <li>Reduce Marketing ad spend by 30% and focus on organic</li>
+                        <li>Launch retention campaign for subscriptions</li>
+                        <li>Invest in AI Ebook capacity expansion</li>
+                        <li>Improve AI Cover quality to reduce review flags</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div> *@
+</div>
+
+<script>
+    // Initialize product charts
+    window.initProductCharts = function() {
+        if (typeof Chart === 'undefined') {
+            setTimeout(window.initProductCharts, 200);
+            return;
+        }
+
+        // AI Cover Chart
+        const aiCoverCtx = document.getElementById('aiCoverChart');
+        if (aiCoverCtx) {
+            new Chart(aiCoverCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: [2800, 3100, 3500, 3050],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Marketing Chart
+        const marketingCtx = document.getElementById('marketingChart');
+        if (marketingCtx) {
+            new Chart(marketingCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [
+                        {
+                            label: 'Revenue',
+                            data: [800, 900, 700, 800],
+                            backgroundColor: 'rgba(16, 185, 129, 0.6)'
+                        },
+                        {
+                            label: 'Cost',
+                            data: [2100, 2200, 2000, 2200],
+                            backgroundColor: 'rgba(239, 68, 68, 0.6)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // AI Ebook Chart
+        const aiEbookCtx = document.getElementById('aiEbookChart');
+        if (aiEbookCtx) {
+            new Chart(aiEbookCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: [6500, 7200, 7800, 7400],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Subscription Chart
+        const subscriptionCtx = document.getElementById('subscriptionChart');
+        if (subscriptionCtx) {
+            new Chart(subscriptionCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Subscribers',
+                        data: [1280, 1265, 1250, 1248],
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+    };
+
+    // Initialize on load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(window.initProductCharts, 300);
+        });
+    } else {
+        setTimeout(window.initProductCharts, 300);
+    }
+</script>
+

@@ -1,0 +1,1986 @@
+@model EBookDashboard.Models.AIBookRequest
+@{
+    ViewData["Title"] = "AI Book Generator & Publishing Studio";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    :root {
+        --primary: #7c3aed;
+        --primary-light: #8b5cf6;
+        --primary-dark: #6d28d9;
+        --secondary: #06b6d4;
+        --accent: #f59e0b;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --surface: #ffffff;
+        --background: #f8fafc;
+        --card-bg: #ffffff;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --text-muted: #94a3b8;
+        --border: #e2e8f0;
+        --border-light: #f1f5f9;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        --radius: 16px;
+        --radius-sm: 12px;
+        --radius-lg: 20px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --gradient-primary: linear-gradient(135deg, var(--primary), var(--secondary));
+        --gradient-accent: linear-gradient(135deg, var(--accent), #ec4899);
+    }
+
+    .dark-mode {
+        --primary: #8b5cf6;
+        --primary-light: #a78bfa;
+        --primary-dark: #7c3aed;
+        --secondary: #22d3ee;
+        --accent: #fbbf24;
+        --surface: #1e293b;
+        --background: #0f172a;
+        --card-bg: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --border-light: #475569;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+        --shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        background: var(--background);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--text-primary);
+        line-height: 1.6;
+        transition: var(--transition);
+    }
+
+    .dashboard-container {
+        max-width: 100%;
+        /* padding: 20px; */
+        display: grid;
+    }
+
+    /* Header */
+    .dashboard-header {
+        margin-bottom: 2rem;
+    }
+
+    .header-main {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .header-title {
+        font-size: 2rem;
+        font-weight: 800;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .user-status {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .status-badge {
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .status-free {
+        background: var(--warning);
+        color: white;
+    }
+
+    .status-premium {
+        background: var(--success);
+        color: white;
+    }
+
+    /* Tabs Navigation */
+    .tabs-container {
+        margin-bottom: 2rem;
+    }
+
+    .tabs-nav {
+        display: flex;
+        border-bottom: 2px solid var(--border);
+        gap: 0;
+        flex-wrap: wrap;
+    }
+
+    .tab-btn {
+        padding: 1rem 2rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        background: none;
+        color: var(--text-secondary);
+        border-bottom: 3px solid transparent;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }
+
+        .tab-btn:hover {
+            color: var(--primary);
+            background: var(--background);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: var(--background);
+        }
+
+        .tab-btn.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            color: var(--text-muted);
+        }
+
+            .tab-btn.disabled:hover {
+                color: var(--text-muted);
+                background: none;
+            }
+
+    /* Tab Content */
+    .tab-content {
+        display: none;
+        animation: fadeIn 0.5s ease;
+    }
+
+        .tab-content.active {
+            display: block;
+        }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Cards */
+    .card {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        overflow: hidden;
+        transition: var(--transition);
+        margin-bottom: 2rem;
+    }
+
+        .card:hover {
+            box-shadow: var(--shadow-hover);
+            transform: translateY(-2px);
+        }
+
+    .card-header {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--background);
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    /* Forms */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 1rem 1.25rem;
+        border: 2px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 1rem;
+        transition: var(--transition);
+        background: var(--surface);
+        color: var(--text-primary);
+    }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        }
+
+        .form-control:disabled {
+            background: var(--background);
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+
+    /* Ghostwriting Specific Styles */
+    .ghostwriting-textarea {
+        transition: var(--transition);
+        font-size: 1rem;
+    }
+
+        .ghostwriting-textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        }
+
+    .ghostwriting-generate-btn {
+        position: relative;
+        overflow: hidden;
+    }
+
+        .ghostwriting-generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+        }
+
+        .ghostwriting-generate-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+    .ghostwriting-loader {
+        margin: 2rem 0;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .ghostwriting-result {
+        animation: fadeIn 0.5s ease;
+        margin-top: 2rem;
+    }
+
+    .result-content {
+        transition: var(--transition);
+    }
+
+        .result-content:hover {
+            border-color: var(--primary);
+        }
+
+    .btn-outline-secondary {
+        background: transparent;
+        border: 2px solid var(--border);
+        color: var(--text-secondary);
+    }
+
+        .btn-outline-secondary:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--background);
+        }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+
+    /* Buttons */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 1rem 1.75rem;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        text-decoration: none;
+    }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+    .btn-primary {
+        background: var(--gradient-primary);
+        color: white;
+        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+    }
+
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+            transform: translateY(-2px);
+        }
+
+    .btn-secondary {
+        background: var(--surface);
+        color: var(--text-primary);
+        border: 2px solid var(--border);
+    }
+
+        .btn-secondary:hover:not(:disabled) {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+    .btn-success {
+        background: var(--success);
+        color: white;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    /* Chat Container */
+    .chat-container {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        padding: 1.5rem;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .message {
+        display: flex;
+        margin-bottom: 1.5rem;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .message-ai {
+        justify-content: flex-start;
+    }
+
+    .message-user {
+        justify-content: flex-end;
+    }
+
+    .message-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        margin: 0 0.75rem;
+        flex-shrink: 0;
+    }
+
+    .message-ai .message-avatar {
+        background: var(--gradient-primary);
+        color: white;
+    }
+
+    .message-user .message-avatar {
+        background: var(--gradient-accent);
+        color: white;
+    }
+
+    .message-content {
+        max-width: 70%;
+        padding: 1rem 1.25rem;
+        border-radius: var(--radius);
+        background: var(--surface);
+        border: 1px solid var(--border-light);
+    }
+
+    .message-user .message-content {
+        background: var(--gradient-primary);
+        color: white;
+    }
+
+    /* Editor */
+    .editor-container {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        margin-bottom: 2rem;
+    }
+
+    .editor-toolbar {
+        display: flex;
+        gap: 0.5rem;
+        padding: 1rem;
+        background: var(--background);
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+    }
+
+    .toolbar-btn {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+        .toolbar-btn:hover:not(:disabled) {
+            background: var(--primary);
+            color: white;
+        }
+
+        .toolbar-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .editor-content {
+        min-height: 400px;
+        padding: 2rem;
+        background: var(--surface);
+    }
+
+        .editor-content.readonly {
+            background: var(--background);
+            color: var(--text-muted);
+        }
+
+    /* Formatting Options */
+    .formatting-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .format-option {
+        padding: 1.5rem;
+        border: 2px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        transition: var(--transition);
+    }
+
+        .format-option.disabled {
+            opacity: 0.6;
+            position: relative;
+        }
+
+            .format-option.disabled::after {
+                content: '🔒 Premium Feature';
+                position: absolute;
+                top: 0.5rem;
+                right: 0.5rem;
+                background: var(--warning);
+                color: white;
+                padding: 0.25rem 0.5rem;
+                border-radius: 10px;
+                font-size: 0.75rem;
+                font-weight: 600;
+            }
+
+        .format-option:hover:not(.disabled) {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+    /* Payment Overlay */
+    .payment-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-lg);
+        z-index: 10;
+    }
+
+    .payment-content {
+        background: var(--card-bg);
+        padding: 2rem;
+        border-radius: var(--radius);
+        text-align: center;
+        max-width: 400px;
+    }
+
+    /* Theme Toggle */
+    .theme-toggle {
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        font-size: 1.25rem;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+        .theme-toggle:hover {
+            color: var(--primary);
+        }
+
+    /* Notifications */
+    .notification {
+        position: fixed;
+        top: 2rem;
+        right: 2rem;
+        padding: 1rem 1.25rem;
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        max-width: 400px;
+        transform: translateX(120%);
+        transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        background: var(--surface);
+        border-left: 4px solid var(--primary);
+    }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+    .notification-success {
+        border-left-color: var(--success);
+    }
+
+    .notification-error {
+        border-left-color: var(--error);
+    }
+
+    .notification-warning {
+        border-left-color: var(--warning);
+    }
+
+    /* Responsive Design */
+    @@media (max-width: 1024px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .formatting-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .tabs-nav {
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 1rem 1.5rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .dashboard-container {
+            padding: 1rem;
+        }
+
+        .header-title {
+            font-size: 1.5rem;
+        }
+
+        .header-main {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .user-status {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .btn-group {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .message-content {
+            max-width: 85%;
+        }
+    }
+
+    /* Loading Animation */
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Typing Indicator */
+    .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 8px 0;
+    }
+
+    .typing-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--text-muted);
+        animation: typing 1.4s infinite ease-in-out;
+    }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+    @@keyframes typing {
+        0%, 80%, 100% {
+            transform: scale(0.8);
+            opacity: 0.5;
+        }
+
+        40% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+</style>
+
+<div class="container">
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <div class="header-main">
+                <h1 class="header-title">AI Book Generator & Publishing Studio</h1>
+                <div class="user-status">
+                    <div class="status-badge status-free" id="userStatus">Free User</div>
+                    <button class="btn btn-secondary" onclick="showPricingPlans()">
+                        <i class="bi bi-gem"></i> Upgrade to Premium
+                    </button>
+                    <button class="btn btn-secondary" onclick="showPlanFeaturesModal()">
+                        <i class="bi bi-stars"></i> Explore Features
+                    </button>
+                    @* <button class="theme-toggle" id="themeToggle">
+                    <i class="bi bi-moon"></i>
+                </button> *@
+                </div>
+            </div>
+            <p class="header-subtitle">Create professional ebooks with AI - Upgrade to unlock full formatting and publishing features</p>
+        </div>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs-container">
+            <div class="tabs-nav">
+                <button class="tab-btn active" data-tab="ai-generator">
+                    <i class="bi bi-robot"></i> AI Book Generator
+                </button>
+                <button class="tab-btn" data-tab="ghostwriting">
+                    <i class="bi bi-magic"></i> Ghostwriting
+                </button>
+                <button class="tab-btn disabled" data-tab="editor" id="editorTab">
+                    <i class="bi bi-pencil"></i> Advanced Editor 🔒
+                </button>
+                <button class="tab-btn disabled" data-tab="typography" id="typographyTab">
+                    <i class="bi bi-fonts"></i> Typography 🔒
+                </button>
+                <button class="tab-btn disabled" data-tab="formatting" id="formattingTab">
+                    <i class="bi bi-brush"></i> Formatting 🔒
+                </button>
+                <button class="tab-btn disabled" data-tab="layout" id="layoutTab">
+                    <i class="bi bi-layout-split"></i> Layout 🔒
+                </button>
+                <button class="tab-btn disabled" data-tab="export" id="exportTab">
+                    <i class="bi bi-download"></i> Export & Publish 🔒
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab Contents -->
+        <!-- AI Generator Tab -->
+        <div id="ai-generator" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Generate Your Book with AI</h3>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label">Load Previous Book</label>
+                        <select id="savedResponsesDropdown" class="form-control" onchange="loadSelectedResponse(this.value)">
+                            <option value="">📚 Load a previously generated book...</option>
+                        </select>
+                    </div>
+                    <input type="hidden" id="userId2" value="" />
+                    <input type="hidden" id="bookId2" value="" />
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="UserId">User ID</label>
+                            <input type="text" id="UserId" class="form-control" value="@ViewBag.UserId">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="BookId">Book ID</label>
+                            <input type="text" id="BookId" class="form-control" value="456">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="Chapter">Number of Chapters</label>
+                            <input type="number" id="Chapter" class="form-control" value="5" min="1" max="50">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="UserInput">Book Topic</label>
+                            <input type="text" id="UserInput" class="form-control" value="The future of artificial intelligence" placeholder="What would you like to write about?">
+                        </div>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-primary" onclick="generateBook()">
+                            <i class="bi bi-lightning"></i> Generate Book
+                        </button>
+                        <button id="showBookBtn" class="btn btn-secondary" onclick="showSelectedBook()">
+                            <i class="bi bi-book"></i> Show Book
+                        </button>
+                        <button class="btn btn-success" onclick="saveBook()">
+                            <i class="bi bi-save"></i> Save Book
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm me-2" type="button"
+                                onclick="changeChapter('${chapterId}', '${chapterNumber}')">
+                            Change
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" type="button"
+                                onclick="finalizeChapter('${chapterId}', '${chapterNumber}')">
+                            Finalize
+                        </button>
+                    </div>
+
+                    <input type="hidden" id="APIRawResponse">
+                </div>
+            </div>
+
+            <!-- Chat Results -->
+            <div class="chat-container" id="chatContainer">
+                <div class="message message-ai">
+                    <div class="message-avatar">AI</div>
+                    <div class="message-content">
+                        Hello! I'm ready to help you create an amazing book. Just enter your topic above and click "Generate Book" to get started.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ghostwriting Tab -->
+        <div id="ghostwriting" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="bi bi-magic"></i> AI Ghostwriting Assistant</h3>
+                    <p style="margin: 0.5rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">
+                        Enter your writing prompts and let AI create professional content for you
+                    </p>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label class="form-label" for="ghostwritingPrompt">
+                            <i class="bi bi-pencil-square"></i> Writing Prompt
+                        </label>
+                        <textarea 
+                            id="ghostwritingPrompt" 
+                            class="form-control ghostwriting-textarea" 
+                            rows="8" 
+                            placeholder="Enter your writing prompt here... For example: 'Write a compelling introduction for a book about artificial intelligence and its impact on modern society.'"
+                            style="resize: vertical; min-height: 200px; font-family: inherit; line-height: 1.6;"></textarea>
+                        <small class="form-text text-muted" style="display: block; margin-top: 0.5rem; color: var(--text-muted);">
+                            <i class="bi bi-info-circle"></i> Be specific about what you want to generate. The more details you provide, the better the results.
+                        </small>
+                    </div>
+
+                    <div class="form-group text-center" style="margin-top: 2rem;">
+                        <button 
+                            type="button" 
+                            class="btn btn-primary btn-lg ghostwriting-generate-btn" 
+                            id="ghostwritingGenerateBtn"
+                            onclick="generateGhostwriting()"
+                            style="padding: 1rem 3rem; font-size: 1.1rem; font-weight: 600; border-radius: var(--radius-sm); box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3); transition: var(--transition);">
+                            <i class="bi bi-magic"></i> Generate Content
+                        </button>
+                    </div>
+
+                    <!-- Loader/Spinner -->
+                    <div id="ghostwritingLoader" class="ghostwriting-loader" style="display: none;">
+                        <div class="loader-container" style="text-align: center; padding: 3rem 2rem;">
+                            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem; border-width: 0.3rem;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="loader-text" style="margin-top: 1.5rem; color: var(--text-secondary); font-weight: 500;">
+                                <i class="bi bi-hourglass-split"></i> Generating your content... This may take a few moments.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Result Display Box -->
+                    <div id="ghostwritingResult" class="ghostwriting-result" style="display: none; margin-top: 2rem;">
+                        <div class="result-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 2px solid var(--border);">
+                            <h4 style="margin: 0; color: var(--text-primary); font-weight: 600;">
+                                <i class="bi bi-file-text"></i> Generated Content
+                            </h4>
+                            <button 
+                                type="button" 
+                                class="btn btn-sm btn-outline-secondary" 
+                                onclick="copyGhostwritingResult()"
+                                style="border-radius: var(--radius-sm);">
+                                <i class="bi bi-clipboard"></i> Copy
+                            </button>
+                        </div>
+                        <div id="ghostwritingResultContent" class="result-content" style="padding: 1.5rem; background: var(--background); border-radius: var(--radius-sm); border: 1px solid var(--border); min-height: 200px; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; word-wrap: break-word;">
+                            Generated content will appear here...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor Tab -->
+        <div id="editor" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Advanced Book Editor</h3>
+                    <p>Upgrade to premium to unlock editing features</p>
+                </div>
+                <div class="card-body" style="position: relative;">
+                    <div class="payment-overlay" id="editorOverlay">
+                        <div class="payment-content">
+                            <i class="bi bi-lock" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <h3>Premium Feature</h3>
+                            <p>Upgrade to unlock the advanced editor with formatting tools</p>
+                            <button class="btn btn-primary" onclick="showPricingPlans()">
+                                Upgrade Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="editor-toolbar">
+                        <button class="toolbar-btn" disabled><i class="bi bi-type-bold"></i> Bold</button>
+                        <button class="toolbar-btn" disabled><i class="bi bi-type-italic"></i> Italic</button>
+                        <button class="toolbar-btn" disabled><i class="bi bi-type-underline"></i> Underline</button>
+                        <button class="toolbar-btn" disabled><i class="bi bi-list-ul"></i> Bullet List</button>
+                        <button class="toolbar-btn" disabled><i class="bi bi-list-ol"></i> Numbered List</button>
+                    </div>
+                    <div class="editor-content readonly" id="bookEditor">
+                        <h2>Your Generated Book Will Appear Here</h2>
+                        <p>After generating a book with AI, you can view it here. Upgrade to premium to edit and format your content.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Typography Tab -->
+        <div id="typography" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Typography Settings</h3>
+                    <p>Upgrade to customize fonts and text styling</p>
+                </div>
+                <div class="card-body" style="position: relative;">
+                    <div class="payment-overlay">
+                        <div class="payment-content">
+                            <i class="bi bi-lock" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <h3>Premium Feature</h3>
+                            <p>Upgrade to unlock typography customization</p>
+                            <button class="btn btn-primary" onclick="showPricingPlans()">
+                                Upgrade Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="formatting-grid">
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-fonts"></i> Font Family</h4>
+                            <p>Choose from professional fonts</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-text-size"></i> Font Size</h4>
+                            <p>Adjust text size for readability</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-height"></i> Line Height</h4>
+                            <p>Control spacing between lines</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-text-center"></i> Text Alignment</h4>
+                            <p>Left, center, right, justified</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formatting Tab -->
+        <div id="formatting" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Advanced Formatting</h3>
+                    <p>Upgrade to access professional formatting tools</p>
+                </div>
+                <div class="card-body" style="position: relative;">
+                    <div class="payment-overlay">
+                        <div class="payment-content">
+                            <i class="bi bi-lock" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <h3>Premium Feature</h3>
+                            <p>Upgrade to unlock advanced formatting options</p>
+                            <button class="btn btn-primary" onclick="showPricingPlans()">
+                                Upgrade Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="formatting-grid">
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-palette"></i> Colors & Themes</h4>
+                            <p>Custom color schemes</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-image"></i> Image Insertion</h4>
+                            <p>Add images to your book</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-table"></i> Tables</h4>
+                            <p>Insert and format tables</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-quote"></i> Blockquotes</h4>
+                            <p>Styled quotation blocks</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layout Tab -->
+        <div id="layout" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Page Layout</h3>
+                    <p>Upgrade to customize page layout and margins</p>
+                </div>
+                <div class="card-body" style="position: relative;">
+                    <div class="payment-overlay">
+                        <div class="payment-content">
+                            <i class="bi bi-lock" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <h3>Premium Feature</h3>
+                            <p>Upgrade to unlock layout customization</p>
+                            <button class="btn btn-primary" onclick="showPricingPlans()">
+                                Upgrade Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="formatting-grid">
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-arrows-fullscreen"></i> Page Margins</h4>
+                            <p>Adjust page margins</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-columns-gap"></i> Columns</h4>
+                            <p>Multi-column layouts</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-file-break"></i> Page Breaks</h4>
+                            <p>Control page breaks</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-text-paragraph"></i> Paragraph Spacing</h4>
+                            <p>Adjust spacing between paragraphs</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Tab -->
+        <div id="export" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <h3>Export & Publishing</h3>
+                    <p>Upgrade to export and publish your book</p>
+                </div>
+                <div class="card-body" style="position: relative;">
+                    <div class="payment-overlay">
+                        <div class="payment-content">
+                            <i class="bi bi-lock" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                            <h3>Premium Feature</h3>
+                            <p>Upgrade to unlock export and publishing features</p>
+                            <button class="btn btn-primary" onclick="showPaymentModal()">
+                                Upgrade Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="formatting-grid">
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-file-pdf"></i> PDF Export</h4>
+                            <p>High-quality PDF generation</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-file-text"></i> EPUB Export</h4>
+                            <p>eBook format for readers</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-globe"></i> Online Publishing</h4>
+                            <p>Publish to online platforms</p>
+                        </div>
+                        <div class="format-option disabled">
+                            <h4><i class="bi bi-share"></i> Marketing Tools</h4>
+                            <p>Promote your published book</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal fade" id="paymentModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upgrade to Premium</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h4>Individual Features</h4>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="featureEditor" value="19.99">
+                                        <label class="form-check-label" for="featureEditor">
+                                            Advanced Editor - $19.99
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="featureTypography" value="14.99">
+                                        <label class="form-check-label" for="featureTypography">
+                                            Typography Tools - $14.99
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="featureExport" value="24.99">
+                                        <label class="form-check-label" for="featureExport">
+                                            PDF Export - $24.99
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h4>Premium Plans</h4>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="plan" id="planBasic" value="49.99">
+                                        <label class="form-check-label" for="planBasic">
+                                            Basic Plan - $49.99
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="plan" id="planPro" value="99.99">
+                                        <label class="form-check-label" for="planPro">
+                                            Pro Plan - $99.99
+                                        </label>
+                                    </div>
+                                    <div class="mt-3">
+                                        <h5>Total: $<span id="totalAmount">0.00</span></h5>
+                                        <button class="btn btn-primary w-100" onclick="processPayment()">
+                                            <i class="bi bi-credit-card"></i> Pay with Stripe
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+
+
+</div>
+<script>
+     // -----> Execution Step 2 (exeutes just after controller action method) <-------------
+    const userId = '@(ViewBag.UserId ?? "0")';
+    console.log("🔍 Logged-in User ID from ViewBag:", userId);
+     function appendUserMessage(text) {
+         const box = document.getElementById('chatContainer');
+         const wrap = document.createElement('div');
+         wrap.className = 'message message-user';
+         wrap.innerHTML = `<div class="message-content">${text}</div><div class="message-avatar">You</div>`;
+         box.appendChild(wrap);
+         box.scrollTop = box.scrollHeight;
+     }
+
+     function appendAiMessage(html) {
+         const box = document.getElementById('chatContainer');
+         const wrap = document.createElement('div');
+         wrap.className = 'message message-ai';
+         wrap.innerHTML = `<div class="message-avatar">AI</div><div class="message-content">${html}</div>`;
+         box.appendChild(wrap);
+         box.scrollTop = box.scrollHeight;
+     }
+     //========================================================
+    // ========= on Button click "Generate Book" =============
+    //========================================================
+       function generateBook() {
+        console.log("🟢 Step 1: generateBook() function started");
+        // --- Step 2: Collect input values from the page ---
+        const requestData = {
+            UserId: document.getElementById('UserId').value,
+            BookId: document.getElementById('BookId').value,
+            Chapter: parseInt(document.getElementById('Chapter').value),
+            UserInput: document.getElementById('UserInput').value
+        };
+         console.log("📋 Step 2: Collected input data:", requestData);
+        // Add user message
+       // addMessage(`I want to create a book about: "${requestData.UserInput}" with ${requestData.Chapter} chapters.`, true);
+         appendUserMessage(`Generate a ${requestData.Chapter}-chapter book about: <strong>${requestData.UserInput}</strong>`);
+        appendAiMessage(`<div class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`);
+
+        //--- Step 3: Show typing indicator replaced --- Show loading spinner on page ---
+        showTypingIndicator();
+        console.log("⏳ Step 3: Displayed loading spinner");
+
+        // Simulate AI thinking
+        setTimeout(async () => {
+            hideTypingIndicator();
+
+            // Add AI response with streaming
+            const aiMessageElement = addMessage('');
+            const thinkingText = `Great! I'll create a book about "${requestData.UserInput}" with ${requestData.Chapter} chapters. Let me start generating the content...`;
+
+            // --- Step 4: Send data to backend controller ---
+             console.log("🚀 Step 4: Sending POST request to /Books/AIGenerateBook");
+             simulateStreaming(thinkingText, aiMessageElement, async () => {
+                // After streaming completes, make the actual API call
+                try {
+                    const response = await fetch('/Books/AIGenerateBook', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
+                     console.log("📨 Step 5: Received response:", response);
+                      // --- Step 5a: Handle success ---
+                    if (response.ok) {
+                        const bookData = await response.json();
+                        console.log("✅ Step 6: Response converted to JSON:", bookData);
+                        document.getElementById('APIRawResponse').value = JSON.stringify(bookData);
+
+                        // Show book generation complete message
+                        const completeMessage = addMessage('');
+                        const completeText = `✅ Book generated successfully! "${bookData.data?.title || 'Untitled Book'}" is ready with ${bookData.data?.chapters?.length || 0} chapters.`;
+
+                        simulateStreaming(completeText, completeMessage, () => {
+                            // Display the actual book content
+                            displayBookInChat(bookData);
+                            console.log("✅ Step 7: Load Saved Response Drop-Down", bookData);
+                            loadSavedBooksDropdown(); // Refresh dropdown after generating new book
+                            showNotification('Book generated successfully!', 'success');
+                        });
+                    } else {
+                        const errorText = await response.text();
+                        console.error("❌ Step 8: Server returned error:", errorText);
+                        throw new Error(errorText || 'Failed to generate book');
+                    }
+                } catch (error) {
+                      // --- Step 9: Handle network or unexpected errors ---
+                    console.error("🔥 Step 9: Exception occurred:", error);
+
+                    hideTypingIndicator();
+                    const errorMessage = addMessage(`❌ Sorry, I encountered an error: ${error.message}`);
+                    showNotification('Failed to generate book', 'error');
+                }
+            });
+        }, 1000);
+    }
+        // ===================== HELPER FUNCTIONS =====================
+   function addMessage(content, isUser = false) {
+        const chatContainer = document.getElementById('chatContainer');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${isUser ? 'message-user' : 'message-ai'}`;
+
+        messageDiv.innerHTML = `
+            <div class="message-avatar">${isUser ? 'You' : 'AI'}</div>
+            <div class="message-content">${content}</div>
+        `;
+
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        return messageDiv.querySelector('.message-content');
+    }
+    //--------- showBookContent Typeing indicator --------
+        function showTypingIndicator() {
+        const chatContainer = document.getElementById('chatContainer');
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message message-ai';
+        typingDiv.id = 'typingIndicator';
+        typingDiv.innerHTML = `
+            <div class="message-avatar">AI</div>
+            <div class="message-content">
+                <div class="typing-indicator">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+            </div>
+        `;
+        chatContainer.appendChild(typingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+        function hideTypingIndicator() {
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+
+    function simulateStreaming(text, element, callback) {
+        let index = 0;
+        element.innerHTML = '';
+
+        function typeCharacter() {
+            if (index < text.length) {
+                element.innerHTML += text.charAt(index);
+                index++;
+                setTimeout(typeCharacter, 20);
+            } else if (callback) {
+                callback();
+            }
+        }
+
+        typeCharacter();
+    }
+
+    function showNotification(message, type = 'info') {
+        const container = document.getElementById('notificationContainer');
+        const notification = document.createElement('div');
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+            <i class="bi bi-${getNotificationIcon(type)}"></i>
+            <span>${message}</span>
+        `;
+
+        container.appendChild(notification);
+
+        setTimeout(() => notification.classList.add('show'), 100);
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => notification.remove(), 400);
+        }, 4000);
+    }
+
+    function getNotificationIcon(type) {
+        const icons = {
+            success: 'check-circle',
+            error: 'exclamation-circle',
+            warning: 'exclamation-triangle',
+            info: 'info-circle'
+        };
+        return icons[type] || 'info-circle';
+    }
+    //=========================================================================
+    //======= MAIN FUNCTION TO LOAD BOOKS IN DROPDOWN            ==============
+    //======  Step 2: LOAD SAVED BOOKS IN DROPDOWN               ==============
+    //=========================================================================
+    //---------------------> Execution Step 4 <--------------------
+    async function loadSavedBooksDropdown() {
+        console.log("🔄 loadSavedBooksDropdown() called");
+
+        const userId = document.getElementById("userId").value;
+        console.log("🔍 User ID from hidden field:", userId);
+
+        if (!userId || userId === "0") {
+            console.error("❌ No valid user ID found");
+            return;
+        }
+
+        try {
+            console.log("🔍 Calling API: /Books/GetSavedResponses?userId=" + userId);
+
+            const response = await fetch(`/Books/GetSavedResponses?userId=${encodeURIComponent(userId)}`);
+            console.log("🔍 Response status:", response.status);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const books = await response.json();
+            console.log("📚 Books data received:", books);
+
+            const dropdown = document.getElementById("savedResponsesDropdown");
+            if (!dropdown) {
+                console.error("❌ Dropdown element not found!");
+                return;
+            }
+
+            // Clear and populate dropdown
+            dropdown.innerHTML = '<option value="">📚 Load a previously generated book...</option>';
+
+            if (Array.isArray(books) && books.length > 0) {
+                books.forEach(book => {
+                    const option = document.createElement("option");
+                    option.value = book.bookId;
+                    option.textContent = `${book.bookTitle} (${book.createdDate || 'No date'})`;
+                    dropdown.appendChild(option);
+                });
+                console.log(`✅ SUCCESS: Loaded ${books.length} books into dropdown`);
+            } else {
+                const option = document.createElement("option");
+                option.value = "";
+                option.textContent = "No saved books found - Generate one first!";
+                option.disabled = true;
+                dropdown.appendChild(option);
+                console.log("❌ No books found for this user");
+            }
+        } catch (error) {
+            console.error("❌ Error in loadSavedBooksDropdown:", error);
+        }
+    }
+    //======================================================
+    // ========= On Save Button SAVE the BOOK ==============
+    //======================================================
+    async function saveBook() {
+        try {
+            const apiRaw = document.getElementById('APIRawResponse').value || '';
+            if (!apiRaw)
+            {
+                showNotification('Generate a book first', 'warning');
+                return;
+            }
+            const userId2 = document.getElementById('userId2').value;
+            const bookId2 = document.getElementById('bookId2').value;
+
+            const userId = document.getElementById('UserId').value;
+            const bookId = document.getElementById('BookId').value || bookId2;
+            const res = await fetch('/Books/SaveBookFromAPI', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: userId, bookId: bookId, apiRaw: apiRaw })
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const msg = await res.text();
+            showNotification(msg || 'Book saved', 'success');
+        } catch (e) {
+            showNotification(e.message || 'Save failed', 'error');
+        }
+    }
+   
+    //------------> Display Book in Chat <--------------
+    function displayBookInChat(bookData) {
+        const chapters = bookData.data?.chapters || [];
+        const bookTitle = bookData.data?.title || "Untitled Book";
+
+        // Add book title message
+        const titleMessage = addMessage(`📖 **${bookTitle}**\n\nHere are the chapters I've created:`);
+
+        // Add each chapter
+        chapters.forEach((chapter, index) => {
+            setTimeout(() => {
+                const chapterMessage = addMessage(`**Chapter ${index + 1}: ${chapter.title}**\n\n${chapter.content.substring(0, 200)}...`);
+            }, index * 500);
+        });
+
+        // Add completion message
+        setTimeout(() => {
+            addMessage(`🎉 Your book "${bookTitle}" is complete! You can now save it or generate another one.`);
+        }, chapters.length * 500 + 500);
+    }
+
+    
+    // ===================== LOAD SELECTED BOOK =====================
+    async function loadSelectedResponse(bookId) {
+        if (!bookId) return;
+        console.log("Loading selected book:", bookId);
+        // Add your book loading logic here
+    }
+    // ===================== TABS MANAGEMENT =====================
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.classList.contains('disabled')) {
+                showNotification('Upgrade to premium to access this feature', 'warning');
+                return;
+            }
+
+            const tabId = this.getAttribute('data-tab');
+
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Add active class to current button and content
+            this.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+
+    // ===================== GHOSTWRITING FUNCTIONALITY =====================
+    function generateGhostwriting() {
+        const prompt = document.getElementById('ghostwritingPrompt').value.trim();
+        const generateBtn = document.getElementById('ghostwritingGenerateBtn');
+        const loader = document.getElementById('ghostwritingLoader');
+        const result = document.getElementById('ghostwritingResult');
+        const resultContent = document.getElementById('ghostwritingResultContent');
+
+        // Validate input
+        if (!prompt) {
+            showNotification('Please enter a writing prompt', 'warning');
+            return;
+        }
+
+        // Hide result, show loader, disable button
+        result.style.display = 'none';
+        loader.style.display = 'block';
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating...';
+
+        // Simulate generation (3-5 seconds)
+        const generationTime = 3000 + Math.random() * 2000; // 3-5 seconds
+
+        setTimeout(() => {
+            // Hide loader, show result, enable button
+            loader.style.display = 'none';
+            result.style.display = 'block';
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-magic"></i> Generate Content';
+
+            // Placeholder generated content
+            const placeholderContent = `Based on your prompt: "${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}"
+
+Here is the generated content:
+
+[This is a placeholder for the generated content. In a real implementation, this would be replaced with actual AI-generated text based on your prompt.]
+
+The AI ghostwriting assistant has processed your request and would generate professional, engaging content tailored to your specific needs. This content would be:
+
+• Well-structured and coherent
+• Written in a professional tone
+• Tailored to your target audience
+• Optimized for readability and engagement
+
+To see actual generated content, connect this feature to your AI backend service.`;
+
+            resultContent.textContent = placeholderContent;
+
+            // Scroll to result
+            result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // Show success notification
+            showNotification('Content generated successfully!', 'success');
+        }, generationTime);
+    }
+
+    function copyGhostwritingResult() {
+        const resultContent = document.getElementById('ghostwritingResultContent');
+        const text = resultContent.textContent || resultContent.innerText;
+
+        // Copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Content copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                showNotification('Failed to copy content', 'error');
+            });
+        } else {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.opacity = '0';
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showNotification('Content copied to clipboard!', 'success');
+            } catch (err) {
+                showNotification('Failed to copy content', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+    }
+
+    // ===================== PAYMENT & ACCESS CONTROL =====================
+    let userIsPremium = false;
+    let currentBookData = null;
+
+    function checkUserStatus() {
+        setTimeout(() => {
+            userIsPremium = false;
+            updateUIForUserStatus();
+        }, 100);
+    }
+
+    function updateUIForUserStatus() {
+        const statusBadge = document.getElementById('userStatus');
+
+        if (userIsPremium) {
+            statusBadge.textContent = 'Premium User';
+            statusBadge.className = 'status-badge status-premium';
+
+            // Enable all tabs
+            document.querySelectorAll('.tab-btn.disabled').forEach(tab => {
+                tab.classList.remove('disabled');
+                tab.innerHTML = tab.innerHTML.replace('🔒', '');
+            });
+
+            // Remove payment overlays
+            document.querySelectorAll('.payment-overlay').forEach(overlay => {
+                overlay.style.display = 'none';
+            });
+
+            // Enable editor
+            document.getElementById('bookEditor').classList.remove('readonly');
+            document.getElementById('bookEditor').contentEditable = true;
+
+            // Enable toolbar buttons
+            document.querySelectorAll('.toolbar-btn').forEach(btn => {
+                btn.disabled = false;
+            });
+
+        } else {
+            statusBadge.textContent = 'Free User';
+            statusBadge.className = 'status-badge status-free';
+        }
+    }
+
+    function showPaymentModal() {
+        const modal = new bootstrap.Modal(document.getElementById('paymentModal'));
+        modal.show();
+        updatePaymentTotal();
+    }
+
+    function updatePaymentTotal() {
+        let total = 0;
+
+        document.querySelectorAll('.form-check-input[type="checkbox"]:checked').forEach(checkbox => {
+            total += parseFloat(checkbox.value);
+        });
+
+        const selectedPlan = document.querySelector('input[name="plan"]:checked');
+        if (selectedPlan) {
+            total = parseFloat(selectedPlan.value);
+        }
+
+        document.getElementById('totalAmount').textContent = total.toFixed(2);
+    }
+
+    document.querySelectorAll('.form-check-input').forEach(input => {
+        input.addEventListener('change', updatePaymentTotal);
+    });
+
+    function processPayment() {
+        const total = parseFloat(document.getElementById('totalAmount').textContent);
+        if (total === 0) {
+            showNotification('Please select a plan or features', 'warning');
+            return;
+        }
+
+        showNotification('Redirecting to Stripe payment...', 'success');
+
+        setTimeout(() => {
+            userIsPremium = true;
+            updateUIForUserStatus();
+            showNotification('Payment successful! Premium features unlocked.', 'success');
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
+            modal.hide();
+        }, 2000);
+    }
+
+    // ===================== INLINE PLAN SELECTOR (SweetAlert) =====================
+    async function ensureSwal() {
+        if (typeof Swal !== 'undefined') return true;
+        return new Promise((resolve) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+            s.onload = () => resolve(true);
+            document.head.appendChild(s);
+        });
+    }
+
+    async function showPricingPlans() {
+        await ensureSwal();
+        try {
+            const res = await fetch('/Plans/GetPlans');
+            if (!res.ok) throw new Error('Failed to load plans');
+            const plans = await res.json();
+            let html = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;">`;
+            (plans || []).forEach(p => {
+                html += `
+                    <div style=\"border:1px solid #e5e7eb;border-radius:14px;padding:16px;background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.06)\"> 
+                        <div style=\"font-weight:800;color:#111827;margin-bottom:6px\">${p.planName}</div>
+                        <div style=\"font-size:1.6rem;font-weight:800\">$${p.planRate}</div>
+                        <div style=\"color:#6b7280;font-size:.9rem;margin-bottom:8px\">${p.planDays} days · Max ${p.maxEBooks} eBooks</div>
+                        <div style=\"color:#4b5563;font-size:.9rem;min-height:38px\">${p.planDescription ?? ''}</div>
+                        <div style=\"margin-top:10px;display:flex;justify-content:flex-end\">
+                            <button class=\"btn btn-primary btn-sm\" onclick=\"selectPlan(${p.planId})\">Select</button>
+                        </div>
+                    </div>`;
+            });
+            html += `</div>`;
+            Swal.fire({ title: 'Choose Your Plan', html, showConfirmButton: false, showCloseButton: true, width: '900px' });
+        } catch (e) {
+            await ensureSwal();
+            Swal.fire('Error', e.message || 'Could not load plans.', 'error');
+        }
+    }
+
+    function selectPlan(planId) {
+        Swal.fire({
+            title: 'Confirm Plan Selection',
+            text: 'Do you want to continue to checkout?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Continue'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = `/Payments/Checkout?planId=${planId}`;
+            }
+        });
+    }
+
+    // ===================== FEATURES MODAL WITH CART =====================
+    function getCart() {
+        try { return JSON.parse(localStorage.getItem('cart') || '{"items":[]}'); } catch { return { items: [] }; }
+    }
+    function setCart(cart) {
+        localStorage.setItem('cart', JSON.stringify(cart));
+        updateCartUI();
+    }
+    function updateCartUI() {
+        const cart = getCart();
+        const badge = document.getElementById('cartBadge');
+        const icon = document.getElementById('floatingCartIcon');
+        const drawerItems = document.getElementById('cartItems');
+        const totalEl = document.getElementById('cartTotal');
+        const count = cart.items.length;
+        const total = cart.items.reduce((s, it) => s + (Number(it.price) || 0), 0);
+        if (badge) badge.textContent = String(count);
+        if (icon) icon.style.display = count > 0 ? 'block' : 'none';
+        if (totalEl) totalEl.textContent = `$${total.toFixed(2)}`;
+        if (drawerItems) {
+            drawerItems.innerHTML = count === 0 ? '<div class="empty-cart-message">Your cart is empty</div>' : cart.items.map(it => `
+                <div class=\"cart-item\" style=\"display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee\">
+                    <div>
+                        <div style=\"font-weight:600\">${it.name}</div>
+                        <div style=\"color:#6b7280;font-size:.85rem\">$${Number(it.price).toFixed(2)}</div>
+                    </div>
+                    <button class=\"btn btn-sm btn-outline-secondary\" onclick=\"(function(id){
+                        const c=getCart(); c.items=c.items.filter(x=>x.id!==id); setCart(c);
+                    })(${it.id})\">Remove</button>
+                </div>`).join('');
+        }
+    }
+
+    async function showPlanFeaturesModal() {
+        await ensureSwal();
+        try {
+            const res = await fetch('/Plans/GetPlanFeatures');
+            if (!res.ok) throw new Error('Failed to load features');
+            const features = await res.json();
+
+            let list = (features || []).map(f => `
+                <label style=\"display:block;border:1px solid #e5e7eb;border-radius:14px;padding:14px;background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.04)\">
+                    <div style=\"display:flex;gap:12px;align-items:flex-start\">
+                        <input type=\"checkbox\" class=\"feat-check\" value=\"${f.featureId}\" data-name=\"${(f.featureName||'').replace(/"/g,'&quot;')}\" data-price=\"${f.featureRate||0}\" />
+                        <div style=\"flex:1\">
+                            <div style=\"display:flex;justify-content:space-between;align-items:center\">
+                                <strong>${f.featureName}</strong>
+                                <span style=\"font-weight:800\">$${Number(f.featureRate||0).toFixed(2)}</span>
+                            </div>
+                            <div style=\"color:#6b7280;font-size:.9rem;margin-top:4px\">${f.description || ''}</div>
+                        </div>
+                    </div>
+                </label>`).join('');
+
+            const html = `
+                <div style=\"max-height:60vh;overflow:auto\">
+                    <div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px\">${list}</div>
+                </div>
+                <div id=\"featSummary\" style=\"margin-top:12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #eee;padding-top:12px\">
+                    <div><strong>Selected:</strong> <span id=\"featCount\">0</span> · <strong>Total:</strong> $<span id=\"featTotal\">0.00</span></div>
+                    <div style=\"display:flex;gap:8px\">
+                        <button class=\"btn btn-secondary btn-sm\" id=\"btnAddToCart\"><i class=\"bi bi-cart\"></i> Add Selected to Cart</button>
+                        <button class=\"btn btn-primary btn-sm\" id=\"btnGoSummary\">Go to Summary</button>
+                    </div>
+                </div>`;
+
+            Swal.fire({ title: 'Select Features', html, width: '1000px', showConfirmButton: false, showCloseButton: true, didOpen: () => {
+                function recalc() {
+                    const checks = document.querySelectorAll('.feat-check:checked');
+                    const count = checks.length;
+                    let total = 0;
+                    checks.forEach(ch => total += Number(ch.dataset.price || 0));
+                    document.getElementById('featCount').textContent = count;
+                    document.getElementById('featTotal').textContent = total.toFixed(2);
+                }
+                document.querySelectorAll('.feat-check').forEach(ch => ch.addEventListener('change', recalc));
+                recalc();
+
+                document.getElementById('btnAddToCart').addEventListener('click', () => {
+                    const checks = Array.from(document.querySelectorAll('.feat-check:checked'));
+                    if (checks.length === 0) { Swal.fire('Info', 'Please select at least one feature.', 'info'); return; }
+                    const items = checks.map(ch => ({ id: Number(ch.value), type:'feature', name: ch.dataset.name || 'Feature', price: Number(ch.dataset.price || 0) }));
+                    if (window.CartManager && typeof CartManager.addItems === 'function') { CartManager.addItems(items); CartManager.open(); }
+                    else { const cart=getCart(); items.forEach(it=>{ if(!cart.items.some(x=>x.id===it.id)) cart.items.push(it); }); setCart(cart); }
+                    Swal.fire('Added', 'Selected features added to cart.', 'success');
+                });
+
+                document.getElementById('btnGoSummary').addEventListener('click', async () => {
+                    const checks = Array.from(document.querySelectorAll('.feat-check:checked'));
+                    if (checks.length === 0) { Swal.fire('Info', 'Please select at least one feature.', 'info'); return; }
+                    const ids = checks.map(ch => Number(ch.value));
+                    if (window.CartManager && typeof CartManager.addItems === 'function') {
+                        const items = checks.map(ch => ({ id: Number(ch.value), type:'feature', name: ch.dataset.name || 'Feature', price: Number(ch.dataset.price || 0) }));
+                        CartManager.addItems(items);
+                    }
+                    try {
+                        Swal.fire({title:'Creating bill...', didOpen:()=>Swal.showLoading(), allowOutsideClick:false, allowEscapeKey:false, showConfirmButton:false});
+                        const billId = await (window.CartManager && CartManager.createBillFromFeatures ? CartManager.createBillFromFeatures(ids) : (async ()=>{ throw new Error('CartManager not ready'); })());
+                        Swal.close();
+                        window.location.href = `/Payments/PaymentSummary?billId=${billId}`;
+                    } catch(e) {
+                        Swal.close();
+                        window.location.href = `/Payments/PaymentSummaryFromFeatures?featureIds=${ids.join(',')}`;
+                    }
+                });
+            }});
+        } catch (e) {
+            await ensureSwal();
+            Swal.fire('Error', e.message || 'Could not load features.', 'error');
+        }
+    }
+
+    // ===================== THEME MANAGEMENT =====================
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = themeToggle.querySelector('i');
+
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    if (currentTheme === 'dark') {
+        document.body.classList.add('dark-mode');
+        themeIcon.className = 'bi bi-sun';
+    }
+
+    function toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+
+        if (document.body.classList.contains('dark-mode')) {
+            localStorage.setItem('theme', 'dark');
+            themeIcon.className = 'bi bi-sun';
+        } else {
+            localStorage.setItem('theme', 'light');
+            themeIcon.className = 'bi bi-moon';
+        }
+    }
+
+    themeToggle.addEventListener('click', toggleTheme);
+
+    // ===================== AI BOOK GENERATOR FUNCTIONS =====================
+    // All your existing API functions remain exactly the same
+    // They are preserved from the previous implementation
+
+    // =====================  PAGE INITIALIZATION =====================
+     // ----------------> Execution Step 3 <-------------------------
+    document.addEventListener('DOMContentLoaded', function() {
+         console.log("🚀 DOM Content Loaded - Starting initialization");
+
+     try {
+         // Next UserId and BookId fetch (if needed)
+         const res = await fetch('/Books/GetNextIds');
+         if (!res.ok) throw new Error('Failed to fetch next IDs');
+         const data = await res.json();
+
+         // Put/Populate default values in hidden inputs or fields
+         document.getElementById('userId2').value = data.nextUserId;
+         document.getElementById('bookId2').value = data.nextBookId;
+     } catch (error) {
+         console.error('Error loading next IDs:', error);
+     }
+
+     checkUserStatus();
+     // Load books immediately
+     loadSavedBooksDropdown();
+
+     // Add event listener for Enter key in UserInput
+     document.getElementById('UserInput').addEventListener('keypress', function(e) {
+         if (e.key === 'Enter') generateBook();
+
+           // Load next IDs asynchronously
+      //loadNextIds();
+     });
+    // ==== AI Book Generator (dummy data binding) ====
+    async function loadSavedResponsesDropdown() {
+        const userId2 = document.getElementById('userId2').value;
+        const bookId2 = document.getElementById('bookId2').value;
+        try {
+            const uid = document.getElementById('UserId').value || userId2;
+            const bid = document.getElementById('BookId').value || bookId2;
+
+            const res = await fetch(`/Books/GetSavedResponses?userId=${encodeURIComponent(uid)}&bookId=${encodeURIComponent(bid)}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const ddl = document.getElementById('savedResponsesDropdown');
+            ddl.innerHTML = '<option value="">📚 Load a previously generated book...</option>' +
+                (data || []).map(x => `<option value="${x.responseId}">#${x.responseId} — ${x.createdAt}</option>`).join('');
+        } catch {}
+    }
+
+    async function loadSelectedResponse(responseId) {
+        if (!responseId) return;
+        try {
+            const res = await fetch(`/Books/GetResponseById?id=${encodeURIComponent(responseId)}`);
+            if (!res.ok) throw new Error('Failed to load response');
+            const data = await res.json();
+            document.getElementById('APIRawResponse').value = data.apiRaw || '';
+            try { currentBookData = JSON.parse(data.apiRaw || '{}'); } catch { currentBookData = null; }
+            showSelectedBook();
+            showNotification('Loaded saved book', 'success');
+        } catch (e) {
+            showNotification(e.message || 'Could not load saved response', 'error');
+        }
+    }
+
+    function generateDummyResponse(topic, chapterCount) {
+        const title = topic && topic.trim() ? `Book: ${topic}` : 'Untitled Book';
+        const chapters = [];
+        let full = '';
+        for (let i = 1; i <= chapterCount; i++) {
+            const chTitle = `Chapter ${i}: ${topic} — Key Idea ${i}`;
+            const chPara = `This section explores ${topic.toLowerCase()} with emphasis on aspect ${i}. It introduces core concepts, practical examples, and actionable strategies to understand and apply ${topic.toLowerCase()} effectively.`;
+            const chContent = `${chPara}\n\nKey points:\n- Point A about ${topic}\n- Point B on technique ${i}\n- Point C for outcomes`;
+            chapters.push({ title: chTitle, content: chContent });
+            full += `<h2>${chTitle}</h2><p>${chPara}</p><ul><li>Point A about ${topic}</li><li>Point B on technique ${i}</li><li>Point C for outcomes</li></ul>`;
+        }
+        const ai = {
+            title: title,
+            status: 'Raw',
+            data: {
+                style: 'Professional',
+                suggest_chapter_name: chapters[0]?.title || 'Introduction',
+                content: full,
+                highlights: 'Concise highlights for quick scanning.'
+            },
+            chapters: chapters
+        };
+        return ai;
+    }
+
+    // function appendAiMessage(html) {
+    //     const box = document.getElementById('chatContainer');
+    //     const wrap = document.createElement('div');
+    //     wrap.className = 'message message-ai';
+    //     wrap.innerHTML = `<div class="message-avatar">AI</div><div class="message-content">${html}</div>`;
+    //     box.appendChild(wrap);
+    //     box.scrollTop = box.scrollHeight;
+    // }
+    //================ Helper Function ========================
+    function appendUserMessage(text) {
+        const box = document.getElementById('chatContainer');
+        const wrap = document.createElement('div');
+        wrap.className = 'message message-user';
+        wrap.innerHTML = `<div class="message-content">${text}</div><div class="message-avatar">You</div>`;
+        box.appendChild(wrap);
+        box.scrollTop = box.scrollHeight;
+    }
+    // function appendAiMessage(html) {
+    //     const box = document.getElementById('chatContainer');
+    //     const wrap = document.createElement('div');
+    //     wrap.className = 'message message-ai';
+    //     wrap.innerHTML = `<div class="message-avatar">AI</div><div class="message-content">${html}</div>`;
+    //     box.appendChild(wrap);
+    //     box.scrollTop = box.scrollHeight;
+    // }
+    function showSelectedBook() {
+        if (!currentBookData) { showNotification('No book loaded yet', 'warning'); return; }
+        const editor = document.getElementById('bookEditor');
+        const data = currentBookData;
+        const content = (data.data && data.data.content) ? data.data.content : (data.chapters||[]).map(c => `<h2>${c.title}</h2><p>${(c.content||'').replace(/\n/g,'<br/>')}</p>`).join('');
+        editor.innerHTML = `<h2>${data.title || 'Untitled'}</h2>` + content;
+        showNotification('Book content loaded in editor (read-only in Free)', 'success');
+        // Switch to editor tab for preview
+        document.querySelector('[data-tab="editor"]').classList.remove('disabled');
+        document.querySelector('[data-tab="editor"]').click();
+    }
+   
+</script>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

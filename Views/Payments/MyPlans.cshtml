@@ -1,0 +1,459 @@
+﻿@using EBookDashboard.Models.ViewModels
+@model UserPlansViewModel
+@{
+    ViewData["Title"] = "My Plans & Features - eBook Publisher";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="page-header">
+                <h1 class="h2">My Plans & Features</h1>
+                <p class="text-muted">Manage your purchased plans and available features</p>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ViewBag.Error))
+    {
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle"></i> @ViewBag.Error
+        </div>
+    }
+
+    <!-- User Info Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="card-title">@Model.UserName</h4>
+                            <p class="text-muted mb-1">
+                                <i class="fas fa-envelope me-2"></i>@Model.UserEmail
+                            </p>
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-user me-2"></i>User ID: @Model.UserId |
+                                Status: <span class="badge bg-success">@Model.Status</span>
+                            </p>
+                            @if (Model.LastLoginAt.HasValue)
+                            {
+                                <small class="text-muted">
+                                    Last login: @Model.LastLoginAt.Value.ToString("MMM dd, yyyy HH:mm")
+                                </small>
+                            }
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="btn-group">
+                                <a href="@Url.Action("AIGenerateBook", "Books")" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Upgrade Plan
+                                </a>
+                                <button type="button" class="btn btn-outline-primary dropdown-toggle dropdown-toggle-split"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span class="visually-hidden">Toggle Dropdown</span>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-history me-2"></i>Billing History</a></li>
+                                    <li><a class="dropdown-item" href="#"><i class="fas fa-download me-2"></i>Export Invoices</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-primary">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">@Model.Statistics.TotalBills</h4>
+                            <p class="text-muted mb-0">Total Bills</p>
+                        </div>
+                    </div>
+                    <small class="text-success">
+                        <i class="fas fa-check-circle me-1"></i>@Model.Statistics.ActiveBills Active
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-success">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">@Model.Statistics.TotalFeatures</h4>
+                            <p class="text-muted mb-0">Total Features</p>
+                        </div>
+                    </div>
+                    <small class="text-success">
+                        <i class="fas fa-check-circle me-1"></i>@Model.Statistics.ActiveFeatures Active
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-info">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h4 class="mb-0">@Model.Statistics.TotalSpent.ToString("C2")</h4>
+                            <p class="text-muted mb-0">Total Spent</p>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        @Model.Statistics.MonthlySpent.ToString("C2") this month
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card stat-card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-warning">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h6 class="mb-0 text-truncate">@Model.Statistics.MostUsedFeature</h6>
+                            <p class="text-muted mb-0">Most Used Feature</p>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        Based on your usage
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bills and Features Section -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Purchased Plans & Features</h5>
+                    <span class="badge bg-primary">@Model.Bills.Count bills</span>
+                </div>
+                <div class="card-body">
+                    @if (Model.Bills.Any())
+                    {
+                        <div class="accordion" id="billsAccordion">
+                            @foreach (var bill in Model.Bills)
+                            {
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="heading-@bill.BillId">
+                                        <button class="accordion-button @(bill != Model.Bills.First() ? "collapsed" : "")"
+                                                type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#collapse-@bill.BillId"
+                                                aria-expanded="@(bill == Model.Bills.First() ? "true" : "false")"
+                                                aria-controls="collapse-@bill.BillId">
+                                            <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                                <div>
+                                                    <span class="fw-bold">@bill.Description</span>
+                                                    <span class="badge @bill.StatusBadgeClass ms-2">@bill.Status</span>
+                                                    @if (bill.IsActive)
+                                                    {
+                                                        <span class="badge bg-success ms-1">Active</span>
+                                                    }
+                                                </div>
+                                                <div class="text-end">
+                                                    <small class="text-muted me-3">
+                                                        @bill.CreatedAt.ToString("MMM dd, yyyy")
+                                                    </small>
+                                                    <span class="fw-bold text-primary">
+                                                        @bill.NetAmount.ToString("C2")
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </h2>
+                                    <div id="collapse-@bill.BillId"
+                                         class="accordion-collapse collapse @(bill == Model.Bills.First() ? "show" : "")"
+                                         aria-labelledby="heading-@bill.BillId"
+                                         data-bs-parent="#billsAccordion">
+                                        <div class="accordion-body">
+                                            <!-- Bill Details -->
+                                            <div class="row mb-4">
+                                                <div class="col-md-6">
+                                                    <h6>Bill Information</h6>
+                                                    <table class="table table-sm table-borderless">
+                                                        <tr>
+                                                            <td><strong>Bill ID:</strong></td>
+                                                            <td>#@bill.BillId</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Created:</strong></td>
+                                                            <td>@bill.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                                        </tr>
+                                                        @if (bill.ClosingDate.HasValue)
+                                                        {
+                                                            <tr>
+                                                                <td><strong>Closing Date:</strong></td>
+                                                                <td>@bill.ClosingDate.Value.ToString("MMM dd, yyyy HH:mm")</td>
+                                                            </tr>
+                                                        }
+                                                        <tr>
+                                                            <td><strong>Payment Ref:</strong></td>
+                                                            <td>@(string.IsNullOrEmpty(bill.PaymentReference) ? "N/A" : bill.PaymentReference)</td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6>Payment Summary</h6>
+                                                    <table class="table table-sm table-borderless">
+                                                        <tr>
+                                                            <td><strong>Total Amount:</strong></td>
+                                                            <td>@bill.TotalAmount.ToString("C2")</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Discount:</strong></td>
+                                                            <td class="text-success">-@bill.Discount.ToString("C2")</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td><strong>Tax:</strong></td>
+                                                            <td class="text-danger">+@bill.TaxAmount.ToString("C2")</td>
+                                                        </tr>
+                                                        <tr class="border-top">
+                                                            <td><strong>Net Amount:</strong></td>
+                                                            <td><strong>@bill.NetAmount.ToString("C2")</strong></td>
+                                                        </tr>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <!-- Features List -->
+                                            <h6>Included Features (@bill.Features.Count)</h6>
+                                            @if (bill.Features.Any())
+                                            {
+                                                <div class="row">
+                                                    @foreach (var feature in bill.Features)
+                                                    {
+                                                        <div class="col-lg-4 col-md-6 mb-3">
+                                                            <div class="card feature-card h-100 @(feature.IsActive ? "border-success" : "border-secondary")">
+                                                                <div class="card-body">
+                                                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                                                        <h6 class="card-title mb-0">@feature.FeatureName</h6>
+                                                                        <span class="badge @(feature.IsActive ? "bg-success" : "bg-secondary")">
+                                                                            @(feature.IsActive ? "Active" : "Expired")
+                                                                        </span>
+                                                                    </div>
+                                                                    <p class="card-text small text-muted">@feature.FeatureDescription</p>
+                                                                    <div class="feature-meta">
+                                                                        <small class="text-muted d-block">
+                                                                            <i class="fas @(feature.IsUnlimited ? "fa-infinity" : "fa-hashtag") me-1"></i>
+                                                                            @(feature.IsUnlimited ? "Unlimited" : feature.Value)
+                                                                        </small>
+                                                                        @if (feature.ExpiryDate.HasValue)
+                                                                        {
+                                                                            <small class="@(feature.IsActive ? "text-success" : "text-danger")">
+                                                                                <i class="fas fa-clock me-1"></i>
+                                                                                @(feature.IsActive ? "Expires" : "Expired") on
+                                                                                @feature.ExpiryDate.Value.ToString("MMM dd, yyyy")
+                                                                            </small>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <small class="text-success">
+                                                                                <i class="fas fa-infinity me-1"></i>No expiry
+                                                                            </small>
+                                                                        }
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="alert alert-info">
+                                                    <i class="fas fa-info-circle"></i> No features included in this bill.
+                                                </div>
+                                            }
+
+                                            <!-- Action Buttons -->
+                                            <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                                                <div>
+                                                    @if (bill.Status == "Pending")
+                                                    {
+                                                        <button class="btn btn-warning btn-sm">
+                                                            <i class="fas fa-credit-card me-1"></i>Complete Payment
+                                                        </button>
+                                                    }
+                                                    @if (bill.IsActive && bill.Status == "Paid")
+                                                    {
+                                                        <button class="btn btn-outline-primary btn-sm">
+                                                            <i class="fas fa-sync-alt me-1"></i>Renew Plan
+                                                        </button>
+                                                    }
+                                                </div>
+                                                <div>
+                                                    @if (bill.Status != "Cancelled" && bill.Status != "Refunded")
+                                                    {
+                                                        <button class="btn btn-outline-danger btn-sm"
+                                                                onclick="confirmCancel(@bill.BillId, '@bill.Description')">
+                                                            <i class="fas fa-times me-1"></i>Cancel Plan
+                                                        </button>
+                                                    }
+                                                    <a href="@Url.Action("BillDetails", new { billId = bill.BillId })"
+                                                       class="btn btn-outline-secondary btn-sm ms-2">
+                                                        <i class="fas fa-external-link-alt me-1"></i>View Details
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Empty State -->
+                        <div class="text-center py-5">
+                            <div class="empty-state">
+                                <i class="fas fa-gem fa-4x text-muted mb-3"></i>
+                                <h4>No Plans Purchased Yet</h4>
+                                <p class="text-muted mb-4">You haven't purchased any plans yet. Explore our features and upgrade your account!</p>
+                                <a href="@Url.Action("AIGenerateBook", "Books")" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-rocket me-2"></i>Explore Plans
+                                </a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .stat-card {
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            transition: transform 0.2s;
+        }
+
+            .stat-card:hover {
+                transform: translateY(-2px);
+            }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+        }
+
+        .feature-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+
+            .feature-card:hover {
+                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+                transform: translateY(-2px);
+            }
+
+            .feature-card.border-success {
+                border-left-color: #198754;
+            }
+
+            .feature-card.border-secondary {
+                border-left-color: #6c757d;
+            }
+
+        .accordion-button:not(.collapsed) {
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+
+        .empty-state {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .page-header {
+            border-bottom: 1px solid #dee2e6;
+            padding-bottom: 1rem;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        function confirmCancel(billId, billDescription) {
+            Swal.fire({
+                title: 'Cancel Plan?',
+                html: `Are you sure you want to cancel <strong>"${billDescription}"</strong>?<br><br>
+                      <small class="text-muted">This action cannot be undone and may affect your access to features.</small>`,
+                icon: 'warning',
+                input: 'text',
+                inputLabel: 'Cancellation Reason (optional)',
+                inputPlaceholder: 'Enter reason for cancellation...',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, cancel it!',
+                cancelButtonText: 'Keep Plan',
+                preConfirm: (reason) => {
+                    if (!reason) {
+                        reason = 'No reason provided';
+                    }
+                    return reason;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const cancellationReason = result.value;
+
+                    $.post('@Url.Action("CancelPlan", "UserPlans")', {
+                        billId: billId,
+                        cancellationReason: cancellationReason
+                    })
+                    .done(function(response) {
+                        if (response.success) {
+                            Swal.fire('Cancelled!', response.message, 'success');
+                            setTimeout(() => location.reload(), 1500);
+                        } else {
+                            Swal.fire('Error!', response.message, 'error');
+                        }
+                    })
+                    .fail(function() {
+                        Swal.fire('Error!', 'There was an error cancelling the plan.', 'error');
+                    });
+                }
+            });
+        }
+
+        // Load plans summary
+        $(document).ready(function() {
+            $.get('@Url.Action("GetUserPlansSummary", "UserPlans")')
+                .done(function(response) {
+                    if (response.success) {
+                        console.log('Plans loaded:', response.data);
+                    }
+                });
+        });
+    </script>
+}

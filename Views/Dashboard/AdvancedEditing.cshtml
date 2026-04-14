@@ -1,0 +1,199 @@
+@{
+    ViewData["Title"] = "Advanced Editing - eBook Publisher";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="editing-container">
+    <div class="editing-header">
+        <h1>Advanced Book Editing</h1>
+        <p>Edit your book content with advanced tools</p>
+    </div>
+
+    <div class="editing-toolbar">
+        <div class="toolbar-section">
+            <label for="bookSelect">Select Book:</label>
+            <select id="bookSelect" class="form-control">
+                <option value="">-- Select a Book --</option>
+                <option value="1">The Art of Digital Publishing</option>
+                <option value="2">Modern Web Development</option>
+                <option value="3">AI in Everyday Life</option>
+                <option value="4">Creative Writing Techniques</option>
+            </select>
+        </div>
+
+        <div class="toolbar-section">
+            <label for="chapterSelect">Select Chapter:</label>
+            <select id="chapterSelect" class="form-control" disabled>
+                <option value="">-- Select a Book First --</option>
+            </select>
+        </div>
+
+        <div class="toolbar-actions">
+            <button class="btn btn-primary" id="saveBtn" disabled>
+                <i class="fas fa-save"></i> Save Changes
+            </button>
+            <button class="btn btn-secondary" id="previewBtn" disabled>
+                <i class="fas fa-eye"></i> Preview
+            </button>
+        </div>
+    </div>
+
+    <div class="editor-section">
+        <div class="chapter-content">
+            <textarea id="chapterContent" placeholder="Start writing your chapter content here..."></textarea>
+        </div>
+    </div>
+
+    <div class="editing-features">
+        <div class="feature-card">
+            <h3><i class="fas fa-magic"></i> AI Writing Assistant</h3>
+            <p>Get suggestions and improvements for your content</p>
+            <button class="btn btn-secondary">Activate</button>
+        </div>
+
+        <div class="feature-card">
+            <h3><i class="fas fa-spell-check"></i> Grammar Check</h3>
+            <p>Advanced grammar and spelling correction</p>
+            <button class="btn btn-secondary">Run Check</button>
+        </div>
+
+        <div class="feature-card">
+            <h3><i class="fas fa-chart-line"></i> Readability Analysis</h3>
+            <p>Analyze and improve content readability</p>
+            <button class="btn btn-secondary">Analyze</button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const bookSelect = document.getElementById('bookSelect');
+            const chapterSelect = document.getElementById('chapterSelect');
+            const saveBtn = document.getElementById('saveBtn');
+            const previewBtn = document.getElementById('previewBtn');
+            const chapterContent = document.getElementById('chapterContent');
+
+            // Sample chapters data
+            const chaptersData = {
+                '1': [
+                    { id: '1-1', title: 'Introduction to Digital Publishing' },
+                    { id: '1-2', title: 'History of eBooks' },
+                    { id: '1-3', title: 'Modern Publishing Platforms' }
+                ],
+                '2': [
+                    { id: '2-1', title: 'HTML Fundamentals' },
+                    { id: '2-2', title: 'CSS Styling' },
+                    { id: '2-3', title: 'JavaScript Basics' }
+                ],
+                '3': [
+                    { id: '3-1', title: 'What is AI?' },
+                    { id: '3-2', title: 'AI in Healthcare' },
+                    { id: '3-3', title: 'Future of AI' }
+                ],
+                '4': [
+                    { id: '4-1', title: 'Finding Your Voice' },
+                    { id: '4-2', title: 'Character Development' },
+                    { id: '4-3', title: 'Plot Construction' }
+                ]
+            };
+
+            // Book selection change
+            bookSelect.addEventListener('change', function() {
+                const bookId = this.value;
+                
+                if (bookId) {
+                    // Enable chapter select
+                    chapterSelect.disabled = false;
+                    
+                    // Populate chapters
+                    chapterSelect.innerHTML = '<option value="">-- Select a Chapter --</option>';
+                    chaptersData[bookId].forEach(chapter => {
+                        const option = document.createElement('option');
+                        option.value = chapter.id;
+                        option.textContent = chapter.title;
+                        chapterSelect.appendChild(option);
+                    });
+                } else {
+                    // Disable chapter select
+                    chapterSelect.disabled = true;
+                    chapterSelect.innerHTML = '<option value="">-- Select a Book First --</option>';
+                    saveBtn.disabled = true;
+                    previewBtn.disabled = true;
+                    chapterContent.value = '';
+                }
+            });
+
+            // Chapter selection change
+            chapterSelect.addEventListener('change', function() {
+                const chapterId = this.value;
+                
+                if (chapterId) {
+                    // Enable buttons
+                    saveBtn.disabled = false;
+                    previewBtn.disabled = false;
+                    
+                    // Load sample content
+                    chapterContent.value = `This is the content for chapter ${chapterId}.
+                    
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.`;
+                } else {
+                    saveBtn.disabled = true;
+                    previewBtn.disabled = true;
+                    chapterContent.value = '';
+                }
+            });
+
+            // Save button
+            saveBtn.addEventListener('click', function() {
+                Swal.fire({
+                    title: 'Changes Saved!',
+                    text: 'Your chapter has been saved successfully.',
+                    icon: 'success',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                });
+            });
+
+            // Preview button
+            previewBtn.addEventListener('click', function() {
+                Swal.fire({
+                    title: 'Chapter Preview',
+                    text: 'Previewing your chapter content...',
+                    icon: 'info',
+                    timer: 1500,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                }).then(() => {
+                    // In a real app, this would open a preview modal
+                    window.open('/Dashboard/LivePreview', '_blank');
+                });
+            });
+
+            // Feature card click - show selected (add to cart removed per project)
+            document.querySelectorAll('.feature-card .btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const featureCard = this.closest('.feature-card');
+                    const featureName = featureCard ? featureCard.querySelector('h3')?.textContent?.trim() : 'Feature';
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            title: 'Feature Selected',
+                            text: `${featureName} – proceed from the dashboard.`,
+                            icon: 'info',
+                            timer: 2000,
+                            timerProgressBar: true,
+                            showConfirmButton: false,
+                            toast: true,
+                            position: 'top-end'
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+}

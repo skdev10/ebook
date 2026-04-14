@@ -1,0 +1,666 @@
+@model EBookDashboard.Models.ProgressTrackerViewModel
+@{
+    ViewData["Title"] = "User & Book Progress Tracker";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="~/js/admin-animations.js"></script>
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --warm-gray: #E8E8E8;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --text-muted: #9B9B9B;
+        --border-light: #E5E5E5;
+        --shadow-soft: rgba(0, 0, 0, 0.05);
+        --primary: #7c3aed;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+    }
+
+    .progress-container {
+        padding: 0;
+    }
+
+    .page-header {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 10px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn:hover {
+        background: #6d28d9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    /* Charts Section */
+    .charts-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 24px;
+        margin-bottom: 24px;
+    }
+
+    .chart-card {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .chart-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+    }
+
+    /* Progress Bars */
+    .progress-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        margin-bottom: 24px;
+    }
+
+    .progress-item {
+        margin-bottom: 24px;
+    }
+
+    .progress-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .progress-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--primary);
+    }
+
+    .progress-bar-wrapper {
+        height: 12px;
+        background: var(--warm-gray);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary) 0%, var(--success) 100%);
+        border-radius: 6px;
+        transition: width 0.6s ease;
+    }
+
+    /* Filters */
+    .filters-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .filter-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .filter-select {
+        padding: 10px 14px;
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        background: var(--white);
+        color: var(--text-primary);
+    }
+
+    /* User Journey Table */
+    .journey-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        margin-bottom: 24px;
+    }
+
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 20px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .journey-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table-header {
+        background: var(--light-gray);
+    }
+
+    .table-header th {
+        padding: 12px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .table-row {
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    .table-row:hover {
+        background: var(--light-gray);
+    }
+
+    .table-cell {
+        padding: 12px;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .phase-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+
+    .phase-signup { background: #6b7280; }
+    .phase-draft { background: #3b82f6; }
+    .phase-generated { background: var(--primary); }
+    .phase-published { background: var(--success); }
+
+    /* Responsive Design */
+    @@media (max-width: 1024px) {
+        .charts-section {
+            grid-template-columns: 1fr;
+        }
+
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .progress-container {
+            padding: 0;
+        }
+
+        .page-header {
+            padding: 16px;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .page-title {
+            font-size: 20px;
+            margin-bottom: 12px;
+        }
+
+        .charts-section {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .chart-card {
+            padding: 16px;
+        }
+
+        .chart-container {
+            height: 250px;
+        }
+
+        .table-container {
+            padding: 16px;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            min-width: 600px;
+        }
+
+        .table-cell {
+            padding: 10px 8px;
+            font-size: 13px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .page-header {
+            padding: 12px;
+        }
+
+        .page-title {
+            font-size: 18px;
+        }
+
+        .chart-card {
+            padding: 12px;
+        }
+
+        .chart-container {
+            height: 200px;
+        }
+
+        .table-cell {
+            padding: 8px 6px;
+            font-size: 12px;
+        }
+    }
+        .charts-section {
+            grid-template-columns: 1fr;
+        }
+
+        .chart-container {
+            height: 250px;
+        }
+    }
+</style>
+
+<div class="progress-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">User & Book Progress Tracker</h1>
+        <button class="btn" onclick="exportReport()">
+            <i class="fas fa-download"></i> Export Report
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <div class="filters-row">
+            <div class="filter-group">
+                <label class="filter-label">Date Range</label>
+                <select class="filter-select">
+                    <option>Last 7 days</option>
+                    <option>Last 30 days</option>
+                    <option>Last 90 days</option>
+                    <option>All time</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">Genre</label>
+                <select class="filter-select">
+                    <option>All Genres</option>
+                    <option>Fiction</option>
+                    <option>Non-Fiction</option>
+                    <option>Technical</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label class="filter-label">User Type</label>
+                <select class="filter-select">
+                    <option>All Users</option>
+                    <option>Authors</option>
+                    <option>Readers</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="chart-title">Users by Phase</div>
+            </div>
+            <div class="chart-container">
+                <canvas id="usersByPhaseChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="chart-header">
+                <div class="chart-title">Books by Phase</div>
+            </div>
+            <div class="chart-container">
+                <canvas id="booksByPhaseChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Progress Bars -->
+    <div class="progress-section">
+        <div class="section-title">Book Creation Progress</div>
+        @foreach (var phase in Model.BooksByPhase)
+        {
+            var percentage = Model.BooksByPhase.Values.Sum() > 0 
+                ? (phase.Value * 100.0 / Model.BooksByPhase.Values.Sum()) 
+                : 0;
+            <div class="progress-item">
+                <div class="progress-label">
+                    <span>@phase.Key</span>
+                    <span class="progress-value">@phase.Value</span>
+                </div>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-fill" style="width: @percentage%"></div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- User Journeys -->
+    <div class="journey-section">
+        <div class="section-title">User Journeys</div>
+        <table class="journey-table">
+            <thead class="table-header">
+                <tr>
+                    <th>User</th>
+                    <th>Signup Date</th>
+                    <th>Current Phase</th>
+                    <th>Draft Date</th>
+                    <th>Generated Date</th>
+                    <th>Published Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var journey in Model.UserJourneys.Take(10))
+                {
+                    <tr class="table-row">
+                        <td class="table-cell">
+                            <span class="phase-indicator phase-@journey.CurrentPhase.ToLower()"></span>
+                            @journey.UserName
+                        </td>
+                        <td class="table-cell">@journey.SignupDate.ToString("MMM dd, yyyy")</td>
+                        <td class="table-cell">@journey.CurrentPhase</td>
+                        <td class="table-cell">@(journey.DraftDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                        <td class="table-cell">@(journey.GeneratedDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                        <td class="table-cell">@(journey.PublishedDate?.ToString("MMM dd, yyyy") ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Book Progress -->
+    <div class="journey-section">
+        <div class="section-title">Book Progress Details</div>
+        <table class="journey-table">
+            <thead class="table-header">
+                <tr>
+                    <th>Book Title</th>
+                    <th>Author</th>
+                    <th>Current Phase</th>
+                    <th>Progress</th>
+                    <th>Created</th>
+                    <th>Last Updated</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var book in Model.BookProgresses.Take(10))
+                {
+                    <tr class="table-row">
+                        <td class="table-cell">@book.Title</td>
+                        <td class="table-cell">@book.AuthorName</td>
+                        <td class="table-cell">@book.CurrentPhase</td>
+                        <td class="table-cell">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 100px; height: 6px; background: var(--warm-gray); border-radius: 3px; overflow: hidden;">
+                                    <div style="width: @book.ProgressPercentage%; height: 100%; background: var(--success);"></div>
+                                </div>
+                                <span style="font-size: 12px;">@book.ProgressPercentage%</span>
+                            </div>
+                        </td>
+                        <td class="table-cell">@book.CreatedAt.ToString("MMM dd, yyyy")</td>
+                        <td class="table-cell">@(book.LastUpdated?.ToString("MMM dd, yyyy") ?? "-")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // Ensure SweetAlert is loaded
+    if (typeof Swal === 'undefined') {
+        console.warn('SweetAlert2 is not loaded. Loading now...');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+        document.head.appendChild(script);
+    }
+
+    // Make initCharts globally available for AJAX navigation
+    window.initCharts = function() {
+        // Check if Chart.js is loaded
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js is not loaded. Retrying in 500ms...');
+            setTimeout(window.initCharts, 500);
+            return;
+        }
+
+        // Helper function to safely destroy charts
+        function destroyChart(chartInstance) {
+            try {
+                if (chartInstance && typeof chartInstance.destroy === 'function') {
+                    chartInstance.destroy();
+                }
+            } catch (e) {
+                console.warn('Error destroying chart:', e);
+            }
+        }
+
+        // Destroy existing charts if they exist
+        destroyChart(window.usersPhaseChart);
+        destroyChart(window.booksPhaseChart);
+        
+        // Reset chart references
+        window.usersPhaseChart = null;
+        window.booksPhaseChart = null;
+
+        // Users by Phase Donut Chart
+        try {
+            const usersPhaseCanvas = document.getElementById('usersByPhaseChart');
+            if (!usersPhaseCanvas) return;
+            const usersPhaseCtx = usersPhaseCanvas.getContext('2d');
+            if (!usersPhaseCtx) return;
+            
+            const usersPhaseData = {
+                labels: @Html.Raw(Json.Serialize(Model.UsersByPhase.Keys)),
+                datasets: [{
+                    data: @Html.Raw(Json.Serialize(Model.UsersByPhase.Values)),
+                    backgroundColor: [
+                        '#6366F1',
+                        '#818CF8',
+                        '#A78BFA',
+                        '#10B981'
+                    ],
+                    borderWidth: 0
+                }]
+            };
+            window.usersPhaseChart = new Chart(usersPhaseCtx, {
+                type: 'doughnut',
+                data: usersPhaseData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Error initializing Users by Phase Chart:', e);
+        }
+
+        // Books by Phase Funnel Chart
+        try {
+            const booksPhaseCanvas = document.getElementById('booksByPhaseChart');
+            if (!booksPhaseCanvas) return;
+            const booksPhaseCtx = booksPhaseCanvas.getContext('2d');
+            if (!booksPhaseCtx) return;
+            
+            const booksPhaseData = {
+                labels: @Html.Raw(Json.Serialize(Model.BooksByPhase.Keys)),
+                datasets: [{
+                    label: 'Books',
+                    data: @Html.Raw(Json.Serialize(Model.BooksByPhase.Values)),
+                    backgroundColor: [
+                        'rgba(99, 102, 241, 0.8)',
+                        'rgba(129, 140, 248, 0.8)',
+                        'rgba(167, 139, 250, 0.8)',
+                        'rgba(124, 58, 237, 0.8)',
+                        'rgba(16, 185, 129, 0.8)'
+                    ],
+                    borderColor: '#6366F1',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            };
+            window.booksPhaseChart = new Chart(booksPhaseCtx, {
+                type: 'bar',
+                data: booksPhaseData,
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Error initializing Books by Phase Chart:', e);
+        }
+    };
+
+    function exportReport() {
+        Swal.fire({
+            title: 'Export Report',
+            text: 'Generating progress report...',
+            icon: 'info',
+            timer: 2000,
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        }).then(() => {
+            Swal.fire('Success!', 'Report exported successfully.', 'success');
+        });
+    }
+    
+    // Initialize on load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                if (typeof window.initCharts === 'function') {
+                    window.initCharts();
+                }
+            }, 300);
+        });
+    } else {
+        setTimeout(function() {
+            if (typeof window.initCharts === 'function') {
+                window.initCharts();
+            }
+        }, 300);
+    }
+</script>

@@ -1,0 +1,827 @@
+﻿@{
+    ViewData["Title"] = "Preview";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    :root {
+        --primary: #7c3aed;
+        --secondary: #06b6d4;
+        --surface: #ffffff;
+        --background: #f8fafc;
+        --text-primary: #1e293b;
+        --border: #e2e8f0;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        --radius: 16px;
+    }
+
+    .page-container {
+        width: 100%;
+        padding: 30px;
+        background: var(--background);
+        min-height: 100vh;
+    }
+
+    .page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+
+    .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        padding: 30px;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 12px;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--surface);
+        transition: all 0.3s;
+    }
+
+    .btn:hover {
+        border-color: var(--primary);
+        background: rgba(124, 58, 237, 0.05);
+    }
+
+    .btn.active {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        border-color: var(--primary);
+    }
+    /* Search Icon */
+    .search-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 8px;
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+
+        .search-icon:hover {
+            color: var(--primary);
+        }
+
+    .preview-container {
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 30px;
+        background: white;
+        min-height: 600px;
+        overflow: auto;
+    }
+    /* Hidden Fields */
+    .hidden-fields {
+        display: none; 
+    }
+       
+    .preview-ebook {
+        max-width: 600px;
+        margin: 0 auto;
+        font-family: Georgia, serif;
+        line-height: 1.8;
+    }
+
+    .preview-print {
+        max-width: 8.5in;
+        margin: 0 auto;
+        padding: 1in;
+        background: white;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+</style>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1><i class="fas fa-eye"></i> Preview</h1>
+        <p>Preview your book in different formats and devices</p>
+    </div>
+    <!-- Hidden Fields  class="hidden-fields"> -->
+    <div class="hidden-fields">
+        <label>UserId:</label>
+        <input type="text" id="UserId" value="@ViewBag.UserId">
+
+        <label>BookId:</label>
+        <input type="text" id="BookId" value="@ViewBag.BookId">
+
+        <label>ResponseId:</label>
+        <input type="text" id="ResponseId" value="0">
+
+        <label>ChapterNo:</label>
+        <input type="text" id="ChapterNo" value="1">
+    </div>
+
+    <!-- Book Selection -->
+    <div class="card">
+         <div class="card-header">Select Book</div>
+          <div class="dropdown-container">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                    <label class="form-label chapter-label" style="color: blue;">BOOK SELECTION</label>
+                    <select id="savedResponsesDropdown" class="form-control" onchange="loadSelectedResponse(this.value)">
+                        <option value="">Load a previously generated book...</option>
+                    </select>
+                    <button id="refreshBooksBtn" class="search-icon" onclick="refreshBooksDropdown()" title="Refresh">
+                        <i class="bi bi-search"></i>Refresh
+                    </button>
+               </div>
+                <!-- Book Title -->
+                <div class="form-group">
+                    <label class="form-label chapter-label" style="color: blue;">BOOK TITLE</label>
+                    <input type="text" id="BookTitle" class="form-control-Input" value="" placeholder="Enter book title">
+                </div>
+     
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <label class="form-label chapter-label" style="color: blue;">CHAPTER NUMBER</label>
+                <select id="ChapterDropdown" class="medium-input" onchange="loadBookChapterNos(this.value)">
+                    <option value="1" selected>1</option>
+                    <option value="0">Load a previously generated chapter numbers...</option>
+                </select>
+                <button id="findShowBtn" class="search-icon" onclick="showSelectedBook()" title="Find & Show">
+                    <i class="bi bi-search"></i>Preview
+                </button>
+                <label class="form-label chapter-label" style="color: blue;">CHAPTER STATUS</label>
+
+                <input type="text" id="Status" placeholder="Status" value="OK" class="small-input" readonly
+                       style="font-weight: bold; color: red; background-color: #fff;" />
+
+            </div>
+        </div>
+        <div id="notificationContainer"></div>
+        <!-- Preview Options -->
+        <div class="card">
+            <div class="card-header">Preview Options</div>
+            <div id="bookResult" class="book-result">
+                <h5>💬 Chat History</h5>
+                <div id="chatContainer" class="chat-container">
+                    <div class="message message-ai">
+                        <div class="message-avatar">
+                            AI
+                        </div>
+                        <div class="message-content">
+                            Hello! I'm ready to help you create an amazing book. Just enter your topic above and click "Generate Book" to get started.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+           @*  <div class="btn-group">
+                <button class="btn active" onclick="setPreviewMode('ebook')">eBook</button>
+                <button class="btn" onclick="setPreviewMode('print')">Print</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn active" onclick="setPreviewDevice('kindle')">Kindle</button>
+                <button class="btn" onclick="setPreviewDevice('ipad')">iPad/Apple Books</button>
+                <button class="btn" onclick="setPreviewDevice('tablet')">Tablet</button>
+                <button class="btn" onclick="setPreviewDevice('phone')">Phone</button>
+            </div> *@
+           @*  <div id="previewContent" class="preview-container">
+                <p class="text-muted text-center">Select a book and preview mode to see preview</p>
+            </div> *@
+            <div id="previewStatus" class="mt-2 text-muted"></div>
+        </div>
+   </div>
+</div>
+
+<script>
+    let previewMode = 'ebook';
+    let previewDevice = 'kindle';
+    const userId = '@ViewBag.UserId';
+    const bookId = '@ViewBag.BookId';
+
+     console.log("🔍 Logged-in User ID from ViewBag:", userId);
+     //===(1)============================OK
+     //  On Page Load -->Execution Step 3
+     //        PAGE INITIALIZATION
+     //===================================
+     document.addEventListener('DOMContentLoaded', function()  {
+         console.log("🚀 DOM Content Loaded - Starting initialization");
+
+         // Load books immediately
+         loadSavedBooksDropdown();
+
+         loadBookAllChaptersNumbers();
+
+
+     });
+     async function refreshBooksDropdown() {
+
+          document.getElementById("BookId").value = 0 ;
+
+         loadSavedBooksDropdown();
+
+     }
+
+      //===(15-2)=====================================================OK
+      //====    MAIN FUNCTION TO LOAD BOOKS IN DROPDOWN            ===
+      //====     Step 2: LOAD SAVED BOOKS IN DROPDOWN              ===
+      //==============================================================
+      //---------------------> Execution Step 4 <--------------------
+         async function loadSavedBooksDropdown() {
+             console.log("🔄 loadSavedBooksDropdown() called");
+
+             const userId = document.getElementById("UserId").value;
+             console.log("🔍 User ID from hidden field:", userId);
+
+             if (!userId || userId === "0") {
+                 console.error("❌ No valid user ID found");
+                 return;
+             }
+             const bookId = document.getElementById("BookId").value;
+              if (!bookId || bookId === "0") {
+                  bookId==0;
+              }
+
+            try {
+                 console.log("🔍 Calling API: /Books/GetSavedResponses?userId=" + userId);
+
+                 const response = await fetch(`/Books/GetSavedResponses?userId=${encodeURIComponent(userId)}&bookId=${bookId}`);
+
+                 console.log("🔍 Response status:", response.status);
+
+                 if (!response.ok) {
+                     throw new Error(`HTTP error! status: ${response.status}`);
+                 }
+
+                 const books = await response.json();
+               //  console.log("📚 Books data received:", books);
+
+                 const dropdown = document.getElementById("savedResponsesDropdown");
+
+                 if (!dropdown) {
+                     console.error("❌ Dropdown element not found!");
+                     return;
+                 }
+
+                 // Clear and populate dropdown
+                 dropdown.innerHTML = '<option value="">📚 Load a previously generated book...</option>';
+
+                 if (Array.isArray(books) && books.length > 0) {
+                     books.forEach(book => {
+                         const option = document.createElement("option");
+                         option.value = book.bookId;
+                         option.textContent = `${book.bookTitle} (${book.createdDate || 'No date'})`;
+                         dropdown.appendChild(option);
+                     });
+                   //  console.log(`✅ SUCCESS: Loaded ${books.length} books into dropdown`);
+                 } else {
+                     const option = document.createElement("option");
+                     option.value = "";
+                     option.textContent = "No saved books found - Generate one first!";
+                     option.disabled = true;
+                     dropdown.appendChild(option);
+                  //   console.log("❌ No books found for this user");
+                 }
+             } catch (error) {
+                 console.error("❌ Error in loadSavedBooksDropdown:", error);
+             }
+         }
+
+         //===========================================100% OK
+    //   Load Book's Chapters
+    //===========================================
+    async function loadBookAllChaptersNumbers(){
+        console.log("🔄 Loading loadBookAllChaptersNumbers Function");
+
+        const userId = document.getElementById("UserId").value;
+        const bookId = document.getElementById('BookId').value;
+        const ddl = document.getElementById("ChapterDropdown");
+        const statusInput = document.getElementById("Status");
+
+          console.log("Fetching chapters for userId ==>>:", userId, "bookId:", bookId);
+
+        if (!userId || !bookId) {
+            console.log("Missing userId or bookId");
+            return;
+        }
+        console.log("Fetching chapters for userId:", userId, "bookId:", bookId);
+
+        try {
+            const response = await fetch(`/Books/GetSavedChapterNos?userId=${userId}&bookId=${bookId}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+           const data = await response.json();
+           console.log("📚 API Response data :", data);
+
+            // Clear old items from Drop-Down
+             ddl.innerHTML = "";
+
+          if (!data || data.length === 0) {
+                 console.log("No chapters found in response");
+                 // No saved chapters → show default (1) + Load Option
+                 ddl.innerHTML = `
+                     <option value="1" selected>1</option>
+                     <option value="0">Load previously generated...</option>
+                 `;
+                 return;
+             }
+
+             console.log(`Found ${data.length} chapters`);
+
+             // Saved chapters exist → fill dropdown with ChapterNo - ChapterTitle
+             ddl.innerHTML = `<option value="0">Load previously generated...</option>`;
+
+             data.forEach((row, index) => {  // Added index parameter
+                 console.log(`Chapter ${index}:`, row);
+
+                 // Check if the expected properties exist
+                 const chapterNo = row.chapterNo || row.chapter || row.ChapterNumber || 'N/A';
+                 const chapterTitle = row.chapterTitle || row.title || row.Title || 'Untitled Chapter';
+
+                 // Show both ChapterNo and ChapterTitle in dropdown
+                 const displayText = `${chapterNo} - ${chapterTitle}`;  // Fixed duplicate declaration
+
+                 ddl.innerHTML += `<option value="${chapterNo}"  // Using chapterNo variable
+                                  data-status="${row.chapterStatus || row.status || 'OK'}"
+                                  data-title="${chapterTitle}"    // Using chapterTitle variable>
+                      ${displayText}
+                  </option>`;
+             });
+
+             // Select the first chapter and update status
+             if (data.length > 0) {
+                 const firstChapterNo = data[0].chapterNo || data[0].chapter || data[0].ChapterNumber;
+                 if (firstChapterNo) {
+                     ddl.value = firstChapterNo;
+                     // Auto-load the first chapter's data
+                     loadBookChapterNos(firstChapterNo);
+                 }
+             }
+
+         } catch (error) {
+             console.error("Error loading chapters:", error);
+             // Fallback to default options
+             ddl.innerHTML = `
+                 <option value="1" selected>1</option>
+                 <option value="0">Load previously generated...</option>
+             `;
+             statusInput.value = "OK";
+         }
+
+    }
+
+       
+     //====(2-37)==============================OK
+    //  Run On Button Click 📖 Show
+    //    Load Selected Book Data
+    //========================================
+       async function showSelectedBook()
+          {
+               const requestData = {
+                        ResponseId: document.getElementById('ResponseId')?.value,
+                        UserId: document.getElementById('UserId')?.value,
+                        BookId: document.getElementById('BookId')?.value,
+                        Title: document.getElementById('Title')?.value,
+                        Chapter: parseInt(document.getElementById('ChapterNo')?.value),
+                        UserInput: document.getElementById('UserInput')?.value
+               };
+                console.log("🔄 showSelectedBook() executed after button clicked", requestData);
+             //  console.log("🔍 Loading selected book:", requestData.BookId);
+               if (!requestData.BookId) {
+                    console.log("❌  No book selected - buttons reset");
+                    return;
+               }
+               try
+                 {
+                   if (!requestData.UserId || requestData.UserId === "0")
+                    {
+                           throw new Error("User ID not found");
+                    }
+                    if (!requestData.ResponseId)
+                    {
+                         throw new Error("Please select a Chapter");
+                    }
+                    // Load data from  Books + APIRawResponse
+                      const response = await fetch(`/Books/GetBookChapterResponse?userId=${requestData.UserId}&bookId=${requestData.BookId}&chapterNo=${requestData.Chapter}`);
+                     console.log("📨 Get Json result:", response);
+
+                     if (!response.ok)
+                     {
+                          throw new Error("Failed to load book details");
+                     }
+                     const result = await response.json();
+                     console.log("📚 Loading loadSelectedResponse Function ==xx==>", result);
+
+                     // Load Selected Book Data into the FORM
+                      if (result.success)
+                      {
+                            console.log("📚 result.success ", result);
+                         showBookContent(result);    // Load Book's Title, ChapterNiData
+                           //showNotification("Book loaded successfully!", "success");
+                       } else {
+                           // clearBookForm();
+                           showNotification("Error: " + result.message, "error");
+                       }
+                 } catch (error) {
+                     console.error("Error loading book details:", error);
+                     //clearBookForm();
+                     showNotification("Error loading book details: " + error.message, "error");
+                 }
+          }
+           // ====(19-24)==== UI Helper Function to DISPLAY BOOK CONTENT ===================== OK
+       //  Display Chapter Content
+       //======================================
+        function showBookContent(book) {
+
+              console.log("📝 Loading showBookContent() function ==>>>:", book);
+
+             const chatContainer = document.getElementById("chatContainer");
+
+             // Clear existing content
+             chatContainer.innerHTML = '';
+
+             // Add readonly class to make it non-editable
+             chatContainer.classList.add('readonly');
+             // Add book title message
+             const titleMessage = addMessage(`📖 **${book.title || "Untitled Book"}**`);
+
+            // Add chapters if available
+            if (book.chapters && book.chapters.length > 0) {
+                 setTimeout(() => {
+                      const chaptersMessage = addMessage(`Here are the chapters of your book:`);
+                       console.log("📝 Populating Chapter Content of book =>:", book);
+                 // Add each chapter with accordion
+                 book.chapters.forEach((chapter, index) => {
+                      setTimeout(() => {
+                         const chapterDiv = document.createElement('div');
+                         chapterDiv.className = 'chapter-accordion';
+                         chapterDiv.innerHTML = `
+                                    <div class="chapter-item">
+                                        <h3 class="chapter-header">
+                                            <button class="chapter-button collapsed" type="button" data-bs-toggle="collapse"
+                                                    data-bs-target="#chapterCollapse${index}">
+                                                Chapter ${chapter.number || index + 1}: ${chapter.name || chapter.title || "Untitled"}
+                                            </button>
+                                        </h3>
+                                        <div id="chapterCollapse${index}" class="collapse">
+                                            <div class="chapter-body">
+                                                ${chapter.content || "No content available"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+
+                                // Create a new message for each chapter
+                                const chapterMessage = document.createElement('div');
+                                chapterMessage.className = 'message message-ai';
+                                chapterMessage.innerHTML = `
+                                    <div class="message-avatar">📚</div>
+                                    <div class="message-content">
+                                        <div class="streaming-content">
+                                            ${chapterDiv.outerHTML}
+                                        </div>
+                                    </div>
+                                `;
+
+                                chatContainer.appendChild(chapterMessage);
+
+                                // Scroll to bottom
+                                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                            }, index * 300);
+                        });
+                    }, 500);
+                } else {
+                    setTimeout(() => {
+                        addMessage("No chapters found in this book.");
+                    }, 500);
+                }
+        }
+        //=================================================100% OK
+     //   Update Status when chapter selection changes
+     //=============================================
+     async function loadBookChapterNos(selectedValue) {  // ← Add 'async' here
+
+        //   console.log("🔄 Chapter No Drop-Down function loadBookChapterNos() called with chapter:", selectedValue);
+
+         const userId = document.getElementById("UserId").value;
+         const bookId = document.getElementById('BookId').value;
+         const responseIdElement = document.getElementById("ResponseId").value;
+         const ddl = document.getElementById("ChapterDropdown");
+         const statusInput = document.getElementById("Status");
+         //const titleInput = document.getElementById("Title");
+        // const userInput = document.getElementById("UserInput");
+
+        //    console.log("🔍 Current Values - UserId:", userId, "BookId:", bookId);
+
+       if (!userId || userId === "0" || !bookId || bookId === "0") {
+          console.error("❌ UserId or BookId missing");
+          return;
+       }
+
+       // ==== Update hidden field ===========
+       document.getElementById("ChapterNo").value=selectedValue;
+       //=======================================
+       if (selectedValue === "0")
+         {
+             // "Load previously generated..." selected
+             statusInput.value = "OK";
+              titleInput.value = "";
+             userInput.value = "";
+             if (responseIdElement) responseIdElement.value = "";
+                  updateButtonStates("OK"); // Enable buttons
+                 return;
+         }
+         // Clear existing content
+         chatContainer.innerHTML = '';
+      try {
+             // Fetch chapter data from API      GetSavedChapterNos
+             //console.log("🔗 Calling URL:", `/Books/GetChapterData?userId=${userId}&bookId=${bookId}&chapterNo=${selectedValue}`);
+
+             const response = await fetch(`/Books/GetChapterData?userId=${userId}&bookId=${bookId}&chapterNo=${selectedValue}`);
+             console.log("📨 Response status:", response.status);
+
+             if (!response.ok) {
+                 throw new Error('Failed to fetch chapter data');
+             }
+
+              const result = await response.json();
+              // console.log("📚 Chapter data received:", result);
+
+             if (result.success)
+              {
+                 //showNotification("Book loaded successfully!", "success");
+
+                 // ✅ Get the first chapter (latest or default)
+                 const latestChapter = result.chapters && result.chapters.length > 0
+                       ? result.chapters[0]
+                       : null;
+
+                 // ✅ Fill the ResponseId field (from last chapter)
+                 document.getElementById("ResponseId").value = latestChapter ? latestChapter.responseId : "0";
+
+                 // ✅ Fill the ChapterNo field (from last chapter)
+                 document.getElementById("ChapterNo").value = latestChapter ? latestChapter.chapterNo : "1";
+                 // ✅ Fill other fields
+                 // ✅ Fill the textarea or content field
+                 document.getElementById("BookTitle").value = result.bookTitle || "";
+                 // ✅ Fill the textarea or content field
+                 document.getElementById("Status").value = latestChapter ? latestChapter.statusCode : "Draft";
+                 // ✅ Fill the textarea or content field
+                 //document.getElementById("Title").value = latestChapter ? latestChapter.chapterTitle : "";
+                 // ✅ Fill the textarea or content field
+                 //document.getElementById("UserInput").value = latestChapter ? latestChapter.requestData : "";
+                 // ✅ Check if book is ReadOnly and disable buttons accordingly
+                 const statusCode = latestChapter ? latestChapter.statusCode : "Draft";
+                // checkAndDisableButtonsForReadOnly(statusCode);
+
+                 // Load Book Content
+                 //populateBookForm(result);   // Function to populate FORM's fields with book data
+                 //showBookContent(result);    // Load Book's Title, ChapterNiData
+                 // showNotification("Book loaded successfully!", "success");
+             } else {
+                  // clearBookForm();
+                  showNotification("Error: " + result.message, "error");
+               }
+         } catch (error) {
+               console.error("Error loading book details:", error);
+               //clearBookForm();
+               showNotification("Error loading book details: " + error.message, "error");
+         }
+     }
+         // =====(10-29)================ NOTIFICATION SYSTEM =====================
+      function showNotification(message, type = 'success') {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+
+            let icon = '✓';
+            if (type === 'error') icon = '⚠';
+
+            notification.innerHTML = `
+                <span style="font-size: 1.2rem;">${icon}</span>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(notification);
+
+            // Trigger animation
+            setTimeout(() => notification.classList.add('show'), 10);
+
+            // Remove after delay
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 400);
+            }, 4000);
+      }
+           //=======(11-26)============
+      function addMessage(content, isUser = false) {
+           // Get chat container - CORRECT CASE
+             const chatContainer = document.getElementById('chatContainer');
+            //const chatcontainer = document.getelementbyId('chatcontainer');  ==> NOTE: It is case sensitive
+            // Check if content is valid
+            console.log("📋 Step 3: addMessage() function executed:", content);
+            if (content === undefined || content === null) return '';
+
+            // Check if chat container exists
+            if (!chatContainer) {
+                 console.error('❌ chatContainer element not found');
+                 return null;
+             }
+             // Create message div - CORRECT CASE
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'message-user' : 'message-ai'}`;
+
+            messageDiv.innerHTML = `
+                <div class="message-avatar">${isUser ? 'You' : 'AI'}</div>
+                <div class="message-content">
+                    <div class="streaming-content">${content}</div>
+                </div>
+            `;
+            // Append to container - CORRECT CASE
+            chatContainer.appendChild(messageDiv);
+
+            // scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            // Return streaming content element - CORRECT CASE
+            return messageDiv.querySelector('.streaming-content');
+      }
+        //===(16-3)============================================OK
+       // Load Selected Book from Drop-Down from Books table
+       //    if not found then Load same from
+       //          RawData table
+       //======================================================
+       async function loadSelectedResponse(bookId)
+       {
+           // console.log("Loading loadSelectedResponse Function");
+           //  console.log("🔍 Loading selected book:", bookId);
+           if (!bookId) {
+               resetButtonStates();
+               clearBookForm();
+               console.log("❌  No book selected - buttons reset");
+               return;
+           }
+           document.getElementById('BookId').value = bookId;
+           try
+            {
+              const userId = document.getElementById("UserId").value;
+              if (!userId || userId === "0")
+              {
+                   throw new Error("User ID not found");
+              }
+             //   console.log("🔍 Loading book details for user:", userId, "book:", bookId);
+
+            // Load data from  Books + APIRawResponse
+            const response = await fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`);
+            //   console.log("📨 Get Json result:", response);
+
+            if (!response.ok)
+            {
+                throw new Error("Failed to load book details");
+            }
+
+           const result = await response.json();
+           // console.log("📚 Loading loadSelectedResponse Function ==>", result);
+
+           // Load Selected Book Data into the FORM
+           if (result.success)
+           {
+              // showNotification("Book loaded successfully!", "success");
+               // ✅ Get the first chapter (latest or default)
+               const latestChapter = result.chapters && result.chapters.length > 0
+                      ? result.chapters[0]
+                      : null;
+
+               // ✅ Fill the ResponseId field (from last chapter)
+               document.getElementById("ResponseId").value = latestChapter ? latestChapter.responseId : "0";
+
+               // ✅ Fill the ChapterNo field (from last chapter)
+               document.getElementById("ChapterNo").value = latestChapter ? latestChapter.chapterNo : "1";
+               // ✅ Fill other fields
+               // ✅ Fill the textarea or content field
+               document.getElementById("BookTitle").value = result.bookTitle || "";
+               // ✅ Fill the textarea or content field
+               document.getElementById("Status").value = latestChapter ? latestChapter.statusCode : "Draft";
+               // ✅ Fill the textarea or content field
+               //document.getElementById("Title").value = latestChapter ? latestChapter.chapterTitle : "";
+               // ✅ Fill the textarea or content field
+              //  document.getElementById("UserInput").value = latestChapter ? latestChapter.requestData : "";
+
+               // ✅ Check if book is ReadOnly and disable buttons accordingly
+                const statusCode = latestChapter ? latestChapter.statusCode : "Draft";
+               // Load Book Content
+               await loadBookAllChaptersNumbers()  // load All Chapter Numbers of this Book
+              
+               // showBookContent(result);    // Load Book's Title, ChapterNiData
+              // showNotification("Book loaded successfully!", "success");
+               } else {
+                    // clearBookForm();
+                    showNotification("Error: " + result.message, "error");
+             }
+         } catch (error) {
+                   console.error("Error loading book details:", error);
+                   //clearBookForm();
+                   showNotification("Error loading book details: " + error.message, "error");
+         }
+    }
+
+
+    function getBookId() {
+        const bookId = document.getElementById('currentBookId')?.value || document.getElementById('savedResponsesDropdown')?.value;
+        if (!bookId) {
+           // alert('Please select a book first');
+            return null;
+        }
+        return parseInt(bookId);
+    }
+
+     function loadBookPreview(bookId) {
+         if (bookId) {
+             document.getElementById('currentBookId').value = bookId;
+             refreshPreview();
+         }
+     }
+
+    function setPreviewMode(mode) {
+        previewMode = mode;
+        document.querySelectorAll('.btn-group .btn').forEach(btn => {
+            if (btn.textContent.includes('eBook') || btn.textContent.includes('Print')) {
+                btn.classList.remove('active');
+            }
+        });
+        event.target.classList.add('active');
+        refreshPreview();
+    }
+
+    function setPreviewDevice(device) {
+        previewDevice = device;
+        document.querySelectorAll('.btn-group .btn').forEach(btn => {
+            if (btn.textContent.includes('Kindle') || btn.textContent.includes('iPad') || 
+                btn.textContent.includes('Tablet') || btn.textContent.includes('Phone')) {
+                btn.classList.remove('active');
+            }
+        });
+        event.target.classList.add('active');
+        refreshPreview();
+    }
+
+    // Refresh preview - Database connected
+    async function refreshPreview() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const previewContent = document.getElementById('previewContent');
+        const status = document.getElementById('previewStatus');
+        
+        status.textContent = 'Loading preview...';
+        previewContent.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+
+        try {
+            const res = await fetch(`/Books/GetPreviewHtml?bookId=${bookId}&mode=${previewMode}&device=${previewDevice}`);
+            const html = await res.text();
+            
+            if (res.ok) {
+                previewContent.innerHTML = html;
+                previewContent.className = `preview-container preview-${previewMode}`;
+                status.textContent = '';
+            } else {
+                previewContent.innerHTML = '<p class="text-danger">Failed to load preview</p>';
+                status.textContent = 'Preview failed';
+            }
+        } catch (e) {
+            previewContent.innerHTML = `<p class="text-danger">Error: ${e.message}</p>`;
+            status.textContent = 'Error loading preview';
+        }
+    }
+
+    // Auto-refresh on page load if book selected
+    document.addEventListener('DOMContentLoaded', function() {
+        @if (ViewBag.SelectedBookId != null)
+        {
+            <text>
+            refreshPreview();
+            </text>
+        }
+    });
+</script>
+

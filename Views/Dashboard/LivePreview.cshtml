@@ -1,0 +1,127 @@
+@{
+    ViewData["Title"] = "Live Preview - eBook Publisher";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="preview-container">
+    <div class="preview-header">
+        <h1>Live Preview</h1>
+        <p>Preview your eBook before publishing</p>
+    </div>
+    
+    <div class="preview-content">
+        <div class="preview-toolbar">
+            <button class="btn btn-secondary" id="prevPageBtn">
+                <i class="fas fa-arrow-left"></i> Previous
+            </button>
+            <div class="page-info">
+                Page <span id="currentPage">1</span> of <span id="totalPages">10</span>
+            </div>
+            <button class="btn btn-secondary" id="nextPageBtn">
+                Next <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+        
+        <div class="preview-reader">
+            <div class="preview-page" id="previewPage">
+                <h2>Chapter 1: Introduction</h2>
+                <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+                <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+                <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+            </div>
+        </div>
+        
+        <div class="preview-actions">
+            <button class="btn btn-primary" id="downloadBtn">
+                <i class="fas fa-download"></i> Download Sample
+            </button>
+            <button class="btn btn-secondary" id="shareBtn">
+                <i class="fas fa-share-alt"></i> Share
+            </button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const prevPageBtn = document.getElementById('prevPageBtn');
+            const nextPageBtn = document.getElementById('nextPageBtn');
+            const currentPageElement = document.getElementById('currentPage');
+            const totalPagesElement = document.getElementById('totalPages');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const shareBtn = document.getElementById('shareBtn');
+            
+            let currentPage = 1;
+            const totalPages = 10;
+            
+            // Update page info
+            function updatePageInfo() {
+                currentPageElement.textContent = currentPage;
+                totalPagesElement.textContent = totalPages;
+            }
+            
+            // Previous page
+            prevPageBtn.addEventListener('click', function() {
+                if (currentPage > 1) {
+                    currentPage--;
+                    updatePageInfo();
+                    
+                    Swal.fire({
+                        title: 'Page Changed',
+                        text: `Now viewing page ${currentPage}`,
+                        icon: 'info',
+                        timer: 1000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }
+            });
+            
+            // Next page
+            nextPageBtn.addEventListener('click', function() {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    updatePageInfo();
+                    
+                    Swal.fire({
+                        title: 'Page Changed',
+                        text: `Now viewing page ${currentPage}`,
+                        icon: 'info',
+                        timer: 1000,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }
+            });
+            
+            downloadBtn.addEventListener('click', function() {
+                Swal.fire({
+                    title: 'Download Sample',
+                    text: 'Your eBook sample will be downloaded shortly.',
+                    icon: 'success',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                });
+            });
+            
+            shareBtn.addEventListener('click', function() {
+                Swal.fire({
+                    title: 'Share eBook',
+                    text: 'Share your eBook with others via email or social media.',
+                    icon: 'info',
+                    confirmButtonColor: '#4a6cf7',
+                    confirmButtonText: 'Continue'
+                });
+            });
+            
+            // Initialize page info
+            updatePageInfo();
+        });
+    </script>
+}

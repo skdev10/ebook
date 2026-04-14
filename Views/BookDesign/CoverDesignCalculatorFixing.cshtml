@@ -1,0 +1,2273 @@
+@model EBookDashboard.Models.ViewModels.CoverDesignCalculatorVM
+@{
+    ViewData["Title"] = "Book Formatter";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var bookId = Model?.BookId ?? 0;
+    var userId = Model?.UserId ?? 0;
+}
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<style>
+
+
+    :root {
+        --fmt-radius: 12px;
+        --fmt-purple: #6d28d9;
+        --fmt-purple-dark: #5b21b6;
+    }
+    body { font-family: 'Inter', sans-serif; }
+    .formatter-ui-radius { border-radius: var(--fmt-radius) !important; }
+    .font-serif { font-family: 'Playfair Display', serif; }
+    .font-book { font-family: 'Merriweather', serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
+    ::selection { background-color: #F3E8FF; color: #6B21A8; }
+    .toast-formatter {
+        visibility: hidden; min-width: 250px; background-color: #1F2937; color: #fff; text-align: center;
+        border-radius: 8px; padding: 12px; position: fixed; z-index: 100; left: 50%; bottom: 30px;
+        transform: translateX(-50%); font-size: 14px; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .toast-formatter.show { visibility: visible; opacity: 1; bottom: 50px; }
+    .custom-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239CA3AF' stroke-width='2'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e");
+        background-position: right 1rem center;
+        background-repeat: no-repeat;
+        background-size: 1.25rem;
+    }
+    .platform-block.platform-checked { background: #faf5ff !important; border-left: 3px solid #7c3aed; }
+    .platform-block.platform-checked .platform-row span { color: #6b21a8; font-weight: 600; }
+    /* When "Just print-ready file" is on, other platforms are unchecked + disabled */
+    .platform-block.platform-option-disabled {
+        opacity: 0.52;
+        pointer-events: none;
+    }
+    .platform-block.platform-option-disabled .platform-check {
+        cursor: not-allowed;
+    }
+    .platform-implement ul { margin: 0; }
+    .formatter-loading-spinner {
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        padding: 12px 20px; color: #6b21a8; font-size: 14px; font-weight: 500;
+    }
+    .formatter-loading-spinner .spinner {
+        width: 24px; height: 24px; border: 2px solid #e9d5ff; border-top-color: #7c3aed;
+        border-radius: 50%; animation: formatter-spin 0.8s linear infinite;
+    }
+    @@keyframes formatter-spin { to { transform: rotate(360deg); } }
+    .preview-state-message { padding: 1.5rem; text-align: center; color: #6b7280; }
+    .preview-state-error { color: #b91c1c; }
+    .preview-panel-single { display: block !important; }
+    .preview-panel-single.hidden { display: none !important; }
+    .preview-panel-both .preview-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 400px; }
+    .preview-panel-both .preview-split .preview-half { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; }
+    .config-card {
+        border: 1px solid #ede9fe;
+        background: #faf5ff;
+        border-radius: var(--fmt-radius);
+        padding: 14px;
+        box-shadow: 0 8px 18px -14px rgba(124, 58, 237, .28);
+    }
+
+    /* ----- Reader: fixed height, no long scroll ----- */
+    .reader-content-wrap {
+        height: 800px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        padding: 1.25rem 1.5rem;
+        background: #fafaf9;
+        transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+        border: 1px solid #f3e8ff;
+        border-radius: var(--fmt-radius);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.7);
+    }
+    .reader-content-wrap.reader-dark { background: #1f2937; color: #e5e7eb; }
+    .reader-content-wrap.reader-dark .reader-page-title { color: #f3f4f6; }
+    .reader-content-wrap.reader-dark .reader-page-body p { color: #d1d5db; }
+    .reader-page-inner {
+        flex: 1;
+        overflow: hidden;
+        opacity: 1;
+        transition: opacity 0.25s ease;
+    }
+    .reader-page-inner.transitioning { opacity: 0; }
+    .reader-page-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.55rem;
+        font-weight: 700;
+        color: #111827;
+        margin-bottom: 1rem;
+        text-align: center;
+        letter-spacing: 0.01em;
+    }
+    .reader-page-body {
+        font-family: 'Merriweather', serif;
+        text-align: left;
+        line-height: 1.85;
+        color: #1f2937;
+        font-size: 16px;
+    }
+    .reader-page-body p {
+        margin-bottom: 1rem;
+        text-indent: 1.2rem;
+    }
+    .reader-page-body .manuscript-heading {
+        font-weight: 700;
+        margin: 1rem 0 0.5rem 0;
+        line-height: 1.25;
+        text-indent: 0;
+    }
+    .reader-page-body .manuscript-h1 { font-size: 1.5rem; }
+    .reader-page-body .manuscript-h2 { font-size: 1.28rem; }
+    .reader-page-body .manuscript-h3 { font-size: 1.12rem; }
+    .reader-page-body .manuscript-h4 { font-size: 1.05rem; }
+    .reader-page-body .manuscript-h5 { font-size: 1rem; }
+    .reader-page-body .manuscript-h6 { font-size: 0.95rem; color: #64748b; }
+    .reader-page-body .manuscript-hr {
+        border: none;
+        border-top: 1px solid #cbd5e1;
+        margin: 1rem 0;
+        text-indent: 0;
+    }
+    .reader-content-wrap.interior-classic .reader-page-body .manuscript-heading { text-indent: 0; }
+    .reader-content-wrap.interior-classic .reader-page-body .manuscript-hr { border-top-color: #c4b8a8; }
+    .book-preview-sheet {
+        width: min(100%, 760px);
+        margin: 0 auto;
+        background: #fffefb;
+        border: 1px solid #ece7df;
+        border-radius: var(--fmt-radius);
+        box-shadow: 0 12px 28px -20px rgba(17,24,39,0.35);
+        padding: 2.2rem 2.1rem;
+        transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+    .reader-page-title,
+    .reader-page-body,
+    .reader-page-body p {
+        transition: color 0.35s ease, font-size 0.25s ease, letter-spacing 0.35s ease;
+    }
+
+    /* ----- Interior themes: full color + typography (Novel default) ----- */
+    .reader-content-wrap.interior-novel {
+        background: #f5ebe0;
+        border-color: #dfc6a8;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+    }
+    .reader-content-wrap.interior-novel .book-preview-sheet {
+        background: #fffef9;
+        border-color: #d4b896;
+        box-shadow: 0 14px 40px -24px rgba(120, 72, 32, 0.35);
+    }
+    .reader-content-wrap.interior-novel .reader-page-title {
+        font-family: 'Playfair Display', serif;
+        color: #7c2d12;
+        font-weight: 700;
+    }
+    .reader-content-wrap.interior-novel .reader-page-body {
+        font-family: 'Merriweather', serif;
+        color: #292524;
+    }
+    .reader-content-wrap.interior-novel .reader-page-body p {
+        text-indent: 1.35rem;
+        border-left: 3px solid transparent;
+    }
+
+    .reader-content-wrap.interior-modern {
+        background: #e8e8ef;
+        border-color: #cbd5e1;
+    }
+    .reader-content-wrap.interior-modern .book-preview-sheet {
+        background: #ffffff;
+        border-color: #94a3b8;
+        box-shadow: 0 16px 48px -28px rgba(51, 65, 85, 0.45);
+    }
+    .reader-content-wrap.interior-modern .reader-page-title {
+        font-family: 'Inter', sans-serif;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #4f46e5;
+        text-align: left;
+    }
+    .reader-content-wrap.interior-modern .reader-page-body {
+        font-family: 'Inter', sans-serif;
+        color: #334155;
+        font-size: 15px;
+        letter-spacing: 0.02em;
+        line-height: 1.75;
+    }
+    .reader-content-wrap.interior-modern .reader-page-body p {
+        text-indent: 0;
+        border-left: 4px solid #6366f1;
+        padding-left: 1rem;
+        margin-bottom: 1.1rem;
+    }
+
+    /* Classic interior — professional spread-style page (single-page preview): running head, chapter opening, drop cap, justified text, page # */
+    .reader-content-wrap.interior-classic {
+        background: #cfcfcf;
+        border-color: #b0b0b0;
+    }
+    .reader-content-wrap.interior-classic .book-preview-sheet {
+        background: #fdfcfa;
+        border: 1px solid #e5e0d8;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+        padding: 2.5rem 2.75rem 2rem;
+        max-width: 36rem;
+        margin: 0 auto;
+        min-height: 42rem;
+        display: flex;
+        flex-direction: column;
+    }
+    .reader-content-wrap.interior-classic .classic-running-head {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 0.5625rem;
+        font-weight: 600;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: #6b6b6b;
+        text-align: center;
+        margin: 0 0 1.75rem;
+        line-height: 1.45;
+    }
+    .reader-content-wrap.interior-classic .classic-running-head.classic-running-chapter {
+        font-size: 0.5rem;
+        letter-spacing: 0.18em;
+        max-height: 2.8em;
+        overflow: hidden;
+    }
+    .reader-content-wrap.interior-classic .classic-chapter-label {
+        font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif;
+        font-style: italic;
+        font-weight: 400;
+        font-size: 1.0625rem;
+        text-align: center;
+        color: #3a3a3a;
+        margin: 0 0 0.4rem;
+    }
+    .reader-content-wrap.interior-classic .classic-chapter-title {
+        font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif;
+        font-size: clamp(1.35rem, 3vw, 1.9rem);
+        font-weight: 600;
+        text-align: center;
+        line-height: 1.2;
+        color: #141414;
+        margin: 0 0 1.6rem;
+        padding: 0 0.25rem;
+        border: none;
+    }
+    .reader-content-wrap.interior-classic .reader-page-body.classic-body {
+        font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif;
+        text-align: justify;
+        text-justify: inter-word;
+        -webkit-hyphens: auto;
+        hyphens: auto;
+        font-size: 1.125rem;
+        line-height: 1.95;
+        color: #252525;
+        flex: 1;
+    }
+    .reader-content-wrap.interior-classic .reader-page-body.classic-body p {
+        text-indent: 0;
+        margin: 0 0 0.85em;
+    }
+    .reader-content-wrap.interior-classic .reader-page-body.classic-body p.classic-first-para::first-letter {
+        float: left;
+        font-size: 3.4em;
+        line-height: 0.8;
+        padding: 0.02em 0.1em 0 0;
+        margin-top: 0.02em;
+        font-weight: 600;
+        color: #111;
+        font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif;
+    }
+    .reader-content-wrap.interior-classic .classic-page-num {
+        text-align: center;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: #7a7a7a;
+        margin-top: auto;
+        padding-top: 1.5rem;
+        letter-spacing: 0.12em;
+    }
+    /* Fallback when classic uses generic title block (should be rare) */
+    .reader-content-wrap.interior-classic .reader-page-title {
+        font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+        font-style: italic;
+        font-size: 1.5rem;
+        color: #1a1a1a;
+        border-bottom: 1px solid #d4cfc4;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .reader-content-wrap.interior-classic .reader-page-body:not(.classic-body) {
+        font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+        font-size: 1.125rem;
+        line-height: 1.95;
+        text-align: justify;
+        color: #252525;
+    }
+
+    .reader-content-wrap.interior-minimalist {
+        background: #ffffff;
+        border-color: #e5e5e5;
+    }
+    .reader-content-wrap.interior-minimalist .book-preview-sheet {
+        background: #fafafa;
+        border: 1px solid #e5e5e5;
+        box-shadow: none;
+        padding: 2.75rem 2.5rem;
+    }
+    .reader-content-wrap.interior-minimalist .reader-page-title {
+        font-family: 'Inter', sans-serif;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #0a0a0a;
+        letter-spacing: -0.02em;
+        text-align: left;
+    }
+    .reader-content-wrap.interior-minimalist .reader-page-body {
+        font-family: 'Inter', sans-serif;
+        font-size: 15px;
+        line-height: 1.85;
+        color: #525252;
+        font-weight: 400;
+    }
+    .reader-content-wrap.interior-minimalist .reader-page-body p {
+        text-indent: 0;
+        margin-bottom: 1.35rem;
+        max-width: 42em;
+    }
+
+    /* Elegant trade / POD-style interior — warm page, Lora titles, EB Garamond body (inspired by pro print layouts) */
+    .reader-content-wrap.interior-elegant-trade {
+        background: #e8e2d8;
+        border-color: #c9bfb0;
+    }
+    .reader-content-wrap.interior-elegant-trade .book-preview-sheet {
+        background: #fdfbf7;
+        border: 1px solid #d4c9b8;
+        box-shadow: 0 10px 36px -18px rgba(62, 47, 32, 0.35);
+        padding: 2.35rem 2.4rem;
+    }
+    .reader-content-wrap.interior-elegant-trade .reader-page-title {
+        font-family: 'Lora', 'Times New Roman', serif;
+        font-weight: 600;
+        font-size: 1.35rem;
+        letter-spacing: 0.04em;
+        color: #3d2914;
+        text-align: center;
+        margin-bottom: 0.35rem;
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid #c9b8a0;
+    }
+    .reader-content-wrap.interior-elegant-trade .reader-page-body {
+        font-family: 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif;
+        font-size: 1.125rem;
+        line-height: 1.82;
+        color: #1c1917;
+        text-align: justify;
+        text-justify: inter-word;
+        -webkit-hyphens: auto;
+        hyphens: auto;
+    }
+    .reader-content-wrap.interior-elegant-trade .reader-page-body p {
+        text-indent: 1.25rem;
+        margin: 0 0 0.9em;
+    }
+    .reader-content-wrap.interior-elegant-trade .reader-page-body .manuscript-heading {
+        text-indent: 0;
+        font-family: 'Lora', serif;
+        color: #4a3728;
+    }
+    .reader-content-wrap.interior-elegant-trade .reader-page-body .manuscript-hr {
+        border-top-color: #c9b8a0;
+    }
+
+    .reader-nav-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 0.5rem 0.5rem;
+        border-top: 1px solid #e5e7eb;
+        margin-top: auto;
+        flex-shrink: 0;
+    }
+    .reader-nav-bar.reader-dark { border-top-color: #374151; }
+    .reader-nav-btn {
+        min-width: 100px;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: all 0.15s ease;
+    }
+    .reader-nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .reader-nav-btn:not(:disabled):hover { transform: translateY(-1px); }
+    .reader-page-indicator { font-size: 0.8125rem; color: #6b7280; }
+    .reader-page-indicator.reader-dark { color: #9ca3af; }
+    .reader-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        margin-bottom: 0.5rem;
+        flex-shrink: 0;
+    }
+    .reader-toolbar.reader-dark { border-bottom: 1px solid #374151; }
+    .preview-panel-both .reader-content-wrap { height: 360px; }
+    .reader-retry-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.875rem; background: #7c3aed; color: #fff; border: none; cursor: pointer; }
+    .reader-retry-btn:hover { background: #6d28d9; }
+
+    /* ----- Book content protection: no copy, no selection ----- */
+    #preview-wrapper .reader-content-wrap,
+    #preview-wrapper .reader-page-inner,
+    #preview-wrapper .reader-page-body,
+    #preview-wrapper #preview-content-inner,
+    #preview-wrapper #preview-content-ebook,
+    #preview-wrapper #preview-content-paperback {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+    #preview-wrapper .reader-page-body {
+        pointer-events: none; /* lock text interaction */
+    }
+    #preview-wrapper .reader-nav-btn,
+    #preview-wrapper #btn-prev-format,
+    #preview-wrapper #btn-next-format { user-select: none; }
+
+    /* Premium format: visible only in main config column, never inside live preview chrome */
+    #preview-wrapper .premium-format-ui-only { display: none !important; }
+    .format-premium-banner {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        padding: 10px 14px;
+        border-radius: var(--fmt-radius);
+        background: #fde68a;
+        border: 1px solid #f59e0b;
+        font-size: 12px;
+        color: #78350f;
+        box-shadow: 0 6px 20px -12px rgba(180, 83, 9, 0.55);
+    }
+    .format-premium-banner.show { display: flex; }
+    .format-premium-banner .premium-crown {
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+    .format-select-wrap.format-both-active .format-picker-trigger {
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+    .format-picker-menu { max-height: 280px; overflow-y: auto; }
+    .format-picker-item:focus { outline: 2px solid #a78bfa; outline-offset: -2px; }
+    .format-picker-item-premium { background: #fffbeb; }
+    .reader-chrome-bar {
+        margin-bottom: 1rem;
+        padding: 12px 14px;
+        border-radius: var(--fmt-radius);
+        border: 1px solid #ede9fe;
+        background: #faf5ff;
+        box-shadow: 0 8px 24px -18px rgba(124, 58, 237, 0.45);
+    }
+    .reader-progress-track {
+        height: 4px;
+        border-radius: 999px;
+        background: #e9d5ff;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+    .reader-progress-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: 999px;
+        background: #7c3aed;
+        transition: width 0.35s ease;
+    }
+    .reader-chrome-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+    .reader-chrome-row label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+    #reader-chapter-jump {
+        flex: 1;
+        min-width: 160px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 8px 10px;
+        font-size: 13px;
+        background: #fff;
+    }
+    #reader-bookmark-btn {
+        border: 1px solid #c4b5fd;
+        background: #fff;
+        color: #5b21b6;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 8px 14px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.15s ease;
+    }
+    #reader-bookmark-btn:hover { background: #f5f3ff; transform: translateY(-1px); }
+    .reader-page-inner.reader-anim-out { opacity: 0; transform: translateX(12px); }
+    .reader-page-inner.reader-anim-in { opacity: 1; transform: translateX(0); transition: opacity 0.28s ease, transform 0.32s ease; }
+    @@media (max-width: 1023px) {
+        .reader-content-wrap { height: 520px; }
+    }
+</style>
+
+@{
+    var formatFromUrl = Model?.Format ?? "Ebook";
+    if (formatFromUrl == "Print") { formatFromUrl = "Paperback"; }
+    var uid = (Model?.UserId ?? 0) != 0 ? Model.UserId : (ViewBag.UserId ?? 0);
+}
+<div class="bg-white text-gray-800 antialiased min-h-full flex flex-col" id="book-formatter-root" data-user-id="@uid" data-book-id="@bookId" data-format="@formatFromUrl">
+    <main class="flex-1 overflow-y-auto">
+        <div class="max-w-[1400px] mx-auto p-8 lg:p-12">
+            <div class="flex flex-col lg:flex-row gap-16">
+                <!-- Left: AI Book Formatter (your design) -->
+                <div class="w-full lg:w-[450px] flex-shrink-0 flex flex-col pt-4">
+                    <h1 class="font-serif text-3xl font-medium text-gray-900 mb-3 tracking-tight">AI Book Formatter</h1>
+                    <div class="mb-8">
+                        <label for="formatter-display-author" class="block text-xs font-semibold text-gray-500 mb-2.5">Author (matches your account &amp; export)</label>
+                        <div id="formatter-display-author" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-medium text-gray-900 min-h-[2.75rem] flex items-center" role="status">@((ViewBag.DisplayAuthorName as string) ?? "")</div>
+                    </div>
+                    <p class="text-sm text-gray-500 mb-8">Uses the book you selected in <a href="/Books/AIGenerateBook" class="text-violet-700 hover:underline font-medium">AI Writer</a>. Use <strong>Next Step</strong> there or open this page with a book in progress.</p>
+                    <div class="space-y-6 flex-1 overflow-y-auto pr-2 pb-20">
+                        <input type="hidden" id="selected-book-id" value="@bookId" />
+                        <div class="hidden" data-guided-tour="fmt-book" aria-hidden="true"></div>
+
+                        <div class="group">
+                            <label class="block text-xs font-semibold text-gray-500 mb-2.5" id="format-field-label">What format will your book be?</label>
+                            <div class="relative format-select-wrap" id="format-select-wrap">
+                                <select id="format-select" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;" aria-labelledby="format-field-label" title="Book format">
+                                    @if (formatFromUrl == "Ebook") { <option value="Ebook" selected>Ebook</option> } else { <option value="Ebook">Ebook</option> }
+                                    @if (formatFromUrl == "Paperback") { <option value="Paperback" selected>Paperback</option> } else { <option value="Paperback">Paperback</option> }
+                                    @if (formatFromUrl == "Both") { <option value="Both" selected>Both (Ebook + Paperback)</option> } else { <option value="Both">Both (Ebook + Paperback)</option> }
+                                </select>
+                                <button type="button" id="format-picker-trigger" class="format-picker-trigger custom-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3.5 pl-4 pr-4 text-sm cursor-pointer shadow-sm text-left flex items-center justify-between gap-2" aria-expanded="false" aria-haspopup="listbox" title="Choose format — Both is a premium dual-layout option">
+                                    <span id="format-picker-label" class="truncate font-medium">Ebook</span>
+                                    <i class="fas fa-chevron-down text-gray-400 text-xs shrink-0 transition-transform" id="format-picker-chevron" aria-hidden="true"></i>
+                                </button>
+                                <div id="format-picker-menu" class="format-picker-menu hidden absolute left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl py-1" role="listbox" aria-label="Format options">
+                                    <button type="button" class="format-picker-item w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-violet-50" role="option" data-value="Ebook">Ebook</button>
+                                    <button type="button" class="format-picker-item w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-violet-50" role="option" data-value="Paperback">Paperback</button>
+                                    <button type="button" class="format-picker-item format-picker-item-premium w-full px-4 py-3 text-left text-sm hover:bg-amber-50/90 border-t border-amber-100 flex items-center gap-2 flex-wrap" role="option" data-value="Both">
+                                        <span class="text-lg leading-none" aria-hidden="true">&#x1F451;</span>
+                                        <span class="font-semibold text-gray-800">Both (Ebook + Paperback)</span>
+                                        <span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-950 bg-amber-300 px-2.5 py-1 rounded-lg">Premium</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="format-premium-banner premium-format-ui-only" id="format-premium-banner" role="status">
+                                <span class="premium-crown" aria-hidden="true">&#x1F451;</span>
+                                <span><strong>Premium format selected.</strong> Dual ebook + print workspace is active. Your preview below stays a normal reader view (no premium badges there). This is saved with your book.</span>
+                            </div>
+                        </div>
+
+                        <div class="group" data-guided-tour="fmt-style">
+                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Choose Your Interior Style</label>
+                            <div class="relative">
+                                <select id="style-select" class="custom-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3.5 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 text-sm cursor-pointer shadow-sm">
+                                    @if ((Model?.InteriorStyle ?? "Novel") == "Novel") { <option value="Novel" selected>Novel</option> } else { <option value="Novel">Novel</option> }
+                                    @if ((Model?.InteriorStyle ?? "") == "Modern") { <option value="Modern" selected>Modern</option> } else { <option value="Modern">Modern</option> }
+                                    @if ((Model?.InteriorStyle ?? "") == "Classic") { <option value="Classic" selected>Classic</option> } else { <option value="Classic">Classic</option> }
+                                    @if ((Model?.InteriorStyle ?? "") == "Minimalist") { <option value="Minimalist" selected>Minimalist</option> } else { <option value="Minimalist">Minimalist</option> }
+                                    @if ((Model?.InteriorStyle ?? "") == "ElegantTrade") { <option value="ElegantTrade" selected>Elegant trade (POD)</option> } else { <option value="ElegantTrade" title="Trade-style serif interior for print &amp; ebook (similar to pro POD packages)">Elegant trade (POD)</option> }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="group">
+                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Text Size</label>
+                            <div class="relative">
+                                <select id="text-size-select" class="custom-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3.5 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 text-sm cursor-pointer shadow-sm">
+                                    @if ((Model?.TextSize ?? "Medium") == "Small") { <option value="Small" selected>Small</option> } else { <option value="Small">Small</option> }
+                                    @if ((Model?.TextSize ?? "Medium") == "Medium") { <option value="Medium" selected>Medium</option> } else { <option value="Medium">Medium</option> }
+                                    @if ((Model?.TextSize ?? "") == "Large") { <option value="Large" selected>Large</option> } else { <option value="Large">Large</option> }
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="group">
+                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Line Spacing</label>
+                            <select id="line-spacing-select" class="custom-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3.5 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 text-sm cursor-pointer shadow-sm">
+                                @{ var ls = Model?.LineSpacing ?? "1.6"; }
+                                @if (ls == "1.4") { <option value="1.4" selected>Tight (1.4)</option> } else { <option value="1.4">Tight (1.4)</option> }
+                                @if (ls == "1.6") { <option value="1.6" selected>Normal (1.6)</option> } else { <option value="1.6">Normal (1.6)</option> }
+                                @if (ls == "1.8") { <option value="1.8" selected>Relaxed (1.8)</option> } else { <option value="1.8">Relaxed (1.8)</option> }
+                                @if (ls == "2") { <option value="2" selected>Loose (2)</option> } else { <option value="2">Loose (2)</option> }
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Publishing Platforms</label>
+                            <p class="text-xs text-gray-400 mb-2">Check each target. Implementation notes appear when a platform is selected.</p>
+                            <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm" id="platforms-container">
+                                <div class="platform-block border-b border-gray-50">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Amazon KDP" />
+                                        <span class="text-sm flex-1">Amazon Kindle Publishing (KDP)</span>
+                                    </label>
+                                    <div class="platform-implement hidden px-4 pb-4 pl-11 text-xs text-gray-600 leading-relaxed bg-violet-50/50 border-t border-violet-100/80">
+                                        <p class="font-semibold text-gray-800 mb-1.5">KDP — next steps</p>
+                                        <ul class="list-disc pl-4 space-y-1">
+                                            <li>Finish formatting here, then export or download your manuscript as required by KDP.</li>
+                                            <li>In Kindle Direct Publishing, create an ebook and upload your EPUB/PDF; use the built-in previewer.</li>
+                                            <li>Set metadata, categories, pricing, and territorial rights before publishing.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="platform-block border-b border-gray-50">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="IngramSpark" />
+                                        <span class="text-sm flex-1">IngramSpark</span>
+                                    </label>
+                                    <div class="platform-implement hidden px-4 pb-4 pl-11 text-xs text-gray-600 leading-relaxed bg-violet-50/50 border-t border-violet-100/80">
+                                        <p class="font-semibold text-gray-800 mb-1.5">IngramSpark — next steps</p>
+                                        <ul class="list-disc pl-4 space-y-1">
+                                            <li>Export print-ready PDF with bleed and embedded fonts per IngramSpark specs.</li>
+                                            <li>Upload cover and interior separately in the IngramSpark dashboard.</li>
+                                            <li>Order a proof copy before wide distribution.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="platform-block border-b border-gray-50">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Barnes & Noble" />
+                                        <span class="text-sm flex-1">Barnes &amp; Noble Press</span>
+                                    </label>
+                                    <div class="platform-implement hidden px-4 pb-4 pl-11 text-xs text-gray-600 leading-relaxed bg-violet-50/50 border-t border-violet-100/80">
+                                        <p class="font-semibold text-gray-800 mb-1.5">B&amp;N Press — next steps</p>
+                                        <ul class="list-disc pl-4 space-y-1">
+                                            <li>Use B&amp;N Press manuscript guidelines for ebook or print trim size.</li>
+                                            <li>Upload interior and cover; review the online proof.</li>
+                                            <li>Confirm pricing and distribution options before going live.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="platform-block">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Just Print Ready File" />
+                                        <span class="text-sm flex-1">Just print-ready file</span>
+                                    </label>
+                                    <div class="platform-implement hidden px-4 pb-4 pl-11 text-xs text-gray-600 leading-relaxed bg-violet-50/50 border-t border-violet-100/80">
+                                        <p class="font-semibold text-gray-800 mb-1.5">Print-ready only</p>
+                                        <ul class="list-disc pl-4 space-y-1">
+                                            <li>Apply formatting here, then download or export a PDF for your own printer or designer.</li>
+                                            <li>Verify bleed, margins, and CMYK assets with your print vendor.</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="group config-card" id="fmt-finalize-panel">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Official manuscript lock</label>
+                            <p class="text-xs text-gray-500 mb-3 leading-relaxed">AI Writer saves drafts only. Here, choose the chapter (reader dropdown above), pick one AI version, then <strong>Finalize</strong> to copy it into your library permanently. Use <strong>Download finalized-chapters PDF</strong> at the end of your cover and interior review to check the full laid-out proof.</p>
+                            <label class="block text-xs font-semibold text-gray-500 mb-2" for="fmt-iteration-select">Draft version for current chapter</label>
+                            <select id="fmt-iteration-select" class="custom-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3.5 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 text-sm cursor-pointer shadow-sm" aria-label="AI draft iteration for finalize">
+                                <option value="">—</option>
+                            </select>
+                            <p id="fmt-finalize-chapter-label" class="text-xs text-gray-500 mt-2 min-h-[1.25rem]" aria-live="polite"></p>
+                            <div class="flex flex-col gap-2 mt-3">
+                                <button type="button" id="fmt-btn-finalize-chapter" class="formatter-ui-radius w-full bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-medium py-2.5 px-4 transition-all disabled:opacity-45 disabled:cursor-not-allowed">
+                                    Finalize selected version
+                                </button>
+                                <button type="button" id="fmt-btn-download-finalized-pdf" class="formatter-ui-radius w-full border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 text-sm font-medium py-2.5 px-4 transition-all">
+                                    Download finalized-chapters PDF
+                                </button>
+                            </div>
+                            <p id="fmt-finalize-status" class="text-xs text-gray-500 mt-2 min-h-[1.25rem]" aria-live="polite"></p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex flex-col gap-3" data-guided-tour="fmt-actions">
+                        <button type="button" id="btn-generate-manuscript" class="formatter-ui-radius w-full bg-violet-700 hover:bg-violet-800 active:scale-95 text-white text-sm font-medium py-2.5 px-6 shadow-lg shadow-violet-200/80 transition-all">
+                            Apply Formatting
+                        </button>
+                        <button type="button" id="btn-next-cover" class="formatter-ui-radius w-full border-2 border-violet-300 text-violet-800 hover:bg-violet-50 font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
+                            Next: AI Cover Design <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <p id="formatter-save-status" class="text-xs text-gray-400 min-h-[1.25rem] leading-relaxed" aria-live="polite"></p>
+                    </div>
+                </div>
+
+                <!-- Right: Your Formatting Preview (your device frame design) -->
+                <div class="flex-1 flex flex-col pt-4 min-h-0">
+                    <div class="mb-8">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-3 h-[2px] bg-purple-600"></div>
+                            <span class="text-purple-700 font-bold text-xs uppercase tracking-wide">Ebook AI</span>
+                        </div>
+                        <h2 id="formatting-preview-title" class="font-serif text-4xl text-gray-900 mb-3 tracking-tight">Your Formatting Preview</h2>
+                        <p class="text-gray-400 text-sm max-w-lg leading-relaxed">
+                            Tip: Finish drafts in AI Writer, then use the left panel to finalize versions here before export or cover design.
+                        </p>
+                    </div>
+
+                    <div id="reader-chrome-main" class="reader-chrome-bar max-w-2xl  w-full hidden">
+                        <div class="reader-progress-track" aria-hidden="true"><div class="reader-progress-fill" id="reader-progress-fill"></div></div>
+                        <div class="reader-chrome-row">
+                            <label for="reader-chapter-jump">Chapter</label>
+                            <select id="reader-chapter-jump" aria-label="Jump to chapter"></select>
+                            <button type="button" id="reader-bookmark-btn" title="Save reading position on this device">Bookmark</button>
+                        </div>
+                    </div>
+                    <div class="flex-1 relative flex  pb-8 overflow-hidden" id="preview-wrapper" data-guided-tour="fmt-preview">
+                        <!-- Single preview: reader layout with pagination -->
+                        <div id="preview-single" class="preview-panel-single relative w-full max-w-2xl bg-white border border-gray-100 rounded-xl shadow-2xl flex flex-col overflow-hidden ring-4 ring-gray-50/50" tabindex="0">
+                            <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-14 bg-white border border-gray-100 rounded-xl shadow-md flex items-center justify-end pr-1.5 cursor-pointer hover:scale-105 transition-transform z-10" id="btn-prev-format" aria-label="Previous page"><i class="fas fa-chevron-left w-4 h-4 text-gray-500"></i></div>
+                            <div id="preview-content" class="flex-1 flex flex-col min-h-0">
+                                <div class="reader-content-wrap" id="reader-wrap-single">
+                                    <div class="reader-page-inner" id="preview-content-inner">
+                                        <p class="preview-state-message">Select a book in AI Writer, then open Book Formatting (or use Next Step) to load your manuscript here.</p>
+                                    </div>
+                                    <div class="reader-nav-bar">
+                                        <button type="button" id="btn-prev-format-bar" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50" disabled>Previous</button>
+                                        <span class="reader-page-indicator" id="page-indicator-format">Page 0 of 0</span>
+                                        <button type="button" id="btn-next-format-bar" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50" disabled>Next</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-10 h-14 bg-white border border-gray-100 rounded-xl shadow-md flex items-center justify-start pl-1.5 cursor-pointer hover:scale-105 transition-transform z-10" id="btn-next-format" aria-label="Next page"><i class="fas fa-chevron-right w-4 h-4 text-gray-500"></i></div>
+                        </div>
+                        <!-- Side-by-side when format = Both -->
+                        <div id="preview-both" class="preview-panel-both hidden w-full max-w-4xl" style="display:none;">
+                            <div class="preview-split">
+                                <div class="preview-half flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-[#FFFCF9]">
+                                    <p class="text-xs font-semibold text-purple-600 mb-2 px-4 pt-4 flex-shrink-0">Ebook</p>
+                                    <div class="reader-content-wrap flex-1 min-h-0" id="reader-wrap-ebook">
+                                        <div class="reader-page-inner" id="preview-content-ebook"></div>
+                                        <div class="reader-nav-bar reader-nav-bar-inline">
+                                            <button type="button" id="btn-prev-ebook" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Prev</button>
+                                            <span class="reader-page-indicator text-xs" id="page-indicator-ebook">0 / 0</span>
+                                            <button type="button" id="btn-next-ebook" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Next</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="preview-half flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-[#fafaf9]">
+                                    <p class="text-xs font-semibold text-amber-600 mb-2 px-4 pt-4 flex-shrink-0">Paperback</p>
+                                    <div class="reader-content-wrap flex-1 min-h-0" id="reader-wrap-paperback">
+                                        <div class="reader-page-inner" id="preview-content-paperback"></div>
+                                        <div class="reader-nav-bar reader-nav-bar-inline">
+                                            <button type="button" id="btn-prev-paperback" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Prev</button>
+                                            <span class="reader-page-indicator text-xs" id="page-indicator-paperback">0 / 0</span>
+                                            <button type="button" id="btn-next-paperback" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Next</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center mt-4 px-2">
+                                <button type="button" id="btn-prev-both" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2"><i class="fas fa-chevron-left mr-1"></i> Previous</button>
+                                <span id="page-indicator-both" class="reader-page-indicator">Page 0 of 0</span>
+                                <button type="button" id="btn-next-both" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2">Next <i class="fas fa-chevron-right ml-1"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div id="toast-formatter" class="toast-formatter">Notification</div>
+
+<script>
+(function() {
+    'use strict';
+
+    /* No client timeout: let the server finish loading from DB so the book always completes */
+    const FORMATTER_BOOK_KEY = typeof window.EBOOK_FORMATTER_BOOK_KEY === 'string' ? window.EBOOK_FORMATTER_BOOK_KEY : 'ebook_formatter_book_id';
+    const PREVIEW_EMPTY_MSG = 'Select a book in AI Writer, then return here via Next Step to see your formatting preview.';
+    const PREVIEW_NO_DATA_MSG = 'No data available. Add chapters in AI Writer to see content here.';
+    const PREVIEW_ERROR_MSG = 'Something went wrong. Please try again or select another book.';
+
+    const root = document.getElementById('book-formatter-root');
+    /* Read from data-* only (no Razor tokens in this script; user/book ids come from #book-formatter-root). */
+    const userId = parseInt((root && root.getAttribute('data-user-id')) || '0', 10);
+    let initialBookId = parseInt((root && root.getAttribute('data-book-id')) || '0', 10);
+    let formatFromUrl = (root && root.getAttribute('data-format')) || 'Ebook';
+
+    if (root && initialBookId <= 0) {
+        let stored = 0;
+        try { stored = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10); } catch (e) { stored = 0; }
+        if (stored > 0) {
+            var fmtQ = (formatFromUrl === 'Print' ? 'Paperback' : formatFromUrl) || 'Ebook';
+            window.location.replace('/BookDesign/CoverDesignCalculatorFixing?bookId=' + stored + '&format=' + encodeURIComponent(fmtQ));
+            return;
+        }
+    }
+
+    if (initialBookId > 0) {
+        try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(initialBookId)); } catch (e) {}
+    }
+
+    let bookChapters = [];
+    let formatterBookTitle = '';
+    /** Book-level fields for template placeholders ([Title], etc.) */
+    let bookPreviewContext = { bookTitle: '', subtitle: '', description: '', genre: '', authorName: '' };
+    let currentChapterIdx = 0;
+    let readerPages = [];
+    /** Parallel to readerPages: source chapter index (0-based) for each page. */
+    let readerPageChapterIdx = [];
+    let currentPageIdx = 0;
+    const PARAS_PER_PAGE = 5;
+    const CONTENT_CHARS_SOFT_LIMIT = 2800;
+    const FORMATTER_DRAFT_PREFIX = 'formatter_draft_v2_';
+    let autosaveTimer = null;
+    let autosaveInFlight = false;
+    let autosaveQueued = false;
+
+    function formatterDraftKey(bid) {
+        return FORMATTER_DRAFT_PREFIX + String(bid || 0);
+    }
+
+    function getFormatterStateFromUi() {
+        var platStr = getSelectedPlatforms();
+        var primaryPlat = platStr ? platStr.split(',')[0].trim() : '';
+        return {
+            format: (document.getElementById('format-select') && document.getElementById('format-select').value) || 'Ebook',
+            interiorStyle: (document.getElementById('style-select') && document.getElementById('style-select').value) || 'Novel',
+            textSize: (document.getElementById('text-size-select') && document.getElementById('text-size-select').value) || 'Medium',
+            lineSpacing: (document.getElementById('line-spacing-select') && document.getElementById('line-spacing-select').value) || '1.6',
+            publishingPlatforms: platStr,
+            publishingPlatform: primaryPlat,
+            savedAtUtc: new Date().toISOString()
+        };
+    }
+
+    function persistFormatterDraftLocal(state, bid) {
+        const numId = parseInt(bid || (document.getElementById('selected-book-id') && document.getElementById('selected-book-id').value) || '0', 10);
+        if (!numId || !state) return;
+        try {
+            localStorage.setItem(formatterDraftKey(numId), JSON.stringify(state));
+        } catch (e) { /* ignore quota issues */ }
+    }
+
+    function applyFormatterStateToUi(state) {
+        if (!state) return;
+        const fmtEl = document.getElementById('format-select');
+        const styleEl = document.getElementById('style-select');
+        const sizeEl = document.getElementById('text-size-select');
+        const lineEl = document.getElementById('line-spacing-select');
+        if (fmtEl && state.format && ['Ebook', 'Paperback', 'Both'].indexOf(state.format) >= 0) fmtEl.value = state.format;
+        if (styleEl && state.interiorStyle) styleEl.value = state.interiorStyle;
+        if (sizeEl && state.textSize) sizeEl.value = state.textSize;
+        if (lineEl && state.lineSpacing) lineEl.value = state.lineSpacing;
+        if (typeof state.publishingPlatforms === 'string') setSelectedPlatforms(state.publishingPlatforms);
+        else if (typeof state.publishingPlatform === 'string' && state.publishingPlatform) setSelectedPlatforms(state.publishingPlatform);
+        updatePremiumFormatUi();
+        togglePreviewMode();
+    }
+
+    function loadFormatterDraftLocal(bid) {
+        const numId = parseInt(bid || '0', 10);
+        if (!numId) return null;
+        try {
+            const raw = localStorage.getItem(formatterDraftKey(numId));
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function storageReaderKey(bid) {
+        return 'ebook_reader_pos_' + bid;
+    }
+
+    function persistReaderPosition() {
+        const hid = document.getElementById('selected-book-id');
+        const bid = parseInt((hid && hid.value) || '0', 10);
+        if (!bid || readerPages.length === 0) return;
+        try {
+            localStorage.setItem(storageReaderKey(bid), JSON.stringify({
+                page: currentPageIdx,
+                chapter: readerPageChapterIdx[currentPageIdx] || 0,
+                at: Date.now()
+            }));
+        } catch (e) { /* quota / private mode */ }
+    }
+
+    function restoreReaderPosition(bid) {
+        if (!bid || readerPages.length === 0) return;
+        try {
+            const raw = localStorage.getItem(storageReaderKey(bid));
+            if (!raw) return;
+            const o = JSON.parse(raw);
+            if (o && typeof o.page === 'number' && o.page >= 0 && o.page < readerPages.length) {
+                currentPageIdx = o.page;
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function splitLongText(text, maxChunk) {
+        const out = [];
+        let s = (text || '').trim();
+        if (!s) return out;
+        while (s.length > maxChunk) {
+            var cut = s.lastIndexOf(' ', maxChunk);
+            if (cut < Math.floor(maxChunk * 0.45)) cut = maxChunk;
+            out.push(s.substring(0, cut).trim());
+            s = s.substring(cut).trim();
+        }
+        if (s) out.push(s);
+        return out;
+    }
+
+    /** Split chapter body into logical blocks for pagination (handles single \\n manuscripts and long HTML). */
+    function splitChapterIntoParas(raw) {
+        const content = (raw || '').toString().trim();
+        if (!content) return [];
+        const looksLikeHtml = /<\s*(p|h1|h2|h3|h4|blockquote|ul|ol|li|br|div)\b/i.test(content);
+        var paras;
+        if (looksLikeHtml) {
+            var pieces = content.split(/(?=<\/p>\s*)/i).map(function(x) { return x.trim(); }).filter(Boolean);
+            if (pieces.length <= 1) {
+                pieces = content.split(/<br\s*\/?>/i).map(function(x) { return x.trim(); }).filter(Boolean);
+            }
+            paras = pieces.length ? pieces : [content];
+            if (paras.length === 1 && paras[0].length > CONTENT_CHARS_SOFT_LIMIT) {
+                paras = splitLongText(paras[0].replace(/<[^>]+>/g, ' '), CONTENT_CHARS_SOFT_LIMIT);
+            }
+        } else {
+            paras = content.split(/\n\n+/).filter(Boolean);
+            if (paras.length === 1 && paras[0].length > CONTENT_CHARS_SOFT_LIMIT) {
+                paras = splitLongText(paras[0], CONTENT_CHARS_SOFT_LIMIT);
+            } else if (paras.length === 1 && /\n/.test(paras[0])) {
+                paras = paras[0].split(/\n+/).filter(Boolean);
+            }
+        }
+        return paras;
+    }
+
+    /** Split any oversized blocks so Next/Previous always has meaningful steps. */
+    function expandParasForPaging(paras) {
+        const maxChars = 2000;
+        const out = [];
+        (paras || []).forEach(function(p) {
+            const s = (p || '').trim();
+            if (!s) return;
+            if (s.length <= maxChars) out.push(s);
+            else Array.prototype.push.apply(out, splitLongText(s, maxChars));
+        });
+        return out;
+    }
+
+    function scrollReaderPanelsToTop() {
+        document.querySelectorAll('#preview-wrapper .reader-content-wrap').forEach(function(w) {
+            try { w.scrollTop = 0; } catch (e) { /* ignore */ }
+        });
+    }
+
+    function syncFormatPickerButton() {
+        var sel = document.getElementById('format-select');
+        var lbl = document.getElementById('format-picker-label');
+        if (!sel || !lbl) return;
+        var v = sel.value || 'Ebook';
+        var map = { Ebook: 'Ebook', Paperback: 'Paperback', Both: 'Both (Ebook + Paperback) — Premium' };
+        lbl.textContent = map[v] || v;
+    }
+
+    function updatePremiumFormatUi() {
+        var fmtEl = document.getElementById('format-select');
+        var fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        var banner = document.getElementById('format-premium-banner');
+        var wrap = document.getElementById('format-select-wrap');
+        var both = fmt === 'Both';
+        if (banner) banner.classList.toggle('show', both);
+        if (wrap) wrap.classList.toggle('format-both-active', both);
+        syncFormatPickerButton();
+    }
+
+    function chapterOrdinalLabel(chapterIndex) {
+        return 'Chapter ' + (chapterIndex + 1);
+    }
+
+    function chunkNeedsManuscriptRender(text) {
+        return /(?:^|\n)\s*(?:#{1,6}\s|(?:\-{3,}|\*{3,}|_{3,})\s*$)/m.test(text || '');
+    }
+
+    function formatClassicParas(chunk, dropCapOnFirst) {
+        let html = '';
+        chunk.forEach(function(para, idx) {
+            const dc = dropCapOnFirst && idx === 0;
+            html += '<p' + (dc ? ' class="classic-first-para"' : '') + '>' + escapeHtml(para).replace(/\n/g, '<br>') + '</p>';
+        });
+        return html;
+    }
+
+    function buildClassicReaderPages() {
+        const pages = [];
+        readerPageChapterIdx = [];
+        let pageNum = 1;
+        const btRaw = (formatterBookTitle && String(formatterBookTitle).trim()) ? String(formatterBookTitle).trim() : 'Book Title';
+        const bt = escapeHtml(btRaw);
+        for (let ci = 0; ci < bookChapters.length; ci++) {
+            const ch = bookChapters[ci];
+            const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
+            const content = (ch && ch.content && String(ch.content).trim()) || '';
+            const paras = expandParasForPaging(splitChapterIntoParas(content));
+            if (paras.length === 0) {
+                const head = '<div class="classic-running-head">' + bt + '</div>';
+                const chapterLine = '<div class="classic-chapter-label">' + chapterOrdinalLabel(ci) + '</div>';
+                const titleBlock = '<h1 class="classic-chapter-title">' + escapeHtml(title) + '</h1>';
+                const body = '<section class="reader-page-body classic-body"><p class="text-gray-500">No content.</p></section>';
+                const footer = '<footer class="classic-page-num">' + pageNum + '</footer>';
+                pages.push(head + chapterLine + titleBlock + body + footer);
+                readerPageChapterIdx.push(ci);
+                pageNum++;
+                continue;
+            }
+            for (let i = 0; i < paras.length; i += PARAS_PER_PAGE) {
+                const chunk = paras.slice(i, i + PARAS_PER_PAGE);
+                const isFirstOfChapter = (i === 0);
+                const head = isFirstOfChapter
+                    ? '<div class="classic-running-head">' + bt + '</div>'
+                    : '<div class="classic-running-head classic-running-chapter">' + escapeHtml(title) + '</div>';
+                let middle = '';
+                if (isFirstOfChapter) {
+                    middle = '<div class="classic-chapter-label">' + chapterOrdinalLabel(ci) + '</div>';
+                    middle += '<h1 class="classic-chapter-title">' + escapeHtml(title) + '</h1>';
+                }
+                const chunkText = chunk.join('\n\n');
+                const looksLikeHtml = /<\s*(p|h1|h2|h3|h4|blockquote|ul|ol|li|br)\b/i.test(chunkText);
+                let bodyInner;
+                if (looksLikeHtml) {
+                    bodyInner = formatChapterContent(chunkText);
+                } else if (chunkNeedsManuscriptRender(chunkText)) {
+                    bodyInner = formatChapterContent(chunkText);
+                    if (isFirstOfChapter) {
+                        bodyInner = bodyInner.replace('<p class="manuscript-p">', '<p class="manuscript-p classic-first-para">');
+                    }
+                } else if (isFirstOfChapter) {
+                    bodyInner = formatClassicParas(chunk, true);
+                } else {
+                    bodyInner = formatClassicParas(chunk, false);
+                }
+                const body = '<section class="reader-page-body classic-body">' + bodyInner + '</section>';
+                const footer = '<footer class="classic-page-num">' + pageNum + '</footer>';
+                pages.push(head + middle + body + footer);
+                readerPageChapterIdx.push(ci);
+                pageNum++;
+            }
+        }
+        return pages;
+    }
+
+    const toastEl = document.getElementById('toast-formatter');
+    let toastTimeout = null;
+
+    function showToast(msg) {
+        if (!toastEl) return;
+        toastEl.textContent = msg;
+        toastEl.classList.add('show');
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(function() { toastEl.classList.remove('show'); }, 3000);
+    }
+
+    function syncPlatformBlockUi(cb) {
+        var block = cb.closest('.platform-block');
+        var panel = block ? block.querySelector('.platform-implement') : null;
+        if (block) {
+            if (cb.checked) block.classList.add('platform-checked');
+            else block.classList.remove('platform-checked');
+        }
+        if (panel) {
+            if (cb.checked) panel.classList.remove('hidden');
+            else panel.classList.add('hidden');
+        }
+    }
+
+    function getSelectedPlatforms() {
+        const sel = [];
+        document.querySelectorAll('#platforms-container .platform-check:checked').forEach(function(cb) {
+            const p = cb.getAttribute('data-platform');
+            if (p) sel.push(p);
+        });
+        return sel.join(',');
+    }
+
+    var PRINT_READY_PLATFORM = 'Just Print Ready File';
+
+    function setNonPrintPlatformsDisabled(disabled) {
+        document.querySelectorAll('#platforms-container .platform-block').forEach(function(block) {
+            var cb = block.querySelector('.platform-check');
+            if (!cb) return;
+            var p = cb.getAttribute('data-platform');
+            if (p === PRINT_READY_PLATFORM) {
+                cb.disabled = false;
+                block.classList.remove('platform-option-disabled');
+            } else {
+                cb.disabled = !!disabled;
+                if (disabled) block.classList.add('platform-option-disabled');
+                else block.classList.remove('platform-option-disabled');
+            }
+        });
+    }
+
+    function setSelectedPlatforms(str) {
+        let arr = (str || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        if (arr.indexOf(PRINT_READY_PLATFORM) >= 0)
+            arr = [PRINT_READY_PLATFORM];
+        document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
+            const p = cb.getAttribute('data-platform');
+            cb.checked = arr.indexOf(p) >= 0;
+            syncPlatformBlockUi(cb);
+        });
+        setNonPrintPlatformsDisabled(arr.indexOf(PRINT_READY_PLATFORM) >= 0);
+    }
+
+    function applyPublishingPlatformRules(changedCb) {
+        var name = changedCb.getAttribute('data-platform');
+        if (!changedCb.checked) {
+            syncPlatformBlockUi(changedCb);
+            if (name === PRINT_READY_PLATFORM)
+                setNonPrintPlatformsDisabled(false);
+            return;
+        }
+        if (name === PRINT_READY_PLATFORM) {
+            document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
+                if (cb !== changedCb) {
+                    cb.checked = false;
+                    syncPlatformBlockUi(cb);
+                }
+            });
+            setNonPrintPlatformsDisabled(true);
+        } else {
+            document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
+                if (cb.getAttribute('data-platform') === PRINT_READY_PLATFORM) {
+                    cb.checked = false;
+                    syncPlatformBlockUi(cb);
+                }
+            });
+            setNonPrintPlatformsDisabled(false);
+        }
+        syncPlatformBlockUi(changedCb);
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(s);
+        return div.innerHTML;
+    }
+
+    function normPlaceholderKey(k) {
+        return String(k || '').trim().toLowerCase().replace(/\s+/g, '');
+    }
+
+    function applyTemplatePlaceholders(raw, ctx) {
+        if (raw == null) return '';
+        var s = String(raw);
+        if (!s || !ctx) return s;
+        function lookup(key) {
+            var nk = normPlaceholderKey(key);
+            switch (nk) {
+                case 'title':
+                case 'booktitle':
+                    return ctx.bookTitle != null ? String(ctx.bookTitle) : '';
+                case 'subtitle':
+                    return ctx.subtitle != null ? String(ctx.subtitle) : '';
+                case 'description':
+                    return ctx.description != null ? String(ctx.description) : '';
+                case 'genre':
+                    return ctx.genre != null ? String(ctx.genre) : '';
+                case 'author':
+                case 'authorname':
+                    return ctx.authorName != null ? String(ctx.authorName) : '';
+                case 'chaptertitle':
+                case 'chapter':
+                    return ctx.chapterTitle != null ? String(ctx.chapterTitle) : '';
+                case 'chapternumber':
+                case 'chapterno':
+                    return ctx.chapterNumber != null && ctx.chapterNumber !== '' ? String(ctx.chapterNumber) : '';
+                case 'displaychapternumber':
+                    return ctx.displayChapterNumber != null && ctx.displayChapterNumber !== '' ? String(ctx.displayChapterNumber) : '';
+                default:
+                    return null;
+            }
+        }
+        s = s.replace(/\[\s*([^\]]+?)\s*\]/g, function(full, key) {
+            var v = lookup(key);
+            return v !== null ? v : full;
+        });
+        s = s.replace(/\{\{\s*([^}]+?)\s*\}\}/g, function(full, key) {
+            var v = lookup(key);
+            return v !== null ? v : full;
+        });
+        return s;
+    }
+
+    function normalizeManuscriptEscapes(str) {
+        if (str == null || str === '') return '';
+        var t = String(str);
+        t = t.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        var prev;
+        do {
+            prev = t;
+            t = t.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\n');
+        } while (t !== prev);
+        return t;
+    }
+
+    function sanitizeManuscriptHtml(unsafeHtml) {
+        try {
+            var allowedTags = new Set(['p', 'br', 'hr', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'span', 'div']);
+            var allowedAttrs = new Set(['class', 'style']);
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(String(unsafeHtml), 'text/html');
+            var walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, null);
+            var toRemove = [];
+            while (walker.nextNode()) {
+                var el = walker.currentNode;
+                if (!allowedTags.has(el.tagName.toLowerCase())) {
+                    toRemove.push(el);
+                    continue;
+                }
+                [].forEach.call(el.attributes, function(attr) {
+                    var name = attr.name.toLowerCase();
+                    var value = attr.value || '';
+                    if (!allowedAttrs.has(name)) {
+                        el.removeAttribute(name);
+                        return;
+                    }
+                    if (name === 'style' && /expression\(|javascript:|url\(/i.test(value)) {
+                        el.removeAttribute(name);
+                    }
+                });
+            }
+            toRemove.forEach(function(n) { n.replaceWith(n.textContent || ''); });
+            return doc.body.innerHTML;
+        } catch (e) {
+            return escapeHtml(String(unsafeHtml));
+        }
+    }
+
+    function formatManuscriptPlainToHtml(s) {
+        var lines = s.split('\n');
+        var out = [];
+        var para = [];
+        function flushPara() {
+            if (!para.length) return;
+            out.push('<p class="manuscript-p">' + para.map(function(l) { return escapeHtml(l); }).join('<br/>') + '</p>');
+            para = [];
+        }
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var t = line.trim();
+            if (!t) { flushPara(); continue; }
+            var hm = t.match(/^(#{1,6})\s+(.+)$/);
+            if (hm) {
+                flushPara();
+                var level = hm[1].length;
+                out.push('<h' + level + ' class="manuscript-heading manuscript-h' + level + '">' + escapeHtml(hm[2].trim()) + '</h' + level + '>');
+                continue;
+            }
+            if (/^(?:\-{3,}|\*{3,}|_{3,})$/.test(t)) {
+                flushPara();
+                out.push('<hr class="manuscript-hr" />');
+                continue;
+            }
+            para.push(line);
+        }
+        flushPara();
+        return out.length ? out.join('') : '<p class="text-gray-500">No content.</p>';
+    }
+
+    function formatChapterContent(raw) {
+        var src = normalizeManuscriptEscapes((raw || '').toString()).trim();
+        if (!src) return '<p class="text-gray-500">No content.</p>';
+        var looksLikeHtml = /<\s*(p|h1|h2|h3|h4|h5|h6|blockquote|ul|ol|li|br|div|hr)\b/i.test(src);
+        if (looksLikeHtml) {
+            return sanitizeManuscriptHtml(src);
+        }
+        return formatManuscriptPlainToHtml(src);
+    }
+
+    function buildReaderPages() {
+        const styleEl = document.getElementById('style-select');
+        const interior = styleEl ? styleEl.value : 'Novel';
+        if (interior === 'Classic') {
+            return buildClassicReaderPages();
+        }
+        const pages = [];
+        readerPageChapterIdx = [];
+        for (let ci = 0; ci < bookChapters.length; ci++) {
+            const ch = bookChapters[ci];
+            const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
+            const content = (ch && ch.content && String(ch.content).trim()) || '';
+            const paras = expandParasForPaging(splitChapterIntoParas(content));
+            if (paras.length === 0) {
+                pages.push('<article class="reader-page-title">' + escapeHtml(title) + '</article><section class="reader-page-body"><p class="text-gray-500">No content.</p></section>');
+                readerPageChapterIdx.push(ci);
+            } else {
+                for (let i = 0; i < paras.length; i += PARAS_PER_PAGE) {
+                    const chunk = paras.slice(i, i + PARAS_PER_PAGE);
+                    const titleBlock = (i === 0) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                    const body = formatChapterContent(chunk.join('\n\n'));
+                    pages.push(titleBlock + '<section class="reader-page-body">' + body + '</section>');
+                    readerPageChapterIdx.push(ci);
+                }
+            }
+        }
+        return pages;
+    }
+
+    function getChapterHtml(ch) {
+        const title = (ch && ch.chapterTitle) || ('Chapter ' + (currentChapterIdx + 1));
+        const content = (ch && ch.content && String(ch.content).trim()) || '';
+        let html = '<article class="reader-page-title">' + escapeHtml(title) + '</article><section class="reader-page-body">';
+        html += formatChapterContent(content);
+        html += '</section>';
+        return html;
+    }
+
+    function applyPreviewStyles(el) {
+        if (!el) return;
+        const sizeEl = document.getElementById('text-size-select');
+        const lineEl = document.getElementById('line-spacing-select');
+        const styleEl = document.getElementById('style-select');
+        const size = sizeEl ? sizeEl.value : 'Medium';
+        const lineSp = lineEl ? lineEl.value : '1.6';
+        const interior = styleEl ? styleEl.value : 'Novel';
+        el.style.lineHeight = String(lineSp);
+        el.classList.remove('text-xs', 'text-[15px]', 'text-lg');
+        if (interior === 'Classic' || interior === 'ElegantTrade') {
+            el.style.textAlign = 'justify';
+            if (size === 'Small') el.style.fontSize = '15px';
+            else if (size === 'Large') el.style.fontSize = '20px';
+            else el.style.fontSize = interior === 'ElegantTrade' ? '17px' : '18px';
+        } else {
+            el.style.textAlign = '';
+            if (size === 'Small') el.classList.add('text-xs');
+            else if (size === 'Large') el.classList.add('text-lg');
+            else el.style.fontSize = '15px';
+        }
+
+        const wraps = [
+            document.getElementById('reader-wrap-single'),
+            document.getElementById('reader-wrap-ebook'),
+            document.getElementById('reader-wrap-paperback')
+        ];
+        var interiorMap = { 'Novel': 'interior-novel', 'Modern': 'interior-modern', 'Classic': 'interior-classic', 'Minimalist': 'interior-minimalist', 'ElegantTrade': 'interior-elegant-trade' };
+        var interiorCls = interiorMap[interior] || 'interior-novel';
+        wraps.forEach(function(w) {
+            if (!w) return;
+            w.classList.remove('interior-novel', 'interior-modern', 'interior-classic', 'interior-minimalist', 'interior-elegant-trade');
+            w.classList.add(interiorCls);
+        });
+    }
+
+    function showLoadingState(show) {
+        const loadingHtml = '<div class="formatter-loading-spinner"><span class="spinner"></span> Loading book from database… (may take a moment)</div>';
+        const inner = document.getElementById('preview-content-inner');
+        const ebook = document.getElementById('preview-content-ebook');
+        const paperback = document.getElementById('preview-content-paperback');
+        if (show) {
+            if (inner) inner.innerHTML = loadingHtml;
+            if (ebook) ebook.innerHTML = loadingHtml;
+            if (paperback) paperback.innerHTML = loadingHtml;
+            setReaderNavDisabled(true, true);
+        }
+    }
+
+    function setPageIndicatorsToZero() {
+        const indF = document.getElementById('page-indicator-format');
+        const indB = document.getElementById('page-indicator-both');
+        const indE = document.getElementById('page-indicator-ebook');
+        const indP = document.getElementById('page-indicator-paperback');
+        if (indF) indF.textContent = 'Page 0 of 0';
+        if (indB) indB.textContent = 'Page 0 of 0';
+        if (indE) indE.textContent = '0 / 0';
+        if (indP) indP.textContent = '0 / 0';
+        setReaderNavDisabled(true, true);
+        const fill = document.getElementById('reader-progress-fill');
+        if (fill) fill.style.width = '0%';
+        const chrome = document.getElementById('reader-chrome-main');
+        if (chrome) chrome.classList.add('hidden');
+    }
+
+    function setReaderNavDisabled(prevDisabled, nextDisabled) {
+        const prevSingle = document.getElementById('btn-prev-format');
+        const nextSingle = document.getElementById('btn-next-format');
+        const prevBar = document.getElementById('btn-prev-format-bar');
+        const nextBar = document.getElementById('btn-next-format-bar');
+        const prevBoth = document.getElementById('btn-prev-both');
+        const nextBoth = document.getElementById('btn-next-both');
+        const prevE = document.getElementById('btn-prev-ebook');
+        const nextE = document.getElementById('btn-next-ebook');
+        const prevPb = document.getElementById('btn-prev-paperback');
+        const nextPb = document.getElementById('btn-next-paperback');
+        [prevSingle, prevBar, prevBoth, prevE, prevPb].forEach(function(btn) { if (btn) btn.disabled = prevDisabled; });
+        [nextSingle, nextBar, nextBoth, nextE, nextPb].forEach(function(btn) { if (btn) btn.disabled = nextDisabled; });
+    }
+
+    function showErrorState(msg, userFriendly, retryBookId) {
+        const text = userFriendly != null ? userFriendly : (msg || PREVIEW_ERROR_MSG);
+        let html = '<p class="preview-state-message preview-state-error">' + escapeHtml(text) + '</p>';
+        if (retryBookId) html += '<p class="preview-state-message"><button type="button" class="reader-retry-btn" data-retry-id="' + retryBookId + '">Try again</button></p>';
+        const inner = document.getElementById('preview-content-inner');
+        const ebook = document.getElementById('preview-content-ebook');
+        const paperback = document.getElementById('preview-content-paperback');
+        if (inner) inner.innerHTML = html;
+        if (ebook) ebook.innerHTML = html;
+        if (paperback) paperback.innerHTML = html;
+        setPageIndicatorsToZero();
+        document.querySelectorAll('.reader-retry-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const id = parseInt(this.getAttribute('data-retry-id') || '0', 10);
+                if (id) loadBookContent(id);
+            });
+        });
+    }
+
+    function showNoDataState() {
+        const html = '<p class="preview-state-message">' + escapeHtml(PREVIEW_NO_DATA_MSG) + '</p>';
+        const inner = document.getElementById('preview-content-inner');
+        const ebook = document.getElementById('preview-content-ebook');
+        const paperback = document.getElementById('preview-content-paperback');
+        if (inner) inner.innerHTML = html;
+        if (ebook) ebook.innerHTML = html;
+        if (paperback) paperback.innerHTML = html;
+        setPageIndicatorsToZero();
+    }
+
+    function showEmptyState() {
+        const html = '<p class="preview-state-message">' + escapeHtml(PREVIEW_EMPTY_MSG) + '</p>';
+        const inner = document.getElementById('preview-content-inner');
+        const ebook = document.getElementById('preview-content-ebook');
+        const paperback = document.getElementById('preview-content-paperback');
+        if (inner) inner.innerHTML = html;
+        if (ebook) ebook.innerHTML = html;
+        if (paperback) paperback.innerHTML = html;
+        setPageIndicatorsToZero();
+    }
+
+    function renderReaderPage(innerEl, pageHtml, animDir) {
+        if (!innerEl) return;
+        var dir = animDir || 0;
+        innerEl.classList.remove('reader-anim-in', 'reader-anim-out');
+        if (dir !== 0) innerEl.classList.add('reader-anim-out');
+        var apply = function() {
+            innerEl.innerHTML = '<article class="book-preview-sheet">' + (pageHtml || '') + '</article>';
+            const body = innerEl.querySelector('.reader-page-body');
+            if (body) applyPreviewStyles(body);
+            if (dir !== 0) {
+                innerEl.classList.remove('reader-anim-out');
+                void innerEl.offsetWidth;
+                innerEl.classList.add('reader-anim-in');
+            }
+        };
+        if (dir !== 0) {
+            setTimeout(apply, 120);
+        } else {
+            apply();
+        }
+    }
+
+    function firstPageForChapter(chIdx) {
+        for (let i = 0; i < readerPageChapterIdx.length; i++) {
+            if (readerPageChapterIdx[i] === chIdx) return i;
+        }
+        return 0;
+    }
+
+    function populateChapterJump() {
+        const sel = document.getElementById('reader-chapter-jump');
+        const chrome = document.getElementById('reader-chrome-main');
+        if (!sel) return;
+        sel.innerHTML = '';
+        if (!bookChapters.length) {
+            if (chrome) chrome.classList.add('hidden');
+            return;
+        }
+        if (chrome) chrome.classList.remove('hidden');
+        bookChapters.forEach(function(ch, idx) {
+            const t = (ch && ch.chapterTitle) || ('Chapter ' + (idx + 1));
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = (idx + 1) + '. ' + t.substring(0, 80) + (t.length > 80 ? '…' : '');
+            sel.appendChild(opt);
+        });
+    }
+
+    function updateReaderProgressUi() {
+        const fill = document.getElementById('reader-progress-fill');
+        const total = readerPages.length;
+        const pct = total ? Math.round(((currentPageIdx + 1) / total) * 100) : 0;
+        if (fill) fill.style.width = pct + '%';
+        const sel = document.getElementById('reader-chapter-jump');
+        if (sel && readerPageChapterIdx.length > currentPageIdx) {
+            sel.value = String(readerPageChapterIdx[currentPageIdx]);
+        }
+        const indF = document.getElementById('page-indicator-format');
+        if (indF && total) {
+            const ch = readerPageChapterIdx[currentPageIdx] != null ? readerPageChapterIdx[currentPageIdx] + 1 : 1;
+            indF.setAttribute('title', 'Chapter ' + ch + ' — page ' + (currentPageIdx + 1) + ' of ' + total);
+        }
+    }
+
+    function updatePageIndicator() {
+        const total = readerPages.length;
+        const indF = document.getElementById('page-indicator-format');
+        const indB = document.getElementById('page-indicator-both');
+        const indE = document.getElementById('page-indicator-ebook');
+        const indP = document.getElementById('page-indicator-paperback');
+        const text = total ? 'Page ' + (currentPageIdx + 1) + ' of ' + total : 'Page 0 of 0';
+        const short = total ? (currentPageIdx + 1) + ' / ' + total : '0 / 0';
+        if (indF) indF.textContent = text;
+        if (indB) indB.textContent = text;
+        if (indE) indE.textContent = short;
+        if (indP) indP.textContent = short;
+        setReaderNavDisabled(currentPageIdx <= 0, currentPageIdx >= total - 1 || total === 0);
+        updateReaderProgressUi();
+    }
+
+    function renderPreviewContent(animDir) {
+        const inner = document.getElementById('preview-content-inner');
+        if (!inner) return;
+        if (bookChapters.length === 0) {
+            inner.innerHTML = '<p class="preview-state-message">' + escapeHtml(PREVIEW_EMPTY_MSG) + '</p>';
+            setPageIndicatorsToZero();
+            return;
+        }
+        if (readerPages.length === 0) readerPages = buildReaderPages();
+        currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
+        const pageHtml = readerPages[currentPageIdx] || '';
+        inner.classList.add('transitioning');
+        setTimeout(function() {
+            renderReaderPage(inner, pageHtml, animDir || 0);
+            inner.classList.remove('transitioning');
+            updatePageIndicator();
+            scrollReaderPanelsToTop();
+        }, animDir ? 40 : 80);
+    }
+
+    function renderBothPreviews(animDir) {
+        const ebook = document.getElementById('preview-content-ebook');
+        const paperback = document.getElementById('preview-content-paperback');
+        if (!ebook || !paperback) return;
+        if (bookChapters.length === 0) {
+            ebook.innerHTML = '<p class="preview-state-message">' + escapeHtml(PREVIEW_EMPTY_MSG) + '</p>';
+            paperback.innerHTML = '<p class="preview-state-message">' + escapeHtml(PREVIEW_EMPTY_MSG) + '</p>';
+            setPageIndicatorsToZero();
+            return;
+        }
+        if (readerPages.length === 0) readerPages = buildReaderPages();
+        currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
+        const pageHtml = readerPages[currentPageIdx] || '';
+        [ebook, paperback].forEach(function(el) {
+            el.classList.add('transitioning');
+        });
+        setTimeout(function() {
+            renderReaderPage(ebook, pageHtml, animDir || 0);
+            renderReaderPage(paperback, pageHtml, animDir || 0);
+            [ebook, paperback].forEach(function(el) { el.classList.remove('transitioning'); });
+            updatePageIndicator();
+            scrollReaderPanelsToTop();
+        }, animDir ? 40 : 80);
+    }
+
+    function goToPrevPage() {
+        if (currentPageIdx <= 0) return;
+        currentPageIdx--;
+        const fmtEl = document.getElementById('format-select');
+        const fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        if (fmt === 'Both') renderBothPreviews(-1); else renderPreviewContent(-1);
+        persistReaderPosition();
+        showToast('Previous page');
+    }
+
+    function goToNextPage() {
+        if (readerPages.length === 0) return;
+        if (currentPageIdx >= readerPages.length - 1) return;
+        currentPageIdx++;
+        const fmtEl = document.getElementById('format-select');
+        const fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        if (fmt === 'Both') renderBothPreviews(1); else renderPreviewContent(1);
+        persistReaderPosition();
+        showToast('Next page');
+    }
+
+    function togglePreviewMode() {
+        const fmtEl = document.getElementById('format-select');
+        const fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        const single = document.getElementById('preview-single');
+        const both = document.getElementById('preview-both');
+        updatePremiumFormatUi();
+        if (fmt === 'Both') {
+            if (single) { single.classList.add('hidden'); single.style.display = 'none'; }
+            if (both) { both.classList.remove('hidden'); both.style.display = 'block'; }
+            renderBothPreviews(0);
+        } else {
+            if (single) { single.classList.remove('hidden'); single.style.display = 'flex'; }
+            if (both) { both.classList.add('hidden'); both.style.display = 'none'; }
+            renderPreviewContent(0);
+        }
+    }
+
+    function refreshFormattingPrefsForBook(bid) {
+        const numId = parseInt(bid, 10);
+        if (isNaN(numId) || numId <= 0) return;
+        fetch('/BookDesign/GetBookFormatting?bookId=' + numId)
+            .then(function(r) { return r.json(); })
+            .then(function(res) {
+                if (res && res.success && res.data) {
+                    const d = res.data;
+                    const fmt = document.getElementById('format-select');
+                    const style = document.getElementById('style-select');
+                    const sz = document.getElementById('text-size-select');
+                    const ls = document.getElementById('line-spacing-select');
+                    if (fmt && d.format) {
+                        fmt.value = (d.format === 'Print' ? 'Paperback' : d.format);
+                        updatePremiumFormatUi();
+                        togglePreviewMode();
+                    }
+                    if (style && d.interiorStyle) style.value = d.interiorStyle;
+                    if (sz && d.textSize) sz.value = d.textSize;
+                    if (ls && d.lineSpacing) ls.value = d.lineSpacing;
+                    if (d.publishingPlatforms) setSelectedPlatforms(d.publishingPlatforms);
+                    if (d.draftStateJson) {
+                        try {
+                            applyFormatterStateToUi(JSON.parse(d.draftStateJson));
+                        } catch (e) { /* ignore */ }
+                    } else {
+                        const localDraft = loadFormatterDraftLocal(numId);
+                        if (localDraft) applyFormatterStateToUi(localDraft);
+                    }
+                }
+                readerPages = [];
+                readerPageChapterIdx = [];
+                if (bookChapters.length) {
+                    readerPages = buildReaderPages();
+                    currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
+                }
+                renderPreviewContent(0);
+                renderBothPreviews(0);
+            })
+            .catch(function(e) { console.warn('[Book Formatter] GetBookFormatting failed:', e); });
+    }
+
+    async function initFormatterBook() {
+        const hid = document.getElementById('selected-book-id');
+        let bid = initialBookId;
+        if (!bid || bid <= 0) {
+            try { bid = parseInt((hid && hid.value) || '0', 10); } catch (e) { bid = 0; }
+        }
+        if (hid && bid > 0) hid.value = String(bid);
+        if (root && bid > 0) root.setAttribute('data-book-id', String(bid));
+
+        if (!bid || bid <= 0) {
+            showEmptyState();
+            showToast('Open AI Writer and select a book, then use Next Step.');
+            refreshFormatterIterationsForCurrentChapter();
+            return;
+        }
+
+        await loadBookContent(bid);
+        refreshFormattingPrefsForBook(bid);
+    }
+
+    function getFormatterChapterContext() {
+        var jump = document.getElementById('reader-chapter-jump');
+        var idx = jump ? parseInt(jump.value, 10) : 0;
+        if (isNaN(idx) || idx < 0 || !bookChapters[idx]) return null;
+        var ch = bookChapters[idx];
+        var chapterNo = ch.chapterNo != null ? parseInt(String(ch.chapterNo), 10) : (idx + 1);
+        if (!Number.isFinite(chapterNo)) chapterNo = idx + 1;
+        return { idx: idx, chapterNo: chapterNo, chapterTitle: ch.chapterTitle || '' };
+    }
+
+    function setFmtFinalizeStatus(msg, isError) {
+        var st = document.getElementById('fmt-finalize-status');
+        if (!st) return;
+        st.textContent = msg || '';
+        st.classList.remove('preview-state-error');
+        if (isError) st.classList.add('preview-state-error');
+    }
+
+    async function refreshFormatterIterationsForCurrentChapter() {
+        var sel = document.getElementById('fmt-iteration-select');
+        var label = document.getElementById('fmt-finalize-chapter-label');
+        var btn = document.getElementById('fmt-btn-finalize-chapter');
+        var bid = parseInt((document.getElementById('selected-book-id') && document.getElementById('selected-book-id').value) || '0', 10);
+        setFmtFinalizeStatus('');
+        if (!sel) return;
+        if (!userId || bid <= 0 || !bookChapters.length) {
+            sel.innerHTML = '<option value="">—</option>';
+            if (label) label.textContent = '';
+            if (btn) btn.disabled = true;
+            return;
+        }
+        var ctx = getFormatterChapterContext();
+        if (!ctx) {
+            sel.innerHTML = '<option value="">—</option>';
+            if (label) label.textContent = '';
+            if (btn) btn.disabled = true;
+            return;
+        }
+        if (label) {
+            var ch = bookChapters[ctx.idx];
+            label.textContent = 'Chapter ' + ctx.chapterNo + (ch && ch.chapterTitle ? ': ' + ch.chapterTitle : '');
+        }
+        if (btn) btn.disabled = false;
+        sel.innerHTML = '<option value="">Loading…</option>';
+        try {
+            var res = await fetch('/Books/GetChapterIterations?userId=' + encodeURIComponent(userId) + '&bookId=' + encodeURIComponent(bid) + '&chapterNo=' + encodeURIComponent(ctx.chapterNo));
+            var data = await res.json();
+            sel.innerHTML = '';
+            if (!data.success || !data.iterations || !data.iterations.length) {
+                var opt0 = document.createElement('option');
+                opt0.value = '';
+                opt0.textContent = 'No AI drafts — generate this chapter in AI Writer first';
+                sel.appendChild(opt0);
+                return;
+            }
+            data.iterations.forEach(function(it) {
+                var opt = document.createElement('option');
+                opt.value = String(it.responseId || '');
+                var lab = 'v' + it.iterationNumber;
+                if (it.title) lab += ': ' + String(it.title).substring(0, 44);
+                if (it.isFinalized) lab += ' [FINAL]';
+                opt.textContent = lab;
+                sel.appendChild(opt);
+            });
+            sel.selectedIndex = Math.max(0, sel.options.length - 1);
+        } catch (e) {
+            sel.innerHTML = '';
+            var optE = document.createElement('option');
+            optE.value = '';
+            optE.textContent = 'Could not load versions';
+            sel.appendChild(optE);
+        }
+    }
+
+    async function fmtDownloadFinalizedPdf() {
+        var hid = document.getElementById('selected-book-id');
+        var bid = parseInt((hid && hid.value) || '0', 10);
+        if (!bid) {
+            showToast('Load a book first.');
+            return;
+        }
+        var state = getFormatterStateFromUi();
+        var title = (formatterBookTitle || bookPreviewContext.bookTitle || 'book').trim();
+        var body = {
+            bookId: bid,
+            displayTitle: title,
+            displayAuthor: (bookPreviewContext.authorName || '').trim(),
+            displayGenre: (bookPreviewContext.genre || '').trim(),
+            interiorStyle: state.interiorStyle,
+            textSize: state.textSize,
+            lineSpacing: state.lineSpacing,
+            bookFormat: state.format,
+            publishingPlatform: state.publishingPlatform || ''
+        };
+        setFmtFinalizeStatus('Preparing PDF…');
+        try {
+            var res = await fetch('/Books/DownloadFinalizedChaptersPdf', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/pdf, application/json' },
+                body: JSON.stringify(body)
+            });
+            var ct = (res.headers.get('content-type') || '').toLowerCase();
+            if (!res.ok || ct.indexOf('application/pdf') < 0) {
+                var t = await res.text();
+                try {
+                    var j = JSON.parse(t);
+                    setFmtFinalizeStatus(j.message || 'Could not build PDF.', true);
+                    showToast(j.message || 'Could not build PDF.');
+                } catch (x) {
+                    setFmtFinalizeStatus(t || 'Could not build PDF.', true);
+                    showToast(t || 'Could not build PDF.');
+                }
+                return;
+            }
+            var blob = await res.blob();
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = title.replace(/[^\w\-\s]/g, '').replace(/\s+/g, '-').replace(/^-|-$/g, '') || 'book';
+            a.download += '-finalized.pdf';
+            a.click();
+            URL.revokeObjectURL(url);
+            setFmtFinalizeStatus('Download started.');
+            showToast('PDF download started');
+        } catch (e) {
+            setFmtFinalizeStatus(e.message || 'Download failed', true);
+            showToast(e.message || 'Download failed');
+        }
+    }
+
+    async function fmtFinalizeSelectedVersion() {
+        var hid = document.getElementById('selected-book-id');
+        var bid = parseInt((hid && hid.value) || '0', 10);
+        var selIt = document.getElementById('fmt-iteration-select');
+        var responseId = selIt ? parseInt(selIt.value, 10) : 0;
+        var ctx = getFormatterChapterContext();
+        if (!userId || !bid || !ctx || !responseId) {
+            showToast('Select a book, chapter, and draft version.');
+            return;
+        }
+        if (!confirm('Finalize chapter ' + ctx.chapterNo + '? This copies the selected version into your library as the official text for that chapter.')) return;
+        var btn = document.getElementById('fmt-btn-finalize-chapter');
+        if (btn) btn.disabled = true;
+        setFmtFinalizeStatus('Finalizing…');
+        try {
+            var res = await fetch('/Books/FinalizeChapter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    responseId: responseId,
+                    userId: userId,
+                    bookId: bid,
+                    chapter: ctx.chapterNo
+                })
+            });
+            var txt = await res.text();
+            var loc = {};
+            try { loc = txt ? JSON.parse(txt) : {}; } catch (e) { loc = {}; }
+            if (!res.ok || !loc.success) {
+                throw new Error((loc && loc.message) || txt || 'Finalize failed');
+            }
+            var res2 = await fetch('/Books/FinalizeChapterAPI', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    user_id: String(userId),
+                    book_id: String(bid),
+                    chapter: String(ctx.chapterNo),
+                    approve: true
+                })
+            });
+            if (!res2.ok) {
+                var t2 = await res2.text();
+                throw new Error(t2 || 'External approve step failed');
+            }
+            setFmtFinalizeStatus('Chapter finalized. Reloading preview…');
+            showToast('Chapter finalized');
+            await loadBookContent(bid);
+        } catch (err) {
+            setFmtFinalizeStatus(err.message || 'Finalize failed', true);
+            showToast(err.message || 'Finalize failed');
+            await refreshFormatterIterationsForCurrentChapter();
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function loadBookContent(bid) {
+        const numId = parseInt(bid, 10);
+        if (isNaN(numId) || numId <= 0) {
+            bookChapters = [];
+            showEmptyState();
+            refreshFormatterIterationsForCurrentChapter();
+            return;
+        }
+
+        if (!userId) {
+            console.warn('[Book Formatter] No userId, skipping load');
+            showToast('Session required.');
+            showErrorState('Session required. Please log in again.', 'Session required. Please log in again.');
+            refreshFormatterIterationsForCurrentChapter();
+            return;
+        }
+
+        console.log('[Book Formatter] Selected Book ID:', numId);
+
+        showLoadingState(true);
+
+        try {
+            const url = '/Books/GetFullBookContent?userId=' + encodeURIComponent(userId) + '&bookId=' + encodeURIComponent(numId);
+            const response = await fetch(url);
+
+            if (response.status === 404) {
+                console.warn('[Book Formatter] GetFullBookContent 404');
+                showErrorState(null, 'No data available for this book.');
+                showToast('No data available.');
+                return;
+            }
+
+            if (response.status >= 500) {
+                console.error('[Book Formatter] GetFullBookContent server error:', response.status);
+                showErrorState(null, 'Server error. Please try again later.');
+                showToast('Server error. Please try again.');
+                return;
+            }
+
+            let data = null;
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.indexOf('application/json') !== -1) {
+                data = await response.json();
+            } else {
+                const text = await response.text();
+                console.warn('[Book Formatter] GetFullBookContent non-JSON response:', text ? text.substring(0, 200) : '');
+                showErrorState(null, PREVIEW_ERROR_MSG);
+                showToast('Invalid response from server.');
+                return;
+            }
+
+            console.log('[Book Formatter] API response:', { success: data && data.success, totalChapters: (data && data.chapters) ? data.chapters.length : 0, data: data });
+
+            if (!data) {
+                showErrorState(null, PREVIEW_ERROR_MSG);
+                showToast('No response data.');
+                return;
+            }
+
+            if (!data.success) {
+                const msg = (data.message && String(data.message).trim()) || 'No data available for this book.';
+                showErrorState(null, msg, numId);
+                showToast(msg);
+                return;
+            }
+
+            bookPreviewContext = {
+                bookTitle: (data.bookTitle && String(data.bookTitle)) || '',
+                subtitle: (data.subtitle && String(data.subtitle)) || '',
+                description: (data.description && String(data.description)) || '',
+                genre: (data.genre && String(data.genre)) || '',
+                authorName: (data.authorName && String(data.authorName)) || ''
+            };
+            var sortedChapters = Array.isArray(data.chapters) ? data.chapters.slice().sort(function(a, b) {
+                return (parseInt(a.chapterNo, 10) || 0) - (parseInt(b.chapterNo, 10) || 0);
+            }) : [];
+            bookChapters = sortedChapters.map(function(c, idx) {
+                var titleRaw = (c && (c.chapterTitle || c.title || c.Title)) || '';
+                var contentRaw = (c && (c.content || c.Content || c.chapterContent || c.text)) || '';
+                var chapterNoDb = parseInt(c.chapterNo, 10);
+                if (!Number.isFinite(chapterNoDb)) chapterNoDb = idx + 1;
+                var phCtx = Object.assign({}, bookPreviewContext, {
+                    chapterTitle: titleRaw,
+                    chapterNumber: chapterNoDb,
+                    displayChapterNumber: idx + 1
+                });
+                return {
+                    chapterNo: chapterNoDb,
+                    chapterTitle: applyTemplatePlaceholders(titleRaw, phCtx),
+                    content: normalizeManuscriptEscapes(applyTemplatePlaceholders(contentRaw, phCtx))
+                };
+            });
+            currentChapterIdx = 0;
+
+            const titleEl = document.getElementById('formatting-preview-title');
+            var displayBookTitle = applyTemplatePlaceholders(bookPreviewContext.bookTitle, Object.assign({}, bookPreviewContext, {
+                chapterTitle: '',
+                chapterNumber: '',
+                displayChapterNumber: ''
+            }));
+            if (displayBookTitle && titleEl) titleEl.textContent = displayBookTitle;
+            formatterBookTitle = (displayBookTitle && String(displayBookTitle).trim()) ? String(displayBookTitle).trim() : '';
+
+            var authEl = document.getElementById('formatter-display-author');
+            if (authEl && bookPreviewContext.authorName)
+                authEl.textContent = bookPreviewContext.authorName;
+
+            const hid = document.getElementById('selected-book-id');
+            if (hid) hid.value = String(numId);
+            try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(numId)); } catch (e) {}
+            if (root) root.setAttribute('data-book-id', String(numId));
+
+            if (bookChapters.length === 0) {
+                showNoDataState();
+                showToast('No chapters yet.');
+            } else {
+                currentPageIdx = 0;
+                readerPages = buildReaderPages();
+                populateChapterJump();
+                restoreReaderPosition(numId);
+                togglePreviewMode();
+                showToast('Book loaded');
+            }
+        } catch (err) {
+            console.error('[Book Formatter] loadBookContent error:', err);
+            const bid = parseInt(document.getElementById('selected-book-id')?.value || '0', 10);
+            showErrorState(null, PREVIEW_ERROR_MSG, bid > 0 ? bid : null);
+            showToast('Could not load book.');
+        } finally {
+            await refreshFormatterIterationsForCurrentChapter();
+        }
+    }
+
+    function saveFormatting(callback, opts) {
+        const options = opts || {};
+        const hid = document.getElementById('selected-book-id');
+        const bid = parseInt((hid && hid.value) || '0', 10);
+        if (!bid) {
+            if (!options.silent) showToast('Select a book in AI Writer first, then open Book Formatting.');
+            if (callback) callback(false);
+            return;
+        }
+        const state = getFormatterStateFromUi();
+        persistFormatterDraftLocal(state, bid);
+        const fmt = state.format;
+        fetch('/BookDesign/SaveBookFormatting', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookId: bid,
+                format: fmt === 'Both' ? 'Both' : (fmt === 'Paperback' ? 'Paperback' : 'Ebook'),
+                interiorStyle: state.interiorStyle,
+                textSize: state.textSize,
+                lineSpacing: state.lineSpacing,
+                publishingPlatforms: state.publishingPlatforms,
+                publishingPlatform: state.publishingPlatform || (state.publishingPlatforms ? state.publishingPlatforms.split(',')[0].trim() : ''),
+                draftStateJson: JSON.stringify(state)
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res && res.success) {
+                try {
+                    sessionStorage.setItem('formatter_format_premium', fmt === 'Both' ? '1' : '0');
+                } catch (e) { /* ignore */ }
+                if (!options.silent) showToast('Formatting saved.');
+                if (callback) callback(true);
+            }
+            else {
+                if (!options.silent) showToast(res && res.message ? res.message : 'Save failed.');
+                if (callback) callback(false);
+            }
+        })
+        .catch(function() {
+            if (!options.silent) showToast('Error saving.');
+            if (callback) callback(false);
+        });
+    }
+
+    function setFormatterSaveStatus(text, isError) {
+        var el = document.getElementById('formatter-save-status');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('text-red-600', !!isError);
+        el.classList.toggle('text-gray-400', !isError);
+    }
+
+    function queueAutosave(delayMs) {
+        if (autosaveTimer) clearTimeout(autosaveTimer);
+        autosaveTimer = setTimeout(function() {
+            if (autosaveInFlight) {
+                autosaveQueued = true;
+                return;
+            }
+            autosaveInFlight = true;
+            saveFormatting(function(ok) {
+                autosaveInFlight = false;
+                if (ok) setFormatterSaveStatus('Progress saved to your account — resume here after sign out or on another device.');
+                else setFormatterSaveStatus('Could not sync to server. Changes are kept in this browser until connection works.', true);
+                if (autosaveQueued) {
+                    autosaveQueued = false;
+                    queueAutosave(250);
+                }
+            }, { silent: true });
+        }, typeof delayMs === 'number' ? delayMs : 200);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                applyPublishingPlatformRules(this);
+                if (this.checked) showToast('Selected: ' + (this.getAttribute('data-platform') || ''));
+                persistFormatterDraftLocal(getFormatterStateFromUi());
+                queueAutosave(120);
+            });
+        });
+
+        var platformsStr = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model?.PublishingPlatforms ?? string.Empty));
+        if (platformsStr) setSelectedPlatforms(platformsStr);
+
+        const formatSelect = document.getElementById('format-select');
+        if (formatSelect && formatFromUrl) {
+            formatFromUrl = formatFromUrl === 'Print' ? 'Paperback' : formatFromUrl;
+            if (['Ebook', 'Paperback', 'Both'].indexOf(formatFromUrl) >= 0) formatSelect.value = formatFromUrl;
+            updatePremiumFormatUi();
+            togglePreviewMode();
+        }
+        try {
+            if (sessionStorage.getItem('formatter_format_premium') === '1' && formatSelect && formatSelect.value === 'Both') {
+                updatePremiumFormatUi();
+            }
+        } catch (e) { /* ignore */ }
+
+        if (formatSelect) formatSelect.addEventListener('change', function() {
+            updatePremiumFormatUi();
+            var f = formatSelect.value;
+            if (f === 'Both') {
+                showToast('Premium dual-format selected. Preview stays a normal reader.');
+            }
+            togglePreviewMode();
+            persistFormatterDraftLocal(getFormatterStateFromUi());
+            queueAutosave(250);
+        });
+
+        (function initFormatPicker() {
+            var sel = document.getElementById('format-select');
+            var btn = document.getElementById('format-picker-trigger');
+            var menu = document.getElementById('format-picker-menu');
+            var chev = document.getElementById('format-picker-chevron');
+            if (!sel || !btn || !menu) return;
+            function closeMenu() {
+                menu.classList.add('hidden');
+                btn.setAttribute('aria-expanded', 'false');
+                if (chev) chev.style.transform = '';
+            }
+            function openMenu() {
+                menu.classList.remove('hidden');
+                btn.setAttribute('aria-expanded', 'true');
+                if (chev) chev.style.transform = 'rotate(180deg)';
+            }
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (menu.classList.contains('hidden')) openMenu(); else closeMenu();
+            });
+            menu.addEventListener('click', function(e) { e.stopPropagation(); });
+            menu.querySelectorAll('.format-picker-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    var v = item.getAttribute('data-value');
+                    if (!v) return;
+                    sel.value = v;
+                    syncFormatPickerButton();
+                    closeMenu();
+                    sel.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
+            document.addEventListener('click', function() { closeMenu(); });
+            syncFormatPickerButton();
+        })();
+
+        document.getElementById('style-select')?.addEventListener('change', function() {
+            readerPages = [];
+            readerPageChapterIdx = [];
+            if (bookChapters.length) {
+                readerPages = buildReaderPages();
+                populateChapterJump();
+                currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
+            }
+            renderPreviewContent(0);
+            renderBothPreviews(0);
+            showToast('Interior style updated');
+            persistFormatterDraftLocal(getFormatterStateFromUi());
+            queueAutosave(250);
+        });
+
+        document.getElementById('btn-prev-format')?.addEventListener('click', goToPrevPage);
+        document.getElementById('btn-next-format')?.addEventListener('click', goToNextPage);
+        document.getElementById('btn-prev-format-bar')?.addEventListener('click', goToPrevPage);
+        document.getElementById('btn-next-format-bar')?.addEventListener('click', goToNextPage);
+        document.getElementById('btn-prev-both')?.addEventListener('click', goToPrevPage);
+        document.getElementById('btn-next-both')?.addEventListener('click', goToNextPage);
+        document.getElementById('btn-prev-ebook')?.addEventListener('click', goToPrevPage);
+        document.getElementById('btn-next-ebook')?.addEventListener('click', goToNextPage);
+        document.getElementById('btn-prev-paperback')?.addEventListener('click', goToPrevPage);
+        document.getElementById('btn-next-paperback')?.addEventListener('click', goToNextPage);
+
+        document.getElementById('preview-single')?.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft') { e.preventDefault(); goToPrevPage(); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); goToNextPage(); }
+        });
+        document.getElementById('preview-wrapper')?.addEventListener('keydown', function(e) {
+            var ae = document.activeElement;
+            if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'BUTTON')) return;
+            if (e.key === 'ArrowLeft') { e.preventDefault(); goToPrevPage(); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); goToNextPage(); }
+        });
+
+        document.getElementById('reader-chapter-jump')?.addEventListener('change', function() {
+            var ch = parseInt(this.value, 10);
+            if (isNaN(ch)) return;
+            currentPageIdx = firstPageForChapter(ch);
+            var fmtEl = document.getElementById('format-select');
+            var fmt = (fmtEl && fmtEl.value) || 'Ebook';
+            if (fmt === 'Both') renderBothPreviews(0); else renderPreviewContent(0);
+            persistReaderPosition();
+            showToast('Chapter ' + (ch + 1));
+            refreshFormatterIterationsForCurrentChapter();
+        });
+
+        document.getElementById('fmt-btn-finalize-chapter')?.addEventListener('click', function() { fmtFinalizeSelectedVersion(); });
+        document.getElementById('fmt-btn-download-finalized-pdf')?.addEventListener('click', function() { fmtDownloadFinalizedPdf(); });
+
+        document.getElementById('reader-bookmark-btn')?.addEventListener('click', function() {
+            persistReaderPosition();
+            showToast('Bookmark saved on this device');
+        });
+
+        (function preventCopyOnReader() {
+            var wrapper = document.getElementById('preview-wrapper');
+            if (!wrapper) return;
+            wrapper.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+            wrapper.addEventListener('copy', function(e) { e.preventDefault(); return false; });
+            wrapper.addEventListener('cut', function(e) { e.preventDefault(); return false; });
+            wrapper.addEventListener('paste', function(e) { e.preventDefault(); return false; });
+            wrapper.querySelectorAll('[contenteditable="true"]').forEach(function(el) { el.setAttribute('contenteditable', 'false'); });
+        })();
+
+        document.addEventListener('contextmenu', function(e) {
+            if (e.target && e.target.closest && e.target.closest('#preview-wrapper')) {
+                e.preventDefault();
+            }
+        });
+        document.addEventListener('keydown', function(e) {
+            if (!e.ctrlKey) return;
+            var key = (e.key || '').toLowerCase();
+            if (['c', 'v', 'x', 'a'].indexOf(key) >= 0) {
+                if (document.activeElement && document.activeElement.closest && document.activeElement.closest('#preview-wrapper')) {
+                    e.preventDefault();
+                }
+            }
+        });
+
+        document.getElementById('btn-generate-manuscript')?.addEventListener('click', function() {
+            saveFormatting(function(ok) {
+                if (ok) { renderPreviewContent(); renderBothPreviews(); showToast('Manuscript settings applied.'); }
+            });
+        });
+        document.getElementById('btn-next-cover')?.addEventListener('click', function() {
+            const hid = document.getElementById('selected-book-id');
+            const bid = parseInt((hid && hid.value) || '0', 10);
+            if (!bid) { showToast('Select a book in AI Writer first.'); return; }
+            saveFormatting(function(ok) { if (ok) window.location.href = '/Dashboard/CoverDesign?bookId=' + bid; });
+        });
+
+        document.getElementById('text-size-select')?.addEventListener('change', function() {
+            renderPreviewContent();
+            renderBothPreviews();
+            showToast('Text size updated');
+            persistFormatterDraftLocal(getFormatterStateFromUi());
+            queueAutosave(250);
+        });
+        document.getElementById('line-spacing-select')?.addEventListener('change', function() {
+            const v = this.value;
+            const inner = document.getElementById('preview-content-inner');
+            const ebook = document.getElementById('preview-content-ebook');
+            const paperback = document.getElementById('preview-content-paperback');
+            if (inner) inner.style.lineHeight = v;
+            if (ebook) ebook.style.lineHeight = v;
+            if (paperback) paperback.style.lineHeight = v;
+            if (readerPages.length > 0) { renderPreviewContent(); renderBothPreviews(); }
+            showToast('Line spacing updated');
+            persistFormatterDraftLocal(getFormatterStateFromUi());
+            queueAutosave(250);
+        });
+
+        window.addEventListener('beforeunload', function() {
+            persistFormatterDraftLocal(getFormatterStateFromUi());
+        });
+
+        initFormatterBook();
+    });
+})();
+</script>

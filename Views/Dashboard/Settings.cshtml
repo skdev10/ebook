@@ -1,0 +1,367 @@
+﻿@{
+    ViewData["Title"] = "Settings";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    :root {
+        --primary: #7c3aed;
+        --secondary: #06b6d4;
+        --surface: #ffffff;
+        --background: #f8fafc;
+        --text-primary: #1e293b;
+        --border: #e2e8f0;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        --radius: 16px;
+    }
+
+    .page-container {
+        width: 100%;
+        padding: 30px;
+        background: var(--background);
+        min-height: 100vh;
+    }
+
+    .page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+
+    .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        padding: 30px;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-size: 1rem;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+    }
+
+    .btn-danger {
+        background: #ef4444;
+        color: white;
+    }
+
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+
+    input:checked + .slider {
+        background-color: var(--primary);
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+
+    .status-message {
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-top: 8px;
+        font-size: 0.9rem;
+        display: none;
+    }
+
+    .status-success {
+        background: rgba(16, 185, 129, 0.1);
+        color: #065f46;
+    }
+
+    .status-error {
+        background: rgba(239, 68, 68, 0.1);
+        color: #991b1b;
+    }
+</style>
+@* <form id="passwordForm">
+    <div class="page-container">
+        <div class="page-header">
+            <h1><i class="fas fa-cog"></i> Settings</h1>
+            <p>Manage your account settings</p>
+        </div>
+
+        <!-- Notifications - Database Connected -->
+        <div class="card">
+            <div class="card-header">Notifications</div>
+            <div class="form-group">
+                <label style="display: flex; align-items: center; gap: 16px; cursor: pointer;">
+                    <span class="toggle-switch">
+                        <input type="checkbox" id="notificationsEnabled" @(ViewBag.NotificationsEnabled == true ? "checked" : "") onchange="saveNotificationSettings()">
+                        <span class="slider"></span>
+                    </span>
+                    <span style="font-weight: 600;">Enable Notifications</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Change Password - Database Connected -->
+        <div class="card">
+            <div class="card-header">Change Password</div>
+            <div class="form-group">
+                <label class="form-label">Current Password</label>
+                <input type="password" class="form-control" id="oldPassword" placeholder="Enter current password">
+            </div>
+            <div class="form-group">
+                <label class="form-label">New Password</label>
+                <input type="password" class="form-control" id="newPassword" placeholder="Enter new password">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm New Password</label>
+                <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm new password">
+            </div>
+            <div class="form-group">
+                <button class="btn btn-primary" onclick="changePassword()">
+                    <i class="fas fa-key"></i> Change Password
+                </button>
+                <span id="passwordStatus" class="status-message"></span>
+            </div>
+        </div>
+            @Html.AntiForgeryToken()
+        <!-- Information Pages -->
+        <div class="card">
+            <div class="card-header">Information</div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <a href="/Home/Privacy" class="btn" style="background: #64748b;">Privacy Policy</a>
+                <a href="/Home/About" class="btn" style="background: #64748b;">About App</a>
+                <a href="/Home/Terms" class="btn" style="background: #64748b;">Terms & Conditions</a>
+            </div>
+        </div>
+
+        <!-- Delete Account - Database Connected -->
+        <div class="card" style="border-color: #ef4444;">
+            <div class="card-header" style="color: #ef4444;">Danger Zone</div>
+            <p style="color: #64748b; margin-bottom: 16px;">Permanently delete your account and all associated data.</p>
+            <button class="btn btn-danger" onclick="deleteAccount()">
+                <i class="fas fa-trash"></i> Delete Account
+            </button>
+        </div>
+    </div>
+</form> *@
+<script>
+    // Save notification settings - Database connected
+    async function saveNotificationSettings() {
+        const enabled = document.getElementById('notificationsEnabled').checked;
+        
+        try {
+            const res = await fetch('/Dashboard/SaveNotificationSettings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(enabled)
+            });
+            
+            const result = await res.json();
+            if (result.success) {
+                showNotification('Notification settings saved', 'success');
+            } else {
+                showNotification('Failed to save settings', 'error');
+            }
+        } catch (e) {
+            showNotification('Error: ' + e.message, 'error');
+        }
+    }
+
+    // Change password - Database connected
+    function changePassword() {
+        console.log("🚀 Step 1: Password Function Executed");
+
+        const oldPassword = document.getElementById("oldPassword").value;
+        const newPassword = document.getElementById("newPassword").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+
+        if (newPassword !== confirmPassword) {
+            alert("New password and confirm password do not match");
+            return;
+        }
+
+        console.log("🚀 Step 2: Creating form data");
+
+        // Create fresh FormData (don't use the form's FormData as it might have other fields)
+        const formData = new FormData();
+
+        // Add password fields
+        formData.append('oldPassword', oldPassword);
+        formData.append('newPassword', newPassword);
+
+        // Add anti-forgery token
+        const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+        if (token) {
+            formData.append('__RequestVerificationToken', token);
+        }
+
+        console.log("🚀 Step 3: Making request to /Dashboard/ChangePassword");
+        console.log("FormData contents:");
+        for (let pair of formData.entries()) {
+            console.log(pair[0] + ': ' + (pair[0].includes('password') ? '***HIDDEN***' : pair[1]));
+        }
+
+        fetch('/Dashboard/ChangePassword', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            console.log("Response status:", response.status, response.statusText);
+            console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
+            // Get response text first to see what's coming back
+            return response.text().then(text => {
+                console.log("Raw response text:", text);
+
+                // Try to parse as JSON if possible
+                try {
+                    if (text) {
+                        const data = JSON.parse(text);
+                        return { response, data, text };
+                    } else {
+                        return { response, data: null, text };
+                    }
+                } catch (e) {
+                    console.log("Response is not JSON:", text);
+                    return { response, data: null, text };
+                }
+            });
+        })
+        .then(({ response, data, text }) => {
+            if (!response.ok) {
+                throw new Error(data?.message || text || `HTTP ${response.status}`);
+            }
+
+            if (data) {
+                console.log("Success response:", data);
+                alert(data.message || "Password changed successfully!");
+                document.getElementById("passwordForm").reset();
+            } else {
+                console.log("No data in response");
+                alert("Password changed successfully!");
+                document.getElementById("passwordForm").reset();
+            }
+        })
+        .catch(error => {
+            console.error('Full error:', error);
+            console.error('Error name:', error.name);
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+            //alert("Error changing password: " + error.message);
+        });
+    }
+
+    // Delete account - Database connected
+    async function deleteAccount() {
+        if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+            return;
+        }
+        
+        if (!confirm('This will permanently delete all your data. Are you absolutely sure?')) {
+            return;
+        }
+        
+        try {
+            // Call delete account endpoint (to be implemented)
+            const res = await fetch('/Dashboard/DeleteAccount', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                }
+            });
+            
+            if (res.ok) {
+                window.location.href = '/Account/Logout';
+            } else {
+                alert('Failed to delete account');
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    }
+
+    function showNotification(message, type) {
+        // Simple notification - can be enhanced
+        const notification = document.createElement('div');
+        notification.textContent = message;
+        notification.style.cssText = `position:fixed;top:20px;right:20px;padding:16px 24px;background:${type==='success'?'#10b981':'#ef4444'};color:white;border-radius:8px;z-index:9999;`;
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+    }
+</script>
+

@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Advanced Editing &amp; Formatting </title>
+    <meta name="color-scheme" content="dark light" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/lucide@latest"></script>
+  </head>
+  <body
+    class="min-h-screen bg-[#f5f7f9] text-slate-900 antialiased [font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Apple Color Emoji','Segoe UI Emoji']"
+  >
+    <main class="mx-auto max-w-[120rem] px-4 sm:px-6 lg:px-8 py-8">
+      <!-- Actions -->
+      <section class="mb-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            id="saveFormatBtn"
+            class="inline-flex items-center gap-2 rounded-md bg-indigo-500/90 hover:bg-indigo-500 text-white px-4 py-2.5 text-sm font-semibold tracking-tight shadow-sm ring-1 ring-inset ring-white/10 transition-colors"
+          >
+            <i data-lucide="save"></i>
+            Save Format
+          </button>
+          <button
+            id="previewBtn"
+            class="inline-flex items-center gap-2 rounded-md bg-slate-800 hover:bg-slate-700 px-4 py-2.5 text-sm font-semibold tracking-tight text-slate-100 ring-1 ring-inset ring-white/10 transition-colors"
+          >
+            <i data-lucide="eye"></i>
+            Preview
+          </button>
+
+          <!-- Theme Toggle -->
+          <div class="ml-auto flex items-center gap-3">
+            <div
+              class="hidden sm:flex items-center gap-2 text-xs text-slate-400"
+            >
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500/90"></span>
+              Auto-save ready
+            </div>
+            <button
+              id="themeToggle"
+              class="inline-flex items-center gap-2 rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-2 text-sm font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+            >
+              <i id="themeIcon" data-lucide="sun"></i>
+              Light
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Core Grid (tighter layout) -->
+      <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <!-- Left: Controls -->
+        <div class="space-y-5">
+          <!-- Page Size & Format -->
+          <div
+            data-surface=""
+            class="rounded-xl bg-slate-900/60 ring-1 ring-white/10 shadow-sm"
+          >
+            <div
+              class="px-5 py-4 border-b border-white/10 flex items-center justify-between"
+            >
+              <div>
+                <h2
+                  class="text-lg sm:text-xl font-semibold tracking-tight text-white flex items-center gap-2"
+                >
+                  <i data-lucide="ruler" class="text-indigo-400"></i>
+                  Page Size &amp; Format
+                </h2>
+                <p class="mt-1.5 text-sm text-slate-400">
+                  Choose a size optimized for your reading platform.
+                </p>
+              </div>
+              <button
+                id="resetSizes"
+                class="inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+              >
+                <i data-lucide="rotate-ccw"></i>
+                Reset
+              </button>
+            </div>
+            <div class="p-5">
+              <div id="sizeGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <!-- Size option template -->
+                <button
+                  data-size="6x9"
+                  class="size-card group relative w-full rounded-lg border border-white/10 bg-slate-800/60 hover:bg-slate-800 text-left p-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                >
+                  <div
+                    class="mx-auto mb-3 h-16 w-14 rounded-md border border-white/10 bg-slate-900/60 flex items-center justify-center text-[13px] font-semibold text-slate-300"
+                  >
+                    6×9
+                  </div>
+                  <div
+                    class="text-[13px] font-medium text-slate-200 tracking-tight"
+                  >
+                    US Trade
+                  </div>
+                  <div class="mt-0.5 text-[11px] text-slate-400">
+                    Most popular
+                  </div>
+                  <div
+                    class="checkmark absolute right-2 top-2 hidden rounded-full bg-indigo-500 text-white p-1"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M20 6 9 17l-5-5"
+                      ></path>
+                    </svg>
+                  </div>
+                </button>
+                <button
+                  data-size="5x8"
+                  class="size-card group relative w-full rounded-lg border border-white/10 bg-slate-800/60 hover:bg-slate-800 text-left p-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                >
+                  <div
+                    class="mx-auto mb-3 h-16 w-12 rounded-md border border-white/10 bg-slate-900/60 flex items-center justify-center text-[13px] font-semibold text-slate-300"
+                  >
+                    5×8
+                  </div>
+                  <div
+                    class="text-[13px] font-medium text-slate-200 tracking-tight"
+                  >
+                    Digest
+                  </div>
+                  <div class="mt-0.5 text-[11px] text-slate-400">Compact</div>
+                  <div
+                    class="checkmark absolute right-2 top-2 hidden rounded-full bg-indigo-500 text-white p-1"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M20 6 9 17l-5-5"
+                      ></path>
+                    </svg>
+                  </div>
+                </button>
+                <button
+                  data-size="5.5x8.5"
+                  class="size-card group relative w-full rounded-lg border border-white/10 bg-slate-800/60 hover:bg-slate-800 text-left p-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                >
+                  <div
+                    class="mx-auto mb-3 h-16 w-14 rounded-md border border-white/10 bg-slate-900/60 flex items-center justify-center text-[13px] font-semibold text-slate-300"
+                  >
+                    5.5×8.5
+                  </div>
+                  <div
+                    class="text-[13px] font-medium text-slate-200 tracking-tight"
+                  >
+                    Standard
+                  </div>
+                  <div class="mt-0.5 text-[11px] text-slate-400">Classic</div>
+                  <div
+                    class="checkmark absolute right-2 top-2 hidden rounded-full bg-indigo-500 text-white p-1"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M20 6 9 17l-5-5"
+                      ></path>
+                    </svg>
+                  </div>
+                </button>
+                <button
+                  data-size="8.5x11"
+                  class="size-card group relative w-full rounded-lg border border-white/10 bg-slate-800/60 hover:bg-slate-800 text-left p-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+                >
+                  <div
+                    class="mx-auto mb-3 h-16 w-20 rounded-md border border-white/10 bg-slate-900/60 flex items-center justify-center text-[13px] font-semibold text-slate-300"
+                  >
+                    8.5×11
+                  </div>
+                  <div
+                    class="text-[13px] font-medium text-slate-200 tracking-tight"
+                  >
+                    Letter
+                  </div>
+                  <div class="mt-0.5 text-[11px] text-slate-400">
+                    Large format
+                  </div>
+                  <div
+                    class="checkmark absolute right-2 top-2 hidden rounded-full bg-indigo-500 text-white p-1"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M20 6 9 17l-5-5"
+                      ></path>
+                    </svg>
+                  </div>
+                </button>
+              </div>
+
+              <div class="mt-5">
+                <h3
+                  class="text-sm font-semibold tracking-tight text-white mb-2"
+                >
+                  eBook Formats
+                </h3>
+                <div id="formatChips" class="flex flex-wrap gap-2">
+                  <button
+                    data-format="epub"
+                    class="format-chip inline-flex items-center gap-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-indigo-400/30 transition-colors aria-selected"
+                  >
+                    <i data-lucide="smartphone"></i>
+                    EPUB
+                  </button>
+                  <button
+                    data-format="mobi"
+                    class="format-chip inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-white/10 transition-colors"
+                  >
+                    <i data-lucide="book"></i>
+                    MOBI
+                  </button>
+                  <button
+                    data-format="pdf"
+                    class="format-chip inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-white/10 transition-colors"
+                  >
+                    <i data-lucide="file-text"></i>
+                    PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="px-5 pb-5">
+              <div
+                class="rounded-lg border border-white/10 bg-slate-900/70 p-4"
+              >
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label
+                      class="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      Font Family
+                    </label>
+                    <div class="relative">
+                      <select
+                        id="fontFamily"
+                        class="w-full appearance-none rounded-md bg-slate-800/70 text-slate-200 ring-1 ring-inset ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      >
+                        <option value="serif">Times New Roman (Serif)</option>
+                        <option value="sans-serif" selected="">
+                          Inter / System (Sans)
+                        </option>
+                        <option value="Garamond,serif">Garamond</option>
+                        <option value="Georgia,serif">Georgia</option>
+                      </select>
+                      <i
+                        data-lucide="chevron-down"
+                        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
+                      ></i>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      Font Size
+                    </label>
+                    <div class="relative">
+                      <select
+                        id="fontSize"
+                        class="w-full appearance-none rounded-md bg-slate-800/70 text-slate-200 ring-1 ring-inset ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      >
+                        <option value="10pt">10 pt</option>
+                        <option value="11pt" selected="">11 pt</option>
+                        <option value="12pt">12 pt</option>
+                        <option value="14pt">14 pt</option>
+                      </select>
+                      <i
+                        data-lucide="chevron-down"
+                        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
+                      ></i>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      Line Spacing
+                    </label>
+                    <div class="relative">
+                      <select
+                        id="lineSpacing"
+                        class="w-full appearance-none rounded-md bg-slate-800/70 text-slate-200 ring-1 ring-inset ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      >
+                        <option value="1">Single</option>
+                        <option value="1.15">1.15</option>
+                        <option value="1.5" selected="">1.5</option>
+                        <option value="2">Double</option>
+                      </select>
+                      <i
+                        data-lucide="chevron-down"
+                        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
+                      ></i>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      Paragraph Indent
+                    </label>
+                    <div class="flex items-center gap-3">
+                      <input
+                        id="paragraphIndent"
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value="0.5"
+                        class="w-full accent-indigo-500"
+                      />
+                      <span
+                        id="indentValue"
+                        class="w-12 text-right text-xs text-slate-400"
+                      >
+                        0.5em
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      Chapter Break
+                    </label>
+                    <div class="relative">
+                      <select
+                        id="chapterBreak"
+                        class="w-full appearance-none rounded-md bg-slate-800/70 text-slate-200 ring-1 ring-inset ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                      >
+                        <option value="page">New Page</option>
+                        <option value="line">Line Break</option>
+                        <option value="space">Extra Space</option>
+                      </select>
+                      <i
+                        data-lucide="chevron-down"
+                        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
+                      ></i>
+                    </div>
+                  </div>
+                  <div>
+                    <label
+                      class="block text-xs font-medium text-slate-300 mb-1"
+                    >
+                      Text Styling
+                    </label>
+                    <div id="styleBtns" class="flex flex-wrap gap-2">
+                      <button
+                        data-style="bold"
+                        class="style-btn inline-flex items-center gap-1.5 rounded-md bg-slate-800/70 hover:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                      >
+                        <i data-lucide="bold"></i>
+                        Bold
+                      </button>
+                      <button
+                        data-style="italic"
+                        class="style-btn inline-flex items-center gap-1.5 rounded-md bg-slate-800/70 hover:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                      >
+                        <i data-lucide="italic"></i>
+                        Italic
+                      </button>
+                      <button
+                        data-style="underline"
+                        class="style-btn inline-flex items-center gap-1.5 rounded-md bg-slate-800/70 hover:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                      >
+                        <i data-lucide="underline"></i>
+                        Underline
+                      </button>
+                      <button
+                        data-style="small-caps"
+                        class="style-btn locked inline-flex items-center gap-1.5 rounded-md bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-500 ring-1 ring-inset ring-white/10 cursor-not-allowed"
+                        title="Coming soon"
+                      >
+                        <i data-lucide="lock"></i>
+                        Small Caps
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  class="mt-4 flex items-center justify-between rounded-lg border border-white/10 bg-slate-950/60 px-4 py-3"
+                >
+                  <div class="text-sm text-slate-300">Estimated Pages</div>
+                  <div
+                    id="pageEstimate"
+                    class="text-sm font-semibold tracking-tight text-white"
+                  >
+                    247 pages
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Preview + Editor -->
+        <div class="space-y-5">
+          <!-- Live Preview -->
+          <div
+            data-surface=""
+            class="rounded-xl bg-slate-900/60 ring-1 ring-white/10 shadow-sm"
+          >
+            <div
+              class="px-5 py-4 border-b border-white/10 flex items-center justify-between"
+            >
+              <div class="flex items-center gap-2">
+                <h2
+                  class="text-lg sm:text-xl font-semibold tracking-tight text-white flex items-center gap-2"
+                >
+                  <i data-lucide="monitor" class="text-indigo-400"></i>
+                  Live Preview
+                </h2>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  id="fullscreenPreview"
+                  class="inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                >
+                  <i data-lucide="maximize"></i>
+                  Fullscreen
+                </button>
+              </div>
+            </div>
+            <div id="previewWrap" class="p-5">
+              <article
+                id="previewText"
+                class="prose prose-invert max-w-none rounded-lg border border-white/10 bg-slate-950/50 p-5 text-slate-200 leading-7"
+              >
+                <h2 class="text-2xl tracking-tight font-semibold">
+                  Chapter 1: Introduction
+                </h2>
+                <p class="mt-3">
+                  Welcome to the beginning of our journey. This chapter
+                  introduces the main concepts that we'll be exploring
+                  throughout this book.
+                </p>
+                <p>
+                  In this opening chapter, we'll establish the foundation for
+                  everything that follows. You'll discover the core principles
+                  that will guide us through each subsequent section.
+                </p>
+                <p>
+                  This is where your story begins, where your ideas take shape,
+                  and where your readers will first connect with your message.
+                  The formatting you see here reflects the current settings
+                  you've selected.
+                </p>
+                <h3 class="text-xl tracking-tight font-semibold mt-6">
+                  What You'll Learn
+                </h3>
+                <ul class="list-disc pl-5 space-y-1">
+                  <li>Key concepts and principles</li>
+                  <li>Practical applications</li>
+                  <li>Real-world examples</li>
+                  <li>Advanced techniques</li>
+                </ul>
+                <p class="mt-3">
+                  Each chapter builds upon the previous one, creating a
+                  comprehensive learning experience that will transform your
+                  understanding of the subject.
+                </p>
+              </article>
+            </div>
+            <div class="px-5 pb-5">
+              <!-- Editor -->
+              <div class="rounded-lg border border-white/10 overflow-hidden">
+                <div
+                  class="flex flex-wrap items-center gap-1.5 bg-slate-900/60 px-2.5 py-2 border-b border-white/10 sticky top-0"
+                >
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="bold"
+                    title="Bold"
+                  >
+                    <i data-lucide="bold"></i>
+                  </button>
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="italic"
+                    title="Italic"
+                  >
+                    <i data-lucide="italic"></i>
+                  </button>
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="underline"
+                    title="Underline"
+                  >
+                    <i data-lucide="underline"></i>
+                  </button>
+                  <span class="mx-1 h-6 w-px bg-white/10"></span>
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="justifyLeft"
+                    title="Align left"
+                  >
+                    <i data-lucide="align-left"></i>
+                  </button>
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="justifyCenter"
+                    title="Align center"
+                  >
+                    <i data-lucide="align-center"></i>
+                  </button>
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="justifyRight"
+                    title="Align right"
+                  >
+                    <i data-lucide="align-right"></i>
+                  </button>
+                  <span class="mx-1 h-6 w-px bg-white/10"></span>
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="insertUnorderedList"
+                    title="Bullet list"
+                  >
+                    <i data-lucide="list"></i>
+                  </button>
+                  <button
+                    class="toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10"
+                    data-target="#editorContent"
+                    data-action="formatBlock"
+                    data-value="blockquote"
+                    title="Quote"
+                  >
+                    <i data-lucide="quote"></i>
+                  </button>
+                </div>
+                <div
+                  id="editorContent"
+                  contenteditable="true"
+                  class="min-h-[160px] bg-slate-950/50 p-4 text-sm leading-7 outline-none focus:ring-2 focus:ring-indigo-500/40"
+                >
+                  Click here to start editing your text with live formatting
+                  preview...
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Advanced Book Editing (grid polished) -->
+      <section
+        data-surface=""
+        class="mt-6 rounded-xl bg-slate-900/60 ring-1 ring-white/10 shadow-sm"
+      >
+        <div class="px-5 py-4 border-b border-white/10">
+          <h2
+            class="text-lg sm:text-xl font-semibold tracking-tight text-white flex items-center gap-2"
+          >
+            <i data-lucide="sparkles" class="text-indigo-400"></i>
+            Advanced Book Editing
+          </h2>
+          <p class="mt-1.5 text-sm text-slate-400">
+            Edit content with smart structure and context-aware tools.
+          </p>
+        </div>
+
+        <div class="p-5">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <!-- Sidebar -->
+            <aside class="lg:col-span-4 space-y-4">
+              <div
+                data-surface=""
+                class="rounded-lg border border-white/10 bg-slate-900/70 p-4"
+              >
+                <div>
+                  <label class="block text-xs font-medium text-slate-300 mb-1">
+                    Select Book
+                  </label>
+                  <div class="relative">
+                    <select
+                      id="bookSelect"
+                      class="w-full appearance-none rounded-md bg-slate-800/70 text-slate-200 ring-1 ring-inset ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    >
+                      <option value="">-- Select a Book --</option>
+                      <option value="1">The Art of Digital Publishing</option>
+                      <option value="2">Modern Web Development</option>
+                      <option value="3">AI in Everyday Life</option>
+                      <option value="4">Creative Writing Techniques</option>
+                    </select>
+                    <i
+                      data-lucide="chevron-down"
+                      class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
+                    ></i>
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <label class="block text-xs font-medium text-slate-300 mb-1">
+                    Select Chapter
+                  </label>
+                  <div class="relative">
+                    <select
+                      id="chapterSelect"
+                      disabled=""
+                      class="w-full appearance-none rounded-md bg-slate-800/70 text-slate-500 ring-1 ring-inset ring-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    >
+                      <option value="">-- Select a Book First --</option>
+                    </select>
+                    <i
+                      data-lucide="chevron-down"
+                      class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
+                    ></i>
+                  </div>
+                </div>
+                <div class="mt-4 flex items-center gap-2">
+                  <button
+                    id="saveBtn"
+                    disabled=""
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-indigo-500/90 hover:bg-indigo-500 text-white px-4 py-2.5 text-sm font-semibold tracking-tight shadow-sm ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <i data-lucide="save"></i>
+                    Save Changes
+                  </button>
+                  <button
+                    id="previewChapterBtn"
+                    disabled=""
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-slate-800 hover:bg-slate-700 px-4 py-2.5 text-sm font-semibold tracking-tight text-slate-100 ring-1 ring-inset ring-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <i data-lucide="eye"></i>
+                    Preview
+                  </button>
+                </div>
+              </div>
+
+              <div
+                data-surface=""
+                class="rounded-lg border border-white/10 bg-slate-900/70 p-4"
+              >
+                <div class="flex items-center justify-between">
+                  <h3
+                    class="text-sm font-semibold tracking-tight text-white flex items-center gap-2"
+                  >
+                    <i data-lucide="wand-2" class="text-indigo-400"></i>
+                    AI Writing Assistant
+                  </h3>
+                  <span
+                    class="text-[10px] text-emerald-400/90 bg-emerald-500/10 border border-emerald-400/20 rounded px-1.5 py-0.5"
+                  >
+                    Smart
+                  </span>
+                </div>
+                            <button class="btn btn-primary" onclick="window.location.href='/Books/AIGenerateBook'">
+                                Generate Book
+                            </button>
+                          @*   <li class="nav-item">
+                                <a class="nav-link" href="@Url.Action("Index", "BookProcessing")">
+                                    <i class="bi bi-gear"></i> Process Responses
+                                </a>
+                            </li> *@
+
+                <p class="mt-2 text-xs text-slate-400">
+                  Get suggestions and improvements for your content.
+                </p>
+                <button
+                  class="feature-activate mt-3 inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                  data-feature="ai"
+                >
+                  <i data-lucide="play"></i>
+                  Activate
+                </button>
+              </div>
+
+              <div
+                data-surface=""
+                class="rounded-lg border border-white/10 bg-slate-900/70 p-4"
+              >
+                <div class="flex items-center justify-between">
+                  <h3
+                    class="text-sm font-semibold tracking-tight text-white flex items-center gap-2"
+                  >
+                    <i data-lucide="check-check" class="text-indigo-400"></i>
+                    Grammar Check
+                  </h3>
+                  <span
+                    class="text-[10px] text-sky-400/90 bg-sky-500/10 border border-sky-400/20 rounded px-1.5 py-0.5"
+                  >
+                    Pro
+                  </span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">
+                  Advanced grammar and spelling correction.
+                </p>
+                <button
+                  class="feature-activate mt-3 inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                  data-feature="grammar"
+                >
+                  <i data-lucide="scan-text"></i>
+                  Run Check
+                </button>
+              </div>
+
+              <div
+                data-surface=""
+                class="rounded-lg border border-white/10 bg-slate-900/70 p-4"
+              >
+                <div class="flex items-center justify-between">
+                  <h3
+                    class="text-sm font-semibold tracking-tight text-white flex items-center gap-2"
+                  >
+                    <i data-lucide="line-chart" class="text-indigo-400"></i>
+                    Readability Analysis
+                  </h3>
+                  <span
+                    class="text-[10px] text-amber-400/90 bg-amber-500/10 border border-amber-400/20 rounded px-1.5 py-0.5"
+                  >
+                    Insight
+                  </span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">
+                  Analyze and improve content readability.
+                </p>
+                <button
+                  class="feature-activate mt-3 inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                  data-feature="readability"
+                >
+                  <i data-lucide="pie-chart"></i>
+                  Analyze
+                </button>
+              </div>
+            </aside>
+
+            <!-- Rich Editor -->
+            <div class="lg:col-span-8">
+              <div class="rounded-lg border border-white/10 overflow-hidden">
+                <div
+                  class="flex items-center justify-between bg-slate-900/60 px-3 py-2 border-b border-white/10 sticky top-0"
+                >
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="formatBlock"
+                      data-value="h1"
+                      title="Heading 1"
+                    >
+                      <i data-lucide="heading-1"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="formatBlock"
+                      data-value="h2"
+                      title="Heading 2"
+                    >
+                      <i data-lucide="heading-2"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="formatBlock"
+                      data-value="p"
+                      title="Paragraph"
+                    >
+                      <i data-lucide="pilcrow"></i>
+                    </button>
+                    <span class="mx-1 h-6 w-px bg-white/10"></span>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="bold"
+                      title="Bold"
+                    >
+                      <i data-lucide="bold"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="italic"
+                      title="Italic"
+                    >
+                      <i data-lucide="italic"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="underline"
+                      title="Underline"
+                    >
+                      <i data-lucide="underline"></i>
+                    </button>
+                    <span class="mx-1 h-6 w-px bg-white/10"></span>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="insertUnorderedList"
+                      title="Bulleted list"
+                    >
+                      <i data-lucide="list"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="insertOrderedList"
+                      title="Numbered list"
+                    >
+                      <i data-lucide="list-ordered"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="formatBlock"
+                      data-value="blockquote"
+                      title="Quote"
+                    >
+                      <i data-lucide="quote"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="formatBlock"
+                      data-value="pre"
+                      title="Code block"
+                    >
+                      <i data-lucide="code-2"></i>
+                    </button>
+                    <span class="mx-1 h-6 w-px bg-white/10"></span>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="createLink"
+                      title="Insert link"
+                    >
+                      <i data-lucide="link"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="unlink"
+                      title="Remove link"
+                    >
+                      <i data-lucide="unlink"></i>
+                    </button>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="undo"
+                      title="Undo"
+                    >
+                      <i data-lucide="undo-2"></i>
+                    </button>
+                    <button
+                      class="adv-toolbar-btn inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-slate-200 ring-1 ring-inset ring-white/10"
+                      data-target="#chapterContent"
+                      data-cmd="redo"
+                      title="Redo"
+                    >
+                      <i data-lucide="redo-2"></i>
+                    </button>
+                    <button
+                      id="clearFormatting"
+                      class="inline-flex h-8 items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 text-xs text-rose-200 ring-1 ring-inset ring-white/10"
+                      title="Clear formatting"
+                    >
+                      <i data-lucide="eraser"></i>
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="chapterContent"
+                  contenteditable="true"
+                  class="min-h-[380px] bg-slate-950/50 p-5 leading-7 outline-none prose prose-invert max-w-none focus:ring-2 focus:ring-indigo-500/40"
+                >
+                  <h2 class="text-xl tracking-tight font-semibold">
+                    Start writing your chapter…
+                  </h2>
+                  <p class="mt-2">
+                    Select a book and chapter from the sidebar to load content,
+                    or begin typing here.
+                  </p>
+                </div>
+                <div
+                  class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 px-3 py-2 border-t border-white/10"
+                >
+                  <div class="text-xs text-slate-400">
+                    Words:
+                    <span id="wordCount">0</span>
+                    • Characters:
+                    <span id="charCount">0</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      id="expandEditor"
+                      class="inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+                    >
+                      <i data-lucide="maximize-2"></i>
+                      Expand
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Premium -->
+      <section
+        data-surface=""
+        class="mt-6 rounded-xl bg-gradient-to-br from-slate-900/80 to-indigo-900/50 ring-1 ring-white/10 shadow-sm overflow-hidden"
+      >
+        <div class="p-6 sm:p-7">
+          <div
+            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          >
+            <div>
+              <h3
+                class="text-xl font-semibold tracking-tight text-white flex items-center gap-2"
+              >
+                <i data-lucide="star" class="text-amber-300"></i>
+                Unlock Premium Formatting Features
+              </h3>
+              <p class="mt-1.5 text-sm text-slate-300 max-w-2xl">
+                Advanced typography, custom fonts, professional layouts, and
+                more.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                id="upgradeBtn"
+                class="inline-flex items-center gap-2 rounded-md bg-indigo-500/90 hover:bg-indigo-500 text-white px-4 py-2.5 text-sm font-semibold tracking-tight shadow-sm ring-1 ring-inset ring-white/10 transition-colors"
+              >
+                <i data-lucide="sparkle"></i>
+                Upgrade
+              </button>
+              <button
+                id="learnMoreBtn"
+                class="inline-flex items-center gap-2 rounded-md bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 text-sm font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-colors"
+              >
+                <i data-lucide="info"></i>
+                Learn more
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="fixed inset-0 z-[60] hidden">
+      <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm"></div>
+      <div class="relative mx-auto my-6 w-[94vw] max-w-5xl">
+        <div
+          class="rounded-xl ring-1 ring-white/10 bg-slate-900 shadow-xl overflow-hidden"
+        >
+          <div
+            class="flex items-center justify-between px-4 py-3 border-b border-white/10"
+          >
+            <div class="text-sm font-medium text-white tracking-tight">
+              Preview
+            </div>
+            <button
+              id="closePreviewModal"
+              class="inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10 transition-colors"
+            >
+              <i data-lucide="x"></i>
+              Close
+            </button>
+          </div>
+          <div class="p-5">
+            <article
+              id="modalPreviewContent"
+              class="prose prose-invert max-w-none rounded-lg border border-white/10 bg-slate-950/50 p-5 text-slate-200 leading-7"
+            ></article>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toasts -->
+    <div
+      id="toastStack"
+      class="fixed bottom-4 left-4 z-[70] space-y-2 w-[92vw] max-w-sm"
+    ></div>
+
+    <script>
+      // Icons
+      function renderIcons() {
+        try { lucide.createIcons({ attrs: { class: 'icon', 'stroke-width': 1.5 } }); } catch (e) {}
+      }
+
+      // Toast utility
+      function showToast(message, type = 'info') {
+        const stack = document.getElementById('toastStack');
+        const color = type === 'success' ? 'bg-emerald-500/15 text-emerald-200 ring-emerald-400/30'
+                    : type === 'warn'    ? 'bg-amber-500/15 text-amber-200 ring-amber-400/30'
+                    : type === 'error'   ? 'bg-rose-500/15 text-rose-200 ring-rose-400/30'
+                    : 'bg-slate-800 text-slate-200 ring-white/10';
+        const el = document.createElement('div');
+        el.className = 'flex items-center gap-2 rounded-md px-3 py-2 text-sm ring-1 ' + color + ' shadow-sm';
+        el.innerHTML = '<i data-lucide="'+(type==='success'?'check-circle':type==='error'?'alert-triangle':type==='warn'?'alert-circle':'info')+'"></i><span>'+message+'</span>';
+        stack.appendChild(el);
+        renderIcons();
+        setTimeout(() => {
+          el.classList.add('opacity-0', 'translate-y-1', 'transition');
+          setTimeout(() => el.remove(), 250);
+        }, 2200);
+      }
+
+      // Theme
+      const THEME_KEY = 'editor-theme';
+
+      function swapClasses(mode) {
+        const pairsLight = [
+          ['text-white','text-slate-900'],
+          ['text-slate-100','text-slate-800'],
+          ['text-slate-200','text-slate-800'],
+          ['bg-slate-950/50','bg-slate-50'],
+          ['bg-slate-900/70','bg-white'],
+          ['bg-slate-900/60','bg-white'],
+          ['bg-slate-900','bg-white'],
+          ['bg-slate-800/70','bg-slate-100'],
+          ['bg-slate-800','bg-slate-100'],
+          ['ring-white/10','ring-slate-200'],
+          ['border-white/10','border-slate-200']
+        ];
+        const pairsDark = pairsLight.map(([a,b]) => [b,a]);
+        const pairs = mode === 'light' ? pairsLight : pairsDark;
+        const all = document.querySelectorAll('*');
+        all.forEach(node => {
+          if (!node.classList) return;
+          pairs.forEach(([rem, add]) => {
+            if (node.classList.contains(rem)) {
+              node.classList.remove(rem);
+              node.classList.add(add);
+            }
+          });
+        });
+        document.querySelectorAll('.prose').forEach(node => {
+          node.classList.toggle('prose-invert', mode === 'dark');
+        });
+      }
+
+      function setTheme(mode) {
+        const html = document.documentElement;
+        const body = document.body;
+        html.setAttribute('data-theme', mode);
+        try { localStorage.setItem(THEME_KEY, mode); } catch (e) {}
+        // Swap body base
+        if (mode === 'light') {
+          body.classList.remove('bg-[#0B1220]','text-slate-200');
+          body.classList.add('bg-[#f5f7f9]','text-slate-900');
+        } else {
+          body.classList.remove('bg-[#f5f7f9]','text-slate-900');
+          body.classList.add('bg-[#0B1220]','text-slate-200');
+        }
+        // Light/dark surfaces minimal swap
+        document.querySelectorAll('[data-surface]').forEach((node) => {
+          if (mode === 'light') {
+            node.classList.remove('bg-slate-900/60','ring-white/10');
+            node.classList.add('bg-white','ring-slate-200');
+          } else {
+            node.classList.remove('bg-white','ring-slate-200');
+            node.classList.add('bg-slate-900/60','ring-white/10');
+          }
+        });
+        // Broader class adjustments for nested elements
+        swapClasses(mode);
+        // Update toggle label/icon
+        const icon = document.getElementById('themeIcon');
+        const btn = document.getElementById('themeToggle');
+        if (icon) {
+          icon.setAttribute('data-lucide', mode === 'light' ? 'sun' : 'moon');
+        }
+        if (btn) {
+          btn.lastChild.nodeValue = (mode === 'light' ? ' Light' : ' Dark');
+        }
+        renderIcons();
+      }
+
+      // Format controls -> Live Preview styling
+      function applyPreviewStyles() {
+        const preview = document.getElementById('previewText');
+        const ff = document.getElementById('fontFamily').value;
+        const fs = document.getElementById('fontSize').value;
+        const lh = document.getElementById('lineSpacing').value;
+        const indentEm = parseFloat(document.getElementById('paragraphIndent').value || 0.5);
+        if (!preview) return;
+        preview.style.fontFamily = ff === 'sans-serif' ? "Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" : ff;
+        preview.style.fontSize = fs;
+        preview.style.lineHeight = lh;
+        preview.querySelectorAll('p').forEach(p => { p.style.textIndent = indentEm + 'em'; });
+        estimatePages();
+      }
+
+      function estimatePages() {
+        const fs = parseInt(document.getElementById('fontSize').value);
+        const lh = parseFloat(document.getElementById('lineSpacing').value);
+        const size = document.querySelector('.size-card[aria-pressed="true"]')?.dataset.size || '6x9';
+        // Basic heuristic
+        let base = 220; // baseline pages
+        base += (size === '8.5x11') ? -80 : (size === '5x8' ? +40 : (size === '5.5x8.5' ? +20 : 0));
+        base += (fs === 10) ? -30 : (fs === 12 ? +25 : (fs === 14 ? +60 : 0));
+        base += (lh === 1 ? -15 : lh === 1.15 ? 0 : lh === 1.5 ? +25 : +50);
+        const pages = Math.max(32, Math.round(base));
+        document.getElementById('pageEstimate').textContent = pages + ' pages';
+      }
+
+      // Size selection and format chips
+      function initSizeAndFormat() {
+        const cards = document.querySelectorAll('.size-card');
+        cards.forEach(card => {
+          card.addEventListener('click', () => {
+            cards.forEach(c => {
+              c.removeAttribute('aria-pressed');
+              c.classList.remove('ring-2','ring-indigo-500/50');
+              c.querySelector('.checkmark')?.classList.add('hidden');
+            });
+            card.setAttribute('aria-pressed', 'true');
+            card.classList.add('ring-2','ring-indigo-500/50');
+            card.querySelector('.checkmark')?.classList.remove('hidden');
+            showToast('Selected size: ' + card.dataset.size, 'success');
+            estimatePages();
+          });
+        });
+        const reset = document.getElementById('resetSizes');
+        reset?.addEventListener('click', () => {
+          cards.forEach(c => {
+            c.removeAttribute('aria-pressed');
+            c.classList.remove('ring-2','ring-indigo-500/50');
+            c.querySelector('.checkmark')?.classList.add('hidden');
+          });
+          showToast('Size selection reset', 'info');
+          estimatePages();
+        });
+
+        document.querySelectorAll('.format-chip').forEach(chip => {
+          chip.addEventListener('click', () => {
+            const active = chip.hasAttribute('aria-selected');
+            document.querySelectorAll('.format-chip').forEach(c => c.removeAttribute('aria-selected'));
+            if (!active) chip.setAttribute('aria-selected','true');
+            document.querySelectorAll('.format-chip').forEach(c => {
+              if (c.hasAttribute('aria-selected')) {
+                c.className = 'format-chip inline-flex items-center gap-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-indigo-400/30 transition-colors aria-selected';
+              } else {
+                c.className = 'format-chip inline-flex items-center gap-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 text-xs font-medium ring-1 ring-inset ring-white/10 transition-colors';
+              }
+            });
+            showToast('Format set to ' + chip.dataset.format.toUpperCase(), 'success');
+          });
+        });
+      }
+
+      // Toolbar handlers (execCommand for simplicity)
+      function execOn(targetSel, cmd, value) {
+        const target = document.querySelector(targetSel);
+        if (!target) return;
+        target.focus();
+        if (cmd === 'formatBlock') {
+          document.execCommand(cmd, false, value);
+        } else if (cmd === 'createLink') {
+          const url = prompt('Enter URL');
+          if (url) document.execCommand('createLink', false, url);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+      }
+
+      function bindToolbars() {
+        document.querySelectorAll('.toolbar-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            execOn(btn.dataset.target, btn.dataset.action, btn.dataset.value);
+          });
+        });
+        document.querySelectorAll('.adv-toolbar-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const cmd = btn.dataset.cmd;
+            const val = btn.dataset.value;
+            execOn(btn.dataset.target, cmd, val);
+          });
+        });
+        document.getElementById('clearFormatting')?.addEventListener('click', () => {
+          const el = document.getElementById('chapterContent');
+          document.execCommand('removeFormat', false, null);
+          // Remove headings to paragraphs
+          el.innerHTML = el.innerHTML.replace(/<h[1-6]>/g,'<p>').replace(/<\/h[1-6]>/g,'</p>');
+          showToast('Formatting cleared', 'warn');
+        });
+      }
+
+      // Counts
+      function bindCounts() {
+        const chapter = document.getElementById('chapterContent');
+        const wordEl = document.getElementById('wordCount');
+        const charEl = document.getElementById('charCount');
+        function update() {
+          const text = chapter.innerText || '';
+          const words = (text.trim().match(/\b[\w’-]+\b/g) || []).length;
+          const chars = text.replace(/\s/g,'').length;
+          wordEl.textContent = words;
+          charEl.textContent = chars;
+        }
+        chapter.addEventListener('input', update);
+        update();
+      }
+
+      // Save/Preview
+      function bindPrimaryActions() {
+        document.getElementById('saveFormatBtn')?.addEventListener('click', () => {
+          showToast('Format settings saved', 'success');
+        });
+        document.getElementById('previewBtn')?.addEventListener('click', () => {
+          openPreview(document.getElementById('previewText').outerHTML);
+        });
+        document.getElementById('fullscreenPreview')?.addEventListener('click', () => {
+          openPreview(document.getElementById('previewText').outerHTML);
+        });
+        document.getElementById('expandEditor')?.addEventListener('click', (e) => {
+          const content = document.getElementById('chapterContent');
+          const btn = e.currentTarget;
+          const expanded = content.classList.toggle('max-h-[80vh]');
+          content.classList.toggle('overflow-y-auto', expanded);
+          btn.innerHTML = expanded
+            ? '<i data-lucide="minimize-2"></i><span>Collapse</span>'
+            : '<i data-lucide="maximize-2"></i><span>Expand</span>';
+          renderIcons();
+        });
+      }
+
+      // Modal preview
+      function openPreview(html) {
+        const modal = document.getElementById('previewModal');
+        const container = document.getElementById('modalPreviewContent');
+        container.innerHTML = html;
+        modal.classList.remove('hidden');
+        renderIcons();
+      }
+      function closePreview() {
+        const modal = document.getElementById('previewModal');
+        modal.classList.add('hidden');
+      }
+
+      // Book/chapter loading
+      function bindBookLoader() {
+        const book = document.getElementById('bookSelect');
+        const chapter = document.getElementById('chapterSelect');
+        const saveBtn = document.getElementById('saveBtn');
+        const prevBtn = document.getElementById('previewChapterBtn');
+        const CHAPTERS = {
+          '1': ['Foreword','Foundations','Design Systems'],
+          '2': ['Tooling','Components','Deployments'],
+          '3': ['Everyday AI','Automation','Ethics'],
+          '4': ['Inspiration','Narrative','Editing']
+        };
+        book.addEventListener('change', () => {
+          const id = book.value;
+          if (!id) {
+            chapter.disabled = true;
+            chapter.innerHTML = '<option value="">-- Select a Book First --</option>';
+            saveBtn.disabled = true;
+            prevBtn.disabled = true;
+            return;
+          }
+          chapter.disabled = false;
+          chapter.innerHTML = '<option value="">-- Select Chapter --</option>' + (CHAPTERS[id]||[]).map((t,i)=>'<option value="'+(i+1)+'">'+t+'</option>').join('');
+          showToast('Book loaded. Choose a chapter.');
+        });
+        chapter.addEventListener('change', () => {
+          if (!chapter.value) { saveBtn.disabled = true; prevBtn.disabled = true; return; }
+          const content = document.getElementById('chapterContent');
+          content.innerHTML = '<h2 class="text-xl tracking-tight font-semibold">'+chapter.selectedOptions[0].text+'</h2><p class="mt-2">This is a starter section. Edit freely and use the toolbar above to format text.</p><ul class="list-disc pl-6 mt-2 space-y-1"><li>Point one</li><li>Point two</li><li>Point three</li></ul>';
+          saveBtn.disabled = false;
+          prevBtn.disabled = false;
+          bindCounts();
+          showToast('Chapter loaded', 'success');
+        });
+        saveBtn.addEventListener('click', () => {
+          showToast('Changes saved', 'success');
+        });
+        prevBtn.addEventListener('click', () => {
+          openPreview('<article class="prose prose-invert max-w-none">'+document.getElementById('chapterContent').innerHTML+'</article>');
+        });
+      }
+
+      // Feature buttons
+      function bindFeatures() {
+        document.querySelectorAll('.feature-activate').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const f = btn.dataset.feature;
+            if (f === 'ai') showToast('AI Assistant analyzing context…', 'info');
+            if (f === 'grammar') showToast('Grammar check running…', 'info');
+            if (f === 'readability') showToast('Calculating readability…', 'info');
+            setTimeout(() => showToast('Done', 'success'), 1200);
+          });
+        });
+        document.getElementById('upgradeBtn')?.addEventListener('click', () => showToast('Upgrade flow coming soon', 'info'));
+        document.getElementById('learnMoreBtn')?.addEventListener('click', () => showToast('Opening docs…', 'info'));
+      }
+
+      // Style quick actions (bold/italic/underline on preview text)
+      function bindStyleButtons() {
+        const preview = document.getElementById('previewText');
+        document.querySelectorAll('#styleBtns .style-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const style = btn.dataset.style;
+            if (style === 'bold') preview.style.fontWeight = (preview.style.fontWeight === '600' ? '400' : '600');
+            if (style === 'italic') preview.style.fontStyle = (preview.style.fontStyle === 'italic' ? 'normal' : 'italic');
+            if (style === 'underline') preview.style.textDecoration = (preview.style.textDecoration === 'underline' ? 'none' : 'underline');
+            if (btn.classList.contains('locked')) return;
+            showToast('Applied ' + style, 'success');
+          });
+        });
+      }
+
+      // Inputs
+      function bindInputs() {
+        ['fontFamily','fontSize','lineSpacing'].forEach(id => {
+          document.getElementById(id).addEventListener('change', applyPreviewStyles);
+        });
+        const indent = document.getElementById('paragraphIndent');
+        indent.addEventListener('input', () => {
+          document.getElementById('indentValue').textContent = indent.value + 'em';
+          applyPreviewStyles();
+        });
+        document.getElementById('chapterBreak').addEventListener('change', (e) => {
+          showToast('Chapter break: ' + e.target.value);
+        });
+      }
+
+      // Theme toggle binding
+      function bindTheme() {
+        const stored = localStorage.getItem(THEME_KEY);
+        const initial = stored || document.documentElement.getAttribute('data-theme') || 'dark';
+        setTheme(initial);
+        document.getElementById('themeToggle')?.addEventListener('click', () => {
+          const current = document.documentElement.getAttribute('data-theme') || 'dark';
+          setTheme(current === 'dark' ? 'light' : 'dark');
+        });
+      }
+
+      // Modal bindings
+      function bindModal() {
+        document.getElementById('closePreviewModal')?.addEventListener('click', closePreview);
+        document.getElementById('previewModal')?.addEventListener('click', (e) => {
+          if (e.target.id === 'previewModal') closePreview();
+        });
+      }
+
+      // Init
+      document.addEventListener('DOMContentLoaded', () => {
+        renderIcons();
+        bindToolbars();
+        bindCounts();
+        bindPrimaryActions();
+        bindBookLoader();
+        bindFeatures();
+        bindStyleButtons();
+        bindInputs();
+        bindTheme();
+        initSizeAndFormat();
+        applyPreviewStyles();
+        estimatePages();
+        showToast('Ready', 'success');
+      });
+    </script>
+  </body>
+</html>

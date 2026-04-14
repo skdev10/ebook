@@ -1,0 +1,1232 @@
+﻿@{
+    Layout = "~/Views/Shared/_AuthorLayout.cshtml";
+    ViewData["Title"] = "Analytics Dashboard";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Author Analytics Dashboard</title>
+
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        html {
+            overflow-y: scroll;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: linear-gradient(135deg, #fdf6e3 0%, #f5e8c8 100%);
+            color: #5d4037;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Analytics Container */
+        .analytics-container {
+            max-width: 1472px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Dashboard Header */
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 25px 30px;
+            background: rgba(255, 253, 245, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+        }
+
+        .header-content h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            background: linear-gradient(135deg, #d4a574, #a67c52);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-content p {
+            color: #8d6e63;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .btn::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+                transition: left 0.5s;
+            }
+
+            .btn:hover::before {
+                left: 100%;
+            }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #d4a574, #a67c52);
+            color: white;
+            box-shadow: 0 8px 25px rgba(212, 165, 116, 0.3);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 12px 35px rgba(212, 165, 116, 0.4);
+            }
+
+        .btn-secondary {
+            background: rgba(255, 253, 245, 0.9);
+            color: #5d4037;
+            border: 1px solid rgba(210, 180, 140, 0.3);
+        }
+
+            .btn-secondary:hover {
+                background: #fffdf5;
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(210, 180, 140, 0.2);
+            }
+
+        /* Outstanding Grid Layout */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto;
+            gap: 25px;
+            grid-template-areas:
+                "stats stats stats stats"
+                "revenue readers engagement performance"
+                "activity activity goals goals"
+                "books books books books";
+        }
+
+        /* Stats Section */
+        .stats-section {
+            grid-area: stats;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 25px;
+        }
+
+        .stat-card {
+            background: rgba(255, 253, 245, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+            border: 1px solid rgba(210, 180, 140, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+            .stat-card:hover {
+                transform: translateY(-8px);
+                box-shadow: 0 15px 40px rgba(212, 165, 116, 0.3);
+            }
+
+        .stat-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #d4a574, #a67c52);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.8rem;
+            flex-shrink: 0;
+        }
+
+        .stat-info h3 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: #5d4037;
+        }
+
+        .stat-info p {
+            color: #8d6e63;
+            margin-bottom: 10px;
+        }
+
+        .stat-change {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+            .stat-change.positive {
+                background: rgba(40, 167, 69, 0.1);
+                color: #28a745;
+            }
+
+            .stat-change.negative {
+                background: rgba(220, 53, 69, 0.1);
+                color: #dc3545;
+            }
+
+        /* Chart Cards */
+        .chart-card {
+            background: rgba(255, 253, 245, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+            border: 1px solid rgba(210, 180, 140, 0.3);
+            transition: all 0.3s ease;
+        }
+
+            .chart-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 15px 35px rgba(212, 165, 116, 0.3);
+            }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #5d4037;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+
+        /* Revenue Chart */
+        .revenue-chart {
+            grid-area: revenue;
+        }
+
+        /* Readers Chart */
+        .readers-chart {
+            grid-area: readers;
+        }
+
+        /* Engagement Chart */
+        .engagement-chart {
+            grid-area: engagement;
+        }
+
+        /* Performance Chart */
+        .performance-chart {
+            grid-area: performance;
+        }
+
+        /* Activity Section */
+        .activity-section {
+            grid-area: activity;
+            background: rgba(255, 253, 245, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+            border: 1px solid rgba(210, 180, 140, 0.3);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #5d4037;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(210, 180, 140, 0.3);
+        }
+
+        .activity-list {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(210, 180, 140, 0.2);
+            transition: all 0.3s ease;
+        }
+
+            .activity-item:hover {
+                transform: translateX(5px);
+                background: rgba(212, 165, 116, 0.05);
+                margin: 0 -15px;
+                padding: 15px;
+                border-radius: 10px;
+            }
+
+            .activity-item:last-child {
+                border-bottom: none;
+            }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #d4a574, #a67c52);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+            .activity-content p {
+                margin-bottom: 5px;
+                color: #5d4037;
+                font-size: 0.95rem;
+            }
+
+        .activity-time {
+            color: #8d6e63;
+            font-size: 0.8rem;
+        }
+
+        /* Goals Section */
+        .goals-section {
+            grid-area: goals;
+            background: rgba(255, 253, 245, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+            border: 1px solid rgba(210, 180, 140, 0.3);
+        }
+
+        .goal-progress {
+            margin-bottom: 25px;
+        }
+
+        .goal-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .goal-title {
+            font-weight: 600;
+            color: #5d4037;
+        }
+
+        .goal-percentage {
+            color: #d4a574;
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background: rgba(210, 180, 140, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #d4a574, #a67c52);
+            border-radius: 5px;
+            transition: width 1s ease;
+        }
+
+        .progress-text {
+            font-size: 0.8rem;
+            color: #8d6e63;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Books Section */
+        .books-section {
+            grid-area: books;
+            background: rgba(255, 253, 245, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(210, 180, 140, 0.2);
+            border: 1px solid rgba(210, 180, 140, 0.3);
+        }
+
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .book-card {
+            background: rgba(255, 253, 245, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(210, 180, 140, 0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid rgba(210, 180, 140, 0.2);
+        }
+
+            .book-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(212, 165, 116, 0.3);
+            }
+
+        .book-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .book-cover {
+            width: 50px;
+            height: 65px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #d4a574, #a67c52);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .book-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #5d4037;
+            margin-bottom: 5px;
+        }
+
+        .book-meta {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+            .book-meta span {
+                background: rgba(212, 165, 116, 0.1);
+                color: #a67c52;
+                padding: 4px 8px;
+                border-radius: 8px;
+                font-size: 0.8rem;
+                font-weight: 500;
+            }
+
+        .book-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            text-align: center;
+        }
+
+        .book-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .book-stat-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #d4a574;
+        }
+
+        .book-stat-label {
+            font-size: 0.7rem;
+            color: #8d6e63;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 253, 245, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #d4a574, #a67c52);
+            border-radius: 4px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, #a67c52, #d4a574);
+            }
+
+        /* Responsive Design */
+        @@media (max-width: 1200px) {
+            .analytics-grid
+
+        {
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-areas:
+                "stats stats"
+                "revenue readers"
+                "engagement performance"
+                "activity goals"
+                "books books";
+        }
+
+        .stats-section {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        }
+
+        @@media (max-width: 768px) {
+            .analytics-container
+
+        {
+            padding: 10px;
+        }
+
+        .dashboard-header {
+            flex-direction: column;
+            gap: 20px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .header-actions {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .analytics-grid {
+            grid-template-columns: 1fr;
+            grid-template-areas:
+                "stats"
+                "revenue"
+                "readers"
+                "engagement"
+                "performance"
+                "activity"
+                "goals"
+                "books";
+        }
+
+        .stats-section {
+            grid-template-columns: 1fr;
+        }
+
+        .chart-container {
+            height: 200px;
+        }
+
+        .books-grid {
+            grid-template-columns: 1fr;
+        }
+
+        }
+
+        @@media (max-width: 480px) {
+            .dashboard-header
+
+        {
+            padding: 15px;
+        }
+
+        .header-content h1 {
+            font-size: 1.8rem;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+
+        .stat-card {
+            padding: 20px;
+            flex-direction: column;
+            text-align: center;
+            gap: 15px;
+        }
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+
+        .stat-info h3 {
+            font-size: 1.8rem;
+        }
+
+        .chart-card {
+            padding: 20px;
+        }
+
+        .activity-item {
+            flex-direction: column;
+            text-align: center;
+            gap: 10px;
+        }
+
+        .book-header {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        }
+    </style>
+</head>
+<body>
+    <div class="analytics-container">
+        <!-- Dashboard Header -->
+        <header class="dashboard-header" data-aos="fade-down">
+            <div class="header-content">
+                <h1><i class="fas fa-chart-line"></i> Keep Mind Your Stats!</h1>
+                <p>Track your book performance and reader engagement</p>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary">
+                    <i class="fas fa-download"></i>
+                    <span>Export Report</span>
+                </button>
+                <button class="btn btn-primary">
+                    <i class="fas fa-sync"></i>
+                    <span>Refresh Data</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Outstanding Analytics Grid -->
+        <div class="analytics-grid">
+            <!-- Stats Section -->
+            <div class="stats-section">
+                <div class="stat-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="stat-icon">
+                        <i class="fas fa-book"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>12</h3>
+                        <p>Published Books</p>
+                        <span class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i> 2 this month
+                        </span>
+                    </div>
+                </div>
+
+                <div class="stat-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="stat-icon">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>45.2K</h3>
+                        <p>Total Reads</p>
+                        <span class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i> 12.5% increase
+                        </span>
+                    </div>
+                </div>
+
+                <div class="stat-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="stat-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>$3,245</h3>
+                        <p>Total Earnings</p>
+                        <span class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i> 18.5% growth
+                        </span>
+                    </div>
+                </div>
+
+                <div class="stat-card" data-aos="fade-up" data-aos-delay="400">
+                    <div class="stat-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>4.8</h3>
+                        <p>Average Rating</p>
+                        <span class="stat-change positive">
+                            <i class="fas fa-arrow-up"></i> 0.2 improvement
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revenue Chart -->
+            <div class="chart-card revenue-chart" data-aos="fade-up" data-aos-delay="500">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <i class="fas fa-chart-line"></i> Revenue Overview
+                    </h3>
+                    <select class="filter-select">
+                        <option>Last 7 days</option>
+                        <option>Last 30 days</option>
+                        <option>Last 90 days</option>
+                    </select>
+                </div>
+                <div class="chart-container">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Readers Chart -->
+            <div class="chart-card readers-chart" data-aos="fade-up" data-aos-delay="550">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <i class="fas fa-users"></i> Reader Demographics
+                    </h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="readersChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Engagement Chart -->
+            <div class="chart-card engagement-chart" data-aos="fade-up" data-aos-delay="600">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <i class="fas fa-heart"></i> Reader Engagement
+                    </h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="engagementChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Performance Chart -->
+            <div class="chart-card performance-chart" data-aos="fade-up" data-aos-delay="650">
+                <div class="chart-header">
+                    <h3 class="chart-title">
+                        <i class="fas fa-tachometer-alt"></i> Book Performance
+                    </h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Activity Section -->
+            <div class="activity-section" data-aos="fade-up" data-aos-delay="700">
+                <h2 class="section-title">
+                    <i class="fas fa-history"></i> Recent Activity
+                </h2>
+                <div class="activity-list">
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="activity-content">
+                            <p><strong>You published "The Midnight Garden"</strong></p>
+                            <span class="activity-time">2 hours ago</span>
+                        </div>
+                    </div>
+
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-comment"></i>
+                        </div>
+                        <div class="activity-content">
+                            <p><strong>New 5-star review on "Echoes of Tomorrow"</strong></p>
+                            <span class="activity-time">5 hours ago</span>
+                        </div>
+                    </div>
+
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="activity-content">
+                            <p><strong>Your book "Whispers in the Wind" is trending</strong></p>
+                            <span class="activity-time">1 day ago</span>
+                        </div>
+                    </div>
+
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-download"></i>
+                        </div>
+                        <div class="activity-content">
+                            <p><strong>500 new downloads of "Summer Breeze"</strong></p>
+                            <span class="activity-time">2 days ago</span>
+                        </div>
+                    </div>
+
+                    <div class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-award"></i>
+                        </div>
+                        <div class="activity-content">
+                            <p><strong>You reached 10,000 total readers</strong></p>
+                            <span class="activity-time">3 days ago</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Goals Section -->
+            <div class="goals-section" data-aos="fade-up" data-aos-delay="750">
+                <h2 class="section-title">
+                    <i class="fas fa-bullseye"></i> Writing Goals
+                </h2>
+                <div class="goal-progress">
+                    <div class="goal-header">
+                        <span class="goal-title">Daily Writing Goal</span>
+                        <span class="goal-percentage">75%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 75%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span>1,245 / 2,000 words</span>
+                        <span>75%</span>
+                    </div>
+                </div>
+
+                <div class="goal-progress">
+                    <div class="goal-header">
+                        <span class="goal-title">Monthly Publishing Goal</span>
+                        <span class="goal-percentage">40%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 40%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span>2 / 5 books</span>
+                        <span>40%</span>
+                    </div>
+                </div>
+
+                <div class="goal-progress">
+                    <div class="goal-header">
+                        <span class="goal-title">Annual Revenue Goal</span>
+                        <span class="goal-percentage">60%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 60%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span>$3,245 / $5,400</span>
+                        <span>60%</span>
+                    </div>
+                </div>
+
+                <div class="goal-progress">
+                    <div class="goal-header">
+                        <span class="goal-title">Reader Engagement Goal</span>
+                        <span class="goal-percentage">85%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 85%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span>4.8 / 5.0 rating</span>
+                        <span>85%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Books Section -->
+            <div class="books-section" data-aos="fade-up" data-aos-delay="800">
+                <h2 class="section-title">
+                    <i class="fas fa-book-open"></i> Top Performing Books
+                </h2>
+                <div class="books-grid">
+                    <!-- Book 1 -->
+                    <div class="book-card">
+                        <div class="book-header">
+                            <div class="book-cover">
+                                <i class="fas fa-dragon"></i>
+                            </div>
+                            <div>
+                                <h3 class="book-title">The Dragon's Quest</h3>
+                                <div class="book-meta">
+                                    <span>Fantasy</span>
+                                    <span>Published</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="book-stats">
+                            <div class="book-stat">
+                                <div class="book-stat-value">1,247</div>
+                                <div class="book-stat-label">Reads</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">$847</div>
+                                <div class="book-stat-label">Earnings</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">4.9</div>
+                                <div class="book-stat-label">Rating</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book 2 -->
+                    <div class="book-card">
+                        <div class="book-header">
+                            <div class="book-cover">
+                                <i class="fas fa-mask"></i>
+                            </div>
+                            <div>
+                                <h3 class="book-title">Mystery of the Manor</h3>
+                                <div class="book-meta">
+                                    <span>Mystery</span>
+                                    <span>Published</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="book-stats">
+                            <div class="book-stat">
+                                <div class="book-stat-value">892</div>
+                                <div class="book-stat-label">Reads</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">$612</div>
+                                <div class="book-stat-label">Earnings</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">4.7</div>
+                                <div class="book-stat-label">Rating</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book 3 -->
+                    <div class="book-card">
+                        <div class="book-header">
+                            <div class="book-cover">
+                                <i class="fas fa-heart"></i>
+                            </div>
+                            <div>
+                                <h3 class="book-title">Love in Digital Age</h3>
+                                <div class="book-meta">
+                                    <span>Romance</span>
+                                    <span>In Review</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="book-stats">
+                            <div class="book-stat">
+                                <div class="book-stat-value">524</div>
+                                <div class="book-stat-label">Reads</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">$328</div>
+                                <div class="book-stat-label">Earnings</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">4.8</div>
+                                <div class="book-stat-label">Rating</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book 4 -->
+                    <div class="book-card">
+                        <div class="book-header">
+                            <div class="book-cover">
+                                <i class="fas fa-rocket"></i>
+                            </div>
+                            <div>
+                                <h3 class="book-title">Beyond the Stars</h3>
+                                <div class="book-meta">
+                                    <span>Sci-Fi</span>
+                                    <span>Published</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="book-stats">
+                            <div class="book-stat">
+                                <div class="book-stat-value">1,035</div>
+                                <div class="book-stat-label">Reads</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">$721</div>
+                                <div class="book-stat-label">Earnings</div>
+                            </div>
+                            <div class="book-stat">
+                                <div class="book-stat-value">4.6</div>
+                                <div class="book-stat-label">Rating</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 800,
+            easing: 'ease-in-out',
+            once: true,
+            offset: 100
+        });
+
+        // Initialize Charts
+        document.addEventListener('DOMContentLoaded', function() {
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            const revenueChart = new Chart(revenueCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Monthly Revenue',
+                        data: [1200, 1900, 1500, 2200, 1800, 2450],
+                        borderColor: '#d4a574',
+                        backgroundColor: 'rgba(212, 165, 116, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(210, 180, 140, 0.1)'
+                            },
+                            ticks: {
+                                color: '#8d6e63'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(210, 180, 140, 0.1)'
+                            },
+                            ticks: {
+                                color: '#8d6e63'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Readers Chart
+            const readersCtx = document.getElementById('readersChart').getContext('2d');
+            const readersChart = new Chart(readersCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['18-24', '25-34', '35-44', '45+'],
+                    datasets: [{
+                        data: [25, 40, 20, 15],
+                        backgroundColor: [
+                            '#d4a574',
+                            '#a67c52',
+                            '#8d6e63',
+                            '#5d4037'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#5d4037',
+                                padding: 20
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Engagement Chart
+            const engagementCtx = document.getElementById('engagementChart').getContext('2d');
+            const engagementChart = new Chart(engagementCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Reading Time (hours)',
+                        data: [3.2, 4.1, 2.8, 5.2, 3.7, 6.1, 4.8],
+                        backgroundColor: 'rgba(212, 165, 116, 0.8)',
+                        borderColor: '#d4a574',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(210, 180, 140, 0.1)'
+                            },
+                            ticks: {
+                                color: '#8d6e63'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(210, 180, 140, 0.1)'
+                            },
+                            ticks: {
+                                color: '#8d6e63'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Performance Chart
+            const performanceCtx = document.getElementById('performanceChart').getContext('2d');
+            const performanceChart = new Chart(performanceCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['Sales', 'Reviews', 'Engagement', 'Completion', 'Recommendations'],
+                    datasets: [{
+                        label: 'Book Performance',
+                        data: [85, 90, 75, 80, 70],
+                        backgroundColor: 'rgba(212, 165, 116, 0.2)',
+                        borderColor: '#d4a574',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#d4a574'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: 'rgba(210, 180, 140, 0.2)'
+                            },
+                            grid: {
+                                color: 'rgba(210, 180, 140, 0.2)'
+                            },
+                            pointLabels: {
+                                color: '#5d4037'
+                            },
+                            ticks: {
+                                color: '#8d6e63',
+                                backdropColor: 'transparent'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Welcome message
+            Swal.fire({
+                title: 'Welcome to Analytics!',
+                text: 'Track your writing performance and reader engagement.',
+                icon: 'success',
+                timer: 3000,
+                timerProgressBar: true,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                background: 'linear-gradient(135deg, #d4a574, #a67c52)',
+                color: 'white'
+            });
+
+            // Book card interactions
+            document.querySelectorAll('.book-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const bookTitle = this.querySelector('.book-title').textContent;
+                    Swal.fire({
+                        title: `${bookTitle} Performance`,
+                        html: `
+                            <div style="text-align: left;">
+                                <p><strong>Total Reads:</strong> 1,247</p>
+                                <p><strong>Earnings:</strong> $847.50</p>
+                                <p><strong>Average Rating:</strong> 4.9/5</p>
+                                <p><strong>Completion Rate:</strong> 78%</p>
+                                <p><strong>Reader Demographics:</strong> 65% Female, 35% Male</p>
+                            </div>
+                        `,
+                        confirmButtonColor: '#d4a574'
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>

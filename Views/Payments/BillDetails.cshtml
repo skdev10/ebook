@@ -1,0 +1,218 @@
+﻿@model AuthorBills
+@{
+    ViewData["Title"] = $"Bill Details #{Model.BillId} - eBook Publisher";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid py-4">
+    <!-- Navigation -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="@Url.Action("MyPlans", "UserPlans")">My Plans</a></li>
+                    <li class="breadcrumb-item active">Bill #@Model.BillId</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Bill Header -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="card-title mb-0">Bill Details</h4>
+                        <div>
+                            <span class="badge @(Model.Status == "Paid" ? "bg-success" : Model.Status == "Pending" ? "bg-warning" : "bg-danger") me-2">
+                                @Model.Status
+                            </span>
+                            <span class="badge @(Model.IsActive == 1 ? "bg-success" : "bg-secondary")">
+                                @(Model.IsActive == 1 ? "Active" : "Inactive")
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Bill Information</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Bill ID:</strong></td>
+                                    <td>#@Model.BillId</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Description:</strong></td>
+                                    <td>@Model.Description</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Created:</strong></td>
+                                    <td>@Model.CreatedAt.ToString("MMM dd, yyyy HH:mm")</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Closing Date:</strong></td>
+                                    <td>@Model.ClosingDate.ToString("MMM dd, yyyy HH:mm")</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Payment Reference:</strong></td>
+                                    <td>@(string.IsNullOrEmpty(Model.PaymentReference) ? "N/A" : Model.PaymentReference)</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Payment Details</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td><strong>Total Amount:</strong></td>
+                                    <td>@Model.TotalAmount.ToString("C2")</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Discount:</strong></td>
+                                    <td class="text-success">-@Model.Discount.ToString("C2")</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Tax Amount:</strong></td>
+                                    <td class="text-danger">+@Model.TaxAmount.ToString("C2")</td>
+                                </tr>
+                                <tr class="border-top">
+                                    <td><strong>Net Amount:</strong></td>
+                                    <td><strong>@((Model.TotalAmount - Model.Discount + Model.TaxAmount).ToString("C2"))</strong></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Currency:</strong></td>
+                                    <td>@Model.Currency?.ToUpper()</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(Model.CancellationReason))
+                    {
+                        <div class="alert alert-warning mt-3">
+                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Cancellation Details</h6>
+                            <p class="mb-1"><strong>Reason:</strong> @Model.CancellationReason</p>
+                            <p class="mb-0"><strong>Cancelled At:</strong> @Model.CancelledAt.ToString("MMM dd, yyyy HH:mm")</p>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Features Section -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Included Features</h5>
+                </div>
+                <div class="card-body">
+                    @if (Model.AuthorPlanFeatures.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Feature Name</th>
+                                        <th>Description</th>
+                                        <th>Type</th>
+                                        <th>Value</th>
+                                        <th>Expiry Date</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var feature in Model.AuthorPlanFeatures)
+                                    {
+                                        var isActive = !feature.ExpiryDate.HasValue || feature.ExpiryDate >= DateTime.Now;
+                                        <tr>
+                                            <td>
+                                                <strong>@feature.PlanFeature?.FeatureName</strong>
+                                            </td>
+                                            <td>@feature.PlanFeature?.Description</td>
+                                            <td>
+                                                <span class="badge bg-info">@feature.PlanFeature?.FeatureType</span>
+                                            </td>
+                                            <td>
+                                                @if (feature.PlanFeature?.IsUnlimited == true)
+                                                {
+                                                    <span class="badge bg-success">Unlimited</span>
+                                                }
+                                                else
+                                                {
+                                                    @feature.PlanFeature?.UsageLimit
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (feature.ExpiryDate.HasValue)
+                                                {
+                                                    <span class="@(isActive ? "text-success" : "text-danger")">
+                                                        @feature.ExpiryDate.Value.ToString("MMM dd, yyyy")
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">No expiry</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge @(isActive ? "bg-success" : "bg-secondary")">
+                                                    @(isActive ? "Active" : "Expired")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> No features found for this bill.
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between mt-4">
+                <a href="@Url.Action("MyPlans", "UserPlans")" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Back to My Plans
+                </a>
+                <div>
+                    <button class="btn btn-outline-primary">
+                        <i class="fas fa-download me-2"></i>Download Invoice
+                    </button>
+                    @if (Model.Status != "Cancelled" && Model.Status != "Refunded")
+                    {
+                        <button class="btn btn-outline-danger ms-2"
+                                onclick="confirmCancel(@Model.BillId, '@Model.Description')">
+                            <i class="fas fa-times me-2"></i>Cancel Bill
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function confirmCancel(billId, billDescription) {
+            Swal.fire({
+                title: 'Cancel Bill?',
+                html: `Are you sure you want to cancel bill <strong>"${billDescription}"</strong>?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, cancel it!',
+                cancelButtonText: 'Keep Bill'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Implement cancel functionality
+                    window.location.href = '@Url.Action("CancelBill", "UserPlans")' + '?billId=' + billId;
+                }
+            });
+        }
+    </script>
+}

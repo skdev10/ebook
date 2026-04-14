@@ -1,0 +1,837 @@
+@{
+    Layout = "~/Views/Shared/_AuthorLayout.cshtml";
+    ViewData["Title"] = "Content Editor - Author Dashboard";
+
+
+}
+
+
+<div class="content-editor">
+    <!-- Header Section -->
+    <div class="editor-header" data-aos="fade-down">
+        <div class="header-content">
+            <h1><i class="fas fa-edit"></i> Content Editor</h1>
+            <p>Edit your book chapters and content</p>
+        </div>
+        
+        <div class="header-actions">
+            <button class="btn btn-outline-primary" onclick="saveDraft()" data-aos="fade-left" data-aos-delay="100">
+                <i class="fas fa-save"></i>
+                Save Draft
+            </button>
+            <button class="btn btn-primary" onclick="publishChapter()" data-aos="fade-left" data-aos-delay="200">
+                <i class="fas fa-upload"></i>
+                Publish Chapter
+            </button>
+        </div>
+    </div>
+
+    <!-- Editor Toolbar -->
+    <div class="editor-toolbar" data-aos="fade-up" data-aos-delay="100">
+        <div class="toolbar-group">
+            <button class="btn btn-tool" title="Bold" onclick="formatText('bold')">
+                <i class="fas fa-bold"></i>
+            </button>
+            <button class="btn btn-tool" title="Italic" onclick="formatText('italic')">
+                <i class="fas fa-italic"></i>
+            </button>
+            <button class="btn btn-tool" title="Underline" onclick="formatText('underline')">
+                <i class="fas fa-underline"></i>
+            </button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="btn btn-tool" title="Heading 1" onclick="formatText('h1')">
+                <i class="fas fa-heading"></i>1
+            </button>
+            <button class="btn btn-tool" title="Heading 2" onclick="formatText('h2')">
+                <i class="fas fa-heading"></i>2
+            </button>
+            <button class="btn btn-tool" title="Paragraph" onclick="formatText('p')">
+                <i class="fas fa-paragraph"></i>
+            </button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="btn btn-tool" title="Bullet List" onclick="formatText('ul')">
+                <i class="fas fa-list-ul"></i>
+            </button>
+            <button class="btn btn-tool" title="Numbered List" onclick="formatText('ol')">
+                <i class="fas fa-list-ol"></i>
+            </button>
+            <button class="btn btn-tool" title="Blockquote" onclick="formatText('blockquote')">
+                <i class="fas fa-quote-right"></i>
+            </button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="btn btn-tool" title="Insert Image" onclick="insertImage()">
+                <i class="fas fa-image"></i>
+            </button>
+            <button class="btn btn-tool" title="Insert Link" onclick="insertLink()">
+                <i class="fas fa-link"></i>
+            </button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="btn btn-tool" title="Undo" onclick="undoAction()">
+                <i class="fas fa-undo"></i>
+            </button>
+            <button class="btn btn-tool" title="Redo" onclick="redoAction()">
+                <i class="fas fa-redo"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="editor-container" data-aos="fade-up" data-aos-delay="200">
+        <div class="editor-sidebar">
+            <div class="book-selector">
+                <h3><i class="fas fa-book"></i> Books</h3>
+                <div class="book-list">
+                    <div class="book-item active" onclick="selectBook(1)">
+                        <div class="book-cover-mini">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="book-info-mini">
+                            <h4>The Dragon's Quest</h4>
+                            <p>Fantasy • 24 chapters</p>
+                        </div>
+                    </div>
+                    
+                    <div class="book-item" onclick="selectBook(2)">
+                        <div class="book-cover-mini">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="book-info-mini">
+                            <h4>The Silent Witness</h4>
+                            <p>Mystery • 16 chapters</p>
+                        </div>
+                    </div>
+                    
+                    <div class="book-item" onclick="selectBook(3)">
+                        <div class="book-cover-mini">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="book-info-mini">
+                            <h4>Love in the City</h4>
+                            <p>Romance • 20 chapters</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chapter-selector">
+                <div class="chapter-header">
+                    <h3><i class="fas fa-file-alt"></i> Chapters</h3>
+                    <button class="btn btn-sm btn-outline-primary" onclick="addChapter()">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="chapter-list">
+                    <div class="chapter-item active" onclick="selectChapter(1)">
+                        <span class="chapter-number">1</span>
+                        <div class="chapter-info">
+                            <h4>Prologue</h4>
+                            <p>1,240 words</p>
+                        </div>
+                    </div>
+                    
+                    <div class="chapter-item" onclick="selectChapter(2)">
+                        <span class="chapter-number">2</span>
+                        <div class="chapter-info">
+                            <h4>The Journey Begins</h4>
+                            <p>3,450 words</p>
+                        </div>
+                    </div>
+                    
+                    <div class="chapter-item" onclick="selectChapter(3)">
+                        <span class="chapter-number">3</span>
+                        <div class="chapter-info">
+                            <h4>Meeting the Dragon</h4>
+                            <p>2,870 words</p>
+                        </div>
+                    </div>
+                    
+                    <div class="chapter-item" onclick="selectChapter(4)">
+                        <span class="chapter-number">4</span>
+                        <div class="chapter-info">
+                            <h4>The Quest</h4>
+                            <p>4,210 words</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="editor-main">
+            <div class="chapter-header">
+                <input type="text" class="chapter-title" value="Prologue" placeholder="Chapter Title">
+                <div class="chapter-meta">
+                    <span><i class="fas fa-font"></i> 1,240 words</span>
+                    <span><i class="fas fa-history"></i> Last saved: 10 min ago</span>
+                </div>
+            </div>
+            
+            <div class="editor-content">
+                <div class="editor-textarea" contenteditable="true">
+                    <h1>The Beginning of an Epic Journey</h1>
+                    <p>In the land of Eldoria, where magic flows like rivers and dragons soar through the skies, a young hero named Aric discovers an ancient prophecy that will change his destiny forever.</p>
+                    
+                    <p>The morning sun cast long shadows across the village of Thornwick as Aric stepped out of his modest cottage. The cobblestone streets were already bustling with merchants setting up their stalls and children playing in the square.</p>
+                    
+                    <blockquote>
+                        "The one who wields the Dragon's Heart shall either save or doom our world," the old sage had whispered before vanishing into the mists.
+                    </blockquote>
+                    
+                    <p>Aric had always felt different from the other villagers. While they were content with their simple lives, he yearned for adventure. Little did he know that his life was about to change in ways he could never imagine.</p>
+                    
+                    <h2>The Mysterious Stranger</h2>
+                    <p>As the day progressed, a stranger arrived in the village. Cloaked in deep blue robes with silver trim, the figure moved with an otherworldly grace that drew curious glances from the villagers.</p>
+                    
+                    <p>"Excuse me," the stranger said, approaching Aric. "I've been searching for someone. Someone whose name is written in the stars."</p>
+                </div>
+            </div>
+            
+            <div class="editor-footer">
+                <div class="word-count">
+                    <span>Words: <strong>1,240</strong></span>
+                    <span>Characters: <strong>6,842</strong></span>
+                </div>
+                
+                <div class="editor-actions">
+                    <button class="btn btn-outline-secondary" onclick="previewChapter()">
+                        <i class="fas fa-eye"></i>
+                        Preview
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="saveDraft()">
+                        <i class="fas fa-save"></i>
+                        Save Draft
+                    </button>
+                    <button class="btn btn-primary" onclick="publishChapter()">
+                        <i class="fas fa-upload"></i>
+                        Publish
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Insert Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="imageModalLabel">Insert Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="imageUpload" class="form-label">Upload Image</label>
+                        <input class="form-control" type="file" id="imageUpload" accept="image/*">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="imageURL" class="form-label">Or enter image URL</label>
+                        <input type="url" class="form-control" id="imageURL" placeholder="https://example.com/image.jpg">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="imageAlt" class="form-label">Alt Text</label>
+                        <input type="text" class="form-control" id="imageAlt" placeholder="Describe the image">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="insertImageToEditor()">Insert Image</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Insert Link Modal -->
+<div class="modal fade" id="linkModal" tabindex="-1" aria-labelledby="linkModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="linkModalLabel">Insert Link</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="mb-3">
+                        <label for="linkText" class="form-label">Link Text</label>
+                        <input type="text" class="form-control" id="linkText" placeholder="Enter link text">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="linkURL" class="form-label">URL</label>
+                        <input type="url" class="form-control" id="linkURL" placeholder="https://example.com">
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="openInNewTab">
+                        <label class="form-check-label" for="openInNewTab">
+                            Open in new tab
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="insertLinkToEditor()">Insert Link</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .content-editor {
+        padding: 20px;
+        height: calc(100vh - 100px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .editor-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .header-content h1 {
+        margin: 0;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .header-content p {
+        margin: 5px 0 0;
+        color: #666;
+        font-size: 1rem;
+    }
+
+    .editor-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        margin-bottom: 20px;
+    }
+
+    .toolbar-group {
+        display: flex;
+        gap: 5px;
+        padding: 0 10px;
+        border-right: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .toolbar-group:last-child {
+        border-right: none;
+    }
+
+    .btn-tool {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-tool:hover {
+        background: rgba(102, 126, 234, 0.2);
+        transform: translateY(-2px);
+    }
+
+    .editor-container {
+        display: flex;
+        flex: 1;
+        gap: 20px;
+        height: calc(100vh - 250px);
+    }
+
+    .editor-sidebar {
+        width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .book-selector, .chapter-selector {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        padding: 20px;
+    }
+
+    .book-selector h3, .chapter-selector h3 {
+        margin: 0 0 15px 0;
+        color: #333;
+        font-size: 1.2rem;
+    }
+
+    .book-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .book-item {
+        display: flex;
+        gap: 15px;
+        padding: 15px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+    }
+
+    .book-item:hover {
+        background: rgba(102, 126, 234, 0.1);
+        border-color: rgba(102, 126, 234, 0.3);
+    }
+
+    .book-item.active {
+        background: rgba(102, 126, 234, 0.2);
+        border-color: #667eea;
+    }
+
+    .book-cover-mini {
+        width: 50px;
+        height: 60px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+    }
+
+    .book-info-mini h4 {
+        margin: 0 0 5px 0;
+        font-size: 0.95rem;
+        color: #333;
+    }
+
+    .book-info-mini p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    .chapter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .chapter-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .chapter-item {
+        display: flex;
+        gap: 15px;
+        padding: 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid transparent;
+    }
+
+    .chapter-item:hover {
+        background: rgba(102, 126, 234, 0.1);
+        border-color: rgba(102, 126, 234, 0.3);
+    }
+
+    .chapter-item.active {
+        background: rgba(102, 126, 234, 0.2);
+        border-color: #667eea;
+    }
+
+    .chapter-number {
+        width: 30px;
+        height: 30px;
+        background: #667eea;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .chapter-info h4 {
+        margin: 0 0 3px 0;
+        font-size: 0.9rem;
+        color: #333;
+    }
+
+    .chapter-info p {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    .editor-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        overflow: hidden;
+    }
+
+    .chapter-header {
+        padding: 20px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .chapter-title {
+        width: 100%;
+        padding: 10px 15px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 10px;
+        background: rgba(255, 255, 255, 0.9);
+    }
+
+    .chapter-title:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .chapter-meta {
+        display: flex;
+        gap: 20px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .chapter-meta i {
+        margin-right: 5px;
+    }
+
+    .editor-content {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+    }
+
+    .editor-textarea {
+        min-height: 400px;
+        padding: 20px;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+        background: white;
+        outline: none;
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+
+    .editor-textarea:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .editor-textarea h1 {
+        font-size: 2rem;
+        margin: 0 0 20px 0;
+        color: #333;
+    }
+
+    .editor-textarea h2 {
+        font-size: 1.5rem;
+        margin: 30px 0 15px 0;
+        color: #333;
+    }
+
+    .editor-textarea p {
+        margin: 0 0 15px 0;
+        color: #444;
+    }
+
+    .editor-textarea blockquote {
+        margin: 20px 0;
+        padding: 15px 20px;
+        border-left: 4px solid #667eea;
+        background: rgba(102, 126, 234, 0.05);
+        font-style: italic;
+        color: #555;
+    }
+
+    .editor-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        background: rgba(248, 249, 250, 0.8);
+    }
+
+    .word-count {
+        display: flex;
+        gap: 20px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .editor-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    /* Mobile Responsive */
+    @@media (max-width: 992px) {
+        .editor-container {
+            flex-direction: column;
+            height: auto;
+        }
+        
+        .editor-sidebar {
+            width: 100%;
+        }
+        
+        .editor-main {
+            height: 500px;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .editor-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+        
+        .toolbar-group {
+            padding: 0 5px;
+        }
+        
+        .editor-footer {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+        
+        .word-count {
+            justify-content: center;
+        }
+        
+        .editor-actions {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+
+<script>
+    // Editor functions
+    function formatText(command) {
+        document.execCommand(command, false, null);
+        document.querySelector('.editor-textarea').focus();
+    }
+
+    function insertImage() {
+        new bootstrap.Modal(document.getElementById('imageModal')).show();
+    }
+
+    function insertLink() {
+        new bootstrap.Modal(document.getElementById('linkModal')).show();
+    }
+
+    function insertImageToEditor() {
+        const imageURL = document.getElementById('imageURL').value;
+        const imageAlt = document.getElementById('imageAlt').value;
+        
+        if (imageURL) {
+            const imgHTML = `<img src="${imageURL}" alt="${imageAlt}" style="max-width: 100%; height: auto;">`;
+            document.querySelector('.editor-textarea').focus();
+            document.execCommand('insertHTML', false, imgHTML);
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('imageModal')).hide();
+    }
+
+    function insertLinkToEditor() {
+        const linkText = document.getElementById('linkText').value;
+        const linkURL = document.getElementById('linkURL').value;
+        const openInNewTab = document.getElementById('openInNewTab').checked;
+        
+        if (linkText && linkURL) {
+            const linkHTML = openInNewTab ? 
+                `<a href="${linkURL}" target="_blank" rel="noopener">${linkText}</a>` :
+                `<a href="${linkURL}">${linkText}</a>`;
+            document.querySelector('.editor-textarea').focus();
+            document.execCommand('insertHTML', false, linkHTML);
+        }
+        
+        bootstrap.Modal.getInstance(document.getElementById('linkModal')).hide();
+    }
+
+    function undoAction() {
+        document.execCommand('undo', false, null);
+    }
+
+    function redoAction() {
+        document.execCommand('redo', false, null);
+    }
+
+    function saveDraft() {
+        Swal.fire({
+            title: 'Saving Draft',
+            text: 'Please wait while we save your draft...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'Draft Saved!',
+                text: 'Your draft has been saved successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        }, 1500);
+    }
+
+    function publishChapter() {
+        Swal.fire({
+            title: 'Publish Chapter?',
+            text: 'Are you sure you want to publish this chapter?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, publish it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Published!',
+                    text: 'Your chapter has been published successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        });
+    }
+
+    function previewChapter() {
+        Swal.fire({
+            title: 'Chapter Preview',
+            html: `
+                <div style="text-align: left; max-height: 400px; overflow-y: auto;">
+                    <h2>Prologue</h2>
+                    <p><strong>The Beginning of an Epic Journey</strong></p>
+                    <p>In the land of Eldoria, where magic flows like rivers and dragons soar through the skies, a young hero named Aric discovers an ancient prophecy that will change his destiny forever.</p>
+                    <p>The morning sun cast long shadows across the village of Thornwick as Aric stepped out of his modest cottage. The cobblestone streets were already bustling with merchants setting up their stalls and children playing in the square.</p>
+                    <blockquote style="border-left: 4px solid #667eea; padding: 10px 15px; background: #f8f9fa; margin: 15px 0;">
+                        "The one who wields the Dragon's Heart shall either save or doom our world," the old sage had whispered before vanishing into the mists.
+                    </blockquote>
+                    <p>Aric had always felt different from the other villagers. While they were content with their simple lives, he yearned for adventure. Little did he know that his life was about to change in ways he could never imagine.</p>
+                </div>
+            `,
+            confirmButtonColor: '#667eea',
+            width: '700px'
+        });
+    }
+
+    function selectBook(bookId) {
+        document.querySelectorAll('.book-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        event.currentTarget.classList.add('active');
+    }
+
+    function selectChapter(chapterId) {
+        document.querySelectorAll('.chapter-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        event.currentTarget.classList.add('active');
+    }
+
+    function addChapter() {
+        Swal.fire({
+            title: 'Add New Chapter',
+            html: `
+                <input type="text" id="chapterTitle" class="swal2-input" placeholder="Chapter Title">
+            `,
+            confirmButtonText: 'Add Chapter',
+            confirmButtonColor: '#667eea',
+            focusConfirm: false,
+            preConfirm: () => {
+                const title = document.getElementById('chapterTitle').value;
+                if (!title) {
+                    Swal.showValidationMessage('Please enter a chapter title');
+                }
+                return title;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Chapter Added!',
+                    text: `New chapter "${result.value}" has been added.`,
+                    icon: 'success',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+        });
+    }
+
+    // Word count functionality
+    document.querySelector('.editor-textarea').addEventListener('input', function() {
+        const text = this.innerText || this.textContent;
+        const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const charCount = text.length;
+        
+        document.querySelector('.word-count strong:first-child').textContent = wordCount.toLocaleString();
+        document.querySelector('.word-count strong:last-child').textContent = charCount.toLocaleString();
+    });
+
+    // Initialize AOS
+    AOS.init({
+        duration: 600,
+        easing: 'ease-out',
+        once: true
+    });
+</script>

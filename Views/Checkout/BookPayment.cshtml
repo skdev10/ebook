@@ -1,0 +1,79 @@
+@{
+    ViewData["Title"] = "Complete Payment";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var bookId = ViewBag.BookId as int? ?? 0;
+    var bookTitle = ViewBag.BookTitle as string ?? "Your Book";
+    var paid = ViewBag.Paid as bool? ?? false;
+    var publishableKey = ViewBag.PublishableKey as string ?? "";
+}
+<style>
+    .book-payment-card { max-width: 420px; margin: 0 auto; }
+    .book-payment-card .btn-pay { background: #7c3aed; color: white; padding: 12px 24px; border-radius: 12px; font-weight: 600; border: none; cursor: pointer; }
+    .book-payment-card .btn-pay:hover { background: #6d28d9; }
+    .book-payment-card .btn-pay:disabled { opacity: 0.7; cursor: not-allowed; }
+</style>
+<div class="min-h-full flex items-center justify-center p-6 bg-[#f5f7f9]">
+    <div class="book-payment-card bg-white rounded-2xl shadow-lg border border-slate-200 p-8 text-center">
+        <h1 class="text-xl font-semibold text-slate-800 mb-2">Complete Payment</h1>
+        <p class="text-slate-600 mb-6">@bookTitle</p>
+        @if (paid)
+        {
+            <p class="text-green-600 font-medium mb-6">You have already paid for this book. Downloads are unlocked.</p>
+            <a href="/Dashboard/MyBooks" class="inline-block bg-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-purple-700">Go to My Books</a>
+        }
+        else
+        {
+            <p class="text-slate-500 text-sm mb-6">Complete payment to unlock downloads (PDF, EPUB, MOBI) and publishing features.</p>
+            <button type="button" id="btn-pay-now" class="btn-pay inline-flex items-center gap-2">
+                <i class="fas fa-lock-open"></i> Pay Now
+            </button>
+            <p id="pay-error" class="text-red-500 text-sm mt-3 hidden"></p>
+        }
+    </div>
+</div>
+@if (!paid && bookId > 0)
+{
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+(function() {
+    var bookId = @bookId;
+    var btn = document.getElementById('btn-pay-now');
+    var errEl = document.getElementById('pay-error');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        btn.disabled = true;
+        if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+        fetch('/Checkout/CreateBookCheckoutSession', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookId: bookId })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.alreadyPaid) {
+                window.location.href = '/Dashboard/MyBooks';
+                return;
+            }
+            if (data.url) {
+                window.location.href = data.url;
+                return;
+            }
+            if (data.sessionId && typeof Stripe !== 'undefined' && '@(publishableKey)') {
+                var stripe = Stripe('@Html.Raw(publishableKey)');
+                stripe.redirectToCheckout({ sessionId: data.sessionId }).then(function(result) {
+                    if (result.error && errEl) { errEl.textContent = result.error.message || 'Checkout failed.'; errEl.classList.remove('hidden'); }
+                    btn.disabled = false;
+                });
+                return;
+            }
+            if (errEl) { errEl.textContent = data.message || 'Could not start checkout.'; errEl.classList.remove('hidden'); }
+            btn.disabled = false;
+        })
+        .catch(function() {
+            if (errEl) { errEl.textContent = 'Network error. Please try again.'; errEl.classList.remove('hidden'); }
+            btn.disabled = false;
+        });
+    });
+})();
+</script>
+}

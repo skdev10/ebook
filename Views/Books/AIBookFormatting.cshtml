@@ -1,0 +1,1246 @@
+﻿@{
+    // These values come from the controller via ViewBag
+    var userId = ViewBag.UserId;
+    var bookId = ViewBag.BookId;
+    var chapterTitle = ViewBag.ChapterTitle;
+
+    // Set default values if null
+    if (userId==0)
+    if (string.IsNullOrEmpty(bookId)) { bookId = "456"; }
+    if (string.IsNullOrEmpty(chapterTitle)) { chapterTitle = "Chapter 1"; }
+}
+
+<style>
+.html-preview {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+}
+
+.html-preview h1 {
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.html-preview h2 {
+    color: #34495e;
+    margin-top: 25px;
+    margin-bottom: 15px;
+}
+
+.html-preview h3 {
+    color: #7f8c8d;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.html-preview p {
+    margin-bottom: 15px;
+}
+
+.html-preview strong {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.html-preview em {
+    color: #27ae60;
+    font-style: italic;
+}
+
+.html-preview u {
+    color: #9b59b6;
+    text-decoration: underline;
+}
+
+.html-preview hr {
+    border: none;
+    border-top: 2px dashed #bdc3c7;
+    margin: 30px 0;
+}
+
+.editor-toolbar {
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 10px;
+}
+
+.editor-toolbar .btn {
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+#bookContentTextarea {
+    font-family: 'Courier New', monospace;
+    line-height: 1.4;
+}
+
+</style >
+<div class="form-row" style="background-color: lightcyan;">
+    <!-- Add this hidden field for JavaScript to access userId -->
+    <input type="hidden" id="userId" value="@userId">
+
+    @* style="display:none;" > *@
+    <div class="dropdown-container">
+        <label class="form-label chapter-label" for="UserInput">Book Selection</label>
+        <select id="BooksDropdown" class="form-control" onchange="loadSelectedResponse(this.value)">
+            <option value="">📚 Load a previously generated book...</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <div class="d-flex flex-wrap gap-3 align-items-end">
+            <div class="flex-fill" style="min-width: 80px;">
+                <label class="form-label" for="UserId">User ID</label>
+                <input type="text" id="UserId" class="form-control" value="@userId">
+            </div>
+
+            <div class="flex-fill" style="min-width: 80px;">
+                <label class="form-label" for="BookId">Book ID</label>
+                <input type="text" id="BookId" class="form-control" value="@bookId">
+            </div>
+
+            <div class="flex-fill" style="min-width: 80px;">
+                <label class="form-label" for="Chapter">Chapter No</label>
+                <input type="number" id="Chapter" class="form-control" value="1" min="1">
+            </div>
+            <div class="dropdown-container">
+                <label class="form-label chapter-label" for="BooksChapterDropdown">Chapter Title</label>
+                <select id="BooksChapterDropdown" class="form-control" onchange="loadSelectedBookChapter(this.value)">
+                    <option value="">📚 Select a chapter...</option>
+                    <!-- Chapters will be loaded dynamically -->
+                </select>
+            </div>
+            <div style="min-width: 100px;">
+                <label class="form-label">&nbsp;</label>
+                <button id="showBookBtn" class="btn btn-secondary w-100" onclick="showSelectedBook()">
+                    📖 Show
+                </button>
+            </div>
+        </div>
+    </div>
+  
+    
+</div>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- Left Side: Textarea Editor -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">📝 Book Editor</h5>
+                </div>
+                <div class="card-body">
+                    <div class="editor-toolbar mb-3">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('bold')" title="Bold">
+                            <strong>B</strong>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('italic')" title="Italic">
+                            <em>I</em>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('underline')" title="Underline">
+                            <u>U</u>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertHeading()" title="Insert Heading">
+                            H1
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertChapter()" title="Insert Chapter">
+                            📖 Chapter
+                        </button>
+                    </div>
+
+                    <textarea id="bookContentTextarea" class="form-control" rows="25"
+                              placeholder="Book content will appear here..."
+                              style="resize: vertical; font-family: 'Courier New', monospace; white-space: pre-wrap;"
+                              oninput="updatePreview()"></textarea>
+
+                    <div class="mt-2">
+                        <small class="text-muted" id="wordCount">Words: 0 | Characters: 0</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: HTML Preview -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">👁️ Live Preview</h5>
+                </div>
+                <div class="card-body">
+                    <div id="htmlPreview" class="html-preview"
+                         style="height: 500px; overflow-y: auto; border: 1px solid #dee2e6; padding: 15px; border-radius: 0.375rem;">
+                        <p class="text-muted">Preview will appear here as you type...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+
+    const userId = '@ViewBag.UserId';
+    console.log("🔍 Logged-in User ID from ViewBag:", userId);
+    //=======================================================
+    //    On Page Load => PAGE INITIALIZATION
+   // =======================================================
+   // ----------------> Execution Step 3 <-------------------------
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("🚀 DOM Content Loaded - Starting initialization");
+          const showBookBtn = document.getElementById('showBookBtn');
+         if (showBookBtn) {
+             showBookBtn.addEventListener('click', showSelectedBook);
+             console.log("✅ Show button event listener attached");
+         }
+
+        // Load books dropdown
+        loadSavedBooksDropdown();
+
+        // Load chapters for the current book
+        loadBookChapters();
+
+        // Update word count
+        updateWordCount();
+
+        // Show debug info after delay
+        setTimeout(debugBooks, 1000);
+
+        // Add enter key support
+         const userInput = document.getElementById('UserInput');
+         if (userInput) {
+             userInput.addEventListener('keypress', function(e) {
+                 if (e.key === 'Enter') {
+                     generateBook();
+                 }
+             });
+         }
+
+        console.log("✅ Page initialization complete");
+    });
+
+    // Debug function to check what's loaded
+    function debugBooks() {
+        const userId = document.getElementById('UserId').value;
+        const bookId = document.getElementById('BookId').value;
+        const chapterTitle = document.getElementById('ChapterTitle').value || '@chapterTitle';
+
+        console.log("🔍 Debug Info:", {
+            userId: userId,
+            bookId: bookId,
+            chapterTitle: chapterTitle,
+            chaptersDropdown: document.getElementById('BooksChapterDropdown').options.length
+        });
+    }
+      //=========================================================================
+     //======= MAIN FUNCTION TO LOAD BOOKS IN DROPDOWN            ==============
+     //======  Step 2: LOAD SAVED BOOKS IN DROPDOWN               ==============
+     //=========================================================================
+     //---------------------> Execution Step 4 <--------------------
+     async function loadSavedBooksDropdown() {
+         console.log("🔄 loadSavedBooksDropdown() called");
+
+         const userId = document.getElementById("userId").value;
+         console.log("🔍 User ID from hidden field:", userId);
+
+         if (!userId || userId === "0") {
+             console.error("❌ No valid user ID found");
+             return;
+         }
+
+         try {
+             console.log("🔍 Calling API: /Books/GetSavedResponses?userId=" + userId);
+
+             const response = await fetch(`/Books/GetSavedResponses?userId=${encodeURIComponent(userId)}`);
+             console.log("🔍 Response status:", response.status);
+
+             if (!response.ok) {
+                 throw new Error(`HTTP error! status: ${response.status}`);
+             }
+
+             const books = await response.json();
+             console.log("📚 Books data received:", books);
+
+             const dropdown = document.getElementById("BooksDropdown");
+             if (!dropdown) {
+                 console.error("❌ Dropdown element not found!");
+                 return;
+             }
+
+             // Clear and populate dropdown
+             dropdown.innerHTML = '<option value="">📚 Load a previously generated book...</option>';
+
+             if (Array.isArray(books) && books.length > 0) {
+                 books.forEach(book => {
+                     const option = document.createElement("option");
+                     option.value = book.bookId;
+                     option.textContent = `${book.bookTitle} (${book.createdDate || 'No date'})`;
+                     dropdown.appendChild(option);
+                 });
+                 console.log(`✅ SUCCESS: Loaded ${books.length} books into dropdown`);
+             } else {
+                 const option = document.createElement("option");
+                 option.value = "";
+                 option.textContent = "No saved books found - Generate one first!";
+                 option.disabled = true;
+                 dropdown.appendChild(option);
+                 console.log("❌ No books found for this user");
+             }
+         } catch (error) {
+             console.error("❌ Error in loadSavedBooksDropdown:", error);
+         }
+     }
+    //================================================
+     //     Load Selected Book Data - MAIN FUNCTION
+    //================================================
+    async function showSelectedBook() {
+         alert("Button clicked! Function is working.");
+        // --- Step 1: Collect input values from the page ---
+          console.log("🔄 Step: 1 Show Selected Book button clicked");
+
+        const requestData = {
+            userId: document.getElementById('UserId').value,
+            bookId: document.getElementById('BookId').value,
+            Title: document.getElementById('Title').value,
+            Chapter: parseInt(document.getElementById('Chapter').value),
+            UserInput: document.getElementById('UserInput').value
+        };
+          if (!userId || userId === "0") {
+             showNotification("❌ Please enter a valid User ID", "error");
+             return;
+         }
+
+         if (!bookId) {
+             showNotification("❌ Please enter a Book ID", "error");
+             return;
+         }
+        try {
+            // Show data is loading please wait
+             const showBookBtn = document.getElementById('showBookBtn');
+             const originalText = showBookBtn.innerHTML;
+             showBookBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Loading...';
+             showBookBtn.disabled = true;
+             //------------------------
+             console.log(`🔍 Fetching book content for User: ${userId}, Book: ${bookId}`);
+             console.log("🔍 Step: 2 Books/GetBookResponse function called");
+
+            const response = await fetch(`/Books/GetBookResponse?userId=${requestData.userId}&bookId=${requestData.bookId}`);
+            
+            if (!response.ok) {
+                 throw new Error(`HTTP error! status: ${response.status}`);
+             }
+
+            const result = await response.json();
+             console.log("🔍 Step: 3 📚 Book data received:", result);
+
+            if (!result.success) {
+                Swal.fire("Not Found", result.message, "warning");
+                return;
+            }
+
+            // Parse and display book content in textarea
+            displayBookInTextarea(result.data);
+             showNotification('✅ Book content loaded successfully!', 'success');
+
+        } catch (err) {
+            console.error('❌ Error loading book content:', error);
+            showNotification('❌ Error loading book content: ' + error.message, 'error');
+            Swal.fire("Error", err.message, "error");
+              // Load sample/dummy content for demonstration
+             loadSampleContent();
+
+         }finally {
+             // Restore button state
+             const showBookBtn = document.getElementById('showBookBtn');
+             if (showBookBtn) {
+                 showBookBtn.innerHTML = '📖 Show';
+                 showBookBtn.disabled = false;
+             }
+         }
+
+    }
+
+    //================================================
+    //========= Display Book in Textarea =============
+    //================================================
+    function displayBookInTextarea(bookData) {
+        try {
+            if (typeof bookData === 'string') {
+                bookData = JSON.parse(bookData);
+            }
+        } catch (e) {
+            console.error("Error parsing book data:", e);
+        }
+
+        console.log("📖 Rendering book in textarea", bookData);
+        const core = (bookData && bookData.data) ? bookData.data : (bookData || {});
+        const rawTitle = core.title || bookData.title || '';
+        const chaptersRaw = core.chapters || bookData.Chapters || bookData.chapters || [];
+        let chapters = Array.isArray(chaptersRaw) ? chaptersRaw : [];
+
+        // Handle single content
+        if (chapters.length === 0 && core.content) {
+            chapters = [{
+                chapterNumber: 1,
+                title: 'Chapter 1',
+                content: core.content,
+                status: core.status || ''
+            }];
+        }
+
+        const total = chapters.length;
+
+        if (total === 0) {
+            document.getElementById('bookContentTextarea').value = "No content available.";
+            updatePreview();
+            return;
+        }
+
+        // Build formatted text for textarea
+        let textareaContent = '';
+
+        // Add book title
+        if (rawTitle) {
+            textareaContent += `# ${rawTitle}\n\n`;
+        }
+
+        // Add each chapter
+        chapters.forEach((ch, index) => {
+            const chapterNumber = ch.chapterNumber ?? ch.ChapterNumber ?? (index + 1);
+            const title = ch.title ?? ch.Title ?? `Chapter ${chapterNumber}`;
+            const content = ch.content ?? ch.Content ?? ch.data ?? ch.Data?.content ?? '';
+
+            // Add chapter header
+            textareaContent += `## ${title}\n\n`;
+
+            // Add chapter content (convert HTML to plain text if needed)
+            const plainContent = convertHtmlToPlainText(content);
+            textareaContent += plainContent + '\n\n';
+
+            // Add separator
+            if (index < chapters.length - 1) {
+                textareaContent += '---\n\n';
+            }
+        });
+
+        // Set textarea content
+        document.getElementById('bookContentTextarea').value = textareaContent;
+
+        // Update preview immediately
+        updatePreview();
+    }
+    //===============================================
+    // Fallback function with sample content
+    //=========================================
+     function loadSampleContent() {
+            const sampleContent = `# Sample Book Title
+
+    ## Chapter 1: The Beginning
+
+    This is sample content loaded for demonstration purposes.
+
+    **User ID:** ${document.getElementById('UserId').value}
+    **Book ID:** ${document.getElementById('BookId').value}
+
+    You can format this content using the toolbar above. Use the formatting buttons to make text **bold**, *italic*, or _underlined_.
+
+    ### Features:
+    - Real-time preview
+    - Text formatting
+    - Chapter management
+    - Word count tracking
+
+    Start editing your book content!`;
+
+            const textarea = document.getElementById('bookContentTextarea');
+            textarea.value = sampleContent;
+            updatePreview();
+        }
+    // ================================================
+    //========= LOAD BOOK CHAPTERS FUNCTIONS =========
+    //================================================
+
+       async function loadBookChapters() {
+           console.log("🔄 Loading book chapters...");
+
+           const userId = document.getElementById('UserId').value;
+           const bookId = document.getElementById('BookId').value;
+           const defaultChapterTitle = '@chapterTitle'; // From ViewBag
+
+           if (!userId || userId === "0" || !bookId) {
+               console.warn("⚠️ Cannot load chapters: Missing UserId or BookId");
+               return;
+           }
+
+           try {
+               // Show loading in dropdown
+               const dropdown = document.getElementById('BooksChapterDropdown');
+               dropdown.innerHTML = '<option value="">🔄 Loading chapters...</option>';
+               dropdown.disabled = true;
+
+               console.log(`🔍 Fetching chapters for User: ${userId}, Book: ${bookId}`);
+
+               const response = await fetch(`/Books/GetBookChapters?userId=${userId}&bookId=${bookId}`);
+
+               if (!response.ok) {
+                   throw new Error(`HTTP error! status: ${response.status}`);
+               }
+
+               const result = await response.json();
+               console.log("📚 Chapters data received:", result);
+
+               if (result.success && result.chapters && result.chapters.length > 0) {
+                   populateChaptersDropdown(result.chapters, defaultChapterTitle);
+                   console.log(`✅ Loaded ${result.chapters.length} chapters`);
+               } else {
+                   showNoChaptersMessage();
+                   console.log("ℹ️ No chapters found for this book");
+               }
+
+           } catch (error) {
+               console.error("❌ Error loading chapters:", error);
+               showChaptersError();
+           } finally {
+               const dropdown = document.getElementById('BooksChapterDropdown');
+               dropdown.disabled = false;
+           }
+       }
+
+       // ===================== POPULATE CHAPTERS DROPDOWN =====================
+       function populateChaptersDropdown(chapters, defaultChapterTitle) {
+           const dropdown = document.getElementById('BooksChapterDropdown');
+
+           // Clear existing options
+           dropdown.innerHTML = '<option value="">📚 Select a chapter...</option>';
+
+           // Add each chapter to dropdown
+           chapters.forEach(chapter => {
+               const option = document.createElement('option');
+               option.value = chapter.ChapterId; // Using ResponseId as value
+               option.textContent = `Chapter ${chapter.ChapterNumber}: ${chapter.ChapterTitle}`;
+               option.setAttribute('data-chapter-number', chapter.ChapterNumber);
+               option.setAttribute('data-chapter-title', chapter.ChapterTitle);
+
+               dropdown.appendChild(option);
+           });
+
+           // Set default selection based on chapterTitle
+           if (defaultChapterTitle) {
+               setDefaultChapterSelection(defaultChapterTitle);
+           }
+
+           // If no default match, select first chapter
+           if (dropdown.selectedIndex === 0 && chapters.length > 0) {
+               dropdown.selectedIndex = 1; // Select first chapter (skip "Select a chapter" option)
+           }
+       }
+
+       // ===================== SET DEFAULT CHAPTER SELECTION =====================
+       function setDefaultChapterSelection(defaultChapterTitle) {
+           const dropdown = document.getElementById('BooksChapterDropdown');
+           const options = dropdown.options;
+
+           // Try to find exact match
+           for (let i = 0; i < options.length; i++) {
+               const option = options[i];
+               const chapterTitle = option.getAttribute('data-chapter-title');
+
+               if (chapterTitle && chapterTitle.toLowerCase() === defaultChapterTitle.toLowerCase()) {
+                   dropdown.selectedIndex = i;
+                   console.log(`✅ Set default chapter: ${defaultChapterTitle}`);
+                   return;
+               }
+           }
+            console.log(`⚠️ No exact match found for default chapter: ${defaultChapterTitle}`);
+     }
+
+       // Try partial match
+       //     for (let i = 0; i < options.length; i++) {
+       //         const option = options[i];
+       //         const optionText = option.textContent.toLowerCase();
+
+       //         if (optionText.includes(defaultChapterTitle.toLowerCase())) {
+       //             dropdown.selectedIndex = i;
+       //             console.log(`✅ Set default chapter (partial match): ${defaultChapterTitle}`);
+       //             return;
+       //         }
+       //     }
+
+       //     console.log(`⚠️ No exact match found for default chapter: ${defaultChapterTitle}`);
+       // }
+
+       // ===================== LOAD SELECTED CHAPTER CONTENT =====================
+       async function loadSelectedBookChapter(chapterId) {
+           if (!chapterId) {
+               console.log("ℹ️ No chapter selected");
+               return;
+           }
+
+           console.log(`🔄 Loading chapter content for ID: ${chapterId}`);
+
+           try {
+               // Show loading state
+               const dropdown = document.getElementById('BooksChapterDropdown');
+               //const originalText = dropdown.options[dropdown.selectedIndex].text;
+               dropdown.disabled = true;
+
+               const response = await fetch(`/Books/GetChapterContent?chapterId=${chapterId}`);
+
+               if (!response.ok) {
+                   throw new Error(`HTTP error! status: ${response.status}`);
+               }
+
+               const result = await response.json();
+               console.log("📖 Chapter content received:", result);
+
+               if (result.success) {
+                   displayChapterContent(result.chapterData);
+                   updateFormFieldsWithChapter(result.chapterData);
+                   showNotification('✅ Chapter content loaded successfully!', 'success');
+               } else {
+                   throw new Error(result.message || 'Failed to load chapter content');
+               }
+
+           } catch (error) {
+               console.error("❌ Error loading chapter content:", error);
+               showNotification('❌ Error loading chapter: ' + error.message, 'error');
+           } finally {
+               const dropdown = document.getElementById('BooksChapterDropdown');
+               dropdown.disabled = false;
+           }
+       }
+       //======================================================
+       // =============== DISPLAY CHAPTER CONTENT =============
+       //======================================================
+       function displayChapterContent(chapterData) {
+           const textarea = document.getElementById('bookContentTextarea');
+
+           if (!chapterData) {
+               textarea.value = "No content available for this chapter.";
+               updatePreview();
+               return;
+           }
+
+           try {
+               let content = '';
+
+               // Add chapter title as header
+               if (chapterData.title) {
+                   content += `## ${chapterData.title}\n\n`;
+               }
+
+               // Parse and add chapter content
+               if (chapterData.responseData) {
+                   let parsedContent = chapterData.responseData;
+
+                   // Try to parse JSON response data
+                   try {
+                       const jsonData = JSON.parse(chapterData.responseData);
+                       if (jsonData.content) {
+                           parsedContent = jsonData.content;
+                       } else if (jsonData.data && jsonData.data.content) {
+                           parsedContent = jsonData.data.content;
+                       }
+                   } catch (e) {
+                       // If not JSON, use as plain text
+                       console.log("📝 Using response data as plain text");
+                   }
+
+                   content += parsedContent;
+               } else if (chapterData.content) {
+                   content += chapterData.content;
+               } else {
+                   content = "No content available for this chapter.";
+               }
+
+               textarea.value = content;
+               updatePreview();
+
+           } catch (error) {
+               console.error('Error displaying chapter content:', error);
+               textarea.value = `Error displaying chapter content: ${error.message}`;
+               updatePreview();
+           }
+       }
+       //====================================================
+       // ======== UPDATE FORM FIELDS WITH CHAPTER DATA =====
+       // ===================================================
+       function updateFormFieldsWithChapter(chapterData) {
+           if (chapterData.chapterNumber) {
+               document.getElementById('Chapter').value = chapterData.chapterNumber;
+           }
+           if (chapterData.title) {
+               document.getElementById('ChapterTitle').value = chapterData.title;
+           }
+
+           console.log("✅ Form fields updated with chapter data");
+       }
+       //===========================================
+       // ========= ERROR HANDLING FUNCTIONS =======
+       //===========================================
+       function showNoChaptersMessage() {
+           const dropdown = document.getElementById('BooksChapterDropdown');
+           dropdown.innerHTML = '<option value="">❌ No chapters found for this book</option>';
+           dropdown.disabled = true;
+       }
+
+       function showChaptersError() {
+           const dropdown = document.getElementById('BooksChapterDropdown');
+           dropdown.innerHTML = '<option value="">❌ Error loading chapters</option>';
+           dropdown.disabled = false;
+       }
+
+
+    //================================================
+    //========= Real-time Preview Update =============
+    //================================================
+    function updatePreview() {
+        const textarea = document.getElementById('bookContentTextarea');
+        const preview = document.getElementById('htmlPreview');
+        const content = textarea.value;
+
+        // Convert markdown-like text to HTML
+        const htmlContent = convertTextToHtml(content);
+
+        // Update preview
+        preview.innerHTML = htmlContent;
+
+        // Update word count
+        updateWordCount();
+    }
+
+    //================================================
+    //========= Text Formatting Functions ============
+    //================================================
+    function formatText(command) {
+        const textarea = document.getElementById('bookContentTextarea');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const selectedText = textarea.value.substring(start, end);
+
+        let formattedText = selectedText;
+        let wrapper = '';
+
+        switch(command) {
+            case 'bold':
+                wrapper = '**';
+                break;
+            case 'italic':
+                wrapper = '*';
+                break;
+            case 'underline':
+                wrapper = '_';
+                break;
+        }
+
+        if (wrapper) {
+            formattedText = `${wrapper}${selectedText}${wrapper}`;
+        }
+
+        // Replace selected text
+        textarea.value = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
+
+        // Update preview
+        updatePreview();
+    }
+
+    function insertHeading() {
+        const textarea = document.getElementById('bookContentTextarea');
+        const start = textarea.selectionStart;
+        const heading = '\n# Heading\n';
+
+        textarea.value = textarea.value.substring(0, start) + heading + textarea.value.substring(start);
+        updatePreview();
+    }
+
+    function insertChapter() {
+        const textarea = document.getElementById('bookContentTextarea');
+        const start = textarea.selectionStart;
+        const chapterCount = (textarea.value.match(/## /g) || []).length + 1;
+        const chapter = `\n## Chapter ${chapterCount}\n\nStart writing chapter ${chapterCount} here...\n`;
+
+        textarea.value = textarea.value.substring(0, start) + chapter + textarea.value.substring(start);
+        updatePreview();
+    }
+
+    //================================================
+    //========= Conversion Functions =================
+    //================================================
+    function convertTextToHtml(text) {
+        if (!text) return '<p class="text-muted">No content to preview...</p>';
+
+        // Convert markdown-like syntax to HTML
+        let html = text
+            // Headers
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            // Bold and Italic
+            .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+            .replace/_(.*?)_/gim, '<u>$1</u>')
+            // Line breaks and paragraphs
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>')
+            // Horizontal rule
+            .replace(/^-{3,}$/gim, '<hr>');
+
+        // Wrap in paragraph if needed
+        if (!html.startsWith('<h') && !html.startsWith('<p>')) {
+            html = '<p>' + html + '</p>';
+        }
+
+        return html;
+    }
+
+    function convertHtmlToPlainText(html) {
+        if (!html) return '';
+
+        return html
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<p>/gi, '')
+            .replace(/<\/p>/gi, '\n\n')
+            .replace(/<h[1-6]>/gi, '# ')
+            .replace(/<\/h[1-6]>/gi, '\n\n')
+            .replace(/<strong>/gi, '**')
+            .replace(/<\/strong>/gi, '**')
+            .replace(/<em>/gi, '*')
+            .replace(/<\/em>/gi, '*')
+            .replace(/<u>/gi, '_')
+            .replace(/<\/u>/gi, '_')
+            .replace(/<[^>]*>/g, '') // Remove all other HTML tags
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .trim();
+    }
+
+    //================================================
+    //========= Utility Functions ====================
+    //================================================
+    function updateWordCount() {
+        const textarea = document.getElementById('bookContentTextarea');
+        const text = textarea.value;
+        const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+        const charCount = text.length;
+
+        document.getElementById('wordCount').textContent = `Words: ${wordCount} | Characters: ${charCount}`;
+    }
+    //====================================================
+    // =======   Create notification container      ======
+    // =======       NOTIFICATION SYSTEM            ======
+    //===================================================
+      function showNotification(message, type = 'success')
+      {
+           let container = document.getElementById('notificationContainer');
+          if (!container) {
+              container = document.createElement('div');
+              container.id = 'notificationContainer';
+              container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 1060;';
+              document.body.appendChild(container);
+          }
+
+          const notification = document.createElement('div');
+          notification.className = `notification notification-${type}`;
+
+          let icon = '✓';
+          if (type === 'error') icon = '❌';
+          if (type === 'warning') icon = '⚠️';
+
+          notification.innerHTML = `
+              <span style="font-size: 1.2rem; margin-right: 8px;">${icon}</span>
+              <span>${message}</span>
+          `;
+
+          // Apply styles
+          notification.style.cssText = `
+              position: relative;
+              padding: 12px 20px;
+              margin-bottom: 10px;
+              border-radius: 8px;
+              color: white;
+              opacity: 0;
+              transform: translateX(100%);
+              transition: all 0.3s ease;
+              background-color: ${type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#ffc107'};
+              color: ${type === 'warning' ? '#000' : '#fff'};
+          `;
+
+          container.appendChild(notification);
+
+          // Trigger animation
+          setTimeout(() => {
+              notification.style.opacity = '1';
+              notification.style.transform = 'translateX(0)';
+          }, 10);
+
+          // Remove after delay
+          setTimeout(() => {
+              notification.style.opacity = '0';
+              notification.style.transform = 'translateX(100%)';
+              setTimeout(() => {
+                  if (notification.parentNode) {
+                      notification.parentNode.removeChild(notification);
+                  }
+              }, 400);
+          }, 4000);
+
+       }  
+     //=========================================
+     // Load Selected Book Data from Books table
+     //    if not found then Load same from
+     //          RawData table
+    //==========================================
+      async function loadSelectedResponse(bookId)
+      {
+          if (!bookId) {
+              clearBookForm();
+              return;
+          }
+          Console.log("Loading selected book:", bookId);
+          try
+          {
+              const userId = document.getElementById("userId").value;
+              if (!userId)
+              {
+                    throw new Error("User ID not found");
+              }
+              showLoadingIndicatorBook(true);
+              const response = await fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`);
+
+              if (!response.ok)
+              {
+                  console.log("Loading selected book from APIRawResponse:", bookId);
+                  response = await fetch(`/Books/GetBookFromRawData?userId=${userId}&bookId=${bookId}`);
+                  if (!response.ok) {
+                      throw new Error("Failed to load book details");
+                  }
+              }
+
+              const result = await response.json();
+              console.log("Book details loaded:", result);
+
+               if (result.success)
+               {
+                  populateBookForm(result);
+                  showBookContent(result);
+                  showNotification("Book loaded successfully!", "success");
+
+                } else
+                {
+                     clearBookForm();
+                    showNotification("Error: " + result.message, "error");
+                }
+          } catch (error)
+          {
+              console.error("Error loading book details:", error);
+              clearBookForm();
+              showNotification("Error loading book details: " + error.message, "error");
+          } finally
+          {
+                showLoadingIndicator(false);
+          }
+      }
+    //==========================================
+    // Function to populate form fields with book data
+    //=========================================
+    function populateBookForm(bookData) {
+        console.log("Populating form with book data:", bookData);
+
+        // Populate Number of Chapters
+        const chapterCount = bookData.totalChapters || (bookData.chapters ? bookData.chapters.length : 0);
+        document.getElementById('Chapter').value = chapterCount > 0 ? chapterCount : 1;
+
+        // Populate Chapter Title (using book title or first chapter title)
+        let chapterTitle = bookData.title || '';
+        if (bookData.chapters && bookData.chapters.length > 0) {
+            chapterTitle = bookData.chapters[0].title || chapterTitle;
+        }
+        document.getElementById('Title').value = chapterTitle;
+
+        // Populate Chapter Topic (using book description or first chapter content)
+        let chapterTopic = bookData.description || '';
+        if (bookData.chapters && bookData.chapters.length > 0) {
+            chapterTopic = bookData.chapters[0].content || chapterTopic;
+        }
+        document.getElementById('UserInput').value = chapterTopic;
+
+        // Populate BookId if available
+        if (bookData.bookId) {
+            document.getElementById('BookId').value = bookData.bookId;
+        }
+
+        console.log("Form populated successfully");
+        showNotification("Book loaded successfully!", "success");
+    }
+    // ===================== UI Helper Function to DISPLAY BOOK CONTENT =====================
+    function showBookContent(book) {
+             const chatContainer = document.getElementById("chatContainer");
+
+             // Clear existing content
+             chatContainer.innerHTML = '';
+
+             // Add book title message
+             const titleMessage = addMessage(`📖 **${book.title || "Untitled Book"}**`);
+
+             // Add chapters if available
+             if (book.chapters && book.chapters.length > 0) {
+                 setTimeout(() => {
+                     const chaptersMessage = addMessage(`Here are the chapters of your book:`);
+
+                     // Add each chapter with accordion
+                     book.chapters.forEach((chapter, index) => {
+                         setTimeout(() => {
+                             const chapterDiv = document.createElement('div');
+                             chapterDiv.className = 'chapter-accordion';
+                             chapterDiv.innerHTML = `
+                                 <div class="chapter-item">
+                                     <h3 class="chapter-header">
+                                         <button class="chapter-button collapsed" type="button" data-bs-toggle="collapse"
+                                                 data-bs-target="#chapterCollapse${index}">
+                                             Chapter ${chapter.number || index + 1}: ${chapter.name || chapter.title || "Untitled"}
+                                         </button>
+                                     </h3>
+                                     <div id="chapterCollapse${index}" class="collapse">
+                                         <div class="chapter-body">
+                                             ${chapter.content || "No content available"}
+                                         </div>
+                                     </div>
+                                 </div>
+                             `;
+
+                             // Create a new message for each chapter
+                             const chapterMessage = document.createElement('div');
+                             chapterMessage.className = 'message message-ai';
+                             chapterMessage.innerHTML = `
+                                 <div class="message-avatar">📚</div>
+                                 <div class="message-content">
+                                     <div class="streaming-content">
+                                         ${chapterDiv.outerHTML}
+                                     </div>
+                                 </div>
+                             `;
+
+                             chatContainer.appendChild(chapterMessage);
+
+                             // Scroll to bottom
+                             chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                         }, index * 300);
+                     });
+                 }, 500);
+             } else {
+                 setTimeout(() => {
+                     addMessage("No chapters found in this book.");
+                 }, 500);
+             }
+         }
+        // Function to clear the form when no book is selected
+        function clearBookForm() {
+            document.getElementById('Chapter').value = 5; // Default value
+            document.getElementById('Title').value = '';
+            document.getElementById('UserInput').value = '';
+            console.log("Form cleared");
+        }
+
+        // Function to show/hide loading indicator
+        function showLoadingIndicatorBook(show) {
+            const dropdown = document.getElementById('BooksDropdown');
+            if (show) {
+                dropdown.disabled = true;
+                dropdown.style.opacity = '0.7';
+            } else {
+                dropdown.disabled = false;
+                dropdown.style.opacity = '1';
+            }
+        }
+       
+        //==================================
+        // Load Chapter Drop-Down
+        //==================================
+      async function loadSelectedBookChapters(bookId)
+      {
+          if (!bookId) {
+              clearBookForm();
+              return;
+          }
+          Console.log("Loading selected book:", bookId);
+          try
+          {
+              const userId = document.getElementById("userId").value;
+              if (!userId)
+              {
+                    throw new Error("User ID not found");
+              }
+              showLoadingIndicator(true);
+              const response = await fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`);
+
+              if (!response.ok)
+              {
+                  console.log("Loading selected book from APIRawResponse:", bookId);
+                  response = await fetch(`/Books/GetBookFromRawData?userId=${userId}&bookId=${bookId}`);
+                  if (!response.ok) {
+                      throw new Error("Failed to load book details");
+                  }
+              }
+
+              const result = await response.json();
+              console.log("Book details loaded:", result);
+
+               if (result.success)
+               {
+                  populateBookChaptersForm(result);
+                  showBookChapterContent(result);
+                  showNotification("Book loaded successfully!", "success");
+
+                } else
+                {
+                     clearBookForm();
+                    showNotification("Error: " + result.message, "error");
+                }
+          } catch (error)
+          {
+              console.error("Error loading book details:", error);
+              clearBookForm();
+              showNotification("Error loading book details: " + error.message, "error");
+          } finally
+          {
+                showLoadingIndicator(false);
+          }
+      }
+    //==========================================
+    // Function to populate form fields with book data
+    //=========================================
+    function populateBookChaptersForm(bookData) {
+        console.log("Populating form with book data:", bookData);
+
+        // Populate Number of Chapters
+        const chapterCount = bookData.totalChapters || (bookData.chapters ? bookData.chapters.length : 0);
+        document.getElementById('Chapter').value = chapterCount > 0 ? chapterCount : 1;
+
+        // Populate Chapter Title (using book title or first chapter title)
+        let chapterTitle = bookData.title || '';
+        if (bookData.chapters && bookData.chapters.length > 0) {
+            chapterTitle = bookData.chapters[0].title || chapterTitle;
+        }
+        document.getElementById('Title').value = chapterTitle;
+
+        // Populate Chapter Topic (using book description or first chapter content)
+        let chapterTopic = bookData.description || '';
+        if (bookData.chapters && bookData.chapters.length > 0) {
+            chapterTopic = bookData.chapters[0].content || chapterTopic;
+        }
+        document.getElementById('UserInputCh').value = chapterTopic;
+
+        // Populate BookId if available
+        if (bookData.bookId) {
+            document.getElementById('BookId').value = bookData.bookId;
+        }
+
+        console.log("Form populated successfully");
+        showNotification("Book loaded successfully!", "success");
+    }
+        // Function to clear the form when no book is selected
+        function clearBookChForm() {
+            document.getElementById('Chapter').value = 5; // Default value
+            document.getElementById('Title').value = '';
+            document.getElementById('UserInputCh').value = '';
+            console.log("Form cleared");
+        }
+
+        // Function to show/hide loading indicator
+        function showLoadingIndicator(show) {
+            const dropdown = document.getElementById('BooksChapterDropdown');
+            if (show) {
+                dropdown.disabled = true;
+                dropdown.style.opacity = '0.7';
+            } else {
+                dropdown.disabled = false;
+                dropdown.style.opacity = '1';
+            }
+        }
+        // ===================== UI Helper Function to DISPLAY BOOK CONTENT =====================
+    function showBookChapterContent(book) {
+             const chatContainer = document.getElementById("chatContainer");
+
+             // Clear existing content
+             chatContainer.innerHTML = '';
+
+             // Add book title message
+             const titleMessage = addMessage(`📖 **${book.title || "Untitled Book"}**`);
+
+             // Add chapters if available
+             if (book.chapters && book.chapters.length > 0) {
+                 setTimeout(() => {
+                     const chaptersMessage = addMessage(`Here are the chapters of your book:`);
+
+                     // Add each chapter with accordion
+                     book.chapters.forEach((chapter, index) => {
+                         setTimeout(() => {
+                             const chapterDiv = document.createElement('div');
+                             chapterDiv.className = 'chapter-accordion';
+                             chapterDiv.innerHTML = `
+                                 <div class="chapter-item">
+                                     <h3 class="chapter-header">
+                                         <button class="chapter-button collapsed" type="button" data-bs-toggle="collapse"
+                                                 data-bs-target="#chapterCollapse${index}">
+                                             Chapter ${chapter.number || index + 1}: ${chapter.name || chapter.title || "Untitled"}
+                                         </button>
+                                     </h3>
+                                     <div id="chapterCollapse${index}" class="collapse">
+                                         <div class="chapter-body">
+                                             ${chapter.content || "No content available"}
+                                         </div>
+                                     </div>
+                                 </div>
+                             `;
+
+                             // Create a new message for each chapter
+                             const chapterMessage = document.createElement('div');
+                             chapterMessage.className = 'message message-ai';
+                             chapterMessage.innerHTML = `
+                                 <div class="message-avatar">📚</div>
+                                 <div class="message-content">
+                                     <div class="streaming-content">
+                                         ${chapterDiv.outerHTML}
+                                     </div>
+                                 </div>
+                             `;
+
+                             chatContainer.appendChild(chapterMessage);
+
+                             // Scroll to bottom
+                             chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                         }, index * 300);
+                     });
+                 }, 500);
+             } else {
+                 setTimeout(() => {
+                     addMessage("No chapters found in this book.");
+                 }, 500);
+             }
+         }
+        // Function to clear the form when no book is selected
+        function clearBookChForm() {
+            document.getElementById('Chapter').value = 5; // Default value
+            document.getElementById('Title').value = '';
+            document.getElementById('UserInputCh').value = '';
+            console.log("Form cleared");
+        }
+
+        // Function to show/hide loading indicator
+        function showLoadingIndicator(show) {
+            const dropdown = document.getElementById('BooksChapterDropdown');
+            if (show) {
+                dropdown.disabled = true;
+                dropdown.style.opacity = '0.7';
+            } else {
+                dropdown.disabled = false;
+                dropdown.style.opacity = '1';
+            }
+        }
+    
+</script>
