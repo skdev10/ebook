@@ -56,7 +56,7 @@ namespace EBookDashboard.Controllers
         private async Task<string> SendAudioToTranscriptionAPI(string audioPath, int userId, int bookId, int chapterId)
         {
             var apiUrl = _configuration["ExternalApi:AudioUrl"] ?? "http://162.229.248.26:8001/api/audio";
-            var apiKey = _configuration["ExternalApi:ApiKey"];
+            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
             var extension = Path.GetExtension(audioPath).ToLowerInvariant();
             var mime = extension switch
             {
@@ -83,7 +83,8 @@ namespace EBookDashboard.Controllers
 
             using var client = new HttpClient();
             client.Timeout = TimeSpan.FromMinutes(5);
-            if (!string.IsNullOrEmpty(apiKey)) client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+            if (!string.IsNullOrEmpty(apiKey))
+                client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", apiKey);
 
             var response = await client.PostAsync(apiUrl, form);
             var json = await response.Content.ReadAsStringAsync();

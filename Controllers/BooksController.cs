@@ -458,7 +458,8 @@ namespace EBookDashboard.Controllers
 
             var apiUrl = _configuration["ExternalApi:GenerateUrl"] ?? "http://162.229.248.26:8001/api/generate_chapter";
             var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
-            if (string.IsNullOrEmpty(apiKey)) apiKey = "AK-proj-c8r15p0EYc1B0SKi5_hP58HEyL6xP0ywmZ2hEpvpvU5y-i7yZ8IiyLv1K7cGSkyNh";
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { error = true, message = "Server configuration error: ExternalApi:ApiKey is not set. Add it in appsettings, environment variables, or user secrets." });
             var responseData = string.Empty;
             int? rawResponseId = null;
             try
@@ -582,24 +583,20 @@ namespace EBookDashboard.Controllers
         [HttpPost]
         public async Task<ActionResult> EditChapter(string userId, string bookId, string chapter, string changes)
         {
-            var apiUrl = "http://162.229.248.26:8001/api/edit";
+            var apiUrl = _configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit";
+            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { error = true, message = "Server configuration error: ExternalApi:ApiKey is not set." });
 
-            var payload = new
+            var payload = new { user_id = userId, book_id = bookId, chapter, changes };
+            var json = JsonConvert.SerializeObject(payload);
+            using var req = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
-                user_id = userId,
-                book_id = bookId,
-                chapter = chapter,
-                changes = changes
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
-
-            string json = JsonConvert.SerializeObject(payload);
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            HttpResponseMessage response = await _httpClient.PostAsync(apiUrl, content);
-
-            string result = await response.Content.ReadAsStringAsync();
-
+            req.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
+            using var response = await _httpClient.SendAsync(req);
+            var result = await response.Content.ReadAsStringAsync();
             return Content(result, "application/json");
         }
 
@@ -617,7 +614,8 @@ namespace EBookDashboard.Controllers
 
             var apiUrl = _configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit";
             var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
-            if (string.IsNullOrEmpty(apiKey)) apiKey = "AK-proj-c8r15p0EYc1B0SKi5_hP58HEyL6xP0ywmZ2hEpvpvU5y-i7yZ8IiyLv1K7cGSkyNh";
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { error = true, message = "Server configuration error: ExternalApi:ApiKey is not set." });
 
             var userId = model.UserId ?? "";
             var bookId = model.BookId ?? "";
@@ -1822,20 +1820,21 @@ namespace EBookDashboard.Controllers
         {
             if (model == null)
                 return BadRequest("Invalid request payload.");
-            // ✅ Read from appsettings.json
-            var apiUrl = _configuration["ExternalApi:EditUrl"];
-            var apiKey = _configuration["ExternalApi:ApiKey"];
-            var apiHeaderName = "X-API-Key";
+            var apiUrl = (_configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit").Trim();
+            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            const string apiHeaderName = "X-API-Key";
 
             string responseData = string.Empty;
             int? rawResponseId = null;
 
             try
             {
+                if (string.IsNullOrEmpty(apiKey))
+                    return BadRequest(new { success = false, message = "ExternalApi:ApiKey is not set." });
+
                 using var client = new HttpClient();
                 client.Timeout = TimeSpan.FromMinutes(2);
-                if (!string.IsNullOrEmpty(apiKey))
-                    client.DefaultRequestHeaders.Add(apiHeaderName, apiKey);
+                client.DefaultRequestHeaders.TryAddWithoutValidation(apiHeaderName, apiKey);
 
                 var json = JsonConvert.SerializeObject(model);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -1925,9 +1924,10 @@ namespace EBookDashboard.Controllers
             // ✅ Read from appsettings.json
             //var apiUrl = "http://162.229.248.26:8001/api/changecontent";
 
-            var apiUrl = _configuration["ExternalApi:EditUrl"];
-            var apiKey = _configuration["ExternalApi:ApiKey"];
-            //var apiHeaderName = "X-API-Key";
+            var apiUrl = (_configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit").Trim();
+            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { success = false, message = "ExternalApi:ApiKey is not set." });
 
             var payload = new
             {
@@ -1937,11 +1937,13 @@ namespace EBookDashboard.Controllers
                 user_input = model.NewContent
             };
 
-            using var httpClient = new HttpClient();
             var json = JsonConvert.SerializeObject(payload);
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            var response = await httpClient.PostAsync(apiUrl, content);
+            using var req = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+            req.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
+            using var response = await _httpClient.SendAsync(req);
             var responseData = await response.Content.ReadAsStringAsync();
 
             // Step 2: Parse response JSON
@@ -2311,19 +2313,21 @@ namespace EBookDashboard.Controllers
             // ✅ Load from appsettings.json
            
 
-            var apiUrl = _configuration["ExternalApi:ApproveUrl"];
-            var apiKey = _configuration["ExternalApi:ApiKey"];
-            var apiHeaderName = "X-API-Key";
+            var apiUrl = (_configuration["ExternalApi:ApproveUrl"] ?? "http://162.229.248.26:8001/api/approve").Trim();
+            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            const string apiHeaderName = "X-API-Key";
 
             string responseData = string.Empty;
             int? rawResponseId = null;
 
             try
             {
+                if (string.IsNullOrEmpty(apiKey))
+                    return BadRequest(new { success = false, message = "Server configuration error: ExternalApi:ApiKey is not set." });
+
                 using var client = new HttpClient();
                 client.Timeout = TimeSpan.FromMinutes(2);
-                if (!string.IsNullOrEmpty(apiKey))
-                    client.DefaultRequestHeaders.Add(apiHeaderName, apiKey);
+                client.DefaultRequestHeaders.TryAddWithoutValidation(apiHeaderName, apiKey);
 
                 var json = JsonConvert.SerializeObject(model);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -2913,6 +2917,8 @@ namespace EBookDashboard.Controllers
             var quality = (_configuration["ExternalApi:CoverGenerateQuality"] ?? "medium").Trim();
             var apiUrl = (_configuration["ExternalApi:GenerateCoverUrl"] ?? "http://162.229.248.26:8001/api/generate-cover").Trim();
             var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { success = false, message = "ExternalApi:ApiKey is not set." });
 
             // Payload must match external API (no undocumented "prompt" key — direction folded into cover_style)
             var payloadObj = new JObject
@@ -2995,6 +3001,8 @@ namespace EBookDashboard.Controllers
 
             var apiUrl = (_configuration["ExternalApi:EditCoverUrl"] ?? "http://162.229.248.26:8001/api/edit-cover").Trim();
             var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { success = false, message = "ExternalApi:ApiKey is not set." });
 
             var payload = new JObject
             {
@@ -3007,8 +3015,7 @@ namespace EBookDashboard.Controllers
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 request.Content = new StringContent(payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
-                if (!string.IsNullOrEmpty(apiKey))
-                    request.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
+                request.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
                 var response = await _httpClient.SendAsync(request, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
@@ -3164,12 +3171,13 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> GetQueueData()
         {
             var apiUrl = _configuration["ExternalApi:QueueDataUrl"] ?? "http://162.229.248.26:8001/api/queue-data";
-            var apiKey = _configuration["ExternalApi:ApiKey"];
+            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
             try
             {
                 using var client = new HttpClient();
                 client.Timeout = TimeSpan.FromSeconds(15);
-                if (!string.IsNullOrEmpty(apiKey)) client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+                if (!string.IsNullOrEmpty(apiKey))
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", apiKey);
                 var response = await client.GetAsync(apiUrl);
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.IsSuccessStatusCode)
@@ -3188,12 +3196,13 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> BookChaptersName([FromBody] JObject body)
         {
             var apiUrl = _configuration["ExternalApi:BookChaptersNameUrl"] ?? "http://162.229.248.26:8001/api/book_chapters_name";
-            var apiKey = _configuration["ExternalApi:ApiKey"];
+            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
             try
             {
                 using var client = new HttpClient();
                 client.Timeout = TimeSpan.FromMinutes(1);
-                if (!string.IsNullOrEmpty(apiKey)) client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+                if (!string.IsNullOrEmpty(apiKey))
+                    client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", apiKey);
                 var content = new StringContent(body?.ToString() ?? "{}", Encoding.UTF8, "application/json");
                 var response = await client.PostAsync(apiUrl, content);
                 var json = await response.Content.ReadAsStringAsync();
