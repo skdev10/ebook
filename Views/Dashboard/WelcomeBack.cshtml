@@ -1,0 +1,94 @@
+@{
+    ViewData["Title"] = "Welcome Back - eBook Publisher";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="welcome-back-container">
+    <div class="welcome-back-content">
+        <div class="welcome-animation">
+            <div class="book-flip">
+                <div class="book-cover"></div>
+                <div class="book-page"></div>
+            </div>
+        </div>
+        
+        <h1>Welcome Back, <span class="user-name">@ViewBag.UserName</span>!</h1>
+        <p>We're glad to see you continue your publishing journey</p>
+        
+        <div class="quick-stats">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-book"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Books Published</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-number">$2,847</div>
+                    <div class="stat-label">Monthly Revenue</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-download"></i>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-number">1,234</div>
+                    <div class="stat-label">Total Books</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cta-section">
+            <button class="btn btn-primary" id="continueBtn">
+                <i class="fas fa-play"></i> Continue Working
+            </button>
+            <button class="btn btn-secondary" id="viewDashboardBtn">
+                <i class="fas fa-tachometer-alt"></i> View Dashboard
+            </button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const continueBtn = document.getElementById('continueBtn');
+            const viewDashboardBtn = document.getElementById('viewDashboardBtn');
+            
+            continueBtn.addEventListener('click', function() {
+                Swal.fire({
+                    title: 'Continuing Your Work',
+                    text: 'Loading your previous session...',
+                    icon: 'info',
+                    timer: 1500,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.href = '/Dashboard/Summary';
+                });
+            });
+            
+            viewDashboardBtn.addEventListener('click', function() {
+                Swal.fire({
+                    title: 'Viewing Dashboard',
+                    text: 'Redirecting to your dashboard...',
+                    icon: 'info',
+                    timer: 1500,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                }).then(() => {
+                    window.location.href = '/Dashboard';
+                });
+            });
+        });
+    </script>
+}

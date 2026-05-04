@@ -1,0 +1,234 @@
+@{
+    ViewData["Title"] = "Subscriptions";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    :root {
+        --primary: #7c3aed;
+        --secondary: #06b6d4;
+        --surface: #ffffff;
+        --background: #f8fafc;
+        --text-primary: #1e293b;
+        --border: #e2e8f0;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        --radius: 16px;
+    }
+
+    .page-container {
+        width: 100%;
+        padding: 30px;
+        background: var(--background);
+        min-height: 100vh;
+    }
+
+    .page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: #2563eb;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+        margin-bottom: 10px;
+    }
+
+    .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        padding: 30px;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 12px;
+    }
+
+    .plan-card {
+        border: 2px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        text-align: center;
+        transition: all 0.3s;
+        background: var(--surface);
+    }
+
+    .plan-card:hover {
+        border-color: var(--primary);
+        transform: translateY(-4px);
+        box-shadow: var(--shadow);
+    }
+
+    .plan-card.featured {
+        border-color: var(--primary);
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(6, 182, 212, 0.05));
+    }
+
+    .plan-name {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 12px;
+    }
+
+    .plan-price {
+        font-size: 2.5rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+
+    .plan-duration {
+        color: #64748b;
+        margin-bottom: 16px;
+    }
+
+    .plan-features {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0;
+        text-align: left;
+    }
+
+    .plan-features li {
+        padding: 8px 0;
+        color: var(--text-primary);
+    }
+
+    .plan-features li:before {
+        content: "✓ ";
+        color: #10b981;
+        font-weight: bold;
+        margin-right: 8px;
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        width: 100%;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+    }
+
+    .subscription-item {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 16px;
+    }
+
+    .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+    }
+</style>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1> Subscriptions</h1>
+        <p>Manage your subscription and premium features</p>
+    </div>
+
+    <!-- Your Active Subscriptions - Database Connected -->
+    <div class="card">
+        <div class="card-header">Your Active Subscriptions</div>
+        <div id="activeSubscriptions">
+            @if (ViewBag.ActiveSubscriptions != null && ((IEnumerable<dynamic>)ViewBag.ActiveSubscriptions).Any())
+            {
+                @foreach (var sub in ViewBag.ActiveSubscriptions)
+                {
+                    <div class="subscription-item">
+                        <h4>@sub.PlanName</h4>
+                        <p><strong>Price:</strong> $@sub.PlanRate.ToString("F2")</p>
+                        <p><strong>Start Date:</strong> @sub.StartDate.ToString("MMM dd, yyyy")</p>
+                        <p><strong>End Date:</strong> @sub.EndDate.ToString("MMM dd, yyyy")</p>
+                        <p><strong>Max eBooks:</strong> @sub.MaxEBooks</p>
+                        @if (!string.IsNullOrEmpty(sub.PlanDescription))
+                        {
+                            <p>@sub.PlanDescription</p>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <p class="text-muted">No active subscriptions. Subscribe to a plan below.</p>
+            }
+        </div>
+    </div>
+
+    <!-- Your Purchased Features - Database Connected -->
+    <div class="card">
+        <div class="card-header">Your Purchased Features</div>
+        <div id="userFeatures">
+            @if (ViewBag.UserFeatures != null && ((IEnumerable<dynamic>)ViewBag.UserFeatures).Any())
+            {
+                <ul style="list-style: none; padding: 0;">
+                    @foreach (var feature in ViewBag.UserFeatures)
+                    {
+                        <li style="padding: 12px; background: #f9fafb; margin-bottom: 8px; border-radius: 8px;">
+                            <i class="fas fa-check-circle" style="color: #10b981; margin-right: 8px;"></i>
+                            <strong>@(feature.FeatureName ?? "Unknown Feature")</strong>
+                            <span class="text-muted" style="float: right;">Added: @(feature.AddedAt != null ? ((DateTime)feature.AddedAt).ToString("MMM dd, yyyy") : "N/A")</span>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="text-muted">No features purchased yet.</p>
+            }
+        </div>
+    </div>
+
+    <!-- Available Plans - Database Connected -->
+    <div class="card">
+        <div class="card-header">Available Plans</div>
+        <div class="plans-grid">
+            @if (ViewBag.AvailablePlans != null)
+            {
+                @foreach (var plan in ViewBag.AvailablePlans)
+                {
+                    <div class="plan-card @(plan.PlanId == 3 ? "featured" : "")">
+                        <div class="plan-name">@plan.PlanName</div>
+                        <div class="plan-price">$@plan.PlanRate.ToString("F2")</div>
+                        <div class="plan-duration">@plan.PlanDays days</div>
+                        @if (!string.IsNullOrEmpty(plan.PlanDescription))
+                        {
+                            <p style="color: #64748b; margin: 16px 0;">@plan.PlanDescription</p>
+                        }
+                        <ul class="plan-features">
+                            <li>Max @plan.MaxEBooks eBooks</li>
+                            <li>Full access to features</li>
+                            <li>Priority support</li>
+                        </ul>
+                        <button class="btn" onclick="selectPlan(@plan.PlanId)">
+                            Select Plan
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+<script>
+    function selectPlan(planId) {
+        window.location.href = `/Payments/Checkout?planId=${planId}`;
+    }
+</script>
+

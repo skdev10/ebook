@@ -1,0 +1,1146 @@
+@{
+    ViewData["Title"] = "AI Cover Design";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var initialBookId = ViewBag.BookId as int? ?? 0;
+}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<style>
+    /* Match dashboard: Inter body, Playfair headings, violet accents */
+    .cover-design-page { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; color: #0f172a; }
+    .cover-design-page .font-serif { font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; }
+    /* Fallback when no cover image: solid brand violet — no gradient / no blue wash */
+    .cov-preview-fallback-purple {
+        background: #5b21b6 !important;
+        background-image: none !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+    }
+    .cov-preview-typography {
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.45);
+    }
+    /* Live title/author: multi-line clamp (no hardcoded sample text; binds to form / API) */
+    .cov-preview-title {
+        display: -webkit-box;
+        -webkit-line-clamp: 5;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+    }
+    #covPreviewAuthor {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-break: break-word;
+    }
+    /* Image Direction: taller writing area, no visible Y-scrollbar (still scrolls with wheel / touch) */
+    .cov-image-direction-shell {
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        position: relative;
+        overflow: hidden;
+    }
+    .cov-image-direction-shell:focus-within {
+        box-shadow: 0 4px 24px -8px rgba(109, 40, 217, 0.12), 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .cov-image-direction-textarea {
+        min-height: 15rem;
+        max-height: 22rem;
+        line-height: 1.65;
+        overflow-y: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        caret-color: #6d28d9;
+        border-radius: 14px 14px 4px 4px;
+    }
+    .cov-image-direction-textarea::placeholder {
+        color: #94a3b8;
+    }
+    .cov-image-direction-textarea::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+    .cov-action-icon-btn {
+        flex-shrink: 0;
+        width: 2.75rem;
+        height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.875rem;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+        cursor: pointer;
+    }
+    .cov-action-icon-btn:active:not(:disabled) { transform: scale(0.96); }
+    .cov-action-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .cov-action-icon-btn--muted {
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+    .cov-action-icon-btn--muted:hover:not(:disabled) {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        color: #5b21b6;
+        box-shadow: 0 4px 12px -4px rgba(91, 33, 182, 0.2);
+    }
+    .cov-action-icon-btn--accent {
+        border: 1px solid #ddd6fe;
+        background: #f5f3ff;
+        color: #6d28d9;
+        box-shadow: 0 1px 2px rgba(91, 33, 182, 0.08);
+    }
+    .cov-action-icon-btn--accent:hover:not(:disabled) {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+        box-shadow: 0 4px 14px -4px rgba(91, 33, 182, 0.35);
+    }
+    .cov-action-icon-btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.35);
+    }
+    /* Cover style: visual cards (left panel only) */
+    .cov-style-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+    @@media (min-width: 420px) { .cov-style-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .cov-style-card {
+        position: relative; border-radius: 14px; border: 2px solid #e2e8f0; background: #fff;
+        padding: 0.65rem 0.5rem 0.55rem; text-align: center; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+        min-height: 4.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem;
+    }
+    .cov-style-card:hover { border-color: #c4b5fd; box-shadow: 0 4px 14px -6px rgba(91, 33, 182, 0.35); }
+    .cov-style-card.is-selected { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.22); }
+    .cov-style-card:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.35); }
+    .cov-style-card:active { transform: scale(0.98); }
+    .cov-style-card__swatch { width: 100%; height: 1.35rem; border-radius: 8px; margin-bottom: 0.15rem; }
+    .cov-style-card__label { font-size: 0.7rem; font-weight: 600; color: #334155; letter-spacing: 0.02em; }
+    .cov-style-card__hint { font-size: 0.62rem; color: #94a3b8; line-height: 1.2; }
+    /* Preview typography by style (right panel — no field labels, only live title/author) */
+    #covPreviewShell { transition: box-shadow 0.35s ease; }
+    #covPreviewShell.cov-style-minimal #covPreviewTitle { font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; font-size: clamp(1.1rem, 3.5vw, 1.65rem); }
+    #covPreviewShell.cov-style-bold #covPreviewTitle { font-weight: 800; letter-spacing: -0.02em; font-size: clamp(1.35rem, 4vw, 2.25rem); }
+    #covPreviewShell.cov-style-elegant #covPreviewTitle { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-weight: 600; }
+    #covPreviewShell.cov-style-modern #covPreviewTitle { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 700; letter-spacing: -0.03em; }
+    #covPreviewShell.cov-style-vintage #covPreviewTitle { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; font-size: clamp(1rem, 3vw, 1.5rem); }
+    #covPreviewShell.cov-style-minimal #covPreviewAuthor { letter-spacing: 0.28em; text-transform: uppercase; font-size: 0.72rem; }
+    #covPreviewShell.cov-style-bold #covPreviewAuthor { font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 0.8rem; }
+    #covPreviewShell.cov-style-elegant #covPreviewAuthor { font-family: 'Playfair Display', Georgia, serif; font-style: italic; letter-spacing: 0.06em; text-transform: none; font-size: 0.95rem; }
+    #covPreviewShell.cov-style-modern #covPreviewAuthor { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.7rem; }
+    #covPreviewShell.cov-style-vintage #covPreviewAuthor { font-family: Georgia, serif; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.72rem; opacity: 0.95; }
+    .cov-preview-book-stage { perspective: 1200px; padding: 0.5rem 0 1rem; }
+    .cov-preview-zoom-inner { transform-origin: top center; transition: transform 0.2s ease; }
+    .cov-preview-3d {
+        transform: rotateY(-4deg) rotateX(2deg);
+        box-shadow:
+            0 2px 4px rgba(15, 23, 42, 0.06),
+            0 24px 48px -12px rgba(15, 23, 42, 0.35),
+            0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+    }
+    .cov-preview-toolbar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem;
+        margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 16px;
+        border: 1px solid #e2e8f0; background: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
+        max-width: 440px;
+    }
+    .cov-preview-toolbar label { font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+    .cov-preview-zoom-wrap { display: flex; align-items: center; gap: 0.35rem; flex: 1; min-width: 140px; }
+    .cov-preview-zoom-wrap input[type="range"] { flex: 1; accent-color: #7c3aed; }
+    .cov-preview-toolbar-btn {
+        display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 12px; border: 1px solid #e2e8f0;
+        background: #fff; color: #475569; font-size: 0.8rem; font-weight: 600; padding: 0.45rem 0.75rem; cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .cov-preview-toolbar-btn:hover { border-color: #c4b5fd; color: #5b21b6; background: #faf5ff; }
+    #covPreviewTitle.cov-line-empty, #covPreviewAuthor.cov-line-empty { opacity: 0; min-height: 0.1em; }
+</style>
+
+<div class="cover-design-page bg-[#f5f7f9] min-h-full py-4 md:py-8 px-3 md:px-6 flex justify-center items-start antialiased">
+    <!-- Loading -->
+    <div id="screenLoading" class="bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full max-w-[1280px] min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-8 flex flex-col gap-3 animate-pulse">
+        <div class="h-8 bg-slate-200 rounded-xl w-1/3"></div>
+        <div class="h-4 bg-slate-200 rounded w-full"></div>
+        <div class="h-4 bg-slate-200 rounded w-5/6"></div>
+    </div>
+
+    <div id="emptyState" class="hidden bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full max-w-[1280px] min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-10 flex flex-col items-center justify-center text-center text-slate-500">
+        You do not have any books yet. Create a book first, then return here to design your cover.
+    </div>
+
+    <div id="coverMain" class="hidden bg-white rounded-[32px] shadow-sm w-full max-w-[1280px] min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] flex flex-col md:flex-row overflow-hidden border border-slate-200/60">
+        <!-- Form (full width with dashboard sidebar only — no duplicate inner nav) -->
+        <div class="w-full md:w-5/12 p-6 md:p-10 lg:p-12 border-b md:border-b-0 md:border-r border-slate-100 flex flex-col bg-white shrink-0">
+            <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="sparkles" class="w-5 h-5 text-violet-600" stroke-width="1.5"></i>
+                <span class="text-xs font-semibold uppercase tracking-wide text-violet-600">Ebook AI</span>
+            </div>
+            <h1 class="font-serif text-2xl md:text-[1.65rem] text-slate-900 font-medium tracking-tight mb-2">AI Book Cover Creator</h1>
+            <p class="text-sm text-slate-500 mb-6">Uses the same book as in AI Writer / Book Formatting. Adjust details, then generate.</p>
+            <div class="h-px w-full bg-slate-100 mb-8"></div>
+
+            <div class="flex flex-col gap-5 flex-1">
+                <div class="hidden" data-guided-tour="cov-book" aria-hidden="true">
+                    <select id="bookSelect" class="hidden" tabindex="-1" aria-hidden="true"></select>
+                </div>
+                <div class="flex flex-col gap-5" data-guided-tour="cov-fields">
+                <div>
+                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Title</label>
+                    <input type="text" id="bookTitle" placeholder="Your book title" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all" />
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-2 font-medium">Author Name</label>
+                    <input type="text" id="authorName" placeholder="Author name" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all" />
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Category / Genre</label>
+                    <select id="bookCategory" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all bg-white appearance-none cursor-pointer" style="background-image:url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e\");background-repeat:no-repeat;background-position:right 1rem center;background-size:1rem;padding-right:2.5rem;">
+                        <option value="Sci-Fi">Sci-Fi</option>
+                        <option value="Fantasy">Fantasy</option>
+                        <option value="Thriller">Thriller</option>
+                        <option value="Romance">Romance</option>
+                        <option value="Mystery">Mystery</option>
+                        <option value="Non-Fiction">Non-Fiction</option>
+                        <option value="Biography">Biography</option>
+                        <option value="Horror">Horror</option>
+                        <option value="General">General</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm text-slate-600 mb-2 font-medium">Cover Style</label>
+                    <input type="hidden" id="coverStyle" value="modern" autocomplete="off" />
+                    <div id="coverStyleCards" class="cov-style-cards" role="group" aria-label="Cover style">
+                        <button type="button" class="cov-style-card" data-style="minimal" aria-pressed="false">
+                            <span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#f8fafc,#e2e8f0)"></span>
+                            <span class="cov-style-card__label">Minimal</span>
+                            <span class="cov-style-card__hint">Clean type</span>
+                        </button>
+                        <button type="button" class="cov-style-card" data-style="bold" aria-pressed="false">
+                            <span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#4c1d95,#7c3aed)"></span>
+                            <span class="cov-style-card__label">Bold</span>
+                            <span class="cov-style-card__hint">High impact</span>
+                        </button>
+                        <button type="button" class="cov-style-card" data-style="elegant" aria-pressed="false">
+                            <span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#faf5ff,#ddd6fe)"></span>
+                            <span class="cov-style-card__label">Elegant</span>
+                            <span class="cov-style-card__hint">Serif italic</span>
+                        </button>
+                        <button type="button" class="cov-style-card is-selected" data-style="modern" aria-pressed="true">
+                            <span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#312e81,#6366f1)"></span>
+                            <span class="cov-style-card__label">Modern</span>
+                            <span class="cov-style-card__hint">Sans sharp</span>
+                        </button>
+                        <button type="button" class="cov-style-card" data-style="vintage" aria-pressed="false">
+                            <span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#422006,#92400e)"></span>
+                            <span class="cov-style-card__label">Vintage</span>
+                            <span class="cov-style-card__hint">Classic caps</span>
+                        </button>
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <div class="mt-8" data-guided-tour="cov-prompt">
+                <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Image Direction</h2>
+                <p class="text-sm text-slate-500 mb-3 leading-snug">Mood, palette, main subject, and style references—the clearer you are, the stronger the cover.</p>
+                <div class="cov-image-direction-shell border border-slate-200 rounded-[20px] p-1.5 flex flex-col focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200 bg-white">
+                    <textarea id="imageDirection" rows="10" placeholder="Example: Warm twilight over a quiet city skyline, deep indigo and amber, lone figure in silhouette, cinematic depth—no text on the image, no cluttered collage…" class="cov-image-direction-textarea w-full px-4 py-4 text-base text-slate-800 outline-none resize-none bg-slate-50/40 focus:bg-white transition-colors"></textarea>
+                    <div class="bg-slate-50 rounded-[14px] flex flex-wrap justify-end items-center p-2.5 mt-1 border border-slate-100/90 gap-2">
+                        @* <button type="button" id="btnEditCover" class="cov-action-icon-btn cov-action-icon-btn--muted" title="Edit cover — apply Image Direction to current cover" aria-label="Edit cover">
+                            <i data-lucide="pencil" class="w-5 h-5" stroke-width="2"></i>
+                        </button>
+                        <button type="button" id="btnRegenerate" class="cov-action-icon-btn cov-action-icon-btn--accent" title="Regenerate — new cover with current fields" aria-label="Regenerate cover">
+                            <i data-lucide="refresh-cw" class="w-5 h-5" stroke-width="2"></i>
+                        </button> *@
+                        <button type="button" id="btnGenerate" class="inline-flex items-center gap-2 rounded-full bg-violet-600 text-white px-5 py-2.5 text-sm font-semibold shadow-md shadow-violet-500/30 hover:bg-violet-700 transition-colors">
+                            <i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i>
+                            Generate Cover
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button type="button" id="btnDownloadKdpCover" class="rounded-[14px] border-2 border-violet-200 bg-violet-50 text-violet-800 py-3.5 text-sm font-semibold hover:bg-violet-100 transition-colors flex items-center justify-center gap-2" data-guided-tour="cov-kdp-export" title="EPUB, print PNGs, ZIP, PDF — sab isi app mein">
+                    <i data-lucide="download" class="w-4 h-4" stroke-width="1.75"></i>
+                    Download book
+                </button>
+                <button type="button" id="btnKdpPrintCalculator" class="rounded-[14px] border-2 border-sky-200 bg-sky-50 text-sky-900 py-3.5 text-sm font-semibold hover:bg-sky-100 transition-colors flex items-center justify-center gap-2" title="Print cover sizes + preview — koi bahar link nahi">
+                    <i data-lucide="ruler" class="w-4 h-4" stroke-width="1.75"></i>
+                    Print cover calculator
+                </button>
+            </div>
+            <p class="mt-2 text-[11px] text-slate-500 text-center leading-snug px-1">Pehle calculator se dimensions save karein, phir <strong>Download book</strong> se EPUB aur print files — sab in-app; full PDF bhi wahin se.</p>
+            <a href="#" id="btnGoToPublish" class="mt-3 w-full rounded-[14px] bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 text-white py-3.5 text-sm font-semibold shadow-lg shadow-violet-500/25 hover:from-violet-700 hover:via-fuchsia-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book">
+                <i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i>
+                Continue to Publish
+            </a>
+            <p class="mt-2 text-[11px] text-slate-400 text-center leading-snug">Uses the book loaded here (same as AI Writer / Formatting). You can finish cover later and return anytime.</p>
+        </div>
+
+        <!-- Preview: live book only — no form labels on the cover art -->
+        <div class="w-full md:w-7/12 flex-1 min-h-0 p-6 md:p-10 lg:pl-14 flex flex-col bg-white">
+            <div class="flex items-center gap-3 mb-2">
+                <span class="w-5 h-0.5 bg-violet-500 rounded-full"></span>
+                <span class="text-violet-600 font-medium text-sm tracking-wide">Ebook AI</span>
+            </div>
+            <h2 class="font-serif text-2xl md:text-3xl text-slate-900 font-medium tracking-tight mb-1">Cover preview</h2>
+            <p class="text-sm text-slate-500 leading-relaxed max-w-lg mb-6">Only your title and author appear on the cover. Fields on the left never render as labels here.</p>
+
+            <div class="cov-preview-book-stage self-start w-full max-w-[440px]">
+                <div id="covPreviewZoomInner" class="cov-preview-zoom-inner cov-preview-3d">
+                    <div id="covPreviewShell" class="w-full aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
+                        <img id="covPreviewBgImg" src="" alt="" class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500 pointer-events-none" />
+                        <div id="covPreviewFallbackBg" class="cov-preview-fallback-purple absolute inset-0 transition-opacity duration-500"></div>
+                        <div class="absolute inset-0 flex flex-col items-center justify-between pt-[12%] pb-[14%] px-5 sm:px-7 text-center z-10 cov-preview-typography">
+                            <h3 id="covPreviewTitle" class="cov-preview-title font-sans text-2xl sm:text-3xl md:text-4xl text-white font-medium tracking-tight leading-snug transition-all duration-300 max-w-[min(100%,20rem)] md:max-w-[22rem] mx-auto" title=""></h3>
+                            <p id="covPreviewAuthor" class="text-sm sm:text-base text-white/95 font-normal transition-all duration-300 max-w-[min(100%,18rem)] mx-auto leading-snug" title=""></p>
+                        </div>
+                        <div id="previewBusy" class="hidden absolute inset-0 z-20 bg-violet-950/55 flex flex-col items-center justify-center text-white gap-2">
+                            <div class="w-10 h-10 border-2 border-violet-200 border-t-violet-400 rounded-full animate-spin"></div>
+                            <span class="text-sm font-medium">Generating…</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cov-preview-toolbar" aria-label="Preview controls">
+                <div class="cov-preview-zoom-wrap">
+                    <label for="covZoomRange">Zoom</label>
+                    <button type="button" id="btnCovZoomOut" class="cov-preview-toolbar-btn" title="Zoom out" aria-label="Zoom out">−</button>
+                    <input type="range" id="covZoomRange" min="70" max="130" value="100" aria-valuemin="70" aria-valuemax="130" aria-valuenow="100" />
+                    <button type="button" id="btnCovZoomIn" class="cov-preview-toolbar-btn" title="Zoom in" aria-label="Zoom in">+</button>
+                </div>
+                <button type="button" id="btnCovDownloadPreview" class="cov-preview-toolbar-btn">
+                    <i data-lucide="download" class="w-3.5 h-3.5" stroke-width="2"></i>
+                    Download
+                </button>
+                <button type="button" id="btnCovRefreshPreview" class="cov-preview-toolbar-btn">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5" stroke-width="2"></i>
+                    Refresh
+                </button>
+            </div>
+
+            <input type="hidden" id="coverGeneratedPayload" value="" />
+
+            <div id="optionsWrap" class="mt-8 hidden w-full max-w-[640px]">
+                <h3 class="text-sm font-semibold text-slate-800 mb-3">Recent covers <span class="text-slate-400 font-normal">(tap to select)</span></h3>
+                <div id="optionsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="~/js/cover-download-modal.js" asp-append-version="true"></script>
+<script src="~/js/cover-kdp-export.js" asp-append-version="true"></script>
+<script>
+(function () {
+    'use strict';
+
+    var initialBookId = @(initialBookId);
+    var books = [];
+    var selectedBook = null;
+    /** Current selection: relative path, http(s) URL, or data:image URL */
+    var selectedPath = '';
+    var selectedOptionEl = null;
+    var booksCacheKey = 'cover_design_books_cache_v1';
+    var FORMATTER_BOOK_KEY = typeof window.EBOOK_FORMATTER_BOOK_KEY === 'string' ? window.EBOOK_FORMATTER_BOOK_KEY : 'ebook_formatter_book_id';
+    /** Last 3 generated / edited cover URLs for quick recall */
+    var coverHistory = [];
+    var MAX_HISTORY = 3;
+    var hasAiCoverThisSession = false;
+
+    var screenLoading = document.getElementById('screenLoading');
+    var emptyState = document.getElementById('emptyState');
+    var coverMain = document.getElementById('coverMain');
+    var bookSelect = document.getElementById('bookSelect');
+    var bookTitle = document.getElementById('bookTitle');
+    var authorName = document.getElementById('authorName');
+    var bookCategory = document.getElementById('bookCategory');
+    var coverStyle = document.getElementById('coverStyle');
+    var imageDirection = document.getElementById('imageDirection');
+    var btnGenerate = document.getElementById('btnGenerate');
+    var btnRegenerate = document.getElementById('btnRegenerate');
+    var btnEditCover = document.getElementById('btnEditCover');
+    var covPreviewTitle = document.getElementById('covPreviewTitle');
+    var covPreviewAuthor = document.getElementById('covPreviewAuthor');
+    var covPreviewBgImg = document.getElementById('covPreviewBgImg');
+    var covPreviewFallbackBg = document.getElementById('covPreviewFallbackBg');
+    var previewBusy = document.getElementById('previewBusy');
+    var optionsWrap = document.getElementById('optionsWrap');
+    var optionsGrid = document.getElementById('optionsGrid');
+    var coverGeneratedPayload = document.getElementById('coverGeneratedPayload');
+    var btnGoToPublish = document.getElementById('btnGoToPublish');
+    var covPreviewShell = document.getElementById('covPreviewShell');
+    var covPreviewZoomInner = document.getElementById('covPreviewZoomInner');
+    var covZoomRange = document.getElementById('covZoomRange');
+    var btnCovZoomOut = document.getElementById('btnCovZoomOut');
+    var btnCovZoomIn = document.getElementById('btnCovZoomIn');
+    var btnCovDownloadPreview = document.getElementById('btnCovDownloadPreview');
+    var btnCovRefreshPreview = document.getElementById('btnCovRefreshPreview');
+    var coverStyleCards = document.getElementById('coverStyleCards');
+    var btnDownloadKdpCover = document.getElementById('btnDownloadKdpCover');
+    var btnKdpPrintCalculator = document.getElementById('btnKdpPrintCalculator');
+
+    function toast(icon, text) {
+        if (typeof Swal !== 'undefined') Swal.fire({ icon: icon, text: text, timer: 2600, showConfirmButton: false });
+        else alert(text);
+    }
+
+    function toUrl(path) {
+        if (!path) return '';
+        if (path.indexOf('http') === 0 || path.indexOf('data:') === 0) return path;
+        return path.indexOf('/') === 0 ? path : '/' + path;
+    }
+
+    function refreshLucide() {
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    }
+
+    var COVER_STYLE_PREFIX = 'cov-style-';
+
+    function applyCoverStyleClass() {
+        if (!covPreviewShell || !coverStyle) return;
+        var v = (coverStyle.value || 'modern').trim() || 'modern';
+        var allowed = { minimal: 1, bold: 1, elegant: 1, modern: 1, vintage: 1 };
+        if (!allowed[v]) v = 'modern';
+        covPreviewShell.className = covPreviewShell.className.replace(/\bcov-style-[a-z]+\b/g, '').trim();
+        covPreviewShell.classList.add(COVER_STYLE_PREFIX + v);
+    }
+
+    function syncCoverStyleCards() {
+        if (!coverStyleCards || !coverStyle) return;
+        var v = (coverStyle.value || 'modern').trim() || 'modern';
+        Array.prototype.forEach.call(coverStyleCards.querySelectorAll('.cov-style-card'), function (btn) {
+            var on = btn.getAttribute('data-style') === v;
+            btn.classList.toggle('is-selected', on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+
+    function setCoverZoomPercent(pct) {
+        var p = Math.max(70, Math.min(130, parseInt(pct, 10) || 100));
+        if (covZoomRange) {
+            covZoomRange.value = String(p);
+            covZoomRange.setAttribute('aria-valuenow', String(p));
+        }
+        if (covPreviewZoomInner) covPreviewZoomInner.style.transform = 'scale(' + (p / 100) + ')';
+    }
+
+    function updateLivePreview() {
+        var t = (bookTitle.value || '').trim();
+        var a = (authorName.value || '').trim();
+        covPreviewTitle.textContent = t;
+        covPreviewAuthor.textContent = a;
+        covPreviewTitle.setAttribute('title', t);
+        covPreviewAuthor.setAttribute('title', a);
+        covPreviewTitle.classList.toggle('cov-line-empty', !t);
+        covPreviewAuthor.classList.toggle('cov-line-empty', !a);
+    }
+
+    /** Merge latest DB + Settings for one book; keeps form author if API has no display name. */
+    function refreshBookFromServer(bookId) {
+        var id = parseInt(bookId, 10);
+        if (!id) return Promise.resolve();
+        return fetch('/Books/GetBookForCoverDesign?bookId=' + encodeURIComponent(id))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success || !d.book) return;
+                var b = d.book;
+                var ix = books.findIndex(function (x) { return x.bookId === b.bookId; });
+                if (ix >= 0) books[ix] = Object.assign({}, books[ix], b);
+                if (!selectedBook || selectedBook.bookId !== b.bookId) return;
+                selectedBook = Object.assign({}, selectedBook, b);
+                bookTitle.value = (b.title != null) ? b.title : bookTitle.value;
+                var srvAuthor = (b.authorName || '').trim();
+                if (srvAuthor) authorName.value = srvAuthor;
+                var g = (b.genre || '').trim();
+                if (g) {
+                    var o = Array.prototype.find.call(bookCategory.options, function (opt) { return opt.value.toLowerCase() === g.toLowerCase(); });
+                    if (o) bookCategory.value = o.value;
+                }
+                var dir = (b.aiCoverPrompt || '').trim();
+                if (dir) imageDirection.value = dir;
+                var path = (b.aiCoverLastPreview || b.coverImagePath || '').trim();
+                if (path) {
+                    selectedPath = path;
+                    setCoverImageVisible(toUrl(path));
+                    if (coverHistory.indexOf(path) < 0) pushCoverHistory(path);
+                }
+                applyCoverStyleClass();
+                syncCoverStyleCards();
+                updateLivePreview();
+            })
+            .catch(function () { /* offline / error: keep cached form */ });
+    }
+
+    /** Structured prompt for logging / future models (also sent as Description separately). */
+    function buildStructuredPrompt() {
+        var title = (bookTitle.value || '').trim() || (selectedBook && selectedBook.title) || 'My Book';
+        var author = (authorName.value || '').trim() || (selectedBook && selectedBook.authorName) || '';
+        var genre = (bookCategory.value || '').trim() || 'General';
+        var style = (coverStyle.value || '').trim() || 'modern';
+        var description = (imageDirection.value || '').trim();
+        return (
+            'Book Title: ' + title + '\n' +
+            'Author: ' + author + '\n' +
+            'Genre: ' + genre + '\n' +
+            'Cover Style: ' + style + '\n' +
+            'Description: ' + description
+        );
+    }
+
+    function setCoverImageVisible(url) {
+        if (url) {
+            covPreviewBgImg.classList.remove('opacity-100');
+            covPreviewBgImg.classList.add('opacity-0');
+            covPreviewBgImg.onload = function () {
+                covPreviewBgImg.classList.remove('opacity-0');
+                covPreviewBgImg.classList.add('opacity-100');
+                covPreviewBgImg.onload = null;
+            };
+            covPreviewBgImg.src = url;
+            if (covPreviewFallbackBg) covPreviewFallbackBg.classList.add('opacity-0');
+        } else {
+            covPreviewBgImg.src = '';
+            covPreviewBgImg.classList.add('opacity-0');
+            covPreviewBgImg.classList.remove('opacity-100');
+            if (covPreviewFallbackBg) covPreviewFallbackBg.classList.remove('opacity-0');
+        }
+    }
+
+    function pushCoverHistory(url) {
+        if (!url) return;
+        coverHistory = coverHistory.filter(function (u) { return u !== url; });
+        coverHistory.unshift(url);
+        if (coverHistory.length > MAX_HISTORY) coverHistory.length = MAX_HISTORY;
+        renderHistoryThumbnails();
+    }
+
+    function renderHistoryThumbnails() {
+        if (!coverHistory.length) {
+            optionsWrap.classList.add('hidden');
+            optionsGrid.innerHTML = '';
+            return;
+        }
+        optionsWrap.classList.remove('hidden');
+        optionsGrid.innerHTML = coverHistory.map(function (p, idx) {
+            var u = toUrl(p).replace(/"/g, '&quot;');
+            var sel = (p === selectedPath) ? 'border-violet-600 ring-2 ring-violet-300' : 'border-slate-200';
+            return '<button type="button" class="option-tile relative rounded-2xl overflow-hidden border-2 ' + sel + ' hover:border-violet-500 transition-all focus:outline-none focus:ring-2 focus:ring-violet-400" data-path="' + (p || '').replace(/"/g, '&quot;') + '">' +
+                '<img src="' + u + '" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy" />' +
+                '<span class="absolute bottom-2 right-2 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded-full">' + (idx + 1) + '</span></button>';
+        }).join('');
+
+        Array.prototype.forEach.call(optionsGrid.querySelectorAll('.option-tile'), function (btn) {
+            btn.addEventListener('click', function () {
+                if (selectedOptionEl) {
+                    selectedOptionEl.classList.remove('border-violet-600', 'ring-2', 'ring-violet-300');
+                    selectedOptionEl.classList.add('border-slate-200');
+                }
+                selectedOptionEl = btn;
+                btn.classList.add('border-violet-600', 'ring-2', 'ring-violet-300');
+                btn.classList.remove('border-slate-200');
+                selectedPath = btn.getAttribute('data-path') || '';
+                console.log('[CoverDesign] Thumbnail selected, path length:', selectedPath.length);
+                setCoverImageVisible(toUrl(selectedPath));
+                try {
+                    sessionStorage.setItem('coverDesign_selectedUrl', selectedPath);
+                    if (coverGeneratedPayload) coverGeneratedPayload.value = selectedPath.indexOf('data:') === 0 ? selectedPath.substring(0, 120) + '…' : selectedPath;
+                } catch (e) { console.warn('[CoverDesign] sessionStorage', e); }
+                renderHistoryThumbnails();
+            });
+        });
+        refreshLucide();
+    }
+
+    /** Normalize API response: supports { status, image_base64 }, { success, options }, { imageDataUrl }. */
+    function pickPreviewUrls(d) {
+        var urls = [];
+        if (!d) return urls;
+        if (d.coverUrl) urls.push(d.coverUrl);
+        if (d.status === 'success' && d.image_base64) {
+            urls.push('data:image/png;base64,' + d.image_base64);
+        }
+        if (d.imageDataUrl) urls.push(d.imageDataUrl);
+        if (d.options && d.options.length) {
+            d.options.forEach(function (o) { if (o) urls.push(o); });
+        }
+        var seen = {};
+        return urls.filter(function (u) {
+            if (!u || seen[u]) return false;
+            seen[u] = true;
+            return true;
+        });
+    }
+
+    function applyGenerationSuccess(d, label) {
+        console.log('[CoverDesign] ' + (label || 'generate') + ' response:', d && d.status, d && d.success, (d && d.options && d.options.length) || 0);
+        var urls = pickPreviewUrls(d);
+        if (!urls.length) {
+            toast('error', (d && d.message) ? d.message : 'No image returned.');
+            return;
+        }
+        hasAiCoverThisSession = true;
+        var primary = urls[0];
+        selectedPath = primary;
+        pushCoverHistory(primary);
+        urls.slice(1).forEach(function (u) { pushCoverHistory(u); });
+        setCoverImageVisible(toUrl(primary));
+        try {
+            sessionStorage.setItem('coverDesign_selectedUrl', selectedPath);
+            sessionStorage.setItem('coverDesign_hasGenerated', '1');
+            if (coverGeneratedPayload) {
+                coverGeneratedPayload.value = (primary.indexOf('data:') === 0)
+                    ? ('data-url-chars:' + String(primary.length))
+                    : primary;
+            }
+        } catch (e) { /* ignore */ }
+        toast('success', label === 'edit' ? 'Cover updated.' : 'Cover ready.');
+        updateLivePreview();
+        setTimeout(function () { renderHistoryThumbnails(); }, 0);
+    }
+
+    function setBusy(busy) {
+        previewBusy.classList.toggle('hidden', !busy);
+        btnGenerate.disabled = busy;
+        if (btnRegenerate) btnRegenerate.disabled = busy;
+        if (btnEditCover) btnEditCover.disabled = busy;
+        if (busy) {
+            btnGenerate.innerHTML = '<span class="inline-flex items-center gap-2"><span class="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin"></span> Generating…</span>';
+        } else {
+            btnGenerate.innerHTML = '<i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i> Generate Cover';
+            refreshLucide();
+        }
+    }
+
+    function generateCoverFromDashboard(endpointUrl) {
+        if (!selectedBook) {
+            toast('error', 'No book loaded.');
+            return;
+        }
+        var url = endpointUrl || '/Dashboard/GenerateCover';
+        var prompt = buildStructuredPrompt();
+        var body = {
+            bookId: selectedBook.bookId,
+            prompt: prompt,
+            title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
+            author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
+            genre: (bookCategory.value || '').trim() || 'General',
+            style: (coverStyle.value || '').trim() || 'modern',
+            description: (imageDirection.value || '').trim()
+        };
+        console.log('[CoverDesign] POST ' + url, { bookId: body.bookId, style: body.style, genre: body.genre });
+        setBusy(true);
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        })
+            .then(function (r) {
+                return r.text().then(function (text) {
+                    var d = {};
+                    try { d = text ? JSON.parse(text) : {}; } catch (e) {
+                        console.error('[CoverDesign] JSON parse error', e, text);
+                        d = { success: false, message: text || 'Invalid JSON' };
+                    }
+                    if (!r.ok && !d.message) d.message = 'HTTP ' + r.status;
+                    return d;
+                });
+            })
+            .then(function (d) {
+                setBusy(false);
+                if (d.status === 'error' || d.success === false) {
+                    toast('error', d.message || 'Generation failed.');
+                    return;
+                }
+                if (d.status === 'success' || d.success === true) {
+                    if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
+                    applyGenerationSuccess(d, 'generate');
+                    return;
+                }
+                toast('error', d.message || 'Unexpected response.');
+            })
+            .catch(function (err) {
+                setBusy(false);
+                console.error('[CoverDesign] GenerateCover fetch error', err);
+                toast('error', err.message || 'Network error.');
+            });
+    }
+
+    function getBase64FromCurrentPreview() {
+        var src = covPreviewBgImg && covPreviewBgImg.src ? covPreviewBgImg.src : '';
+        if (!src || src.indexOf('data:image') !== 0) return null;
+        var i = src.indexOf('base64,');
+        return i >= 0 ? src.substring(i + 7) : null;
+    }
+
+    function editCoverWithApi() {
+        var b64 = getBase64FromCurrentPreview();
+        if (!b64) {
+            toast('info', 'Generate a cover first (needs in-browser image). Or use Regenerate with updated fields.');
+            return;
+        }
+        var direction = (imageDirection.value || '').trim();
+        console.log('[CoverDesign] POST /Dashboard/EditCover, direction length:', direction.length);
+        setBusy(true);
+        fetch('/Dashboard/EditCover', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                bookId: selectedBook ? selectedBook.bookId : 0,
+                encoded_image: b64,
+                image_direction: direction,
+                size: null
+            })
+        })
+            .then(function (r) {
+                return r.text().then(function (text) {
+                    var d = {};
+                    try { d = text ? JSON.parse(text) : {}; } catch (e) { d = { success: false, message: text }; }
+                    return d;
+                });
+            })
+            .then(function (d) {
+                setBusy(false);
+                if (d.status === 'error' || d.success === false) {
+                    toast('error', d.message || 'Edit failed.');
+                    return;
+                }
+                if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
+                applyGenerationSuccess(d, 'edit');
+            })
+            .catch(function (err) {
+                setBusy(false);
+                console.error('[CoverDesign] EditCover error', err);
+                toast('error', err.message || 'Edit request failed.');
+            });
+    }
+
+    function bindBook(bookId) {
+        selectedBook = books.find(function (b) { return b.bookId === parseInt(bookId, 10); }) || null;
+        if (!selectedBook) return;
+        bookTitle.value = selectedBook.title || '';
+        authorName.value = selectedBook.authorName || '';
+        var g = (selectedBook.genre || '').trim();
+        if (g) {
+            var o = Array.prototype.find.call(bookCategory.options, function (opt) { return opt.value.toLowerCase() === g.toLowerCase(); });
+            if (o) bookCategory.value = o.value;
+        }
+        imageDirection.value = selectedBook.aiCoverPrompt || selectedBook.description || '';
+        selectedPath = (selectedBook.aiCoverLastPreview || selectedBook.coverImagePath || '').trim();
+        coverHistory = [];
+        hasAiCoverThisSession = false;
+        selectedOptionEl = null;
+        optionsWrap.classList.add('hidden');
+        optionsGrid.innerHTML = '';
+        updateLivePreview();
+        if (selectedPath) {
+            setCoverImageVisible(toUrl(selectedPath));
+            pushCoverHistory(selectedPath);
+        } else {
+            setCoverImageVisible('');
+        }
+        previewBusy.classList.add('hidden');
+        applyCoverStyleClass();
+        syncCoverStyleCards();
+    }
+
+    function renderBooks(data) {
+        if (!data || !data.success || !data.books || !data.books.length) {
+            screenLoading.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            return;
+        }
+        books = data.books;
+        screenLoading.classList.add('hidden');
+        coverMain.classList.remove('hidden');
+        bookSelect.innerHTML = books.map(function (b) {
+            return '<option value="' + b.bookId + '">' + (b.title || 'Untitled').replace(/</g, '&lt;') + '</option>';
+        }).join('');
+        var defaultId = initialBookId > 0 ? initialBookId : 0;
+        if (!defaultId) {
+            try { defaultId = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10); } catch (_) { defaultId = 0; }
+        }
+        if (!defaultId) defaultId = books[0].bookId;
+        var found = books.some(function (b) { return b.bookId === defaultId; });
+        if (!found) defaultId = books[0].bookId;
+        bookSelect.value = String(defaultId);
+        try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(defaultId)); } catch (_) {}
+        bindBook(defaultId);
+        refreshBookFromServer(defaultId);
+        applyCoverStyleClass();
+        syncCoverStyleCards();
+        setCoverZoomPercent(100);
+        refreshLucide();
+    }
+
+    function loadBooks() {
+        var cached = null;
+        try { cached = JSON.parse(sessionStorage.getItem(booksCacheKey) || 'null'); } catch (_) { cached = null; }
+        if (cached && cached.success && cached.books && cached.books.length) renderBooks(cached);
+        fetch('/Books/GetUserBooksForCoverDesign')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                try { sessionStorage.setItem(booksCacheKey, JSON.stringify(d)); } catch (_) {}
+                renderBooks(d);
+            })
+            .catch(function () {
+                screenLoading.classList.add('hidden');
+                if (!cached) {
+                    emptyState.classList.remove('hidden');
+                    emptyState.textContent = 'Failed to load books. Please refresh.';
+                }
+            });
+    }
+
+    bookSelect.addEventListener('change', function () {
+        bindBook(this.value);
+        refreshBookFromServer(this.value);
+    });
+    bookTitle.addEventListener('input', updateLivePreview);
+    authorName.addEventListener('input', updateLivePreview);
+    bookCategory.addEventListener('change', updateLivePreview);
+
+    if (coverStyleCards && coverStyle) {
+        coverStyleCards.addEventListener('click', function (e) {
+            var btn = e.target && e.target.closest ? e.target.closest('.cov-style-card') : null;
+            if (!btn) return;
+            var st = btn.getAttribute('data-style');
+            if (!st) return;
+            coverStyle.value = st;
+            syncCoverStyleCards();
+            applyCoverStyleClass();
+        });
+    }
+
+    if (covZoomRange) {
+        covZoomRange.addEventListener('input', function () { setCoverZoomPercent(this.value); });
+    }
+    if (btnCovZoomOut) btnCovZoomOut.addEventListener('click', function () { setCoverZoomPercent((parseInt(covZoomRange && covZoomRange.value, 10) || 100) - 10); });
+    if (btnCovZoomIn) btnCovZoomIn.addEventListener('click', function () { setCoverZoomPercent((parseInt(covZoomRange && covZoomRange.value, 10) || 100) + 10); });
+
+    function downloadCoverPreviewPng() {
+        captureCoverDataUrl().then(function (dataUrl) {
+            if (!dataUrl) {
+                toast('error', 'Could not capture preview. Try again after the cover image loads.');
+                return;
+            }
+            var a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = ((bookTitle.value || 'cover-preview') + '-preview').replace(/[^\w\-]+/g, '-').replace(/^-|-$/g, '') + '.jpg';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            toast('success', 'Preview downloaded.');
+        }).catch(function () { toast('error', 'Preview capture failed.'); });
+    }
+
+    if (btnCovDownloadPreview) btnCovDownloadPreview.addEventListener('click', downloadCoverPreviewPng);
+    if (btnCovRefreshPreview) btnCovRefreshPreview.addEventListener('click', function () {
+        updateLivePreview();
+        applyCoverStyleClass();
+        if (selectedPath) setCoverImageVisible(toUrl(selectedPath));
+        if (selectedBook && selectedBook.bookId) refreshBookFromServer(selectedBook.bookId);
+        else refreshLucide();
+        toast('success', 'Preview refreshed.');
+    });
+
+    btnGenerate.addEventListener('click', function () { generateCoverFromDashboard(); });
+    if (btnRegenerate) btnRegenerate.addEventListener('click', function () {
+        console.log('[CoverDesign] Regenerate clicked');
+        generateCoverFromDashboard('/Dashboard/RegenerateCover');
+    });
+    if (btnEditCover) btnEditCover.addEventListener('click', function () {
+        console.log('[CoverDesign] Edit cover clicked');
+        editCoverWithApi();
+    });
+
+    function loadScriptOnce(src, attrVal) {
+        return new Promise(function (resolve, reject) {
+            var sel = 'script[data-asset="' + attrVal + '"]';
+            if (document.querySelector(sel)) { resolve(); return; }
+            var s = document.createElement('script');
+            s.src = src;
+            s.async = true;
+            s.setAttribute('data-asset', attrVal);
+            s.onload = function () { resolve(); };
+            s.onerror = function () { reject(new Error('Could not load ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+
+    function ensureHtml2Canvas() {
+        if (typeof html2canvas !== 'undefined') return Promise.resolve();
+        return loadScriptOnce('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js', 'html2canvas');
+    }
+
+    function captureCoverDataUrl() {
+        return ensureHtml2Canvas().then(function () {
+            if (!covPreviewShell || typeof html2canvas === 'undefined') return null;
+            return html2canvas(covPreviewShell, {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                backgroundColor: null
+            }).then(function (canvas) {
+                try { return canvas.toDataURL('image/jpeg', 0.92); } catch (e) { return null; }
+            });
+        });
+    }
+
+    function escapeHtmlText(s) {
+        if (s === undefined || s === null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function buildPdfPreviewModalHtml(coverDataUrl, data) {
+        var ch = (data.chapters || []).slice(0, 6);
+        var cards = ch.map(function (c) {
+            var t = String(c.chapterTitle || '').trim();
+            if (t.length > 72) t = t.slice(0, 72) + '…';
+            return '<div style="border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fafafa;">' +
+                '<div style="font-weight:600;font-size:12px;color:#4c1d95;margin-bottom:6px;">Chapter ' + c.displayChapterNumber + (t ? ' · ' + escapeHtmlText(t) : '') + '</div>' +
+                '<div style="font-size:11px;line-height:1.45;color:#475569;max-height:120px;overflow:hidden;">' + (c.previewHtml || '') + '</div></div>';
+        }).join('');
+        var coverImg = coverDataUrl
+            ? '<img src="' + coverDataUrl.replace(/"/g, '&quot;') + '" alt="" style="width:100%;max-width:200px;margin:0 auto;display:block;border-radius:16px;box-shadow:0 10px 30px rgba(76,29,149,0.22);aspect-ratio:2/3;object-fit:cover;"/>'
+            : '<div style="width:100%;max-width:200px;margin:0 auto;aspect-ratio:2/3;border-radius:16px;background:#5b21b6;"></div>';
+        return '<div style="text-align:left;color:#0f172a;">' +
+            '<p style="margin:0 0 12px;font-size:13px;color:#64748b;">Your PDF will match this cover (captured live) and include <strong>' + (data.totalChapters || 0) + '</strong> formatted chapters.</p>' +
+            '<div style="display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,2fr);gap:14px;max-height:min(52vh,440px);overflow:auto;padding-right:4px;">' +
+            '<div style="text-align:center;">' + coverImg + '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start;">' + cards + '</div>' +
+            '</div></div>';
+    }
+
+    function buildChapterViewerModalHtml(data) {
+        var fmt = (data && data.formatting) ? data.formatting : {};
+        var interior = String(fmt.interiorStyle || 'Novel').toLowerCase();
+        var pt = fmt.textSize === 'Small' ? '12px' : (fmt.textSize === 'Large' ? '15px' : '13px');
+        var lh = fmt.lineSpacing ? String(fmt.lineSpacing) : '1.55';
+        var headColor = interior === 'modern' ? '#4f46e5' : (interior === 'minimalist' ? '#0a0a0a' : (interior === 'eleganttrade' ? '#4a3728' : '#4c1d95'));
+        var fontFam = (interior === 'modern' || interior === 'minimalist')
+            ? 'system-ui,Segoe UI,Roboto,sans-serif'
+            : (interior === 'eleganttrade' ? 'Georgia,Palatino Linotype,Palatino,serif' : 'Georgia,Times New Roman,serif');
+        var bookT = escapeHtmlText((data && data.bookTitle) || '');
+        var bookA = escapeHtmlText((data && data.authorName) || '');
+        var chapters = (data && data.chapters) ? data.chapters : [];
+        var parts = chapters.map(function (c, idx) {
+            var heading = 'Chapter ' + c.displayChapterNumber + (c.chapterTitle ? ': ' + escapeHtmlText(c.chapterTitle) : '');
+            var body = c.chapterHtml || c.previewHtml || '<p>No content.</p>';
+            var secNum = idx + 1;
+            return '<section class="viewer-chapter" style="page-break-before:always;background:#fff;border:1px solid #e2e8f0;border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 4px 14px -8px rgba(15,23,42,0.2);">' +
+                '<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#475569;padding:8px 12px;border-bottom:1px solid #e2e8f0;background:#fafafa;">' +
+                '<span style="font-weight:600;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + bookT + '</span>' +
+                '<span style="max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;">' + bookA + '</span></div>' +
+                '<div style="padding:12px 14px 10px;">' +
+                '<h4 style="margin:0 0 10px;font-size:14px;color:' + headColor + ';border-bottom:1px solid #ede9fe;padding-bottom:6px;font-family:' + fontFam + ';">' + heading + '</h4>' +
+                '<article style="font-size:' + pt + ';line-height:' + lh + ';color:#334155;font-family:' + fontFam + ';text-align:' + (interior === 'minimalist' ? 'left' : 'justify') + ';">' + body + '</article>' +
+                '</div>' +
+                '<div style="text-align:center;font-size:10px;color:#64748b;padding:8px;border-top:1px solid #f1f5f9;background:#fafafa;">Section ' + secNum + ' · full page numbers in your PDF footer</div>' +
+                '</section>';
+        }).join('');
+        return '<div style="text-align:left;">' +
+            '<p style="margin:0 0 12px;font-size:12px;color:#64748b;">Layout uses your saved formatter settings (style, size, spacing). Each chapter starts on a new section; long chapters flow across pages in the PDF the same way.</p>' +
+            '<div style="max-height:min(65vh,560px);overflow:auto;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:12px;">' + parts + '</div>' +
+            '</div>';
+    }
+
+    function downloadBookPdfFlow() {
+        if (!selectedBook) {
+            toast('error', 'No book loaded.');
+            return;
+        }
+        if (typeof Swal === 'undefined') {
+            toast('error', 'Need SweetAlert2.');
+            return;
+        }
+        Swal.fire({
+            title: 'Preparing preview',
+            html: '<p style="margin:12px 0;color:#64748b;">Capturing your cover and loading chapters…</p>',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: function () { Swal.showLoading(); }
+        });
+        var pCover = captureCoverDataUrl();
+        var pData = fetch('/Dashboard/BookPdfPreviewData?bookId=' + encodeURIComponent(selectedBook.bookId)).then(function (r) { return r.json(); });
+        Promise.all([pCover, pData]).then(function (tuple) {
+            var coverDataUrl = tuple[0];
+            var data = tuple[1];
+            Swal.close();
+            if (!data || !data.success) {
+                toast('error', (data && data.message) ? data.message : 'Could not load book.');
+                return;
+            }
+            return Swal.fire({
+                title: 'Export complete book',
+                html: buildPdfPreviewModalHtml(coverDataUrl, data),
+                width: 620,
+                showCancelButton: true,
+                confirmButtonText: 'Download PDF',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#7c3aed',
+                customClass: { popup: 'rounded-2xl shadow-xl', actions: 'gap-3 mt-2' }
+            }).then(function (res) {
+                if (!res.isConfirmed) return;
+                Swal.fire({
+                    title: 'Generating PDF',
+                    html: '<p style="color:#64748b;margin-top:8px">Rendering in high quality…</p>',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: function () { Swal.showLoading(); }
+                });
+                return captureCoverDataUrl().then(function (cov2) {
+                    return fetch('/BookDesign/GetBookFormatting?bookId=' + encodeURIComponent(selectedBook.bookId))
+                        .then(function (r) { return r.json(); })
+                        .then(function (fmtRes) {
+                            var fmtBody = {};
+                            if (fmtRes && fmtRes.success && fmtRes.data) {
+                                var d = fmtRes.data;
+                                if (d.interiorStyle) fmtBody.interiorStyle = d.interiorStyle;
+                                if (d.textSize) fmtBody.textSize = d.textSize;
+                                if (d.lineSpacing) fmtBody.lineSpacing = d.lineSpacing;
+                                if (d.format) fmtBody.bookFormat = d.format;
+                                if (d.publishingPlatform) fmtBody.publishingPlatform = d.publishingPlatform;
+                            }
+                            return fetch('/Dashboard/DownloadBookPdf', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Accept: 'application/pdf, application/json' },
+                                body: JSON.stringify(Object.assign({
+                                    bookId: selectedBook.bookId,
+                                    coverImageDataUrl: cov2,
+                                    displayTitle: (bookTitle.value || '').trim() || (selectedBook.title || ''),
+                                    displayAuthor: (authorName.value || '').trim() || (selectedBook.authorName || ''),
+                                    displayGenre: (bookCategory.value || '').trim()
+                                }, fmtBody))
+                            });
+                        });
+                }).then(function (r) {
+                    var ct = (r.headers.get('content-type') || '').toLowerCase();
+                    if (ct.indexOf('application/pdf') >= 0)
+                        return r.blob().then(function (blob) { return { ok: true, blob: blob }; });
+                    return r.json().then(function (j) { return { ok: false, msg: (j && j.message) ? j.message : 'PDF failed' }; });
+                }).then(function (result) {
+                    Swal.close();
+                    if (!result.ok) {
+                        toast('error', result.msg || 'PDF failed');
+                        return;
+                    }
+                    var url = URL.createObjectURL(result.blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    var base = (bookTitle.value || selectedBook.title || 'book').replace(/[^\w\-\s]/g, '').replace(/\s+/g, '-').replace(/^-|-$/g, '') || 'book';
+                    a.download = base + '-' + selectedBook.bookId + '.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Ready',
+                        text: 'Your PDF has been downloaded.',
+                        showCancelButton: true,
+                        confirmButtonText: 'View Chapters',
+                        cancelButtonText: 'Done',
+                        confirmButtonColor: '#7c3aed'
+                    }).then(function(v) {
+                        if (!v.isConfirmed) return;
+                        fetch('/Dashboard/BookPdfPreviewData?bookId=' + encodeURIComponent(selectedBook.bookId) + '&full=true')
+                            .then(function(r) { return r.json(); })
+                            .then(function(chData) {
+                                if (!chData || !chData.success) {
+                                    toast('error', (chData && chData.message) ? chData.message : 'Could not load chapters.');
+                                    return;
+                                }
+                                Swal.fire({
+                                    title: 'Chapter-wise View',
+                                    html: buildChapterViewerModalHtml(chData),
+                                    width: 860,
+                                    confirmButtonText: 'Close',
+                                    confirmButtonColor: '#7c3aed'
+                                });
+                            })
+                            .catch(function() { toast('error', 'Could not load chapter view.'); });
+                    });
+                }).catch(function (e) {
+                    Swal.close();
+                    toast('error', (e && e.message) ? e.message : 'Download failed');
+                });
+            });
+        }).catch(function () {
+            Swal.close();
+            toast('error', 'Preview failed.');
+        });
+    }
+
+    if (btnDownloadKdpCover && typeof window.CoverKdpExport !== 'undefined' && typeof window.CoverDownloadModal !== 'undefined') {
+        btnDownloadKdpCover.addEventListener('click', function () {
+            if (!selectedBook) {
+                toast('error', 'No book loaded.');
+                return;
+            }
+            var imgSrc = covPreviewBgImg && covPreviewBgImg.src ? covPreviewBgImg.src : '';
+            window.CoverKdpExport.openModal({
+                bookId: selectedBook.bookId,
+                title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
+                author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
+                synopsis: (imageDirection.value || '').trim(),
+                getFrontSrc: function () {
+                    if (selectedPath && String(selectedPath).trim()) return toUrl(selectedPath);
+                    return imgSrc || '';
+                },
+                capturePreviewShell: captureCoverDataUrl,
+                onDownloadFullBookPdf: downloadBookPdfFlow
+            });
+            refreshLucide();
+        });
+    } else if (btnDownloadKdpCover) {
+        btnDownloadKdpCover.addEventListener('click', function () {
+            toast('error', 'Download scripts did not load. Refresh the page.');
+        });
+    }
+
+    function openPrintCalculatorFromPage() {
+        if (!selectedBook) {
+            toast('error', 'No book loaded.');
+            return;
+        }
+        if (typeof window.CoverKdpExport === 'undefined' || typeof window.CoverDownloadModal === 'undefined') {
+            toast('error', 'Scripts did not load. Refresh the page.');
+            return;
+        }
+        window.CoverKdpExport.openCalculatorModal({ bookId: selectedBook.bookId, initialPages: 98 });
+        refreshLucide();
+    }
+
+    if (btnKdpPrintCalculator) {
+        btnKdpPrintCalculator.addEventListener('click', function () { openPrintCalculatorFromPage(); });
+    }
+
+    if (btnGoToPublish) btnGoToPublish.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (!selectedBook || !selectedBook.bookId) {
+            toast('error', 'No book loaded. Create or select a book first.');
+            return;
+        }
+        var bid = selectedBook.bookId;
+        try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (_) {}
+        window.location.href = '/Dashboard/Publish?bookId=' + encodeURIComponent(bid);
+    });
+
+    function boot() {
+        if (initialBookId <= 0) {
+            var s = 0;
+            try { s = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10); } catch (_) { s = 0; }
+            if (s > 0) {
+                window.location.replace('/Dashboard/CoverDesign?bookId=' + s);
+                return;
+            }
+        }
+        loadBooks();
+        refreshLucide();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();
+</script>

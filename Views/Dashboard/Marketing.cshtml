@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing - eBook Publisher</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #2c3e50;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+            body.dark-mode {
+                background-color: #1a1a1a;
+                color: #e0e0e0;
+            }
+
+        .dashboard-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top header styles */
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            background: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .dark-mode .top-header {
+            background: #2d2d2d;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .header-left h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+
+        .dark-mode .header-left h1 {
+            color: #e0e0e0;
+        }
+
+        .header-left p {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .dark-mode .header-left p {
+            color: #a0a0a0;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* Button styles */
+        .btn-primary, .btn-secondary {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #4a6cf7;
+            color: white;
+        }
+
+            .btn-primary:hover {
+                background: #3a5ce5;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(74, 108, 247, 0.3);
+            }
+
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        .dark-mode .btn-secondary {
+            background: #3d3d3d;
+            color: #e0e0e0;
+        }
+
+        .btn-secondary:hover {
+            background: #dde4e6;
+        }
+
+        .dark-mode .btn-secondary:hover {
+            background: #4d4d4d;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .theme-toggle:hover {
+                background: #f0f0f0;
+            }
+
+        .dark-mode .theme-toggle:hover {
+            background: #3d3d3d;
+        }
+
+        /* Main content styles */
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            width: 93%;
+            max-width: none;
+            margin-left: 115px;
+        }
+
+        /* Marketing-specific styles */
+        .marketing-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            flex-grow: 1;
+        }
+
+        .marketing-tools {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .tool-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .dark-mode .tool-card {
+            background: #2d2d2d;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .dark-mode .tool-card:hover {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .tool-card h3 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dark-mode .tool-card h3 {
+            color: #e0e0e0;
+        }
+
+        .tool-card p {
+            color: #7f8c8d;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        .dark-mode .tool-card p {
+            color: #a0a0a0;
+        }
+
+        .tool-card button {
+            margin-top: 15px;
+            width: 100%;
+        }
+
+        .social-preview {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .dark-mode .social-preview {
+            background: #3d3d3d;
+        }
+
+        .social-post {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .dark-mode .social-post {
+            background: #3d3d3d;
+        }
+
+        .social-post h4 {
+            margin-bottom: 5px;
+        }
+
+        .email-stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .number {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #3498db;
+        }
+
+        .label {
+            font-size: 0.8rem;
+            color: #7f8c8d;
+        }
+
+        .dark-mode .label {
+            color: #a0a0a0;
+        }
+
+        .promotion-list {
+            margin: 15px 0;
+        }
+
+        .promotion-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .dark-mode .promotion-item {
+            border-bottom: 1px solid #4d4d4d;
+        }
+
+        .promotion-item:last-child {
+            border-bottom: none;
+        }
+
+        .status {
+            font-size: 0.8rem;
+            padding: 3px 8px;
+            border-radius: 20px;
+            background: #ecf0f1;
+        }
+
+        .dark-mode .status {
+            background: #4d4d4d;
+        }
+
+        .analytics-preview {
+            height: 150px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border-radius: 8px;
+            color: #7f8c8d;
+        }
+
+        .dark-mode .analytics-preview {
+            background: #3d3d3d;
+            color: #a0a0a0;
+        }
+
+        .campaign-builder {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .dark-mode .campaign-builder {
+            background: #2d2d2d;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .campaign-builder h3 {
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            color: #2c3e50;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ecf0f1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dark-mode .campaign-builder h3 {
+            color: #e0e0e0;
+            border-bottom: 1px solid #4d4d4d;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 500;
+                color: #2c3e50;
+            }
+
+        .dark-mode .form-group label {
+            color: #e0e0e0;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            background: white;
+            color: #2c3e50;
+        }
+
+        .dark-mode .form-group input,
+        .dark-mode .form-group select {
+            background: #3d3d3d;
+            border: 1px solid #555;
+            color: #e0e0e0;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: #4a6cf7;
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.2);
+            outline: none;
+        }
+
+        .date-range {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+            .date-range input {
+                flex: 1;
+            }
+
+        .channel-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+            .checkbox-group input {
+                width: auto;
+            }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2ecc71;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: transform 0.3s, opacity 0.3s;
+            z-index: 1000;
+        }
+
+            .toast.show {
+                transform: translateY(0);
+                opacity: 1;
+            }
+
+            .toast.error {
+                background: #e74c3c;
+            }
+
+        .toast-icon {
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        /* Tour Modal */
+        .tour-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .tour-modal.show {
+                display: flex;
+            }
+
+        .tour-content {
+            background: white;
+            border-radius: 10px;
+            width: 500px;
+            max-width: 90%;
+            padding: 30px;
+            position: relative;
+        }
+
+        .dark-mode .tour-content {
+            background: #2d2d2d;
+            color: #e0e0e0;
+        }
+
+        .tour-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .tour-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        /* Responsive styles */
+          @@media (max-width: 1200px) {
+            .marketing-content
+
+        {
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .campaign-builder {
+            margin-top: 20px;
+        }
+
+        }
+
+          @@media (max-width: 992px) {
+            .marketing-tools
+
+        {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        }
+
+          @@media (max-width: 768px) {
+            .top-header
+
+        {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .header-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .marketing-tools {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .tool-card {
+            padding: 15px;
+        }
+
+        .campaign-builder {
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .channel-options {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .email-stats {
+            flex-direction: column;
+            gap: 15px;
+            text-align: left;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+
+        .dark-mode .stat {
+            background: #3d3d3d;
+        }
+
+        .date-range {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+            .date-range span {
+                text-align: center;
+                font-weight: 500;
+            }
+
+        }
+
+          @@media (max-width: 480px) {
+            .main-content
+
+        {
+            padding: 15px;
+        }
+
+        .top-header {
+            padding: 15px;
+        }
+
+        .tour-content {
+            width: 95%;
+            padding: 20px;
+        }
+
+        .tour-navigation {
+            flex-direction: column;
+            gap: 10px;
+        }
+
+            .tour-navigation button {
+                width: 100%;
+            }
+
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container" id="dashboardContainer">
+        <main class="main-content" id="mainContent">
+            <header class="top-header">
+                <div class="header-left">
+                    <h1>Marketing Hub</h1>
+                    <p>Promote your book and reach more readers</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn-primary" id="createCampaignBtn"><i class="fas fa-plus"></i> Create Campaign</button>
+                    <button class="btn-secondary" id="viewAnalyticsBtn"><i class="fas fa-chart-bar"></i> Analytics</button>
+                    <button class="theme-toggle" id="themeToggle">🌙</button>
+                </div>
+            </header>
+
+            <div class="marketing-content">
+                <div class="marketing-tools">
+                    <div class="tool-card">
+                        <h3><i class="fas fa-share-alt"></i> Social Media</h3>
+                        <p>Create and schedule social media posts across multiple platforms to promote your book.</p>
+                        <div class="social-preview">
+                            <div class="social-post">
+                                <h4>📚 New Book Alert!</h4>
+                                <p>"My Amazing Book" is now available on Amazon! Get your copy today and dive into an incredible story...</p>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="socialMediaBtn"><i class="fas fa-hashtag"></i> Create Posts</button>
+                    </div>
+
+                    <div class="tool-card">
+                        <h3><i class="fas fa-envelope"></i> Email Marketing</h3>
+                        <p>Build and engage your email list with targeted campaigns and newsletters.</p>
+                        <div class="email-stats">
+                            <div class="stat">
+                                <span class="number">2,456</span>
+                                <span class="label">Subscribers</span>
+                            </div>
+                            <div class="stat">
+                                <span class="number">24.5%</span>
+                                <span class="label">Open Rate</span>
+                            </div>
+                            <div class="stat">
+                                <span class="number">4.2%</span>
+                                <span class="label">Click Rate</span>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="emailCampaignBtn"><i class="fas fa-paper-plane"></i> Send Campaign</button>
+                    </div>
+
+                    <div class="tool-card">
+                        <h3><i class="fas fa-ad"></i> Advertising</h3>
+                        <p>Run targeted ads on Amazon, Facebook, and Google to reach potential readers.</p>
+                        <div class="promotion-list">
+                            <div class="promotion-item">
+                                <span>Amazon Sponsored Ads</span>
+                                <span class="status">Active</span>
+                            </div>
+                            <div class="promotion-item">
+                                <span>Facebook Book Promotion</span>
+                                <span class="status">Paused</span>
+                            </div>
+                            <div class="promotion-item">
+                                <span>Google Ads Campaign</span>
+                                <span class="status">Active</span>
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="createAdBtn"><i class="fas fa-bullhorn"></i> Create Ad</button>
+                    </div>
+
+                    <div class="tool-card">
+                        <h3><i class="fas fa-chart-line"></i> Analytics</h3>
+                        <p>Track your book's performance and marketing effectiveness with detailed analytics.</p>
+                        <div class="analytics-preview">
+                            <i class="fas fa-chart-area"></i>
+                            <span>Sales & Marketing Analytics</span>
+                        </div>
+                        <button class="btn-primary" id="analyticsBtn"><i class="fas fa-eye"></i> View Reports</button>
+                    </div>
+                </div>
+
+                <div class="campaign-builder">
+                    <h3><i class="fas fa-rocket"></i> Campaign Builder</h3>
+
+                    <form id="campaignForm">
+                        <div class="form-group">
+                            <label for="campaignName">Campaign Name</label>
+                            <input type="text" id="campaignName" placeholder="Enter campaign name">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="campaignType">Campaign Type</label>
+                            <select id="campaignType">
+                                <option value="book-launch">Book Launch</option>
+                                <option value="promotion">Price Promotion</option>
+                                <option value="awareness">Brand Awareness</option>
+                                <option value="engagement">Reader Engagement</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Campaign Duration</label>
+                            <div class="date-range">
+                                <input type="date" id="startDate">
+                                <span>to</span>
+                                <input type="date" id="endDate">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="budget">Budget ($)</label>
+                            <input type="number" id="budget" placeholder="Enter your budget" min="10" max="10000">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Marketing Channels</label>
+                            <div class="channel-options">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="facebook" value="facebook">
+                                    <label for="facebook"><i class="fab fa-facebook"></i> Facebook</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="instagram" value="instagram">
+                                    <label for="instagram"><i class="fab fa-instagram"></i> Instagram</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="twitter" value="twitter">
+                                    <label for="twitter"><i class="fab fa-twitter"></i> Twitter</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="linkedin" value="linkedin">
+                                    <label for="linkedin"><i class="fab fa-linkedin"></i> LinkedIn</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="email" value="email">
+                                    <label for="email"><i class="fas fa-envelope"></i> Email</label>
+                                </div>
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="amazon" value="amazon">
+                                    <label for="amazon"><i class="fab fa-amazon"></i> Amazon Ads</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="targetAudience">Target Audience</label>
+                            <select id="targetAudience">
+                                <option value="general">General Readers</option>
+                                <option value="fiction">Fiction Lovers</option>
+                                <option value="mystery">Mystery Fans</option>
+                                <option value="romance">Romance Readers</option>
+                                <option value="scifi">Sci-Fi Enthusiasts</option>
+                                <option value="nonfiction">Non-Fiction Readers</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="campaignGoal">Campaign Goal</label>
+                            <select id="campaignGoal">
+                                <option value="sales">Increase Sales</option>
+                                <option value="awareness">Build Awareness</option>
+                                <option value="reviews">Get More Reviews</option>
+                                <option value="subscribers">Grow Email List</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-primary"><i class="fas fa-rocket"></i> Launch Campaign</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tour Modal -->
+    <div id="tourModal" class="tour-modal">
+        <div class="tour-content">
+            <span class="tour-close" id="closeTour">&times;</span>
+            <h3>Welcome to Marketing Hub!</h3>
+            <p>Discover powerful tools to promote your book and reach more readers. Let us show you around!</p>
+            <div class="tour-navigation">
+                <button class="btn-secondary" id="skipTour">Skip Tour</button>
+                <button class="btn-primary" id="startTour">Start Tour</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Operation completed successfully!</span>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Theme toggle functionality
+            const themeToggle = document.getElementById('themeToggle');
+            const body = document.body;
+            let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+            if (isDarkMode) {
+                body.classList.add('dark-mode');
+                themeToggle.textContent = '☀️';
+            }
+
+            themeToggle.addEventListener('click', function() {
+                isDarkMode = !isDarkMode;
+                body.classList.toggle('dark-mode');
+                themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+                localStorage.setItem('darkMode', isDarkMode);
+            });
+
+            // Toast notification
+            const toast = document.getElementById('toast');
+
+            function showToast(message, type = 'success') {
+                toast.className = `toast ${type}`;
+                toast.querySelector('.toast-message').textContent = message;
+                toast.classList.add('show');
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            // Tour modal functionality
+            const tourModal = document.getElementById('tourModal');
+            const closeTour = document.getElementById('closeTour');
+            const skipTour = document.getElementById('skipTour');
+            const startTour = document.getElementById('startTour');
+
+            // Show tour on first visit
+            if (!localStorage.getItem('marketingTourCompleted')) {
+                setTimeout(() => {
+                    tourModal.classList.add('show');
+                }, 1000);
+            }
+
+            closeTour.addEventListener('click', function() {
+                tourModal.classList.remove('show');
+            });
+
+            skipTour.addEventListener('click', function() {
+                tourModal.classList.remove('show');
+                localStorage.setItem('marketingTourCompleted', 'true');
+            });
+
+            startTour.addEventListener('click', function() {
+                tourModal.classList.remove('show');
+                localStorage.setItem('marketingTourCompleted', 'true');
+                showToast('Welcome to Marketing Hub! Start exploring the tools.', 'success');
+            });
+
+            // Marketing tool buttons
+            document.getElementById('socialMediaBtn').addEventListener('click', function() {
+                showToast('Social media campaign creator opened!', 'success');
+            });
+
+            document.getElementById('emailCampaignBtn').addEventListener('click', function() {
+                showToast('Email campaign builder opened!', 'success');
+            });
+
+            document.getElementById('createAdBtn').addEventListener('click', function() {
+                showToast('Ad campaign creator opened!', 'success');
+            });
+
+            document.getElementById('analyticsBtn').addEventListener('click', function() {
+                showToast('Analytics dashboard opened!', 'success');
+            });
+
+            // Campaign form submission
+            const campaignForm = document.getElementById('campaignForm');
+            campaignForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const campaignName = document.getElementById('campaignName').value;
+                const campaignType = document.getElementById('campaignType').value;
+                const budget = document.getElementById('budget').value;
+
+                if (!campaignName || !budget) {
+                    showToast('Please fill in all required fields', 'error');
+                    return;
+                }
+
+                showToast(`Campaign "${campaignName}" launched successfully with $${budget} budget!`, 'success');
+                campaignForm.reset();
+            });
+
+            // Header buttons
+            document.getElementById('createCampaignBtn').addEventListener('click', function() {
+                document.getElementById('campaignName').focus();
+                showToast('Campaign builder is ready for you!', 'success');
+            });
+
+            document.getElementById('viewAnalyticsBtn').addEventListener('click', function() {
+                showToast('Opening detailed analytics dashboard...', 'success');
+            });
+        });
+    </script>
+</body>
+</html>

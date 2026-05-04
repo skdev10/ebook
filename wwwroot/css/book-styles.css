@@ -1,0 +1,79 @@
+﻿/* wwwroot/css/book-styles.css */
+
+.custom-small-btn {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: 0.2rem;
+}
+
+/* Fixed container for chapter content */
+.chapter-content-container {
+    width: 1366px;
+    height: 768px;
+    overflow: auto;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Chapter text content styling */
+.chapter-text-content {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    line-height: 1.6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
+    color: #333;
+    min-height: 100%;
+}
+
+/* Style the scrollbars */
+.chapter-content-container::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.chapter-content-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 6px;
+}
+
+.chapter-content-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 6px;
+    border: 2px solid #f1f1f1;
+}
+
+    .chapter-content-container::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+/* Firefox scrollbar styling */
+.chapter-content-container {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 1400px) {
+    .chapter-content-container {
+        width: 100%;
+        max-width: 1366px;
+    }
+}
+
+@media (max-height: 800px) {
+    .chapter-content-container {
+        height: 600px;
+    }
+}
+
+@media (max-height: 650px) {
+    .chapter-content-container {
+        height: 500px;
+    }
+}

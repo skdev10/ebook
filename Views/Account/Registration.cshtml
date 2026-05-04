@@ -1,0 +1,146 @@
+@model EBookDashboard.Models.Users
+@{
+    ViewData["Title"] = "Sign Up - eBook Publisher";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        @@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="min-h-screen bg-[#f5f7f9] flex items-center justify-center p-4 sm:p-8 relative overflow-hidden">
+
+    <div class="absolute top-0 left-0 w-[500px] h-[500px] bg-[#7c3aed]/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+    <div class="absolute bottom-0 right-0 w-[600px] h-[600px] bg-[#4a6cf7]/10 rounded-full blur-3xl translate-x-1/3 translate-y-1/3"></div>
+
+    <main class="w-full max-w-[1100px] bg-white rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col md:flex-row relative z-10 border border-white/50">
+
+        <!-- Left: Form -->
+        <div class="w-full md:w-[55%] p-8 sm:p-12 lg:p-16 flex flex-col justify-center">
+            <div class="max-w-md w-full mx-auto">
+                <h1 class="text-3xl sm:text-4xl font-semibold text-gray-900 tracking-tight mb-3">Sign up</h1>
+                <p class="text-base text-gray-500 mb-8 leading-relaxed">Hello, friend! Welcome to eBook Publisher – create and read books you can trust. Let's get in touch!</p>
+
+                @if (!string.IsNullOrEmpty(ViewBag.Success as string))
+                {
+                    <div class="mb-6 p-3.5 rounded-xl bg-green-50 text-green-700 text-sm font-medium border border-green-100">
+                        <i class="fas fa-check-circle mr-2"></i>@ViewBag.Success
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(ViewBag.Error as string))
+                {
+                    <div class="mb-6 p-3.5 rounded-xl bg-red-50 text-red-700 text-sm font-medium border border-red-100">
+                        <i class="fas fa-exclamation-circle mr-2"></i>@ViewBag.Error
+                    </div>
+                }
+
+                <form method="post" asp-action="Register" asp-controller="Account" id="signupForm" class="space-y-5">
+                    <div>
+                        <label for="FullName" class="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+                        <input type="text" id="FullName" name="FullName" value="@Model?.FullName" placeholder="Enter your full name" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 text-base placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] transition-all duration-200" required>
+                    </div>
+                    <div>
+                        <label for="UserEmail" class="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
+                        <input type="email" id="UserEmail" name="UserEmail" value="@Model?.UserEmail" placeholder="Enter your email address" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 text-base placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] transition-all duration-200" required>
+                    </div>
+                    <div>
+                        <label for="Password" class="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                        <div class="relative flex items-center">
+                            <input type="password" id="Password" name="Password" placeholder="Create password" class="w-full px-4 py-3.5 pr-12 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 text-base placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] transition-all duration-200" required>
+                            <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none toggle-pwd p-1" data-target="Password" aria-label="Show password">
+                                <i class="fas fa-eye w-5 h-5 password-toggle-icon" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="ConfirmPassword" class="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
+                        <div class="relative flex items-center">
+                            <input type="password" id="ConfirmPassword" name="ConfirmPassword" placeholder="Confirm password" class="w-full px-4 py-3.5 pr-12 rounded-xl border border-gray-200 bg-gray-50/50 text-gray-900 text-base placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#7c3aed]/20 focus:border-[#7c3aed] transition-all duration-200" required>
+                            <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none toggle-pwd p-1" data-target="ConfirmPassword" aria-label="Show confirm password">
+                                <i class="fas fa-eye w-5 h-5 password-toggle-icon" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <p id="confirmPasswordError" class="hidden text-red-600 text-sm mt-1">Passwords do not match.</p>
+                    </div>
+                    <div class="pt-2">
+                        <button type="submit" class="w-full bg-[#7c3aed] hover:bg-[#6d28d9] active:scale-[0.98] text-white font-semibold py-3.5 rounded-xl text-base transition-all duration-200 shadow-lg shadow-[#7c3aed]/25 flex items-center justify-center gap-2" id="btnSubmit">
+                            Create My Account
+                        </button>
+                    </div>
+                </form>
+
+                <p class="mt-8 text-center text-base text-gray-500">
+                    Already have an account?
+                    <a href="@Url.Action("Login", "Account")" class="text-[#7c3aed] font-medium hover:text-[#6d28d9] hover:underline transition-colors">Sign in here</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Right: Illustration -->
+        <div class="hidden md:flex md:w-[45%] bg-[#f5f7f9] relative items-center justify-center p-12 overflow-hidden border-l border-gray-100">
+            <div class="relative w-full max-w-sm aspect-square">
+                <div class="absolute inset-0 rounded-full border-[6px] border-[#7c3aed] -translate-x-4 translate-y-4 opacity-20"></div>
+                <div class="absolute inset-0 rounded-full border-[6px] border-[#7c3aed] translate-x-2 -translate-y-2 opacity-50"></div>
+                <div class="absolute inset-0 rounded-full overflow-hidden bg-white shadow-2xl border-4 border-white z-10 flex items-center justify-center">
+                    <img src="~/images/signup-illustration.png" alt="Welcome" class="w-full h-full object-cover object-top scale-110">
+                </div>
+                <div class="absolute -bottom-6 -right-6 w-24 h-24 bg-[#7c3aed]/20 rounded-full blur-xl z-0"></div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.querySelectorAll('.toggle-pwd').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var id = this.getAttribute('data-target');
+                var input = document.getElementById(id);
+                var icon = this.querySelector('i.password-toggle-icon');
+                if (!input || !icon) return;
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    this.setAttribute('aria-label', 'Hide password');
+                } else {
+                    input.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    this.setAttribute('aria-label', id === 'ConfirmPassword' ? 'Show confirm password' : 'Show password');
+                }
+            });
+        });
+
+        document.getElementById('ConfirmPassword').addEventListener('input', function () {
+            var p = document.getElementById('Password').value;
+            var c = this.value;
+            var err = document.getElementById('confirmPasswordError');
+            err.classList.toggle('hidden', !c || p === c);
+        });
+
+        document.getElementById('signupForm').addEventListener('submit', function (e) {
+            var p = document.getElementById('Password').value;
+            var c = document.getElementById('ConfirmPassword').value;
+            if (p !== c) {
+                e.preventDefault();
+                document.getElementById('confirmPasswordError').classList.remove('hidden');
+                Swal.fire({ icon: 'error', title: 'Passwords do not match', text: 'Please check and try again.' });
+                return;
+            }
+            var btn = document.getElementById('btnSubmit');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Creating account...';
+            Swal.fire({ title: 'Creating Account', text: 'Please wait...', allowOutsideClick: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,391 @@
+@{
+    ViewData["Title"] = "Support & Resources";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap');
+    :root {
+        --support-primary: #7c3aed;
+        --support-secondary: #4f46e5;
+        --support-bg: #f5f7fb;
+        --support-text: #0f172a;
+        --support-muted: #64748b;
+        --support-border: #e2e8f0;
+        --support-shadow: 0 16px 32px -18px rgba(79, 70, 229, 0.45);
+    }
+
+    .support-page {
+        width: 100%;
+        min-height: 100vh;
+        padding: 30px 34px;
+        background: var(--support-bg);
+        font-family: 'Inter', sans-serif;
+    }
+
+    .support-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+
+    .support-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 2.35rem;
+        line-height: 1.2;
+        color: var(--support-text);
+        margin: 0 0 6px;
+    }
+
+    .support-subtitle {
+        margin: 0;
+        color: var(--support-muted);
+    }
+
+    .support-badge {
+        border-radius: 999px;
+        padding: 8px 14px;
+        border: 1px solid #ddd6fe;
+        background: linear-gradient(135deg, #ede9fe, #dbeafe);
+        color: #3730a3;
+        text-transform: uppercase;
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .05em;
+        white-space: nowrap;
+    }
+
+    .support-card {
+        background: #fff;
+        border: 1px solid var(--support-border);
+        border-radius: 18px;
+        box-shadow: var(--support-shadow);
+        padding: 26px;
+        margin-bottom: 24px;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+    .support-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 34px -20px rgba(79, 70, 229, 0.45);
+    }
+
+    .support-card-header {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: var(--support-text);
+        margin-bottom: 16px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--support-border);
+    }
+
+    .support-btn {
+        border: none;
+        border-radius: 12px;
+        padding: 11px 20px;
+        font-weight: 700;
+        color: #fff;
+        cursor: pointer;
+        background: linear-gradient(135deg, var(--support-primary), var(--support-secondary));
+        box-shadow: 0 10px 22px -12px rgba(79, 70, 229, 0.6);
+    }
+
+    .support-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 14px;
+        margin-top: 16px;
+    }
+
+    .support-item {
+        border: 1px solid var(--support-border);
+        background: #f8fafc;
+        border-radius: 12px;
+        padding: 15px;
+    }
+
+    .support-item strong {
+        display: block;
+        color: var(--support-text);
+        margin-bottom: 4px;
+    }
+
+    .faq-item {
+        border: 1px solid var(--support-border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 12px;
+        background: #fff;
+    }
+
+    .faq-question {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px;
+        font-weight: 700;
+        color: #1e293b;
+        cursor: pointer;
+        background: #f8fafc;
+    }
+
+    .faq-question:hover {
+        background: #eef2ff;
+    }
+
+    .faq-answer {
+        display: none;
+        padding: 16px;
+        color: var(--support-muted);
+        line-height: 1.6;
+    }
+
+    .faq-item.active .faq-answer {
+        display: block;
+    }
+    .support-ai-chat { display: flex; flex-direction: column; gap: 12px; min-height: 280px; }
+    .support-ai-thread { flex: 1; overflow-y: auto; max-height: 320px; background: #f8fafc; border: 1px solid var(--support-border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+    .support-ai-msg { padding: 10px 12px; border-radius: 10px; font-size: 0.9rem; line-height: 1.55; }
+    .support-ai-msg.user { align-self: flex-end; background: #ede9fe; color: #3730a3; max-width: 92%; }
+    .support-ai-msg.bot { align-self: stretch; background: #fff; border: 1px solid #e2e8f0; color: var(--support-muted); }
+    .support-ai-input-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .support-ai-input-row input { flex: 1; min-width: 200px; border: 1px solid var(--support-border); border-radius: 10px; padding: 10px 14px; font-size: 0.9rem; }
+    .support-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+    .support-chip { font-size: 0.75rem; padding: 6px 10px; border-radius: 999px; border: 1px solid #ddd6fe; background: #faf5ff; color: #5b21b6; cursor: pointer; font-weight: 600; }
+    .support-chip:hover { background: #f3e8ff; }
+    .support-mode-toggle { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .support-mode-toggle label { font-size: 0.85rem; font-weight: 600; color: var(--support-text); }
+</style>
+
+<div class="support-page">
+    <div class="support-header">
+        <div>
+            <h2 class="support-title">Support & Resources</h2>
+            <p class="support-subtitle">Fast support and answers for your publishing journey.</p>
+        </div>
+        <div class="support-badge">Priority Help</div>
+    </div>
+
+    <div class="support-card">
+        <div class="support-card-header">AI publishing assistant</div>
+        <p style="color: var(--support-muted); margin: -8px 0 12px; font-size: 0.9rem;">Ask in plain language — answers are instant (demo knowledge base + optional live API).</p>
+        <div class="support-ai-chat">
+            <div id="supportAiThread" class="support-ai-thread" aria-live="polite"></div>
+            <div class="support-chip-row">
+                <button type="button" class="support-chip" data-q="How do I create an account on Amazon?">Amazon account</button>
+                <button type="button" class="support-chip" data-q="What book size should I choose for paperback?">Book sizes</button>
+                <button type="button" class="support-chip" data-q="How do I upload a paperback to KDP?">Upload paperback</button>
+                <button type="button" class="support-chip" data-q="How do I receive payments from KDP?">Payments</button>
+                <button type="button" class="support-chip" data-q="What are the cover requirements for print?">Cover specs</button>
+            </div>
+            <form id="supportAiForm" class="support-ai-input-row">
+                <input type="text" id="supportAiInput" placeholder="Ask anything about publishing…" autocomplete="off" />
+                <button type="submit" class="support-btn" style="white-space:nowrap;"><i class="fas fa-paper-plane"></i> Send</button>
+            </form>
+            <div class="support-mode-toggle">
+                <span style="font-size:0.85rem;font-weight:700;color:var(--support-text);">Support mode:</span>
+                <label><input type="radio" name="supportMode" value="ai" checked /> AI assistant</label>
+                <label><input type="radio" name="supportMode" value="human" /> Human agent</label>
+                <span id="supportHumanHint" style="font-size:0.8rem;color:var(--support-muted);"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="support-card">
+        <div class="support-card-header">Contact Support</div>
+        <button class="support-btn" onclick="openLiveChat()">
+            <i class="fas fa-comments"></i> Live Chat
+        </button>
+
+        <div class="support-grid">
+            <div class="support-item">
+                <strong><i class="fas fa-envelope"></i> Email</strong>
+                <span>support@ebookai.com</span>
+            </div>
+            <div class="support-item">
+                <strong><i class="fas fa-phone"></i> Phone</strong>
+                <span>+1 (555) 123-4567</span>
+            </div>
+            <div class="support-item">
+                <strong><i class="fas fa-clock"></i> Support Hours</strong>
+                <span>Monday - Friday: 9:00 AM - 6:00 PM EST</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="support-card">
+        <div class="support-card-header">Frequently Asked Questions</div>
+        <div id="faqList">
+            @if (ViewBag.FAQs != null && ((IEnumerable<dynamic>)ViewBag.FAQs).Any())
+            {
+                @foreach (var faq in ViewBag.FAQs)
+                {
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFaq(this)">
+                            <span>@faq.Key.Replace("faq:", "")</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-answer">@faq.Value</div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>How do I create a book?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">Use the Book Creation screen to upload your manuscript or generate content using AI Writer.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>What file formats are supported?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">We support .docx, .pdf, and .txt files for manuscript uploads.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>How do I publish my book?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">Navigate to My Books, select your book, and click Publish. This is a premium feature.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>Can I customize the book style?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">Yes! Use the Styling screen to customize fonts, colors, and layout. This requires a premium subscription.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>What output formats are available?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">You can generate EPUB for eBooks and PDF for print versions.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>What trim sizes do you recommend (6×9 vs 8.5×11)?</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer"><strong>6×9 in</strong> is the most common trade paperback. <strong>8.5×11 in</strong> suits workbooks, textbooks, and color interiors. Match your genre and printer template before exporting PDF.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>Cover specs — bleed, spine, and resolution</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">Add bleed (often 0.125" beyond trim), embed fonts, and export print-ready PDF/X. Spine width = page count × paper thickness; use your printer’s calculator. Minimum resolution typically 300 DPI for print assets.</div>
+                </div>
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        <span>Tax and bank setup for royalties</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">1) Sign in to the retailer portal. 2) Open Tax / Payment section. 3) Complete W-9 (US) or W-8BEN (non-US). 4) Add a bank account or supported payout method. 5) Verify identity if prompted.</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleFaq(element) {
+        const faqItem = element.closest('.faq-item');
+        const isActive = faqItem.classList.contains('active');
+
+        document.querySelectorAll('.faq-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
+        if (!isActive) {
+            faqItem.classList.add('active');
+        }
+    }
+
+    function openLiveChat() {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Live Chat',
+                text: 'Chat widget would open here. In production, integrate a live chat service.',
+                icon: 'info'
+            });
+        } else {
+            alert('Chat widget would open here.');
+        }
+    }
+
+    (function supportAiInit() {
+        function supportKbAnswer(text) {
+            var q = (text || '').toLowerCase();
+            if (q.indexOf('amazon') >= 0 && q.indexOf('account') >= 0)
+                return 'Step 1: Go to amazon.com and click Account. Step 2: Choose Create account and verify email. Step 3: For KDP, open kdp.amazon.com and sign in with the same Amazon login. Step 4: Complete author profile before creating a title.';
+            if (q.indexOf('size') >= 0 || q.indexOf('6') >= 0 || q.indexOf('8.5') >= 0)
+                return 'Step 1: Pick 6×9" for novels and memoirs. Step 2: Use 8.5×11" for manuals and workbooks. Step 3: Download the printer’s interior template. Step 4: Keep mirrored margins for print. Step 5: Export PDF with embedded fonts.';
+            if (q.indexOf('paperback') >= 0 || q.indexOf('upload') >= 0)
+                return 'Step 1: In KDP, create a paperback. Step 2: Enter metadata and ISBN. Step 3: Upload interior PDF (no crop marks unless required). Step 4: Upload full-wrap cover PDF. Step 5: Launch previewer and fix errors. Step 6: Approve and publish.';
+            if (q.indexOf('payment') >= 0 || q.indexOf('royalt') >= 0 || q.indexOf('paid') >= 0)
+                return 'Step 1: Open your publisher dashboard payment section. Step 2: Add bank details. Step 3: Complete tax forms. Step 4: Wait for verification. Step 5: Royalties typically pay monthly after a threshold.';
+            if (q.indexOf('cover') >= 0)
+                return 'Step 1: Use 300 DPI images. Step 2: Include bleed if the printer requires it. Step 3: Keep text out of the spine fold safety zone. Step 4: Export single PDF for print wrap. Step 5: For ebooks, follow minimum pixel height guidelines.';
+            return 'Step 1: Tell me your goal (e.g. KDP paperback). Step 2: I’ll outline the next clicks. Step 3: For deep help, use Contact Support or toggle Human agent (demo queue).';
+        }
+        function appendSupport(role, body) {
+            var th = document.getElementById('supportAiThread');
+            if (!th) return;
+            var d = document.createElement('div');
+            d.className = 'support-ai-msg ' + (role === 'user' ? 'user' : 'bot');
+            d.textContent = body;
+            th.appendChild(d);
+            th.scrollTop = th.scrollHeight;
+        }
+        var form = document.getElementById('supportAiForm');
+        var inp = document.getElementById('supportAiInput');
+        if (form && inp) {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+                var human = document.querySelector('input[name="supportMode"]:checked')?.value === 'human';
+                var t = inp.value.trim();
+                if (!t) return;
+                inp.value = '';
+                appendSupport('user', t);
+                if (human) {
+                    appendSupport('bot', 'Human agent (demo): you are in queue position 4. Typical reply in 15 minutes. For urgent issues, email support@ebookai.com.');
+                    return;
+                }
+                fetch('@Url.Action("Ask", "Chat")', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: 'Publishing support: ' + t })
+                }).then(function (r) { return r.json(); }).then(function (data) {
+                    var ans = (data && data.success && data.response) ? data.response : supportKbAnswer(t);
+                    appendSupport('bot', ans);
+                }).catch(function () {
+                    appendSupport('bot', supportKbAnswer(t));
+                });
+            });
+        }
+        document.querySelectorAll('.support-chip').forEach(function (c) {
+            c.addEventListener('click', function () {
+                var q = this.getAttribute('data-q');
+                if (!inp || !q || !form) return;
+                inp.value = q;
+                var sub = form.querySelector('button[type="submit"]');
+                if (sub) sub.click();
+            });
+        });
+        var humanHint = document.getElementById('supportHumanHint');
+        document.querySelectorAll('input[name="supportMode"]').forEach(function (r) {
+            r.addEventListener('change', function () {
+                if (!humanHint) return;
+                humanHint.textContent = r.value === 'human' ? 'Demo: queue simulated — no live agent in this build.' : '';
+            });
+        });
+        appendSupport('bot', 'Hi! I’m your publishing assistant. Try a quick chip above or type your question.');
+    })();
+</script>

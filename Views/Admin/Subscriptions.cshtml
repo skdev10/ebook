@@ -1,0 +1,1642 @@
+@{
+    ViewData["Title"] = "Subscription Management";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+ <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+    /* Outstanding Theme Colors */
+        :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --warm-gray: #E8E8E8;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --text-muted: #9B9B9B;
+        --border-light: #E5E5E5;
+        --shadow-soft: rgba(0, 0, 0, 0.05);
+        --primary: #7c3aed;
+        --primary-light: #a78bfa;
+        --primary-dark: #6d28d9;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+        --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+        --gradient-success: linear-gradient(135deg, var(--success) 0%, #34d399 100%);
+        --gradient-warning: linear-gradient(135deg, var(--warning) 0%, #fbbf24 100%);
+        --gradient-danger: linear-gradient(135deg, var(--danger) 0%, #f87171 100%);
+    }
+
+    /* Best Font Family - Same as all other screens */
+    * {
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    body {
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .subscriptions-container {
+        padding: 0;
+        animation: fadeIn 0.6s ease-out;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Outstanding Page Header */
+    .page-header {
+            background: var(--white);
+        border-radius: 20px;
+        padding: 32px;
+        margin-bottom: 32px;
+        box-shadow: 0 4px 20px var(--shadow-soft);
+            border: 1px solid var(--border-light);
+            position: relative;
+            overflow: hidden;
+        }
+
+    .page-header::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+        width: 5px;
+                height: 100%;
+        background: var(--gradient-primary);
+    }
+
+    .page-header::after {
+        content: "";
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(124, 58, 237, 0.1) 0%, transparent 70%);
+        border-radius: 50%;
+            }
+
+        .header-content {
+            position: relative;
+            z-index: 2;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 24px;
+    }
+
+    .page-title {
+        font-size: 32px;
+        font-weight: 800;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin: 0;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: -0.5px;
+    }
+
+    .page-title i {
+        font-size: 36px;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .page-subtitle {
+        font-size: 15px;
+        color: var(--text-secondary);
+        margin-top: 8px;
+        font-weight: 500;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    /* Outstanding Stats Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+
+        .stats-card {
+            background: var(--white);
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 4px 20px var(--shadow-soft);
+            border: 1px solid var(--border-light);
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .stats-card::before {
+                content: "";
+                position: absolute;
+                top: 0;
+                left: 0;
+        width: 5px;
+                height: 100%;
+        background: var(--gradient-primary);
+                opacity: 0;
+        transition: opacity 0.4s ease;
+            }
+
+            .stats-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 40px rgba(124, 58, 237, 0.15);
+            }
+
+                .stats-card:hover::before {
+                    opacity: 1;
+                }
+
+    .stats-icon-wrapper {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        background: var(--gradient-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+                }
+
+        .stats-icon {
+        font-size: 28px;
+        color: white;
+        }
+
+    .stats-value {
+        font-size: 36px;
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        line-height: 1;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: -1px;
+    }
+
+    .stats-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 12px;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .stats-trend {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 20px;
+        width: fit-content;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+        .trend-up {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+        }
+
+        .trend-down {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    /* Outstanding Tabs */
+        .subscription-tabs {
+        background: var(--white);
+        border-radius: 20px;
+        box-shadow: 0 4px 20px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        margin-bottom: 32px;
+            overflow: hidden;
+        }
+
+        .nav-tabs-grid {
+        display: flex;
+        background: var(--light-gray);
+        border-bottom: 2px solid var(--border-light);
+        overflow-x: auto;
+        }
+
+            .nav-tabs-grid .nav-item {
+        flex: 1;
+        min-width: 200px;
+            }
+
+            .nav-tabs-grid .nav-link {
+                border: none;
+        padding: 20px 24px;
+                font-weight: 600;
+        color: var(--text-secondary);
+                background: transparent;
+        transition: all 0.3s ease;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        white-space: nowrap;
+        position: relative;
+            }
+
+                .nav-tabs-grid .nav-link:hover {
+        color: var(--primary);
+        background: rgba(124, 58, 237, 0.05);
+                }
+
+                .nav-tabs-grid .nav-link.active {
+        color: var(--primary);
+        background: var(--white);
+                    font-weight: 700;
+                }
+
+                    .nav-tabs-grid .nav-link.active::after {
+                        content: "";
+                        position: absolute;
+                        bottom: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 3px;
+                        background: var(--gradient-primary);
+                    }
+
+        .tab-content {
+        padding: 32px;
+    }
+
+    /* Outstanding Plan Cards */
+    .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 28px;
+    }
+
+    .plan-card {
+        background: var(--white);
+        border-radius: 24px;
+            overflow: hidden;
+        box-shadow: 0 4px 20px var(--shadow-soft);
+        border: 3px solid var(--border-light);
+        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .plan-card:hover {
+        transform: translateY(-12px) scale(1.02);
+        box-shadow: 0 16px 48px rgba(124, 58, 237, 0.2);
+    }
+
+    .plan-card.basic {
+        border-color: var(--primary);
+    }
+
+    .plan-card.professional {
+        border-color: var(--success);
+    }
+
+    .plan-card.premium {
+        border-color: var(--primary-light);
+    }
+
+    .plan-card.enterprise {
+        border-color: var(--primary);
+    }
+
+    .plan-header {
+            background: var(--gradient-primary);
+            color: white;
+        padding: 32px;
+                text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .plan-header::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200px;
+        height: 200px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+    }
+
+    .plan-card.professional .plan-header {
+        background: var(--gradient-success);
+    }
+
+    .plan-card.premium .plan-header {
+        background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary) 100%);
+    }
+
+    .plan-card.enterprise .plan-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--danger) 100%);
+    }
+
+    .plan-header h4 {
+        font-size: 24px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        color: white;
+        position: relative;
+        z-index: 1;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: -0.3px;
+    }
+
+    .plan-header p {
+        font-size: 14px;
+        opacity: 0.95;
+        margin: 0;
+        color: white;
+        position: relative;
+        z-index: 1;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .plan-body {
+        padding: 32px;
+        flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+    .plan-price-section {
+            text-align: center;
+        padding: 24px 0;
+        border-bottom: 2px solid var(--border-light);
+        margin-bottom: 24px;
+    }
+
+    .plan-price {
+        font-size: 56px;
+        font-weight: 900;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        line-height: 1;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: -2px;
+    }
+
+    .plan-period {
+        color: var(--text-secondary);
+        font-size: 15px;
+        font-weight: 600;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .plan-features {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 28px 0;
+        flex: 1;
+    }
+
+    .plan-features li {
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border-light);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 15px;
+        color: var(--text-primary);
+        font-weight: 500;
+        transition: all 0.3s ease;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .plan-features li:hover {
+        background: rgba(124, 58, 237, 0.05);
+        padding-left: 12px;
+        border-radius: 10px;
+        margin: 0 -12px;
+        padding-right: 12px;
+    }
+
+    .plan-features li:last-child {
+        border-bottom: none;
+    }
+
+    .feature-icon {
+                font-size: 18px;
+                width: 24px;
+                text-align: center;
+        flex-shrink: 0;
+    }
+
+    .feature-included {
+        color: var(--success);
+    }
+
+    .feature-excluded {
+                color: var(--text-muted);
+        opacity: 0.6;
+            }
+
+    .plan-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        margin-top: auto;
+    }
+
+    .popular-badge {
+        position: absolute;
+        top: 24px;
+        right: -35px;
+        background: var(--gradient-warning);
+        color: white;
+        padding: 8px 50px;
+        font-size: 12px;
+        font-weight: 800;
+        transform: rotate(45deg);
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+        z-index: 10;
+        letter-spacing: 1px;
+    }
+
+    /* Outstanding Buttons */
+    .btn {
+        padding: 14px 24px;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: 0.2px;
+    }
+
+            .btn::before {
+        content: "";
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+                transition: left 0.5s;
+            }
+
+            .btn:hover::before {
+                left: 100%;
+            }
+
+        .btn-primary {
+        background: var(--gradient-primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+    }
+
+    .btn-outline {
+        background: transparent;
+        border: 2px solid var(--primary);
+        color: var(--primary);
+    }
+
+    .btn-outline:hover {
+        background: var(--primary);
+        color: white;
+                transform: translateY(-2px);
+    }
+
+    .btn-success {
+        background: var(--gradient-success);
+            color: white;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Outstanding Badges */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .badge-active {
+        background: var(--gradient-success);
+        color: white;
+    }
+
+    .badge-expired {
+        background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+        color: white;
+    }
+
+    .badge-pending {
+        background: var(--gradient-warning);
+        color: white;
+    }
+
+    .badge-cancelled {
+        background: var(--gradient-danger);
+        color: white;
+    }
+
+    .badge-active {
+        background: rgba(16, 185, 129, 0.15);
+        color: var(--success);
+    }
+
+    .badge-pending {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning);
+    }
+
+    .badge-expired {
+        background: rgba(239, 68, 68, 0.15);
+        color: var(--danger);
+    }
+
+    .badge-cancelled {
+        background: rgba(107, 114, 128, 0.15);
+        color: var(--text-secondary);
+    }
+
+    /* Outstanding Tables */
+    .table-container {
+        background: var(--white);
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 4px 20px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        overflow-x: auto;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .data-table thead {
+        background: var(--gradient-primary);
+    }
+
+    .data-table thead th {
+        padding: 18px 20px;
+        text-align: left;
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: none;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .data-table tbody td {
+        padding: 18px 20px;
+        font-size: 14px;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-light);
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .data-table tbody tr {
+        transition: all 0.3s ease;
+    }
+
+    .data-table tbody tr:hover {
+        background: var(--light-gray);
+        transform: scale(1.01);
+    }
+
+    /* Loading & Empty States */
+    .loading-state,
+    .empty-state {
+                text-align: center;
+        padding: 80px 32px;
+        background: var(--white);
+        border-radius: 20px;
+        box-shadow: 0 4px 20px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+    }
+
+    .loading-state i,
+    .empty-state i {
+        font-size: 72px;
+        color: var(--text-muted);
+        margin-bottom: 24px;
+        opacity: 0.5;
+    }
+
+    .loading-state h3,
+    .empty-state h3 {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 12px;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        letter-spacing: -0.3px;
+    }
+
+    .loading-state p,
+    .empty-state p {
+        font-size: 15px;
+        color: var(--text-secondary);
+        margin-bottom: 32px;
+        font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Responsive Design */
+    @@media (max-width: 1024px) {
+        .page-header {
+            padding: 24px;
+        }
+
+        .page-title {
+            font-size: 28px;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+
+        .plans-grid {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .subscriptions-container {
+            padding: 0;
+        }
+
+        .page-header {
+            padding: 20px;
+        }
+
+        .page-title {
+            font-size: 24px;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .plans-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .nav-tabs-grid {
+            flex-direction: column;
+        }
+
+        .nav-tabs-grid .nav-item {
+            min-width: 100%;
+        }
+
+        .tab-content {
+            padding: 20px;
+        }
+
+        .plan-card {
+            margin-bottom: 20px;
+        }
+
+        .plan-actions {
+            grid-template-columns: 1fr;
+        }
+
+        .table-container {
+            padding: 20px;
+        }
+
+        .data-table {
+            min-width: 800px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .page-header {
+            padding: 16px;
+        }
+
+        .page-title {
+            font-size: 20px;
+        }
+
+        .header-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .stats-card {
+            padding: 20px;
+        }
+
+        .stats-value {
+            font-size: 28px;
+        }
+
+        .plan-body {
+            padding: 24px;
+        }
+
+        .plan-price {
+            font-size: 42px;
+        }
+
+        .tab-content {
+            padding: 16px;
+        }
+
+        .modal-dialog {
+            margin: 10px;
+        }
+
+        .modal-content {
+            padding: 16px;
+        }
+            }
+    </style>
+
+<div class="subscriptions-container">
+    <!-- Outstanding Page Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <div>
+                <h1 class="page-title">
+                    <i class="fas fa-crown"></i>
+                    Subscription Management
+                    </h1>
+                <div class="page-subtitle">Manage subscription plans, monitor revenue, and analyze customer growth with advanced analytics</div>
+                </div>
+                    <div class="header-actions">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPlanModal">
+                    <i class="fas fa-plus"></i>
+                    Create New Plan
+                        </button>
+                <button class="btn btn-outline" id="exportReportsBtn">
+                    <i class="fas fa-download"></i>
+                    Export Reports
+                        </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outstanding Stats Overview -->
+    <div class="stats-grid">
+        <div class="stats-card">
+            <div class="stats-icon-wrapper">
+                <i class="fas fa-users stats-icon"></i>
+            </div>
+            <div class="stats-value">1,248</div>
+            <div class="stats-label">Total Subscribers</div>
+            <div class="stats-trend trend-up">
+                <i class="fas fa-arrow-up"></i>
+                <span>12.5% growth</span>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-icon-wrapper">
+                <i class="fas fa-money-bill-wave stats-icon"></i>
+            </div>
+            <div class="stats-value">$24,580</div>
+            <div class="stats-label">Monthly Revenue</div>
+            <div class="stats-trend trend-up">
+                <i class="fas fa-arrow-up"></i>
+                <span>8.3% increase</span>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-icon-wrapper">
+                <i class="fas fa-chart-line stats-icon"></i>
+            </div>
+            <div class="stats-value">94.2%</div>
+            <div class="stats-label">Retention Rate</div>
+            <div class="stats-trend trend-up">
+                <i class="fas fa-arrow-up"></i>
+                <span>2.1% improvement</span>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-icon-wrapper">
+                <i class="fas fa-exclamation-triangle stats-icon"></i>
+            </div>
+            <div class="stats-value">18</div>
+            <div class="stats-label">Expiring Soon</div>
+            <div class="stats-trend trend-down">
+                <i class="fas fa-arrow-down"></i>
+                <span>Requires attention</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outstanding Subscription Tabs -->
+    <div class="subscription-tabs">
+        <ul class="nav nav-tabs-grid" id="subscriptionTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="plans-tab" data-bs-toggle="tab" data-bs-target="#plans" type="button" role="tab">
+                    <i class="fas fa-cube"></i>
+                    <span>Subscription Plans</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button" role="tab">
+                    <i class="fas fa-receipt"></i>
+                    <span>Payment Analytics</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="subscribers-tab" data-bs-toggle="tab" data-bs-target="#subscribers" type="button" role="tab">
+                    <i class="fas fa-user-check"></i>
+                    <span>Subscriber Management</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="analytics-tab" data-bs-toggle="tab" data-bs-target="#analytics" type="button" role="tab">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Revenue Analytics</span>
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="subscriptionTabContent">
+            <!-- Subscription Plans Tab -->
+            <div class="tab-pane fade show active" id="plans" role="tabpanel">
+                <div id="plansLoading" class="loading-state" style="display: none;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <h3>Loading Plans</h3>
+                    <p>Please wait while we load subscription plans...</p>
+                    </div>
+
+                <div class="plans-grid" id="plansGrid">
+                    <!-- Plans will be loaded here -->
+                    </div>
+
+                <div id="plansEmpty" class="empty-state" style="display: none;">
+                    <i class="fas fa-inbox"></i>
+                    <h3>No Plans Found</h3>
+                    <p>Create your first subscription plan to get started.</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPlanModal">
+                        <i class="fas fa-plus"></i>
+                        Create New Plan
+                                </button>
+                </div>
+            </div>
+
+            <!-- Payment Analytics Tab -->
+            <div class="tab-pane fade" id="payments" role="tabpanel">
+                <div class="table-container">
+                    <h3 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; display: flex; align-items: center; gap: 12px; font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: -0.3px;">
+                        <i class="fas fa-receipt" style="color: var(--primary); font-size: 24px;"></i>
+                        Payment History
+                    </h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Transaction ID</th>
+                                    <th>Customer</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                        <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
+                                        Loading payments...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Subscriber Management Tab -->
+            <div class="tab-pane fade" id="subscribers" role="tabpanel">
+                <div class="table-container">
+                    <h3 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; display: flex; align-items: center; gap: 12px; font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: -0.3px;">
+                        <i class="fas fa-user-check" style="color: var(--primary); font-size: 24px;"></i>
+                        Active Subscribers
+                    </h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Plan</th>
+                                    <th>Start Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                        <i class="fas fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 12px; display: block;"></i>
+                                        Loading subscribers...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revenue Analytics Tab -->
+            <div class="tab-pane fade" id="analytics" role="tabpanel">
+                <div class="table-container">
+                    <h3 style="font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 24px; display: flex; align-items: center; gap: 12px; font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: -0.3px;">
+                        <i class="fas fa-chart-bar" style="color: var(--primary); font-size: 24px;"></i>
+                        Revenue Overview
+                    </h3>
+                    <p style="color: var(--text-secondary); font-size: 15px;">Analytics dashboard coming soon...</p>
+                        </div>
+                        </div>
+                    </div>
+                        </div>
+                    </div>
+
+<!-- Outstanding Add Plan Modal -->
+<div class="modal fade" id="addPlanModal" tabindex="-1" aria-labelledby="addPlanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden;">
+            <div class="modal-header" style="background: var(--gradient-primary); color: white; border: none; padding: 28px 32px;">
+                <h5 class="modal-title" id="addPlanModalLabel" style="font-weight: 800; font-size: 22px; font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: -0.3px;">
+                    <i class="fas fa-plus-circle me-2"></i>Create New Subscription Plan
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding: 32px;">
+                <form id="addPlanForm">
+                    <input type="hidden" id="editPlanId" value="" />
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 24px;">
+                        <div>
+                            <label for="planName" class="form-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: block; font-size: 14px;">
+                                <i class="fas fa-tag" style="color: var(--primary); margin-right: 6px;"></i>
+                                Plan Name <span style="color: var(--danger);">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="planName" placeholder="e.g., Basic Plan" required
+                                   style="width: 100%; padding: 14px 18px; border: 2px solid var(--border-light); border-radius: 12px; font-size: 14px; transition: all 0.3s ease;"
+                                   onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(124, 58, 237, 0.1)'"
+                                   onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                        </div>
+                        <div>
+                            <label for="planPrice" class="form-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: block; font-size: 14px;">
+                                <i class="fas fa-dollar-sign" style="color: var(--primary); margin-right: 6px;"></i>
+                                Monthly Price ($) <span style="color: var(--danger);">*</span>
+                            </label>
+                            <input type="number" class="form-control" id="planPrice" placeholder="0.00" step="0.01" min="0" required
+                                   style="width: 100%; padding: 14px 18px; border: 2px solid var(--border-light); border-radius: 12px; font-size: 14px; transition: all 0.3s ease;"
+                                   onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(124, 58, 237, 0.1)'"
+                                   onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                        </div>
+                        <div>
+                            <label for="planInterval" class="form-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: block; font-size: 14px;">
+                                <i class="fas fa-calendar" style="color: var(--primary); margin-right: 6px;"></i>
+                                Billing Interval <span style="color: var(--danger);">*</span>
+                            </label>
+                            <select class="form-select" id="planInterval" required
+                                    style="width: 100%; padding: 14px 18px; border: 2px solid var(--border-light); border-radius: 12px; font-size: 14px; transition: all 0.3s ease; background: var(--white);"
+                                    onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(124, 58, 237, 0.1)'"
+                                    onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly (Save 20%)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="planColor" class="form-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: block; font-size: 14px;">
+                                <i class="fas fa-palette" style="color: var(--primary); margin-right: 6px;"></i>
+                                Plan Color Theme
+                            </label>
+                            <select class="form-select" id="planColor"
+                                    style="width: 100%; padding: 14px 18px; border: 2px solid var(--border-light); border-radius: 12px; font-size: 14px; transition: all 0.3s ease; background: var(--white);"
+                                    onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(124, 58, 237, 0.1)'"
+                                    onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'">
+                                <option value="basic">Basic (Purple)</option>
+                                <option value="professional">Professional (Green)</option>
+                                <option value="premium">Premium (Light Purple)</option>
+                                <option value="enterprise">Enterprise (Purple/Red)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 24px;">
+                        <label class="form-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 16px; display: block; font-size: 14px;">
+                            <i class="fas fa-list-check" style="color: var(--primary); margin-right: 6px;"></i>
+                            Plan Features
+                        </label>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--light-gray); border-radius: 10px;">
+                                <input type="checkbox" id="featureFormatting" checked
+                                       style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);">
+                                <label for="featureFormatting" style="font-size: 14px; color: var(--text-primary); cursor: pointer; margin: 0; font-weight: 500;">
+                                    Ebook Formatting
+                                </label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--light-gray); border-radius: 10px;">
+                                <input type="checkbox" id="featureCoverDesign" checked
+                                       style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);">
+                                <label for="featureCoverDesign" style="font-size: 14px; color: var(--text-primary); cursor: pointer; margin: 0; font-weight: 500;">
+                                    Cover Design
+                                </label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--light-gray); border-radius: 10px;">
+                                <input type="checkbox" id="featureAudiobook"
+                                       style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);">
+                                <label for="featureAudiobook" style="font-size: 14px; color: var(--text-primary); cursor: pointer; margin: 0; font-weight: 500;">
+                                    Audiobook Conversion
+                                </label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--light-gray); border-radius: 10px;">
+                                <input type="checkbox" id="featureMarketing"
+                                       style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);">
+                                <label for="featureMarketing" style="font-size: 14px; color: var(--text-primary); cursor: pointer; margin: 0; font-weight: 500;">
+                                    Marketing Tools
+                                </label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--light-gray); border-radius: 10px;">
+                                <input type="checkbox" id="featurePrioritySupport"
+                                       style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);">
+                                <label for="featurePrioritySupport" style="font-size: 14px; color: var(--text-primary); cursor: pointer; margin: 0; font-weight: 500;">
+                                    Priority Support
+                                </label>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--light-gray); border-radius: 10px;">
+                                <input type="checkbox" id="featureAnalytics"
+                                       style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary);">
+                                <label for="featureAnalytics" style="font-size: 14px; color: var(--text-primary); cursor: pointer; margin: 0; font-weight: 500;">
+                                    Advanced Analytics
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="planDescription" class="form-label" style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: block; font-size: 14px;">
+                            <i class="fas fa-align-left" style="color: var(--primary); margin-right: 6px;"></i>
+                            Plan Description
+                        </label>
+                        <textarea class="form-control" id="planDescription" rows="3" placeholder="Describe the benefits of this plan..."
+                                  style="width: 100%; padding: 14px 18px; border: 2px solid var(--border-light); border-radius: 12px; font-size: 14px; transition: all 0.3s ease; font-family: inherit; resize: vertical;"
+                                  onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 4px rgba(124, 58, 237, 0.1)'"
+                                  onblur="this.style.borderColor='var(--border-light)'; this.style.boxShadow='none'"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="padding: 24px 32px; border-top: 1px solid var(--border-light); background: var(--light-gray);">
+                <button type="button" class="btn btn-outline" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i>
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-primary" id="savePlanBtn">
+                    <i class="fas fa-check"></i>
+                    <span id="savePlanBtnText">Create Plan</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4" crossorigin="anonymous"></script>
+            <script>
+    // Ensure content is visible
+    function ensureContentVisible() {
+        const plansGrid = document.getElementById('plansGrid');
+        const plansLoading = document.getElementById('plansLoading');
+        const plansEmpty = document.getElementById('plansEmpty');
+        
+        if (plansGrid) {
+            plansGrid.style.display = 'grid';
+            plansGrid.style.visibility = 'visible';
+            plansGrid.style.opacity = '1';
+        }
+        
+        const sections = document.querySelectorAll('.stats-grid, .subscription-header, .plans-grid, .subscription-tabs, .tab-content');
+        sections.forEach(section => {
+            if (section) {
+                section.style.display = '';
+                section.style.visibility = 'visible';
+                section.style.opacity = '1';
+            }
+        });
+    }
+    
+    // Load subscription stats from database
+    async function loadSubscriptionStats() {
+        try {
+            const response = await fetch('@Url.Action("GetSubscriptionStats", "Admin")');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.stats) {
+                    const stats = data.stats;
+                    
+                    // Update stats cards with real data
+                    const statsCards = document.querySelectorAll('.stats-card');
+                    if (statsCards.length >= 4) {
+                        // Total Subscribers
+                        const subscribersValue = statsCards[0].querySelector('.stats-value');
+                        if (subscribersValue) subscribersValue.textContent = stats.totalSubscribers || '0';
+                        
+                        // Monthly Revenue
+                        const revenueValue = statsCards[1].querySelector('.stats-value');
+                        if (revenueValue) revenueValue.textContent = `$${parseFloat(stats.monthlyRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        
+                        // Retention Rate
+                        const retentionValue = statsCards[2].querySelector('.stats-value');
+                        if (retentionValue) retentionValue.textContent = `${stats.retentionRate || 0}%`;
+                        
+                        // Expiring Soon
+                        const expiringValue = statsCards[3].querySelector('.stats-value');
+                        if (expiringValue) expiringValue.textContent = stats.expiringSoon || '0';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading subscription stats:', error);
+        }
+    }
+
+    // Load plans from database
+    async function loadPlans() {
+        const plansGrid = document.getElementById('plansGrid');
+        const plansLoading = document.getElementById('plansLoading');
+        const plansEmpty = document.getElementById('plansEmpty');
+        
+        try {
+            if (plansLoading) plansLoading.style.display = 'block';
+            if (plansGrid) plansGrid.style.display = 'none';
+            if (plansEmpty) plansEmpty.style.display = 'none';
+            
+            const response = await fetch('@Url.Action("GetPlans", "Admin")');
+            if (response.ok) {
+                const data = await response.json();
+                const plans = data?.plans || [];
+                
+                if (plansLoading) plansLoading.style.display = 'none';
+                
+                if (plans && plans.length > 0) {
+                    if (plansGrid) {
+                        plansGrid.innerHTML = plans.map((plan, index) => {
+                            let planType = 'basic';
+                            if (plan.planName?.toLowerCase().includes('professional') || plan.planName?.toLowerCase().includes('pro')) planType = 'professional';
+                            else if (plan.planName?.toLowerCase().includes('premium')) planType = 'premium';
+                            else if (plan.planName?.toLowerCase().includes('enterprise')) planType = 'enterprise';
+                            
+                            const features = [];
+                            if (plan.allowDownloads) features.push({ name: 'Downloads Allowed', included: true });
+                            if (plan.allowFullDashboard) features.push({ name: 'Full Dashboard Access', included: true });
+                            if (plan.allowAnalytics) features.push({ name: 'Analytics Access', included: true });
+                            if (plan.allowPublishing) features.push({ name: 'Publishing Access', included: true });
+                            if (plan.maxEBooks) features.push({ name: `Max ${plan.maxEBooks} eBooks`, included: true });
+                            if (plan.maxPages) features.push({ name: `Max ${plan.maxPages} Pages`, included: true });
+                            if (plan.maxChapters) features.push({ name: `Max ${plan.maxChapters} Chapters`, included: true });
+                            
+                            return `
+                                <div class="plan-card ${planType}">
+                                    ${index === 1 && plan.isActive ? '<div class="popular-badge">MOST POPULAR</div>' : ''}
+                                    <div class="plan-header">
+                                        <h4>${plan.planName || 'Plan'}</h4>
+                                        <p>${plan.planDescription || 'Subscription plan'}</p>
+                                    </div>
+                                    <div class="plan-body">
+                                        <div class="plan-price-section">
+                                            <div class="plan-price">$${parseFloat(plan.planRate || 0).toFixed(2)}</div>
+                                            <div class="plan-period">per ${plan.planDays ? Math.floor(plan.planDays / 30) + ' month(s)' : 'month'}</div>
+                                        </div>
+                                        <ul class="plan-features">
+                                            ${features.length > 0 ? features.map(feature => `
+                                                <li>
+                                                    <i class="fas fa-check feature-icon feature-included"></i>
+                                                    <span>${feature.name}</span>
+                                                </li>
+                                            `).join('') : '<li style="color: var(--text-muted);">No features specified</li>'}
+                                        </ul>
+                                        <div class="plan-actions">
+                                            <button class="btn btn-outline edit-plan-btn" data-plan-id="${plan.planId}">
+                                                <i class="fas fa-edit"></i>
+                                                Edit
+                                            </button>
+                                            <button class="btn btn-primary view-plan-btn" data-plan-id="${plan.planId}">
+                                                <i class="fas fa-eye"></i>
+                                                View
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                        plansGrid.style.display = 'grid';
+                    }
+                } else {
+                    if (plansEmpty) plansEmpty.style.display = 'block';
+                }
+            } else {
+                if (plansLoading) plansLoading.style.display = 'none';
+                if (plansEmpty) plansEmpty.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Error loading plans:', error);
+            if (plansLoading) plansLoading.style.display = 'none';
+            if (plansEmpty) plansEmpty.style.display = 'block';
+        }
+    }
+
+    // Load subscribers from database
+    async function loadSubscribers() {
+        try {
+            const response = await fetch('@Url.Action("GetSubscribers", "Admin")');
+            if (response.ok) {
+                const data = await response.json();
+                const subscribers = data?.subscribers || [];
+                
+                const subscribersTable = document.querySelector('#subscribers .data-table tbody');
+                if (subscribersTable) {
+                    if (subscribers.length > 0) {
+                        subscribersTable.innerHTML = subscribers.map(sub => `
+                            <tr>
+                                <td>${sub.userName || 'Unknown'}</td>
+                                <td>${sub.userEmail || ''}</td>
+                                <td>${sub.planName || 'N/A'}</td>
+                                <td>${sub.startDate || ''}</td>
+                                <td><span class="badge ${sub.status === 'Active' ? 'badge-active' : sub.status === 'Expired' ? 'badge-expired' : 'badge-cancelled'}">${sub.status || 'Unknown'}</span></td>
+                                <td>
+                                    <button class="btn btn-outline" style="padding: 8px 16px; font-size: 13px;" onclick="viewSubscriber(${sub.subscriptionId})">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        subscribersTable.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">No subscribers found</td></tr>';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading subscribers:', error);
+        }
+    }
+
+    // Load payments from database
+    async function loadPayments() {
+        try {
+            const response = await fetch('@Url.Action("GetPayments", "Admin")');
+            if (response.ok) {
+                const data = await response.json();
+                const payments = data?.payments || [];
+                
+                const paymentsTable = document.querySelector('#payments .data-table tbody');
+                if (paymentsTable) {
+                    if (payments.length > 0) {
+                        paymentsTable.innerHTML = payments.map(payment => `
+                            <tr>
+                                <td>#TXN-${String(payment.transactionId).padStart(6, '0')}</td>
+                                <td>${payment.userName || 'Unknown'}</td>
+                                <td>${payment.currency === 'usd' ? '$' : payment.currency?.toUpperCase() || '$'}${parseFloat(payment.amount || 0).toFixed(2)}</td>
+                                <td>${payment.createdAt ? new Date(payment.createdAt).toLocaleDateString() : ''}</td>
+                                <td><span class="badge ${payment.status === 'Paid' ? 'badge-active' : payment.status === 'Pending' ? 'badge-pending' : 'badge-expired'}">${payment.status || 'Unknown'}</span></td>
+                                <td>
+                                    <button class="btn btn-outline" style="padding: 8px 16px; font-size: 13px;" onclick="viewPayment(${payment.transactionId})">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    } else {
+                        paymentsTable.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">No payments found</td></tr>';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading payments:', error);
+        }
+    }
+
+    // View subscriber details
+    function viewSubscriber(subscriptionId) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Subscriber Details',
+                text: 'Subscriber details view will be implemented soon',
+                confirmButtonColor: '#7c3aed'
+            });
+        }
+    }
+
+    // View payment details
+    function viewPayment(transactionId) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Payment Details',
+                text: 'Payment details view will be implemented soon',
+                confirmButtonColor: '#7c3aed'
+            });
+        }
+    }
+    
+    // Save plan (Create or Update)
+    document.getElementById('savePlanBtn')?.addEventListener('click', async function() {
+        const planName = document.getElementById('planName')?.value?.trim();
+        const planPrice = document.getElementById('planPrice')?.value;
+        const planInterval = document.getElementById('planInterval')?.value;
+        const planDescription = document.getElementById('planDescription')?.value?.trim() || '';
+        const editPlanIdEl = document.getElementById('editPlanId');
+        const isEdit = editPlanIdEl && editPlanIdEl.value;
+        
+        if (!planName || !planPrice) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Validation Error', 'Please fill in all required fields', 'warning');
+            } else {
+                alert('Please fill in all required fields');
+            }
+            return;
+        }
+        
+        const planDays = planInterval === 'yearly' ? 365 : 30;
+        const features = [];
+        if (document.getElementById('featureFormatting')?.checked) features.push('Ebook Formatting');
+        if (document.getElementById('featureCoverDesign')?.checked) features.push('Cover Design');
+        if (document.getElementById('featureAudiobook')?.checked) features.push('Audiobook Conversion');
+        if (document.getElementById('featureMarketing')?.checked) features.push('Marketing Tools');
+        if (document.getElementById('featurePrioritySupport')?.checked) features.push('Priority Support');
+        if (document.getElementById('featureAnalytics')?.checked) features.push('Advanced Analytics');
+        
+        const planPayload = {
+            PlanName: planName,
+            PlanRate: parseFloat(planPrice),
+            PlanDays: planDays,
+            PlanDescription: planDescription,
+            Currency: 'usd',
+            MaxEBooks: features.includes('Ebook Formatting') ? 10 : 0,
+            MaxPages: 1000,
+            MaxChapters: 50,
+            AllowDownloads: features.includes('Marketing Tools'),
+            AllowFullDashboard: true,
+            AllowAnalytics: features.includes('Advanced Analytics'),
+            AllowPublishing: true,
+            IsActive: 1
+        };
+        
+        try {
+            const url = isEdit
+                ? '@Url.Action("UpdatePlan", "Admin")?planId=' + encodeURIComponent(editPlanIdEl.value)
+                : '@Url.Action("CreatePlan", "Admin")';
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                },
+                body: JSON.stringify(planPayload)
+            });
+            
+            const responseData = response.ok ? await response.json().catch(() => ({})) : null;
+            const success = response.ok && (responseData?.success !== false);
+            
+            if (success) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: isEdit ? 'Plan updated successfully' : 'Plan created successfully',
+                        timer: 2000,
+                        showConfirmButton: false,
+                        confirmButtonColor: '#7c3aed'
+                    });
+                }
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addPlanModal'));
+                if (modal) modal.hide();
+                document.getElementById('editPlanId').value = '';
+                document.getElementById('addPlanForm')?.reset();
+                document.getElementById('addPlanModalLabel').innerHTML = '<i class="fas fa-plus-circle me-2"></i>Create New Subscription Plan';
+                document.getElementById('savePlanBtnText').textContent = 'Create Plan';
+                await loadPlans();
+            } else {
+                const error = responseData?.message || await response.text() || (isEdit ? 'Failed to update plan' : 'Failed to create plan');
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Error', error, 'error');
+                } else {
+                    alert(error);
+                }
+            }
+        } catch (error) {
+            console.error(isEdit ? 'Error updating plan:' : 'Error creating plan:', error);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire('Error', isEdit ? 'Failed to update plan' : 'Failed to create plan', 'error');
+            } else {
+                alert(isEdit ? 'Failed to update plan' : 'Failed to create plan');
+            }
+        }
+    });
+    
+    // Export reports
+    document.getElementById('exportReportsBtn')?.addEventListener('click', function() {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                        icon: 'info',
+                title: 'Export Reports',
+                text: 'Report export functionality will be implemented soon',
+                confirmButtonColor: '#7c3aed'
+            });
+        } else {
+            alert('Report export functionality will be implemented soon');
+        }
+    });
+    
+    // View Plan button - event delegation (plans are loaded dynamically)
+    document.addEventListener('click', async function(e) {
+        const viewBtn = e.target.closest('.view-plan-btn');
+        if (!viewBtn) return;
+        e.preventDefault();
+        const planId = viewBtn.getAttribute('data-plan-id');
+        if (!planId) return;
+        try {
+            const response = await fetch('@Url.Action("GetPlanDetails", "Admin")?planId=' + encodeURIComponent(planId));
+            if (!response.ok) {
+                if (typeof Swal !== 'undefined') Swal.fire('Error', 'Could not load plan details', 'error');
+                return;
+            }
+            const data = await response.json();
+            if (!data.success || !data.plan) {
+                if (typeof Swal !== 'undefined') Swal.fire('Error', data.message || 'Plan not found', 'error');
+                return;
+            }
+            const plan = data.plan;
+            const period = plan.planDays === 365 ? 'yearly' : (plan.planDays ? Math.floor(plan.planDays / 30) + ' month(s)' : 'month');
+            const features = [];
+            if (plan.allowDownloads) features.push('Downloads Allowed');
+            if (plan.allowFullDashboard) features.push('Full Dashboard Access');
+            if (plan.allowAnalytics) features.push('Analytics Access');
+            if (plan.allowPublishing) features.push('Publishing Access');
+            if (plan.maxEBooks) features.push('Max ' + plan.maxEBooks + ' eBooks');
+            if (plan.maxPages) features.push('Max ' + plan.maxPages + ' Pages');
+            if (plan.maxChapters) features.push('Max ' + plan.maxChapters + ' Chapters');
+            const html = `
+                <div style="text-align: left;">
+                    <p><strong>Name:</strong> ${(plan.planName || '—')}</p>
+                    <p><strong>Price:</strong> $${parseFloat(plan.planRate || 0).toFixed(2)} per ${period}</p>
+                    <p><strong>Description:</strong> ${(plan.planDescription || '—')}</p>
+                    <p><strong>Features:</strong></p>
+                    <ul style="margin: 0 0 0 1em; padding: 0;">${features.length ? features.map(f => '<li>' + f + '</li>').join('') : '<li style="color: #888;">None specified</li>'}</ul>
+                    <p style="margin-top: 12px;"><strong>Status:</strong> ${plan.isActive ? 'Active' : 'Inactive'}</p>
+                </div>
+            `;
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Plan Details',
+                    html: html,
+                    icon: 'info',
+                    confirmButtonColor: '#7c3aed',
+                    width: '480px'
+                });
+            } else {
+                alert('Plan: ' + (plan.planName || '') + '\n$' + parseFloat(plan.planRate || 0).toFixed(2) + ' per ' + period);
+            }
+        } catch (err) {
+            console.error('Error loading plan for view:', err);
+            if (typeof Swal !== 'undefined') Swal.fire('Error', 'Failed to load plan details', 'error');
+        }
+    });
+
+    // Edit Plan button - event delegation (plans are loaded dynamically)
+    document.addEventListener('click', async function(e) {
+        const editBtn = e.target.closest('.edit-plan-btn');
+        if (!editBtn) return;
+        e.preventDefault();
+        const planId = editBtn.getAttribute('data-plan-id');
+        if (!planId) return;
+        try {
+            const response = await fetch('@Url.Action("GetPlanDetails", "Admin")?planId=' + encodeURIComponent(planId));
+            if (!response.ok) {
+                if (typeof Swal !== 'undefined') Swal.fire('Error', 'Could not load plan details', 'error');
+                return;
+            }
+            const data = await response.json();
+            if (!data.success || !data.plan) {
+                if (typeof Swal !== 'undefined') Swal.fire('Error', data.message || 'Plan not found', 'error');
+                return;
+            }
+            const plan = data.plan;
+            document.getElementById('editPlanId').value = planId;
+            document.getElementById('planName').value = plan.planName || '';
+            document.getElementById('planPrice').value = plan.planRate != null ? plan.planRate : '';
+            document.getElementById('planInterval').value = (plan.planDays === 365) ? 'yearly' : 'monthly';
+            document.getElementById('planDescription').value = plan.planDescription || '';
+            document.getElementById('featureFormatting').checked = (plan.maxEBooks || 0) > 0;
+            document.getElementById('featureCoverDesign').checked = true;
+            document.getElementById('featureAudiobook').checked = false;
+            document.getElementById('featureMarketing').checked = plan.allowDownloads || false;
+            document.getElementById('featurePrioritySupport').checked = false;
+            document.getElementById('featureAnalytics').checked = plan.allowAnalytics || false;
+            document.getElementById('addPlanModalLabel').innerHTML = '<i class="fas fa-edit me-2"></i>Edit Plan';
+            document.getElementById('savePlanBtnText').textContent = 'Save Changes';
+            const modal = new bootstrap.Modal(document.getElementById('addPlanModal'));
+            modal.show();
+        } catch (err) {
+            console.error('Error loading plan for edit:', err);
+            if (typeof Swal !== 'undefined') Swal.fire('Error', 'Failed to load plan details', 'error');
+        }
+    });
+
+    // Reset modal to "Create" mode when hidden
+    document.getElementById('addPlanModal')?.addEventListener('hidden.bs.modal', function() {
+        document.getElementById('editPlanId').value = '';
+        document.getElementById('addPlanForm')?.reset();
+        document.getElementById('addPlanModalLabel').innerHTML = '<i class="fas fa-plus-circle me-2"></i>Create New Subscription Plan';
+        document.getElementById('savePlanBtnText').textContent = 'Create Plan';
+    });
+
+    // Tab change handlers to load data
+    document.addEventListener('DOMContentLoaded', function() {
+        ensureContentVisible();
+        loadSubscriptionStats();
+        loadPlans();
+        
+        setTimeout(ensureContentVisible, 100);
+        setTimeout(ensureContentVisible, 500);
+        setTimeout(ensureContentVisible, 1000);
+        
+        // Load data when tabs are clicked
+        const tabButtons = document.querySelectorAll('#subscriptionTabs button[data-bs-toggle="tab"]');
+        tabButtons.forEach(button => {
+            button.addEventListener('shown.bs.tab', function(event) {
+                const targetId = event.target.getAttribute('data-bs-target');
+                
+                if (targetId === '#subscribers') {
+                    loadSubscribers();
+                } else if (targetId === '#payments') {
+                    loadPayments();
+                } else if (targetId === '#analytics') {
+                    // Load analytics data if needed
+                }
+            });
+        });
+    });
+</script>

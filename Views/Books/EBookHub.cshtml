@@ -1,0 +1,303 @@
+@model IEnumerable<EBookDashboard.Models.ViewModels.EBookHubItemViewModel>
+@{
+    ViewData["Title"] = "EBook Hub";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var bookList = Model?.ToList() ?? new List<EBookDashboard.Models.ViewModels.EBookHubItemViewModel>();
+    var genres = bookList.Select(b => (b.Genre ?? "").Trim()).Where(s => !string.IsNullOrEmpty(s)).Distinct().OrderBy(g => g).ToList();
+    string CoverUrl(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop";
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return path;
+        return path.StartsWith("/") ? path : "/" + path;
+    }
+}
+<script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    /* Dashboard theme: #7c3aed, #4a6cf7, #667eea, #f5f7f9 */
+    .ebookhub-thin-scrollbar::-webkit-scrollbar { height: 6px; }
+    .ebookhub-thin-scrollbar::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 6px; }
+    .ebookhub-thin-scrollbar { scrollbar-width: thin; scrollbar-color: #e5e7eb transparent; }
+    @@keyframes ebookhub-fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .ebookhub-animate-fade-in { animation: ebookhub-fadeIn 0.4s ease-out forwards; }
+    .ebookhub-accent { color: #7c3aed; }
+    .ebookhub-accent-border { border-color: #7c3aed; }
+    .ebookhub-btn-primary { background: linear-gradient(135deg, #4a6cf7, #667eea); color: white; box-shadow: 0 4px 6px rgba(74, 108, 247, 0.3); }
+    .ebookhub-btn-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 12px rgba(74, 108, 247, 0.4); }
+    .ebookhub-cover-placeholder { background: linear-gradient(135deg, #7c3aed 0%, #4a6cf7 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+</style>
+
+<!-- Hero Carousel (dashboard theme) -->
+<div class="w-full overflow-hidden bg-white pt-10 pb-14 border-b border-gray-100">
+    <div class="relative max-w-[1400px] mx-auto px-2 sm:px-4">
+        <button type="button" id="ebookhub-prev-btn" class="absolute left-1 sm:left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 bg-white/95 shadow-lg hover:bg-white hover:scale-105 rounded-full flex items-center justify-center backdrop-blur-sm transition-all border border-gray-100" aria-label="Scroll featured left">
+            <iconify-icon icon="solar:alt-arrow-left-linear" width="20" height="20" class="text-gray-600"></iconify-icon>
+        </button>
+        <button type="button" id="ebookhub-next-btn" class="absolute right-1 sm:right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 bg-white/95 shadow-lg hover:bg-white hover:scale-105 rounded-full flex items-center justify-center backdrop-blur-sm transition-all border border-gray-100" aria-label="Scroll featured right">
+            <iconify-icon icon="solar:alt-arrow-right-linear" width="20" height="20" class="text-gray-600"></iconify-icon>
+        </button>
+        <div id="ebookhub-carousel" class="flex gap-4 items-stretch h-[320px] px-12 sm:px-16 overflow-x-auto snap-x snap-mandatory ebookhub-thin-scrollbar relative scroll-smooth">
+            @{
+                // Same covers as grid: every slide shows CoverImagePath (resolved in controller)
+                var carouselItems = bookList.Take(12).ToList();
+            }
+            @if (carouselItems.Any())
+            {
+                @foreach (var item in carouselItems)
+                {
+                    var coverSrc = CoverUrl(item.CoverImagePath ?? "");
+                    <div tabindex="0" role="button" data-ebookhub-preview="1"
+                         data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc"
+                         data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount"
+                         class="flex-none w-[220px] sm:w-[240px] md:w-[260px] h-[320px] rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/5 relative group cursor-pointer snap-center snap-always block shrink-0">
+                        @if (!string.IsNullOrEmpty(coverSrc))
+                        {
+                            <img src="@coverSrc" alt="@item.Title" class="w-full h-full object-cover absolute inset-0 transition-transform duration-700 group-hover:scale-105" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop';">
+                            <div class="ebookhub-cover-placeholder w-full h-full absolute inset-0 hidden">@(item.Title?.Length > 0 ? item.Title[0].ToString().ToUpperInvariant() : "?")</div>
+                        }
+                        else
+                        {
+                            <div class="ebookhub-cover-placeholder w-full h-full absolute inset-0">@(item.Title?.Length > 0 ? item.Title[0].ToString().ToUpperInvariant() : "?")</div>
+                        }
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none"></div>
+                        <div class="absolute bottom-0 left-0 right-0 p-4 text-white text-left pointer-events-none">
+                            <p class="text-[11px] uppercase tracking-wider text-white/80 mb-1 line-clamp-1">@item.FullName</p>
+                            <h3 class="text-lg font-semibold tracking-tight leading-snug line-clamp-2 drop-shadow-md">@item.Title</h3>
+                            <p class="text-xs text-white/85 mt-2 line-clamp-2 hidden sm:block">@(string.IsNullOrEmpty(item.Description) ? "" : (item.Description.Length > 90 ? item.Description.Substring(0, 87) + "…" : item.Description))</p>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="flex-none w-[320px] md:w-[380px] rounded-2xl p-8 flex flex-col justify-center text-white shadow-sm snap-center" style="background: #7c3aed;">
+                    <h2 class="text-2xl font-semibold tracking-tight mb-1">No books yet</h2>
+                    <p class="text-sm text-white/90">Sign in and add a book, or publish a title — covers from your dashboard will show here.</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Main Content -->
+<main class="flex-1 max-w-[1200px] mx-auto w-full px-6 sm:px-8 py-14 pb-20">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6 border-b border-gray-200 pb-px">
+        <h3 class="text-xl font-semibold tracking-tight text-gray-800">Popular by Genre</h3>
+        <div class="flex overflow-x-auto ebookhub-thin-scrollbar gap-8 w-full md:w-auto pb-1" id="ebookhub-filter-container">
+            <button type="button" class="ebookhub-filter-btn text-sm font-medium border-b-2 pb-3 whitespace-nowrap transition-colors ebookhub-accent-border text-gray-800" data-filter="all">All Genres</button>
+            @foreach (var g in genres)
+            {
+                var slug = g.ToLowerInvariant().Replace(" ", "");
+                <button type="button" class="ebookhub-filter-btn text-sm font-medium border-b-2 border-transparent pb-3 whitespace-nowrap transition-colors text-gray-500 hover:text-gray-800" data-filter="@slug">@g</button>
+            }
+        </div>
+    </div>
+
+    @if (bookList.Any())
+    {
+        <div class="flex flex-wrap gap-4 items-center mb-6">
+            <div class="flex-1 min-w-[200px] relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                <input type="text" id="ebookhub-search" placeholder="Search by title, author, or description..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#7c3aed]/30 focus:border-[#7c3aed] outline-none bg-[#f5f7f9]/50" autocomplete="off">
+            </div>
+            <div class="flex items-center gap-2">
+                <label for="ebookhub-sort" class="text-sm text-gray-500 whitespace-nowrap">Sort by:</label>
+                <select id="ebookhub-sort" class="py-2.5 pl-3 pr-8 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-[#7c3aed]/30 focus:border-[#7c3aed] outline-none">
+                    <option value="title-asc">Title (A–Z)</option>
+                    <option value="title-desc">Title (Z–A)</option>
+                    <option value="author-asc">Author (A–Z)</option>
+                    <option value="author-desc">Author (Z–A)</option>
+                    <option value="words-desc">Word count (high to low)</option>
+                    <option value="words-asc">Word count (low to high)</option>
+                </select>
+            </div>
+        </div>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-6" id="ebookhub-book-grid">
+        @foreach (var item in bookList)
+        {
+            var coverSrc = CoverUrl(item.CoverImagePath ?? "");
+            var searchText = $"{item.Title} {item.FullName} {item.Description}".ToLowerInvariant();
+            var genreSlug = (item.Genre ?? "").Trim().ToLowerInvariant().Replace(" ", "");
+            if (string.IsNullOrEmpty(genreSlug)) { genreSlug = "other"; }
+            <div class="ebookhub-book-card bg-white rounded-2xl p-5 sm:p-6 flex gap-6 hover:shadow-lg hover:ring-1 ring-gray-100 transition-all duration-300 group border border-gray-50 hover:border-gray-100 relative" data-genre="@genreSlug" data-search="@searchText" data-title="@item.Title" data-author="@item.FullName" data-words="@item.WordCount" data-bookid="@item.BookId" data-cover="@coverSrc" data-description="@((item.Description ?? "").Replace("\"", "&quot;"))">
+                <button type="button" data-ebookhub-preview="1" data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc" data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount"
+                        class="w-[130px] flex-shrink-0 overflow-hidden rounded-xl shadow-sm cursor-pointer block h-[190px] text-left p-0 border-0 bg-transparent">
+                    @if (!string.IsNullOrEmpty(coverSrc))
+                    {
+                        <img src="@coverSrc" alt="@item.Title" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop';">
+                        <div class="ebookhub-cover-placeholder w-full h-full rounded-xl hidden">@(item.Title?.Length > 0 ? item.Title[0].ToString().ToUpperInvariant() : "?")</div>
+                    }
+                    else
+                    {
+                        <div class="ebookhub-cover-placeholder w-full h-full rounded-xl">@(item.Title?.Length > 0 ? item.Title[0].ToString().ToUpperInvariant() : "?")</div>
+                    }
+                </button>
+                <div class="flex flex-col flex-1 py-1">
+                    <div class="mb-0.5">
+                        <h4 class="text-base font-semibold text-gray-800 tracking-tight leading-snug group-hover:text-[#7c3aed] transition-colors">@item.Title</h4>
+                        <p class="text-sm text-gray-500 mt-0.5">by @item.FullName</p>
+                    </div>
+                    <div class="flex items-center gap-2.5 mb-3">
+                        <div class="flex text-amber-400">
+                            <iconify-icon icon="solar:star-bold" width="14" height="14"></iconify-icon>
+                            <iconify-icon icon="solar:star-bold" width="14" height="14"></iconify-icon>
+                            <iconify-icon icon="solar:star-bold" width="14" height="14"></iconify-icon>
+                            <iconify-icon icon="solar:star-bold" width="14" height="14"></iconify-icon>
+                            <iconify-icon icon="solar:star-linear" width="14" height="14" class="text-gray-300"></iconify-icon>
+                        </div>
+                        <span class="text-xs text-gray-400 font-medium">@item.WordCount.ToString("N0") words</span>
+                    </div>
+                    <p class="text-sm text-gray-500 line-clamp-3 mb-4 leading-relaxed">@(string.IsNullOrEmpty(item.Description) ? "No description." : (item.Description.Length > 150 ? item.Description.Substring(0, 147) + "..." : item.Description))</p>
+                    <div class="mt-auto pt-3 border-t border-gray-50 flex items-center gap-3">
+                        <button type="button" class="ebookhub-btn-primary px-5 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2 border-0 cursor-pointer ebookhub-open-preview"
+                                data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc" data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount">
+                            <iconify-icon icon="solar:book-linear" width="16" height="16"></iconify-icon>
+                            Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (!bookList.Any())
+    {
+        <div class="text-center py-16 text-gray-500">
+            <i class="fas fa-book text-4xl mb-4 opacity-50"></i>
+            <p class="text-lg font-medium">No books in the catalog yet.</p>
+        </div>
+    }
+
+    <div id="ebookhub-no-results" class="hidden text-center py-12 text-gray-500">
+        <i class="fas fa-search text-3xl mb-3 opacity-50"></i>
+        <p>No books match your search.</p>
+    </div>
+</main>
+
+<div id="ebookhub-preview-overlay" class="fixed inset-0 z-[10060] hidden items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-gray-100 overflow-hidden">
+        <div class="flex justify-between items-start gap-3 p-5 border-b border-gray-100 bg-gradient-to-r from-[#7c3aed] to-[#6366f1] text-white">
+            <div>
+                <p class="text-xs uppercase tracking-wider text-white/80 mb-1">Discovery</p>
+                <h3 id="ebookhub-preview-title" class="text-lg font-semibold leading-snug"></h3>
+                <p id="ebookhub-preview-author" class="text-sm text-white/90 mt-1"></p>
+            </div>
+            <button type="button" id="ebookhub-preview-close" class="p-2 rounded-lg hover:bg-white/15 shrink-0" aria-label="Close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-5">
+            <div class="aspect-[2/3] max-h-56 mx-auto rounded-xl overflow-hidden mb-4 border border-gray-100 shadow-md">
+                <img id="ebookhub-preview-cover" src="" alt="" class="w-full h-full object-cover" />
+            </div>
+            <p id="ebookhub-preview-desc" class="text-sm text-gray-600 leading-relaxed mb-3"></p>
+            <p id="ebookhub-preview-words" class="text-xs text-gray-400 mb-4"></p>
+            <p class="text-xs text-gray-500 border-t border-gray-100 pt-4">Reading and editing are available in <a href="/Dashboard/MyBooks" class="text-[#7c3aed] font-semibold hover:underline">My Books</a> for your own titles.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var bookCards = document.querySelectorAll('.ebookhub-book-card');
+    var filterBtns = document.querySelectorAll('.ebookhub-filter-btn');
+    var searchInput = document.getElementById('ebookhub-search');
+    var sortSelect = document.getElementById('ebookhub-sort');
+    var noResultsEl = document.getElementById('ebookhub-no-results');
+    var gridEl = document.getElementById('ebookhub-book-grid');
+    var carousel = document.getElementById('ebookhub-carousel');
+    var prevBtn = document.getElementById('ebookhub-prev-btn');
+    var nextBtn = document.getElementById('ebookhub-next-btn');
+
+    function applyFilter() {
+        var activeBtn = document.querySelector('.ebookhub-filter-btn.ebookhub-accent-border');
+        var selectedFilter = activeBtn ? (activeBtn.getAttribute('data-filter') || 'all') : 'all';
+        var searchQ = searchInput && searchInput.value ? searchInput.value.trim().toLowerCase() : '';
+        var visible = 0;
+        bookCards.forEach(function(card) {
+            var genreMatch = selectedFilter === 'all' || (card.getAttribute('data-genre') || '') === selectedFilter;
+            var searchMatch = !searchQ || (card.getAttribute('data-search') || '').indexOf(searchQ) !== -1;
+            var show = genreMatch && searchMatch;
+            card.style.display = show ? 'flex' : 'none';
+            if (show) { card.classList.add('ebookhub-animate-fade-in'); visible++; }
+        });
+        if (noResultsEl) noResultsEl.classList.toggle('hidden', visible > 0);
+    }
+
+    if (filterBtns.length) {
+        filterBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                filterBtns.forEach(function(b) {
+                    b.classList.remove('ebookhub-accent-border', 'text-gray-800');
+                    b.classList.add('border-transparent', 'text-gray-500');
+                });
+                btn.classList.remove('border-transparent', 'text-gray-500');
+                btn.classList.add('ebookhub-accent-border', 'text-gray-800');
+                applyFilter();
+            });
+        });
+    }
+
+    if (searchInput) { searchInput.addEventListener('input', applyFilter); searchInput.addEventListener('keyup', applyFilter); }
+    if (sortSelect && gridEl) {
+        sortSelect.addEventListener('change', function() {
+            var value = sortSelect.value || 'title-asc';
+            var parts = value.split('-');
+            var key = parts[0], dir = parts[1] || 'asc';
+            var cards = Array.from(document.querySelectorAll('.ebookhub-book-card'));
+            function compare(a, b) {
+                var va, vb;
+                if (key === 'title') { va = (a.getAttribute('data-title') || '').toLowerCase(); vb = (b.getAttribute('data-title') || '').toLowerCase(); return dir === 'asc' ? (va < vb ? -1 : va > vb ? 1 : 0) : (vb < va ? -1 : vb > va ? 1 : 0); }
+                if (key === 'author') { va = (a.getAttribute('data-author') || '').toLowerCase(); vb = (b.getAttribute('data-author') || '').toLowerCase(); return dir === 'asc' ? (va < vb ? -1 : va > vb ? 1 : 0) : (vb < va ? -1 : vb > va ? 1 : 0); }
+                if (key === 'words') { va = parseInt(a.getAttribute('data-words') || '0', 10); vb = parseInt(b.getAttribute('data-words') || '0', 10); return dir === 'asc' ? (va - vb) : (vb - va); }
+                return 0;
+            }
+            cards.sort(compare);
+            cards.forEach(function(c) { gridEl.appendChild(c); });
+        });
+    }
+
+    if (carousel && prevBtn && nextBtn) {
+        prevBtn.addEventListener('click', function() { carousel.scrollBy({ left: -360, behavior: 'smooth' }); });
+        nextBtn.addEventListener('click', function() { carousel.scrollBy({ left: 360, behavior: 'smooth' }); });
+    }
+
+    var hubOverlay = document.getElementById('ebookhub-preview-overlay');
+    var hubClose = document.getElementById('ebookhub-preview-close');
+    function openHubPreview(el) {
+        if (!hubOverlay) return;
+        var title = el.getAttribute('data-title') || '';
+        var author = el.getAttribute('data-author') || '';
+        var cover = el.getAttribute('data-cover') || '';
+        var desc = el.getAttribute('data-desc') || '';
+        var words = el.getAttribute('data-words') || '';
+        document.getElementById('ebookhub-preview-title').textContent = title;
+        document.getElementById('ebookhub-preview-author').textContent = author ? ('by ' + author) : '';
+        var img = document.getElementById('ebookhub-preview-cover');
+        if (img) { img.src = cover; img.alt = title; img.onerror = function() { this.onerror = null; this.src = 'https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop'; }; }
+        document.getElementById('ebookhub-preview-desc').textContent = desc || 'No description.';
+        document.getElementById('ebookhub-preview-words').textContent = words ? (parseInt(words, 10).toLocaleString() + ' words') : '';
+        hubOverlay.classList.remove('hidden');
+        hubOverlay.classList.add('flex');
+    }
+    function closeHubPreview() {
+        if (!hubOverlay) return;
+        hubOverlay.classList.add('hidden');
+        hubOverlay.classList.remove('flex');
+    }
+    document.querySelectorAll('[data-ebookhub-preview="1"]').forEach(function (el) {
+        el.addEventListener('click', function (e) { e.preventDefault(); openHubPreview(el); });
+        el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHubPreview(el); } });
+    });
+    document.querySelectorAll('.ebookhub-open-preview').forEach(function (btn) {
+        btn.addEventListener('click', function (e) { e.stopPropagation(); openHubPreview(btn); });
+    });
+    if (hubClose) hubClose.addEventListener('click', closeHubPreview);
+    if (hubOverlay) hubOverlay.addEventListener('click', function (e) { if (e.target === hubOverlay) closeHubPreview(); });
+});
+</script>

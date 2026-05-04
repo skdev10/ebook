@@ -1,0 +1,549 @@
+@model EBookDashboard.Models.Books
+
+@{
+    ViewData["Title"] = "Edit Book - Content Management";
+}
+
+<div class="book-form-container">
+    <div class="form-header" data-aos="fade-down">
+        <div class="header-content">
+            <h1><i class="fas fa-edit"></i> Edit Book</h1>
+            <p>Update book information for: <strong>@Model.Title</strong></p>
+        </div>
+        
+        <div class="header-actions">
+            <a href="@Url.Action("Index")" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                Back to Books
+            </a>
+            
+            <a href="@Url.Action("Details", new { id = Model.BookId })" class="btn btn-info">
+                <i class="fas fa-eye"></i>
+                View Details
+            </a>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="book-form" data-aos="fade-up" data-aos-delay="200">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="BookId" value="@Model.BookId" />
+        <input type="hidden" name="CreatedAt" value="@Model.CreatedAt" />
+        
+        <div class="form-sections">
+            <!-- Basic Information -->
+            <div class="form-section" data-aos="fade-up" data-aos-delay="300">
+                <h3><i class="fas fa-info-circle"></i> Basic Information Edit.cshtml </h3>
+                
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label for="Title">Book Title</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-book"></i>
+                            <input type="text" id="Title" name="Title" class="form-control" value="@Model.Title" placeholder="Enter book title" required>
+                        </div>
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="Subtitle">Subtitle (Optional)</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-text-height"></i>
+                            <input type="text" id="Subtitle" name="Subtitle" class="form-control" value="@Model.Subtitle" placeholder="Enter subtitle">
+                        </div>
+                        <span asp-validation-for="Subtitle" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="AuthorCode">Author Code</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-user-edit"></i>
+                            <input type="text" id="AuthorCode" name="AuthorCode" class="form-control" value="@Model.AuthorCode" placeholder="Enter author code" required>
+                        </div>
+                        <span asp-validation-for="AuthorCode" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="Genre">Genre</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-tags"></i>
+                            <select id="Genre" name="Genre" class="form-control" required>
+                                <option value="">Select Genre</option>
+                                <option value="Fiction">Fiction</option>
+                                <option value="Non-Fiction">Non-Fiction</option>
+                                <option value="Romance">Romance</option>
+                                <option value="Thriller">Thriller</option>
+                                <option value="Mystery">Mystery</option>
+                                <option value="Fantasy">Fantasy</option>
+                                <option value="Science Fiction">Science Fiction</option>
+                                <option value="Biography">Biography</option>
+                                <option value="History">History</option>
+                                <option value="Business">Business</option>
+                                <option value="Self-Help">Self-Help</option>
+                                <option value="Health">Health</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Cooking">Cooking</option>
+                                <option value="Children">Children</option>
+                            </select>
+                        </div>
+                        <span asp-validation-for="Genre" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="WordCount">Word Count</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-sort-numeric-up"></i>
+                            <input type="number" id="WordCount" name="WordCount" class="form-control" value="@Model.WordCount" placeholder="Enter word count" min="0">
+                        </div>
+                        <span asp-validation-for="WordCount" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="Description">Description</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-align-left"></i>
+                        <textarea id="Description" name="Description" class="form-control" rows="4" placeholder="Enter book description...">@Model.Description</textarea>
+                    </div>
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
+            </div>
+
+            <!-- Status and Publishing -->
+            <div class="form-section" data-aos="fade-up" data-aos-delay="350">
+                <h3><i class="fas fa-clipboard-check"></i> Status & Publishing</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="Status">Current Status</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-flag"></i>
+                            <select id="Status" name="Status" class="form-control" required>
+                                <option value="Draft">Draft</option>
+                                <option value="Published">Published</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                        </div>
+                        <span asp-validation-for="Status" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Publication Stats</label>
+                        <div class="stats-info">
+                            <div class="stat-item">
+                                <span class="stat-label">Chapters:</span>
+                                <span class="stat-value">@Model.Chapters.Count</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Created:</span>
+                                <span class="stat-value">@Model.CreatedAt.ToString("MMM dd, yyyy")</span>
+                            </div>
+                            @if (Model.UpdatedAt.HasValue)
+                            {
+                                <div class="stat-item">
+                                    <span class="stat-label">Last Updated:</span>
+                                    <span class="stat-value">@Model.UpdatedAt.Value.ToString("MMM dd, yyyy")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Media Files -->
+            <div class="form-section" data-aos="fade-up" data-aos-delay="400">
+                <h3><i class="fas fa-file-upload"></i> Media Files</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="CoverImagePath">Cover Image Path</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-image"></i>
+                            <input type="text" id="CoverImagePath" name="CoverImagePath" class="form-control" value="@Model.CoverImagePath" placeholder="Enter cover image URL">
+                        </div>
+                        <span asp-validation-for="CoverImagePath" class="text-danger"></span>
+                        
+                        @if (!string.IsNullOrEmpty(Model.CoverImagePath))
+                        {
+                            <div class="file-preview">
+                                <img src="@Model.CoverImagePath" alt="Current Cover" class="preview-image" onerror="this.style.display='none'">
+                            </div>
+                        }
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ManuscriptPath">Manuscript Path</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-file-alt"></i>
+                            <input type="text" id="ManuscriptPath" name="ManuscriptPath" class="form-control" value="@Model.ManuscriptPath" placeholder="Enter manuscript file URL">
+                        </div>
+                        <span asp-validation-for="ManuscriptPath" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Information -->
+            <div class="form-section" data-aos="fade-up" data-aos-delay="500">
+                <h3><i class="fas fa-cogs"></i> Additional Information</h3>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="AuthorId">Author ID</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-user"></i>
+                            <input type="number" id="AuthorId" name="AuthorId" class="form-control" value="@Model.AuthorId" placeholder="Enter author ID" required>
+                        </div>
+                        <span asp-validation-for="AuthorId" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="CategoryId">Category ID</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-folder"></i>
+                            <input type="number" id="CategoryId" name="CategoryId" class="form-control" value="@Model.CategoryId" placeholder="Enter category ID" required>
+                        </div>
+                        <span asp-validation-for="CategoryId" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="LanguageId">Language ID</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-language"></i>
+                        <input type="number" id="LanguageId" name="LanguageId" class="form-control" value="@Model.LanguageId" placeholder="Enter language ID" required>
+                    </div>
+                    <span asp-validation-for="LanguageId" class="text-danger"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="form-actions" data-aos="fade-up" data-aos-delay="600">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-save"></i>
+                Update Book
+            </button>
+            
+            <a href="@Url.Action("Details", new { id = Model.BookId })" class="btn btn-info btn-lg">
+                <i class="fas fa-eye"></i>
+                View Details
+            </a>
+            
+            <a href="@Url.Action("Index")" class="btn btn-secondary btn-lg">
+                <i class="fas fa-times"></i>
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+    .book-form-container {
+        padding: 20px;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .header-content h1 {
+        margin: 0;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .header-content p {
+        margin: 5px 0 0;
+        color: #666;
+        font-size: 1rem;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .book-form {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .form-sections {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .form-section {
+        padding: 20px;
+        border-radius: 12px;
+        background: rgba(102, 126, 234, 0.03);
+        border: 1px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .form-section h3 {
+        margin: 0 0 20px;
+        color: #667eea;
+        font-size: 1.3rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #667eea;
+        z-index: 2;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px 12px 45px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        background: white;
+    }
+
+    select.form-control {
+        cursor: pointer;
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    .stats-info {
+        padding: 15px;
+        background: rgba(102, 126, 234, 0.05);
+        border-radius: 8px;
+        border: 1px solid rgba(102, 126, 234, 0.1);
+    }
+
+    .stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .stat-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .stat-label {
+        font-weight: 600;
+        color: #666;
+    }
+
+    .stat-value {
+        color: #333;
+        font-weight: 500;
+    }
+
+    .file-preview {
+        margin-top: 10px;
+    }
+
+    .preview-image {
+        max-width: 150px;
+        max-height: 200px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .text-danger {
+        color: #dc3545;
+        font-size: 0.8rem;
+        margin-top: 5px;
+        display: block;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 30px;
+        padding-top: 30px;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .btn-lg {
+        padding: 15px 30px;
+        font-size: 1.1rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+
+    .btn-info {
+        background: #17a2b8;
+        color: white;
+    }
+
+    .btn:hover {
+        transform: translateY(-2px);
+        opacity: 0.9;
+    }
+
+    /* Mobile Responsive */
+    @@media (max-width: 768px) {
+        .form-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .header-actions {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .btn-lg {
+            width: 100%;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .book-form-container {
+            padding: 15px;
+        }
+
+        .book-form {
+            padding: 20px;
+        }
+
+        .form-section {
+            padding: 15px;
+        }
+    }
+</style>
+
+<script>
+    // Form enhancements
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize AOS
+        AOS.init({
+            duration: 600,
+            easing: 'ease-out',
+            once: true
+        });
+
+        // Set selected values for dropdowns
+        document.getElementById('Genre').value = '@Model.Genre';
+        document.getElementById('Status').value = '@Model.Status';
+
+        // Status change confirmation
+        const statusSelect = document.getElementById('Status');
+        const originalStatus = statusSelect.value;
+
+        statusSelect.addEventListener('change', function() {
+            if (this.value !== originalStatus) {
+                const statusMessages = {
+                    'Published': 'Publishing will make this book visible to all users.',
+                    'Archived': 'Archiving will hide this book from public view.',
+                    'Draft': 'Moving to draft will make this book private.'
+                };
+
+                if (statusMessages[this.value]) {
+                    if (!confirm(statusMessages[this.value] + ' Are you sure?')) {
+                        this.value = originalStatus;
+                    }
+                }
+            }
+        });
+    });
+</script>

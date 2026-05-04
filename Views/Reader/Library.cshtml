@@ -1,0 +1,655 @@
+@{
+    ViewData["Title"] = "My Library - Reader Dashboard";
+}
+
+<div class="library-page">
+    <!-- Header Section -->
+    <div class="page-header" data-aos="fade-down">
+        <div class="header-content">
+            <h1><i class="fas fa-bookmark"></i> My Library</h1>
+            <p>Your personal collection of eBooks</p>
+        </div>
+        
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="browseBooks()" data-aos="fade-left" data-aos-delay="200">
+                <i class="fas fa-plus"></i>
+                Browse Books
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter and Search Section -->
+    <div class="filter-section" data-aos="fade-up" data-aos-delay="100">
+        <div class="search-bar">
+            <div class="input-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchLibrary" placeholder="Search your library..." class="form-control">
+            </div>
+        </div>
+        
+        <div class="filter-options">
+            <select class="form-control" id="categoryFilter">
+                <option value="">All Categories</option>
+                <option value="Fiction">Fiction</option>
+                <option value="Non-Fiction">Non-Fiction</option>
+                <option value="Romance">Romance</option>
+                <option value="Thriller">Thriller</option>
+                <option value="Biography">Biography</option>
+            </select>
+            
+            <select class="form-control" id="statusFilter">
+                <option value="">All Status</option>
+                <option value="Reading">Currently Reading</option>
+                <option value="Finished">Finished</option>
+                <option value="Want to Read">Want to Read</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Library Grid -->
+    <div class="library-grid" data-aos="fade-up" data-aos-delay="300">
+        <!-- Sample Book Card 1 -->
+        <div class="book-card" data-category="fantasy" data-status="reading">
+            <div class="book-cover">
+                <img src="https://placehold.co/200x300/667eea/white?text=The+Dragon's+Quest" alt="The Dragon's Quest">
+                <div class="book-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 65%"></div>
+                    </div>
+                    <span class="progress-text">65% Complete</span>
+                </div>
+            </div>
+            
+            <div class="book-info">
+                <h3 class="book-title">The Dragon's Quest</h3>
+                <p class="book-author">by John Smith</p>
+                <div class="book-meta">
+                    <span class="category">Fantasy</span>
+                    <span class="rating">
+                        <i class="fas fa-star text-warning"></i>
+                        4.8
+                    </span>
+                </div>
+                <div class="book-actions">
+                    <button class="btn btn-primary btn-sm" onclick="readBook(1)">
+                        <i class="fas fa-book-open"></i> Continue
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="downloadBook(1)">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sample Book Card 2 -->
+        <div class="book-card" data-category="mystery" data-status="finished">
+            <div class="book-cover">
+                <img src="https://placehold.co/200x300/764ba2/white?text=The+Silent+Witness" alt="The Silent Witness">
+                <div class="book-badge finished">
+                    Finished
+                </div>
+            </div>
+            
+            <div class="book-info">
+                <h3 class="book-title">The Silent Witness</h3>
+                <p class="book-author">by Sarah Johnson</p>
+                <div class="book-meta">
+                    <span class="category">Mystery</span>
+                    <span class="rating">
+                        <i class="fas fa-star text-warning"></i>
+                        4.6
+                    </span>
+                </div>
+                <div class="book-actions">
+                    <button class="btn btn-outline-primary btn-sm" onclick="readBook(2)">
+                        <i class="fas fa-redo"></i> Re-read
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="downloadBook(2)">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sample Book Card 3 -->
+        <div class="book-card" data-category="romance" data-status="want to read">
+            <div class="book-cover">
+                <img src="https://placehold.co/200x300/f59e0b/white?text=Love+in+the+City" alt="Love in the City">
+                <div class="book-badge want-to-read">
+                    Want to Read
+                </div>
+            </div>
+            
+            <div class="book-info">
+                <h3 class="book-title">Love in the City</h3>
+                <p class="book-author">by Michael Brown</p>
+                <div class="book-meta">
+                    <span class="category">Romance</span>
+                    <span class="rating">
+                        <i class="fas fa-star text-warning"></i>
+                        4.9
+                    </span>
+                </div>
+                <div class="book-actions">
+                    <button class="btn btn-primary btn-sm" onclick="startReading(3)">
+                        <i class="fas fa-play"></i> Start Reading
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="addToWishlist(3)">
+                        <i class="fas fa-heart"></i> Wishlist
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sample Book Card 4 -->
+        <div class="book-card" data-category="sci-fi" data-status="reading">
+            <div class="book-cover">
+                <img src="https://placehold.co/200x300/10b981/white?text=Digital+Frontiers" alt="Digital Frontiers">
+                <div class="book-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 30%"></div>
+                    </div>
+                    <span class="progress-text">30% Complete</span>
+                </div>
+            </div>
+            
+            <div class="book-info">
+                <h3 class="book-title">Digital Frontiers</h3>
+                <p class="book-author">by Emily Davis</p>
+                <div class="book-meta">
+                    <span class="category">Sci-Fi</span>
+                    <span class="rating">
+                        <i class="fas fa-star text-warning"></i>
+                        4.7
+                    </span>
+                </div>
+                <div class="book-actions">
+                    <button class="btn btn-primary btn-sm" onclick="readBook(4)">
+                        <i class="fas fa-book-open"></i> Continue
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="downloadBook(4)">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="emptyState" style="display: none;" data-aos="fade-up">
+        <i class="fas fa-book-open"></i>
+        <h3>Your Library is Empty</h3>
+        <p>Start building your personal eBook collection today.</p>
+        <button class="btn btn-primary" onclick="browseBooks()">
+            <i class="fas fa-search"></i> Browse Books
+        </button>
+    </div>
+</div>
+
+<style>
+    .library-page {
+        padding: 20px;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .header-content h1 {
+        margin: 0;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .header-content p {
+        margin: 5px 0 0;
+        color: #666;
+        font-size: 1rem;
+    }
+
+    .filter-section {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .search-bar {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #667eea;
+        z-index: 2;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px 12px 45px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .filter-options {
+        display: flex;
+        gap: 15px;
+    }
+
+    .filter-options .form-control {
+        padding: 12px 15px;
+        min-width: 150px;
+    }
+
+    .library-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 25px;
+        margin-bottom: 30px;
+    }
+
+    .book-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .book-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 45px rgba(0, 0, 0, 0.15);
+    }
+
+    .book-cover {
+        position: relative;
+        height: 300px;
+        overflow: hidden;
+    }
+
+    .book-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .book-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 5px;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 3px;
+    }
+
+    .progress-text {
+        color: white;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .book-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .book-badge.finished {
+        background: rgba(40, 167, 69, 0.9);
+        color: white;
+    }
+
+    .book-badge.want-to-read {
+        background: rgba(255, 193, 7, 0.9);
+        color: #333;
+    }
+
+    .book-info {
+        padding: 20px;
+    }
+
+    .book-title {
+        margin: 0 0 8px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+        line-height: 1.3;
+    }
+
+    .book-author {
+        margin: 0 0 12px;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .book-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .category {
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .rating {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .book-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+    }
+
+    .btn-outline-primary {
+        border: 1px solid #667eea;
+        color: #667eea;
+        background: transparent;
+    }
+
+    .btn-outline-secondary {
+        border: 1px solid #6c757d;
+        color: #6c757d;
+        background: transparent;
+    }
+
+    .btn:hover {
+        transform: translateY(-1px);
+        opacity: 0.9;
+    }
+
+    .btn-sm {
+        padding: 6px 10px;
+        font-size: 0.8rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 10px;
+        font-size: 1.5rem;
+    }
+
+    /* Mobile Responsive */
+    @@media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .filter-section {
+            flex-direction: column;
+        }
+
+        .search-bar {
+            min-width: auto;
+        }
+
+        .filter-options {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .library-grid {
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .book-cover {
+            height: 250px;
+        }
+
+        .book-info {
+            padding: 15px;
+        }
+
+        .book-title {
+            font-size: 1rem;
+        }
+    }
+</style>
+
+<script>
+    // Search functionality
+    document.getElementById('searchLibrary').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filterLibrary();
+    });
+
+    // Category filter
+    document.getElementById('categoryFilter').addEventListener('change', function() {
+        filterLibrary();
+    });
+
+    // Status filter
+    document.getElementById('statusFilter').addEventListener('change', function() {
+        filterLibrary();
+    });
+
+    function filterLibrary() {
+        const searchTerm = document.getElementById('searchLibrary').value.toLowerCase();
+        const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
+        const bookCards = document.querySelectorAll('.book-card');
+
+        let visibleCount = 0;
+
+        bookCards.forEach(card => {
+            const title = card.querySelector('.book-title').textContent.toLowerCase();
+            const author = card.querySelector('.book-author').textContent.toLowerCase();
+            const category = card.getAttribute('data-category') || '';
+            const status = card.getAttribute('data-status') || '';
+
+            const matchesSearch = title.includes(searchTerm) || author.includes(searchTerm);
+            const matchesCategory = !categoryFilter || category.includes(categoryFilter);
+            const matchesStatus = !statusFilter || status.includes(statusFilter);
+
+            if (matchesSearch && matchesCategory && matchesStatus) {
+                card.style.display = 'block';
+                visibleCount++;
+            } else {
+                card.style.display = 'none';
+            }
+        });
+
+        // Show empty state if no books are visible
+        const emptyState = document.getElementById('emptyState');
+        if (visibleCount === 0) {
+            emptyState.style.display = 'block';
+        } else {
+            emptyState.style.display = 'none';
+        }
+    }
+
+    // Action functions
+    function readBook(id) {
+        Swal.fire({
+            title: 'Continue Reading',
+            text: 'Opening your book...',
+            timer: 1500,
+            timerProgressBar: true,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+    }
+
+    function downloadBook(id) {
+        // Check if user has permission to download
+        const userPlan = 'free'; // This would come from the server in a real app
+        
+        if (userPlan === 'free') {
+            Swal.fire({
+                title: 'Upgrade Required',
+                text: 'Download feature is only available for premium users.',
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonColor: '#667eea',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Upgrade Now',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = '@Url.Action("Plans", "Reader")';
+                }
+            });
+        } else {
+            Swal.fire({
+                title: 'Downloading Book',
+                text: 'Your book is being downloaded...',
+                timer: 2000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            }).then(() => {
+                Swal.fire({
+                    title: 'Download Complete!',
+                    text: 'Your book has been downloaded successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#667eea'
+                });
+            });
+        }
+    }
+
+    function startReading(id) {
+        Swal.fire({
+            title: 'Starting Book',
+            text: 'Preparing your reading experience...',
+            timer: 1500,
+            timerProgressBar: true,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        }).then(() => {
+            Swal.fire({
+                title: 'Enjoy Reading!',
+                text: 'You can now start reading this book.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+        });
+    }
+
+    function addToWishlist(id) {
+        Swal.fire({
+            title: 'Added to Wishlist',
+            text: 'This book has been added to your wishlist.',
+            icon: 'success',
+            confirmButtonColor: '#667eea'
+        });
+    }
+
+    function browseBooks() {
+        Swal.fire({
+            title: 'Browse Books',
+            text: 'This would take you to the book browsing page in a real application.',
+            icon: 'info',
+            confirmButtonColor: '#667eea'
+        });
+    }
+
+    // Initialize AOS
+    AOS.init({
+        duration: 600,
+        easing: 'ease-out',
+        once: true
+    });
+</script>

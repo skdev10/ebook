@@ -1,0 +1,23 @@
+<Project>
+  <!--
+    When the app is still running (dotnet host / VS Code debug), the output DLL is locked and
+    CopyFilesToOutputDirectory fails (MSB3027). Before copying, stop only dotnet/EXE instances
+    that match this project (see Scripts/Stop-EBookDashboard-Host.ps1). Disabled on CI and when
+    EBookKillHostBeforeCopy=false.
+  -->
+  <PropertyGroup>
+    <EBookKillHostBeforeCopy Condition="'$(EBookKillHostBeforeCopy)' == ''">true</EBookKillHostBeforeCopy>
+  </PropertyGroup>
+
+  <Target Name="StopEBookDashboardHostBeforeOutputCopy"
+          BeforeTargets="CopyFilesToOutputDirectory"
+          Condition="'$(EBookKillHostBeforeCopy)' == 'true'
+                      and '$(Configuration)' == 'Debug'
+                      and '$(OS)' == 'Windows_NT'
+                      and '$(CI)' != 'true'
+                      and '$(TF_BUILD)' == ''
+                      and '$(GITHUB_ACTIONS)' == ''">
+    <Exec IgnoreExitCode="true"
+          Command="powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)Scripts\Stop-EBookDashboard-Host.ps1&quot;" />
+  </Target>
+</Project>

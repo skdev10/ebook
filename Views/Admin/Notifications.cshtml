@@ -1,0 +1,270 @@
+@{
+    ViewData["Title"] = "Notification Management";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --cream-bg: #FAF8F3;
+        --cream-accent: #E8DCC6;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --border-light: #E5E5E5;
+        --primary: #7c3aed;
+        --primary-light: #a78bfa;
+        --primary-dark: #6d28d9;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+    }
+
+    .notifications-container {
+        padding: 0;
+    }
+
+    .page-header {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 10px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--primary-dark);
+        transform: translateY(-2px);
+    }
+
+    .notification-card {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-light);
+        transition: all 0.3s ease;
+    }
+
+    .notification-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .notification-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 12px;
+    }
+
+    .notification-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+
+    .notification-type {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .type-push {
+        background: rgba(139, 115, 85, 0.1);
+        color: var(--primary);
+    }
+
+    .type-email {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .type-inapp {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .notification-meta {
+        display: flex;
+        gap: 16px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 12px;
+    }
+
+    .form-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-light);
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(139, 115, 85, 0.1);
+    }
+
+    textarea.form-control {
+        min-height: 120px;
+        resize: vertical;
+    }
+</style>
+
+<div class="notifications-container">
+    <div class="page-header">
+        <div>
+            <h1 style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Notification Management</h1>
+            <p style="color: var(--text-secondary);">Create and manage push, email, and in-app notifications</p>
+        </div>
+        <button class="btn btn-primary" onclick="showCreateModal()">
+            <i class="fas fa-plus"></i> Create Notification
+        </button>
+    </div>
+
+    <div class="form-section">
+        <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px;">Create New Notification</h3>
+        <form id="notificationForm">
+            <div class="form-group">
+                <label class="form-label">Notification Type</label>
+                <select class="form-control" id="notificationType" required>
+                    <option value="">Select Type</option>
+                    <option value="push">Push Notification</option>
+                    <option value="email">Email</option>
+                    <option value="inapp">In-App</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Title</label>
+                <input type="text" class="form-control" id="notificationTitle" placeholder="Enter notification title" required />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Message</label>
+                <textarea class="form-control" id="notificationMessage" placeholder="Enter notification message" required></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Target Audience</label>
+                <select class="form-control" id="targetAudience">
+                    <option value="all">All Users</option>
+                    <option value="active">Active Users</option>
+                    <option value="premium">Premium Users</option>
+                    <option value="custom">Custom Selection</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Schedule (Optional)</label>
+                <input type="datetime-local" class="form-control" id="scheduleDate" />
+            </div>
+            <button type="button" class="btn btn-primary" onclick="createNotification()">
+                <i class="fas fa-paper-plane"></i> Send Notification
+            </button>
+        </form>
+    </div>
+
+    <div class="form-section">
+        <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px;">Recent Notifications</h3>
+        <div id="notificationsList">
+            <div class="notification-card">
+                <div class="notification-header">
+                    <div class="notification-title">Welcome to Our Platform!</div>
+                    <span class="notification-type type-email">Email</span>
+                </div>
+                <p style="color: var(--text-secondary); margin: 12px 0;">Thank you for joining our platform. Get started by creating your first book.</p>
+                <div class="notification-meta">
+                    <span><i class="fas fa-users"></i> All Users</span>
+                    <span><i class="fas fa-calendar"></i> Sent: Jan 15, 2025</span>
+                    <span><i class="fas fa-chart-line"></i> Open Rate: 45%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    function createNotification() {
+        const type = document.getElementById('notificationType').value;
+        const title = document.getElementById('notificationTitle').value;
+        const message = document.getElementById('notificationMessage').value;
+        const audience = document.getElementById('targetAudience').value;
+        const schedule = document.getElementById('scheduleDate').value;
+
+        if (!type || !title || !message) {
+            Swal.fire('Error!', 'Please fill in all required fields.', 'error');
+            return;
+        }
+
+        Swal.fire({
+            title: 'Sending Notification...',
+            text: 'Please wait',
+            icon: 'info',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Simulate API call
+        setTimeout(() => {
+            Swal.fire('Success!', 'Notification sent successfully.', 'success').then(() => {
+                document.getElementById('notificationForm').reset();
+            });
+        }, 1500);
+    }
+
+    function showCreateModal() {
+        document.getElementById('notificationForm').scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+

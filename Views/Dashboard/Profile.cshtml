@@ -1,0 +1,429 @@
+@model EBookDashboard.Models.DashboardProfileViewModel
+@{
+    ViewData["Title"] = "Profile";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var profilePathOrig = ViewBag.ProfilePicturePath as string;
+    var safeName = Uri.EscapeDataString(Model?.UserName ?? "User");
+    var avatar = string.IsNullOrWhiteSpace(profilePathOrig)
+        ? $"https://ui-avatars.com/api/?name={safeName}&size=256&background=7c3aed&color=fff"
+        : profilePathOrig;
+    var baseUrl = $"{Context.Request.Scheme}://{Context.Request.Host}";
+    var writeUrl = baseUrl + "/Books/AIGenerateBook";
+    var full = (Model?.UserName ?? "").Trim();
+    var nameParts = string.IsNullOrEmpty(full) ? Array.Empty<string>() : full.Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+    var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+    var lastName = nameParts.Length > 1 ? nameParts[1] : "";
+    var planLabel = Model?.PlanName ?? (ViewBag.AccountType as string ?? "Free");
+    var memberSinceText = Model != null && Model.MemberSince != default ? Model.MemberSince.ToString("dd MMM yyyy") : "—";
+    var nextBillingText = Model != null && Model.NextBillingDate != default ? Model.NextBillingDate.ToString("dd MMM yyyy") : "—";
+    var premiumUnlocked = ViewBag.PremiumContentUnlocked as bool? ?? false;
+}
+
+<form id="profileAntiForgery" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+<style>
+    .profile-dash-hide-scrollbar::-webkit-scrollbar { display: none; }
+    .profile-dash-hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .profile-dash-wrap { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+    /* Keep profile content above dashboard chrome where needed */
+    .profile-dash-inner { max-width: 1280px; margin-left: auto; margin-right: auto; }
+</style>
+
+<div class="profile-dash-wrap bg-slate-100 min-h-full w-full -m-4 p-4 md:p-6 lg:p-8 flex justify-center items-start antialiased text-slate-900">
+    <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] w-full profile-dash-inner min-h-[calc(100vh-120px)] flex flex-col overflow-hidden border border-slate-200/80">
+
+        <!-- In-page header (complements dashboard sidebar) -->
+        <header class="h-16 md:h-20 bg-white flex items-center justify-between px-6 md:px-8 shrink-0 border-b border-slate-100">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-violet-600">eBook AI</p>
+                <h1 class="text-lg md:text-xl font-medium text-slate-800 tracking-tight">Profile</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/Dashboard/MyBooks" class="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-violet-600 transition-colors">My Books</a>
+                <a href="/Books/AIGenerateBook" class="hidden sm:inline-flex text-sm font-medium text-violet-600 hover:text-violet-700 transition-colors">AI Writer</a>
+                <div class="flex items-center gap-2 cursor-default">
+                    <img src="@avatar" alt="" class="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200" id="profileHeaderAvatar" />
+                    <span class="text-sm font-medium text-slate-700 max-w-[140px] truncate hidden sm:inline" id="profileHeaderName">@(Model?.UserName ?? "User")</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto">
+            <!-- Cover -->
+            <div class="h-52 md:h-64 relative bg-violet-600 overflow-hidden shrink-0">
+                <div class="absolute inset-0 opacity-35 mix-blend-overlay" style="background-image: url('https://images.unsplash.com/photo-1524996297542-sadfcd2d824f?q=80&amp;w=2000&amp;auto=format&amp;fit=crop'); background-size: cover; background-position: center;"></div>
+                <div class="absolute inset-0 bg-gradient-to-r from-violet-700/70 via-violet-600/40 to-transparent"></div>
+                <button type="button" id="btnChangeCover" class="absolute top-5 right-6 bg-black/15 hover:bg-black/25 text-white border border-white/25 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm">
+                    <i data-lucide="camera" class="w-4 h-4" stroke-width="1.5"></i>
+                    Change photo
+                </button>
+            </div>
+
+            <div class="px-4 sm:px-8 pb-12 md:pb-16 -mt-20 md:-mt-24 relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
+
+                <!-- Left: card -->
+                <div class="w-full lg:w-[320px] bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center shrink-0 mx-auto lg:mx-0">
+                    <div class="relative -mt-14 md:-mt-16 mb-4 group">
+                        <img id="profileImageMain" src="@avatar" alt="Profile" class="w-[108px] h-[108px] md:w-[120px] md:h-[120px] rounded-full object-cover border-4 border-white shadow-md bg-white" />
+                        <button type="button" id="btnPickImage" class="absolute bottom-1 right-1 bg-violet-600 text-white p-2 rounded-full border-2 border-white hover:bg-violet-700 transition-colors shadow-sm" title="Upload photo">
+                            <i data-lucide="camera" class="w-4 h-4" stroke-width="1.5"></i>
+                        </button>
+                    </div>
+                    <h2 id="profileNameHeading" class="text-xl font-medium text-slate-900 tracking-tight text-center">@(Model?.UserName ?? "User")</h2>
+                    <p class="text-sm text-slate-500 mt-1 text-center">@(Model?.UserRole ?? "Reader") · @planLabel</p>
+
+                    <div class="w-full mt-8 flex flex-col border-t border-slate-100 text-left">
+                        <div class="flex justify-between items-center py-3.5 border-b border-slate-100">
+                            <span class="text-sm font-medium text-slate-500">Books in library</span>
+                            <span class="text-sm font-semibold text-violet-600">@(Model?.TotalBooks ?? 0)</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3.5 border-b border-slate-100">
+                            <span class="text-sm font-medium text-slate-500">Published</span>
+                            <span class="text-sm font-semibold text-emerald-600">@(Model?.BooksRead ?? 0)</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3.5">
+                            <span class="text-sm font-medium text-slate-500">Drafts / in progress</span>
+                            <span class="text-sm font-semibold text-amber-600">@(Model?.BooksReading ?? 0)</span>
+                        </div>
+                    </div>
+
+                    <a href="/Dashboard/MyBooks" class="w-full mt-4 text-center bg-white border border-slate-200 text-slate-600 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm">
+                        Open My Books
+                    </a>
+
+                    <div class="w-full mt-3 flex items-center justify-between border border-slate-200 rounded-lg p-3 bg-slate-50/80 hover:border-violet-200 transition-colors gap-2">
+                        <span class="text-xs sm:text-sm text-violet-600 truncate select-all" title="Continue writing">@writeUrl</span>
+                        <button type="button" id="btnCopyWriteUrl" class="text-slate-400 hover:text-violet-600 shrink-0 p-1" title="Copy link">
+                            <i data-lucide="copy" class="w-4 h-4" stroke-width="1.5"></i>
+                        </button>
+                    </div>
+
+                    <button type="button" id="btnRemoveImage" class="w-full mt-3 text-sm text-red-600 hover:text-red-700 py-2 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+                        Remove photo
+                    </button>
+                    <input id="profileFileInput" type="file" accept=".jpg,.jpeg,.png" class="hidden" />
+                </div>
+
+                <!-- Right: tabs + forms -->
+                <div class="flex-1 w-full bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden min-h-[480px]">
+                    <div class="flex overflow-x-auto border-b border-slate-100 px-6 md:px-8 pt-5 gap-6 profile-dash-hide-scrollbar">
+                        <button type="button" id="tabBtnAccount" class="pb-4 text-sm font-medium text-violet-600 border-b-2 border-violet-600 whitespace-nowrap">Account</button>
+                        <button type="button" id="tabBtnSecurity" class="pb-4 text-sm font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700 whitespace-nowrap">Security</button>
+                        <button type="button" id="tabBtnPlan" class="pb-4 text-sm font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700 whitespace-nowrap">Plan &amp; billing</button>
+                    </div>
+
+                    <!-- Account -->
+                    <div id="panelAccount" class="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">First name</label>
+                            <input type="text" id="firstName" value="@firstName" autocomplete="given-name" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-shadow" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Last name</label>
+                            <input type="text" id="lastName" value="@lastName" autocomplete="family-name" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-shadow" />
+                        </div>
+                        <input type="hidden" id="fullName" value="@(Model?.UserName ?? "")" />
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Username</label>
+                            <input type="text" id="username" value="@((ViewBag.ProfileUsername as string) ?? "")" autocomplete="username" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-shadow" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Email</label>
+                            <input type="email" id="email" value="@(Model?.UserEmail ?? "")" autocomplete="email" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-shadow" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Country</label>
+                            <input type="text" readonly value="@(Model?.Country ?? "—")" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Member since</label>
+                            <input type="text" readonly value="@memberSinceText" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                        </div>
+                        <div class="md:col-span-2 rounded-lg border border-violet-100 bg-violet-50/50 p-4 text-sm text-slate-600">
+                            <p class="font-medium text-violet-800 mb-1">Your ebook workspace</p>
+                            <p class="leading-relaxed">Manage drafts and published titles under <strong>My Books</strong>, format interiors and covers from the sidebar, and use <strong>AI Writer</strong> to generate new chapters.</p>
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="button" id="btnUpdateProfile" class="bg-violet-600 hover:bg-violet-700 text-white px-8 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2">
+                                Save changes
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Security -->
+                    <div id="panelSecurity" class="hidden p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+                        <div class="md:col-span-2 text-sm text-slate-500 mb-1">Update the password you use to sign in to eBook AI.</div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Current password</label>
+                            <input type="password" id="currentPassword" autocomplete="current-password" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-500 mb-2">New password</label>
+                            <input type="password" id="newPassword" autocomplete="new-password" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Confirm new password</label>
+                            <input type="password" id="confirmPassword" autocomplete="new-password" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 md:max-w-md" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="button" id="btnChangePassword" class="bg-violet-600 hover:bg-violet-700 text-white px-8 py-2.5 rounded-lg text-sm font-medium transition-colors shadow-sm">
+                                Change password
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Plan -->
+                    <div id="panelPlan" class="hidden p-6 md:p-8 space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-500 mb-2">Current plan</label>
+                                <input type="text" readonly value="@planLabel" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-800 font-medium" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-500 mb-2">Billing cycle</label>
+                                <input type="text" readonly value="@(Model?.BillingCycle ?? "—")" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-500 mb-2">Plan price</label>
+                                <input type="text" readonly value="@(Model != null ? Model.PlanPrice.ToString("C") : "—")" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-500 mb-2">Renews / ends</label>
+                                <input type="text" readonly value="@nextBillingText" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-slate-500 mb-2">Payment method on file</label>
+                                <input type="text" readonly value="@(Model?.PaymentMethod ?? "—")" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                            </div>
+                        </div>
+                        @if (Model?.PlanFeatures != null && Model.PlanFeatures.Count > 0)
+                        {
+                            <div>
+                                <p class="text-sm font-medium text-slate-700 mb-2">Included features</p>
+                                <ul class="rounded-lg border border-slate-200 divide-y divide-slate-100 max-h-48 overflow-y-auto">
+                                    @foreach (var feat in Model.PlanFeatures)
+                                    {
+                                        <li class="flex items-center justify-between px-4 py-2.5 text-sm @(feat.IsIncluded ? "text-slate-700" : "text-slate-400")">
+                                            <span>@feat.Name</span>
+                                            @if (feat.IsIncluded)
+                                            {<span class="text-emerald-600 font-medium">Included</span>}
+                                            else
+                                            {<span class="text-slate-400">—</span>}
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                        <a href="/Payments/FeaturesSelection" class="inline-flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700">
+                            <i data-lucide="credit-card" class="w-4 h-4"></i> Plans &amp; features
+                        </a>
+
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-4 space-y-3">
+                            <p class="text-sm font-semibold text-slate-800">Payment &amp; premium exports</p>
+                            <p class="text-xs text-slate-500">Premium audiobook generation, full-service publish, and manuscript PDF download unlock after payment. Everything stays visible; actions show when you’re on a paid tier (demo uses your account role).</p>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <span class="text-xs font-semibold @(premiumUnlocked ? "text-emerald-600" : "text-amber-700")">@(premiumUnlocked ? "Payment active (demo)" : "Not paid — preview mode")</span>
+                            </div>
+                            <button type="button" id="btnProfilePdfExport" class="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold @(premiumUnlocked ? "bg-violet-600 hover:bg-violet-700 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed")" @(premiumUnlocked ? "" : "disabled title=\"Available after payment\"")>
+                                <i data-lucide="download" class="w-4 h-4"></i> Download manuscript PDF
+                            </button>
+                            @if (!premiumUnlocked)
+                            {
+                                <p class="text-xs text-slate-400"><i class="fas fa-info-circle text-violet-500"></i> Available after payment</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    function lucideInit() {
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    }
+    lucideInit();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', lucideInit);
+
+    var token = document.querySelector('#profileAntiForgery input[name="__RequestVerificationToken"]')?.value || '';
+    var firstNameEl = document.getElementById('firstName');
+    var lastNameEl = document.getElementById('lastName');
+    var fullNameEl = document.getElementById('fullName');
+    var username = document.getElementById('username');
+    var email = document.getElementById('email');
+    var btnUpdateProfile = document.getElementById('btnUpdateProfile');
+    var btnChangePassword = document.getElementById('btnChangePassword');
+    var btnPickImage = document.getElementById('btnPickImage');
+    var btnChangeCover = document.getElementById('btnChangeCover');
+    var btnRemoveImage = document.getElementById('btnRemoveImage');
+    var fileInput = document.getElementById('profileFileInput');
+    var imageMain = document.getElementById('profileImageMain');
+    var headerAvatar = document.getElementById('profileHeaderAvatar');
+    var nameHeading = document.getElementById('profileNameHeading');
+    var headerName = document.getElementById('profileHeaderName');
+
+    function syncFullName() {
+        var f = (firstNameEl.value || '').trim();
+        var l = (lastNameEl.value || '').trim();
+        fullNameEl.value = (f + ' ' + l).trim();
+    }
+
+    firstNameEl?.addEventListener('input', syncFullName);
+    lastNameEl?.addEventListener('input', syncFullName);
+
+    function notify(icon, text) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({ icon: icon, text: text, timer: 2200, showConfirmButton: false });
+        } else alert(text);
+    }
+
+    // Tabs
+    var tabAccount = document.getElementById('tabBtnAccount');
+    var tabSecurity = document.getElementById('tabBtnSecurity');
+    var tabPlan = document.getElementById('tabBtnPlan');
+    var panelAccount = document.getElementById('panelAccount');
+    var panelSecurity = document.getElementById('panelSecurity');
+    var panelPlan = document.getElementById('panelPlan');
+
+    function setTab(which) {
+        [tabAccount, tabSecurity, tabPlan].forEach(function (b) {
+            b.classList.remove('text-violet-600', 'border-violet-600');
+            b.classList.add('text-slate-500', 'border-transparent');
+        });
+        [panelAccount, panelSecurity, panelPlan].forEach(function (p) { p.classList.add('hidden'); });
+        if (which === 'account') {
+            tabAccount.classList.add('text-violet-600', 'border-violet-600');
+            tabAccount.classList.remove('text-slate-500', 'border-transparent');
+            panelAccount.classList.remove('hidden');
+        } else if (which === 'security') {
+            tabSecurity.classList.add('text-violet-600', 'border-violet-600');
+            tabSecurity.classList.remove('text-slate-500', 'border-transparent');
+            panelSecurity.classList.remove('hidden');
+        } else {
+            tabPlan.classList.add('text-violet-600', 'border-violet-600');
+            tabPlan.classList.remove('text-slate-500', 'border-transparent');
+            panelPlan.classList.remove('hidden');
+        }
+        lucideInit();
+    }
+    tabAccount?.addEventListener('click', function () { setTab('account'); });
+    tabSecurity?.addEventListener('click', function () { setTab('security'); });
+    tabPlan?.addEventListener('click', function () { setTab('plan'); });
+
+    btnUpdateProfile?.addEventListener('click', async function () {
+        syncFullName();
+        var payload = {
+            fullName: (fullNameEl.value || '').trim(),
+            email: (email.value || '').trim(),
+            username: (username.value || '').trim()
+        };
+        var res = await fetch('/Dashboard/UpdateProfile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+            body: JSON.stringify(payload)
+        });
+        var data = await res.json().catch(function () { return null; });
+        if (!data || !data.success) return notify('error', (data && data.message) ? data.message : 'Profile update failed.');
+        var display = (data.fullName || payload.fullName || '').trim() || nameHeading.textContent;
+        nameHeading.textContent = display;
+        if (headerName) headerName.textContent = display;
+        fullNameEl.value = data.fullName != null ? data.fullName : fullNameEl.value;
+        if (data.email != null) email.value = data.email;
+        if (data.fullName != null) {
+            var parts = String(data.fullName).trim().split(/\s+/);
+            if (firstNameEl) firstNameEl.value = parts[0] || '';
+            if (lastNameEl) lastNameEl.value = parts.length > 1 ? parts.slice(1).join(' ') : '';
+        }
+        notify('success', 'Profile saved. Your account details are updated in the database.');
+    });
+
+    btnChangePassword?.addEventListener('click', async function () {
+        var oldPass = document.getElementById('currentPassword').value || '';
+        var newPass = document.getElementById('newPassword').value || '';
+        var confirmPass = document.getElementById('confirmPassword').value || '';
+        if (!oldPass || !newPass) return notify('error', 'Please fill password fields.');
+        if (newPass !== confirmPass) return notify('error', 'New and confirm password must match.');
+        if (newPass.length < 6) return notify('error', 'New password must be at least 6 characters.');
+        var body = new URLSearchParams();
+        body.append('__RequestVerificationToken', token);
+        body.append('oldPassword', oldPass);
+        body.append('newPassword', newPass);
+        var res = await fetch('/Dashboard/ChangePassword', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token },
+            body: body.toString()
+        });
+        if (!res.ok) {
+            var err = await res.json().catch(function () { return null; });
+            return notify('error', (err && err.message) ? err.message : 'Failed to change password.');
+        }
+        document.getElementById('currentPassword').value = '';
+        document.getElementById('newPassword').value = '';
+        document.getElementById('confirmPassword').value = '';
+        notify('success', 'Password changed successfully.');
+    });
+
+    function pickFile() { fileInput.click(); }
+    btnPickImage?.addEventListener('click', pickFile);
+    btnChangeCover?.addEventListener('click', pickFile);
+
+    fileInput?.addEventListener('change', async function () {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        var fd = new FormData();
+        fd.append('profilePicture', fileInput.files[0]);
+        var res = await fetch('/Dashboard/UploadProfilePicture', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token },
+            body: fd
+        });
+        var data = await res.json().catch(function () { return null; });
+        if (!data || !data.success) return notify('error', (data && data.message) ? data.message : 'Image upload failed.');
+        var src = data.imagePath;
+        imageMain.src = src;
+        if (headerAvatar) headerAvatar.src = src;
+        try {
+            sessionStorage.setItem('newProfilePicture', src);
+            localStorage.setItem('profilePictureUpdated', Date.now().toString());
+        } catch (e) {}
+        notify('success', 'Profile photo updated.');
+        fileInput.value = '';
+    });
+
+    btnRemoveImage?.addEventListener('click', async function () {
+        var res = await fetch('/Dashboard/RemoveProfilePicture', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token }
+        });
+        var data = await res.json().catch(function () { return null; });
+        if (!data || !data.success) return notify('error', (data && data.message) ? data.message : 'Could not remove image.');
+        var fallback = 'https://ui-avatars.com/api/?name=' + encodeURIComponent((fullNameEl.value || 'User').trim()) + '&size=256&background=7c3aed&color=fff';
+        imageMain.src = fallback;
+        if (headerAvatar) headerAvatar.src = fallback;
+        notify('success', 'Profile photo removed.');
+    });
+
+    document.getElementById('btnCopyWriteUrl')?.addEventListener('click', function () {
+        var u = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(writeUrl));
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(u).then(function () { notify('success', 'AI Writer link copied.'); }).catch(function () { prompt('Copy:', u); });
+        } else prompt('Copy:', u);
+    });
+
+    var premiumOk = @(premiumUnlocked ? "true" : "false");
+    document.getElementById('btnProfilePdfExport')?.addEventListener('click', function () {
+        var btn = document.getElementById('btnProfilePdfExport');
+        if (!premiumOk || (btn && btn.disabled)) return notify('info', 'PDF download is available after payment.');
+        var w = window.open('', '_blank');
+        if (!w) return notify('error', 'Allow pop-ups to download, or use Print to PDF.');
+        var name = (nameHeading && nameHeading.textContent) ? nameHeading.textContent : 'My manuscript';
+        w.document.write('<html><head><title>' + name.replace(/</g,'') + '</title></head><body style="font-family:Georgia,serif;padding:2rem"><h1>' + name.replace(/</g,'') + '</h1><p>Demo PDF export: your latest draft would be merged here from the server.</p><p style="color:#64748b;font-size:0.9rem">Generated from Profile → premium export.</p></body></html>');
+        w.document.close();
+        w.focus();
+        setTimeout(function () { w.print(); }, 400);
+    });
+})();
+</script>

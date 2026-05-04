@@ -1,0 +1,224 @@
+using System.Net;
+using System.Text.RegularExpressions;
+using HtmlAgilityPack;
+
+namespace EBookDashboard.Services;
+
+/// <summary>
+/// Aligns with <c>Views/Books/AIGenerateBook.cshtml</c> manuscript helpers: escapes, placeholders, markdown headings, hr, HTML whitelist.
+/// </summary>
+public static class BookManuscriptHtmlFormatter
+{
+    public sealed class PlaceholderContext
+    {
+        public string BookTitle { get; init; } = "";
+        public string? Subtitle { get; init; }
+        public string? Description { get; init; }
+        public string? Genre { get; init; }
+        public string? AuthorName { get; init; }
+        public string? ChapterTitle { get; init; }
+        public int? ChapterNumber { get; init; }
+        public int? DisplayChapterNumber { get; init; }
+
+        public PlaceholderContext WithChapter(string chapterTitle, int displayNumber, int storageChapterNumber) => new()
+        {
+            BookTitle = BookTitle,
+            Subtitle = Subtitle,
+            Description = Description,
+            Genre = Genre,
+            AuthorName = AuthorName,
+            ChapterTitle = chapterTitle,
+            DisplayChapterNumber = displayNumber,
+            ChapterNumber = storageChapterNumber
+        };
+    }
+
+    private static readonly Regex LikelyHtmlRegex = new(@"<\s*\w+[\s\S]*?>", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex PlaceholderBracketRegex = new(@"\[\s*([^\]]+?)\s*\]", RegexOptions.Compiled);
+    private static readonly Regex PlaceholderMustacheRegex = new(@"\{\{\s*([^}]+?)\s*\}\}", RegexOptions.Compiled);
+    private static readonly Regex HrLineRegex = new(@"^(?:\-{3,}|\*{3,}|_{3,})$", RegexOptions.Compiled);
+    private static readonly Regex MdHeadingRegex = new(@"^(#{1,6})\s+(.+)$", RegexOptions.Compiled);
+    private static readonly HashSet<string> AllowedTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "p", "br", "hr", "ul", "ol", "li", "strong", "b", "em", "i", "u",
+        "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre", "span", "div"
+    };
+
+    public static string NormalizeManuscriptEscapes(string? str)
+    {
+        if (string.IsNullOrEmpty(str)) return "";
+        var s = str.Replace("\r\n", "\n").Replace("\r", "\n");
+        string prev;
+        do
+        {
+            prev = s;
+            s = s.Replace("\\r\\n", "\n", StringComparison.Ordinal)
+                .Replace("\\n", "\n", StringComparison.Ordinal)
+                .Replace("\\r", "\n", StringComparison.Ordinal);
+        } while (!string.Equals(s, prev, StringComparison.Ordinal));
+        return s;
+    }
+
+    public static string ApplyPlaceholders(string? raw, PlaceholderContext? ctx)
+    {
+        if (raw == null || ctx == null) return raw ?? "";
+        var s = raw;
+        string? Lookup(string key)
+        {
+            var nk = NormPlaceholderKey(key);
+            return nk switch
+            {
+                "title" or "booktitle" => ctx.BookTitle ?? "",
+                "subtitle" => ctx.Subtitle ?? "",
+                "description" => ctx.Description ?? "",
+                "genre" => ctx.Genre ?? "",
+                "author" or "authorname" => ctx.AuthorName ?? "",
+                "chaptertitle" or "chapter" => ctx.ChapterTitle ?? "",
+                "chapternumber" or "chapterno" => ctx.ChapterNumber?.ToString() ?? "",
+                "displaychapternumber" => ctx.DisplayChapterNumber?.ToString() ?? "",
+                _ => null
+            };
+        }
+
+        s = PlaceholderBracketRegex.Replace(s, m =>
+        {
+            var v = Lookup(m.Groups[1].Value);
+            return v ?? m.Value;
+        });
+        s = PlaceholderMustacheRegex.Replace(s, m =>
+        {
+            var v = Lookup(m.Groups[1].Value);
+            return v ?? m.Value;
+        });
+        return s;
+    }
+
+    private static string NormPlaceholderKey(string key)
+    {
+        var parts = (key ?? "").Trim().ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts);
+    }
+
+    public static bool IsLikelyHtml(string? s) => !string.IsNullOrEmpty(s) && LikelyHtmlRegex.IsMatch(s);
+
+    public static string EscapeHtml(string? str)
+    {
+        if (string.IsNullOrEmpty(str)) return "";
+        return WebUtility.HtmlEncode(str);
+    }
+
+    public static string SanitizeHtml(string unsafeHtml)
+    {
+        if (string.IsNullOrWhiteSpace(unsafeHtml)) return "";
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml(unsafeHtml);
+            foreach (var el in doc.DocumentNode.DescendantsAndSelf().ToList())
+            {
+                if (el.NodeType != HtmlNodeType.Element) continue;
+                var name = el.Name.ToLowerInvariant();
+                if (name is "#document" or "html" or "head" or "body") continue;
+                if (!AllowedTags.Contains(name))
+                {
+                    var replacement = HtmlNode.CreateNode(EscapeHtml(el.InnerText));
+                    el.ParentNode?.ReplaceChild(replacement, el);
+                    continue;
+                }
+
+                var attrs = el.Attributes.ToList();
+                foreach (var attr in attrs)
+                {
+                    var an = attr.Name.ToLowerInvariant();
+                    if (an != "class" && an != "style")
+                    {
+                        el.Attributes.Remove(attr);
+                        continue;
+                    }
+
+                    if (an == "style" && Regex.IsMatch(attr.Value ?? "", @"expression\s*\(|javascript:|url\s*\(", RegexOptions.IgnoreCase))
+                        el.Attributes.Remove(attr);
+                }
+            }
+
+            return doc.DocumentNode.InnerHtml;
+        }
+        catch
+        {
+            return EscapeHtml(unsafeHtml);
+        }
+    }
+
+    public static string FormatBodyToHtml(string? raw)
+    {
+        var s = NormalizeManuscriptEscapes(raw);
+        if (string.IsNullOrWhiteSpace(s))
+            return """<p class="manuscript-p">No content available.</p>""";
+
+        if (IsLikelyHtml(s))
+        {
+            var htmlNorm = NormalizeManuscriptEscapes(s);
+            return SanitizeHtml(htmlNorm);
+        }
+
+        var lines = s.Split('\n');
+        var outParts = new List<string>();
+        var para = new List<string>();
+
+        void FlushPara()
+        {
+            if (para.Count == 0) return;
+            var inner = string.Join("<br/>", para.Select(EscapeHtml));
+            outParts.Add($"""<p class="manuscript-p">{inner}</p>""");
+            para.Clear();
+        }
+
+        foreach (var line in lines)
+        {
+            var t = line.Trim();
+            if (string.IsNullOrEmpty(t))
+            {
+                FlushPara();
+                continue;
+            }
+
+            var hm = MdHeadingRegex.Match(t);
+            if (hm.Success)
+            {
+                FlushPara();
+                var level = hm.Groups[1].Value.Length;
+                var text = EscapeHtml(hm.Groups[2].Value.Trim());
+                outParts.Add($"""<h{level} class="manuscript-heading manuscript-h{level}">{text}</h{level}>""");
+                continue;
+            }
+
+            if (HrLineRegex.IsMatch(t))
+            {
+                FlushPara();
+                outParts.Add("""<hr class="manuscript-hr" />""");
+                continue;
+            }
+
+            para.Add(line);
+        }
+
+        FlushPara();
+        return outParts.Count > 0
+            ? string.Join("", outParts)
+            : """<p class="manuscript-p">No content available.</p>""";
+    }
+
+    public static PlaceholderContext CreateBaseContext(
+        string bookTitle,
+        string? subtitle,
+        string? description,
+        string? genre,
+        string? authorName) => new()
+    {
+        BookTitle = bookTitle ?? "",
+        Subtitle = subtitle,
+        Description = description,
+        Genre = genre,
+        AuthorName = authorName
+    };
+}

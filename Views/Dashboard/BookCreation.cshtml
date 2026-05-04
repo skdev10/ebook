@@ -1,0 +1,664 @@
+@{
+    ViewData["Title"] = "Book Creation";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<style>
+    :root {
+        --primary: #7c3aed;
+        --secondary: #06b6d4;
+        --surface: #ffffff;
+        --background: #f8fafc;
+        --text-primary: #1e293b;
+        --border: #e2e8f0;
+        --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        --radius: 16px;
+    }
+
+    .page-container {
+        width: 100%;
+        padding: 30px;
+        background: var(--background);
+        min-height: 100vh;
+    }
+
+    .page-header {
+        margin-bottom: 30px;
+    }
+
+    .page-header h1 {
+        font-size: 2.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+
+    .card {
+        background: var(--surface);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+        padding: 30px;
+        margin-bottom: 24px;
+    }
+
+    .card-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 12px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--text-primary);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: all 0.3s;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+    }
+
+    .btn {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .status-message {
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-top: 8px;
+        font-size: 0.9rem;
+    }
+
+    .status-success {
+        background: rgba(16, 185, 129, 0.1);
+        color: #065f46;
+    }
+
+    .status-error {
+        background: rgba(239, 68, 68, 0.1);
+        color: #991b1b;
+    }
+</style>
+
+<div class="page-container">
+    <div class="page-header">
+        <h1><i class="fas fa-journal-whills"></i> Book Creation</h1>
+        <p>Upload, analyze, and structure your manuscript</p>
+    </div>
+
+    <!-- Book Selection -->
+    <div class="card">
+        <div class="card-header">Select or Create Book</div>
+        <div class="form-group">
+            <label class="form-label">Choose Existing Book</label>
+            <select id="bookSelect" class="form-control" onchange="loadBook(this.value)">
+                <option value="">-- Create New Book --</option>
+                @if (ViewBag.UserBooks != null)
+                {
+                    @foreach (var book in ViewBag.UserBooks)
+                    {
+                        var isSelected = ViewBag.SelectedBookId != null && ViewBag.SelectedBookId == book.BookId;
+                        if (isSelected)
+                        {
+                            <option value="@book.BookId" selected>@book.Title (Created: @book.CreatedAt.ToString("MMM dd, yyyy"))</option>
+                        }
+                        else
+                        {
+                            <option value="@book.BookId">@book.Title (Created: @book.CreatedAt.ToString("MMM dd, yyyy"))</option>
+                        }
+                    }
+                }
+            </select>
+        </div>
+        <input type="hidden" id="userId" value="@ViewBag.UserId" />
+        <input type="hidden" id="currentBookId" value="@ViewBag.SelectedBookId" />
+    </div>
+
+    <!-- Manuscript Upload -->
+    <div class="card">
+        <div class="card-header">Manuscript Upload</div>
+        <div class="form-group">
+            <label class="form-label">Upload Manuscript (.docx, .pdf, .txt)</label>
+            <div style="display: flex; gap: 12px;">
+                <input type="file" class="form-control" id="manuscriptFile" accept=".docx,.pdf,.txt" style="flex: 1;">
+                <button class="btn btn-primary" type="button" onclick="uploadManuscript()">
+                    <i class="fas fa-upload"></i> Upload
+                </button>
+            </div>
+            <div class="progress mt-2" style="height:8px;display:none;" id="uploadProgressWrap">
+                <div id="uploadProgress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%"></div>
+            </div>
+            <div id="manuscriptStatus" class="status-message" style="display:none;"></div>
+        </div>
+        <div class="form-group">
+            <button class="btn btn-primary" type="button" onclick="analyzeManuscript()">
+                <i class="fas fa-search"></i> Analyze Manuscript
+            </button>
+            <span id="analyzeStatus" class="status-message" style="display:none;"></span>
+        </div>
+    </div>
+
+    <!-- Title Page -->
+    <div class="card">
+        <div class="card-header">Title Page</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Book Title</label>
+                <input type="text" class="form-control" id="tpTitle" placeholder="Enter book title">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Subtitle</label>
+                <input type="text" class="form-control" id="tpSubtitle" placeholder="Enter subtitle">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Author Name</label>
+                <input type="text" class="form-control" id="tpAuthor" placeholder="Author name">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Publisher Name</label>
+                <input type="text" class="form-control" id="tpPublisher" placeholder="Publisher name">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Edition</label>
+                <input type="text" class="form-control" id="tpEdition" placeholder="e.g., First Edition">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Copyright Year</label>
+                <input type="number" class="form-control" id="tpCopyrightYear" placeholder="2025" min="1900" max="2100">
+            </div>
+        </div>
+        <div class="form-group">
+            <button class="btn btn-primary" onclick="saveTitlePage()">
+                <i class="fas fa-save"></i> Save Title Page
+            </button>
+            <span id="titlePageStatus" class="status-message" style="display:none;"></span>
+        </div>
+    </div>
+
+    <!-- Table of Contents -->
+    <div class="card">
+        <div class="card-header">Table of Contents</div>
+        <div class="form-group">
+            <button class="btn btn-primary" onclick="loadTocFromChapters()">
+                <i class="fas fa-list"></i> Auto-Generate from Chapters
+            </button>
+            <div id="tocList" class="mt-3" style="min-height:100px;border:1px solid var(--border);padding:16px;border-radius:8px;background:#f9fafb;">
+                <!-- TOC will be loaded here -->
+            </div>
+            <div class="form-group mt-3">
+                <button class="btn btn-primary" onclick="saveToc()">
+                    <i class="fas fa-save"></i> Save TOC
+                </button>
+                <span id="tocStatus" class="status-message" style="display:none;"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Book Elements -->
+    <div class="card">
+        <div class="card-header">Additional Book Elements</div>
+        <div class="form-group">
+            <label class="form-label">Proofreading Notes</label>
+            <textarea class="form-control" id="elProofreading" rows="3" placeholder="Add proofreading notes..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Editing Notes</label>
+            <textarea class="form-control" id="elEditing" rows="3" placeholder="Add editing notes..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Copyright Page Content</label>
+            <textarea class="form-control" id="elCopyright" rows="3" placeholder="Copyright information..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Dedication</label>
+            <textarea class="form-control" id="elDedication" rows="2" placeholder="Book dedication..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Epigraph</label>
+            <textarea class="form-control" id="elEpigraph" rows="2" placeholder="Epigraph quote..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Preface / Foreword</label>
+            <textarea class="form-control" id="elPreface" rows="4" placeholder="Preface or foreword content..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Epilogue</label>
+            <textarea class="form-control" id="elEpilogue" rows="3" placeholder="Epilogue content..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Afterword</label>
+            <textarea class="form-control" id="elAfterword" rows="3" placeholder="Afterword content..."></textarea>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Other Back Matter</label>
+            <textarea class="form-control" id="elOther" rows="3" placeholder="Other back matter..."></textarea>
+        </div>
+        <div class="form-group">
+            <button class="btn btn-primary" onclick="saveAdditionalElements()">
+                <i class="fas fa-save"></i> Save All Elements
+            </button>
+            <span id="elementsStatus" class="status-message" style="display:none;"></span>
+        </div>
+    </div>
+
+    <!-- Book Cover -->
+    <div class="card">
+        <div class="card-header">Book Cover</div>
+        <div class="form-group">
+            <label class="form-label">Upload Custom Cover</label>
+            <div style="display: flex; gap: 12px;">
+                <input type="file" class="form-control" id="coverFile" accept=".png,.jpg,.jpeg,.webp" style="flex: 1;">
+                <button class="btn btn-primary" type="button" onclick="uploadCover()">
+                    <i class="fas fa-upload"></i> Upload
+                </button>
+            </div>
+            <div id="coverStatus" class="status-message" style="display:none;"></div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">AI-Generated Cover (Premium)</label>
+            <input type="text" class="form-control" id="aiCoverPrompt" placeholder="Describe the cover you want...">
+            <button class="btn btn-primary mt-2" onclick="generateAICover()">
+                <i class="fas fa-magic"></i> Generate Cover
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Get current book ID from database
+    function getBookId() {
+        const bookId = document.getElementById('currentBookId')?.value || document.getElementById('bookSelect')?.value;
+        if (!bookId || bookId === '') {
+            alert('Please select or create a book first');
+            return null;
+        }
+        return parseInt(bookId);
+    }
+
+    // Load book data from database
+    function loadBook(bookId) {
+        if (!bookId) {
+            document.getElementById('currentBookId').value = '';
+            return;
+        }
+        document.getElementById('currentBookId').value = bookId;
+        window.location.href = `/Dashboard/BookCreation?bookId=${bookId}`;
+    }
+
+    // Upload manuscript - Database connected
+    async function uploadManuscript() {
+        const bookId = getBookId();
+        if (!bookId) return;
+        
+        const fileInput = document.getElementById('manuscriptFile');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showStatus('manuscriptStatus', 'Please select a file', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        const progressWrap = document.getElementById('uploadProgressWrap');
+        const progressBar = document.getElementById('uploadProgress');
+        progressWrap.style.display = 'block';
+
+        try {
+            const xhr = new XMLHttpRequest();
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percent + '%';
+                }
+            });
+
+            xhr.onload = async function() {
+                progressWrap.style.display = 'none';
+                if (xhr.status === 200) {
+                    const result = JSON.parse(xhr.responseText);
+                    if (result.success) {
+                        showStatus('manuscriptStatus', 'Manuscript uploaded successfully!', 'success');
+                    } else {
+                        showStatus('manuscriptStatus', result.message || 'Upload failed', 'error');
+                    }
+                } else {
+                    showStatus('manuscriptStatus', 'Upload failed', 'error');
+                }
+            };
+
+            xhr.open('POST', `/Books/UploadManuscript?bookId=${bookId}`);
+            xhr.send(formData);
+        } catch (e) {
+            progressWrap.style.display = 'none';
+            showStatus('manuscriptStatus', 'Error: ' + e.message, 'error');
+        }
+    }
+
+    // Analyze manuscript - Database connected
+    async function analyzeManuscript() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const status = document.getElementById('analyzeStatus');
+        status.textContent = 'Analyzing...';
+        status.className = 'status-message';
+        status.style.display = 'block';
+
+        try {
+            const res = await fetch(`/Books/AnalyzeManuscript?bookId=${bookId}`, { method: 'POST' });
+            const result = await res.json();
+            
+            if (result.success) {
+                status.textContent = `Analysis complete! Found ${result.chapters || 0} chapters.`;
+                status.className = 'status-message status-success';
+                loadTocFromChapters();
+            } else {
+                status.textContent = result.message || 'Analysis failed';
+                status.className = 'status-message status-error';
+            }
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+            status.className = 'status-message status-error';
+        }
+    }
+
+    // Save title page - Database connected
+    async function saveTitlePage() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const payload = {
+            title: document.getElementById('tpTitle').value,
+            subtitle: document.getElementById('tpSubtitle').value,
+            author: document.getElementById('tpAuthor').value,
+            publisher: document.getElementById('tpPublisher').value,
+            edition: document.getElementById('tpEdition').value,
+            copyrightYear: document.getElementById('tpCopyrightYear').value
+        };
+
+        const status = document.getElementById('titlePageStatus');
+        status.textContent = 'Saving...';
+        status.className = 'status-message';
+        status.style.display = 'block';
+
+        try {
+            const res = await fetch(`/Books/SaveTitlePage?bookId=${bookId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                status.textContent = 'Title page saved successfully!';
+                status.className = 'status-message status-success';
+            } else {
+                status.textContent = 'Save failed';
+                status.className = 'status-message status-error';
+            }
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+            status.className = 'status-message status-error';
+        }
+    }
+
+    // Load TOC from chapters - Database connected
+    async function loadTocFromChapters() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const userId = document.getElementById('userId').value;
+        const tocList = document.getElementById('tocList');
+
+        try {
+            const res = await fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`);
+            const json = await res.json();
+            
+            if (json.success && json.chapters) {
+                const items = json.chapters.map((c, idx) => ({
+                    number: c.number || idx + 1,
+                    title: c.title || `Chapter ${idx + 1}`
+                }));
+                
+                tocList.innerHTML = '<ul style="list-style:none;padding:0;">' +
+                    items.map(i => `<li style="padding:8px;border-bottom:1px solid #e2e8f0;">
+                        <input type="text" value="${escapeHtml(i.title)}" style="width:100%;padding:6px;border:1px solid #e2e8f0;border-radius:4px;" data-number="${i.number}">
+                    </li>`).join('') + '</ul>';
+            } else {
+                tocList.innerHTML = '<p class="text-muted">No chapters found. Please analyze manuscript first.</p>';
+            }
+        } catch (e) {
+            tocList.innerHTML = `<p class="text-danger">Error: ${escapeHtml(e.message)}</p>`;
+        }
+    }
+
+    // Save TOC - Database connected
+    async function saveToc() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const tocList = document.getElementById('tocList');
+        const items = Array.from(tocList.querySelectorAll('input')).map((input, idx) => ({
+            number: parseInt(input.dataset.number) || idx + 1,
+            title: input.value.trim()
+        }));
+
+        const status = document.getElementById('tocStatus');
+        status.textContent = 'Saving...';
+        status.className = 'status-message';
+        status.style.display = 'block';
+
+        try {
+            const res = await fetch(`/Books/SaveToc?bookId=${bookId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(items)
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                status.textContent = 'TOC saved successfully!';
+                status.className = 'status-message status-success';
+            } else {
+                status.textContent = 'Save failed';
+                status.className = 'status-message status-error';
+            }
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+            status.className = 'status-message status-error';
+        }
+    }
+
+    // Save additional elements - Database connected
+    async function saveAdditionalElements() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const payload = {
+            "Proofreading notes": document.getElementById('elProofreading').value || '',
+            "Editing notes": document.getElementById('elEditing').value || '',
+            "Copyright page content": document.getElementById('elCopyright').value || '',
+            "Ghostwriting notes": '',
+            "Dedication": document.getElementById('elDedication').value || '',
+            "Epigraph": document.getElementById('elEpigraph').value || '',
+            "Preface": document.getElementById('elPreface').value || '',
+            "Epilogue": document.getElementById('elEpilogue').value || '',
+            "Afterword": document.getElementById('elAfterword').value || '',
+            "Other back matter": document.getElementById('elOther').value || ''
+        };
+
+        const status = document.getElementById('elementsStatus');
+        status.textContent = 'Saving...';
+        status.className = 'status-message';
+        status.style.display = 'block';
+
+        try {
+            const res = await fetch(`/Books/SaveAdditionalElements?bookId=${bookId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                status.textContent = 'All elements saved successfully!';
+                status.className = 'status-message status-success';
+            } else {
+                status.textContent = 'Save failed';
+                status.className = 'status-message status-error';
+            }
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+            status.className = 'status-message status-error';
+        }
+    }
+
+    // Upload cover - Database connected
+    async function uploadCover() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const fileInput = document.getElementById('coverFile');
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showStatus('coverStatus', 'Please select an image file', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+
+        const status = document.getElementById('coverStatus');
+        status.textContent = 'Uploading...';
+        status.className = 'status-message';
+        status.style.display = 'block';
+
+        try {
+            const res = await fetch(`/Books/UploadCover?bookId=${bookId}`, {
+                method: 'POST',
+                body: formData
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                status.textContent = 'Cover uploaded successfully!';
+                status.className = 'status-message status-success';
+            } else {
+                status.textContent = result.message || 'Upload failed';
+                status.className = 'status-message status-error';
+            }
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+            status.className = 'status-message status-error';
+        }
+    }
+
+    // Generate AI cover - Database connected
+    async function generateAICover() {
+        const bookId = getBookId();
+        if (!bookId) return;
+
+        const prompt = document.getElementById('aiCoverPrompt').value;
+        const status = document.getElementById('coverStatus');
+        status.textContent = 'Generating AI cover...';
+        status.className = 'status-message';
+        status.style.display = 'block';
+
+        try {
+            const res = await fetch(`/Books/GenerateAICover?bookId=${bookId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            const result = await res.json();
+            
+            if (result.success) {
+                status.textContent = 'AI cover generated successfully!';
+                status.className = 'status-message status-success';
+            } else {
+                status.textContent = result.message || 'Generation failed';
+                status.className = 'status-message status-error';
+            }
+        } catch (e) {
+            status.textContent = 'Error: ' + e.message;
+            status.className = 'status-message status-error';
+        }
+    }
+
+    // Helper functions
+    function showStatus(elementId, message, type) {
+        const el = document.getElementById(elementId);
+        el.textContent = message;
+        el.className = `status-message status-${type}`;
+        el.style.display = 'block';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Load existing book data if bookId is provided
+    document.addEventListener('DOMContentLoaded', function() {
+        @if (ViewBag.Book != null)
+        {
+            <text>
+            // Load title page data from Settings
+            fetch('/Books/GetBookDetails?userId=@ViewBag.UserId&bookId=@ViewBag.SelectedBookId')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // Populate form fields if data exists
+                    }
+                });
+            </text>
+        }
+    });
+</script>
+

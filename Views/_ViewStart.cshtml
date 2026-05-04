@@ -1,0 +1,23 @@
+﻿﻿@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    
+    // Role-based layout selection
+    switch (controller?.ToLower())
+    {
+        case "admin":
+            Layout = "~/Views/Shared/_AdminLayout.cshtml";
+            break;
+        case "editor":
+            Layout = "~/Views/Shared/_EditorLayout.cshtml";
+            break;
+        case "author":
+            Layout = "~/Views/Shared/_AuthorLayout.cshtml";
+            break;
+        case "dashboard":
+            Layout = "~/Views/Shared/_DashboardLayout.cshtml"; // Reader Dashboard
+            break;
+        default:
+            Layout = "~/Views/Shared/_Layout.cshtml";
+            break;
+    }
+}

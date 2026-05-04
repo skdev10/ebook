@@ -1,0 +1,124 @@
+@{
+    ViewData["Title"] = "Plan Suggestion - eBook Publisher";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<div class="plan-suggestion-header">
+    <h1>Plan Recommendation</h1>
+    <p>Based on your selections, we recommend the following plan</p>
+</div>
+
+<div class="plan-comparison">
+    <!-- Basic Plan -->
+    <div class="plan-card">
+        <div class="plan-header">
+            <h3>Basic Plan</h3>
+            <div class="plan-price">$9.99<span>/month</span></div>
+        </div>
+        <div class="plan-features">
+            <ul>
+                <li><i class="fas fa-check"></i> EBook Creation</li>
+                <li><i class="fas fa-check"></i> Basic Formatting</li>
+                <li><i class="fas fa-times"></i> Advanced Analytics</li>
+                <li><i class="fas fa-times"></i> Marketing Tools</li>
+                <li><i class="fas fa-times"></i> Audio Book Conversion</li>
+            </ul>
+        </div>
+        <button class="btn btn-secondary select-plan" data-plan="basic">Select Plan</button>
+    </div>
+
+    <!-- Professional Plan (Recommended) -->
+    <div class="plan-card recommended">
+        <div class="recommended-badge">RECOMMENDED</div>
+        <div class="plan-header">
+            <h3>Professional Plan</h3>
+            <div class="plan-price">$29.99<span>/month</span></div>
+        </div>
+        <div class="plan-features">
+            <ul>
+                <li><i class="fas fa-check"></i> EBook Creation</li>
+                <li><i class="fas fa-check"></i> Advanced Formatting</li>
+                <li><i class="fas fa-check"></i> Advanced Analytics</li>
+                <li><i class="fas fa-check"></i> Marketing Tools</li>
+                <li><i class="fas fa-times"></i> Audio Book Conversion</li>
+            </ul>
+        </div>
+        <button class="btn btn-primary select-plan" data-plan="professional">Select Plan</button>
+    </div>
+
+    <!-- Premium Plan -->
+    <div class="plan-card">
+        <div class="plan-header">
+            <h3>Premium Plan</h3>
+            <div class="plan-price">$49.99<span>/month</span></div>
+        </div>
+        <div class="plan-features">
+            <ul>
+                <li><i class="fas fa-check"></i> EBook Creation</li>
+                <li><i class="fas fa-check"></i> Advanced Formatting</li>
+                <li><i class="fas fa-check"></i> Advanced Analytics</li>
+                <li><i class="fas fa-check"></i> Marketing Tools</li>
+                <li><i class="fas fa-check"></i> Audio Book Conversion</li>
+            </ul>
+        </div>
+        <button class="btn btn-secondary select-plan" data-plan="premium">Select Plan</button>
+    </div>
+</div>
+
+<div class="plan-actions">
+    <button class="btn btn-secondary" id="chooseAnotherBtn">Choose Another Plan</button>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Select plan buttons
+            const selectPlanButtons = document.querySelectorAll('.select-plan');
+            const chooseAnotherBtn = document.getElementById('chooseAnotherBtn');
+            
+            selectPlanButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const plan = this.getAttribute('data-plan');
+                    let planName = '';
+                    
+                    switch(plan) {
+                        case 'basic':
+                            planName = 'Basic Plan';
+                            break;
+                        case 'professional':
+                            planName = 'Professional Plan';
+                            break;
+                        case 'premium':
+                            planName = 'Premium Plan';
+                            break;
+                    }
+                    
+                    Swal.fire({
+                        title: 'Plan Selected!',
+                        text: `You have selected the ${planName}.`,
+                        icon: 'success',
+                        timer: 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // Redirect to plan confirmation page
+                        window.location.href = '/Dashboard/PlanConfirmation';
+                    });
+                });
+            });
+            
+            chooseAnotherBtn.addEventListener('click', function() {
+                Swal.fire({
+                    title: 'Choose Another Plan',
+                    text: 'You can continue selecting features or choose a different plan.',
+                    icon: 'info',
+                    confirmButtonColor: '#4a6cf7',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    // Redirect to features selection page
+                    window.location.href = '/Dashboard/FeaturesSelection';
+                });
+            });
+        });
+    </script>
+}

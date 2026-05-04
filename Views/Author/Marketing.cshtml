@@ -1,0 +1,1520 @@
+@{
+    ViewData["Title"] = "Marketing Tools - Author Dashboard";
+    Layout = "~/Views/Shared/_AuthorLayout.cshtml";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing Tools - Author Dashboard</title>
+
+    <!-- External Libraries -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #D4A574;
+            --primary-light: #E7C9A5;
+            --primary-dark: #B08A5F;
+            --secondary: #F5B461;
+            --accent: #A3B86C;
+            --dark: #5D4037;
+            --light: #FFF8F0;
+            --gray: #8D6E63;
+            --gray-light: #D7CCC8;
+            --card-bg: rgba(255, 253, 245, 0.95);
+            --shadow: 0 10px 25px -5px rgba(181, 144, 107, 0.15), 0 10px 10px -5px rgba(181, 144, 107, 0.1);
+            --radius: 16px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #FDF6E3 0%, #F5E8C8 100%);
+            color: var(--dark);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .marketing-dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header Section */
+        .page-header {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 30px;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 25px 35px;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .page-header::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: linear-gradient(90deg, var(--primary), var(--secondary), var(--accent));
+            }
+
+        .header-content h1 {
+            font-size: 2.4rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-content p {
+            color: var(--gray);
+            font-size: 1.1rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            font-size: 1rem;
+        }
+
+            .btn::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: -100%;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+                transition: left 0.5s;
+            }
+
+            .btn:hover::before {
+                left: 100%;
+            }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            box-shadow: 0 8px 25px rgba(212, 165, 116, 0.3);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 15px 35px rgba(212, 165, 116, 0.4);
+            }
+
+        .btn-outline-primary {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+            .btn-outline-primary:hover {
+                background: var(--primary);
+                color: white;
+                transform: translateY(-2px);
+            }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        /* Marketing Stats */
+        .marketing-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            padding: 25px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .stat-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 6px;
+                height: 100%;
+                background: linear-gradient(to bottom, var(--primary), var(--secondary));
+            }
+
+            .stat-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 15px 35px rgba(181, 144, 107, 0.15);
+            }
+
+        .stat-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 15px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.8rem;
+            flex-shrink: 0;
+        }
+
+        .stat-info h3 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 5px;
+            color: var(--dark);
+        }
+
+        .stat-info p {
+            color: var(--gray);
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+        }
+
+        .stat-change {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+            .stat-change.positive {
+                background: rgba(163, 184, 108, 0.1);
+                color: var(--accent);
+            }
+
+            .stat-change.neutral {
+                background: rgba(141, 110, 99, 0.1);
+                color: var(--gray);
+            }
+
+        /* Professional Carousel */
+        .carousel-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .carousel-section::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 6px;
+                height: 100%;
+                background: linear-gradient(to bottom, var(--primary), var(--accent));
+            }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+            .section-header h3 {
+                margin: 0;
+                color: var(--dark);
+                font-size: 1.4rem;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+
+                .section-header h3 i {
+                    color: var(--primary);
+                }
+
+        .professional-carousel {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+
+        .carousel-track {
+            display: flex;
+            transition: transform 0.5s ease;
+        }
+
+        .carousel-slide {
+            min-width: 100%;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(181, 144, 107, 0.1);
+        }
+
+        .carousel-icon {
+            width: 120px;
+            height: 120px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 3rem;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 25px rgba(212, 165, 116, 0.3);
+        }
+
+        .carousel-content h4 {
+            font-size: 1.6rem;
+            margin-bottom: 15px;
+            color: var(--dark);
+            font-weight: 700;
+        }
+
+        .carousel-content p {
+            color: var(--gray);
+            margin-bottom: 25px;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        .carousel-nav {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .carousel-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--gray-light);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+            .carousel-dot.active {
+                background: var(--primary);
+                transform: scale(1.3);
+            }
+
+        /* Tools Grid */
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .tool-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            padding: 30px 25px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .tool-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 6px;
+                height: 100%;
+                background: linear-gradient(to bottom, var(--primary), var(--accent));
+            }
+
+            .tool-card:hover {
+                transform: translateY(-8px);
+                box-shadow: 0 20px 40px rgba(181, 144, 107, 0.15);
+            }
+
+        .tool-icon {
+            width: 90px;
+            height: 90px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2.5rem;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 25px rgba(212, 165, 116, 0.3);
+            transition: var(--transition);
+        }
+
+        .tool-card:hover .tool-icon {
+            transform: scale(1.1);
+        }
+
+        .tool-card h3 {
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+            color: var(--dark);
+            font-weight: 700;
+        }
+
+        .tool-card p {
+            color: var(--gray);
+            margin-bottom: 25px;
+            line-height: 1.6;
+        }
+
+        /* Campaigns Section */
+        .campaigns-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+            .campaigns-section::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 6px;
+                height: 100%;
+                background: linear-gradient(to bottom, var(--secondary), var(--accent));
+            }
+
+        .campaigns-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 25px;
+            padding: 30px;
+        }
+
+        .campaign-card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid var(--gray-light);
+            overflow: hidden;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+            .campaign-card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            }
+
+        .campaign-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--gray-light);
+        }
+
+            .campaign-header h4 {
+                margin: 0;
+                color: var(--dark);
+                font-size: 1.2rem;
+                font-weight: 600;
+            }
+
+        .campaign-status {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+            .campaign-status.active {
+                background: rgba(163, 184, 108, 0.1);
+                color: var(--accent);
+            }
+
+            .campaign-status.scheduled {
+                background: rgba(245, 180, 97, 0.1);
+                color: var(--secondary);
+            }
+
+        .campaign-details {
+            padding: 25px;
+        }
+
+            .campaign-details p {
+                margin: 0 0 20px 0;
+                color: var(--gray);
+                font-size: 0.95rem;
+                line-height: 1.6;
+            }
+
+        .campaign-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px 10px;
+            border-radius: 10px;
+            background: rgba(212, 165, 116, 0.05);
+            transition: var(--transition);
+        }
+
+            .stat-item:hover {
+                background: rgba(212, 165, 116, 0.1);
+            }
+
+            .stat-item .label {
+                display: block;
+                font-size: 0.8rem;
+                color: var(--gray);
+                margin-bottom: 5px;
+                font-weight: 500;
+            }
+
+            .stat-item .value {
+                display: block;
+                font-weight: 700;
+                color: var(--dark);
+                font-size: 1.1rem;
+            }
+
+        .campaign-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            border-top: 1px solid var(--gray-light);
+            background: rgba(255, 248, 240, 0.5);
+        }
+
+        .campaign-date {
+            color: var(--gray);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .campaign-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Activity Section */
+        .activity-section {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            position: relative;
+        }
+
+            .activity-section::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 6px;
+                height: 100%;
+                background: linear-gradient(to bottom, var(--accent), #A3B86C);
+            }
+
+        .activity-list {
+            padding: 30px;
+        }
+
+        .activity-item {
+            display: flex;
+            gap: 20px;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid var(--gray-light);
+            margin-bottom: 20px;
+            transition: var(--transition);
+            background: white;
+        }
+
+            .activity-item:hover {
+                background: rgba(212, 165, 116, 0.03);
+                border-color: rgba(212, 165, 116, 0.2);
+                transform: translateX(5px);
+            }
+
+            .activity-item:last-child {
+                margin-bottom: 0;
+            }
+
+        .activity-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            background: rgba(212, 165, 116, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+            .activity-content h4 {
+                margin: 0 0 8px 0;
+                color: var(--dark);
+                font-size: 1.1rem;
+                font-weight: 600;
+            }
+
+            .activity-content p {
+                margin: 0 0 8px 0;
+                color: var(--gray);
+                font-size: 0.95rem;
+                line-height: 1.5;
+            }
+
+            .activity-content small {
+                color: var(--gray);
+                font-size: 0.85rem;
+            }
+
+        /* Modal Enhancements */
+        .modal-content {
+            border-radius: var(--radius);
+            border: none;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-header {
+            border-bottom: 1px solid var(--gray-light);
+            padding: 25px 30px;
+        }
+
+        .modal-title {
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .modal-footer {
+            border-top: 1px solid var(--gray-light);
+            padding: 20px 30px;
+        }
+
+        .form-control {
+            border-radius: 10px;
+            border: 1px solid var(--gray-light);
+            padding: 12px 15px;
+            transition: var(--transition);
+        }
+
+            .form-control:focus {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.1);
+            }
+
+        .char-count {
+            text-align: right;
+            font-size: 0.85rem;
+            color: var(--gray);
+            margin-top: 8px;
+        }
+
+        /* Responsive Design */
+        @@media (max-width: 1200px) {
+            .campaigns-grid
+
+        {
+            grid-template-columns: 1fr;
+        }
+
+        }
+
+        @@media (max-width: 768px) {
+            .page-header
+
+        {
+            grid-template-columns: 1fr;
+            gap: 20px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .header-actions {
+            justify-content: center;
+        }
+
+        .tools-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .marketing-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .section-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .campaign-stats {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .activity-item {
+            flex-direction: column;
+            text-align: center;
+            gap: 15px;
+        }
+
+        }
+
+        @@media (max-width: 576px) {
+            body
+
+        {
+            padding: 15px;
+        }
+
+        .header-content h1 {
+            font-size: 2rem;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            font-size: 0.95rem;
+        }
+
+        .stat-card {
+            flex-direction: column;
+            text-align: center;
+            gap: 15px;
+        }
+
+        .campaign-footer {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .campaign-actions {
+            width: 100%;
+            justify-content: center;
+        }
+
+        }
+
+        /* Animation for elements */
+        @@keyframes fadeInUp {
+            from
+
+        {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        }
+
+        .marketing-dashboard > * {
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 253, 245, 0.1);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 4px;
+        }
+
+            ::-webkit-scrollbar-thumb:hover {
+                background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            }
+    </style>
+</head>
+<body>
+    <div class="marketing-dashboard">
+        <!-- Header Section -->
+        <div class="page-header" data-aos="fade-down">
+            <div class="header-content">
+                <h1><i class="fas fa-bullhorn"></i> Marketing Tools</h1>
+                <p>Promote your books and reach more readers with powerful marketing tools</p>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn btn-outline-primary" onclick="createCampaign()" data-aos="fade-left" data-aos-delay="100">
+                    <i class="fas fa-plus"></i>
+                    New Campaign
+                </button>
+                <button class="btn btn-primary" onclick="viewAnalytics()" data-aos="fade-left" data-aos-delay="200">
+                    <i class="fas fa-chart-bar"></i>
+                    View Analytics
+                </button>
+            </div>
+        </div>
+
+        <!-- Marketing Stats -->
+        <div class="marketing-stats" data-aos="fade-up" data-aos-delay="100">
+            <div class="stat-card" data-aos="flip-left" data-aos-delay="200">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>12,456</h3>
+                    <p>Total Reach</p>
+                    <span class="stat-change positive">+15.2%</span>
+                </div>
+            </div>
+
+            <div class="stat-card" data-aos="flip-left" data-aos-delay="300">
+                <div class="stat-icon">
+                    <i class="fas fa-heart"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>2,847</h3>
+                    <p>Engagements</p>
+                    <span class="stat-change positive">+12.8%</span>
+                </div>
+            </div>
+
+            <div class="stat-card" data-aos="flip-left" data-aos-delay="400">
+                <div class="stat-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>427</h3>
+                    <p>Sales Generated</p>
+                    <span class="stat-change positive">+8.5%</span>
+                </div>
+            </div>
+
+            <div class="stat-card" data-aos="flip-left" data-aos-delay="500">
+                <div class="stat-icon">
+                    <i class="fas fa-share-alt"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>1,234</h3>
+                    <p>Social Shares</p>
+                    <span class="stat-change neutral">+3.2%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Professional Carousel -->
+        <div class="carousel-section" data-aos="fade-up" data-aos-delay="200">
+            <div class="section-header">
+                <h3><i class="fas fa-star"></i> Featured Campaigns</h3>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewAllCampaigns()">
+                    View All
+                </button>
+            </div>
+
+            <div class="professional-carousel">
+                <div class="carousel-track">
+                    <!-- Slide 1 -->
+                    <div class="carousel-slide">
+                        <div class="carousel-icon">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="carousel-content">
+                            <h4>Summer Book Blast</h4>
+                            <p>Our most successful campaign this season, reaching over 8,000 readers and generating 187 book sales with a 30% discount promotion for "The Dragon's Quest".</p>
+                            <button class="btn btn-primary" onclick="openPromoTool()">
+                                <i class="fas fa-rocket"></i>
+                                Launch Similar Campaign
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Slide 2 -->
+                    <div class="carousel-slide">
+                        <div class="carousel-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div class="carousel-content">
+                            <h4>Email Newsletter Success</h4>
+                            <p>Our monthly newsletter campaign achieved a 42% open rate and generated 63 direct book sales. Personalized content and strategic timing were key to this success.</p>
+                            <button class="btn btn-primary" onclick="openEmailTool()">
+                                <i class="fas fa-paper-plane"></i>
+                                Create Email Campaign
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Slide 3 -->
+                    <div class="carousel-slide">
+                        <div class="carousel-icon">
+                            <i class="fab fa-twitter"></i>
+                        </div>
+                        <div class="carousel-content">
+                            <h4>Social Media Impact</h4>
+                            <p>Twitter campaign for book launch reached 15K impressions and generated 124 pre-orders. Strategic hashtags and engaging visual content drove exceptional results.</p>
+                            <button class="btn btn-primary" onclick="openSocialTool()">
+                                <i class="fas fa-share-alt"></i>
+                                Plan Social Campaign
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="carousel-nav">
+                    <div class="carousel-dot active" data-slide="0"></div>
+                    <div class="carousel-dot" data-slide="1"></div>
+                    <div class="carousel-dot" data-slide="2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tools Grid -->
+        <div class="tools-grid" data-aos="fade-up" data-aos-delay="300">
+            <!-- Email Marketing -->
+            <div class="tool-card" data-aos="zoom-in" data-aos-delay="400">
+                <div class="tool-icon">
+                    <i class="fas fa-envelope"></i>
+                </div>
+                <h3>Email Marketing</h3>
+                <p>Create and send newsletters to your readers with beautiful templates and analytics</p>
+                <button class="btn btn-primary" onclick="openEmailTool()">
+                    <i class="fas fa-paper-plane"></i>
+                    Send Email
+                </button>
+            </div>
+
+            <!-- Social Media -->
+            <div class="tool-card" data-aos="zoom-in" data-aos-delay="500">
+                <div class="tool-icon">
+                    <i class="fas fa-hashtag"></i>
+                </div>
+                <h3>Social Media</h3>
+                <p>Generate posts and share on multiple social platforms with scheduling capabilities</p>
+                <button class="btn btn-primary" onclick="openSocialTool()">
+                    <i class="fas fa-share"></i>
+                    Create Post
+                </button>
+            </div>
+
+            <!-- Promotions -->
+            <div class="tool-card" data-aos="zoom-in" data-aos-delay="600">
+                <div class="tool-icon">
+                    <i class="fas fa-percent"></i>
+                </div>
+                <h3>Promotions</h3>
+                <p>Run discounts and special offers to boost sales and attract new readers</p>
+                <button class="btn btn-primary" onclick="openPromoTool()">
+                    <i class="fas fa-tags"></i>
+                    Create Promo
+                </button>
+            </div>
+        </div>
+
+        <!-- Active Campaigns -->
+        <div class="campaigns-section" data-aos="fade-up" data-aos-delay="400">
+            <div class="section-header">
+                <h3><i class="fas fa-tasks"></i> Active Campaigns</h3>
+            </div>
+
+            <div class="campaigns-grid">
+                <!-- Campaign 1 -->
+                <div class="campaign-card" data-aos="fade-up" data-aos-delay="500">
+                    <div class="campaign-header">
+                        <h4>Summer Book Blast</h4>
+                        <span class="campaign-status active">Active</span>
+                    </div>
+                    <div class="campaign-details">
+                        <p>Promoting "The Dragon's Quest" with 30% discount across all platforms</p>
+                        <div class="campaign-stats">
+                            <div class="stat-item">
+                                <span class="label">Reach</span>
+                                <span class="value">8,452</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">Clicks</span>
+                                <span class="value">1,247</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">Sales</span>
+                                <span class="value">187</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="campaign-footer">
+                        <span class="campaign-date">Ends: Jul 31, 2023</span>
+                        <div class="campaign-actions">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editCampaign(1)">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="pauseCampaign(1)">
+                                <i class="fas fa-pause"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campaign 2 -->
+                <div class="campaign-card" data-aos="fade-up" data-aos-delay="600">
+                    <div class="campaign-header">
+                        <h4>New Release Announcement</h4>
+                        <span class="campaign-status scheduled">Scheduled</span>
+                    </div>
+                    <div class="campaign-details">
+                        <p>Email campaign for "The Silent Witness" launch with early bird offers</p>
+                        <div class="campaign-stats">
+                            <div class="stat-item">
+                                <span class="label">Subscribers</span>
+                                <span class="value">2,847</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">Open Rate</span>
+                                <span class="value">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="label">Click Rate</span>
+                                <span class="value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="campaign-footer">
+                        <span class="campaign-date">Starts: Jul 15, 2023</span>
+                        <div class="campaign-actions">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editCampaign(2)">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="cancelCampaign(2)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="activity-section" data-aos="fade-up" data-aos-delay="500">
+            <div class="section-header">
+                <h3><i class="fas fa-history"></i> Recent Marketing Activity</h3>
+            </div>
+
+            <div class="activity-list">
+                <div class="activity-item" data-aos="fade-up" data-aos-delay="600">
+                    <div class="activity-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>Email Campaign Sent</h4>
+                        <p>"Weekly Newsletter" sent to 2,847 subscribers with new book preview</p>
+                        <small>2 hours ago</small>
+                    </div>
+                </div>
+
+                <div class="activity-item" data-aos="fade-up" data-aos-delay="700">
+                    <div class="activity-icon">
+                        <i class="fab fa-twitter"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>Social Post Published</h4>
+                        <p>New tweet about "The Dragon's Quest" discount reached 1.2K impressions</p>
+                        <small>1 day ago</small>
+                    </div>
+                </div>
+
+                <div class="activity-item" data-aos="fade-up" data-aos-delay="800">
+                    <div class="activity-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>Promotion Activated</h4>
+                        <p>30% discount on "The Dragon's Quest" started, generated 42 sales</p>
+                        <small>3 days ago</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Marketing Modal -->
+    <div class="modal fade" id="emailModal" tabindex="-1" aria-labelledby="emailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="emailModalLabel">Create Email Campaign</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="campaignName" class="form-label">Campaign Name</label>
+                            <input type="text" class="form-control" id="campaignName" placeholder="Enter campaign name">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="emailSubject" class="form-label">Email Subject</label>
+                            <input type="text" class="form-control" id="emailSubject" placeholder="Enter email subject">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="emailRecipients" class="form-label">Recipients</label>
+                            <select class="form-control" id="emailRecipients">
+                                <option value="all">All Subscribers (2,847)</option>
+                                <option value="new">New Subscribers (427)</option>
+                                <option value="active">Active Readers (1,234)</option>
+                                <option value="custom">Custom List</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="emailContent" class="form-label">Email Content</label>
+                            <textarea class="form-control" id="emailContent" rows="6" placeholder="Write your email content..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Book Promotion</label>
+                            <select class="form-control">
+                                <option value="">Select a book to promote</option>
+                                <option value="1">The Dragon's Quest</option>
+                                <option value="2">Midnight Mysteries</option>
+                                <option value="3">The Silent Witness</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="sendEmailCampaign()">Send Campaign</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Social Media Modal -->
+    <div class="modal fade" id="socialModal" tabindex="-1" aria-labelledby="socialModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="socialModalLabel">Create Social Media Post</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="postContent" class="form-label">Post Content</label>
+                            <textarea class="form-control" id="postContent" rows="4" placeholder="What would you like to share?"></textarea>
+                            <div class="char-count">280 characters remaining</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Platforms</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="twitter" checked>
+                                <label class="form-check-label" for="twitter">
+                                    <i class="fab fa-twitter"></i> Twitter
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="facebook" checked>
+                                <label class="form-check-label" for="facebook">
+                                    <i class="fab fa-facebook"></i> Facebook
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="instagram">
+                                <label class="form-check-label" for="instagram">
+                                    <i class="fab fa-instagram"></i> Instagram
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Book Promotion</label>
+                            <select class="form-control">
+                                <option value="">Select a book to promote</option>
+                                <option value="1">The Dragon's Quest</option>
+                                <option value="2">Midnight Mysteries</option>
+                                <option value="3">The Silent Witness</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="publishSocialPost()">Publish Post</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Initialize AOS
+        AOS.init({
+            duration: 800,
+            easing: 'ease-out',
+            once: true,
+            offset: 100
+        });
+
+        // Carousel functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const carouselTrack = document.querySelector('.carousel-track');
+            const carouselDots = document.querySelectorAll('.carousel-dot');
+            let currentSlide = 0;
+            const slideCount = document.querySelectorAll('.carousel-slide').length;
+
+            // Function to update carousel position
+            function updateCarousel() {
+                carouselTrack.style.transform = `translateX(-${currentSlide * 100}%)`;
+
+                // Update dots
+                carouselDots.forEach((dot, index) => {
+                    dot.classList.toggle('active', index === currentSlide);
+                });
+            }
+
+            // Add click event to dots
+            carouselDots.forEach((dot, index) => {
+                dot.addEventListener('click', () => {
+                    currentSlide = index;
+                    updateCarousel();
+                });
+            });
+
+            // Auto slide every 5 seconds
+            setInterval(() => {
+                currentSlide = (currentSlide + 1) % slideCount;
+                updateCarousel();
+            }, 5000);
+        });
+
+        // Create campaign
+        function createCampaign() {
+            Swal.fire({
+                title: 'Create New Campaign',
+                html: `
+                    <div style="text-align: left;">
+                        <p>Choose campaign type:</p>
+                        <div style="display: flex; flex-direction: column; gap: 10px; margin: 20px 0;">
+                            <button class="btn btn-outline-primary" onclick="openEmailTool()">Email Marketing</button>
+                            <button class="btn btn-outline-primary" onclick="openSocialTool()">Social Media</button>
+                            <button class="btn btn-outline-primary" onclick="openPromoTool()">Promotions</button>
+                        </div>
+                    </div>
+                `,
+                showConfirmButton: false,
+                showCloseButton: true,
+                width: '400px'
+            });
+        }
+
+        // Open tools
+        function openEmailTool() {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('emailModal')).show();
+            Swal.close();
+        }
+
+        function openSocialTool() {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('socialModal')).show();
+            Swal.close();
+        }
+
+        function openPromoTool() {
+            Swal.fire({
+                title: 'Create Promotion',
+                html: `
+                    <form>
+                        <div class="mb-3">
+                            <label for="promoName" class="form-label">Promotion Name</label>
+                            <input type="text" class="form-control" id="promoName" placeholder="Enter promotion name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="discountType" class="form-label">Discount Type</label>
+                            <select class="form-control" id="discountType">
+                                <option value="percentage">Percentage Off</option>
+                                <option value="fixed">Fixed Amount Off</option>
+                                <option value="bogo">Buy One Get One</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="discountValue" class="form-label">Discount Value</label>
+                            <input type="number" class="form-control" id="discountValue" placeholder="Enter discount value">
+                        </div>
+                        <div class="mb-3">
+                            <label for="promoBook" class="form-label">Select Book</label>
+                            <select class="form-control" id="promoBook">
+                                <option value="1">The Dragon's Quest</option>
+                                <option value="2">Midnight Mysteries</option>
+                                <option value="3">The Silent Witness</option>
+                            </select>
+                        </div>
+                    </form>
+                `,
+                confirmButtonText: 'Create Promotion',
+                confirmButtonColor: '#D4A574',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const name = document.getElementById('promoName').value;
+                    if (!name) {
+                        Swal.showValidationMessage('Please enter a promotion name');
+                    }
+                    return name;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Promotion Created!',
+                        text: 'Your promotion has been created successfully.',
+                        icon: 'success',
+                        confirmButtonColor: '#D4A574'
+                    });
+                }
+            });
+        }
+
+        // Campaign actions
+        function editCampaign(id) {
+            Swal.fire({
+                title: 'Edit Campaign',
+                text: 'Campaign settings updated successfully.',
+                icon: 'success',
+                confirmButtonColor: '#D4A574'
+            });
+        }
+
+        function pauseCampaign(id) {
+            Swal.fire({
+                title: 'Pause Campaign?',
+                text: 'Are you sure you want to pause this campaign?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#F5B461',
+                cancelButtonColor: '#8D6E63',
+                confirmButtonText: 'Yes, pause it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Campaign Paused!',
+                        text: 'Your campaign has been paused.',
+                        icon: 'success',
+                        confirmButtonColor: '#D4A574'
+                    });
+                }
+            });
+        }
+
+        function cancelCampaign(id) {
+            Swal.fire({
+                title: 'Cancel Campaign?',
+                text: 'Are you sure you want to cancel this scheduled campaign?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#8D6E63',
+                confirmButtonText: 'Yes, cancel it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Campaign Cancelled!',
+                        text: 'Your campaign has been cancelled.',
+                        icon: 'success',
+                        confirmButtonColor: '#D4A574'
+                    });
+                }
+            });
+        }
+
+        // Send email campaign
+        function sendEmailCampaign() {
+            Swal.fire({
+                title: 'Sending Email Campaign',
+                text: 'Please wait while we send your email campaign...',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Simulate sending process
+            setTimeout(() => {
+                Swal.fire({
+                    title: 'Campaign Sent!',
+                    text: 'Your email campaign has been sent to 2,847 subscribers.',
+                    icon: 'success',
+                    confirmButtonColor: '#D4A574'
+                });
+                bootstrap.Modal.getInstance(document.getElementById('emailModal')).hide();
+            }, 2000);
+        }
+
+        // Publish social post
+        function publishSocialPost() {
+            Swal.fire({
+                title: 'Publishing Social Post',
+                text: 'Please wait while we publish your post...',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Simulate publishing process
+            setTimeout(() => {
+                Swal.fire({
+                    title: 'Post Published!',
+                    text: 'Your social media post has been published successfully.',
+                    icon: 'success',
+                    confirmButtonColor: '#D4A574'
+                });
+                bootstrap.Modal.getInstance(document.getElementById('socialModal')).hide();
+            }, 1500);
+        }
+
+        // View analytics
+        function viewAnalytics() {
+            Swal.fire({
+                title: 'Marketing Analytics',
+                html: `
+                    <div style="text-align: left;">
+                        <h4>Campaign Performance</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+                            <div style="background: rgba(212, 165, 116, 0.1); padding: 15px; border-radius: 8px;">
+                                <strong>Total Reach:</strong> 12,456
+                            </div>
+                            <div style="background: rgba(163, 184, 108, 0.1); padding: 15px; border-radius: 8px;">
+                                <strong>Engagements:</strong> 2,847
+                            </div>
+                            <div style="background: rgba(245, 180, 97, 0.1); padding: 15px; border-radius: 8px;">
+                                <strong>Click Rate:</strong> 12.4%
+                            </div>
+                            <div style="background: rgba(59, 130, 246, 0.1); padding: 15px; border-radius: 8px;">
+                                <strong>Conversion Rate:</strong> 6.8%
+                            </div>
+                        </div>
+                        <p><strong>Top Performing Campaign:</strong> Summer Book Blast</p>
+                        <p><strong>Best Platform:</strong> Email Marketing (4.2% conversion)</p>
+                    </div>
+                `,
+                confirmButtonColor: '#D4A574',
+                width: '600px'
+            });
+        }
+
+        // View all campaigns
+        function viewAllCampaigns() {
+            Swal.fire({
+                title: 'All Campaigns',
+                html: `
+                    <div style="text-align: left; max-height: 400px; overflow-y: auto;">
+                        <div style="margin: 15px 0; padding: 15px; border-left: 4px solid #A3B86C; background: rgba(163, 184, 108, 0.05);">
+                            <strong>Summer Book Blast</strong><br>
+                            <small>Status: Active • Sales: 187 • Ends: Jul 31, 2023</small>
+                        </div>
+                        <div style="margin: 15px 0; padding: 15px; border-left: 4px solid #F5B461; background: rgba(245, 180, 97, 0.05);">
+                            <strong>New Release Announcement</strong><br>
+                            <small>Status: Scheduled • Starts: Jul 15, 2023</small>
+                        </div>
+                        <div style="margin: 15px 0; padding: 15px; border-left: 4px solid #8D6E63; background: rgba(141, 110, 99, 0.05);">
+                            <strong>Spring Promotion</strong><br>
+                            <small>Status: Completed • Sales: 142 • Ended: Jun 15, 2023</small>
+                        </div>
+                    </div>
+                `,
+                confirmButtonColor: '#D4A574',
+                width: '500px'
+            });
+        }
+
+        // Character counter for social media post
+        document.getElementById('postContent').addEventListener('input', function() {
+            const maxLength = 280;
+            const currentLength = this.value.length;
+            const remaining = maxLength - currentLength;
+            document.querySelector('.char-count').textContent = `${remaining} characters remaining`;
+
+            if (remaining < 0) {
+                document.querySelector('.char-count').style.color = '#dc3545';
+            } else {
+                document.querySelector('.char-count').style.color = '#8D6E63';
+            }
+        });
+    </script>
+</body>
+</html>

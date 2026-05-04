@@ -1,0 +1,20 @@
+﻿@model IEnumerable<EBookDashboard.Models.Plans>
+
+<h2>Choose Your Plan</h2>
+
+<div class="row">
+    @foreach (var plan in Model)
+    {
+        <div class="col-md-4">
+            <div class="card p-3 shadow">
+                <h3>@plan.PlanName</h3>
+                <p>@plan.PlanDescription</p>
+                <h4>$@plan.PlanRate</h4>
+                <form asp-action="BuyPlan" method="post">
+                    <input type="hidden" name="planId" value="@plan.PlanId" />
+                    <button type="submit" class="btn btn-primary">Buy Now</button>
+                </form>
+            </div>
+        </div>
+    }
+</div>

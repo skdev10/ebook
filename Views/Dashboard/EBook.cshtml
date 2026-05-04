@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ebook Details</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Prevent layout shift from scrollbar */
+        html {
+            overflow-y: scroll;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #4a6cf7;
+            --primary-light: #6a86f8;
+            --primary-dark: #3a5bd9;
+            --secondary: #6c757d;
+            --success: #28a745;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #17a2b8;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --content-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --text-secondary: #6c757d;
+            --border-color: #e0e0e0;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-hover: 0 10px 15px rgba(0, 0, 0, 0.1);
+            --radius: 8px;
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            background-color: var(--content-bg);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+            body.dark-mode {
+                --content-bg: #0f172a;
+                --card-bg: #1e293b;
+                --text-color: #e2e8f0;
+                --text-secondary: #94a3b8;
+                --border-color: #334155;
+                --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                --shadow-hover: 0 10px 15px rgba(0, 0, 0, 0.4);
+            }
+
+        /* Main Content Styles */
+        .main-content {
+            padding: 40px;
+            min-height: 100vh;
+            position: relative;
+            width: 100%;
+            top: -15px;
+            max-width: 1760px;
+            /* background: none; */
+            margin-left: 100px;
+        }
+
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-left h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        /* Button Styles */
+        button {
+            padding: 14px 28px;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-3px);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .btn-primary:active {
+                transform: translateY(0);
+                box-shadow: var(--shadow);
+            }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+            .btn-secondary:hover {
+                transform: translateY(-3px);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .btn-secondary:active {
+                transform: translateY(0);
+                box-shadow: var(--shadow);
+            }
+
+        .theme-toggle {
+            background: var(--dark);
+            color: white;
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.3rem;
+            box-shadow: var(--shadow);
+        }
+
+            .theme-toggle:hover {
+                transform: rotate(15deg);
+            }
+
+        /* Fixed Screen Styles - No more layout shifting */
+        .screen {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.4s ease-in-out;
+            position: relative;
+            width: 100%;
+            padding: 0;
+            background: var(--content-bg);
+        }
+
+            .screen.active {
+                display: block;
+                opacity: 1;
+            }
+
+        /* Navigation Tabs */
+        .navigation-tabs {
+            display: flex;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 15px;
+            margin-bottom: 40px;
+            box-shadow: var(--shadow);
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            gap: 10px;
+        }
+
+        .nav-tab {
+            padding: 16px 24px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: var(--transition);
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .nav-tab::before {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 3px;
+                background: linear-gradient(135deg, var(--primary), var(--primary-light));
+                transform: scaleX(0);
+                transition: transform 0.3s ease;
+            }
+
+            .nav-tab.active {
+                color: var(--primary);
+                background-color: rgba(74, 108, 247, 0.1);
+            }
+
+                .nav-tab.active::before {
+                    transform: scaleX(1);
+                }
+
+            .nav-tab:hover:not(.active) {
+                background: var(--content-bg);
+                color: var(--text-color);
+            }
+
+            .nav-tab .tab-icon {
+                font-size: 1.2rem;
+            }
+
+        /* Upload Screen Styles */
+        .upload-section {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 50px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            margin-bottom: 40px;
+            border: 1px solid var(--border-color);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius);
+            padding: 80px 50px;
+            margin: 30px 0;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+
+            .upload-area:hover {
+                border-color: var(--primary);
+                background-color: var(--content-bg);
+                transform: translateY(-5px);
+                box-shadow: var(--shadow-hover);
+            }
+
+        .upload-icon {
+            font-size: 5rem;
+            color: var(--primary);
+            margin-bottom: 25px;
+        }
+
+        .upload-text {
+            margin-bottom: 25px;
+        }
+
+            .upload-text h3 {
+                font-size: 2rem;
+                margin-bottom: 15px;
+                color: var(--text-color);
+            }
+
+            .upload-text p {
+                color: var(--text-secondary);
+                font-size: 1.1rem;
+            }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            margin-top: 25px;
+        }
+
+        .features-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 35px 30px;
+            box-shadow: var(--shadow);
+            text-align: center;
+            transition: var(--transition);
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+            .feature-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 4px;
+                background: linear-gradient(135deg, var(--primary), var(--primary-light));
+                transform: scaleX(0);
+                transition: transform 0.3s ease;
+            }
+
+            .feature-card:hover {
+                transform: translateY(-8px);
+                box-shadow: var(--shadow-hover);
+            }
+
+                .feature-card:hover::before {
+                    transform: scaleX(1);
+                }
+
+        .feature-icon {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 25px;
+        }
+
+        .feature-card h3 {
+            margin-bottom: 20px;
+            color: var(--text-color);
+            font-size: 1.5rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+        }
+
+        /* Title Page Styles */
+        .title-page-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .book-editor, .book-preview {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 40px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .editor-section {
+            margin-bottom: 30px;
+        }
+
+            .editor-section h3 {
+                margin-bottom: 25px;
+                color: var(--text-color);
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 15px;
+                font-size: 1.6rem;
+            }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 10px;
+                font-weight: 600;
+                color: var(--text-color);
+                font-size: 1.05rem;
+            }
+
+            .form-group input, .form-group textarea, .form-group select {
+                width: 100%;
+                padding: 14px 18px;
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius);
+                font-size: 1.05rem;
+                background-color: var(--card-bg);
+                color: var(--text-color);
+                transition: var(--transition);
+            }
+
+                .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+                    outline: none;
+                    border-color: var(--primary);
+                    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.2);
+                }
+
+            .form-group textarea {
+                min-height: 150px;
+                resize: vertical;
+            }
+
+        .preview-section {
+            text-align: center;
+        }
+
+        .book-cover1 {
+            margin-bottom: 40px;
+        }
+
+        .book-cover1-placeholder {
+            width: 250px;
+            height: 350px;
+            background: var(--content-bg);
+            margin: 0 auto 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: var(--radius);
+            border: 2px dashed var(--border-color);
+            transition: var(--transition);
+        }
+
+            .book-cover1-placeholder:hover {
+                border-color: var(--primary);
+            }
+
+            .book-cover1-placeholder i {
+                font-size: 3.5rem;
+                color: var(--text-secondary);
+            }
+
+        .book-title-preview {
+            margin-bottom: 25px;
+        }
+
+            .book-title-preview h2 {
+                font-size: 2.2rem;
+                color: var(--text-color);
+                margin-bottom: 15px;
+            }
+
+            .book-title-preview p {
+                font-size: 1.4rem;
+                color: var(--text-secondary);
+                font-style: italic;
+            }
+
+        .book-author-preview {
+            margin-bottom: 40px;
+        }
+
+            .book-author-preview h3 {
+                font-size: 1.7rem;
+                color: var(--text-color);
+            }
+
+        .publisher-info {
+            margin-bottom: 25px;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .premium-section {
+            background: linear-gradient(135deg, #1e2a4a 0%, #4a6cf7 100%);
+            color: white;
+            padding: 30px;
+            border-radius: var(--radius);
+            text-align: center;
+            margin-top: 40px;
+            box-shadow: var(--shadow);
+        }
+
+            .premium-section h4 {
+                margin-bottom: 20px;
+                font-size: 1.5rem;
+            }
+
+        .premium-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        /* Chapters Styles */
+        .chapters-container {
+            display: grid;
+            grid-template-columns: 45% 55%;
+            gap: 40px;
+        }
+
+        .chapters-list, .chapter-editor {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 40px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+        }
+
+        .chapters-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+            .chapters-header h3 {
+                color: var(--text-color);
+                font-size: 1.6rem;
+            }
+
+        .chapters-search {
+            display: flex;
+            margin-bottom: 25px;
+            width: 100%;
+        }
+
+            .chapters-search input {
+                flex-grow: 1;
+                padding: 14px 18px;
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius) 0 0 var(--radius);
+                border-right: none;
+                background-color: var(--card-bg);
+                color: var(--text-color);
+                transition: var(--transition);
+                font-size: 1.05rem;
+            }
+
+                .chapters-search input:focus {
+                    outline: none;
+                    border-color: var(--primary);
+                }
+
+            .chapters-search button {
+                border-radius: 0 var(--radius) var(--radius) 0;
+            }
+
+        .chapters-items {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .chapter-item {
+            padding: 22px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: var(--transition);
+            border-radius: var(--radius);
+            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .chapter-item::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0;
+                height: 100%;
+                width: 4px;
+                background: linear-gradient(135deg, var(--primary), var(--primary-light));
+                transform: scaleY(0);
+                transition: transform 0.3s ease;
+            }
+
+            .chapter-item:hover {
+                background-color: var(--content-bg);
+                transform: translateX(5px);
+            }
+
+            .chapter-item.active {
+                background-color: var(--content-bg);
+                box-shadow: var(--shadow);
+            }
+
+                .chapter-item.active::before {
+                    transform: scaleY(1);
+                }
+
+        .chapter-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-color);
+            font-size: 1.2rem;
+        }
+
+        .chapter-preview {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .editor-actions {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .word-count {
+            margin-top: 25px;
+            padding: 25px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: var(--radius);
+            text-align: center;
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+            .word-count h4 {
+                margin-bottom: 15px;
+                color: white;
+                font-size: 1.2rem;
+            }
+
+        .count-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: white;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            background: var(--card-bg);
+            padding: 18px 30px;
+            border-radius: var(--radius);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(150%);
+            transition: transform 0.3s;
+            z-index: 1000;
+            color: var(--text-color);
+            border-left: 4px solid var(--success);
+        }
+
+            .toast.show {
+                transform: translateX(0);
+            }
+
+            .toast.success {
+                border-left-color: var(--success);
+            }
+
+            .toast.error {
+                border-left-color: var(--danger);
+            }
+
+        .toast-icon {
+            font-size: 26px;
+        }
+
+        .toast.success .toast-icon {
+            color: var(--success);
+        }
+
+        .toast.error .toast-icon {
+            color: var(--danger);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @@keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Dropdown Styles */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--primary);
+            color: white;
+            box-shadow: var(--shadow);
+        }
+
+            .dropdown-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .dropdown-btn:active {
+                transform: translateY(0);
+                box-shadow: var(--shadow);
+            }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: var(--card-bg);
+            min-width: 220px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-top: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+            .dropdown-content a {
+                color: var(--text-color);
+                padding: 14px 18px;
+                text-decoration: none;
+                display: block;
+                transition: background-color 0.3s;
+            }
+
+                .dropdown-content a:hover {
+                    background-color: var(--content-bg);
+                }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        /* Dropdown sections in ebook details */
+        .dropdown-section {
+            margin: 30px 0;
+            padding: 25px;
+            background: var(--content-bg);
+            border-radius: var(--radius);
+            border: 1px solid var(--border-color);
+        }
+
+        .dropdown-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+            .dropdown-section-header h3, .dropdown-section-header h4 {
+                color: var(--text-color);
+                margin: 0;
+            }
+
+        /* Responsive Styles */
+        @@media (max-width: 1888px) {
+            .main-content {
+                padding: 35px;
+            }
+        }
+
+        @@media (max-width: 1600px) {
+            .main-content {
+                padding: 30px;
+            }
+        }
+
+        @@media (max-width: 1400px) {
+            .title-page-container, .chapters-container {
+                grid-template-columns: 1fr;
+            }
+
+            .main-content {
+                padding: 25px;
+            }
+        }
+
+        @@media (max-width: 1200px) {
+            .top-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 25px;
+            }
+
+            .header-right {
+                width: 100%;
+                justify-content: space-between;
+                flex-wrap: wrap;
+            }
+
+            .features-section {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            }
+        }
+
+        @@media (max-width: 992px) {
+            .top-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 25px;
+            }
+
+            .header-right {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .features-section {
+                grid-template-columns: 1fr;
+            }
+
+            .premium-buttons, .editor-actions {
+                flex-direction: column;
+            }
+
+            .upload-section {
+                padding: 35px;
+            }
+
+            .upload-area {
+                padding: 60px 30px;
+            }
+
+            .book-editor, .book-preview, .chapters-list, .chapter-editor {
+                padding: 35px;
+            }
+
+            .upload-icon, .book-cover1-placeholder i {
+                font-size: 3.5rem;
+            }
+
+            .header-left h1 {
+                font-size: 2.2rem;
+            }
+
+            .chapters-container {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .chapter-editor .form-group textarea {
+                min-height: 250px;
+            }
+
+            .editor-actions {
+                flex-direction: column;
+            }
+
+                .editor-actions button {
+                    width: 100%;
+                }
+
+            .navigation-tabs {
+                flex-wrap: wrap;
+            }
+
+            .dropdown-content {
+                position: static;
+                width: 100%;
+                margin-top: 15px;
+            }
+
+            .dropdown-section-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 20px;
+            }
+        }
+
+        @@media (max-width: 768px) {
+            .main-content {
+                padding: 20px;
+            }
+
+            .main-content {
+                padding: 40px;
+                min-height: 100vh;
+                position: relative;
+                width: 100%;
+                max-width: 1980px;
+                margin-left: 0;
+                background: none;
+            }
+
+            .book-editor, .book-preview, .chapters-list, .chapter-editor {
+                padding: 25px;
+            }
+
+            .upload-section {
+                padding: 25px;
+            }
+
+            .header-right {
+                flex-direction: column;
+                width: 100%;
+                gap: 15px;
+            }
+
+            .theme-toggle {
+                width: 100%;
+                border-radius: var(--radius);
+            }
+
+            .header-right button, .header-right .dropdown {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .title-page-container, .chapters-container {
+                gap: 25px;
+            }
+
+            .chapters-items {
+                max-height: 500px;
+                width: 100%;
+                overflow-y: auto;
+            }
+
+            .upload-area {
+                padding: 40px 20px;
+            }
+
+            .upload-text h3 {
+                font-size: 1.7rem;
+            }
+
+            .upload-text p {
+                font-size: 1rem;
+            }
+
+            .book-cover1-placeholder {
+                width: 200px;
+                height: 300px;
+            }
+
+            .book-title-preview h2 {
+                font-size: 1.8rem;
+            }
+
+            .book-author-preview h3 {
+                font-size: 1.5rem;
+            }
+
+            .form-group input, .form-group textarea, .form-group select {
+                padding: 12px 15px;
+                font-size: 1rem;
+            }
+
+            .chapter-title {
+                font-size: 1.1rem;
+            }
+
+            .chapter-preview {
+                font-size: 0.9rem;
+            }
+
+            .count-value {
+                font-size: 2.5rem;
+            }
+
+            .chapters-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+                .chapters-header button {
+                    width: 100%;
+                }
+
+            .chapters-search {
+                flex-direction: column;
+            }
+
+                .chapters-search input {
+                    border-radius: var(--radius);
+                    border-right: 1px solid var(--border-color);
+                    margin-bottom: 15px;
+                }
+
+                .chapters-search button {
+                    border-radius: var(--radius);
+                }
+
+            .navigation-tabs {
+                flex-direction: column;
+            }
+
+            .dropdown {
+                width: 100%;
+            }
+
+            .dropdown-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        @@media (max-width: 576px) {
+
+            .main-content {
+                padding: 40px;
+                min-height: 100vh;
+                position: relative;
+                width: 100%;
+                max-width: 1980px;
+                margin-left: 0;
+                background: none;
+            }
+
+
+            .header-right button {
+                padding: 12px 18px;
+                font-size: 0.95rem;
+            }
+
+            .premium-buttons button {
+                width: 100%;
+            }
+
+            .editor-actions button {
+                width: 100%;
+            }
+
+            .book-cover1-placeholder {
+                width: 180px;
+                height: 270px;
+            }
+
+            .feature-card {
+                padding: 25px 20px;
+            }
+
+            .feature-icon {
+                font-size: 2.5rem;
+            }
+        }
+
+        .header-left p {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <h1 id="screen-title">Ebook Details</h1>
+                <p>Manage all aspects of your ebook in one place</p>
+            </div>
+            <div class="header-right">
+                <button class="btn-primary" id="previewBtn"><i class="fas fa-eye"></i> Preview</button>
+                <button class="btn-secondary" id="helpBtn"><i class="fas fa-question-circle"></i> Help</button>
+                <button class="theme-toggle" id="themeToggle">🌙</button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <div class="navigation-tabs">
+            <div class="nav-tab active" data-screen="upload-screen">
+                <i class="fas fa-upload tab-icon"></i> Upload Manuscript
+            </div>
+            <div class="nav-tab" data-screen="title-page-screen">
+                <i class="fas fa-font tab-icon"></i> Ebook Details
+            </div>
+            <div class="nav-tab" data-screen="chapters-screen">
+                <i class="fas fa-list tab-icon"></i> Chapters
+            </div>
+        </div>
+
+        <!-- E-Book Screens -->
+        <div id="upload-screen" class="screen active">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <div class="upload-text">
+                        <h3>Upload Your Manuscript</h3>
+                        <p>Drag & drop your file here or click to browse</p>
+                        <p class="small">Supported formats: DOC, DOCX, PDF, TXT, EPUB</p>
+                    </div>
+                    <input type="file" id="fileInput" class="file-input" accept=".doc,.docx,.pdf,.txt,.epub">
+                    <button class="btn-primary upload-btn" id="uploadBtn"><i class="fas fa-upload"></i> Upload File</button>
+                </div>
+            </div>
+            <div class="features-section">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-pencil-alt"></i>
+                    </div>
+                    <h3>Edit & Format</h3>
+                    <p>Professional editing and formatting tools to make your book look perfect</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h3>Proofread</h3>
+                    <p>AI-powered proofreading to catch errors and improve your writing</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-palette"></i>
+                    </div>
+                    <h3>Design Cover</h3>
+                    <p>Create stunning book covers with our easy-to-use design tools</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <h3>Publish Worldwide</h3>
+                    <p>Distribute your book to all major platforms with a single click</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="title-page-screen" class="screen">
+            <div class="title-page-container">
+                <div class="book-editor">
+                    <div class="editor-section">
+                        <h3>Ebook Details</h3>
+                        <div class="form-group">
+                            <label for="bookTitle">Ebook Title</label>
+                            <input type="text" id="bookTitle" placeholder="Enter ebook title" value="Digital Marketing Mastery">
+                        </div>
+                        <div class="form-group">
+                            <label for="bookSubtitle">Subtitle</label>
+                            <input type="text" id="bookSubtitle" placeholder="Enter subtitle" value="Strategies for the Modern Business">
+                        </div>
+                        <div class="form-group">
+                            <label for="bookAuthor">Author Name</label>
+                            <input type="text" id="bookAuthor" placeholder="Enter author name" value="Alex Johnson">
+                        </div>
+                        <div class="form-group">
+                            <label for="bookCategory">Category</label>
+                            <select id="bookCategory">
+                                <option value="business">Business</option>
+                                <option value="fiction">Fiction</option>
+                                <option value="non-fiction">Non-Fiction</option>
+                                <option value="technology">Technology</option>
+                                <option value="self-help">Self-Help</option>
+                                <option value="education">Education</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Book Options Dropdown Section -->
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-header">
+                            <h3>Book Options</h3>
+                            <div class="dropdown">
+                                <button class="dropdown-btn"><i class="fas fa-book"></i> Book Actions <i class="fas fa-chevron-down"></i></button>
+                                <div class="dropdown-content">
+                                    <a href="#" id="exportBookBtn"><i class="fas fa-file-export"></i> Export Book</a>
+                                    <a href="#" id="publishBookBtn"><i class="fas fa-globe"></i> Publish Book</a>
+                                    <a href="#" id="duplicateBookBtn"><i class="fas fa-copy"></i> Duplicate Book</a>
+                                    <a href="#" id="bookSettingsBtn"><i class="fas fa-cog"></i> Book Settings</a>
+                                </div>
+                            </div>
+                        </div>
+                        <p>Use these options to manage your ebook publishing and distribution.</p>
+                    </div>
+
+                    <div class="editor-section">
+                        <h3>Publication Details</h3>
+                        <div class="form-group">
+                            <label for="publisherName">Publisher Name</label>
+                            <input type="text" id="publisherName" placeholder="Enter publisher name" value="Modern Publishing">
+                        </div>
+                        <div class="form-group">
+                            <label for="publicationDate">Publication Date</label>
+                            <input type="date" id="publicationDate" value="2023-10-15">
+                        </div>
+                        <div class="form-group">
+                            <label for="isbn">ISBN</label>
+                            <input type="text" id="isbn" placeholder="Enter ISBN" value="978-1-234567-89-0">
+                        </div>
+                    </div>
+                    <div class="editor-section">
+                        <h3>Ebook Description</h3>
+                        <div class="form-group">
+                            <label for="bookDescription">Description</label>
+                            <textarea id="bookDescription" placeholder="Enter ebook description">A comprehensive guide to digital marketing strategies that help businesses thrive in the modern digital landscape. Learn about SEO, social media marketing, content creation, and more.</textarea>
+                        </div>
+                    </div>
+                    <button class="btn-primary" id="nextStepBtn"><i class="fas fa-arrow-right"></i> Next: Chapters</button>
+                </div>
+                <div class="book-preview">
+                    <div class="preview-section">
+                        <div class="book-cover1">
+                            <div class="book-cover1-placeholder">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <button class="btn-secondary" id="uploadCoverBtn"><i class="fas fa-upload"></i> Upload Cover Image</button>
+                        </div>
+                        <div class="book-title-preview">
+                            <h2 id="previewTitle">Digital Marketing Mastery</h2>
+                            <p id="previewSubtitle">Strategies for the Modern Business</p>
+                        </div>
+                        <div class="book-author-preview">
+                            <h3 id="previewAuthor">Alex Johnson</h3>
+                        </div>
+                        <div class="publisher-info">
+                            <p id="previewPublisher">Modern Publishing</p>
+                            <p id="previewDate">October 15, 2023</p>
+                        </div>
+                    </div>
+                    <div class="premium-section">
+                        <h4>Buy Premium To Unlock All Features To Make Your Book A Best Seller!</h4>
+                        <div class="premium-buttons">
+                            <button class="btn-secondary" id="viewPlansBtn">View Plans</button>
+                            <button class="btn-primary" id="unlockNowBtn">Unlock Now</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="chapters-screen" class="screen">
+            <div class="chapters-container">
+                <div class="chapters-list">
+                    <div class="chapters-header">
+                        <h3>Table of Contents</h3>
+                        <button class="btn-primary" id="addChapterBtn"><i class="fas fa-plus"></i> Add Chapter</button>
+                    </div>
+
+                    <!-- Chapter Options Dropdown Section -->
+                    <div class="dropdown-section">
+                        <div class="dropdown-section-header">
+                            <h4>Chapter Management</h4>
+                            <div class="dropdown">
+                                <button class="dropdown-btn"><i class="fas fa-list"></i> Chapter Actions <i class="fas fa-chevron-down"></i></button>
+                                <div class="dropdown-content">
+                                    <a href="#" id="reorderChaptersBtn"><i class="fas fa-sort"></i> Reorder Chapters</a>
+                                    <a href="#" id="importChapterBtn"><i class="fas fa-file-import"></i> Import Chapter</a>
+                                    <a href="#" id="exportChapterBtn"><i class="fas fa-file-export"></i> Export Chapter</a>
+                                    <a href="#" id="chapterTemplatesBtn"><i class="fas fa-layer-group"></i> Chapter Templates</a>
+                                </div>
+                            </div>
+                        </div>
+                        <p>Use these options to manage your chapters and content.</p>
+                    </div>
+
+                    <div class="chapters-search">
+                        <input type="text" placeholder="Search chapters..." id="searchChapters">
+                        <button class="btn-secondary" id="searchBtn"><i class="fas fa-search"></i></button>
+                    </div>
+                    <div class="chapters-items">
+                        <div class="chapter-item active" data-chapter="1">
+                            <div class="chapter-title">1. Introduction to Digital Marketing</div>
+                            <div class="chapter-preview">Understanding the fundamentals of digital marketing and its importance in today's business landscape.</div>
+                        </div>
+                        <div class="chapter-item" data-chapter="2">
+                            <div class="chapter-title">2. Search Engine Optimization</div>
+                            <div class="chapter-preview">Learn how to optimize your website to rank higher in search engine results and drive organic traffic.</div>
+                        </div>
+                        <div class="chapter-item" data-chapter="3">
+                            <div class="chapter-title">3. Social Media Marketing</div>
+                            <div class="chapter-preview">Strategies for leveraging social media platforms to build brand awareness and engage with your audience.</div>
+                        </div>
+                        <div class="chapter-item" data-chapter="4">
+                            <div class="chapter-title">4. Content Creation & Marketing</div>
+                            <div class="chapter-preview">Creating valuable content that attracts and retains customers while driving profitable actions.</div>
+                        </div>
+                        <div class="chapter-item" data-chapter="5">
+                            <div class="chapter-title">5. Email Marketing Strategies</div>
+                            <div class="chapter-preview">Building effective email campaigns that convert subscribers into loyal customers.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chapter-editor">
+                    <div class="editor-section">
+                        <h3>Edit Chapter</h3>
+                        <div class="form-group">
+                            <label for="chapterTitle">Chapter Title</label>
+                            <input type="text" id="chapterTitle" value="1. Introduction to Digital Marketing">
+                        </div>
+                        <div class="form-group">
+                            <label for="chapterContent">Chapter Content</label>
+                            <textarea id="chapterContent">Digital marketing encompasses all marketing efforts that use an electronic device or the internet. Businesses leverage digital channels such as search engines, social media, email, and other websites to connect with current and prospective customers.
+
+In today's digital age, having a strong online presence is crucial for business success. This chapter will explore the fundamental concepts of digital marketing and why it's essential for modern businesses.
+
+We'll cover:
+- The evolution of marketing from traditional to digital
+- Key components of a digital marketing strategy
+- How digital marketing differs from traditional marketing
+- The importance of data and analytics in digital campaigns</textarea>
+                        </div>
+                        <div class="editor-actions">
+                            <button class="btn-primary" id="saveChapterBtn"><i class="fas fa-save"></i> Save Chapter</button>
+                            <button class="btn-secondary" id="deleteChapterBtn"><i class="fas fa-trash"></i> Delete Chapter</button>
+                        </div>
+                    </div>
+                    <div class="word-count">
+                        <h4>Word Count</h4>
+                        <div class="count-value">24,567</div>
+                        <p>Total words in your ebook</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Operation completed successfully!</span>
+    </div>
+
+    <script>
+        // DOM Elements
+        const themeToggle = document.getElementById('themeToggle');
+        const helpBtn = document.getElementById('helpBtn');
+        const previewBtn = document.getElementById('previewBtn');
+        const nextStepBtn = document.getElementById('nextStepBtn');
+        const viewPlansBtn = document.getElementById('viewPlansBtn');
+        const unlockNowBtn = document.getElementById('unlockNowBtn');
+        const addChapterBtn = document.getElementById('addChapterBtn');
+        const saveChapterBtn = document.getElementById('saveChapterBtn');
+        const deleteChapterBtn = document.getElementById('deleteChapterBtn');
+        const searchBtn = document.getElementById('searchBtn');
+        const uploadCoverBtn = document.getElementById('uploadCoverBtn');
+        const toast = document.getElementById('toast');
+        const screenTitle = document.getElementById('screen-title');
+        const navTabs = document.querySelectorAll('.nav-tab');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        // Dropdown buttons
+        const exportBookBtn = document.getElementById('exportBookBtn');
+        const publishBookBtn = document.getElementById('publishBookBtn');
+        const duplicateBookBtn = document.getElementById('duplicateBookBtn');
+        const bookSettingsBtn = document.getElementById('bookSettingsBtn');
+        const reorderChaptersBtn = document.getElementById('reorderChaptersBtn');
+        const importChapterBtn = document.getElementById('importChapterBtn');
+        const exportChapterBtn = document.getElementById('exportChapterBtn');
+        const chapterTemplatesBtn = document.getElementById('chapterTemplatesBtn');
+
+        // Screens
+        const screens = document.querySelectorAll('.screen');
+
+        // Form Inputs
+        const bookTitle = document.getElementById('bookTitle');
+        const bookSubtitle = document.getElementById('bookSubtitle');
+        const bookAuthor = document.getElementById('bookAuthor');
+        const bookCategory = document.getElementById('bookCategory');
+        const publisherName = document.getElementById('publisherName');
+        const publicationDate = document.getElementById('publicationDate');
+        const isbn = document.getElementById('isbn');
+        const bookDescription = document.getElementById('bookDescription');
+
+        // Preview Elements
+        const previewTitle = document.getElementById('previewTitle');
+        const previewSubtitle = document.getElementById('previewSubtitle');
+        const previewAuthor = document.getElementById('previewAuthor');
+        const previewPublisher = document.getElementById('previewPublisher');
+        const previewDate = document.getElementById('previewDate');
+
+        // Chapter Elements
+        const chapterItems = document.querySelectorAll('.chapter-item');
+        const chapterTitleInput = document.getElementById('chapterTitle');
+        const chapterContentInput = document.getElementById('chapterContent');
+
+        // Screen titles
+        const screenTitles = {
+            'upload-screen': 'Upload Manuscript',
+            'title-page-screen': 'Ebook Details',
+            'chapters-screen': 'Chapters Editor'
+        };
+
+        // Dark Mode State
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Apply saved theme on load
+        if (isDarkMode) {
+            document.body.classList.add('dark-mode');
+            themeToggle.textContent = '☀️';
+        }
+
+        // Theme Toggle
+        themeToggle.addEventListener('click', () => {
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('dark-mode');
+            themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+
+            // Save preference to localStorage
+            localStorage.setItem('darkMode', isDarkMode);
+        });
+
+        // Navigation tabs
+        navTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const screenId = this.getAttribute('data-screen');
+
+                // Update active tab
+                navTabs.forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                // Show the selected screen
+                showScreen(screenId);
+            });
+        });
+
+        function showScreen(screenId) {
+            // Hide all screens
+            screens.forEach(screen => {
+                screen.classList.remove('active');
+            });
+
+            // Show the selected screen
+            const targetScreen = document.getElementById(screenId);
+            if (targetScreen) {
+                targetScreen.classList.add('active');
+            }
+
+            // Update screen title
+            screenTitle.textContent = screenTitles[screenId] || 'Ebook Details';
+        }
+
+        // File Upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadBtn.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const fileName = e.target.files[0].name;
+                showToast(`"${fileName}" uploaded successfully!`, 'success');
+                const uploadText = uploadArea.querySelector('.upload-text');
+                uploadText.innerHTML = `<h3>Upload Successful!</h3><p>${fileName} is ready for processing</p>`;
+
+                // Update upload button to process file
+                uploadBtn.innerHTML = '<i class="fas fa-cog"></i> Process File';
+                uploadBtn.onclick = () => {
+                    // Show loading state
+                    uploadBtn.innerHTML = '<span class="spinner"></span> Processing...';
+                    uploadBtn.disabled = true;
+
+                    showToast('Processing your manuscript...', 'success');
+                    setTimeout(() => {
+                        uploadBtn.innerHTML = '<i class="fas fa-check"></i> Processed';
+                        showToast('Manuscript processed successfully!', 'success');
+
+                        // Switch to title page screen after a brief delay
+                        setTimeout(() => {
+                            navTabs.forEach(t => t.classList.remove('active'));
+                            document.querySelector('[data-screen="title-page-screen"]').classList.add('active');
+                            showScreen('title-page-screen');
+
+                            // Reset upload button after navigation
+                            setTimeout(() => {
+                                uploadBtn.innerHTML = '<i class="fas fa-upload"></i> Upload File';
+                                uploadBtn.disabled = false;
+                                uploadBtn.onclick = () => fileInput.click();
+                            }, 500);
+                        }, 1000);
+                    }, 3000);
+                };
+            }
+        });
+
+        // Next Step
+        nextStepBtn.addEventListener('click', () => {
+            showToast('Moving to chapters editor...', 'success');
+            // Switch to chapters screen
+            navTabs.forEach(t => t.classList.remove('active'));
+            document.querySelector('[data-screen="chapters-screen"]').classList.add('active');
+            showScreen('chapters-screen');
+        });
+
+        // Chapter Management
+        function chapterItemClick() {
+            chapterItems.forEach(item => item.classList.remove('active'));
+            this.classList.add('active');
+            loadChapter(this.dataset.chapter);
+        }
+
+        function loadChapter(num) {
+            chapterTitleInput.value = `Chapter ${num}`;
+            chapterContentInput.value = `This is the content for chapter ${num}. Click to edit this text.`;
+        }
+
+        chapterItems.forEach(item => item.addEventListener('click', chapterItemClick));
+
+        saveChapterBtn.addEventListener('click', () => {
+            const active = document.querySelector('.chapter-item.active');
+            if (active) {
+                // Show saving state
+                const originalText = saveChapterBtn.innerHTML;
+                saveChapterBtn.innerHTML = '<span class="spinner"></span> Saving...';
+                saveChapterBtn.disabled = true;
+
+                setTimeout(() => {
+                    active.querySelector('.chapter-title').textContent = chapterTitleInput.value;
+                    active.querySelector('.chapter-preview').textContent = chapterContentInput.value.substring(0, 100) + '...';
+                    showToast('Chapter saved!', 'success');
+
+                    // Restore button state
+                    saveChapterBtn.innerHTML = originalText;
+                    saveChapterBtn.disabled = false;
+                }, 1000);
+            } else {
+                showToast('Please select a chapter to save', 'error');
+            }
+        });
+
+        deleteChapterBtn.addEventListener('click', () => {
+            const active = document.querySelector('.chapter-item.active');
+            if (active) {
+                if (confirm('Are you sure you want to delete this chapter?')) {
+                    active.remove();
+                    showToast('Chapter deleted!', 'success');
+
+                    // If there are remaining chapters, select the first one
+                    const remainingChapters = document.querySelectorAll('.chapter-item');
+                    if (remainingChapters.length > 0) {
+                        remainingChapters[0].classList.add('active');
+                        loadChapter(remainingChapters[0].dataset.chapter);
+                    } else {
+                        // Clear editor if no chapters remain
+                        chapterTitleInput.value = '';
+                        chapterContentInput.value = '';
+                    }
+                }
+            } else {
+                showToast('Please select a chapter to delete', 'error');
+            }
+        });
+
+        addChapterBtn.addEventListener('click', () => {
+            const num = document.querySelectorAll('.chapter-item').length + 1;
+            const newItem = document.createElement('div');
+            newItem.className = 'chapter-item';
+            newItem.dataset.chapter = num;
+            newItem.innerHTML = `<div class="chapter-title">${num}. New Chapter</div><div class="chapter-preview">Click to edit</div>`;
+            document.querySelector('.chapters-items').appendChild(newItem);
+            newItem.addEventListener('click', chapterItemClick);
+
+            // Select the new chapter
+            chapterItems.forEach(item => item.classList.remove('active'));
+            newItem.classList.add('active');
+            loadChapter(num);
+
+            showToast(`Chapter ${num} added!`, 'success');
+        });
+
+        // Search functionality
+        searchBtn.addEventListener('click', () => {
+            const searchTerm = document.getElementById('searchChapters').value.toLowerCase();
+            if (searchTerm) {
+                const chapters = document.querySelectorAll('.chapter-item');
+                let found = false;
+
+                chapters.forEach(chapter => {
+                    const title = chapter.querySelector('.chapter-title').textContent.toLowerCase();
+                    const preview = chapter.querySelector('.chapter-preview').textContent.toLowerCase();
+
+                    if (title.includes(searchTerm) || preview.includes(searchTerm)) {
+                        chapter.style.display = 'block';
+                        if (!found) {
+                            chapter.classList.add('active');
+                            loadChapter(chapter.dataset.chapter);
+                            found = true;
+                        }
+                    } else {
+                        chapter.style.display = 'none';
+                    }
+                });
+
+                if (!found) {
+                    showToast('No chapters found matching your search', 'error');
+                }
+            } else {
+                // Show all chapters if search is empty
+                const chapters = document.querySelectorAll('.chapter-item');
+                chapters.forEach(chapter => {
+                    chapter.style.display = 'block';
+                });
+            }
+        });
+
+        // Upload cover image
+        uploadCoverBtn.addEventListener('click', () => {
+            // Create a file input for cover image
+            const coverInput = document.createElement('input');
+            coverInput.type = 'file';
+            coverInput.accept = 'image/*';
+            coverInput.style.display = 'none';
+            document.body.appendChild(coverInput);
+
+            coverInput.click();
+
+            coverInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    if (file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const bookCover = document.querySelector('.book-cover1-placeholder');
+                            bookCover.innerHTML = `<img src="${e.target.result}" alt="Book Cover" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`;
+                            showToast('Cover image uploaded successfully!', 'success');
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        showToast('Please select a valid image file', 'error');
+                    }
+                }
+
+                // Clean up
+                document.body.removeChild(coverInput);
+            });
+        });
+
+        // Real-time preview update
+        [bookTitle, bookSubtitle, bookAuthor, publisherName, publicationDate].forEach(input => {
+            input?.addEventListener('input', () => {
+                previewTitle.textContent = bookTitle.value || 'Ebook Title';
+                previewSubtitle.textContent = bookSubtitle.value || 'Ebook Subtitle';
+                previewAuthor.textContent = bookAuthor.value || 'Author Name';
+                previewPublisher.textContent = publisherName.value || 'Publisher Name';
+
+                // Format date for preview
+                if (publicationDate.value) {
+                    const date = new Date(publicationDate.value);
+                    previewDate.textContent = date.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+                } else {
+                    previewDate.textContent = 'Publication Date';
+                }
+            });
+        });
+
+        // Dropdown button actions
+        exportBookBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Exporting ebook...', 'success');
+        });
+
+        publishBookBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Publishing ebook...', 'success');
+        });
+
+        duplicateBookBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Duplicating ebook...', 'success');
+        });
+
+        bookSettingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Opening ebook settings...', 'success');
+        });
+
+        reorderChaptersBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Opening chapter reorder interface...', 'success');
+        });
+
+        importChapterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Importing chapter...', 'success');
+        });
+
+        exportChapterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Exporting chapter...', 'success');
+        });
+
+        chapterTemplatesBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showToast('Opening chapter templates...', 'success');
+        });
+
+        // Premium features buttons
+        viewPlansBtn.addEventListener('click', () => {
+            showToast('Opening premium plans...', 'success');
+            // In a real app, this would open a modal or navigate to a pricing page
+        });
+
+        unlockNowBtn.addEventListener('click', () => {
+            showToast('Redirecting to checkout...', 'success');
+            // In a real app, this would open a checkout process
+        });
+
+        // Help button
+        helpBtn.addEventListener('click', () => {
+            showToast('Opening help documentation...', 'success');
+            // In a real app, this would open a help modal or documentation
+        });
+
+        // Preview button
+        previewBtn.addEventListener('click', () => {
+            showToast('Generating book preview...', 'success');
+            // In a real app, this would generate and show a preview of the book
+        });
+
+        // Toast
+        function showToast(message, type = 'success') {
+            toast.className = `toast ${type}`;
+            toast.querySelector('.toast-message').textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            updatePreview();
+
+            // Set initial active chapter
+            if (chapterItems.length > 0) {
+                chapterItems[0].classList.add('active');
+                loadChapter(1);
+
+            }
+        });
+
+        function updatePreview() {
+            previewTitle.textContent = bookTitle.value;
+            previewSubtitle.textContent = bookSubtitle.value;
+            previewAuthor.textContent = bookAuthor.value;
+            previewPublisher.textContent = publisherName.value;
+
+            if (publicationDate.value) {
+                const date = new Date(publicationDate.value);
+                previewDate.textContent = date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            } else {
+                previewDate.textContent = 'Publication Date';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,943 @@
+@{
+    ViewData["Title"] = "My Books";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var rawBooks = ViewBag.Books as IEnumerable<object> ?? Enumerable.Empty<object>();
+    var authorName = ViewBag.AuthorName as string ?? "Author";
+    var userId = ViewBag.UserId;
+
+    object? Prop(object obj, string name)
+    {
+        if (obj is IDictionary<string, object> dict && dict.TryGetValue(name, out var val))
+            return val;
+        var p = obj.GetType().GetProperty(name);
+        return p?.GetValue(obj);
+    }
+
+    int AsInt(object? v)
+    {
+        if (v == null) return 0;
+        if (v is int i) return i;
+        if (int.TryParse(v.ToString(), out var n)) return n;
+        return 0;
+    }
+
+    string AsString(object? v) => v?.ToString() ?? "";
+    string CoverUrl(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop";
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            return path;
+        return path.StartsWith("/") ? path : "/" + path;
+    }
+
+    var books = rawBooks.Select(b => new
+    {
+        BookId = AsInt(Prop(b, "BookId")),
+        Title = AsString(Prop(b, "Title")),
+        Status = AsString(Prop(b, "Status")),
+        ChapterCount = AsInt(Prop(b, "ChapterCount")),
+        WordCount = AsInt(Prop(b, "WordCount")),
+        Genre = AsString(Prop(b, "Genre")),
+        Description = AsString(Prop(b, "Description")),
+        CoverImagePath = AsString(Prop(b, "CoverImagePath"))
+    }).ToList();
+}
+@Html.AntiForgeryToken()
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
+    .font-serif { font-family: 'Playfair Display', serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .drag-scroll { cursor: grab; }
+    .drag-scroll:active { cursor: grabbing; }
+    .drag-scroll > * { pointer-events: auto; }
+    .drag-scroll.is-dragging > * { pointer-events: none; }
+    .mybooks-container { background: #f3f5f9; min-height: 100%; }
+    .mybooks-main { background: white; border-radius: 2rem; box-shadow: 0 8px 30px rgba(15,23,42,0.08); overflow: hidden; max-width: 1490px; }
+    .book-card-mybooks { transition: all 0.2s; }
+    .book-card-mybooks:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(91, 33, 182, 0.22); }
+    .aside-panel-mybooks {
+        background: linear-gradient(165deg, #4c1d95 0%, #5b21b6 42%, #6d28d9 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    .aside-panel-mybooks::before {
+        content: '';
+        position: absolute;
+        width: 220px; height: 220px;
+        right: -60px; top: -80px;
+        background: radial-gradient(circle, rgba(196,181,253,0.35) 0%, transparent 70%);
+        pointer-events: none;
+    }
+    .mybooks-aside-kicker {
+        font-size: 0.65rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase;
+        color: rgba(255,255,255,0.55); margin-bottom: 0.35rem;
+    }
+    .mybooks-aside-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 0 0 1.25rem; }
+    .mybooks-stat-pill {
+        background: rgba(0,0,0,0.12);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 10px 8px;
+    }
+    .btn-read-now { background: #6d28d9; box-shadow: 0 8px 20px rgba(91, 33, 182, 0.35); }
+    .btn-read-now:hover { background: #7c3aed; box-shadow: 0 8px 24px rgba(91, 33, 182, 0.45); }
+    .category-pill-active { background: #6d28d9 !important; color: white !important; }
+    .book-card-selected {
+        box-shadow: 0 0 0 3px #7c3aed, 0 12px 24px rgba(91, 33, 182, 0.18) !important;
+        border-color: #7c3aed !important;
+    }
+    @@media (max-width: 1023px) {
+        .mybooks-main { min-height: auto; height:auto !important; max-height: none; }
+        .aside-panel-mybooks { min-height: 280px; }
+    }
+
+    /* ── Full book preview modal: print-style pages + interior template ── */
+    .mybooks-preview-popup {
+        border-radius: 1rem !important;
+        padding: 0 !important;
+        width: min(96vw, 1100px) !important;
+        max-width: 1100px !important;
+        overflow: hidden !important;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.32) !important;
+        border: 1px solid rgba(15, 23, 42, 0.08) !important;
+    }
+    .mybooks-preview-popup .swal2-title { display: none !important; padding: 0 !important; }
+    .mybooks-preview-popup .swal2-html-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        max-height: none !important;
+        text-align: left !important;
+    }
+    .mybooks-preview-popup .swal2-actions {
+        margin: 0 !important;
+        padding: 12px 16px !important;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+        border-top: 1px solid #e2e8f0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .mybooks-modal-root { display: flex; flex-direction: column; min-height: 0; }
+    .mybooks-modal-toolbar {
+        display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, #4c1d95 0%, #6d28d9 50%, #7c3aed 100%);
+        color: #fff;
+        border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+    .mybooks-toolbar-title { font-family: 'Playfair Display', Georgia, serif; font-size: 1.15rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+    .mybooks-toolbar-author { font-size: 0.8rem; opacity: 0.88; margin-top: 4px; }
+    .mybooks-toolbar-badge {
+        font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+        background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.28);
+        padding: 8px 12px; border-radius: 10px; color: #ede9fe; max-width: 280px; line-height: 1.35;
+    }
+    .mybooks-modal-scroll {
+        max-height: min(72vh, 680px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: linear-gradient(160deg, #57534e 0%, #44403c 35%, #292524 100%);
+        padding: 22px 14px 28px;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* Readable column: 80% of modal inner width, centered (book-like spread) */
+    .mybooks-book-shell {
+        width: 80%;
+        max-width: 680px;
+        min-width: min(100%, 280px);
+        margin: 0 auto;
+    }
+    .mybooks-page {
+        background: linear-gradient(180deg, #fffef9 0%, #faf8f2 100%);
+        box-shadow:
+            0 1px 0 rgba(255,255,255,0.9) inset,
+            0 2px 0 #d6d3c9,
+            0 16px 40px rgba(0,0,0,0.28);
+        border-radius: 1px;
+        margin-bottom: 26px;
+        border: 1px solid rgba(0,0,0,0.07);
+        position: relative;
+    }
+    .mybooks-page:last-child { margin-bottom: 8px; }
+    .mybooks-running-head {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+        color: #64748b; padding: 12px 22px 8px;
+        font-family: Inter, system-ui, sans-serif;
+        border-bottom: 1px solid rgba(91, 33, 182, 0.12);
+    }
+    .mybooks-running-head span { max-width: 42%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mybooks-chapter-title {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 1.35rem; font-weight: 600; color: #1e1b4b; margin: 20px 24px 14px;
+        padding-bottom: 12px; line-height: 1.3;
+        border-bottom: 2px solid rgba(76, 29, 149, 0.2);
+    }
+    .mybooks-body {
+        padding: 8px 28px 20px;
+        color: #334155;
+        text-align: justify;
+        text-justify: inter-word;
+        hyphens: none;
+        overflow-wrap: anywhere;
+        word-wrap: break-word;
+        -webkit-hyphens: none;
+        -ms-hyphens: none;
+    }
+    .mybooks-body p { margin: 0 0 0.95em; line-height: 1.65; }
+    .mybooks-body h1, .mybooks-body h2, .mybooks-body h3 { margin: 1em 0 0.5em; color: #1e293b; }
+    .mybooks-body img { max-width: 100%; height: auto; border-radius: 8px; }
+    .mybooks-body ul, .mybooks-body ol { margin: 0.5em 0 1em 1.25em; }
+    .mybooks-running-foot {
+        text-align: center; font-size: 10px; color: #94a3b8; padding: 14px 20px 16px;
+        border-top: 1px solid rgba(226, 232, 240, 0.9); font-variant: all-small-caps; letter-spacing: 0.06em;
+        font-family: Inter, system-ui, sans-serif;
+    }
+    /* Interior themes */
+    .mybooks-int-modern .mybooks-page {
+        background: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
+        box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 10px 32px rgba(0,0,0,0.22);
+    }
+    .mybooks-int-modern .mybooks-chapter-title {
+        font-family: Inter, system-ui, sans-serif; font-weight: 700; color: #4f46e5;
+        border-bottom-color: rgba(79, 70, 229, 0.3);
+    }
+    .mybooks-int-modern .mybooks-body { font-family: system-ui, Segoe UI, Roboto, sans-serif; text-align: left; }
+    .mybooks-int-minimalist .mybooks-page {
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(15,23,42,0.08);
+        border: 1px solid #e2e8f0;
+    }
+    .mybooks-int-minimalist .mybooks-chapter-title {
+        font-family: system-ui, sans-serif; font-weight: 600; color: #0a0a0a;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    .mybooks-int-minimalist .mybooks-body { text-align: left; font-family: system-ui, Segoe UI, sans-serif; color: #262626; }
+    .mybooks-int-classic .mybooks-page {
+        background: #fffef6;
+        box-shadow: 0 2px 0 #c4b8a8, 0 14px 36px rgba(0,0,0,0.26);
+    }
+    .mybooks-int-classic .mybooks-chapter-title { color: #78350f; border-bottom-color: rgba(120, 53, 15, 0.25); }
+    .mybooks-int-classic .mybooks-body { font-family: 'Times New Roman', Times, Georgia, serif; }
+    .mybooks-int-elegant-trade .mybooks-page {
+        background: #fdfbf7;
+        box-shadow: 0 1px 0 #d4c9b8, 0 12px 34px rgba(62, 47, 32, 0.22);
+    }
+    .mybooks-int-elegant-trade .mybooks-chapter-title {
+        color: #3d2914;
+        border-bottom-color: rgba(201, 184, 160, 0.85);
+        font-family: Georgia, 'Palatino Linotype', Palatino, serif;
+    }
+    .mybooks-int-elegant-trade .mybooks-body { font-family: Georgia, 'Palatino Linotype', Palatino, serif; color: #1c1917; }
+    @@media (max-width: 640px) {
+        .mybooks-modal-toolbar { flex-direction: column; }
+        .mybooks-toolbar-badge { max-width: 100%; }
+        .mybooks-chapter-title { font-size: 1.15rem; margin-left: 16px; margin-right: 16px; }
+        .mybooks-body { padding-left: 16px; padding-right: 16px; }
+        .mybooks-running-head { padding-left: 16px; padding-right: 16px; }
+        .mybooks-3d-row { flex-direction: column; align-items: center; }
+        .mybooks-3d-stage { margin-bottom: 8px; }
+    }
+
+    /* 3D book preview (modal hero) */
+    .mybooks-3d-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: stretch;
+        padding: 16px 18px 8px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, transparent 100%);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .mybooks-3d-stage {
+        perspective: 1200px;
+        flex: 0 0 auto;
+        width: min(200px, 42vw);
+        height: 280px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .mybooks-3d-book {
+        position: relative;
+        width: 140px;
+        height: 210px;
+        transform-style: preserve-3d;
+        transform: rotateY(-32deg) rotateX(4deg);
+        animation: mybooks-book-tilt 6s ease-in-out infinite alternate;
+    }
+    @@keyframes mybooks-book-tilt {
+        from { transform: rotateY(-28deg) rotateX(3deg); }
+        to { transform: rotateY(-38deg) rotateX(6deg); }
+    }
+    .mybooks-3d-face {
+        position: absolute;
+        inset: 0;
+        border-radius: 2px 4px 4px 2px;
+        backface-visibility: hidden;
+        box-shadow: -8px 10px 28px rgba(0,0,0,0.45);
+    }
+    .mybooks-3d-cover {
+        transform: translateZ(10px);
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.15);
+    }
+    .mybooks-3d-cover img {
+        width: 100%; height: 100%; object-fit: cover;
+        display: block;
+    }
+    .mybooks-3d-cover-fallback {
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        padding: 12px; text-align: center;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 0.85rem; font-weight: 600; color: #fafafa;
+        background: linear-gradient(145deg, #312e81 0%, #4c1d95 100%);
+    }
+    .mybooks-3d-pages {
+        transform: translateZ(0px) translateX(6px);
+        background: linear-gradient(90deg, #f8fafc 0%, #e2e8f0 35%, #cbd5e1 100%);
+        width: 100%; height: 100%;
+        box-shadow: inset -3px 0 8px rgba(15,23,42,0.15);
+    }
+    .mybooks-3d-pages::before {
+        content: '';
+        position: absolute;
+        left: 4px; top: 6px; bottom: 6px; width: 2px;
+        background: repeating-linear-gradient(
+            transparent 0 3px,
+            rgba(148,163,184,0.35) 3px 4px
+        );
+    }
+    .mybooks-3d-spine {
+        position: absolute;
+        left: 0; top: 0; bottom: 0; width: 14px;
+        transform-origin: left center;
+        transform: rotateY(-90deg) translateZ(0);
+        background: linear-gradient(90deg, #1e1b4b 0%, #312e81 100%);
+        border-radius: 2px 0 0 2px;
+        box-shadow: inset -2px 0 6px rgba(0,0,0,0.35);
+    }
+    .mybooks-3d-meta {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
+        color: rgba(255,255,255,0.92);
+    }
+    .mybooks-3d-meta-title {
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 1.25rem;
+        font-weight: 600;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+    }
+    .mybooks-3d-meta-line {
+        font-size: 0.75rem;
+        opacity: 0.85;
+        line-height: 1.45;
+    }
+    /* Chapter prev/next — one “page” at a time, book-style reading */
+    .mybooks-chapter-nav {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px 16px;
+        padding: 12px 20px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.18) 100%);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .mybooks-ch-nav-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.22);
+        background: rgba(255,255,255,0.12);
+        color: #fff;
+        cursor: pointer;
+        transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .mybooks-ch-nav-btn:hover:not(:disabled) {
+        background: rgba(255,255,255,0.22);
+        border-color: rgba(255,255,255,0.35);
+        transform: translateY(-1px);
+    }
+    .mybooks-ch-nav-btn:disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .mybooks-ch-nav-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(255,255,255,0.92);
+        text-align: center;
+        flex: 1 1 auto;
+        min-width: 140px;
+    }
+    .mybooks-ch-nav-title {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.35;
+        max-width: 100%;
+        word-break: break-word;
+    }
+    .mybooks-ch-nav-sub {
+        font-size: 0.72rem;
+        font-weight: 500;
+        opacity: 0.88;
+    }
+    .mybooks-chapter-view { animation: mybooks-chapter-fade 0.35s ease; }
+    @@keyframes mybooks-chapter-fade {
+        from { opacity: 0.35; }
+        to { opacity: 1; }
+    }
+</style>
+
+<div class="mybooks-container p-3 sm:p-4 min-h-screen flex items-stretch sm:items-center justify-center w-full max-w-[100vw] overflow-x-hidden box-border">
+    <div class="mybooks-main flex flex-col lg:flex-row w-full max-w-full overflow-hidden gap-3 lg:gap-2 min-h-0 lg:h-[min(800px,calc(100vh-8rem))] lg:max-h-[800px]">
+
+        <!-- Left: Recommended + Categories -->
+        <div class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 flex flex-col overflow-y-auto no-scrollbar rounded-2xl lg:rounded-3xl relative order-1">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl tracking-tight font-semibold text-slate-900">Recommended</h2>
+                <div class="flex items-center gap-2">
+                    <a href="/Books/AIGenerateBook" class="text-violet-800 bg-violet-100 hover:bg-violet-200 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
+                        <i class="fas fa-plus"></i> New Book
+                    </a>
+                    @if (books.Any())
+                    {
+                        <a id="btn-top-publish" href="/Checkout/BookPayment?bookId=@books.First().BookId" class="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
+                            <i class="fas fa-upload"></i> Publish
+                        </a>
+                    }
+                    else
+                    {
+                        <button id="btn-top-publish" type="button" disabled class="bg-slate-300 text-slate-500 px-4 py-2 rounded-xl text-sm font-medium cursor-not-allowed flex items-center gap-1">
+                            <i class="fas fa-upload"></i> Publish
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (books != null && books.Any())
+            {
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10" id="recommendedGrid">
+                    @foreach (var book in books.Take(8))
+                    {
+                        var title = string.IsNullOrWhiteSpace(book.Title) ? "Untitled" : book.Title;
+                        var desc = (book.Description ?? "").ToString();
+                        if (desc != null && desc.Length > 120) { desc = desc.Substring(0, 117) + "..."; }
+                        var status = string.IsNullOrWhiteSpace(book.Status) ? "Draft" : book.Status;
+                        var chCount = book.ChapterCount;
+                        var wordCount = book.WordCount;
+                        var genre = book.Genre ?? "";
+                        <div class="book-card-mybooks book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm"
+                             data-book-id="@book.BookId"
+                             data-title="@title"
+                             data-author="@authorName"
+                             data-desc="@(desc ?? "")"
+                             data-status="@status"
+                             data-chapter-count="@chCount"
+                             data-word-count="@wordCount"
+                             data-genre="@genre"
+                             data-cover="@CoverUrl(book.CoverImagePath ?? "")">
+                            <div class="aspect-[2/3] rounded-2xl mb-3 shadow-sm bg-violet-100 p-4 flex flex-col justify-center items-center text-center border border-violet-200">
+                                @if (!string.IsNullOrEmpty(book.CoverImagePath))
+                                {
+                                    <img src="@CoverUrl(book.CoverImagePath)" alt="@title" class="w-full h-full object-cover rounded-xl" loading="eager" decoding="async" fetchpriority="high" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop';" />
+                                }
+                                else
+                                {
+                                    <span class="font-serif text-lg text-slate-700 leading-tight">@(title.Length > 20 ? title.Substring(0, 18) + "…" : title)</span>
+                                    <i class="fas fa-book-open text-violet-600 mt-2 text-2xl"></i>
+                                }
+                            </div>
+                            <h3 class="text-base font-medium truncate text-slate-900">@(title.Length > 22 ? title.Substring(0, 20) + "…" : title)</h3>
+                            <p class="text-sm text-slate-500 truncate">@authorName</p>
+                            @if (chCount > 0)
+                            {
+                                <p class="text-[11px] text-violet-700 font-semibold mt-1.5 truncate" title="Total AI generation saves stored for this book (all chapters). Open AI Writer to see per-chapter versions."><i class="fas fa-history" aria-hidden="true"></i> @chCount AI save(s) — book mein data hai</p>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <section class="flex-1 flex flex-col">
+                    <h2 class="text-xl tracking-tight font-semibold text-slate-900 mb-4">Categories</h2>
+                    <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-4 select-none" id="categoryPills">
+                        <button type="button" class="category-pill category-pill-active whitespace-nowrap px-5 py-2 rounded-xl text-sm font-medium transition-colors cursor-pointer bg-violet-700 text-white" data-genre="">All</button>
+                        @foreach (var g in books.Select(b => b.Genre ?? "").Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().Take(8))
+                        {
+                            <button type="button" class="category-pill whitespace-nowrap bg-slate-50 text-slate-600 hover:bg-slate-100 px-5 py-2 rounded-xl text-sm font-medium border border-slate-100 cursor-pointer" data-genre="@g">@g</button>
+                        }
+                    </div>
+                    <div class="flex gap-5 overflow-x-auto no-scrollbar pt-4 pb-4 items-end flex-1 drag-scroll select-none" id="categoriesScroll">
+                        @foreach (var book in books)
+                        {
+                            var title = string.IsNullOrWhiteSpace(book.Title) ? "Untitled" : book.Title;
+                            var desc = (book.Description ?? "").ToString();
+                            if (desc != null && desc.Length > 120) { desc = desc.Substring(0, 117) + "..."; }
+                            <div class="book-card shrink-0 w-[140px] cursor-pointer flex flex-col rounded-2xl"
+                                 data-book-id="@book.BookId"
+                                 data-title="@title"
+                                 data-author="@authorName"
+                                 data-desc="@(desc ?? "")"
+                                 data-status="@(string.IsNullOrWhiteSpace(book.Status) ? "Draft" : book.Status)"
+                                 data-chapter-count="@book.ChapterCount"
+                                 data-word-count="@book.WordCount"
+                                 data-genre="@(book.Genre ?? "")"
+                                 data-cover="@CoverUrl(book.CoverImagePath ?? "")">
+                                <div class="aspect-[2/3] rounded-2xl mb-2 overflow-hidden shadow-sm bg-violet-100 border border-violet-200 book-card-mybooks relative">
+                                    @if (!string.IsNullOrEmpty(book.CoverImagePath))
+                                    {
+                                        <img src="@CoverUrl(book.CoverImagePath)" alt="@title" class="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&amp;w=600&amp;auto=format&amp;fit=crop';" />
+                                    }
+                                    else
+                                    {
+                                        <div class="absolute inset-0 flex flex-col justify-center items-center text-center p-3">
+                                            <span class="font-serif text-sm text-slate-800 leading-tight">@(title.Length > 15 ? title.Substring(0, 12) + "…" : title)</span>
+                                            <i class="fas fa-book text-violet-600 mt-2"></i>
+                                        </div>
+                                    }
+                                </div>
+                                <h3 class="text-sm font-medium truncate text-slate-900 text-center">@(title.Length > 18 ? title.Substring(0, 16) + "…" : title)</h3>
+                                <p class="text-xs text-slate-500 truncate text-center">@authorName</p>
+                                @if (book.ChapterCount > 0)
+                                {
+                                    <p class="text-[10px] text-violet-600 font-semibold text-center mt-1 truncate">@book.ChapterCount AI save(s)</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+            else
+            {
+                <div class="flex-1 flex flex-col items-center justify-center text-center py-12">
+                    <i class="fas fa-book-open text-6xl text-violet-200 mb-4"></i>
+                    <h3 class="text-xl font-semibold text-slate-700 mb-2">No books yet</h3>
+                    <p class="text-slate-500 mb-6">Create your first book with AI Writer.</p>
+                    <a href="/Books/AIGenerateBook" class="bg-violet-700 hover:bg-violet-800 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2">
+                        <i class="fas fa-plus"></i> Create Book
+                    </a>
+                </div>
+            }
+        </div>
+
+        <!-- Right: Detail Panel (full width on small screens, fixed width on lg+) -->
+        <aside class="w-full lg:w-[340px] lg:max-w-[340px] aside-panel-mybooks rounded-2xl lg:rounded-[1.5rem] flex flex-col text-white px-5 py-8 sm:px-8 sm:py-10 relative overflow-hidden shadow-xl shrink-0 order-2 lg:order-2" aria-label="Selected book details">
+            <div class="flex-1 flex flex-col items-stretch relative z-10 w-full max-w-md mx-auto lg:max-w-none">
+                <p class="mybooks-aside-kicker">Your library</p>
+                <div class="mybooks-aside-divider"></div>
+                <div id="aside-cover-wrapper" class="w-full flex justify-center mb-6">
+                    <div class="w-48 aspect-[2/3] rounded-xl shadow-lg p-5 flex flex-col items-center justify-center text-center border-2 border-violet-900" style="background-color:#4c1d95;">
+                        <i class="fas fa-book-open text-5xl mb-2" style="color:#c4b5fd;"></i>
+                        <span class="font-serif text-lg" style="color:#e9d5ff;">Select a book</span>
+                    </div>
+                </div>
+                <h2 id="aside-title" class="text-[22px] tracking-tight font-medium mb-1 text-center text-white">Select a book</h2>
+                <p id="aside-author" class="text-base mb-2 text-center" style="color:#c4b5fd;">@authorName</p>
+                <div class="flex items-center gap-2 mb-4 text-sm" style="color:#c4b5fd;">
+                    <span id="aside-meta"></span>
+                </div>
+                <div id="aside-stats" class="flex w-full gap-2 mb-6 pb-6 border-b border-white/10">
+                    <div class="mybooks-stat-pill flex flex-col items-center gap-1 flex-1 min-w-0">
+                        <span id="aside-pages" class="text-white font-semibold text-sm tabular-nums">—</span>
+                        <span class="text-[10px] uppercase tracking-wider font-medium" style="color:#c4b5fd;">Words</span>
+                    </div>
+                    <div class="mybooks-stat-pill flex flex-col items-center gap-1 flex-1 min-w-0" title="Kitni dafa AI ne is book ke liye jawab DB mein save kiya (sab chapters mila kar)">
+                        <span id="aside-chapters" class="text-white font-semibold text-sm tabular-nums">—</span>
+                        <span class="text-[10px] uppercase tracking-wider font-medium leading-tight text-center" style="color:#c4b5fd;">AI saves</span>
+                    </div>
+                    <div class="mybooks-stat-pill flex flex-col items-center gap-1 flex-1 min-w-0">
+                        <span id="aside-status" class="text-white font-semibold text-xs text-center leading-tight truncate max-w-full px-1">—</span>
+                        <span class="text-[10px] uppercase tracking-wider font-medium" style="color:#c4b5fd;">Status</span>
+                    </div>
+                </div>
+                <p id="aside-desc" class="text-xs sm:text-sm leading-relaxed text-center line-clamp-5 mb-4 sm:mb-6 flex-1 px-1" style="color:#ddd6fe;">Tap a book on the left to load details here, then open preview.</p>
+                <div class="w-full space-y-2.5 mt-auto">
+                    <button type="button" id="btn-view-book" class="hidden w-full py-3.5 px-5 sm:px-6 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer shadow-lg border-2 min-h-[48px]" style="background-color:#ffffff;color:#4c1d95;border-color:#e9d5ff;">
+                        <i class="fas fa-book-open" aria-hidden="true"></i> Preview full book
+                    </button>
+                    <p class="text-[11px] text-center leading-snug px-1" style="color:#c4b5fd;">Opens a print-style chapter preview (same data as your PDF export).</p>
+                    <a id="btn-download-publish" href="#" class="w-full py-3.5 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#047857;color:#ecfdf5;">
+                        <i class="fas fa-download"></i> <span id="btn-download-label">Download / Publish</span>
+                    </a>
+                    <a id="btn-read-now" href="#" class="btn-read-now w-full text-white py-3.5 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden">
+                        <i class="fas fa-book-reader"></i> Read Now
+                    </a>
+                    <a id="btn-edit-book" href="#" class="w-full text-white py-3 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#4c1d95;">
+                        <i class="fas fa-edit"></i> Edit
+                    </a>
+                    <button type="button" id="btn-delete-book" class="w-full py-3 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#7f1d1d;color:#fecaca;">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+
+<script>
+(function() {
+    const books = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(books));
+    const displayAuthorName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(authorName));
+    function escapeHtmlText(s) {
+        if (s === undefined || s === null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function escapeAttr(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    var FALLBACK_COVER = 'https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop';
+    function resolveCoverUrl(path) {
+        if (path == null || path === '') return '';
+        var p = String(path).trim();
+        if (!p) return '';
+        if (/^https?:\/\//i.test(p) || p.indexOf('data:') === 0) return p;
+        return p.indexOf('/') === 0 ? p : '/' + p;
+    }
+    function setAsideCover(coverWrap, src, titleText) {
+        if (!coverWrap) return;
+        coverWrap.innerHTML = '';
+        if (src) {
+            var img = document.createElement('img');
+            img.src = src;
+            img.alt = titleText || '';
+            img.className = 'w-full max-w-[192px] aspect-[2/3] object-cover rounded-xl shadow-lg border-2 border-violet-900 mx-auto';
+            img.loading = 'eager';
+            img.decoding = 'async';
+            img.onerror = function() { this.onerror = null; this.src = FALLBACK_COVER; };
+            coverWrap.appendChild(img);
+        } else {
+            var safe = escapeHtmlText((titleText || '').substring(0, 24));
+            coverWrap.innerHTML = '<div class="w-48 max-w-full aspect-[2/3] rounded-xl shadow-lg p-5 flex flex-col items-center justify-center text-center border-2 border-violet-900 mx-auto" style="background-color:#4c1d95;"><i class="fas fa-book-open text-5xl mb-2" style="color:#c4b5fd;"></i><span class="font-serif text-sm" style="color:#e9d5ff;">' + (safe || '—') + '</span></div>';
+        }
+    }
+    function setSelectedBookCard(bookId) {
+        document.querySelectorAll('.book-card').forEach(function(c) {
+            var id = parseInt(c.getAttribute('data-book-id'), 10);
+            if (id === bookId) c.classList.add('book-card-selected');
+            else c.classList.remove('book-card-selected');
+        });
+    }
+    function build3DBookBlock(coverUrl, titlePlain, authorPlain, fmt) {
+        var cover = coverUrl
+            ? '<img src="' + escapeAttr(coverUrl) + '" alt="" loading="lazy"/>'
+            : '<div class="mybooks-3d-cover-fallback">' + escapeHtmlText(titlePlain) + '</div>';
+        var plat = (fmt && (fmt.publishingPlatform || fmt.PublishingPlatform)) ? String(fmt.publishingPlatform || fmt.PublishingPlatform).trim() : '';
+        var line2 = plat ? ('Target: ' + escapeHtmlText(plat)) : 'Saved interior styling applies to the pages below.';
+        return '<div class="mybooks-3d-row">' +
+            '<div class="mybooks-3d-stage" aria-hidden="true"><div class="mybooks-3d-book">' +
+            '<div class="mybooks-3d-spine"></div>' +
+            '<div class="mybooks-3d-face mybooks-3d-pages"></div>' +
+            '<div class="mybooks-3d-face mybooks-3d-cover">' + cover + '</div>' +
+            '</div></div>' +
+            '<div class="mybooks-3d-meta">' +
+            '<div class="mybooks-3d-meta-title">' + escapeHtmlText(titlePlain) + '</div>' +
+            (authorPlain ? '<div class="mybooks-3d-meta-line">by ' + escapeHtmlText(authorPlain) + '</div>' : '') +
+            '<div class="mybooks-3d-meta-line">' + line2 + '</div>' +
+            '</div></div>';
+    }
+
+    function buildChapterViewerModalHtml(data) {
+        var fmt = (data && (data.formatting || data.Formatting)) ? (data.formatting || data.Formatting) : {};
+        var interiorRaw = String(fmt.interiorStyle || fmt.InteriorStyle || 'Novel').toLowerCase().replace(/[^a-z]/g, '');
+        if (!interiorRaw || interiorRaw === 'both' || interiorRaw === 'ebook' || interiorRaw === 'paperback') interiorRaw = 'novel';
+        var themeClass = 'mybooks-int-novel';
+        if (interiorRaw === 'modern') themeClass = 'mybooks-int-modern';
+        else if (interiorRaw === 'minimalist') themeClass = 'mybooks-int-minimalist';
+        else if (interiorRaw === 'classic') themeClass = 'mybooks-int-classic';
+        else if (interiorRaw === 'eleganttrade') themeClass = 'mybooks-int-elegant-trade';
+
+        var ts = fmt.textSize || fmt.TextSize || 'Medium';
+        var pt = ts === 'Small' ? '12px' : (ts === 'Large' ? '15px' : '13px');
+        var lh = (fmt.lineSpacing != null && fmt.lineSpacing !== '') ? String(fmt.lineSpacing)
+            : (fmt.LineSpacing != null && fmt.LineSpacing !== '') ? String(fmt.LineSpacing) : '1.55';
+        var bookTitlePlain = (data && (data.bookTitle || data.BookTitle)) || 'Untitled';
+        var bookAuthorPlain = (data && (data.authorName || data.AuthorName)) || '';
+        var bookT = escapeHtmlText(bookTitlePlain);
+        var bookA = escapeHtmlText(bookAuthorPlain);
+        var interiorLabel = escapeHtmlText(fmt.interiorStyle || fmt.InteriorStyle || 'Novel');
+        var textSizeLabel = escapeHtmlText(ts || 'Medium');
+        var platLabel = (fmt.publishingPlatform || fmt.PublishingPlatform) ? String(fmt.publishingPlatform || fmt.PublishingPlatform).trim() : '';
+        var chapters = (data && (data.chapters || data.Chapters)) ? (data.chapters || data.Chapters) : [];
+        var total = chapters.length;
+        if (data && data.totalChapters != null) total = data.totalChapters;
+        else if (data && data.TotalChapters != null) total = data.TotalChapters;
+        var fontFam = (interiorRaw === 'modern' || interiorRaw === 'minimalist')
+            ? 'system-ui, Segoe UI, Roboto, sans-serif'
+            : (interiorRaw === 'eleganttrade' ? "Georgia, 'Palatino Linotype', Palatino, serif" : "Georgia, 'Times New Roman', serif");
+        var textAlign = interiorRaw === 'minimalist' || interiorRaw === 'modern' ? 'left' : 'justify';
+        var coverUrl = (data && (data.coverImagePath || data.CoverImagePath)) ? String(data.coverImagePath || data.CoverImagePath) : '';
+
+        var parts = chapters.map(function (c, idx) {
+            var num = c.displayChapterNumber != null ? c.displayChapterNumber : (c.DisplayChapterNumber != null ? c.DisplayChapterNumber : (idx + 1));
+            var dh = (c.chapterDisplayHeading != null && c.chapterDisplayHeading !== '') ? String(c.chapterDisplayHeading).trim() : '';
+            var chRaw = c.chapterTitle != null ? c.chapterTitle : c.ChapterTitle;
+            var chTitle = (chRaw != null) ? String(chRaw).trim() : '';
+            var heading = escapeHtmlText(dh || chTitle || ('Part ' + num));
+            var body = c.chapterHtml || c.ChapterHtml || c.previewHtml || c.PreviewHtml || '<p>No content yet for this chapter.</p>';
+            var foot = 'Section ' + num + ' of ' + total;
+            var showFirst = idx === 0 ? 'block' : 'none';
+            return '<article class="mybooks-page mybooks-chapter-view" style="display:' + showFirst + ';" data-chapter-index="' + idx + '" aria-hidden="' + (idx === 0 ? 'false' : 'true') + '">' +
+                '<header class="mybooks-running-head"><span title="' + bookT + '">' + bookT + '</span><span title="' + bookA + '">' + bookA + '</span></header>' +
+                '<h2 class="mybooks-chapter-title">' + heading + '</h2>' +
+                '<div class="mybooks-body" style="font-size:' + pt + ';line-height:' + lh + ';font-family:' + fontFam + ';text-align:' + textAlign + ';">' + body + '</div>' +
+                '<footer class="mybooks-running-foot">' + foot + '</footer>' +
+                '</article>';
+        }).join('');
+
+        if (!parts) {
+            parts = '<article class="mybooks-page mybooks-chapter-view" style="display:block;" data-chapter-index="0" aria-hidden="false"><div class="mybooks-body" style="padding:2rem;text-align:center;color:#64748b;">No chapters found for this book. Add chapters in AI Writer.</div></article>';
+        }
+
+        var navHtml = '';
+        if (chapters.length > 1) {
+            navHtml = '<nav class="mybooks-chapter-nav" aria-label="Chapter navigation">' +
+                '<button type="button" class="mybooks-ch-nav-btn" id="mybooks-ch-prev" disabled aria-label="Previous chapter"><i class="fas fa-chevron-left" aria-hidden="true"></i> Previous</button>' +
+                '<span class="mybooks-ch-nav-label" id="mybooks-ch-label">1 / ' + chapters.length + '</span>' +
+                '<button type="button" class="mybooks-ch-nav-btn" id="mybooks-ch-next" aria-label="Next chapter">Next <i class="fas fa-chevron-right" aria-hidden="true"></i></button>' +
+                '</nav>';
+        }
+
+        var badgeHtml = 'Interior: ' + interiorLabel + ' · Text ' + textSizeLabel + ' · Line ' + escapeHtmlText(String(lh)) + (platLabel ? (' · ' + escapeHtmlText(platLabel)) : '');
+        return '<div class="mybooks-modal-root">' +
+            '<div class="mybooks-modal-toolbar">' +
+            '<div><div class="mybooks-toolbar-title">' + bookT + '</div>' +
+            (bookA ? '<div class="mybooks-toolbar-author">by ' + bookA + '</div>' : '') + '</div>' +
+            '<div class="mybooks-toolbar-badge" title="Saved formatter settings">' + badgeHtml + '</div>' +
+            '</div>' +
+            build3DBookBlock(coverUrl, bookTitlePlain, bookAuthorPlain, fmt) +
+            navHtml +
+            '<div class="mybooks-modal-scroll"><div class="mybooks-book-shell ' + themeClass + '">' + parts + '</div></div>' +
+            '</div>';
+    }
+
+    function initMyBooksPreviewChapterNav() {
+        if (typeof Swal === 'undefined') return;
+        var popup = Swal.getPopup();
+        if (!popup) return;
+        var articles = popup.querySelectorAll('.mybooks-chapter-view');
+        if (!articles.length) return;
+        var prevBtn = popup.querySelector('#mybooks-ch-prev');
+        var nextBtn = popup.querySelector('#mybooks-ch-next');
+        var label = popup.querySelector('#mybooks-ch-label');
+        var scroll = popup.querySelector('.mybooks-modal-scroll');
+        var i = 0;
+
+        function go(n) {
+            i = Math.max(0, Math.min(n, articles.length - 1));
+            articles.forEach(function(a, k) {
+                a.style.display = k === i ? 'block' : 'none';
+                a.setAttribute('aria-hidden', k === i ? 'false' : 'true');
+            });
+            if (prevBtn) prevBtn.disabled = i <= 0;
+            if (nextBtn) nextBtn.disabled = i >= articles.length - 1;
+            if (label) {
+                var ah = articles[i].querySelector('.mybooks-chapter-title');
+                var shortTitle = ah && ah.textContent ? ah.textContent.trim() : ('Part ' + (i + 1));
+                if (shortTitle.length > 48) shortTitle = shortTitle.substring(0, 45) + '…';
+                label.innerHTML = '<span class="mybooks-ch-nav-title">' + escapeHtmlText(shortTitle) + '</span><br/><span class="mybooks-ch-nav-sub">' + (i + 1) + ' / ' + articles.length + '</span>';
+            }
+            if (scroll) scroll.scrollTop = 0;
+        }
+
+        if (prevBtn) prevBtn.addEventListener('click', function() { go(i - 1); });
+        if (nextBtn) nextBtn.addEventListener('click', function() { go(i + 1); });
+
+        popup.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft' && prevBtn && !prevBtn.disabled) {
+                e.preventDefault();
+                go(i - 1);
+            } else if (e.key === 'ArrowRight' && nextBtn && !nextBtn.disabled) {
+                e.preventDefault();
+                go(i + 1);
+            }
+        });
+
+        go(0);
+    }
+    function bookIdFrom(b) {
+        if (!b) return 0;
+        var id = b.BookId != null ? b.BookId : b.bookId;
+        return id != null ? id : 0;
+    }
+    function normalizeGenre(s) {
+        return (s == null ? '' : String(s)).trim().toLowerCase();
+    }
+    function getBook(book) {
+        return {
+            bookId: bookIdFrom(book),
+            title: book.Title || book.title || 'Untitled',
+            author: displayAuthorName,
+            desc: book.Description || book.description || '',
+            status: book.Status || book.status || 'Draft',
+            chapterCount: book.ChapterCount || book.chapterCount || 0,
+            wordCount: book.WordCount || book.wordCount || 0,
+            genre: book.Genre || book.genre || '',
+            cover: resolveCoverUrl(book.CoverImagePath || book.coverImagePath || '')
+        };
+    }
+    let selectedBookId = null;
+
+    // Drag to scroll
+    document.querySelectorAll('.drag-scroll').forEach(slider => {
+        let isDown = false, startX, scrollLeft;
+        slider.addEventListener('mousedown', e => { isDown = true; slider.classList.add('is-dragging'); startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft; });
+        slider.addEventListener('mouseleave', () => { isDown = false; slider.classList.remove('is-dragging'); });
+        slider.addEventListener('mouseup', () => { isDown = false; setTimeout(() => slider.classList.remove('is-dragging'), 10); });
+        slider.addEventListener('mousemove', e => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            slider.scrollLeft = scrollLeft - (x - startX) * 1.2;
+        });
+    });
+
+    // Category pills (pills are NOT on drag-scroll so clicks always register)
+    document.querySelectorAll('#categoryPills .category-pill').forEach(function(pill) {
+        pill.addEventListener('click', function(ev) {
+            ev.stopPropagation();
+            document.querySelectorAll('#categoryPills .category-pill').forEach(function(p) {
+                p.classList.remove('category-pill-active', 'bg-violet-700', 'text-white');
+                p.classList.add('bg-slate-50', 'text-slate-600', 'border', 'border-slate-100');
+            });
+            this.classList.remove('bg-slate-50', 'text-slate-600', 'border', 'border-slate-100');
+            this.classList.add('category-pill-active', 'bg-violet-700', 'text-white');
+            var selected = normalizeGenre(this.getAttribute('data-genre'));
+            document.querySelectorAll('#categoriesScroll .book-card').forEach(function(card) {
+                var cardG = normalizeGenre(card.getAttribute('data-genre'));
+                var show = !selected || cardG === selected;
+                card.style.display = show ? 'flex' : 'none';
+            });
+        });
+    });
+
+    function fillAside(book) {
+        if (!book) return;
+        selectedBookId = book.bookId;
+        document.getElementById('aside-title').textContent = book.title || 'Untitled';
+        document.getElementById('aside-author').textContent = book.author || '';
+        document.getElementById('aside-meta').textContent = (book.genre || '') ? 'Genre: ' + book.genre : '';
+        document.getElementById('aside-pages').textContent = book.wordCount != null ? book.wordCount.toLocaleString() : '—';
+        document.getElementById('aside-chapters').textContent = book.chapterCount != null ? book.chapterCount : '—';
+        document.getElementById('aside-status').textContent = book.status || '—';
+        document.getElementById('aside-desc').textContent = book.desc || 'No description.';
+        document.getElementById('btn-view-book').classList.remove('hidden');
+        document.getElementById('btn-read-now').href = '/Checkout/BookPayment?bookId=' + book.bookId;
+        document.getElementById('btn-read-now').classList.remove('hidden');
+        document.getElementById('btn-edit-book').href = '/Books/AIGenerateBook?bookId=' + book.bookId;
+        document.getElementById('btn-edit-book').classList.remove('hidden');
+        document.getElementById('btn-delete-book').classList.remove('hidden');
+        var dlBtn = document.getElementById('btn-download-publish');
+        var dlLabel = document.getElementById('btn-download-label');
+        if (dlBtn && dlLabel) {
+            dlBtn.classList.remove('hidden');
+            var isPaid = (book.status || '').toString() === 'Paid';
+            if (isPaid) {
+                dlBtn.href = '/Books/BookDownloads?bookId=' + book.bookId;
+                dlBtn.title = 'Download your book files';
+                dlLabel.textContent = 'Download / Publish';
+            } else {
+                dlBtn.href = '/Checkout/BookPayment?bookId=' + book.bookId;
+                dlBtn.title = 'Complete payment to unlock downloads';
+                dlLabel.textContent = 'Complete payment to unlock downloads';
+            }
+        }
+        var publishBtn = document.getElementById('btn-top-publish');
+        if (publishBtn && !publishBtn.disabled) {
+            publishBtn.href = '/Checkout/BookPayment?bookId=' + book.bookId;
+        }
+        var coverWrap = document.getElementById('aside-cover-wrapper');
+        setAsideCover(coverWrap, book.cover, book.title);
+        setSelectedBookCard(book.bookId);
+    }
+
+    document.querySelectorAll('.book-card').forEach(function(card) {
+        card.addEventListener('click', function(e) {
+            var row = this.closest('.drag-scroll');
+            if (row && row.classList.contains('is-dragging')) return;
+            var bookId = parseInt(this.getAttribute('data-book-id'), 10);
+            if (!bookId) return;
+            var book = books && books.find(function(b) { return bookIdFrom(b) === bookId; });
+            if (book) fillAside(getBook(book));
+        });
+    });
+
+    document.getElementById('btn-view-book').addEventListener('click', function() {
+        if (!selectedBookId) return;
+        if (typeof Swal === 'undefined') {
+            alert('Preview requires SweetAlert2.');
+            return;
+        }
+        Swal.fire({
+            title: 'Loading preview',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: function() { Swal.showLoading(); }
+        });
+        fetch('/Dashboard/BookPdfPreviewData?bookId=' + encodeURIComponent(selectedBookId) + '&full=true')
+            .then(function(r) { return r.json(); })
+            .then(function(chData) {
+                Swal.close();
+                if (!chData || !chData.success) {
+                    Swal.fire({ icon: 'error', title: 'Preview unavailable', text: (chData && chData.message) ? chData.message : 'Could not load book.', confirmButtonColor: '#7c3aed' });
+                    return;
+                }
+                Swal.fire({
+                    title: false,
+                    html: buildChapterViewerModalHtml(chData),
+                    width: window.innerWidth < 640 ? 'min(100vw - 0.75rem, 1100px)' : 1100,
+                    padding: 0,
+                    confirmButtonText: 'Close',
+                    confirmButtonColor: '#6d28d9',
+                    showCloseButton: true,
+                    scrollbarPadding: false,
+                    customClass: { popup: 'mybooks-preview-popup', htmlContainer: 'mybooks-swal-html-outer' },
+                    didOpen: function() {
+                        initMyBooksPreviewChapterNav();
+                    }
+                });
+            })
+            .catch(function() {
+                Swal.close();
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Could not load preview.', confirmButtonColor: '#7c3aed' });
+            });
+    });
+
+    document.getElementById('btn-delete-book').addEventListener('click', function() {
+        if (!selectedBookId) return;
+        if (typeof Swal === 'undefined') {
+            if (confirm('Delete this book permanently?')) doDelete(selectedBookId);
+            return;
+        }
+        Swal.fire({ title: 'Delete Book?', text: 'This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280', confirmButtonText: 'Yes, Delete' })
+            .then(function(r) { if (r.isConfirmed) doDelete(selectedBookId); });
+    });
+
+    function doDelete(id) {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        fetch('/Books/Delete/' + id, { method: 'POST', headers: { 'RequestVerificationToken': token, 'Content-Type': 'application/x-www-form-urlencoded' }, body: '__RequestVerificationToken=' + encodeURIComponent(token) })
+            .then(function(res) {
+                if (res.ok || res.redirected) { if (typeof Swal !== 'undefined') Swal.fire({ title: 'Deleted', icon: 'success', timer: 1500, showConfirmButton: false }).then(() => location.reload()); else location.reload(); }
+                else return res.text().then(t => { throw new Error(t || 'Delete failed'); });
+            })
+            .catch(function(e) { if (typeof Swal !== 'undefined') Swal.fire({ title: 'Error', text: e.message, icon: 'error' }); else alert(e.message); });
+    }
+
+    if (books && books.length > 0) fillAside(getBook(books[0]));
+})();
+</script>

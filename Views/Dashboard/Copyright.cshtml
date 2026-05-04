@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copyright - eBook Publisher</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #4a6cf7;
+            --primary-light: #6b86f9;
+            --secondary: #6c757d;
+            --success: #198754;
+            --danger: #dc3545;
+            --warning: #ffc107;
+            --info: #0dcaf0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --dark-bg: #121826;
+            --dark-card: #1a243a;
+            --premium: #ffd700;
+            --transition-speed: 0.3s;
+            --border-radius: 12px;
+        }
+
+        body {
+            background-color: #f5f7f9;
+            color: #333;
+            line-height: 1.6;
+            overflow-x: hidden;
+            transition: background-color 0.3s, color 0.3s;
+            position: relative;
+        }
+
+            body.dark-mode {
+                background-color: var(--dark-bg);
+                color: #e0e0e0;
+            }
+
+        /* Main Content Styles - Full Width */
+        .main-content {
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            width: 93%;
+            max-width: none;
+            margin-left: 115px;
+        }
+
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        body.dark-mode .top-header {
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .header-left h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+            transition: transform var(--transition-speed);
+        }
+
+        body.dark-mode .header-left h1 {
+            color: #f0f0f0;
+        }
+
+        .header-left p {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+        }
+
+        body.dark-mode .header-left p {
+            color: #a0aec0;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Button Styles */
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+            overflow: hidden;
+            font-size: 0.95rem;
+        }
+
+            button::after {
+                content: '';
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 5px;
+                height: 5px;
+                background: rgba(255, 255, 255, 0.5);
+                opacity: 0;
+                border-radius: 100%;
+                transform: scale(1, 1) translate(-50%);
+                transform-origin: 50% 50%;
+            }
+
+            button:active::after {
+                animation: ripple 1s ease-out;
+            }
+
+         @@keyframes ripple {
+            0%
+
+        {
+            transform: scale(0, 0);
+            opacity: 0.5;
+        }
+
+        100% {
+            transform: scale(20, 20);
+            opacity: 0;
+        }
+
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(74, 108, 247, 0.3);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(74, 108, 247, 0.4);
+                background: var(--primary-light);
+            }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+
+            .btn-secondary:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4);
+            }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+            box-shadow: 0 4px 12px rgba(25, 135, 84, 0.3);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+            .btn-danger:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(220, 53, 69, 0.4);
+            }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #ffd700 0%, #ff9800 100%);
+            color: #333;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+        }
+
+            .btn-premium:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 16px rgba(255, 215, 0, 0.4);
+            }
+
+        .btn-small {
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+
+        .theme-toggle {
+            background: var(--dark);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+
+            .theme-toggle:hover {
+                transform: rotate(30deg);
+            }
+
+        /* Copyright Content Styles */
+        .copyright-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .copyright-info, .copyright-benefits {
+            background: white;
+            border-radius: var(--border-radius);
+            padding: 25px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform var(--transition-speed) ease, box-shadow 0.3s ease;
+        }
+
+        body.dark-mode .copyright-info,
+        body.dark-mode .copyright-benefits {
+            background: var(--dark-card);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .copyright-info:hover, .copyright-benefits:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .copyright-info h2 {
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        body.dark-mode .copyright-info h2 {
+            color: #f0f0f0;
+        }
+
+        .copyright-info p {
+            margin-bottom: 20px;
+            color: var(--secondary);
+        }
+
+        body.dark-mode .copyright-info p {
+            color: #b0b0b0;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+            .form-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-weight: 600;
+                color: var(--dark);
+            }
+
+        body.dark-mode .form-group label {
+            color: #f0f0f0;
+        }
+
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: white;
+            color: #333;
+        }
+
+        body.dark-mode .form-group input,
+        body.dark-mode .form-group textarea,
+        body.dark-mode .form-group select {
+            background: #1e2a4a;
+            border-color: #2a3a5a;
+            color: #e0e0e0;
+        }
+
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(74, 108, 247, 0.2);
+        }
+
+        /* Copyright Options */
+        .copyright-options {
+            margin: 25px 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+
+        body.dark-mode .copyright-options {
+            background-color: #1e2a4a;
+        }
+
+        .copyright-options h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        body.dark-mode .copyright-options h3 {
+            color: #f0f0f0;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            transition: transform 0.3s;
+        }
+
+            .checkbox-group:hover {
+                transform: translateX(5px);
+            }
+
+            .checkbox-group input[type="checkbox"] {
+                margin-right: 10px;
+                width: 18px;
+                height: 18px;
+            }
+
+            .checkbox-group label {
+                font-weight: normal;
+                margin-bottom: 0;
+                cursor: pointer;
+            }
+
+        /* Copyright Benefits */
+        .copyright-benefits h3 {
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        body.dark-mode .copyright-benefits h3 {
+            color: #f0f0f0;
+        }
+
+        .copyright-benefits ul {
+            list-style: none;
+            margin-top: 20px;
+        }
+
+        .copyright-benefits li {
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s;
+        }
+
+        body.dark-mode .copyright-benefits li {
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .copyright-benefits li:hover {
+            transform: translateX(5px);
+        }
+
+        .copyright-benefits li i {
+            margin-right: 10px;
+            color: var(--success);
+            font-size: 1.2rem;
+        }
+
+        .protection-level {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        body.dark-mode .protection-level {
+            background: #1e2a4a;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        body.dark-mode .status-card {
+            background: #1e2a4a;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transform: translateX(150%);
+            transition: transform 0.3s;
+            z-index: 1000;
+        }
+
+        body.dark-mode .toast {
+            background: var(--dark-card);
+            color: #e0e0e0;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger);
+        }
+
+        .toast.warning {
+            border-left: 4px solid var(--warning);
+        }
+
+        .toast-icon {
+            font-size: 24px;
+        }
+
+        .toast.success .toast-icon {
+            color: var(--success);
+        }
+
+        .toast.error .toast-icon {
+            color: var(--danger);
+        }
+
+        .toast.warning .toast-icon {
+            color: var(--warning);
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+            .modal.show {
+                display: flex;
+            }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        body.dark-mode .modal-content {
+            background: var(--dark-card);
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        body.dark-mode .modal-header {
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .modal-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .close {
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+
+            .close:hover {
+                transform: scale(1.2);
+            }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .premium-features {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .premium-feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+            .premium-feature i {
+                color: #ff9a00;
+                font-size: 1.2rem;
+            }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: center;
+        }
+
+        body.dark-mode .modal-footer {
+            border-top: 1px solid #2a2a2a;
+        }
+
+        /* Button Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+         @@keyframes spin {
+            to
+
+        {
+            transform: rotate(360deg);
+        }
+
+        }
+
+        /* Improved button focus states */
+        button:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        /* Responsive Styles */
+        @@media (max-width: 992px) {
+            .copyright-content
+
+        {
+            grid-template-columns: 1fr;
+        }
+
+        .btn-group {
+            flex-direction: column;
+        }
+
+        .header-right {
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        }
+
+        @@media (max-width: 768px) {
+            .main-content
+
+        {
+            padding: 15px;
+        }
+
+        .top-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        .header-right {
+            width: 100%;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 0.9rem;
+        }
+
+        .theme-toggle {
+            width: 40px;
+            height: 40px;
+        }
+
+        }
+
+        @@media (max-width: 576px) {
+            .main-content
+
+        {
+            padding: 15px;
+        }
+
+        .top-header {
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-right {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .header-left h1 {
+            font-size: 1.5rem;
+        }
+
+        .header-left p {
+            font-size: 1rem;
+        }
+
+        .copyright-info, .copyright-benefits {
+            padding: 20px;
+        }
+
+            .copyright-info h2, .copyright-benefits h3 {
+                font-size: 1.3rem;
+            }
+
+        }
+
+        @@media (max-width: 400px) {
+            .header-right
+
+        {
+            flex-direction: row;
+            gap: 10px;
+        }
+
+        .header-right button {
+            width: 38%;
+            justify-content: center;
+        }
+
+        .theme-toggle {
+            align-self: center;
+        }
+
+        .copyright-info h2, .copyright-benefits h3 {
+            font-size: 1.1rem;
+        }
+
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <header class="top-header">
+            <div class="header-left">
+                <h1>Copyright Protection</h1>
+                <p>Protect your intellectual property</p>
+            </div>
+            <div class="header-right">
+                <button class="btn-primary" id="registerBtn"><i class="fas fa-shield-alt"></i> Register Copyright</button>
+                <button class="btn-secondary" id="checkStatusBtn"><i class="fas fa-search"></i> Check Status</button>
+                <button class="theme-toggle" id="themeToggle">🌙</button>
+            </div>
+        </header>
+
+        <div class="copyright-content">
+            <div class="copyright-info">
+                <h2>Copyright Registration</h2>
+                <p>Protect your eBook with official copyright registration. This process ensures legal protection for your intellectual property and establishes your ownership rights.</p>
+
+                <div class="copyright-form">
+                    <form id="copyrightForm">
+                        <div class="form-group">
+                            <label for="workTitle">Book Title</label>
+                            <input type="text" id="workTitle" name="workTitle" placeholder="Enter your book title" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="authorName">Author Name</label>
+                            <input type="text" id="authorName" name="authorName" placeholder="Enter author's full name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="publicationDate">Publication Date</label>
+                            <input type="date" id="publicationDate" name="publicationDate" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="workDescription">Description</label>
+                            <textarea id="workDescription" name="workDescription" placeholder="Brief description of your work"></textarea>
+                        </div>
+
+                        <div class="copyright-options">
+                            <h3>Copyright Options</h3>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="basicProtection" name="protection" value="basic" checked>
+                                <label for="basicProtection">Basic Copyright Protection (Free)</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="enhancedProtection" name="protection" value="enhanced">
+                                <label for="enhancedProtection">Enhanced Protection ($49)</label>
+                            </div>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="internationalProtection" name="protection" value="international">
+                                <label for="internationalProtection">International Protection ($99)</label>
+                            </div>
+                        </div>
+
+                        <div class="btn-group">
+                            <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Submit Application</button>
+                            <button type="button" class="btn-secondary" id="saveAsDraftBtn"><i class="fas fa-file-alt"></i> Save as Draft</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="additional-info">
+                    <div class="status-card">
+                        <p><strong>Current Status:</strong> No active registrations</p>
+                        <p><strong>Processing Time:</strong> 2-3 business days</p>
+                        <p><strong>Certificate:</strong> Digital certificate will be emailed upon approval</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="copyright-benefits">
+                <h3>Copyright Benefits</h3>
+                <ul>
+                    <li><i class="fas fa-check-circle"></i> Legal ownership proof</li>
+                    <li><i class="fas fa-check-circle"></i> Protection against plagiarism</li>
+                    <li><i class="fas fa-check-circle"></i> Right to sue for infringement</li>
+                    <li><i class="fas fa-check-circle"></i> Statutory damages available</li>
+                    <li><i class="fas fa-check-circle"></i> International recognition</li>
+                    <li><i class="fas fa-check-circle"></i> Digital certificate provided</li>
+                    <li><i class="fas fa-check-circle"></i> Lifetime protection</li>
+                    <li><i class="fas fa-check-circle"></i> Transfer rights included</li>
+                </ul>
+
+                <div class="protection-info">
+                    <h4>Protection Levels</h4>
+                    <div class="protection-level">
+                        <strong>Basic:</strong> Standard copyright registration with basic legal protection.
+                    </div>
+                    <div class="protection-level">
+                        <strong>Enhanced:</strong> Includes expedited processing and enhanced monitoring.
+                    </div>
+                    <div class="protection-level">
+                        <strong>International:</strong> Global protection with international copyright treaties.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">Operation completed successfully!</span>
+    </div>
+
+    <!-- Premium Modal -->
+    <div id="premiumModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-crown"></i> Premium Copyright Features</h3>
+                <span class="close" id="closeModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="premium-features">
+                    <div class="premium-feature">
+                        <i class="fas fa-fast-forward"></i>
+                        <span>Expedited Processing (24 hours)</span>
+                    </div>
+                    <div class="premium-feature">
+                        <i class="fas fa-globe"></i>
+                        <span>International Protection</span>
+                    </div>
+                    <div class="premium-feature">
+                        <i class="fas fa-eye"></i>
+                        <span>Copyright Monitoring Service</span>
+                    </div>
+                    <div class="premium-feature">
+                        <i class="fas fa-gavel"></i>
+                        <span>Legal Support & Consultation</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-premium" id="upgradeToPremium">Upgrade to Premium - $99/year</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Theme toggle functionality
+            const themeToggle = document.getElementById('themeToggle');
+            const body = document.body;
+            let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+            if (isDarkMode) {
+                body.classList.add('dark-mode');
+                themeToggle.textContent = '☀️';
+            }
+
+            themeToggle.addEventListener('click', function() {
+                isDarkMode = !isDarkMode;
+                body.classList.toggle('dark-mode');
+                themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+                localStorage.setItem('darkMode', isDarkMode);
+                showToast(`Dark mode ${isDarkMode ? 'enabled' : 'disabled'}`, 'success');
+            });
+
+            // Form submission
+            const copyrightForm = document.getElementById('copyrightForm');
+            const toast = document.getElementById('toast');
+
+            function showToast(message, type = 'success') {
+                toast.className = `toast ${type}`;
+                toast.querySelector('.toast-message').textContent = message;
+                toast.classList.add('show');
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            copyrightForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                showToast('Copyright application submitted successfully!', 'success');
+            });
+
+            // Save as draft
+            document.getElementById('saveAsDraftBtn').addEventListener('click', function() {
+                showToast('Draft saved successfully!', 'success');
+            });
+
+            // Register button
+            document.getElementById('registerBtn').addEventListener('click', function() {
+                showToast('Starting copyright registration process...', 'success');
+            });
+
+            // Check status button
+            document.getElementById('checkStatusBtn').addEventListener('click', function() {
+                showToast('Checking copyright status...', 'success');
+            });
+
+            // Modal functionality
+            const premiumModal = document.getElementById('premiumModal');
+            const closeModal = document.getElementById('closeModal');
+
+            // Show premium modal when enhanced or international protection is selected
+            document.getElementById('enhancedProtection').addEventListener('change', function() {
+                if (this.checked) {
+                    premiumModal.classList.add('show');
+                }
+            });
+
+            document.getElementById('internationalProtection').addEventListener('change', function() {
+                if (this.checked) {
+                    premiumModal.classList.add('show');
+                }
+            });
+
+            document.getElementById('upgradeToPremium').addEventListener('click', function() {
+                premiumModal.classList.remove('show');
+                showToast('Redirecting to premium upgrade...', 'success');
+            });
+
+            closeModal.addEventListener('click', function() {
+                premiumModal.classList.remove('show');
+            });
+
+            // Close modal when clicking outside
+            window.addEventListener('click', function(e) {
+                if (e.target === premiumModal) {
+                    premiumModal.classList.remove('show');
+                }
+            });
+
+            // Initialize page
+            showToast('Copyright dashboard loaded successfully!');
+        });
+    </script>
+</body>
+</html>

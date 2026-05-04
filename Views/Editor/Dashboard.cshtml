@@ -1,0 +1,263 @@
+@{
+    ViewData["Title"] = "Editor Dashboard";
+}
+
+<!-- Editor Statistics -->
+<div class="editor-stats" data-aos="fade-up">
+    <div class="stat-card" data-aos="flip-left" data-aos-delay="100">
+        <i class="fas fa-file-alt"></i>
+        <h3>47</h3>
+        <p>Drafts in Review</p>
+    </div>
+    <div class="stat-card" data-aos="flip-left" data-aos-delay="200">
+        <i class="fas fa-check-circle"></i>
+        <h3>123</h3>
+        <p>Published Content</p>
+    </div>
+    <div class="stat-card" data-aos="flip-left" data-aos-delay="300">
+        <i class="fas fa-clock"></i>
+        <h3>8</h3>
+        <p>Pending Reviews</p>
+    </div>
+    <div class="stat-card" data-aos="flip-left" data-aos-delay="400">
+        <i class="fas fa-star"></i>
+        <h3>4.8</h3>
+        <p>Content Rating</p>
+    </div>
+</div>
+
+<!-- Content Management Grid -->
+<div class="content-grid" data-aos="fade-up" data-aos-delay="300">
+    <div class="recent-content" data-aos="slide-right" data-aos-delay="400">
+        <div class="section-header">
+            <h3>Recent Content</h3>
+            <button class="btn btn-sm" onclick="createNew()">Create New</button>
+        </div>
+        <div class="content-list">
+            <div class="content-item">
+                <div class="content-icon"><i class="fas fa-book"></i></div>
+                <div class="content-info">
+                    <h4>Chapter 5: The Journey</h4>
+                    <p>Fantasy Novel - In Progress</p>
+                    <span class="content-status draft">Draft</span>
+                </div>
+                <div class="content-actions">
+                    <button class="btn-action" onclick="editContent(1)"><i class="fas fa-edit"></i></button>
+                </div>
+            </div>
+            <div class="content-item">
+                <div class="content-icon"><i class="fas fa-newspaper"></i></div>
+                <div class="content-info">
+                    <h4>Book Review: Modern Romance</h4>
+                    <p>Review Article - Ready</p>
+                    <span class="content-status ready">Ready</span>
+                </div>
+                <div class="content-actions">
+                    <button class="btn-action" onclick="publishContent(2)"><i class="fas fa-rocket"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="workflow-status" data-aos="slide-left" data-aos-delay="500">
+        <div class="section-header">
+            <h3>Publishing Workflow</h3>
+            <button class="btn btn-sm" onclick="viewAll()">View All</button>
+        </div>
+        <div class="workflow-list">
+            <div class="workflow-item">
+                <div class="workflow-step completed">1</div>
+                <div class="workflow-info">
+                    <h4>Content Creation</h4>
+                    <p>Draft completed</p>
+                </div>
+            </div>
+            <div class="workflow-item">
+                <div class="workflow-step active">2</div>
+                <div class="workflow-info">
+                    <h4>Editorial Review</h4>
+                    <p>Currently in progress</p>
+                </div>
+            </div>
+            <div class="workflow-item">
+                <div class="workflow-step pending">3</div>
+                <div class="workflow-info">
+                    <h4>Final Approval</h4>
+                    <p>Awaiting review completion</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions" data-aos="fade-up" data-aos-delay="600">
+    <div class="action-card" data-aos="zoom-in" data-aos-delay="700">
+        <i class="fas fa-plus-circle"></i>
+        <h4>New Article</h4>
+        <p>Start writing a new article</p>
+        <button class="btn btn-primary" onclick="newArticle()">Create</button>
+    </div>
+    <div class="action-card" data-aos="zoom-in" data-aos-delay="800">
+        <i class="fas fa-book-open"></i>
+        <h4>New Chapter</h4>
+        <p>Add chapter to existing book</p>
+        <button class="btn btn-primary" onclick="newChapter()">Add Chapter</button>
+    </div>
+    <div class="action-card" data-aos="zoom-in" data-aos-delay="900">
+        <i class="fas fa-comments"></i>
+        <h4>Author Chat</h4>
+        <p>Communicate with authors</p>
+        <button class="btn btn-primary" onclick="openChat()">Open Chat</button>
+    </div>
+</div>
+
+<style>
+    .editor-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 25px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .stat-card i {
+        font-size: 2.5rem;
+        color: #8360c3;
+        margin-bottom: 15px;
+    }
+
+    .stat-card h3 {
+        font-size: 1.8rem;
+        margin-bottom: 5px;
+        color: #333;
+    }
+
+    .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+    }
+
+    .recent-content, .workflow-status {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .content-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 15px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .content-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #8360c3, #2ebf91);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+
+    .content-status {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .content-status.draft {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+
+    .content-status.ready {
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+    }
+
+    .action-card {
+        background: rgba(255, 255, 255, 0.95);
+        padding: 25px;
+        border-radius: 15px;
+        text-align: center;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+    }
+
+    .action-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .action-card i {
+        font-size: 2.5rem;
+        color: #8360c3;
+        margin-bottom: 15px;
+    }
+
+    @@media (max-width: 768px) {
+        .content-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<script>
+    function createNew() {
+        Swal.fire({
+            title: 'Create New Content',
+            html: `
+                <button class="btn btn-primary" onclick="newArticle()" style="margin: 5px;">Article</button>
+                <button class="btn btn-primary" onclick="newChapter()" style="margin: 5px;">Chapter</button>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true
+        });
+    }
+
+    function newArticle() {
+        Swal.fire('New Article', 'Article editor will open here', 'success');
+    }
+
+    function newChapter() {
+        Swal.fire('New Chapter', 'Chapter editor will open here', 'success');
+    }
+
+    function openChat() {
+        Swal.fire('Author Chat', 'Chat interface will open here', 'info');
+    }
+</script>

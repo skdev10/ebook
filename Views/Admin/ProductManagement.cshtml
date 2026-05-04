@@ -1,0 +1,70 @@
+@model List<AdminProductRowViewModel>
+@{
+    ViewData["Title"] = "Product Management";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var rows = Model ?? new List<AdminProductRowViewModel>();
+}
+
+<div class="subscriptions-container">
+    <div class="page-header">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;">
+            <div>
+                <h1 style="margin:0;font-size:1.75rem;font-weight:800;color:#2C2C2C;">Product Management</h1>
+                <p style="margin:8px 0 0;color:#6B6B6B;font-size:0.95rem;">Books in the catalog with the latest list price from pricing records (when available).</p>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <a href="@Url.Action("ContentManagement", "Admin")" class="btn-secondary-admin" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;text-decoration:none;font-weight:600;border:1px solid #e5e5e5;color:#374151;background:#fff;">Books admin</a>
+                <a href="@Url.Action("Subscriptions", "Admin")" class="btn-primary-admin" style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;border-radius:12px;text-decoration:none;font-weight:600;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;box-shadow:0 4px 14px rgba(124,58,237,.35);">Subscriptions</a>
+            </div>
+        </div>
+    </div>
+
+    <div style="background:#fff;border-radius:20px;border:1px solid #E5E5E5;box-shadow:0 4px 20px rgba(0,0,0,.05);overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <span style="font-weight:700;color:#374151;">@rows.Count titles</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+                <thead>
+                    <tr style="background:#fafafa;text-align:left;color:#64748b;font-size:0.75rem;text-transform:uppercase;letter-spacing:.06em;">
+                        <th style="padding:14px 18px;">Book</th>
+                        <th style="padding:14px 12px;">Genre</th>
+                        <th style="padding:14px 12px;">Status</th>
+                        <th style="padding:14px 12px;text-align:right;">Words</th>
+                        <th style="padding:14px 12px;text-align:right;">List price</th>
+                        <th style="padding:14px 18px;">Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @if (!rows.Any())
+                {
+                    <tr><td colspan="6" style="padding:48px;text-align:center;color:#94a3b8;">No books found.</td></tr>
+                }
+                else
+                {
+                    foreach (var r in rows)
+                    {
+                        <tr style="border-top:1px solid #f3f4f6;">
+                            <td style="padding:14px 18px;font-weight:600;color:#1e293b;">@r.Title</td>
+                            <td style="padding:14px 12px;color:#64748b;">@(string.IsNullOrWhiteSpace(r.Genre) ? "—" : r.Genre)</td>
+                            <td style="padding:14px 12px;"><span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:600;background:#f5f3ff;color:#6d28d9;">@r.Status</span></td>
+                            <td style="padding:14px 12px;text-align:right;color:#64748b;">@r.WordCount.ToString("N0")</td>
+                            <td style="padding:14px 12px;text-align:right;font-variant-numeric:tabular-nums;">
+                                @if (r.ListPrice.HasValue)
+                                {
+                                    <text>@r.ListPrice.Value.ToString("N2") @r.Currency</text>
+                                }
+                                else
+                                {
+                                    <span style="color:#94a3b8;">—</span>
+                                }
+                            </td>
+                            <td style="padding:14px 18px;color:#64748b;white-space:nowrap;">@(r.UpdatedAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        </tr>
+                    }
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

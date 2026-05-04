@@ -1,0 +1,62 @@
+DigitalOcean App Platform — set these as Environment Variables (nested keys use double underscore).
+
+Required for database & startup:
+  ConnectionStrings__DefaultConnection
+    Example (MySQL): server=YOUR_HOST;port=25060;database=ebookpublications;user=doadmin;password=SECRET;SslMode=Required;
+
+Public URL for Stripe redirects / emails:
+  App__PublicBaseUrl
+    Example: https://your-app.ondigitalocean.app
+
+Optional payment API (Plans/BuyPlan):
+  PaymentApi__BaseUrl
+
+OAuth (omit handlers auto-register only when both ClientId + ClientSecret non-empty):
+  Authentication__Google__ClientId
+  Authentication__Google__ClientSecret
+  Authentication__Facebook__AppId
+  Authentication__Facebook__AppSecret
+
+External chapter/cover API:
+  ExternalApi__BaseUrl
+  ExternalApi__GenerateUrl
+  ExternalApi__EditUrl
+  ExternalApi__ApproveUrl
+  ExternalApi__GenerateCoverUrl
+  ExternalApi__EditCoverUrl
+  ExternalApi__AudioUrl
+  ExternalApi__QueueDataUrl
+  ExternalApi__BookChaptersNameUrl
+  ExternalApi__ApiKey
+
+OpenAI:
+  OpenAI__ApiKey
+
+Stripe:
+  Stripe__PublishableKey
+  Stripe__SecretKey
+  Stripe__WebhookSecret
+  PaymentSettings__Stripe__PublishableKey
+  PaymentSettings__Stripe__SecretKey
+  PaymentSettings__Stripe__WebhookSecret
+  PaymentSettings__Stripe__BaseUrl
+
+JWT (if used):
+  JwtSettings__SecretKey
+
+SMTP:
+  Email__SmtpServer
+  Email__Username
+  Email__Password
+  Email__FromEmail
+
+Managed MySQL CA (alternative to mounting file):
+  Database__SslCaPem
+    PEM content with literal newlines replaced by \n in the env value if required by your platform.
+
+HTTP port on DO App Platform:
+  PORT (injected automatically; Program.cs binds http://0.0.0.0:${PORT})
+
+Local development without committing secrets:
+  Use User Secrets (dotnet user-secrets set "ConnectionStrings:DefaultConnection" "...")
+  or set the same variables in your shell / launch profile.

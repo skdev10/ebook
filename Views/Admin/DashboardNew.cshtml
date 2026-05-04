@@ -1,0 +1,573 @@
+@{
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<!-- New Modern Dashboard Styles -->
+<style>
+    /* Dashboard Grid Layout */
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 24px;
+        margin-bottom: 32px;
+    }
+
+    /* Stat Cards - Clean and Minimal */
+    .stat-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        padding: 24px;
+        transition: all 0.3s ease;
+        border: 1px solid #eef2f7;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    .stat-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+
+    .stat-icon.users { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .stat-icon.books { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .stat-icon.revenue { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+    .stat-icon.satisfaction { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
+
+    .stat-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1f2937;
+        margin-bottom: 4px;
+    }
+
+    .stat-label {
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .stat-trend {
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    .stat-trend.up { color: #10b981; }
+    .stat-trend.down { color: #ef4444; }
+
+    /* Chart Section */
+    .chart-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        padding: 24px;
+        margin-bottom: 32px;
+        border: 1px solid #eef2f7;
+    }
+
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .chart-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .chart-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .chart-btn {
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .chart-btn:hover {
+        background: #f3f4f6;
+    }
+
+    .chart-btn.active {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
+
+    .chart-container {
+        height: 320px;
+        position: relative;
+    }
+
+    /* Activity Feed */
+    .activity-section {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        padding: 24px;
+        border: 1px solid #eef2f7;
+    }
+
+    .activity-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .activity-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .activity-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .activity-item {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        border-radius: 12px;
+        transition: all 0.2s ease;
+    }
+
+    .activity-item:hover {
+        background: #f9fafb;
+    }
+
+    .activity-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        color: white;
+        flex-shrink: 0;
+    }
+
+    .activity-avatar.users { background: #3b82f6; }
+    .activity-avatar.books { background: #10b981; }
+    .activity-avatar.edit { background: #f59e0b; }
+    .activity-avatar.payment { background: #8b5cf6; }
+
+    .activity-content {
+        flex: 1;
+    }
+
+    .activity-text {
+        font-size: 15px;
+        color: #1f2937;
+        margin-bottom: 4px;
+        font-weight: 500;
+    }
+
+    .activity-time {
+        font-size: 13px;
+        color: #6b7280;
+    }
+
+    /* Management Grid */
+    .management-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 24px;
+        margin-top: 32px;
+    }
+
+    .management-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        padding: 24px;
+        text-align: center;
+        transition: all 0.3s ease;
+        border: 1px solid #eef2f7;
+    }
+
+    .management-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .management-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        margin: 0 auto 20px;
+        color: white;
+    }
+
+    .management-icon.users { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+    .management-icon.content { background: linear-gradient(135deg, #10b981, #34d399); }
+    .management-icon.analytics { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+    .management-icon.payment { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+    .management-icon.settings { background: linear-gradient(135deg, #6b7280, #9ca3af); }
+
+    .management-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 12px;
+    }
+
+    .management-desc {
+        font-size: 14px;
+        color: #6b7280;
+        margin-bottom: 20px;
+        line-height: 1.5;
+    }
+
+    .management-btn {
+        display: inline-block;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border: 1px solid #e5e7eb;
+        color: #374151;
+        background: #f9fafb;
+    }
+
+    .management-btn:hover {
+        background: #f3f4f6;
+        transform: translateY(-2px);
+    }
+
+    /* Responsive Adjustments */
+    @@media (max-width: 768px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .chart-container {
+            height: 280px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .chart-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+        }
+        
+        .chart-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+    }
+</style>
+
+<!-- Dashboard Content -->
+<div class="dashboard-grid">
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-icon users">
+                <i class="fas fa-users"></i>
+            </div>
+        </div>
+        <div class="stat-value">2,847</div>
+        <div class="stat-label">Total Users</div>
+        <div class="stat-trend up">
+            <i class="fas fa-arrow-up"></i>
+            <span>12.5% from last month</span>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-icon books">
+                <i class="fas fa-book"></i>
+            </div>
+        </div>
+        <div class="stat-value">1,234</div>
+        <div class="stat-label">Published Books</div>
+        <div class="stat-trend up">
+            <i class="fas fa-arrow-up"></i>
+            <span>8.3% from last month</span>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-icon revenue">
+                <i class="fas fa-dollar-sign"></i>
+            </div>
+        </div>
+        <div class="stat-value">$45,678</div>
+        <div class="stat-label">Monthly Revenue</div>
+        <div class="stat-trend up">
+            <i class="fas fa-arrow-up"></i>
+            <span>15.7% from last month</span>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-header">
+            <div class="stat-icon satisfaction">
+                <i class="fas fa-chart-line"></i>
+            </div>
+        </div>
+        <div class="stat-value">94.2%</div>
+        <div class="stat-label">User Satisfaction</div>
+        <div class="stat-trend up">
+            <i class="fas fa-arrow-up"></i>
+            <span>2.1% from last month</span>
+        </div>
+    </div>
+</div>
+
+<div class="chart-section">
+    <div class="chart-header">
+        <h2 class="chart-title">Revenue Analytics</h2>
+        <div class="chart-actions">
+            <button class="chart-btn" onclick="updateChart('week')">Week</button>
+            <button class="chart-btn active" onclick="updateChart('month')">Month</button>
+            <button class="chart-btn" onclick="updateChart('year')">Year</button>
+        </div>
+    </div>
+    <div class="chart-container">
+        <canvas id="revenueChart"></canvas>
+    </div>
+</div>
+
+<div class="activity-section">
+    <div class="activity-header">
+        <h2 class="activity-title">Recent Activities</h2>
+        <button class="chart-btn" onclick="refreshActivities()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+    <div class="activity-list">
+        <div class="activity-item">
+            <div class="activity-avatar users">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-text">New user registered</div>
+                <div class="activity-time">2 minutes ago</div>
+            </div>
+        </div>
+        
+        <div class="activity-item">
+            <div class="activity-avatar books">
+                <i class="fas fa-book"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-text">Book "The Great Adventure" published</div>
+                <div class="activity-time">15 minutes ago</div>
+            </div>
+        </div>
+        
+        <div class="activity-item">
+            <div class="activity-avatar edit">
+                <i class="fas fa-edit"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-text">Editor reviewed chapter 5</div>
+                <div class="activity-time">1 hour ago</div>
+            </div>
+        </div>
+        
+        <div class="activity-item">
+            <div class="activity-avatar payment">
+                <i class="fas fa-credit-card"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-text">Payment processed: $299</div>
+                <div class="activity-time">2 hours ago</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="management-grid">
+    <div class="management-card">
+        <div class="management-icon users">
+            <i class="fas fa-users-cog"></i>
+        </div>
+        <h3 class="management-title">User Management</h3>
+        <p class="management-desc">Manage users, roles, and permissions</p>
+        <a href="@Url.Action("Users", "Admin")" class="management-btn">Manage Users</a>
+    </div>
+    
+    <div class="management-card">
+        <div class="management-icon content">
+            <i class="fas fa-book-open"></i>
+        </div>
+        <h3 class="management-title">Content Management</h3>
+        <p class="management-desc">Oversee books, chapters, and publications</p>
+        <a href="@Url.Action("Index", "Books")" class="management-btn">Manage Content</a>
+    </div>
+    
+    <div class="management-card">
+        <div class="management-icon analytics">
+            <i class="fas fa-chart-bar"></i>
+        </div>
+        <h3 class="management-title">Analytics</h3>
+        <p class="management-desc">View detailed reports and insights</p>
+        <button class="management-btn" onclick="showAnalytics()">View Analytics</button>
+    </div>
+    
+    <div class="management-card">
+        <div class="management-icon payment">
+            <i class="fas fa-credit-card"></i>
+        </div>
+        <h3 class="management-title">Payment Management</h3>
+        <p class="management-desc">Manage user subscriptions and payments</p>
+        <button class="management-btn" onclick="showPayments()">Manage Payments</button>
+    </div>
+    
+    <div class="management-card">
+        <div class="management-icon settings">
+            <i class="fas fa-cogs"></i>
+        </div>
+        <h3 class="management-title">System Settings</h3>
+        <p class="management-desc">Configure platform settings</p>
+        <button class="management-btn" onclick="showSettings()">Settings</button>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChart();
+        });
+
+        // Initialize chart
+        function initializeChart() {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: [12000, 19000, 15000, 22000, 18000, 25000, 21000, 30000, 28000, 35000, 32000, 40000],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#3b82f6',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                drawBorder: false,
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update chart based on period
+        function updateChart(period) {
+            // Remove active class from all buttons
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            // In a real app, this would fetch new data
+            console.log(`Chart updated to ${period} view`);
+        }
+
+        // Refresh activities
+        function refreshActivities() {
+            // In a real app, this would fetch new activities
+            console.log('Activities refreshed');
+        }
+
+        // Show analytics
+        function showAnalytics() {
+            alert('Analytics panel would open here');
+        }
+
+        // Show settings
+        function showSettings() {
+            alert('Settings panel would open here');
+        }
+
+        // Show payments management
+        function showPayments() {
+            alert('Payment management panel would open here');
+        }
+    </script>
+}

@@ -1,0 +1,250 @@
+@{
+    ViewData["Title"] = "Audit Logs";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --cream-bg: #FAF8F3;
+        --cream-accent: #E8DCC6;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --border-light: #E5E5E5;
+        --primary: #8B7355;
+        --success: #10b981;
+        --danger: #ef4444;
+    }
+
+    .audit-container {
+        padding: 0;
+    }
+
+    .page-header {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .filters-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-light);
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 14px;
+    }
+
+    .table-container {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-light);
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-light);
+    }
+
+    th {
+        font-weight: 600;
+        color: var(--text-primary);
+        background: var(--light-gray);
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+
+    td {
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .action-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .action-create {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .action-update {
+        background: rgba(139, 115, 85, 0.1);
+        color: var(--primary);
+    }
+
+    .action-delete {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: var(--primary-dark);
+    }
+</style>
+
+<div class="audit-container">
+    <div class="page-header">
+        <div>
+            <h1 style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">Audit Logs</h1>
+            <p style="color: var(--text-secondary);">View system-wide logs of all user and admin actions</p>
+        </div>
+        <button class="btn btn-primary" onclick="exportLogs()">
+            <i class="fas fa-download"></i> Export Logs
+        </button>
+    </div>
+
+    <div class="filters-section">
+        <div class="filters-row">
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Filter by User</label>
+                <input type="text" class="form-control" placeholder="Search user..." />
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Filter by Module</label>
+                <select class="form-control">
+                    <option value="">All Modules</option>
+                    <option value="users">Users</option>
+                    <option value="books">Books</option>
+                    <option value="settings">Settings</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Filter by Action</label>
+                <select class="form-control">
+                    <option value="">All Actions</option>
+                    <option value="create">Create</option>
+                    <option value="update">Update</option>
+                    <option value="delete">Delete</option>
+                </select>
+            </div>
+            <div>
+                <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Date Range</label>
+                <input type="date" class="form-control" />
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Module</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>IP Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>2025-01-15 14:32:15</td>
+                    <td>admin@example.com</td>
+                    <td>Users</td>
+                    <td><span class="action-badge action-create">Create</span></td>
+                    <td>Created user: john.doe@example.com</td>
+                    <td>192.168.1.1</td>
+                </tr>
+                <tr>
+                    <td>2025-01-15 14:28:42</td>
+                    <td>admin@example.com</td>
+                    <td>Books</td>
+                    <td><span class="action-badge action-update">Update</span></td>
+                    <td>Updated book: "The Adventure"</td>
+                    <td>192.168.1.1</td>
+                </tr>
+                <tr>
+                    <td>2025-01-15 14:15:30</td>
+                    <td>admin@example.com</td>
+                    <td>Users</td>
+                    <td><span class="action-badge action-delete">Delete</span></td>
+                    <td>Deleted user: old.user@example.com</td>
+                    <td>192.168.1.1</td>
+                </tr>
+                <tr>
+                    <td>2025-01-15 13:45:12</td>
+                    <td>admin@example.com</td>
+                    <td>Settings</td>
+                    <td><span class="action-badge action-update">Update</span></td>
+                    <td>Updated platform settings</td>
+                    <td>192.168.1.1</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    function exportLogs() {
+        Swal.fire({
+            title: 'Exporting Logs...',
+            text: 'Please wait',
+            icon: 'info',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        setTimeout(() => {
+            Swal.fire('Success!', 'Audit logs exported successfully.', 'success');
+        }, 1500);
+    }
+</script>
+

@@ -1,0 +1,30 @@
+# DigitalOcean App Platform spec — link this repo in the DO UI or apply with doctl apps update --spec .do/app.yaml
+# Replace the github.repo value with your GitHub org/repo (e.g. myorg/eBookProjectGit25) before first deploy.
+name: ebook-dashboard
+region: nyc
+features:
+  - buildpack-stack=ubuntu-22
+alerts:
+  - rule: DEPLOYMENT_FAILED
+services:
+  - name: web
+    github:
+      repo: YOUR_GITHUB_USER_OR_ORG/YOUR_REPO_NAME
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    # Explicit publish output so run_command can always find the DLL (fixes "EBookDashboard.dll does not exist").
+    build_command: dotnet publish ./EBookDashboard.csproj -c Release -o publish
+    run_command: dotnet publish/EBookDashboard.dll
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    # Set the MySQL connection string in the dashboard (Secrets) — do not commit real credentials.
+    # Key: ConnectionStrings__DefaultConnection  Scope: RUN_TIME  Type: SECRET

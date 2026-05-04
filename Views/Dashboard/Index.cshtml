@@ -1,0 +1,449 @@
+@model EBookDashboard.Models.DashboardIndexViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var publishedBooks = Model.CurrentProjects?.Where(p => p.Status == "Published" || p.Status == "Finalized").ToList() ?? new List<EBookDashboard.Models.ProjectViewModel>();
+    var draftBooks = Model.CurrentProjects?.Where(p => p.Status != "Published" && p.Status != "Finalized").ToList() ?? new List<EBookDashboard.Models.ProjectViewModel>();
+    var draftBooksShow = draftBooks.Take(3).ToList();
+    var hasMoreDrafts = draftBooks.Count > 3;
+    var bookCoverFallbacks = new[] {
+        "https://images.unsplash.com/photo-1541963463532-d68292c34b19?q=80&w=1888&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&w=1587&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=2070&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1512413914633-b5043f4041ea?q=80&w=1991&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1629196914375-f7e48f477b6d?q=80&w=1958&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1974&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070&auto=format&fit=crop"
+    };
+}
+<style>
+    body { font-family: 'Inter', sans-serif; }
+    .font-serif { font-family: 'Playfair Display', serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 10px; }
+    @@keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    .toast-dash {
+        visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center;
+        border-radius: 8px; padding: 12px; position: fixed; z-index: 100; left: 50%; bottom: 30px;
+        transform: translateX(-50%); font-size: 14px; opacity: 0; transition: opacity 0.3s, bottom 0.3s;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .toast-dash.show { visibility: visible; opacity: 1; bottom: 50px; }
+</style>
+
+<div class="bg-white text-gray-800 antialiased h-full flex flex-1 overflow-hidden w-full">
+    <!-- Main Content -->
+    <main class="flex-1 h-full overflow-y-auto bg-white relative">
+        <div class="max-w-5xl mx-auto px-8 py-8" data-aos="fade-up" data-aos-duration="500">
+            <!-- Search -->
+            <div class="relative mb-10 group">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 transition-colors"></i>
+                <input id="search-input" type="text" placeholder="Search your books, drafts, or authors..." class="w-full pl-12 pr-4 py-3 rounded-full border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 transition-all placeholder:text-gray-400 text-gray-700">
+            </div>
+
+            <!-- Hero Section (same as image: The Wizarding Chronicles) -->
+            <div class="flex flex-col md:flex-row items-center gap-8 mb-12">
+                <div class="flex-1">
+                    @{
+                        var heroTitle = !string.IsNullOrEmpty(Model.DemoHeroTitle) ? Model.DemoHeroTitle : (Model.CurrentWorkingBook?.Title ?? "Your Library");
+                        var heroDesc = Model.DemoHeroDescription ?? (Model.CurrentWorkingBook?.BookId > 0 ? "Continue where you left off. Edit chapters, refine your story, and get closer to publishing." : "You haven't started a book yet. Create your first book with AI Writer and bring your story to life.");
+                        var heroBookId = Model.DemoHeroBookId ?? Model.CurrentWorkingBook?.BookId ?? 0;
+                    }
+                    <h1 class="font-serif text-5xl text-gray-900 mb-4 leading-tight tracking-tight">@heroTitle</h1>
+                    <p class="text-gray-500 text-lg mb-8 leading-relaxed max-w-lg">@heroDesc</p>
+                    <a href="@(heroBookId > 0 ? Url.Action("AIGenerateBook", "Books", new { bookId = heroBookId }) : Url.Action("AIGenerateBook", "Books"))" class="inline-block bg-purple-700 hover:bg-purple-800 active:scale-95 text-white px-8 py-3.5 rounded-full font-medium transition-all shadow-lg shadow-purple-200 text-base">Continue Editing</a>
+                </div>
+                @if (!string.IsNullOrEmpty(Model.DemoHeroCoverUrl) || (Model.CurrentWorkingBook?.BookId > 0))
+                {
+                    var heroImg = !string.IsNullOrEmpty(Model.DemoHeroCoverUrl) ? Model.DemoHeroCoverUrl : (Model.CurrentWorkingBook?.BookId > 0 && !string.IsNullOrEmpty(Model.CurrentWorkingBook.CoverImagePath) ? Url.Content("~/" + Model.CurrentWorkingBook.CoverImagePath.TrimStart('/')) : bookCoverFallbacks[0]);
+                    if (!heroImg.StartsWith("http", StringComparison.OrdinalIgnoreCase)) { heroImg = Url.Content("~/" + heroImg.TrimStart('/')); }
+                    <div class="relative group cursor-pointer" onclick="window.location.href='@(heroBookId > 0 ? Url.Action("BookPayment", "Checkout", new { bookId = heroBookId }) : Url.Action("EBookHub", "Books"))'">
+                        <div class="absolute -inset-1 bg-gradient-to-r from-purple-200 to-pink-200 rounded-lg blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+                        <div class="relative flex items-center">
+                            <div class="w-48 h-64 bg-[#f8f5f0] border border-gray-200 rounded-l-md shadow-sm p-4 flex flex-col justify-between transform translate-x-4 scale-95 z-0"></div>
+                            <img src="@heroImg" alt="@heroTitle" class="w-52 h-[18rem] object-cover rounded-r-md rounded-l-sm shadow-2xl z-10 border-l border-gray-900/20 transition-transform group-hover:-translate-y-2">
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Published Books -->
+            <div class="mb-10">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="font-serif text-2xl font-semibold text-gray-900 tracking-tight">Your Published Books</h2>
+                    <a href="@Url.Action("MyBooks", "Dashboard")" class="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400 transition-colors">
+                        <i class="fas fa-ellipsis-h w-4 h-4"></i>
+                    </a>
+                </div>
+                <div id="books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    @if (Model.DemoPublishedBooks != null && Model.DemoPublishedBooks.Any())
+                    {
+                        foreach (var book in Model.DemoPublishedBooks)
+                        {
+                            var coverUrl = !string.IsNullOrEmpty(book.CoverUrl) && book.CoverUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? book.CoverUrl : (!string.IsNullOrEmpty(book.CoverUrl) ? Url.Content("~/" + book.CoverUrl.TrimStart('/')) : bookCoverFallbacks[0]);
+                            <a href="@(book.BookId > 0 ? Url.Action("BookPayment", "Checkout", new { bookId = book.BookId }) : Url.Action("MyBooks", "Dashboard"))" class="group cursor-pointer book-item block" data-title="@book.Title">
+                                <div class="aspect-[2/3] rounded-xl overflow-hidden shadow-md mb-3 relative">
+                                    <img src="@coverUrl" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="@book.Title" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1541963463532-d68292c34b19?q=80&w=400&auto=format&fit=crop';">
+                                    <div class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <h3 class="font-serif text-white text-2xl font-bold mb-1">@book.Title</h3>
+                                        @if (!string.IsNullOrEmpty(book.Author)) { <p class="text-white/80 text-xs uppercase tracking-widest">@book.Author</p> }
+                                        <span class="mt-4 px-4 py-2 bg-white text-gray-900 text-xs font-bold rounded-full">View</span>
+                                    </div>
+                                </div>
+                                <h3 class="font-medium text-gray-900 text-base">@book.Title</h3>
+                                @if (!string.IsNullOrEmpty(book.Subtitle)) { <p class="text-gray-400 text-sm font-light italic">@book.Subtitle</p> }
+                            </a>
+                        }
+                    }
+                    else if (publishedBooks.Any())
+                    {
+                        var idx = 0;
+                        foreach (var book in publishedBooks.Take(4))
+                        {
+                            var coverUrl = !string.IsNullOrEmpty(book.CoverImagePath) ? (book.CoverImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? book.CoverImagePath : Url.Content("~/" + book.CoverImagePath.TrimStart('/'))) : bookCoverFallbacks[idx % bookCoverFallbacks.Length];
+                            idx++;
+                            <a href="@Url.Action("BookPayment", "Checkout", new { bookId = book.BookId })" class="group cursor-pointer book-item block" data-title="@book.Title">
+                                <div class="aspect-[2/3] rounded-xl overflow-hidden shadow-md mb-3 relative">
+                                    <img src="@coverUrl" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="@book.Title">
+                                    <div class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                        <h3 class="font-serif text-white text-2xl font-bold mb-1">@book.Title</h3>
+                                        <span class="mt-4 px-4 py-2 bg-white text-gray-900 text-xs font-bold rounded-full">View</span>
+                                    </div>
+                                </div>
+                                <h3 class="font-medium text-gray-900 text-base">@book.Title</h3>
+                            </a>
+                        }
+                    }
+                    else
+                    {
+                        <div class="col-span-full text-center py-8 text-gray-400">
+                            <p>No published books yet. <a href="@Url.Action("AIGenerateBook", "Books")" class="text-purple-600 hover:underline">Create your first book</a>.</p>
+                        </div>
+                    }
+                </div>
+                <div id="no-books-msg" class="hidden py-8 text-center text-gray-400"><p>No books found matching your search.</p></div>
+            </div>
+
+            <!-- Drafts -->
+            <div class="mb-10">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="font-serif text-2xl font-semibold text-gray-900 tracking-tight">Your Drafts</h2>
+                    <a href="@Url.Action("MyBooks", "Dashboard")" class="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400 transition-colors">
+                        <i class="fas fa-ellipsis-h w-4 h-4"></i>
+                    </a>
+                </div>
+                <div id="drafts-list" class="space-y-4">
+                    @if (Model.DemoDrafts != null && Model.DemoDrafts.Any())
+                    {
+                        foreach (var draft in Model.DemoDrafts)
+                        {
+                            var draftCover = !string.IsNullOrEmpty(draft.CoverUrl) && draft.CoverUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? draft.CoverUrl : (!string.IsNullOrEmpty(draft.CoverUrl) ? Url.Content("~/" + draft.CoverUrl.TrimStart('/')) : bookCoverFallbacks[4]);
+                            <a href="@(draft.BookId > 0 ? Url.Action("AIGenerateBook", "Books", new { bookId = draft.BookId }) : Url.Action("AIGenerateBook", "Books"))" class="book-item border border-gray-100 rounded-2xl p-4 flex items-center justify-between hover:shadow-md hover:border-purple-100 transition-all bg-white cursor-pointer group block" data-title="@draft.Title">
+                                <div class="flex items-center gap-4">
+                                    <img src="@draftCover" alt="@draft.Title" class="w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform">
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900 text-base group-hover:text-purple-700 transition-colors">@draft.Title</h3>
+                                        <p class="text-gray-400 text-sm mt-0.5">@draft.Subtitle</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-gray-400 text-sm font-medium">@draft.Volumes</span>
+                                    <span class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-purple-50 text-gray-300 group-hover:text-purple-600 transition-colors">
+                                        <i class="fas fa-edit w-4 h-4"></i>
+                                    </span>
+                                </div>
+                            </a>
+                        }
+                        <div class="pt-2">
+                            <a href="@Url.Action("MyBooks", "Dashboard")" class="inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 font-medium text-sm">More drafts <i class="fas fa-arrow-right text-xs"></i></a>
+                        </div>
+                    }
+                    else if (draftBooksShow.Any())
+                    {
+                        var draftIdx = 0;
+                        foreach (var draft in draftBooksShow)
+                        {
+                            var draftCover = !string.IsNullOrEmpty(draft.CoverImagePath) ? (draft.CoverImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? draft.CoverImagePath : Url.Content("~/" + draft.CoverImagePath.TrimStart('/'))) : bookCoverFallbacks[draftIdx % bookCoverFallbacks.Length];
+                            draftIdx++;
+                            <a href="@Url.Action("AIGenerateBook", "Books", new { bookId = draft.BookId })" class="book-item border border-gray-100 rounded-2xl p-4 flex items-center justify-between hover:shadow-md hover:border-purple-100 transition-all bg-white cursor-pointer group block" data-title="@draft.Title">
+                                <div class="flex items-center gap-4">
+                                    <img src="@draftCover" alt="@draft.Title" class="w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0">
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900 text-base group-hover:text-purple-700 transition-colors">@draft.Title</h3>
+                                        <p class="text-gray-400 text-sm mt-0.5">@draft.ProgressText</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-gray-400 text-sm font-medium">@draft.ProgressPercentage%</span>
+                                    <span class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-purple-50 text-gray-300 group-hover:text-purple-600 transition-colors">
+                                        <i class="fas fa-edit w-4 h-4"></i>
+                                    </span>
+                                </div>
+                            </a>
+                        }
+                        if (hasMoreDrafts)
+                        {
+                            <div class="pt-2">
+                                <a href="@Url.Action("MyBooks", "Dashboard")" class="inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 font-medium text-sm">More drafts <i class="fas fa-arrow-right text-xs"></i></a>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="border border-gray-100 rounded-2xl p-6 text-center text-gray-500">
+                            <p>No drafts. <a href="@Url.Action("AIGenerateBook", "Books")" class="text-purple-600 font-medium hover:underline">Start a new book</a>.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Right Sidebar -->
+    <aside class="w-[22rem] h-full flex flex-col bg-[#FDF4FF] border-l border-purple-50 flex-shrink-0 overflow-y-auto hidden xl:flex">
+        <div class="p-8">
+            <a href="@Url.Action("Profile", "Dashboard")" class="flex items-center justify-end gap-3 mb-10 cursor-pointer hover:opacity-80 transition-opacity">
+                <div class="text-right">
+                    <span class="block font-semibold text-gray-900 text-base leading-tight">@Model.UserName</span>
+                    <span class="text-xs text-gray-500">Author</span>
+                </div>
+                @if (!string.IsNullOrEmpty(ViewBag.ProfilePicturePath as string))
+                {
+                    <img src="@ViewBag.ProfilePicturePath" alt="@Model.UserName" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
+                }
+                else
+                {
+                    <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-semibold">@(Model.UserName?.Length > 0 ? Model.UserName.Substring(0, 1).ToUpper() : "U")</div>
+                }
+            </a>
+
+            <!-- Current Read Card (same as image: The Cambers of Secrets, 154/300 pages) -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-purple-50/50 mb-10 transition-transform hover:-translate-y-1 duration-300">
+                @{
+                    var currentReadTitle = !string.IsNullOrEmpty(Model.DemoCurrentReadTitle) ? Model.DemoCurrentReadTitle : (Model.CurrentWorkingBook?.Title ?? "Your Book");
+                    var currentReadProgressLabel = Model.DemoCurrentReadProgressLabel ?? (Model.CurrentWorkingBook != null ? $"{Model.CurrentWorkingBook.ProgressPercentage}%" : "0%");
+                    var currentReadPercent = Model.DemoCurrentReadPercent;
+                    if (string.IsNullOrEmpty(Model.DemoCurrentReadProgressLabel) && Model.CurrentWorkingBook != null) { currentReadPercent = Model.CurrentWorkingBook.ProgressPercentage; }
+                    var rightCoverImg = !string.IsNullOrEmpty(Model.DemoCurrentReadCoverUrl) ? Model.DemoCurrentReadCoverUrl : (Model.CurrentWorkingBook?.BookId > 0 && !string.IsNullOrEmpty(Model.CurrentWorkingBook.CoverImagePath) ? (Model.CurrentWorkingBook.CoverImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? Model.CurrentWorkingBook.CoverImagePath : Url.Content("~/" + Model.CurrentWorkingBook.CoverImagePath.TrimStart('/'))) : (Model.CurrentWorkingBook?.BookId > 0 ? bookCoverFallbacks[Model.CurrentWorkingBook.BookId % bookCoverFallbacks.Length] : "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1974&auto=format&fit=crop"));
+                    if (!rightCoverImg.StartsWith("http", StringComparison.OrdinalIgnoreCase)) { rightCoverImg = Url.Content("~/" + rightCoverImg.TrimStart('/')); }
+                }
+                <div class="relative w-full aspect-[16/9] mb-4 rounded-xl overflow-hidden group cursor-pointer" onclick="window.location.href='@((Model.DemoCurrentReadBookId ?? Model.CurrentWorkingBook?.BookId ?? 0) > 0 ? Url.Action("BookPayment", "Checkout", new { bookId = Model.DemoCurrentReadBookId ?? Model.CurrentWorkingBook?.BookId }) : Url.Action("EBookHub", "Books"))'">
+                    <img src="@rightCoverImg" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Currently Reading">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end justify-center pb-4">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <h3 class="font-serif text-xl font-bold text-gray-900 mb-1">@(Model.DemoCurrentReadTitle ?? Model.CurrentWorkingBook?.Title ?? "Start Reading")</h3>
+                    <div class="flex items-center justify-between text-sm mb-2">
+                        <div>
+                            @if (!string.IsNullOrEmpty(Model.DemoCurrentReadProgressLabel))
+                            {
+                                <span class="text-purple-700 font-bold text-base">154</span><span class="text-gray-400"> / 300 pages</span>
+                            }
+                            else
+                            {
+                                <span class="text-purple-700 font-bold text-base">@currentReadPercent</span><span class="text-gray-400"> / 100%</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-purple-600 rounded-full relative" style="width: @currentReadPercent%"></div>
+                    </div>
+                </div>
+                <button type="button" id="continue-reading-btn" class="w-full bg-purple-700 hover:bg-purple-800 active:scale-95 text-white py-3 rounded-full font-medium transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2 group">
+                    Continue Reading <i class="fas fa-external-link-alt w-4 h-4 transition-transform group-hover:translate-x-1"></i>
+                </button>
+            </div>
+
+            <!-- Stats (same as image: 13, 45, 115, 26 with chevrons) -->
+            <div class="mb-10">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-serif text-lg font-bold text-gray-900">Reading Stats</h3>
+                    <div class="flex gap-1">
+                        <button type="button" class="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-white hover:text-purple-600 transition-colors" aria-label="Previous"><i class="fas fa-chevron-left w-3 h-3"></i></button>
+                        <button type="button" class="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-white hover:text-purple-600 transition-colors" aria-label="Next"><i class="fas fa-chevron-right w-3 h-3"></i></button>
+                    </div>
+                </div>
+                <div class="flex justify-between items-start text-center">
+                    <div class="flex flex-col items-center gap-2 cursor-pointer hover:scale-110 transition-transform">
+                        <span class="text-xs text-gray-400 font-medium">Books Read</span>
+                        <div class="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-semibold shadow-md shadow-purple-200">@Model.BooksRead</div>
+                    </div>
+                    <div class="flex flex-col items-center gap-2 cursor-pointer hover:scale-110 transition-transform">
+                        <span class="text-xs text-gray-400 font-medium">Hours Read</span>
+                        <div class="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">@Model.HoursRead</div>
+                    </div>
+                    <div class="flex flex-col items-center gap-2 cursor-pointer hover:scale-110 transition-transform">
+                        <span class="text-xs text-gray-400 font-medium">Pages Read</span>
+                        <div class="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">@Model.PagesRead</div>
+                    </div>
+                    <div class="flex flex-col items-center gap-2 cursor-pointer hover:scale-110 transition-transform">
+                        <span class="text-xs text-gray-400 font-medium">Streak</span>
+                        <div class="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-sm font-semibold">@Model.DayStreak</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reader Friends (same as image: Roberto Jordan, Anna Henry) -->
+            <div>
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="font-serif text-lg font-bold text-gray-900">Reader Friends</h3>
+                    <a href="@Url.Action("Profile", "Dashboard")" class="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center hover:bg-white hover:border-purple-200 text-gray-400 transition-all" aria-label="Options">
+                        <i class="fas fa-ellipsis-h w-3 h-3"></i>
+                    </a>
+                </div>
+                @if (Model.DemoReaderFriends != null && Model.DemoReaderFriends.Any())
+                {
+                    <div class="space-y-6">
+                        @foreach (var friend in Model.DemoReaderFriends)
+                        {
+                            <div class="flex gap-3 items-start group cursor-pointer">
+                                <div class="w-10 h-10 rounded-full @friend.AvatarColor flex-shrink-0 flex items-center justify-center text-white font-semibold shadow-sm group-hover:ring-2 group-hover:ring-offset-1 transition-all">@friend.Initial</div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex justify-between items-baseline mb-1">
+                                        <h4 class="font-semibold text-gray-900 text-sm group-hover:text-purple-700 transition-colors">@friend.Name</h4>
+                                        <span class="text-xs text-gray-400 flex-shrink-0 ml-2">@friend.TimeAgo</span>
+                                    </div>
+                                    <p class="text-gray-500 text-sm leading-snug mb-2">@friend.Comment</p>
+                                    @if (!string.IsNullOrEmpty(friend.Tag))
+                                    {
+                                        <div class="flex items-center gap-2 text-green-600 text-xs font-medium bg-green-50 w-fit px-2 py-1 rounded-md">
+                                            <i class="fas fa-check w-3 h-3"></i> @friend.Tag
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    <div class="h-px w-full bg-gray-200 mt-6"></div>
+                }
+                else
+                {
+                    <p class="text-gray-500 text-sm"><a href="@Url.Action("Profile", "Dashboard")" class="text-purple-600 hover:underline">Connect with readers</a> and see what they're reading.</p>
+                }
+            </div>
+        </div>
+    </aside>
+</div>
+
+<!-- Continue Reading Modal -->
+<div id="reading-modal" class="fixed inset-0 z-50 hidden" aria-modal="true" role="dialog">
+    <div id="modal-backdrop" class="absolute inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0 cursor-pointer"></div>
+    <div class="fixed inset-0 z-10 overflow-y-auto pointer-events-none flex min-h-full items-center justify-center p-4">
+        <div id="modal-panel" class="pointer-events-auto relative w-full max-w-4xl transform overflow-hidden rounded-3xl bg-white text-left shadow-2xl transition-all duration-300 ease-out opacity-0 translate-y-4 scale-95">
+            <div class="grid md:grid-cols-2">
+                <div class="relative bg-purple-900 min-h-[320px] md:min-h-[420px] overflow-hidden flex items-center justify-center p-8">
+                    <div class="absolute inset-0 bg-cover bg-center opacity-40" style="background-image: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070'); mix-blend-mode: overlay;"></div>
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500 blur-3xl opacity-20 rounded-full"></div>
+                    <div class="relative z-10 text-center">
+                        <img id="modal-cover-img" src="@(Model.CurrentWorkingBook?.BookId > 0 && !string.IsNullOrEmpty(Model.CurrentWorkingBook?.CoverImagePath) ? Url.Content("~/" + Model.CurrentWorkingBook.CoverImagePath.TrimStart('/')) : bookCoverFallbacks[0])" alt="@(Model.CurrentWorkingBook?.Title ?? "Book")" class="w-40 rounded shadow-2xl mx-auto mb-6 border-2 border-white/20 rotate-2">
+                        <h3 class="font-serif text-3xl text-white font-bold mb-2">@(Model.CurrentWorkingBook?.Title ?? "Your Book")</h3>
+                        <p class="text-purple-200 font-medium">Resume reading</p>
+                    </div>
+                </div>
+                <div class="p-8 md:p-10 flex flex-col justify-between min-h-[400px]">
+                    <div>
+                        <div class="flex justify-between items-center mb-6">
+                            <span class="text-xs font-bold tracking-widest text-purple-600 uppercase">Resume Reading</span>
+                            <button type="button" id="close-modal" class="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 p-2 rounded-full hover:bg-gray-100" aria-label="Close">
+                                <i class="fas fa-times w-5 h-5"></i>
+                            </button>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-4 font-serif">Where you left off</h2>
+                        <p class="text-gray-600 leading-relaxed mb-6 text-lg font-serif italic border-l-4 border-purple-200 pl-4">
+                            "Continue your story. Pick up from the last chapter you were editing or reading."
+                        </p>
+                        <div class="space-y-4">
+                            <h4 class="font-semibold text-gray-900 text-sm">Chapter Progress</h4>
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                    <div class="h-full bg-purple-600 rounded-full" style="width: @(Model.CurrentWorkingBook?.ProgressPercentage ?? 0)%"></div>
+                                </div>
+                                <span class="text-sm font-medium text-gray-600">@(Model.CurrentWorkingBook?.ProgressPercentage ?? 0)%</span>
+                            </div>
+                            <div class="flex gap-4 text-sm text-gray-500 mt-2">
+                                <span class="flex items-center gap-1.5"><i class="fas fa-book-open w-4 h-4"></i> @(Model.CurrentWorkingBook?.ProgressText ?? "—")</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mt-8">
+                        <a href="@Url.Action("MyBooks", "Dashboard")" class="py-3.5 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 active:bg-gray-100 transition-colors flex items-center justify-center gap-2">
+                            <i class="fas fa-list w-4 h-4"></i> Chapters
+                        </a>
+                        <a id="modal-read-now-btn" href="@((Model.DemoCurrentReadBookId ?? Model.CurrentWorkingBook?.BookId ?? 0) > 0 ? Url.Action("BookPayment", "Checkout", new { bookId = Model.DemoCurrentReadBookId ?? Model.CurrentWorkingBook?.BookId }) : Url.Action("EBookHub", "Books"))" class="py-3.5 px-4 rounded-xl bg-purple-600 text-white font-medium hover:bg-purple-700 active:bg-purple-800 transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2 hover:-translate-y-0.5">
+                            Read Now <i class="fas fa-arrow-right w-4 h-4"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-dash" class="toast-dash">Notification</div>
+
+<script>
+    function showToast(message) {
+        var t = document.getElementById('toast-dash');
+        if (!t) return;
+        t.textContent = message;
+        t.classList.add('show');
+        clearTimeout(window._toastTimeout);
+        window._toastTimeout = setTimeout(function () { t.classList.remove('show'); }, 3000);
+    }
+    (function () {
+        var searchInput = document.getElementById('search-input');
+        var bookItems = document.querySelectorAll('.book-item');
+        var noBooksMsg = document.getElementById('no-books-msg');
+        if (searchInput && bookItems.length) {
+            searchInput.addEventListener('input', function (e) {
+                var term = e.target.value.toLowerCase();
+                var visible = 0;
+                bookItems.forEach(function (item) {
+                    var title = (item.getAttribute('data-title') || '').toLowerCase();
+                    if (title.indexOf(term) !== -1) { item.style.display = ''; visible++; }
+                    else item.style.display = 'none';
+                });
+                if (noBooksMsg) noBooksMsg.classList.toggle('hidden', visible > 0);
+            });
+        }
+    })();
+
+    (function () {
+        var modal = document.getElementById('reading-modal');
+        var openBtn = document.getElementById('continue-reading-btn');
+        var closeBtn = document.getElementById('close-modal');
+        var backdrop = document.getElementById('modal-backdrop');
+        var panel = document.getElementById('modal-panel');
+        if (!modal || !openBtn) return;
+        function openModal() {
+            modal.classList.remove('hidden');
+            modal.style.display = '';
+            requestAnimationFrame(function () {
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('opacity-0', 'translate-y-4', 'scale-95');
+                panel.classList.add('opacity-100', 'translate-y-0', 'scale-100');
+            });
+        }
+        function closeModal() {
+            backdrop.classList.add('opacity-0');
+            panel.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
+            panel.classList.add('opacity-0', 'translate-y-4', 'scale-95');
+            setTimeout(function () {
+                modal.classList.add('hidden');
+                modal.style.display = 'none';
+            }, 300);
+        }
+        openBtn.addEventListener('click', function (e) { e.preventDefault(); openModal(); });
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (backdrop) backdrop.addEventListener('click', closeModal);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) closeModal();
+        });
+    })();
+</script>

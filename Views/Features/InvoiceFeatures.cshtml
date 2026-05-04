@@ -1,0 +1,42 @@
+﻿@model IEnumerable<EBookDashboard.Models.AuthorPlanFeatures>
+
+<h2>Confirm Your Selection</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Feature</th>
+            <th>Description</th>
+            <th>Rate</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var f in Model)
+        {
+            <tr>
+                <td>@f.FeatureName</td>
+                <td>@f.Description</td>
+                <td>@f.FeatureRate.ToString("C")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h4>Total: <strong>@ViewBag.TotalAmount.ToString("C")</strong></h4>
+
+<button id="payBtn" class="btn btn-success">Confirm & Pay</button>
+
+<script>
+     //validation before calling the endpoint
+        document.getElementById("payBtn").addEventListener("click", async () => {
+        try {
+            const response = await fetch("/FeatureSelection/CreateCheckoutSession?authorId=1", { method: "POST" });
+            const data = await response.json();
+            if (data.sessionUrl) window.location.href = data.sessionUrl;
+            else Swal.fire("Error", "Unable to start checkout session.", "error");
+        } catch (err) {
+            Swal.fire("Error", "Network error while starting checkout.", "error");
+        }
+    });
+
+</script>

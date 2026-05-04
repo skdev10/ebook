@@ -1,0 +1,1275 @@
+@model List<EBookDashboard.Models.BookManagementViewModel>
+@{
+    ViewData["Title"] = "Books Management";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+}
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="~/js/admin-animations.js"></script>
+
+<style>
+    :root {
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --warm-gray: #E8E8E8;
+        --text-primary: #2C2C2C;
+        --text-secondary: #6B6B6B;
+        --text-muted: #9B9B9B;
+        --border-light: #E5E5E5;
+        --shadow-soft: rgba(0, 0, 0, 0.05);
+        --primary: #7c3aed;
+        --success: #10b981;
+        --danger: #ef4444;
+        --warning: #f59e0b;
+    }
+
+    .books-container {
+        padding: 0;
+    }
+
+    .page-header {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .page-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 10px;
+        font-weight: 500;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        font-size: 14px;
+    }
+
+    .btn-primary {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #6d28d9;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-secondary {
+        background: var(--light-gray);
+        color: var(--text-primary);
+        border: 1px solid var(--border-light);
+    }
+
+    .filters-section {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        align-items: end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .filter-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .filter-input,
+    .filter-select {
+        padding: 10px 14px;
+        border: 1px solid var(--border-light);
+        border-radius: 10px;
+        font-size: 14px;
+        background: var(--white);
+        color: var(--text-primary);
+        transition: all 0.3s ease;
+    }
+
+    .filter-input:focus,
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    }
+
+    .search-bar {
+        position: relative;
+    }
+
+    .search-bar input {
+        padding-left: 40px;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+
+    /* View Toggle */
+    .view-toggle {
+        display: flex;
+        gap: 8px;
+        background: var(--light-gray);
+        padding: 4px;
+        border-radius: 10px;
+    }
+
+    .view-btn {
+        padding: 8px 16px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        transition: all 0.3s ease;
+    }
+
+    .view-btn.active {
+        background: var(--white);
+        color: var(--primary);
+        box-shadow: 0 2px 4px var(--shadow-soft);
+    }
+
+    /* Grid View */
+    .books-grid,
+    #gridView {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 24px;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    .book-card {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .book-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 4px 16px var(--shadow-soft);
+    }
+
+    .book-cover {
+        width: 100%;
+        height: 200px;
+        background: linear-gradient(135deg, var(--primary) 0%, #FFD700 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .book-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .book-author {
+        font-size: 14px;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+    }
+
+    .book-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .phase-badge {
+        padding: 6px 12px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .phase-draft {
+        background: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+    }
+
+    .phase-styled {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+    }
+
+    .phase-previewed {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .phase-generated {
+        background: rgba(124, 58, 237, 0.1);
+        color: var(--primary);
+    }
+
+    .phase-published {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .book-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-light);
+    }
+
+    .btn-icon {
+        flex: 1;
+        padding: 8px;
+        border: none;
+        border-radius: 8px;
+        background: var(--light-gray);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 14px;
+    }
+
+    .btn-icon:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    /* Table View */
+    .table-container {
+        background: var(--white);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 2px 8px var(--shadow-soft);
+        border: 1px solid var(--border-light);
+        overflow-x: auto;
+        display: none;
+    }
+
+    .table-container.active {
+        display: block;
+    }
+
+    .books-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table-header {
+        background: var(--light-gray);
+        border-radius: 10px;
+    }
+
+    .table-header th {
+        padding: 16px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid var(--border-light);
+    }
+
+    .table-row {
+        border-bottom: 1px solid var(--border-light);
+        transition: all 0.3s ease;
+    }
+
+    .table-row:hover {
+        background: var(--light-gray);
+    }
+
+    .table-cell {
+        padding: 16px;
+        font-size: 14px;
+        color: var(--text-primary);
+    }
+
+    .fab {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: white;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
+        transition: all 0.3s ease;
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .fab:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
+    }
+
+    /* Responsive */
+    @@media (max-width: 1024px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .books-grid {
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .page-header {
+            padding: 16px;
+        }
+
+        .page-title {
+            font-size: 20px;
+        }
+
+        .filters-row {
+            grid-template-columns: 1fr;
+        }
+
+        .books-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .book-card {
+            padding: 16px;
+        }
+
+        .book-cover {
+            height: 160px;
+            font-size: 36px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .books-table {
+            min-width: 800px;
+            font-size: 13px;
+        }
+
+        .table-cell {
+            padding: 12px 8px;
+        }
+
+        .fab {
+            width: 48px;
+            height: 48px;
+            font-size: 20px;
+            bottom: 20px;
+            right: 20px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .books-container {
+            padding: 0;
+        }
+
+        .page-header {
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+
+        .page-title {
+            font-size: 18px;
+        }
+
+        .filters-section {
+            padding: 16px;
+        }
+
+        .books-grid {
+            gap: 12px;
+        }
+
+        .book-card {
+            padding: 12px;
+        }
+
+        .book-cover {
+            height: 140px;
+            font-size: 32px;
+        }
+
+        .book-title {
+            font-size: 16px;
+        }
+
+        .table-container {
+            padding: 12px;
+        }
+
+        .books-table {
+            min-width: 700px;
+            font-size: 12px;
+        }
+
+        .table-cell {
+            padding: 10px 6px;
+        }
+
+        .fab {
+            width: 44px;
+            height: 44px;
+            font-size: 18px;
+            bottom: 16px;
+            right: 16px;
+        }
+
+        /* Responsive modals */
+        .swal2-popup {
+            width: 95% !important;
+            max-width: 95% !important;
+            padding: 16px !important;
+        }
+    }
+</style>
+
+<div class="books-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1 class="page-title">Books Management</h1>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <div class="view-toggle">
+                <button class="view-btn active" onclick="switchView('grid')">
+                    <i class="fas fa-th"></i>
+                </button>
+                <button class="view-btn" onclick="switchView('table')">
+                    <i class="fas fa-list"></i>
+                </button>
+            </div>
+            <button class="btn btn-secondary" onclick="exportBooks()">
+                <i class="fas fa-download"></i> Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <form method="get" action="@Url.Action("ContentManagement", "Admin")">
+            <div class="filters-row">
+                <div class="filter-group search-bar">
+                    <label class="filter-label">Search</label>
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" name="searchTerm" class="filter-input" placeholder="Search by title..." value="@ViewBag.SearchTerm" />
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Status</label>
+                    <select name="statusFilter" class="filter-select">
+                        <option value="">All Status</option>
+                        @foreach (var status in ViewBag.Statuses as string[] ?? new string[0])
+                        {
+                            if (ViewBag.StatusFilter as string == status)
+                            {
+                                <option value="@status" selected>@status</option>
+                            }
+                            else
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fas fa-filter"></i> Apply Filters
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Grid View -->
+    <div id="gridView" class="books-grid">
+        @foreach (var book in Model)
+        {
+            <div class="book-card" onclick="viewBookDetails(@book.BookId)">
+                <div class="book-cover">
+                    <i class="fas fa-book"></i>
+                </div>
+                <div class="book-title">@book.Title</div>
+                <div class="book-author">@book.AuthorName</div>
+                <div class="book-meta">
+                    <span><i class="fas fa-calendar"></i> @book.CreatedAt.ToString("MMM dd, yyyy")</span>
+                    <span><i class="fas fa-file-word"></i> @book.WordCount words</span>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <span class="phase-badge phase-@book.Status.ToLower()">@book.Status</span>
+                </div>
+                <div class="book-actions">
+                    <button class="btn-icon" onclick="event.stopPropagation(); viewBookDetails(@book.BookId)" title="View">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon" onclick="event.stopPropagation(); editBook(@book.BookId)" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon" onclick="event.stopPropagation(); deleteBook(@book.BookId)" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Table View -->
+    <div id="tableView" class="table-container">
+        <table class="books-table">
+            <thead class="table-header">
+                <tr>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Status</th>
+                    <th>Genre</th>
+                    <th>Word Count</th>
+                    <th>Created Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var book in Model)
+                {
+                    <tr class="table-row">
+                        <td class="table-cell">
+                            <div style="font-weight: 600;">@book.Title</div>
+                        </td>
+                        <td class="table-cell">@book.AuthorName</td>
+                        <td class="table-cell">
+                            <span class="phase-badge phase-@book.Status.ToLower()">@book.Status</span>
+                        </td>
+                        <td class="table-cell">@book.Genre</td>
+                        <td class="table-cell">@book.WordCount</td>
+                        <td class="table-cell">@book.CreatedAt.ToString("MMM dd, yyyy")</td>
+                        <td class="table-cell">
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-icon" onclick="viewBookDetails(@book.BookId)" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn-icon" onclick="editBook(@book.BookId)" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-icon" onclick="deleteBook(@book.BookId)" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Floating Action Button -->
+<button class="fab" onclick="showBookModal()" title="Add New Book">
+    <i class="fas fa-plus"></i>
+</button>
+
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // CRITICAL: Define all functions IMMEDIATELY at the top to ensure they're available
+    // before any onclick handlers execute
+    
+    // switchView - Define immediately
+    window.switchView = window.switchView || function(view) {
+        const gridView = document.getElementById('gridView');
+        const tableView = document.getElementById('tableView');
+        const buttons = document.querySelectorAll('.view-btn');
+
+        if (!gridView || !tableView) return;
+
+        buttons.forEach(btn => btn.classList.remove('active'));
+
+        if (view === 'grid') {
+            gridView.style.display = 'grid';
+            gridView.style.opacity = '1';
+            gridView.style.visibility = 'visible';
+            tableView.classList.remove('active');
+            tableView.style.display = 'none';
+            buttons[0].classList.add('active');
+        } else {
+            gridView.style.display = 'none';
+            tableView.classList.add('active');
+            tableView.style.display = 'block';
+            tableView.style.opacity = '1';
+            tableView.style.visibility = 'visible';
+            buttons[1].classList.add('active');
+        }
+    };
+
+    // Ensure AdminLayout functions are available (they're defined in _AdminLayout.cshtml)
+    // These are fallbacks in case AdminLayout hasn't loaded yet
+    if (typeof window.showNotifications === 'undefined') {
+        window.showNotifications = async function() {
+            // Function will be overridden by AdminLayout when it loads
+            console.log('showNotifications - waiting for AdminLayout to load');
+        };
+    }
+    if (typeof window.showSearch === 'undefined') {
+        window.showSearch = function() {
+            // Function will be overridden by AdminLayout when it loads
+            console.log('showSearch - waiting for AdminLayout to load');
+        };
+    }
+    if (typeof window.toggleTheme === 'undefined') {
+        window.toggleTheme = async function() {
+            // Function will be overridden by AdminLayout when it loads
+            console.log('toggleTheme - waiting for AdminLayout to load');
+        };
+    }
+
+    // Ensure SweetAlert is loaded
+    if (typeof Swal === 'undefined') {
+        console.warn('SweetAlert2 is not loaded. Loading now...');
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/sweetalert2@11';
+        document.head.appendChild(script);
+    }
+
+    function viewBookDetails(bookId) {
+        Swal.fire({
+            title: 'Loading Book Details...',
+            html: `
+                <div style="text-align: center; padding: 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: var(--primary);"></i>
+                    <p style="margin-top: 16px;">Fetching book information...</p>
+                </div>
+            `,
+            showConfirmButton: false,
+            allowOutsideClick: false,
+            width: '400px',
+            didOpen: () => {
+                Swal.showLoading();
+                
+                // Simulate API call to fetch book details
+                setTimeout(() => {
+                    Swal.fire({
+                        title: 'Book Details',
+                        html: `
+                            <div style="text-align: left; padding: 20px;">
+                                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
+                                    <div style="width: 60px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 4px;"></div>
+                                    <div>
+                                        <h3 style="margin: 0 0 8px 0; font-size: 20px;">Sample Book Title</h3>
+                                        <p style="margin: 0; color: #666;">Author: John Doe</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                                    <div>
+                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Genre</label>
+                                        <p style="margin: 4px 0 0 0; font-weight: 500;">Fiction</p>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Status</label>
+                                        <p style="margin: 4px 0 0 0;">
+                                            <span style="padding: 4px 12px; border-radius: 12px; background: rgba(16, 185, 129, 0.1); color: #10b981; font-size: 12px; font-weight: 500;">Published</span>
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-bottom: 16px;">
+                                    <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Description</label>
+                                    <p style="margin: 4px 0 0 0; line-height: 1.5;">This is a sample book description that provides an overview of the book's content and themes.</p>
+                                </div>
+                                
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                                    <div>
+                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Word Count</label>
+                                        <p style="margin: 4px 0 0 0; font-weight: 500;">45,231</p>
+                                    </div>
+                                    <div>
+                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Chapters</label>
+                                        <p style="margin: 4px 0 0 0; font-weight: 500;">12</p>
+                                    </div>
+                                </div>
+                                
+                                <div style="margin-bottom: 16px;">
+                                    <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Created Date</label>
+                                    <p style="margin: 4px 0 0 0; font-weight: 500;">Oct 15, 2025</p>
+                                </div>
+                            </div>
+                        `,
+                        showConfirmButton: true,
+                        confirmButtonText: 'Close',
+                        confirmButtonColor: '#6366F1',
+                        width: '600px'
+                    });
+                }, 1500);
+            }
+        });
+    }
+
+    function editBook(bookId) {
+        Swal.fire({
+            title: 'Edit Book',
+            html: `
+                <form id="editBookForm" style="text-align: left;">
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Book Title</label>
+                        <input type="text" id="editTitle" class="swal2-input" placeholder="Enter book title" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Genre</label>
+                        <input type="text" id="editGenre" class="swal2-input" placeholder="Enter genre" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Status</label>
+                        <select id="editStatus" class="swal2-input" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                            <option value="Draft">Draft</option>
+                            <option value="Styled">Styled</option>
+                            <option value="Previewed">Previewed</option>
+                            <option value="Generated">Generated</option>
+                            <option value="Published">Published</option>
+                        </select>
+                    </div>
+                </form>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Save Changes',
+            confirmButtonColor: '#6366F1',
+            cancelButtonColor: '#6b7280',
+            width: '600px',
+            preConfirm: () => {
+                const title = document.getElementById('editTitle').value.trim();
+                const genre = document.getElementById('editGenre').value.trim();
+                const status = document.getElementById('editStatus').value;
+                
+                if (!title || !genre || !status) {
+                    Swal.showValidationMessage('Please fill in all fields');
+                    return false;
+                }
+                
+                return { title, genre, status };
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                Swal.fire({
+                    title: 'Updating Book...',
+                    text: 'Please wait',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                const formData = new URLSearchParams();
+                formData.append('bookId', bookId);
+                formData.append('title', result.value.title);
+                formData.append('genre', result.value.genre);
+                formData.append('status', result.value.status);
+                
+                fetch('@Url.Action("UpdateBook", "Admin")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Success!', data.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error!', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    Swal.fire('Error!', 'An error occurred while updating the book.', 'error');
+                });
+            }
+        });
+    }
+
+    function deleteBook(bookId) {
+        Swal.fire({
+            title: 'Delete Book?',
+            text: 'This action cannot be undone!',
+            icon: 'error',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Delete'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Deleting Book...',
+                    text: 'Please wait',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Call API
+                fetch('@Url.Action("DeleteBook", "Admin")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    },
+                    body: `bookId=${bookId}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Deleted!', data.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error!', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    Swal.fire('Error!', 'An error occurred while deleting the book.', 'error');
+                });
+            }
+        });
+    }
+
+    function showBookModal() {
+        Swal.fire({
+            title: 'Add New Book',
+            html: `
+                <form id="addBookForm" style="text-align: left;">
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Book Title</label>
+                        <input type="text" id="bookTitle" class="swal2-input" placeholder="Enter book title" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Author ID</label>
+                        <input type="number" id="authorId" class="swal2-input" placeholder="Enter author ID" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">User ID</label>
+                        <input type="number" id="userId" class="swal2-input" placeholder="Enter user ID" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Genre</label>
+                        <input type="text" id="bookGenre" class="swal2-input" placeholder="Enter genre" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; margin-bottom: 6px; font-weight: 500;">Status</label>
+                        <select id="bookStatus" class="swal2-input" required style="width: 100%; padding: 10px; border: 1px solid #E5E5E5; border-radius: 8px;">
+                            <option value="Draft">Draft</option>
+                            <option value="Styled">Styled</option>
+                            <option value="Previewed">Previewed</option>
+                            <option value="Generated">Generated</option>
+                            <option value="Published">Published</option>
+                        </select>
+                    </div>
+                </form>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Create Book',
+            confirmButtonColor: '#6366F1',
+            cancelButtonColor: '#6b7280',
+            width: '600px',
+            preConfirm: () => {
+                const title = document.getElementById('bookTitle').value.trim();
+                const authorId = document.getElementById('authorId').value;
+                const userId = document.getElementById('userId').value;
+                const genre = document.getElementById('bookGenre').value.trim();
+                const status = document.getElementById('bookStatus').value;
+                
+                if (!title || !authorId || !userId || !genre || !status) {
+                    Swal.showValidationMessage('Please fill in all fields');
+                    return false;
+                }
+                
+                return { title, authorId: parseInt(authorId), userId: parseInt(userId), genre, status };
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                Swal.fire({
+                    title: 'Creating Book...',
+                    text: 'Please wait',
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                const formData = new URLSearchParams();
+                formData.append('title', result.value.title);
+                formData.append('authorId', result.value.authorId);
+                formData.append('userId', result.value.userId);
+                formData.append('genre', result.value.genre);
+                formData.append('status', result.value.status);
+                
+                fetch('@Url.Action("CreateBook", "Admin")', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Success!', data.message, 'success').then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error!', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    Swal.fire('Error!', 'An error occurred while creating the book.', 'error');
+                });
+            }
+        });
+    }
+
+    function exportBooks() {
+        Swal.fire({
+            title: 'Export Books',
+            html: `
+                <div style="text-align: left; padding: 10px;">
+                    <p style="margin-bottom: 12px;">Choose export format:</p>
+                    <button id="exportCsv" class="btn btn-primary" style="width: 100%; margin-bottom: 8px; padding: 12px; border-radius: 8px;">
+                        <i class="fas fa-file-csv"></i> Export as CSV
+                    </button>
+                    <button id="exportExcel" class="btn btn-success" style="width: 100%; margin-bottom: 8px; padding: 12px; border-radius: 8px;">
+                        <i class="fas fa-file-excel"></i> Export as Excel
+                    </button>
+                    <button id="exportPdf" class="btn btn-danger" style="width: 100%; padding: 12px; border-radius: 8px;">
+                        <i class="fas fa-file-pdf"></i> Export as PDF
+                    </button>
+                </div>
+            `,
+            showCancelButton: true,
+            cancelButtonText: 'Cancel',
+            showConfirmButton: false,
+            width: '400px',
+            didOpen: () => {
+                // Add slight delay to ensure elements are rendered
+                setTimeout(() => {
+                    const exportCsvBtn = document.getElementById('exportCsv');
+                    const exportExcelBtn = document.getElementById('exportExcel');
+                    const exportPdfBtn = document.getElementById('exportPdf');
+                    
+                    // Get current filters
+                    const statusFilter = document.querySelector('select[name="statusFilter"]')?.value || '';
+                    const genreFilter = document.querySelector('select[name="genreFilter"]')?.value || '';
+                    
+                    if (exportCsvBtn) {
+                        exportCsvBtn.addEventListener('click', () => {
+                            Swal.close();
+                            performBookExport('csv', statusFilter, genreFilter);
+                        });
+                    }
+                    if (exportExcelBtn) {
+                        exportExcelBtn.addEventListener('click', () => {
+                            Swal.close();
+                            performBookExport('excel', statusFilter, genreFilter);
+                        });
+                    }
+                    if (exportPdfBtn) {
+                        exportPdfBtn.addEventListener('click', () => {
+                            Swal.close();
+                            performBookExport('pdf', statusFilter, genreFilter);
+                        });
+                    }
+                }, 100);
+            }
+        });
+        
+        // Get current filters
+        const statusFilter = document.querySelector('select[name="statusFilter"]')?.value || '';
+        const genreFilter = document.querySelector('select[name="genreFilter"]')?.value || '';
+        
+        const exportCsvBtn = document.getElementById('exportCsv');
+        const exportExcelBtn = document.getElementById('exportExcel');
+        const exportPdfBtn = document.getElementById('exportPdf');
+        
+        if (exportCsvBtn) {
+            exportCsvBtn.addEventListener('click', () => performBookExport('csv', statusFilter, genreFilter));
+        }
+        if (exportExcelBtn) {
+            exportExcelBtn.addEventListener('click', () => performBookExport('excel', statusFilter, genreFilter));
+        }
+        if (exportPdfBtn) {
+            exportPdfBtn.addEventListener('click', () => performBookExport('pdf', statusFilter, genreFilter));
+        }
+    }
+    
+    function showSearch() {
+        Swal.fire({
+            title: 'Search Books',
+            html: `
+                <div style="text-align: left; padding: 10px;">
+                    <input type="text" id="searchInput" class="swal2-input" placeholder="Enter search term..." style="width: 100%;">
+                    <div style="margin-top: 15px;">
+                        <button id="performSearch" class="btn btn-primary" style="width: 100%;">Search</button>
+                    </div>
+                    <div id="searchResults" style="margin-top: 15px; max-height: 300px; overflow-y: auto;"></div>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCancelButton: true,
+            cancelButtonText: 'Close',
+            width: '500px',
+            didOpen: () => {
+                const searchInput = document.getElementById('searchInput');
+                const searchBtn = document.getElementById('performSearch');
+                const resultsDiv = document.getElementById('searchResults');
+                
+                if (searchBtn) {
+                    searchBtn.addEventListener('click', () => {
+                        const searchTerm = searchInput ? searchInput.value.trim() : '';
+                        if (searchTerm) {
+                            performSearch(searchTerm, resultsDiv);
+                        }
+                    });
+                }
+                
+                if (searchInput) {
+                    searchInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            const searchTerm = searchInput.value.trim();
+                            if (searchTerm) {
+                                performSearch(searchTerm, resultsDiv);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    }
+    
+    function performSearch(searchTerm, resultsDiv) {
+        if (!resultsDiv) return;
+        
+        resultsDiv.innerHTML = '<div style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
+        
+        // Simulate search - replace with actual API call
+        setTimeout(() => {
+            resultsDiv.innerHTML = `
+                <div style="padding: 10px; border-bottom: 1px solid #eee;">
+                    <strong>Sample Book 1</strong><br>
+                    <small>Author: John Doe</small>
+                </div>
+                <div style="padding: 10px; border-bottom: 1px solid #eee;">
+                    <strong>Sample Book 2</strong><br>
+                    <small>Author: Jane Smith</small>
+                </div>
+                <div style="padding: 10px;">
+                    <em>Search term: ${searchTerm}</em>
+                </div>
+            `;
+        }, 1000);
+    }
+    
+    function showQuickActions() {
+        Swal.fire({
+            title: 'Quick Actions',
+            html: `
+                <div style="text-align: left; padding: 10px;">
+                    <button class="btn btn-primary" style="width: 100%; margin-bottom: 10px;" onclick="addNewBook()">
+                        <i class="fas fa-plus"></i> Add New Book
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;" onclick="showSearch()">
+                        <i class="fas fa-search"></i> Search Books
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="exportBooks()">
+                        <i class="fas fa-download"></i> Export Books
+                    </button>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCancelButton: true,
+            cancelButtonText: 'Close',
+            width: '400px'
+        });
+    }
+    
+    function addNewBook() {
+        Swal.fire({
+            title: 'Add New Book',
+            html: `
+                <form id="addBookForm" style="text-align: left;">
+                    <div style="margin-bottom: 15px;">
+                        <label>Book Title</label>
+                        <input type="text" id="bookTitle" class="swal2-input" placeholder="Enter book title" required>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label>Author</label>
+                        <input type="text" id="bookAuthor" class="swal2-input" placeholder="Enter author name" required>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label>Genre</label>
+                        <select id="bookGenre" class="swal2-input" required>
+                            <option value="">Select Genre</option>
+                            <option value="Fiction">Fiction</option>
+                            <option value="Non-Fiction">Non-Fiction</option>
+                            <option value="Mystery">Mystery</option>
+                            <option value="Romance">Romance</option>
+                            <option value="Sci-Fi">Sci-Fi</option>
+                        </select>
+                    </div>
+                </form>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Create Book',
+            confirmButtonColor: '#6366F1',
+            cancelButtonColor: '#6b7280',
+            width: '500px',
+            preConfirm: () => {
+                const title = document.getElementById('bookTitle').value.trim();
+                const author = document.getElementById('bookAuthor').value.trim();
+                const genre = document.getElementById('bookGenre').value;
+                
+                if (!title || !author || !genre) {
+                    Swal.showValidationMessage('Please fill in all fields');
+                    return false;
+                }
+                
+                return { title, author, genre };
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Book created successfully',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+        });
+    }
+    
+    function performBookExport(format, statusFilter, genreFilter) {
+        Swal.fire({
+            title: 'Exporting...',
+            html: `<div style="text-align: center;"><i class="fas fa-spinner fa-spin" style="font-size: 32px; color: var(--primary); margin-bottom: 12px;"></i><p>Preparing ${format.toUpperCase()} file...</p></div>`,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Build export URL
+        const exportUrl = '@Url.Action("ExportBooks", "Admin")' + 
+            `?format=${format}` +
+            (statusFilter ? `&statusFilter=${encodeURIComponent(statusFilter)}` : '') +
+            (genreFilter ? `&genreFilter=${encodeURIComponent(genreFilter)}` : '');
+        
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = exportUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Show success after a delay
+        setTimeout(() => {
+            Swal.fire({
+                icon: 'success',
+                title: 'Export Complete!',
+                html: `<div style="text-align: center;"><i class="fas fa-check-circle" style="font-size: 48px; color: var(--success); margin-bottom: 12px;"></i><p>Books exported successfully as <strong>${format.toUpperCase()}</strong></p><p style="font-size: 12px; color: var(--text-muted); margin-top: 8px;">Check your downloads folder</p></div>`,
+                timer: 3000,
+                showConfirmButton: false,
+                timerProgressBar: true
+            });
+        }, 1500);
+    }
+</script>
+
+@section Scripts {
+    <script>
+        // All functions are already defined above in the main script block
+        // This section ensures they're available after layout scripts load
+        (function() {
+            // Verify functions are available
+            if (typeof window.switchView !== 'function') {
+                console.error('switchView function not properly defined');
+            }
+            if (typeof window.showNotifications !== 'function') {
+                console.error('showNotifications function not properly defined');
+            }
+            if (typeof window.showSearch !== 'function') {
+                console.error('showSearch function not properly defined');
+            }
+            if (typeof window.toggleTheme !== 'function') {
+                console.error('toggleTheme function not properly defined');
+            }
+        })();
+    </script>
+}

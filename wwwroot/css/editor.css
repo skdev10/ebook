@@ -1,0 +1,56 @@
+﻿/* copied & condensed styles for editor */
+.editor-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.editor-toolbar {
+    background: #fff;
+}
+
+#editor {
+    min-height: 420px;
+    padding: 18px;
+    background: #fff;
+    border: 1px solid #e6e6e6;
+    border-radius: 8px;
+    line-height: 1.6;
+    overflow: auto;
+}
+
+.drop-overlay {
+    display: none;
+}
+
+.paged-preview {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.page {
+    width: 794px;
+    height: 1123px;
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 32px;
+    box-sizing: border-box;
+}
+
+    .page .page-number {
+        position: absolute;
+        bottom: 12px;
+        right: 18px;
+        font-size: 12px;
+        color: #777;
+    }
+
+.dark-mode {
+    background: #111;
+    color: #ddd;
+}
+
+.dark-editor {
+    background: #1b1b1b;
+    color: #ddd;
+}

@@ -1,0 +1,694 @@
+@{
+    ViewData["Title"] = "Publish";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var paid = ViewBag.PublishViaPlatformPaid as bool? ?? false;
+    var bookId = ViewBag.SelectedBookId as int? ?? 0;
+    var pbTitle = ViewBag.PublishBookTitle as string ?? "";
+    var pbDesc = ViewBag.PublishBookDescription as string ?? "";
+    var pbGenre = ViewBag.PublishBookGenre as string ?? "";
+    var pbCover = ViewBag.PublishBookCover as string ?? "";
+    var pbStatus = ViewBag.PublishBookStatus as string ?? "";
+    var alreadyListed = ViewBag.PublishBookAlreadyListed as bool? ?? false;
+    var publishableKey = ViewBag.PublishableKey as string ?? "";
+
+    string CoverUrl(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop";
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            return path;
+        return path.StartsWith("/") ? path : "/" + path;
+    }
+
+    var statusBadgeClass = alreadyListed
+        ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
+        : "bg-amber-50 text-amber-700 border-amber-200/60";
+    var premiumDimClass = !paid ? "opacity-40 select-none blur-[1px] pointer-events-none" : "";
+    var pbChapterCount = ViewBag.PublishBookChapterCount is int pcc ? pcc : 0;
+}
+
+<style>
+    .publish-page { font-family: 'Inter', sans-serif; max-width: 1200px; margin: 0 auto; }
+    .publish-hero-title { font-family: 'Playfair Display', serif; }
+    .publish-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 1.25rem; padding: 1.5rem; box-shadow: 0 16px 32px -18px rgba(79, 70, 229, 0.2); }
+    .publish-platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
+    .publish-platform-btn { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.25rem; text-align: left; cursor: pointer; transition: all 0.2s; background: #fafafa; }
+    .publish-platform-btn:hover { border-color: #c4b5fd; background: #f5f3ff; box-shadow: 0 8px 24px -12px rgba(124, 58, 237, 0.35); }
+    .publish-detail-overlay { display: none; position: fixed; inset: 0; z-index: 10050; background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(6px); align-items: center; justify-content: center; padding: 1rem; }
+    .publish-detail-overlay.open { display: flex; }
+    .publish-detail-box { background: #fff; border-radius: 1.25rem; max-width: 720px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #e2e8f0; }
+    .publish-step { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; color: #334155; }
+    .publish-step:last-child { border-bottom: 0; }
+    .publish-step-num { flex-shrink: 0; width: 1.75rem; height: 1.75rem; border-radius: 0.75rem; background: #6d28d9; color: #fff; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .publish-progress { display: flex; gap: 0.35rem; margin: 1rem 0; flex-wrap: wrap; }
+    .publish-progress span { flex: 1; min-width: 60px; height: 6px; border-radius: 9999px; background: #e2e8f0; }
+    .publish-progress span.done { background: #7c3aed; }
+    .publish-paid-wrap { position: relative; }
+    .publish-paid-wrap.disabled::after { content: ''; position: absolute; inset: 0; background: rgba(248, 250, 252, 0.65); border-radius: 1.25rem; pointer-events: none; }
+    .publish-badge-disabled { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 0.35rem 0.65rem; border-radius: 9999px; }
+    .publish-video-frame { width: 100%; aspect-ratio: 16/9; border: 0; border-radius: 0.75rem; background: #0f172a; }
+
+    /* SweetAlert2: pre-checkout Lulu + KDP learning hub */
+    .publish-learning-swal-popup {
+        border-radius: 1.5rem !important;
+        padding: 1.35rem 1.35rem 1rem !important;
+        background: linear-gradient(165deg, #ffffff 0%, #faf5ff 45%, #f1f5f9 100%) !important;
+        border: 1px solid rgba(124, 58, 237, 0.2) !important;
+        box-shadow: 0 25px 50px -12px rgba(76, 29, 149, 0.28) !important;
+    }
+    .publish-learning-swal-popup .swal2-title { margin-bottom: 0.35rem !important; padding: 0 0.5rem !important; }
+    .publish-learning-swal-popup .swal2-html-container { margin: 0.5rem 0 0 !important; padding: 0 0.25rem !important; }
+    .publish-learning-swal-actions { margin-top: 1.15rem !important; gap: 0.65rem !important; }
+    .pub-learn-wrap { text-align: left; font-family: 'Inter', system-ui, sans-serif; color: #0f172a; }
+    .pub-learn-lede {
+        font-size: 0.8125rem; color: #64748b; margin: 0 0 1rem; line-height: 1.55;
+        padding: 0.65rem 0.85rem; border-radius: 0.75rem; background: rgba(255, 255, 255, 0.85);
+        border: 1px solid #e9d5ff;
+    }
+    .pub-learn-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .pub-learn-tab {
+        flex: 1; padding: 0.65rem 0.75rem; border-radius: 0.875rem; border: 1px solid #e2e8f0;
+        background: #fff; cursor: pointer; font-weight: 600; font-size: 0.8125rem; color: #475569;
+        transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s, background 0.2s, color 0.2s;
+        display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    }
+    .pub-learn-tab:hover { border-color: #c4b5fd; color: #5b21b6; }
+    .pub-learn-tab--active {
+        background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+        color: #fff !important; border-color: transparent;
+        box-shadow: 0 10px 28px -10px rgba(124, 58, 237, 0.65);
+        transform: translateY(-1px);
+    }
+    .pub-learn-tab--active .fab.fa-amazon { color: #fbbf24; }
+    .pub-learn-panels { max-height: min(58vh, 540px); overflow-y: auto; padding-right: 0.35rem; scrollbar-width: thin; }
+    .pub-learn-panel { display: none; animation: pubLearnIn 0.25s ease; }
+    .pub-learn-panel--active { display: block; }
+    @@keyframes pubLearnIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .pub-learn-card {
+        margin-bottom: 0.875rem; border: 1px solid #e2e8f0; border-radius: 1rem; overflow: hidden;
+        background: #fff; box-shadow: 0 4px 18px -10px rgba(15, 23, 42, 0.15);
+    }
+    .pub-learn-card-head {
+        padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 700; color: #3730a3;
+        background: linear-gradient(90deg, #f5f3ff 0%, #fff 100%); border-bottom: 1px solid #ede9fe;
+        letter-spacing: 0.01em;
+    }
+    .pub-learn-embed { aspect-ratio: 16/9; background: #0f172a; position: relative; }
+    .pub-learn-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .container {
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .book-card {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 48px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            display: flex;
+            gap: 48px;
+            align-items: flex-start;
+        }
+
+        .book-cover {
+            flex-shrink: 0;
+            width: 200px;
+            height: 280px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            position: relative;
+        }
+
+        .book-cover img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Placeholder for book cover */
+        .book-cover-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .book-info {
+            flex: 1;
+            padding-top: 8px;
+        }
+
+        .label {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #7c3aed;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+        }
+
+        .book-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 24px;
+            line-height: 1.2;
+        }
+
+        .book-description {
+            font-size: 15px;
+            line-height: 1.7;
+            color: #6b7280;
+            margin-bottom: 32px;
+            max-width: 900px;
+        }
+
+        .tags {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .tag {
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: none;
+            outline: none;
+        }
+
+        .tag.fiction {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+
+        .tag.fiction:hover {
+            background: #ddd6fe;
+        }
+
+        .tag.draft {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .tag.draft:hover {
+            background: #fde68a;
+        }
+
+        @@media (max-width: 768px) {
+            .book-card {
+                flex-direction: column;
+                padding: 32px;
+                gap: 32px;
+            }
+
+            .book-cover {
+                width: 160px;
+                height: 224px;
+                margin: 0 auto;
+            }
+
+            .book-title {
+                font-size: 28px;
+            }
+
+            .book-description {
+                font-size: 14px;
+            }
+        }
+</style>
+
+<div class="publish-page p-6 lg:p-10 text-slate-800">
+    <div class="mb-8">
+        <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">Distribution</p>
+        <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Publish your book</h1>
+        <p class="text-slate-500 mt-2 max-w-2xl">Finalize listing metadata, complete secure checkout, and your title is marked published only after Stripe confirms payment. Platform guides use embedded YouTube tutorials.</p>
+    </div>
+    
+
+    <div class="container mb-8">
+        @if (bookId > 0 && !string.IsNullOrEmpty(pbTitle))
+        {
+            <div class="book-card">
+                <div class="book-cover">
+                    @if (!string.IsNullOrEmpty(pbCover))
+                    {
+                        <img src="@CoverUrl(pbCover)" alt="" loading="eager" decoding="async" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&amp;w=600&amp;auto=format&amp;fit=crop';" />
+                    }
+                    else
+                    {
+                        <div class="book-cover-placeholder">Book cover</div>
+                    }
+                </div>
+                <div class="book-info">
+                    <div class="label">Your book for this publish session</div>
+                    <h1 class="book-title">@pbTitle</h1>
+                    <p class="book-description">
+                        @(string.IsNullOrWhiteSpace(pbDesc) ? "Add or edit the description in AI Writer or My Books." : pbDesc)
+                    </p>
+                    <p class="text-sm text-slate-600 mb-4">
+                        @if (pbChapterCount > 0)
+                        {
+                            <span><strong>@pbChapterCount</strong> chapter@(pbChapterCount == 1 ? "" : "s") recorded in your library or AI history for this title.</span>
+                        }
+                        else
+                        {
+                            <span>No chapters saved yet — open <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a> to generate your first chapter, then return here.</span>
+                        }
+                    </p>
+                    <div class="tags flex-wrap">
+                        @if (!string.IsNullOrEmpty(pbGenre))
+                        {
+                            <span class="tag fiction" style="cursor:default;">@pbGenre</span>
+                        }
+                        else
+                        {
+                            <span class="tag fiction" style="cursor:default;">Genre</span>
+                        }
+                        <span class="tag draft" style="cursor:default;">@(alreadyListed ? "Published" : (string.IsNullOrEmpty(pbStatus) ? "Draft" : pbStatus))</span>
+                    </div>
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <a href="/Books/AIGenerateBook?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700">Open AI Writer</a>
+                        <a href="/Books/AIGenerateBookFormat?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">Formatting</a>
+                        <a href="/Dashboard/CoverDesign?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">AI Cover Design</a>
+                        <a href="/Dashboard/MyBooks" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">My Books</a>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="book-card">
+                <div class="book-cover">
+                    <div class="book-cover-placeholder">Select a book</div>
+                </div>
+                <div class="book-info">
+                    <div class="label">No book selected</div>
+                    <h1 class="book-title">Choose a book to publish</h1>
+                    <p class="book-description">
+                        Open <a href="/Dashboard/MyBooks" class="text-violet-700 font-semibold underline">My Books</a> or <a href="/Dashboard/CoverDesign" class="text-violet-700 font-semibold underline">Cover Design</a> and pick a title, or add <code class="bg-slate-100 px-1 rounded">?bookId=</code> to this page URL after creating a book in AI Writer.
+                    </p>
+                    <div class="mt-4 flex flex-wrap gap-3">
+                        <a href="/Dashboard/MyBooks" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700">Go to My Books</a>
+                        <a href="/Books/AIGenerateBook" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">Create in AI Writer</a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="space-y-10">
+        <section class="publish-card">
+            <h2 class="text-lg font-semibold text-slate-900 mb-2">List your book on Ebook Hub</h2>
+            <p class="text-sm text-slate-500 mb-4">Complete these fields for this release. Publishing requires a successful Stripe payment — your book is marked Published only after checkout succeeds.</p>
+            <div class="grid md:grid-cols-2 gap-4 mb-6">
+                <label class="block text-sm">
+                    <span class="text-slate-700 font-medium">Retail price (USD)</span>
+                    <input type="text" id="pubRetailPrice" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none" placeholder="9.99" value="9.99" autocomplete="off" />
+                </label>
+                <label class="block text-sm">
+                    <span class="text-slate-700 font-medium">Primary category</span>
+                    <input type="text" id="pubCategory" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none" placeholder="Fiction / Business" value="@pbGenre" autocomplete="off" />
+                </label>
+                <label class="block text-sm md:col-span-2">
+                    <span class="text-slate-700 font-medium">Distribution territories</span>
+                    <select id="pubTerritories" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none bg-white">
+                        <option value="worldwide" selected>Worldwide (all marketplaces)</option>
+                        <option value="us">United States only</option>
+                        <option value="uk-eu">UK &amp; EU</option>
+                    </select>
+                </label>
+                <label class="flex items-start gap-2 md:col-span-2 text-sm text-slate-600 cursor-pointer">
+                    <input type="checkbox" id="pubAgree" class="mt-1 rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
+                    <span>I confirm I hold rights to publish this work and accept the platform listing terms for this release.</span>
+                </label>
+            </div>
+            @if (alreadyListed)
+            {
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm px-4 py-3 mb-4">
+                    This book already has a completed payment or publish status. Open <a href="/Dashboard/MyBooks" class="font-semibold underline">My Books</a> to manage downloads.
+                </div>
+            }
+            <div class="flex flex-wrap gap-3 items-center">
+                @if (alreadyListed)
+                {
+                    <button type="button" id="btnStripePublish" disabled class="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-600 font-semibold px-5 py-3 text-sm cursor-not-allowed">
+                        <i class="fas fa-credit-card"></i> Pay &amp; publish with Stripe
+                    </button>
+                }
+                else
+                {
+                    <button type="button" id="btnStripePublish" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold px-5 py-3 text-sm shadow-md hover:from-violet-700 hover:to-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-credit-card"></i> Pay &amp; publish with Stripe
+                    </button>
+                }
+                <span id="pub-stripe-hint" class="text-xs text-slate-500">Secure Checkout · Book ID @(bookId > 0 ? bookId.ToString() : "— select a book from Cover Design or My Books")</span>
+            </div>
+            <p id="pub-stripe-err" class="text-sm text-red-600 mt-3 hidden"></p>
+        </section>
+
+        <section class="publish-card">
+            <h2 class="text-lg font-semibold text-slate-900 mb-2">Your publishing pipeline</h2>
+            <ol class="list-decimal list-inside text-sm text-slate-700 space-y-1">
+                <li><a href="/Books/AIGenerateBook" class="text-violet-600 hover:underline">AI Writer</a> — manuscript</li>
+                <li><a href="/Books/AIGenerateBookFormat" class="text-violet-600 hover:underline">Formatting</a></li>
+                <li><a href="/Dashboard/CoverDesign" class="text-violet-600 hover:underline">AI cover design</a></li>
+                <li>Publish — payment &amp; distribution (this page)</li>
+            </ol>
+        </section>
+
+        <section class="publish-card">
+            <h2 class="text-lg font-semibold text-slate-900 mb-1">Option A — External platforms</h2>
+            <p class="text-sm text-slate-500 mb-4">Checklists and embedded YouTube tutorials.</p>
+            <div class="publish-platform-grid">
+                <button type="button" class="publish-platform-btn" data-platform="kdp">
+                    <div class="font-semibold text-slate-800"><i class="fab fa-amazon text-amber-600 mr-2"></i>Amazon KDP</div>
+                    <div class="text-xs text-slate-500 mt-1">eBook, paperback, hardcover</div>
+                </button>
+                <button type="button" class="publish-platform-btn" data-platform="bn">
+                    <div class="font-semibold text-slate-800"><i class="fas fa-book text-slate-600 mr-2"></i>Barnes &amp; Noble Press</div>
+                    <div class="text-xs text-slate-500 mt-1">NOOK &amp; print</div>
+                </button>
+                <button type="button" class="publish-platform-btn" data-platform="lulu">
+                    <div class="font-semibold text-slate-800"><i class="fas fa-print text-purple-600 mr-2"></i>Lulu</div>
+                    <div class="text-xs text-slate-500 mt-1">Print &amp; global reach</div>
+                </button>
+                <button type="button" class="publish-platform-btn" data-platform="ingram">
+                    <div class="font-semibold text-slate-800"><i class="fas fa-network-wired text-indigo-600 mr-2"></i>IngramSpark</div>
+                    <div class="text-xs text-slate-500 mt-1">Wide distribution</div>
+                </button>
+            </div>
+        </section>
+
+        <section class="publish-card publish-paid-wrap @(paid ? "" : "disabled")">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-900">Option B — Publish through our platform</h2>
+                    <p class="text-sm text-slate-500">We handle submission, metadata, and distribution on your behalf.</p>
+                </div>
+                @if (!paid)
+                {
+                    <span class="publish-badge-disabled" title="Available after plan upgrade"><i class="fas fa-lock"></i> Premium</span>
+                }
+                else
+                {
+                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">Active</span>
+                }
+            </div>
+            <div class="grid md:grid-cols-3 gap-4 text-sm @premiumDimClass">
+                <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p class="font-semibold text-slate-800 mb-1">Timeline</p>
+                    <p class="text-slate-600">Estimated 14–21 business days from approved files to live listings (demo).</p>
+                </div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p class="font-semibold text-slate-800 mb-1">Distribution</p>
+                    <p class="text-slate-600">Major English-language channels + library partners.</p>
+                </div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                    <p class="font-semibold text-slate-800 mb-1">Revenue</p>
+                    <p class="text-slate-600">Net royalties after platform fees; 85% to author on direct sales (demo).</p>
+                </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-3 @premiumDimClass">
+                @if (paid)
+                {
+                    <button type="button" id="btnSubmitFullService" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold px-5 py-2.5 text-sm shadow-md transition-colors">
+                        <i class="fas fa-paper-plane"></i> Submit for full-service publish
+                    </button>
+                }
+                else
+                {
+                    <button type="button" id="btnSubmitFullService" disabled class="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-500 font-semibold px-5 py-2.5 text-sm cursor-not-allowed opacity-60">
+                        <i class="fas fa-paper-plane"></i> Submit for full-service publish
+                    </button>
+                }
+                <a href="/Payments/FeaturesSelection" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium px-5 py-2.5 text-sm">View plans</a>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div id="publishDetailOverlay" class="publish-detail-overlay" role="dialog" aria-modal="true">
+    <div class="publish-detail-box">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+            <h3 id="publishDetailTitle" class="text-lg font-semibold">Guide</h3>
+            <button type="button" id="publishDetailClose" class="p-2 rounded-lg hover:bg-white/15 text-white" aria-label="Close"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-5 overflow-y-auto flex-1">
+            <div class="publish-progress" id="publishProgressBar"></div>
+            <div id="publishDetailSteps"></div>
+            <div class="mt-5 rounded-xl overflow-hidden border border-slate-200 bg-slate-900 aspect-video">
+                <div id="publishVideoSlot" class="w-full h-full min-h-[200px]"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!alreadyListed && bookId > 0)
+{
+    <script src="https://js.stripe.com/v3/"></script>
+}
+<script>
+(function () {
+    var paid = @((ViewBag.PublishViaPlatformPaid as bool? ?? false).ToString().ToLowerInvariant());
+    var bookId = @(bookId);
+    var alreadyListed = @(alreadyListed.ToString().ToLowerInvariant());
+    var publishableKey = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishableKey));
+
+    var guides = {
+        kdp: {
+            title: 'How to publish on Amazon KDP',
+            videoId: 'APLYMkoa9o0',
+            steps: [
+                'Create or sign in to your Amazon account and open Kindle Direct Publishing (KDP).',
+                'Add your author name, contributor roles, and publisher imprint (if any).',
+                'Enter bank account details and complete tax interview (W-9 / W-8BEN as applicable).',
+                'Choose format: Kindle eBook, paperback, and/or hardcover; set trim size for print.',
+                'Upload your interior manuscript and cover files.',
+                'Set list price, territories, and optional KDP Select enrollment, then publish.'
+            ]
+        },
+        bn: {
+            title: 'Barnes & Noble Press',
+            videoId: 'APLYMkoa9o0',
+            steps: [
+                'Create a B&amp;N Press account and verify your email.',
+                'Enter author and publisher information.',
+                'Add payment and tax profile for royalties.',
+                'Pick eBook or print format and interior specifications.',
+                'Upload manuscript and cover; run the built-in validator.',
+                'Set pricing and territories, then submit for review.'
+            ]
+        },
+        lulu: {
+            title: 'Lulu publishing',
+            videoId: 'uoqV1JuU3Gg',
+            steps: [
+                'Sign up at Lulu and start a new book project.',
+                'Choose book size, binding, and paper type.',
+                'Upload interior PDF and cover (single PDF wrap for print).',
+                'Order a proof copy before wide distribution.',
+                'Connect to global retail channels if desired.',
+                'Set retail price and publish.'
+            ]
+        },
+        ingram: {
+            title: 'IngramSpark',
+            videoId: 'APLYMkoa9o0',
+            steps: [
+                'Create an IngramSpark account and add publisher details.',
+                'Complete compensation (bank) and tax forms.',
+                'Select trim size, laminate, and distribution options.',
+                'Upload print-ready PDF interior and cover with correct spine width.',
+                'Set list price, returns, and discount for retailers.',
+                'Approve eProof and enable distribution.'
+            ]
+        }
+    };
+
+    function buildPublishLearningModalHtml() {
+        var kdp = [
+            { id: 'APLYMkoa9o0', t: 'Complete beginner guide to Amazon KDP' },
+            { id: 'oXIu2lJOLO8', t: 'How to upload your KDP book (beginners)' },
+            { id: 'H4x8fH-vd1g', t: 'KDP upload: step-by-step tutorial' }
+        ];
+        var lulu = [
+            { id: 'uoqV1JuU3Gg', t: 'Lulu — print book & global distribution' },
+            { id: 'XhXnr5QrUY8', t: 'Lulu — print formatting essentials' },
+            { id: 'HM410PAhnAg', t: 'Lulu — cover file setup (Photoshop)' }
+        ];
+        function rows(list) {
+            return list.map(function (v) {
+                return '<div class="pub-learn-card">' +
+                    '<div class="pub-learn-card-head">' + v.t + '</div>' +
+                    '<div class="pub-learn-embed"><iframe loading="lazy" src="https://www.youtube.com/embed/' + v.id + '?rel=0&modestbranding=1" title="YouTube tutorial" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div></div>';
+            }).join('');
+        }
+        return '<div class="pub-learn-wrap">' +
+            '<p class="pub-learn-lede">Curated YouTube walkthroughs for <strong>Amazon KDP</strong> and <strong>Lulu</strong> (uploads, formatting, covers). Third-party creators — always verify latest requirements on each platform. When you are ready, continue to Stripe.</p>' +
+            '<div class="pub-learn-tabs" role="tablist">' +
+            '<button type="button" class="pub-learn-tab pub-learn-tab--active" data-pub-tab="kdp"><i class="fab fa-amazon"></i> Amazon KDP</button>' +
+            '<button type="button" class="pub-learn-tab" data-pub-tab="lulu"><i class="fas fa-print"></i> Lulu</button></div>' +
+            '<div class="pub-learn-panels">' +
+            '<div class="pub-learn-panel pub-learn-panel--active" data-pub-panel="kdp">' + rows(kdp) + '</div>' +
+            '<div class="pub-learn-panel" data-pub-panel="lulu">' + rows(lulu) + '</div></div></div>';
+    }
+
+    function wirePublishLearningTabs(container) {
+        if (!container) return;
+        container.querySelectorAll('.pub-learn-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                var key = tab.getAttribute('data-pub-tab');
+                container.querySelectorAll('.pub-learn-tab').forEach(function (t) {
+                    t.classList.toggle('pub-learn-tab--active', t === tab);
+                });
+                container.querySelectorAll('.pub-learn-panel').forEach(function (p) {
+                    p.classList.toggle('pub-learn-panel--active', p.getAttribute('data-pub-panel') === key);
+                });
+            });
+        });
+    }
+
+    function mountVideo(videoId) {
+        var slot = document.getElementById('publishVideoSlot');
+        if (!slot) return;
+        if (!videoId) {
+            slot.innerHTML = '<div class="flex items-center justify-center h-full min-h-[200px] text-slate-400 text-sm p-4 text-center">Tutorial video unavailable.</div>';
+            return;
+        }
+        var src = 'https://www.youtube.com/embed/' + videoId + '?rel=0&modestbranding=1';
+        slot.innerHTML = '<iframe class="publish-video-frame w-full h-full min-h-[220px]" src="' + src + '" title="YouTube tutorial" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+    }
+
+    function openDetail(key) {
+        var g = guides[key];
+        if (!g) return;
+        document.getElementById('publishDetailTitle').innerHTML = g.title;
+        var stepsEl = document.getElementById('publishDetailSteps');
+        var prog = document.getElementById('publishProgressBar');
+        stepsEl.innerHTML = '';
+        prog.innerHTML = '';
+        g.steps.forEach(function (text, i) {
+            var row = document.createElement('div');
+            row.className = 'publish-step';
+            row.innerHTML = '<span class="publish-step-num">' + (i + 1) + '</span><span>' + text + '</span>';
+            stepsEl.appendChild(row);
+            var dot = document.createElement('span');
+            dot.className = 'done';
+            prog.appendChild(dot);
+        });
+        mountVideo(g.videoId);
+        document.getElementById('publishDetailOverlay').classList.add('open');
+    }
+
+    document.querySelectorAll('.publish-platform-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () { openDetail(this.getAttribute('data-platform')); });
+    });
+    document.getElementById('publishDetailClose').addEventListener('click', function () {
+        document.getElementById('publishDetailOverlay').classList.remove('open');
+        var slot = document.getElementById('publishVideoSlot');
+        if (slot) slot.innerHTML = '';
+    });
+    document.getElementById('publishDetailOverlay').addEventListener('click', function (e) {
+        if (e.target === this) {
+            this.classList.remove('open');
+            var slot = document.getElementById('publishVideoSlot');
+            if (slot) slot.innerHTML = '';
+        }
+    });
+
+    var sub = document.getElementById('btnSubmitFullService');
+    if (sub) sub.addEventListener('click', function () {
+        if (!paid) {
+            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: 'Premium', text: 'Upgrade your plan for full-service publishing.', confirmButtonColor: '#7c3aed' });
+            else alert('Premium feature');
+            return;
+        }
+        if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Submitted (demo)', text: 'Our team would contact you within 1 business day.', confirmButtonColor: '#7c3aed' });
+        else alert('Submitted (demo)');
+    });
+
+    var stripeBtn = document.getElementById('btnStripePublish');
+    var errEl = document.getElementById('pub-stripe-err');
+
+    function runStripePublishCheckout() {
+        if (!stripeBtn) return;
+        stripeBtn.disabled = true;
+        if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+        fetch('/Checkout/CreateBookCheckoutSession', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookId: bookId, publishIntent: true })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.alreadyPaid) {
+                    window.location.href = '/Dashboard/MyBooks';
+                    return;
+                }
+                if (data.url) {
+                    window.location.href = data.url;
+                    return;
+                }
+                if (data.sessionId && typeof Stripe !== 'undefined' && publishableKey) {
+                    var stripe = Stripe(publishableKey);
+                    return stripe.redirectToCheckout({ sessionId: data.sessionId }).then(function (result) {
+                        if (result.error && errEl) { errEl.textContent = result.error.message || 'Checkout failed.'; errEl.classList.remove('hidden'); }
+                        stripeBtn.disabled = false;
+                    });
+                }
+                if (errEl) { errEl.textContent = data.message || 'Could not start checkout. Is Stripe configured?'; errEl.classList.remove('hidden'); }
+                stripeBtn.disabled = false;
+            })
+            .catch(function () {
+                if (errEl) { errEl.textContent = 'Network error. Please try again.'; errEl.classList.remove('hidden'); }
+                stripeBtn.disabled = false;
+            });
+    }
+
+    if (stripeBtn && !alreadyListed && bookId > 0) {
+        stripeBtn.addEventListener('click', function () {
+            var agree = document.getElementById('pubAgree');
+            if (agree && !agree.checked) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Confirmation required', text: 'Please confirm rights and terms before paying.', confirmButtonColor: '#7c3aed' });
+                else alert('Please confirm rights and terms.');
+                return;
+            }
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: '<span style="font-family:Georgia,\'Playfair Display\',serif;font-weight:600;font-size:1.35rem;background:linear-gradient(90deg,#5b21b6,#4f46e5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Publish hub</span>',
+                    html: buildPublishLearningModalHtml(),
+                    width: 920,
+                    showCancelButton: true,
+                    confirmButtonText: 'Continue to Stripe checkout',
+                    cancelButtonText: 'Not yet',
+                    confirmButtonColor: '#7c3aed',
+                    cancelButtonColor: '#94a3b8',
+                    focusConfirm: false,
+                    customClass: {
+                        popup: 'publish-learning-swal-popup',
+                        actions: 'publish-learning-swal-actions',
+                        confirmButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold shadow-md',
+                        cancelButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold'
+                    },
+                    didOpen: function () {
+                        wirePublishLearningTabs(Swal.getHtmlContainer());
+                    }
+                }).then(function (res) {
+                    if (res.isConfirmed) runStripePublishCheckout();
+                });
+            } else {
+                runStripePublishCheckout();
+            }
+        });
+    }
+})();
+</script>

@@ -1,0 +1,14 @@
+﻿﻿@{
+    ViewData["Title"] = "Dashboard";
+}
+<h2>Welcome @User.Identity?.Name!</h2>
+<p>You are logged in successfully.</p>
+
+<div class="mt-4">
+    <p>If you're not redirected automatically, please select your dashboard:</p>
+    <div class="d-flex gap-3">
+        <a href="/Dashboard" class="btn btn-primary">Reader Dashboard</a>
+        <a href="/Author/Dashboard" class="btn btn-secondary">Author Dashboard</a>
+        <a href="/Admin/Dashboard" class="btn btn-info">Admin Dashboard</a>
+    </div>
+</div>

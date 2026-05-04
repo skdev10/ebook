@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Build intermediate/output under the user profile so MSBuild can always create/write folders.
+    Fixes UnauthorizedAccessException on Desktop copies where obj/bin inherited restrictive ACLs (Users: RX only).
+    When BaseIntermediateOutputPath moves, SDK default globs no longer exclude ./obj and ./bin next to the
+    project — stale generated *.cs there would compile twice (CS0579). Exclude them explicitly.
+  -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(USERPROFILE)\.msbuild-out\EBookDashboard\obj\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(USERPROFILE)\.msbuild-out\EBookDashboard\bin\</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\obj\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\bin\**</DefaultItemExcludes>
+  </PropertyGroup>
+</Project>

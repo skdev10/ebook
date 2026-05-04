@@ -1,0 +1,79 @@
+﻿@model EBookDashboard.Models.ViewModels.BookCoversViewModel
+@{
+    ViewData["Title"] = "Book Covers";
+
+}
+
+<div class="text-center mb-4">
+    <h1 class="display-4">Book Covers</h1>
+    <p class="lead">Choose a category to view images</p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12 col-md-6 col-lg-4">
+        <label for="categoryDropdown" class="form-label">Category</label>
+        <select id="categoryDropdown" class="form-select" aria-label="Select category">
+            <option value="">All categories</option>
+            @foreach (var cat in Model.Categories)
+            {
+                if (Model.SelectedCategory == cat)
+                {
+                    <option value="@cat" selected>@cat</option>
+                }
+                else
+                {
+                    <option value="@cat">@cat</option>
+                }
+            }
+        </select>
+    </div>
+</div>
+
+@if (Model.ImagePaths != null && Model.ImagePaths.Count > 0)
+{
+    <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-4">
+        @foreach (var relativePath in Model.ImagePaths)
+        {
+            var url = $"/book-covers/{relativePath}";
+            var path = relativePath.Replace("\\", "/");
+            var fileName = path.Split('/').LastOrDefault() ?? path;
+            var name = fileName.Contains('.') ? fileName.Substring(0, fileName.LastIndexOf('.')) : fileName;
+            <div class="col">
+                <div class="card h-100 shadow-sm">
+                    <img src="@url" class="card-img-top" alt="@name" style="object-fit: cover; height: 200px;" loading="lazy" />
+                    <div class="card-body py-2">
+                        <p class="card-text small text-muted text-truncate mb-0" title="@name">@name</p>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-info text-center">
+        @if (!string.IsNullOrEmpty(Model.SelectedCategory))
+        {
+            <p class="mb-0">No images found in <strong>@Model.SelectedCategory</strong>.</p>
+        }
+        else
+        {
+            <p class="mb-0">No images found in <strong>Images\book_covers</strong>. Add .jpg, .png, .gif or .webp files (including in subfolders) to see them here.</p>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script>
+        document.getElementById('categoryDropdown').addEventListener('change', function () {
+            var value = this.value;
+            var url = new URL(window.location.href);
+            if (value) {
+                url.searchParams.set('category', value);
+            } else {
+                url.searchParams.delete('category');
+            }
+            window.location.href = url.toString();
+        });
+    </script>
+}

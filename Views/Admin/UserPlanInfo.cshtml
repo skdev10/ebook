@@ -1,0 +1,358 @@
+<style>
+    .user-plan-info {
+        padding: 20px;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+        backdrop-filter: blur(20px);
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .header-content h1 {
+        margin: 0;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .header-content p {
+        margin: 5px 0 0;
+        color: #666;
+        font-size: 1rem;
+    }
+
+    .filter-section {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .search-bar {
+        flex: 1;
+        min-width: 300px;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    .input-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #667eea;
+        z-index: 2;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px 12px 45px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.9);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .filter-options {
+        display: flex;
+        gap: 15px;
+    }
+
+    .filter-options .form-control {
+        padding: 12px 15px;
+        min-width: 150px;
+    }
+
+    .users-table-container {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .users-table th {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 20px;
+        text-align: left;
+        font-weight: 600;
+    }
+
+    .users-table td {
+        padding: 20px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+    }
+
+    .plan-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .plan-badge.free {
+        background: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+    }
+
+    .plan-badge.basic-plan {
+        background: rgba(52, 152, 219, 0.1);
+        color: #3498db;
+    }
+
+    .plan-badge.pro-plan {
+        background: rgba(155, 89, 182, 0.1);
+        color: #9b59b6;
+    }
+
+    .plan-badge.premium {
+        background: rgba(241, 196, 15, 0.1);
+        color: #f1c40f;
+    }
+
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .status-badge.active {
+        background: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+    }
+
+    .status-badge.inactive {
+        background: rgba(108, 117, 125, 0.1);
+        color: #6c757d;
+    }
+
+    .btn-action {
+        padding: 8px;
+        border: none;
+        border-radius: 6px;
+        margin: 0 2px;
+        cursor: pointer;
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+    }
+
+    .btn-action:hover {
+        opacity: 0.8;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 20px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 10px;
+        font-size: 1.5rem;
+    }
+
+    /* Modal Styles */
+    .modal-content {
+        border: none;
+        border-radius: 15px;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+    }
+
+    .modal-body {
+        padding: 30px;
+    }
+
+    .modal-footer {
+        padding: 20px;
+        border: none;
+    }
+
+    /* Mobile Responsive */
+    @@media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            gap: 15px;
+            text-align: center;
+        }
+
+        .filter-section {
+            flex-direction: column;
+        }
+
+        .search-bar {
+            min-width: auto;
+        }
+
+        .filter-options {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .users-table th, .users-table td {
+            padding: 15px 10px;
+            font-size: 0.9rem;
+        }
+
+        .user-info {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 5px;
+        }
+
+        .modal-dialog {
+            margin: 10px;
+        }
+    }
+</style>
+
+<script>
+    // Search functionality
+    document.getElementById('searchUsers').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        filterUsers();
+    });
+
+    // Plan filter
+    document.getElementById('planFilter').addEventListener('change', function() {
+        filterUsers();
+    });
+
+    // Status filter
+    document.getElementById('statusFilter').addEventListener('change', function() {
+        filterUsers();
+    });
+
+    function filterUsers() {
+        const searchTerm = document.getElementById('searchUsers').value.toLowerCase();
+        const planFilter = document.getElementById('planFilter').value.toLowerCase();
+        const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
+        const userRows = document.querySelectorAll('.users-table tbody tr');
+
+        userRows.forEach(row => {
+            const name = row.querySelector('.user-info span').textContent.toLowerCase();
+            const email = row.cells[1].textContent.toLowerCase();
+            const plan = row.cells[2].textContent.toLowerCase();
+            const status = row.cells[3].textContent.toLowerCase();
+
+            const matchesSearch = name.includes(searchTerm) || email.includes(searchTerm);
+            const matchesPlan = !planFilter || plan.includes(planFilter);
+            const matchesStatus = !statusFilter || status.includes(statusFilter);
+
+            if (matchesSearch && matchesPlan && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    // Modal functions
+    function editUserPlan(id) {
+        document.getElementById('userPlanModalLabel').textContent = 'Edit User Plan';
+        // In a real app, you would populate the form with user data
+        new bootstrap.Modal(document.getElementById('userPlanModal')).show();
+    }
+
+    function saveUserPlan() {
+        Swal.fire({
+            title: 'Saving User Plan',
+            text: 'Please wait while we save the user plan...',
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
+        // Simulate save process
+        setTimeout(() => {
+            Swal.fire({
+                title: 'User Plan Saved!',
+                text: 'The user plan has been saved successfully.',
+                icon: 'success',
+                confirmButtonColor: '#667eea'
+            });
+            bootstrap.Modal.getInstance(document.getElementById('userPlanModal')).hide();
+        }, 1500);
+    }
+
+    function viewUser(id) {
+        Swal.fire({
+            title: 'User Details',
+            html: `
+                <div style="text-align: left;">
+                    <h4>John Doe</h4>
+                    <p><strong>Email:</strong> john.doe@example.com</p>
+                    <p><strong>Current Plan:</strong> <span class="badge bg-primary">Basic Plan</span></p>
+                    <p><strong>Status:</strong> <span class="badge bg-success">Active</span></p>
+                </div>
+            `,
+            confirmButtonColor: '#667eea'
+        });
+    }
+
+    // Initialize AOS
+    AOS.init({
+        duration: 600,
+        easing: 'ease-out',
+        once: true
+    });
+</script>
