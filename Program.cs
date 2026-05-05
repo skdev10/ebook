@@ -47,7 +47,7 @@ builder.Services.AddSession();  // ✅ add session support
 var defaultConnection = MySqlConnectionStringFactory.Build(
     builder.Configuration,
     builder.Environment.ContentRootPath,
-    builder.Configuration.GetConnectionString("DefaultConnection"));
+    DefaultConnectionResolver.Resolve(builder.Configuration));
 
 builder.Services.AddSingleton<BookLifecycleSaveChangesInterceptor>();
 builder.Services.AddSingleton<BookLifecycleAfterSaveService>();

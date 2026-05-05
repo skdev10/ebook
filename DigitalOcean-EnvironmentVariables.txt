@@ -4,6 +4,10 @@ Required for database & startup:
   ConnectionStrings__DefaultConnection
     Example (MySQL): server=YOUR_HOST;port=25060;database=ebookpublications;user=doadmin;password=SECRET;SslMode=Required;
 
+Bare VM / production-style run without committing secrets (local MySQL defaults 127.0.0.1:3306/ebook):
+  Database__UseLocalFallbackConnection=true
+  (Override with Database__LocalFallbackConnection=... if needed. Prefer appsettings.Local.json from appsettings.Local.json.example on the server.)
+
 Public URL for Stripe redirects / emails:
   App__PublicBaseUrl
     Example: https://your-app.ondigitalocean.app

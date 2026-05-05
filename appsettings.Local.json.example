@@ -1,5 +1,8 @@
 {
-  "ExternalApi": {
-    "ApiKey": "PASTE_YOUR_X_API_KEY_HERE"
+  "ConnectionStrings": {
+    "DefaultConnection": "server=127.0.0.1;port=3306;database=ebook;user=root;password=YOUR_PASSWORD;"
+  },
+  "Database": {
+    "UseLocalFallbackConnection": true
   }
 }
