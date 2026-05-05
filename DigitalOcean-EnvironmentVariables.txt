@@ -4,10 +4,14 @@ Required for database & startup:
   ConnectionStrings__DefaultConnection
     Example (MySQL): server=YOUR_HOST;port=25060;database=ebookpublications;user=doadmin;password=SECRET;SslMode=Required;
 
-Bare VM / production-style run without committing secrets (local MySQL defaults 127.0.0.1:3306/ebook):
-  appsettings.Production.json sets Database:UseLocalFallbackConnection=true so the app starts without env; override with ConnectionStrings__DefaultConnection (this wins on App Platform).
-  To disable fallback in strict environments: Database__UseLocalFallbackConnection=false
-  (Override with Database__LocalFallbackConnection=... if needed. Prefer appsettings.Local.json from appsettings.Local.json.example on the server.)
+Bare VM / production-style run (local MySQL); appsettings.Production.json sets UseLocalFallbackConnection=true.
+  You must supply credentials (Linux MySQL rarely allows root with no password):
+    MYSQL_ROOT_PASSWORD=...   (or MYSQL_PASSWORD=...)
+    Optional: MYSQL_HOST MYSQL_PORT MYSQL_DATABASE MYSQL_USER
+  Same values work as Docker-style env; alternatively set ConnectionStrings__DefaultConnection (wins everywhere when set).
+  App Platform managed DB: use ConnectionStrings__DefaultConnection SECRET only; MYSQL_* unused if connection string present.
+  To disable fallback: Database__UseLocalFallbackConnection=false
+  Full string override without env pieces: Database__LocalFallbackConnection=server=127.0.0.1;... (single line)
 
 Public URL for Stripe redirects / emails:
   App__PublicBaseUrl
