@@ -51,7 +51,7 @@ public static class DefaultConnectionResolver
 
         var database = FirstNonEmpty(
             Environment.GetEnvironmentVariable("MYSQL_DATABASE"),
-            configuration["Database:FallbackDatabase"]) ?? "ebook";
+            configuration["Database:FallbackDatabase"]) ?? "ebookpublications";
 
         var user = FirstNonEmpty(
             Environment.GetEnvironmentVariable("MYSQL_USER"),

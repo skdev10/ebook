@@ -2,7 +2,10 @@ DigitalOcean App Platform — set these as Environment Variables (nested keys us
 
 Required for database & startup:
   ConnectionStrings__DefaultConnection
-    Example (MySQL): server=YOUR_HOST;port=25060;database=ebookpublications;user=doadmin;password=SECRET;SslMode=Required;
+    Example (managed MySQL): server=YOUR_HOST;port=25060;database=ebookpublications;user=doadmin;password=SECRET;SslMode=Required;
+    On App Platform this SECRET overrides appsettings ConnectionStrings:DefaultConnection (appsettings carries a localhost default for the VM).
+
+Security: Rotate any DB password committed in appsettings if the repo is shared or public; prefer secrets + env on production hosts.
 
 Bare VM / production-style run (local MySQL); appsettings.Production.json sets UseLocalFallbackConnection=true.
   You must supply credentials (Linux MySQL rarely allows root with no password):

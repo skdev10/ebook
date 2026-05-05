@@ -1,8 +1,10 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection": "server=127.0.0.1;port=3306;database=ebook;user=root;password=YOUR_PASSWORD;"
+    "DefaultConnection": "server=127.0.0.1;port=3306;database=ebookpublications;user=root;password=YOUR_PASSWORD;AllowPublicKeyRetrieval=true;"
   },
   "Database": {
-    "UseLocalFallbackConnection": true
+    "UseLocalFallbackConnection": true,
+    "FallbackDatabase": "ebookpublications",
+    "FallbackPassword": "YOUR_PASSWORD"
   }
 }
