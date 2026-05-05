@@ -26,7 +26,10 @@ public static class MySqlConnectionStringFactory
 
         var useSslCa = configuration.GetValue("Database:UseSslCa", true);
         if (!useSslCa)
+        {
+            EnsureNonSslAuthCompatibility(csb);
             return csb.ConnectionString;
+        }
 
         // Optional PEM from config/env (e.g. container / platform secrets).
         var pem = configuration["Database:SslCaPem"];
@@ -66,15 +69,32 @@ public static class MySqlConnectionStringFactory
         // forcing VerifyCA here causes RemoteCertificateChainErrors on sign-in.
         var forceSslCa = configuration.GetValue("Database:ForceSslCa", false);
         if (sslCaFullPath != null && IsLocalMySqlHost(csb.Server) && !forceSslCa)
+        {
+            EnsureNonSslAuthCompatibility(csb);
             return csb.ConnectionString;
+        }
 
         if (sslCaFullPath != null)
         {
             csb.SslMode = MySqlSslMode.VerifyCA;
             csb.SslCa = sslCaFullPath;
         }
+        else
+        {
+            EnsureNonSslAuthCompatibility(csb);
+        }
 
         return csb.ConnectionString;
+    }
+
+    /// <summary>
+    /// For local/non-SSL connections using MySQL 8+ default auth (caching_sha2_password),
+    /// allow RSA key retrieval when TLS/CA verification is not enabled.
+    /// </summary>
+    private static void EnsureNonSslAuthCompatibility(MySqlConnectionStringBuilder csb)
+    {
+        if (csb.SslMode != MySqlSslMode.VerifyCA && csb.SslMode != MySqlSslMode.VerifyFull)
+            csb.AllowPublicKeyRetrieval = true;
     }
 
     private static bool IsLocalMySqlHost(string? server)
