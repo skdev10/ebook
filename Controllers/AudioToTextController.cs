@@ -8,15 +8,21 @@ namespace EBookDashboard.Controllers
     public class AudioToTextController : ControllerBase
     {
         private readonly OpenAIService2 _openAIService;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<AudioToTextController> _logger;
         private readonly IWebHostEnvironment _env;
 
         public AudioToTextController(
             OpenAIService2 openAIService,
+            IHttpClientFactory httpClientFactory,
+            IConfiguration configuration,
             ILogger<AudioToTextController> logger,
             IWebHostEnvironment env)
         {
             _openAIService = openAIService;
+            _httpClientFactory = httpClientFactory;
+            _configuration = configuration;
             _logger = logger;
             _env = env;
         }
@@ -76,12 +82,42 @@ namespace EBookDashboard.Controllers
                     audioFile.Length,
                     savedFilePath);
 
-                // 🔹 Call OpenAI Service
-                var text = await _openAIService.TranscribeAudioAsync(
-                    userId ?? "unknown",
-                    bookId ?? "unknown",
-                    chapter ?? 0,
-                    tempFilePath);
+                int uid = int.TryParse(userId, out var u) ? u : 0;
+                int bid = int.TryParse(bookId, out var b) ? b : 0;
+                int chap = chapter ?? 0;
+
+                string text;
+                if (_openAIService.IsConfigured)
+                {
+                    text = await _openAIService.TranscribeAudioAsync(
+                        userId ?? "unknown",
+                        bookId ?? "unknown",
+                        chap,
+                        tempFilePath);
+                }
+                else
+                {
+                    var extKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+                    if (string.IsNullOrEmpty(extKey))
+                    {
+                        return StatusCode(500, new
+                        {
+                            success = false,
+                            message = "Voice input is unavailable: neither OpenAI:ApiKey nor ExternalApi:ApiKey is configured on the server."
+                        });
+                    }
+
+                    var http = _httpClientFactory.CreateClient();
+                    http.Timeout = TimeSpan.FromMinutes(5);
+                    text = await ExternalBookApiAudio.TranscribeFileAsync(
+                        http,
+                        _configuration,
+                        savedFilePath,
+                        uid,
+                        bid,
+                        chap,
+                        HttpContext.RequestAborted);
+                }
 
                 if (string.IsNullOrEmpty(text))
                 {

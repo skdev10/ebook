@@ -447,14 +447,74 @@ namespace EBookDashboard.Controllers
         //==================================
         //     Generate Book
         //==================================
+        /// <summary>
+        /// Parses POST JSON using Newtonsoft/JToken so both PascalCase (browser) and snake_case (external API shape)
+        /// bind correctly. [FromBody] + System.Text.Json ignored Newtonsoft [JsonProperty] on <see cref="AIBookRequest"/>,
+        /// which broke chapter generation when keys did not match exactly.
+        /// </summary>
+        private AIBookRequest? ParseAIBookRequestFromBody(string body)
+        {
+            if (string.IsNullOrWhiteSpace(body))
+                return null;
+            try
+            {
+                var jo = JObject.Parse(body);
+
+                var chTok = jo["Chapter"] ?? jo["chapter"];
+                var chapterVal = 0;
+                if (chTok != null && chTok.Type != JTokenType.Null)
+                {
+                    if (chTok.Type == JTokenType.Integer)
+                        chapterVal = chTok.Value<int>();
+                    else if (chTok.Type == JTokenType.Float)
+                        chapterVal = (int)Math.Round(chTok.Value<double>());
+                    else if (chTok.Type == JTokenType.String && int.TryParse(chTok.Value<string>(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ci))
+                        chapterVal = ci;
+                }
+
+                var pvTok = jo["PreviewOnly"] ?? jo["preview_only"];
+                var previewVal = false;
+                if (pvTok != null && pvTok.Type != JTokenType.Null)
+                {
+                    if (pvTok.Type == JTokenType.Boolean)
+                        previewVal = pvTok.Value<bool>();
+                    else if (pvTok.Type == JTokenType.String && bool.TryParse(pvTok.Value<string>(), out var pb))
+                        previewVal = pb;
+                    else if (pvTok.Type == JTokenType.Integer)
+                        previewVal = pvTok.Value<int>() != 0;
+                }
+
+                return new AIBookRequest
+                {
+                    ResponseId = jo["response_id"]?.ToString() ?? jo["ResponseId"]?.ToString() ?? string.Empty,
+                    UserId = jo["UserId"]?.ToString() ?? jo["user_id"]?.ToString(),
+                    BookId = jo["BookId"]?.ToString() ?? jo["book_id"]?.ToString(),
+                    Title = jo["Title"]?.ToString() ?? jo["title"]?.ToString() ?? string.Empty,
+                    Chapter = chapterVal,
+                    UserInput = jo["UserInput"]?.ToString() ?? jo["user_input"]?.ToString() ?? string.Empty,
+                    PreviewOnly = previewVal
+                };
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "AIGenerateBook: JSON parse failed");
+                return null;
+            }
+        }
+
         // ✅ 2️⃣ — POST: Call external API and return book data as JSON
         // Generate Book via API
         [HttpPost]
         [Route("Books/AIGenerateBook")]
-        public async Task<IActionResult> AIGenerateBook([FromBody] AIBookRequest model)
+        public async Task<IActionResult> AIGenerateBook()
         {
+            string body;
+            using (var reader = new StreamReader(Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, bufferSize: 1024, leaveOpen: true))
+                body = await reader.ReadToEndAsync();
+
+            var model = ParseAIBookRequestFromBody(body);
             if (model == null)
-                return Json(new { error = true, message = "Invalid request data" });
+                return Json(new { error = true, message = "Invalid request data — empty body or invalid JSON." });
 
             var apiUrl = _configuration["ExternalApi:GenerateUrl"] ?? "http://162.229.248.26:8001/api/generate_chapter";
             var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
@@ -572,10 +632,11 @@ namespace EBookDashboard.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "AIGenerateBook failed");
                 if (rawResponseId == null)
                     try { await _rawResponseService.SaveRawResponseAsync(model, responseData ?? "", apiUrl, "500", ex.Message); } catch { }
                 Console.WriteLine($"❌ Generate chapter error: {ex.Message}");
-                return Json(new { error = true, message = "Generation failed. Please try again." });
+                return Json(new { error = true, message = "Generation failed. Please try again.", detail = ex.Message });
             }
         }
 
@@ -1507,10 +1568,22 @@ namespace EBookDashboard.Controllers
             {
                 Console.WriteLine($"🔍 GetNextChapterNumber called for User: {userId}, Book: {bookId}");
 
-                if (userId <= 0 || bookId <= 0)
+                if (userId <= 0)
                 {
                     Console.WriteLine($"❌ Invalid parameters: UserId={userId}, BookId={bookId}");
-                    return Json(new { success = false, message = "Valid UserId and BookId are required." });
+                    return Json(new { success = false, message = "Valid UserId is required." });
+                }
+
+                // bookId 0 = new book / no manuscript yet — next chapter is 1. Previously bookId<=0 failed validation and broke the new-draft flow in AIGenerateBook.cshtml.
+                if (bookId <= 0)
+                {
+                    return Json(new
+                    {
+                        success = true,
+                        nextChapterNumber = 1,
+                        userId = userId,
+                        bookId = bookId
+                    });
                 }
 
                 var nextChapterNumber = await _bookService.GetNextChapterNumberAsync(userId, bookId);

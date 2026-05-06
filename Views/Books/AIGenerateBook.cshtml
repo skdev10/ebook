@@ -3717,6 +3717,9 @@ document.addEventListener('DOMContentLoaded', function() {
              try {
                  var j = JSON.parse(t);
                  if (j && typeof j.message === 'string' && j.message.trim()) return j.message.trim();
+                 if (j && typeof j.Message === 'string' && j.Message.trim()) return j.Message.trim();
+                 if (j && typeof j.detail === 'string' && j.detail.trim()) return j.detail.trim();
+                 if (j && typeof j.title === 'string' && j.title.trim()) return j.title.trim();
              } catch (e) { /* ignore */ }
          }
          return t.length > 600 ? (t.slice(0, 600) + '…') : t;
@@ -3883,6 +3886,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      var errFlag = bookData && (bookData.error === true || bookData.Error === true || bookData.success === false || bookData.Success === false);
                      if (errFlag) {
                          var errMsg = (bookData.message || bookData.Message || bookData.detail || bookData.Detail || 'Generation failed.').toString();
+                         if (bookData.detail || bookData.Detail) console.error('Chapter generation error detail:', bookData.detail || bookData.Detail);
                          addMessage(errMsg, false);
                          showNotification(errMsg, 'error');
                          return;
@@ -5516,7 +5520,8 @@ document.addEventListener('DOMContentLoaded', function() {
                  core.content, core.Content,
                  bookData.content, bookData.Content,
                  core.chapter, bookData.chapter,
-                 core.chapter_content, core.chapter_text,
+                 core.chapter_content, core.chapter_text, core.chapter_body,
+                 bookData.chapter_content, bookData.chapter_text, bookData.chapter_body,
                  core.text, core.body, core.result,
                  core.generated_text, core.output, core.prose, core.manuscript,
                  bookData.text, bookData.output, bookData.result
@@ -5528,7 +5533,8 @@ document.addEventListener('DOMContentLoaded', function() {
              }
              var chapters = core.chapters || bookData.chapters;
              if (Array.isArray(chapters) && chapters.length > 0 && chapters[0] && typeof chapters[0] === 'object') {
-                 u = coerce(chapters[0].content || chapters[0].Content || chapters[0].text);
+                 var ch0 = chapters[0];
+                 u = coerce(ch0.content || ch0.Content || ch0.text || ch0.chapter_text || ch0.chapter_content || ch0.chapter_body);
                  if (u) return u;
              }
              var innerData = core.data;
@@ -6062,9 +6068,24 @@ document.addEventListener('DOMContentLoaded', function() {
                      recordingStream = null;
                  }
                  const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+                 // Filename + multipart type must match actual codec (Safari/Edge often record mp4 — wrong .webm broke upstream MIME detection).
+                 var ext = '.webm';
+                 var mt = mediaRecorder.mimeType || blob.type || '';
+                 if (mt.indexOf('mp4') >= 0 || mt.indexOf('mpeg') >= 0 || mt.indexOf('x-m4a') >= 0) ext = '.mp4';
+                 else if (mt.indexOf('ogg') >= 0) ext = '.ogg';
+                 var voiceFileName = 'voice' + ext;
+                 if (!blob.size) {
+                     console.error('Voice recording: empty blob — browser may need periodic timeslices or requestData() before stop.');
+                     if (typeof showNotification === 'function') showNotification('Recording had no audio data. Try again or use Chrome/Edge.', 'error');
+                     else alert('Recording had no audio data.');
+                     if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                     if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                     if (stopRecBtn) stopRecBtn.disabled = true;
+                     return;
+                 }
                  const formData = new FormData();
-                 formData.append("audio", blob, "voice.webm");
-                 formData.append("AudioFile", blob, "voice.webm");
+                 formData.append("audio", blob, voiceFileName);
+                 formData.append("AudioFile", blob, voiceFileName);
                  formData.append("Language", "en-US");
                  const uid = document.getElementById("UserId")?.value || "";
                  const bid = document.getElementById("BookId")?.value || "";
@@ -6074,13 +6095,20 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (ch) formData.append("chapter", ch);
                  try {
                      const res = await fetch("/api/AudioToText/convert", { method: "POST", body: formData });
+                     const raw = await res.text();
+                     var data = {};
+                     if (raw) {
+                         try { data = JSON.parse(raw); } catch (parseErr) { data = {}; }
+                     }
                      if (!res.ok) {
-                         var err = await res.json().catch(function() { return {}; });
-                         if (typeof showNotification === 'function') showNotification("Failed to convert audio: " + (err.message || "Unknown error"), 'error');
-                         else alert("Failed to convert audio: " + (err.message || "Unknown error"));
+                         var errMsg = (data && (data.message || data.Message || data.detail || data.Detail || data.title || data.Title))
+                             ? String(data.message || data.Message || data.detail || data.Detail || data.title || data.Title).trim()
+                             : (raw && String(raw).trim().charAt(0) !== '<' ? (String(raw).length > 400 ? String(raw).slice(0, 400) + '…' : String(raw).trim()) : '');
+                         if (!errMsg) errMsg = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '');
+                         if (typeof showNotification === 'function') showNotification("Failed to convert audio: " + errMsg, 'error');
+                         else alert("Failed to convert audio: " + errMsg);
                          return;
                      }
-                     const data = await res.json();
                      if (data.success && data.text) {
                          var txt = data.text.replace(/<p[^>]*>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
                          document.getElementById("UserInput").value = txt;
@@ -6098,7 +6126,8 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                  if (stopRecBtn) stopRecBtn.disabled = true;
              };
-             mediaRecorder.start();
+             // Timeslice so ondataavailable fires reliably (some browsers buffer until stop with start() only).
+             mediaRecorder.start(250);
              if (startRecBtn) startRecBtn.style.display = 'none';
              if (recordingStripArea) { recordingStripArea.classList.remove('hidden'); recordingStripArea.classList.add('flex'); }
              if (stopRecBtn) stopRecBtn.disabled = false;
@@ -6115,7 +6144,12 @@ document.addEventListener('DOMContentLoaded', function() {
      };
 
        if (stopRecBtn) stopRecBtn.onclick = function () {
-         if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+             try {
+                 if (typeof mediaRecorder.requestData === 'function') mediaRecorder.requestData();
+             } catch (rdErr) { console.warn('MediaRecorder.requestData:', rdErr); }
+             mediaRecorder.stop();
+         }
        };
 
          //===================================

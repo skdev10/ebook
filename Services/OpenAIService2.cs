@@ -5,19 +5,24 @@ using Microsoft.Extensions.Logging;
 
 public class OpenAIService2
 {
-    private readonly AudioClient _audioClient;
-    private readonly ChatClient _chatClient;
+    private readonly string? _apiKey;
+    private readonly AudioClient? _audioClient;
+    private readonly ChatClient? _chatClient;
     private readonly ILogger<OpenAIService2>? _logger;
 
     public OpenAIService2(IConfiguration config, ILogger<OpenAIService2>? logger = null)
     {
-        var apiKey = config["OpenAI:ApiKey"]
-            ?? throw new InvalidOperationException("OPENAI_API_KEY environment variable is not set.");
-
-        _audioClient = new AudioClient("gpt-4o-mini-transcribe", apiKey);
-        _chatClient = new ChatClient("gpt-4o-mini", apiKey);
+        _apiKey = config["OpenAI:ApiKey"]?.Trim();
         _logger = logger;
+        if (!string.IsNullOrEmpty(_apiKey))
+        {
+            _audioClient = new AudioClient("gpt-4o-mini-transcribe", _apiKey);
+            _chatClient = new ChatClient("gpt-4o-mini", _apiKey);
+        }
     }
+
+    /// <summary>When false, voice-to-text should use <see cref="ExternalBookApiAudio"/> (same key/URL as chapter generation).</summary>
+    public bool IsConfigured => !string.IsNullOrEmpty(_apiKey) && _audioClient != null && _chatClient != null;
 
     public async Task<string> TranscribeAudioAsync(
         string userId,
@@ -27,6 +32,12 @@ public class OpenAIService2
     {
         try
         {
+            if (_audioClient == null || _chatClient == null)
+            {
+                throw new InvalidOperationException(
+                    "OpenAI is not configured. Set OpenAI:ApiKey (e.g. OpenAI__ApiKey on the server), or rely on ExternalApi:AudioUrl with ExternalApi:ApiKey for voice.");
+            }
+
             if (!System.IO.File.Exists(audioFilePath))
             {
                 var errorMsg = $"Audio file not found: {audioFilePath}";
@@ -50,7 +61,7 @@ public class OpenAIService2
 
             _logger?.LogInformation("Audio transcribed successfully. Length: {Length} characters", transcribedText.Length);
 
-            // 2️⃣ Format text into HTML (NO WORD CHANGES)
+            // 2️⃣ Format text into HTML (NO WORD CHANGES). If chat formatting fails (quota, policy, network), return plain transcription so voice input still works.
             var formattingPrompt = $"""
                 Convert the following text into readable HTML paragraphs using <p> and <br> tags.
                 Keep every single word and character exactly the same — do not fix grammar or punctuation.
@@ -60,12 +71,18 @@ public class OpenAIService2
                 {transcribedText}
                 """;
 
-            ChatCompletion response = await _chatClient.CompleteChatAsync(formattingPrompt);
-
-            var formattedText = response.Content[0].Text.Trim();
-            _logger?.LogInformation("Text formatted successfully. Final length: {Length} characters", formattedText.Length);
-
-            return formattedText;
+            try
+            {
+                ChatCompletion response = await _chatClient.CompleteChatAsync(formattingPrompt);
+                var formattedText = response.Content[0].Text.Trim();
+                _logger?.LogInformation("Text formatted successfully. Final length: {Length} characters", formattedText.Length);
+                return formattedText;
+            }
+            catch (Exception fmtEx)
+            {
+                _logger?.LogWarning(fmtEx, "HTML formatting step failed; returning raw transcription text.");
+                return "<p>" + System.Net.WebUtility.HtmlEncode(transcribedText).Replace("\n", "</p><p>") + "</p>";
+            }
         }
         catch (Exception ex)
         {
