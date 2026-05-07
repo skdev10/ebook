@@ -1079,7 +1079,6 @@
             <div class="header-right">
                 <button class="btn-primary" id="generateAudioBtn"><i class="fas fa-microphone"></i> Generate Audio</button>
                 <button class="btn-secondary" id="recordBtn"><i class="fas fa-record-vinyl"></i> Record</button>
-                <button class="theme-toggle" id="themeToggle">🌙</button>
             </div>
         </header>
 
@@ -1339,7 +1338,6 @@
         }
 
         // DOM Elements
-        const themeToggle = document.getElementById('themeToggle');
         const generateAudioBtn = document.getElementById('generateAudioBtn');
         const recordBtn = document.getElementById('recordBtn');
         const recordingBtn = document.getElementById('recordingBtn');
@@ -1384,26 +1382,6 @@
         let audioDuration = 227; // in seconds (3:47)
         let currentTime = 0;
         let playbackInterval;
-
-        // Theme Toggle
-        let isDarkMode = localStorage.getItem('darkMode') === 'true';
-
-        // Apply saved theme on load
-        if (isDarkMode) {
-            document.body.classList.add('dark-mode');
-            themeToggle.textContent = '☀️';
-        }
-
-        themeToggle.addEventListener('click', () => {
-            isDarkMode = !isDarkMode;
-            document.body.classList.toggle('dark-mode');
-            themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
-
-            // Save preference to localStorage
-            localStorage.setItem('darkMode', isDarkMode);
-
-            showToast(`Dark mode ${isDarkMode ? 'enabled' : 'disabled'}`, 'success');
-        });
 
         // Navigation Tabs
         navTabs.forEach(tab => {

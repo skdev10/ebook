@@ -92,13 +92,15 @@
         position: relative;
     }
     /* Paginated reading "page": fixed height, full width of preview card, no inner scroll */
+    /* min-height avoids clipping chapter foot lines; flex layout fills preview card */
     .paginated-reader-shell {
         position: relative;
         width: 100%;
         max-width: 100%;
         margin-left: auto;
         margin-right: auto;
-        height: 953px;
+        min-height: min(85vh, 953px);
+        height: auto;
         flex-shrink: 0;
         overflow: visible;
         box-sizing: border-box;
@@ -151,7 +153,7 @@
         overflow: hidden;
         overflow-x: hidden;
         box-sizing: border-box;
-        padding: 1.25rem 1.5rem;
+        padding: 1.25rem 1.5rem 2.5rem 1.5rem;
         margin: 0;
     }
     /* Off-DOM measurement clone (same box model / typography as viewport) */
@@ -163,7 +165,7 @@
         pointer-events: none;
         overflow: visible;
         box-sizing: border-box;
-        padding: 1.25rem 1.5rem;
+        padding: 1.25rem 1.5rem 2.5rem 1.5rem;
         margin: 0;
         font-size: 1.0625rem;
         line-height: 1.85;
@@ -265,7 +267,7 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
-        padding: 2.25rem 2.75rem 2rem 2.75rem;
+        padding: 2.25rem 2.75rem 3rem 2.75rem;
         box-sizing: border-box;
         transform: none !important;
         scale: 1;
@@ -376,7 +378,7 @@
     .reader-chapters-wrap:not(.hidden) { display: flex !important; flex-direction: column; gap: 0; width: 100%; }
     .reader-chapter-block {
         box-sizing: border-box;
-        padding: 2rem 2.25rem;
+        padding: 2rem 2.25rem 2.5rem 2.25rem;
         background: transparent;
         color: #1e293b;
         font-size: 1.0625rem;
@@ -1064,7 +1066,7 @@
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">AI Book Writer</h2>
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Book Selection</label>
-                    <div class="relative group flex gap-2 items-stretch flex-wrap w-full">
+                    <div class="relative group flex gap-2 items-stretch flex-wrap w-full" style="display:flex;align-items:stretch;gap:0.5rem;">
                         <div class="flex-1 min-w-0 basis-[min(100%,18rem)] relative">
                             <select id="savedResponsesDropdown" class="w-full max-w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3.5 pr-10 text-base text-slate-700 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm cursor-pointer" title="Select a saved book" onchange="loadSelectedResponse(this.value)">
                                 <option value="">Select saved book…</option>
@@ -1078,8 +1080,12 @@
                                 <i class="fas fa-chevron-down w-5 h-5"></i>
                             </div>
                         </div>
-                        <button id="bookSelectionPreviewBtn" type="button" class="preview-btn-outstanding shrink-0 rounded-xl px-4 py-2 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 border-0 cursor-pointer hover:opacity-95" style="background-color:#6d28d9;" onclick="previewFullBookFromBookSelection()" title="Show full book in preview below"><i class="fas fa-book-open"></i> Preview</button>
-                        <button id="createBookBtn" type="button" class="create-book-plus-btn shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-xl font-bold text-white border-2 shadow-lg transition-all hover:scale-105" style="background-color:#5b21b6;border-color:#4c1d95;" onclick="openCreateBookModal()" title="Create New Book">+</button>
+                        <button id="bookSelectionPreviewBtn" type="button" class="preview-btn-outstanding shrink-0 rounded-xl px-4 py-2 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 border-0 cursor-pointer hover:opacity-95 self-stretch min-h-[2.75rem] h-auto" style="background-color:#6d28d9;" onclick="previewFullBookFromBookSelection()" title="Show full book in preview below"><i class="fas fa-book-open"></i> Preview</button>
+                        <label for="chapterImportFileInput" title="Import PDF or text file" class="shrink-0 self-stretch cursor-pointer inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[1.1rem] text-[#7c3aed] min-h-[2.75rem] min-w-[2.75rem] px-2 transition-colors hover:bg-[#f5f3ff]" aria-label="Import PDF or text file">
+                            <i class="fas fa-file-import"></i>
+                        </label>
+                        <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain" class="sr-only" aria-hidden="true" />
+                        <button id="createBookBtn" type="button" class="create-book-plus-btn shrink-0 rounded-xl flex items-center justify-center text-xl font-bold text-white border-2 shadow-lg transition-all hover:scale-105 self-stretch min-h-[2.75rem] min-w-[2.75rem] h-auto px-3" style="background-color:#5b21b6;border-color:#4c1d95;" onclick="openCreateBookModal()" title="Create New Book">+</button>
                             <!-- Hidden Fields  class="hidden-fields"> -->
                             <div class="hidden-fields">
                                 <label>UserId:</label>
@@ -1098,16 +1104,6 @@
                 </div>
             </section>
 
-
-             <div class="flex flex-col gap-1.5 pt-1 border-t border-violet-100 mt-2">
-                            <label class="text-sm font-medium text-slate-500">PDF / text import</label>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain" class="sr-only" aria-hidden="true" />
-                                <button type="button" id="btnChapterImportPick" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
-                                    <i class="fas fa-file-import text-purple-600"></i> Choose file
-                                </button>
-                            </div>
-                        </div>
 
             <hr class="border-slate-200/80">
 
@@ -2111,8 +2107,6 @@ window.previewFullBookFromBookSelection = function () {
     if (typeof window.loadFullBookIntoPageFlip === 'function') {
         window.loadFullBookIntoPageFlip(parseInt(uid, 10), parseInt(bid, 10));
     }
-    var br = document.getElementById('bookResult');
-    if (br) br.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 // Load full book into scroll preview and merge unsaved generation into the chapter list when requested
 window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
@@ -2201,6 +2195,8 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                 if (typeof window.setPreviewChaptersFromList === 'function') {
                     window.setPreviewChaptersFromList(chaptersMeta, startIdx, startPg);
                 }
+                var brScroll = document.getElementById('bookResult');
+                if (brScroll) brScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 50);
             if (data.bookTitle) {
                 var tEl = document.getElementById('preview-book-title');
@@ -2252,10 +2248,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     var importInput = document.getElementById('chapterImportFileInput');
-    var importPick = document.getElementById('btnChapterImportPick');
     window._pendingImportText = null;
-    if (importPick && importInput) {
-        importPick.addEventListener('click', function () { importInput.click(); });
+    if (importInput) {
         importInput.addEventListener('change', function () {
             var f = importInput.files && importInput.files[0];
             if (!f) return;

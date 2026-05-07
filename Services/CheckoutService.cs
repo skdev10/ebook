@@ -8,16 +8,16 @@ namespace EBookDashboard.Services
 {
     public class CheckoutService : ICheckoutService
     {
-        private readonly StripeClient _client;
+        private readonly StripeClient? _client;
         private readonly string _webhookSecret;
         private readonly IConfiguration _configuration;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public CheckoutService(IConfiguration config, IHttpContextAccessor httpContextAccessor)
         {
-            var secretKey = config["Stripe:SecretKey"] ?? string.Empty;
+            var secretKey = config["Stripe:SecretKey"];
             _webhookSecret = config["Stripe:WebhookSecret"] ?? string.Empty;
-            _client = new StripeClient(secretKey);
+            _client = string.IsNullOrWhiteSpace(secretKey) ? null : new StripeClient(secretKey.Trim());
             _configuration = config;
             _httpContextAccessor = httpContextAccessor;
         }
@@ -37,6 +37,8 @@ namespace EBookDashboard.Services
 
         public async Task<Session> CreateCheckoutSessionAsync(string productName, long amount, string currency)
         {
+            if (_client == null)
+                throw new InvalidOperationException("Payment is not configured. Add Stripe:SecretKey to configuration.");
             var origin = ResolvePublicOrigin();
             var options = new SessionCreateOptions
             {
@@ -68,6 +70,11 @@ namespace EBookDashboard.Services
 
         public async Task HandleWebhookAsync(string json, string stripeSignature)
         {
+            if (_client == null || string.IsNullOrWhiteSpace(_webhookSecret))
+            {
+                await Task.CompletedTask;
+                return;
+            }
             var stripeEvent = EventUtility.ConstructEvent(json, stripeSignature, _webhookSecret);
 
             if (stripeEvent.Type == "checkout.session.completed")

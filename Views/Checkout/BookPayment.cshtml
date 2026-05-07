@@ -31,7 +31,7 @@
         }
     </div>
 </div>
-@if (!paid && bookId > 0)
+@if (!paid && bookId > 0 && !string.IsNullOrWhiteSpace(publishableKey))
 {
 <script src="https://js.stripe.com/v3/"></script>
 <script>
@@ -58,8 +58,9 @@
                 window.location.href = data.url;
                 return;
             }
-            if (data.sessionId && typeof Stripe !== 'undefined' && '@(publishableKey)') {
-                var stripe = Stripe('@Html.Raw(publishableKey)');
+            var pk = '@Html.Raw(publishableKey)';
+            if (data.sessionId && typeof Stripe !== 'undefined' && pk && pk.indexOf('pk_') === 0) {
+                var stripe = Stripe(pk);
                 stripe.redirectToCheckout({ sessionId: data.sessionId }).then(function(result) {
                     if (result.error && errEl) { errEl.textContent = result.error.message || 'Checkout failed.'; errEl.classList.remove('hidden'); }
                     btn.disabled = false;
@@ -73,6 +74,22 @@
             if (errEl) { errEl.textContent = 'Network error. Please try again.'; errEl.classList.remove('hidden'); }
             btn.disabled = false;
         });
+    });
+})();
+</script>
+}
+else if (!paid && bookId > 0)
+{
+<script>
+(function () {
+    var btn = document.getElementById('btn-pay-now');
+    var errEl = document.getElementById('pay-error');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        if (errEl) {
+            errEl.textContent = 'Payment is not configured yet. Add Stripe keys or contact support.';
+            errEl.classList.remove('hidden');
+        }
     });
 })();
 </script>

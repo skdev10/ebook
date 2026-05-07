@@ -15,6 +15,12 @@
         --fmt-purple: #6d28d9;
         --fmt-purple-dark: #5b21b6;
     }
+    #book-formatter-root label { font-size: 0.9375rem; }
+    #book-formatter-root .text-xs.text-gray-500,
+    #book-formatter-root .text-xs.text-slate-500,
+    #book-formatter-root p.text-xs.text-gray-500 { font-size: 0.8125rem !important; }
+    #book-formatter-root .config-card > p.text-xs,
+    #book-formatter-root .config-card .text-xs { font-size: 0.8125rem; }
     body { font-family: 'Inter', sans-serif; }
     .formatter-ui-radius { border-radius: var(--fmt-radius) !important; }
     .font-serif { font-family: 'Playfair Display', serif; }
@@ -75,13 +81,15 @@
         box-shadow: 0 8px 18px -14px rgba(124, 58, 237, .28);
     }
 
-    /* ----- Reader: match AI Book Writer .paginated-reader-shell height (953px) ----- */
+    /* ----- Reader: align with AI Book Writer (min-height, extra bottom padding) ----- */
     .reader-content-wrap {
-        height: 953px;
+        min-height: min(85vh, 953px);
+        height: auto;
+        max-height: none;
         overflow: auto;
         display: flex;
         flex-direction: column;
-        padding: 1.25rem 1.5rem;
+        padding: 1.25rem 1.5rem 2.5rem 1.5rem;
         background: #fafaf9;
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
         border: 1px solid #f3e8ff;
@@ -151,7 +159,7 @@
         border: 1px solid #ece7df;
         border-radius: var(--fmt-radius);
         box-shadow: 0 12px 28px -20px rgba(17,24,39,0.35);
-        padding: 2.2rem 2.1rem 2.75rem 2.1rem;
+        padding: 2.2rem 2.1rem 3rem 2.1rem;
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
     }
     .reader-page-title,
@@ -596,23 +604,11 @@
         width: 2.75rem; height: 2.75rem; border: none; padding: 0; border-radius: 10px; cursor: pointer;
         box-shadow: 0 0 0 2px #fff, 0 0 0 3px #e9d5ff;
     }
-    .fmt-preview-toolbar {
-        display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 1rem;
-        padding: 0.65rem 0.85rem; border-radius: 14px; background: #fff; border: 1px solid #e5e7eb;
-        box-shadow: 0 4px 14px -8px rgba(15, 23, 42, 0.12);
-    }
-    .fmt-preview-toolbar button {
-        border-radius: 10px; border: 1px solid #e5e7eb; background: #fafafa; color: #374151;
-        font-size: 0.75rem; font-weight: 600; padding: 0.4rem 0.7rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;
-        transition: border-color 0.12s, background 0.12s, color 0.12s;
-    }
-    .fmt-preview-toolbar button:hover { border-color: #c4b5fd; color: #5b21b6; background: #faf5ff; }
-    .fmt-zoom-range { flex: 1; min-width: 100px; max-width: 180px; accent-color: #7c3aed; }
     .reader-content-wrap.interior-classic .classic-running-head--empty {
         margin: 0 !important; padding: 0 !important; height: 0 !important; min-height: 0 !important;
         overflow: hidden !important; visibility: hidden !important;
     }
-    .fmt-studio-zoom-inner { transform-origin: top center; transition: transform 0.18s ease; }
+    .fmt-studio-zoom-inner { transform-origin: top center; transform: scale(1) !important; transition: transform 0.18s ease; }
     #reader-chapter-jump {
         flex: 1;
         min-width: 160px;
@@ -750,14 +746,14 @@ div#fmt-finalize-panel {
                             </div>
                         </div>
 
-                        <div class="group">
+                        @* <div class="group">
                             <label for="fmt-preview-accent" class="block text-xs font-semibold text-gray-500 mb-2.5">Preview accent</label>
                             <p class="text-xs text-gray-400 mb-2">Tints the studio cover mock and borders (saved in your formatting draft).</p>
                             <div class="fmt-accent-wrap">
                                 <input type="color" id="fmt-preview-accent" value="#5b21b6" title="Accent color" />
                                 <span class="text-xs text-gray-500">Violet theme default — pick any hue for your mock cover.</span>
                             </div>
-                        </div>
+                        </div> *@
 
                         <div>
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Publishing Platforms</label>
@@ -934,13 +930,6 @@ div#fmt-finalize-panel {
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="fmt-preview-toolbar" aria-label="Studio preview controls">
-                            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide shrink-0">Zoom</span>
-                            <button type="button" id="fmt-zoom-out" title="Zoom out">−</button>
-                            <input type="range" id="fmt-zoom-range" class="fmt-zoom-range" min="80" max="115" value="100" aria-label="Preview zoom" />
-                            <button type="button" id="fmt-zoom-in" title="Zoom in">+</button>
-                            <button type="button" id="fmt-refresh-preview"><i class="fas fa-sync-alt"></i> Refresh</button>
                         </div>
                     </div>
                 </div>
@@ -1126,12 +1115,9 @@ div#fmt-finalize-panel {
             .catch(function() { /* optional cover */ });
     }
 
-    function setFmtPreviewZoom(pct) {
+    function setFmtPreviewZoom() {
         var inner = document.getElementById('fmt-studio-zoom-inner');
-        var rng = document.getElementById('fmt-zoom-range');
-        var p = Math.max(80, Math.min(115, parseInt(pct, 10) || 100));
-        if (rng) rng.value = String(p);
-        if (inner) inner.style.transform = 'scale(' + (p / 100) + ')';
+        if (inner) inner.style.transform = 'scale(1)';
     }
 
     function storageReaderKey(bid) {
@@ -2563,25 +2549,7 @@ div#fmt-finalize-panel {
                     queueAutosave(250);
                 });
             }
-            var zr = document.getElementById('fmt-zoom-range');
-            if (zr) zr.addEventListener('input', function() { setFmtPreviewZoom(this.value); });
-            document.getElementById('fmt-zoom-out')?.addEventListener('click', function() {
-                var z = document.getElementById('fmt-zoom-range');
-                setFmtPreviewZoom((parseInt(z && z.value, 10) || 100) - 5);
-            });
-            document.getElementById('fmt-zoom-in')?.addEventListener('click', function() {
-                var z = document.getElementById('fmt-zoom-range');
-                setFmtPreviewZoom((parseInt(z && z.value, 10) || 100) + 5);
-            });
-            document.getElementById('fmt-refresh-preview')?.addEventListener('click', function() {
-                var bid = parseInt((document.getElementById('selected-book-id') && document.getElementById('selected-book-id').value) || '0', 10);
-                if (bid) {
-                    loadBookContent(bid);
-                    loadFmtCoverThumbForBook(bid);
-                    showToast('Preview refreshed');
-                } else showToast('Load a book first');
-            });
-            setFmtPreviewZoom(100);
+            setFmtPreviewZoom();
             syncFmtInteriorCardsFromSelect();
             syncFmtTypographyPillsFromSelects();
             applyFmtStudioAccent();

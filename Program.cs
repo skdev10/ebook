@@ -244,6 +244,10 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "RequestVerificationToken";
 });
 
+var stripeSecretKey = builder.Configuration["Stripe:SecretKey"];
+if (!string.IsNullOrWhiteSpace(stripeSecretKey))
+    Stripe.StripeConfiguration.ApiKey = stripeSecretKey.Trim();
+
 var app = builder.Build();
 // Serve book cover images from Images/book_covers at /book-covers
 var bookCoversPath = Path.Combine(app.Environment.ContentRootPath, "Images", "book_covers");

@@ -420,6 +420,12 @@
             height: 100%;
             stroke: currentColor;
         }
+        .sidebar-footer a.logout-btn .sidebar-lucide-icon {
+            color: #ef4444;
+        }
+        .sidebar-footer a.logout-btn:hover .sidebar-lucide-icon {
+            color: #dc2626;
+        }
         .sidebar-footer {
             padding: 20px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -3341,7 +3347,7 @@
                         <i data-lucide="user" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Profile</span>
                     </a>
                 </li>
-                <li>
+                @* <li>
                     @if (hasGeneratedBook) {
                         <a href="/Dashboard/Support" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Support" ? "active" : "")">
                             <i data-lucide="headphones" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Support</span>
@@ -3351,7 +3357,7 @@
                             <i data-lucide="headphones" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Support</span>
                         </a>
                     }
-                </li>
+                </li> *@
                 <li style="margin-top: 8px;"><div style="height: 1px; background: #e5e7eb; margin: 0 16px;"></div></li>
                 <li>
                     @if (hasGeneratedBook) {
