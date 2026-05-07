@@ -98,7 +98,7 @@
         max-width: 100%;
         margin-left: auto;
         margin-right: auto;
-        height: 750px;
+        height: 953px;
         flex-shrink: 0;
         overflow: visible;
         box-sizing: border-box;
@@ -1056,18 +1056,18 @@
 
 
 <div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
-    <main class="flex-1 overflow-y-auto p-8 lg:p-12">
-        <div class="max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-12 lg:gap-24" data-aos="fade-up" data-aos-duration="500">
+    <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
+        <div class="max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-12 lg:gap-24 min-h-0" data-aos="fade-up" data-aos-duration="500">
         <!-- Left Column: Forms -->
         <div class="ai-writer-sidebar w-full lg:w-[480px] flex flex-col gap-10 shrink-0">
             <section class="flex flex-col gap-5" data-guided-tour="ai-book-picker">
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">AI Book Writer</h2>
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Book Selection</label>
-                    <div class="relative group flex gap-2 items-center flex-wrap">
-                        <div class="flex-1 min-w-[200px] relative">
-                            <select id="savedResponsesDropdown" class="w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3.5 pr-10 text-base text-slate-700 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm cursor-pointer" onchange="loadSelectedResponse(this.value)">
-                                <option value="">Load a previously generated book</option>
+                    <div class="relative group flex gap-2 items-stretch flex-wrap w-full">
+                        <div class="flex-1 min-w-0 basis-[min(100%,18rem)] relative">
+                            <select id="savedResponsesDropdown" class="w-full max-w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3.5 pr-10 text-base text-slate-700 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm cursor-pointer" title="Select a saved book" onchange="loadSelectedResponse(this.value)">
+                                <option value="">Select saved book…</option>
                         @foreach (var b in Model.UserBooks)
                         {
                             if (selectedBookId == b.BookId) { <option value="@b.BookId" selected>@b.Title</option> }
@@ -3967,11 +3967,8 @@ document.addEventListener('DOMContentLoaded', function() {
      //        Edit Book Chapter
      //=============================================
      function confirmEditChapter() {
-             if (confirm("Are you sure you want to generate this chapter?")) {
-                  editInChapter();  // run your original function
-
-             } else {
-                 return; // do nothing
+             if (confirm("Apply AI edits to this chapter using the instructions in Chapter Topic below?")) {
+                  editInChapter();
              }
          }
      async function editInChapter() {
@@ -3982,9 +3979,9 @@ document.addEventListener('DOMContentLoaded', function() {
           const requestData = {
               UserId: document.getElementById('UserId').value,
               BookId: document.getElementById('BookId').value,
-              Title: document.getElementById('Title')?.value,
-              chapter: parseInt(document.getElementById('ChapterNo').value),
-              changes: document.getElementById('UserInput')?.value
+              Title: document.getElementById('Title')?.value || '',
+              Chapter: parseInt(document.getElementById('ChapterNo').value, 10) || 1,
+              Changes: document.getElementById('UserInput')?.value || ''
           };
            // Create a new AbortController for this request
              abortController = new AbortController();
@@ -4008,12 +4005,12 @@ document.addEventListener('DOMContentLoaded', function() {
               hideGenerateLoading();
               return;
           }
-            if (!requestData.changes || requestData.changes.length == "0") {
+            if (!requestData.Changes || requestData.Changes.length === 0) {
                alert('Please enter prompt');
                hideGenerateLoading();
                return;
            }
-           if (!requestData.chapter || requestData.chapter == "0") {
+           if (!requestData.Chapter || requestData.Chapter === 0) {
                alert('Please select a Chapter');
                hideGenerateLoading();
                return;
@@ -4037,7 +4034,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
          var cc = document.getElementById("chatContainer");
               if (cc) {
-                  addMessage(`I want to edit chapter ${requestData.chapter}: "${requestData.changes}"`, true);
+                  addMessage(`I want to edit chapter ${requestData.Chapter}: "${requestData.Changes}"`, true);
               }
 
          console.log("🚀 POST /Books/AIEditBook (edit flow)");
@@ -4066,29 +4063,51 @@ document.addEventListener('DOMContentLoaded', function() {
                  body: JSON.stringify(requestData)
              });
 
-             console.log("📨 Step 6: Received the response from API:", response);
+             console.log("📨 Step 6: Received the response from API:", response.status);
+             var responseText = await response.text();
+             var bookData = {};
+             if (responseText && responseText.trim()) {
+                 try { bookData = JSON.parse(responseText); } catch (_) { bookData = { raw: responseText }; }
+             }
 
             if (response.ok) {
-                 const bookData = await response.json();
                  console.log("✅ Edit response:", bookData);
+                 var errFlag = bookData && (bookData.error === true || bookData.Error === true || bookData.success === false || bookData.Success === false);
+                 if (errFlag) {
+                     var emsg = (bookData.message || bookData.Message || bookData.detail || 'Edit failed.').toString();
+                     throw new Error(emsg);
+                 }
 
-                 document.getElementById('APIRawResponse').value = JSON.stringify(bookData);
-                 document.getElementById('ResponseId').value = bookData.responseId;
+                 document.getElementById('APIRawResponse').value =
+                     typeof bookData === 'object' && bookData !== null ? JSON.stringify(bookData) : responseText;
+                 var rid = bookData.responseId || bookData.response_id;
+                 var ridEl = document.getElementById('ResponseId');
+                 if (ridEl && rid != null && rid !== '') ridEl.value = String(rid);
 
-                 if (typeof window.refreshFullBookPreviewFromWriter === 'function') window.refreshFullBookPreviewFromWriter();
-                 loadSavedBooksDropdown();
-                 showNotification('Edits applied. Draft updated — lock official text on Book formatting.', 'success');
-                 checkAndDisableButtonsForReadOnly("Edit");
+                 if (typeof showGeneratedChapterWithTyping === 'function') {
+                     showGeneratedChapterWithTyping(bookData, function () {
+                         if (typeof window.refreshFullBookPreviewFromWriter === 'function') window.refreshFullBookPreviewFromWriter();
+                         loadSavedBooksDropdown();
+                         if (typeof showNotification === 'function') showNotification('Edits applied. Preview updated.', 'success');
+                         checkAndDisableButtonsForReadOnly("Edit");
+                         if (rid && typeof refreshChapterIterationsDropdown === 'function')
+                             refreshChapterIterationsDropdown(String(rid));
+                     });
+                 } else {
+                     if (typeof window.refreshFullBookPreviewFromWriter === 'function') window.refreshFullBookPreviewFromWriter();
+                     loadSavedBooksDropdown();
+                     showNotification('Edits applied. Draft updated — lock official text on Book formatting.', 'success');
+                     checkAndDisableButtonsForReadOnly("Edit");
+                 }
              } else {
-                 const errorText = await response.text();
-                 console.error("❌ Step 8: Server returned error:", errorText);
-                 throw new Error(parseApiErrorMessage(errorText) || 'Failed to edit chapter');
+                 console.error("❌ Step 8: Server returned error:", responseText);
+                 throw new Error(parseApiErrorMessage(responseText) || 'Failed to edit chapter');
              }
          } catch (error) {
              console.error("🔥 Step 9: Exception occurred:", error);
              const chatContainer = document.getElementById("chatContainer");
-             if (chatContainer) {
-                 const errorMessage = addMessage(`❌ Sorry, I encountered an error: ${error.message}`);
+             if (chatContainer && typeof addMessage === 'function') {
+                 addMessage(`❌ Sorry, I encountered an error: ${error.message}`);
              }
              showNotification('Failed to edit chapter', 'error');
          } finally {
@@ -4346,7 +4365,7 @@ document.addEventListener('DOMContentLoaded', function() {
               }
 
               // Clear and populate dropdown
-              dropdown.innerHTML = '<option value="">📚 Load a previously generated book...</option>';
+              dropdown.innerHTML = '<option value="">📚 Select saved book…</option>';
 
               if (Array.isArray(books) && books.length > 0) {
                   books.forEach(book => {
@@ -5519,6 +5538,7 @@ document.addEventListener('DOMContentLoaded', function() {
              var candidates = [
                  core.content, core.Content,
                  bookData.content, bookData.Content,
+                 core.edited_content, core.revised_content,
                  core.chapter, bookData.chapter,
                  core.chapter_content, core.chapter_text, core.chapter_body,
                  bookData.chapter_content, bookData.chapter_text, bookData.chapter_body,
@@ -5565,7 +5585,9 @@ document.addEventListener('DOMContentLoaded', function() {
              var content = (typeof getContentFromPossibleJson === 'function' ? getContentFromPossibleJson(rawContent) : rawContent) || (rawContent + '').trim() || '';
              if (typeof content !== 'string') content = String(content);
              var sug = (core.suggest_chapter_name || core.SuggestChapterName || bookData.suggest_chapter_name || '').toString().trim();
-             var title = core.title || core.Title || bookData.title || (sug ? sug.split('\n')[0].trim() : '') || (core.chapters && core.chapters[0] && (core.chapters[0].title || core.chapters[0].Title)) || 'New Chapter';
+             var title = core.chapter_name || core.ChapterName || core.title || core.Title || bookData.chapter_name
+                 || bookData.title || (sug ? sug.split('\n')[0].trim() : '')
+                 || (core.chapters && core.chapters[0] && (core.chapters[0].title || core.chapters[0].Title)) || 'New Chapter';
              var plainText = content.indexOf('<') >= 0 ? content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : content;
              var chars = Array.from(plainText);
              var chNoEl = document.getElementById('ChapterNo');
@@ -6042,6 +6064,36 @@ document.addEventListener('DOMContentLoaded', function() {
              console.error("❌ UserId not found in form");
              return 0; // or throw an error
          }
+         /** When external /api/audio returns 500, Chrome/Edge can still transcribe one phrase via Web Speech API. */
+         function ebookTryBrowserSpeechOnce() {
+             var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+             if (!SR) return Promise.resolve(null);
+             return new Promise(function (resolve) {
+                 var rec = new SR();
+                 rec.lang = navigator.language || 'en-US';
+                 rec.interimResults = false;
+                 rec.maxAlternatives = 1;
+                 var settled = false;
+                 var tid = setTimeout(function () { finish(null); }, 20000);
+                 function finish(t) {
+                     if (settled) return;
+                     settled = true;
+                     try { clearTimeout(tid); } catch (e0) {}
+                     try { rec.stop(); } catch (e1) {}
+                     resolve(t ? String(t).trim() : null);
+                 }
+                 rec.onresult = function (ev) {
+                     try {
+                         var tx = '';
+                         if (ev.results && ev.results.length)
+                             tx = ([].slice.call(ev.results).map(function (r) { return r[0] && r[0].transcript ? r[0].transcript : ''; })).join(' ');
+                         finish(tx.trim() || null);
+                     } catch (_) { finish(null); }
+                 };
+                 rec.onerror = function () { finish(null); };
+                 try { rec.start(); } catch (_) { finish(null); }
+             });
+         }
          //===================================
          //    Audio Recording (single mic on strip: click = start, then Stop appears)
          //===================================
@@ -6050,18 +6102,34 @@ document.addEventListener('DOMContentLoaded', function() {
           var recordingStripArea = document.getElementById('recordingStripArea');
           if (startRecBtn) startRecBtn.onclick = async () => {
          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             if (typeof showNotification === 'function') showNotification('Your browser does not support microphone recording. Try Chrome or Edge.', 'error');
-             else alert('Your browser does not support microphone recording. Try Chrome or Edge.');
+             showNotification('Your browser does not support microphone recording. Try Chrome or Edge.', 'error');
+             return;
+         }
+         if (typeof MediaRecorder === 'undefined') {
+             showNotification('MediaRecorder is not available (update your browser or use HTTPS).', 'error');
+             return;
+         }
+         var host = window.location.hostname || '';
+         if (!window.isSecureContext && host !== 'localhost' && host !== '127.0.0.1') {
+             showNotification('Voice recording needs HTTPS on this site (mic API requirement).', 'error');
              return;
          }
          try {
+             startRecBtn.disabled = true;
              var constraints = { audio: true };
              const stream = await navigator.mediaDevices.getUserMedia(constraints);
              recordingStream = stream;
-             var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
-             mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType: mimeType } : {});
+             var mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                 : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+                 : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : ''));
+             try {
+                 mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
+             } catch (mrCtorErr) {
+                 console.warn('MediaRecorder with mime failed, default:', mrCtorErr);
+                 mediaRecorder = new MediaRecorder(stream);
+             }
              audioChunks = [];
-             mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+             mediaRecorder.ondataavailable = function (e) { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
              mediaRecorder.onstop = async () => {
                  if (recordingStream) {
                      recordingStream.getTracks().forEach(t => t.stop());
@@ -6076,8 +6144,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  var voiceFileName = 'voice' + ext;
                  if (!blob.size) {
                      console.error('Voice recording: empty blob — browser may need periodic timeslices or requestData() before stop.');
-                     if (typeof showNotification === 'function') showNotification('Recording had no audio data. Try again or use Chrome/Edge.', 'error');
-                     else alert('Recording had no audio data.');
+                     showNotification('Recording had no audio data. Try again or use Chrome/Edge.', 'error');
                      if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                      if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                      if (stopRecBtn) stopRecBtn.disabled = true;
@@ -6094,7 +6161,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (bid) formData.append("bookId", bid);
                  if (ch) formData.append("chapter", ch);
                  try {
-                     const res = await fetch("/api/AudioToText/convert", { method: "POST", body: formData });
+                     const res = await fetch("/api/AudioToText/convert", { method: "POST", body: formData, credentials: "same-origin" });
                      const raw = await res.text();
                      var data = {};
                      if (raw) {
@@ -6105,31 +6172,77 @@ document.addEventListener('DOMContentLoaded', function() {
                              ? String(data.message || data.Message || data.detail || data.Detail || data.title || data.Title).trim()
                              : (raw && String(raw).trim().charAt(0) !== '<' ? (String(raw).length > 400 ? String(raw).slice(0, 400) + '…' : String(raw).trim()) : '');
                          if (!errMsg) errMsg = 'HTTP ' + res.status + (res.statusText ? ' ' + res.statusText : '');
-                         if (typeof showNotification === 'function') showNotification("Failed to convert audio: " + errMsg, 'error');
-                         else alert("Failed to convert audio: " + errMsg);
+                         var canBrowser = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+                         var trySpeech = (data && data.suggestBrowserSpeech === true) || res.status >= 500;
+                         if (trySpeech) {
+                             if (canBrowser) {
+                                 if (typeof Swal !== 'undefined') {
+                                     await Swal.fire({
+                                         icon: 'info',
+                                         title: 'Speak your topic',
+                                         text: 'Tap OK — then speak clearly while the browser listens once (Chrome/Edge works best).',
+                                         confirmButtonText: 'OK',
+                                         confirmButtonColor: '#7c3aed'
+                                     });
+                                 } else {
+                                     showNotification('We will listen for your spoken topic next — speak when recording starts.', 'info');
+                                 }
+                                 var localTxt = await ebookTryBrowserSpeechOnce();
+                                 if (localTxt) {
+                                     var uiSpeech = document.getElementById("UserInput");
+                                     if (uiSpeech) uiSpeech.value = (uiSpeech.value ? (uiSpeech.value + ' ') : '') + localTxt;
+                                     showNotification('Text added using browser speech.', 'success');
+                                     if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                                     if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                                     if (stopRecBtn) stopRecBtn.disabled = true;
+                                     return;
+                                 }
+                                 showNotification('Voice unavailable. Please type your topic manually.', 'error');
+                             } else {
+                                 showNotification('Voice unavailable. Please type your topic manually.', 'error');
+                             }
+                             if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                             if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                             if (stopRecBtn) stopRecBtn.disabled = true;
+                             return;
+                         }
+                         showNotification('Failed to convert audio: ' + errMsg, 'error');
+                         if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                         if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                         if (stopRecBtn) stopRecBtn.disabled = true;
                          return;
                      }
                      if (data.success && data.text) {
                          var txt = data.text.replace(/<p[^>]*>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
                          document.getElementById("UserInput").value = txt;
-                         if (typeof showNotification === 'function') showNotification('Voice converted to text.', 'success');
+                         showNotification('Voice converted to text.', 'success');
                      } else {
-                         if (typeof showNotification === 'function') showNotification('No text returned from audio.', 'error');
-                         else alert('No text returned from audio.');
+                         showNotification('No text returned from audio.', 'error');
                      }
                  } catch (err) {
                      console.error("Error converting audio:", err);
-                     if (typeof showNotification === 'function') showNotification('Error converting audio: ' + (err.message || 'Unknown'), 'error');
-                     else alert('Error converting audio: ' + err.message);
+                     showNotification('Error converting audio: ' + (err.message || 'Unknown'), 'error');
                  }
                  if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                  if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                  if (stopRecBtn) stopRecBtn.disabled = true;
              };
-             // Timeslice so ondataavailable fires reliably (some browsers buffer until stop with start() only).
-             mediaRecorder.start(250);
+             // Short timeslice reliably yields non-empty blobs on Chrome/Edge/Safari; plain start() often produced 0-byte audio.
+             try {
+                 mediaRecorder.start(250);
+             } catch (startErr) {
+                 console.error('MediaRecorder.start failed:', startErr);
+                 showNotification('Could not start recording: ' + (startErr.message || 'unknown'), 'error');
+                 if (recordingStream) { recordingStream.getTracks().forEach(function (t) { t.stop(); }); recordingStream = null; }
+                 if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                 return;
+             }
              if (startRecBtn) startRecBtn.style.display = 'none';
-             if (recordingStripArea) { recordingStripArea.classList.remove('hidden'); recordingStripArea.classList.add('flex'); }
+             if (recordingStripArea) {
+                 recordingStripArea.classList.remove('hidden');
+                 recordingStripArea.classList.add('flex');
+                 recordingStripArea.style.display = '';
+             }
              if (stopRecBtn) stopRecBtn.disabled = false;
          } catch (e) {
              var msg = (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')
@@ -6137,18 +6250,24 @@ document.addEventListener('DOMContentLoaded', function() {
                  : (e.name === 'NotFoundError' || (e.message && e.message.toLowerCase().indexOf('device') !== -1))
                  ? 'No microphone found. Connect a microphone and refresh the page.'
                  : 'Microphone error: ' + (e.message || 'Please check your microphone and try again.');
-             if (typeof showNotification === 'function') showNotification(msg, 'error');
-             else alert(msg);
+             showNotification(msg, 'error');
              console.error('getUserMedia error:', e.name, e.message);
+             if (startRecBtn) { startRecBtn.disabled = false; startRecBtn.style.display = ''; }
          }
      };
 
        if (stopRecBtn) stopRecBtn.onclick = function () {
-         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+         if (!mediaRecorder) return;
+         if (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused') {
              try {
-                 if (typeof mediaRecorder.requestData === 'function') mediaRecorder.requestData();
-             } catch (rdErr) { console.warn('MediaRecorder.requestData:', rdErr); }
-             mediaRecorder.stop();
+                 if (typeof mediaRecorder.requestData === 'function')
+                     mediaRecorder.requestData();
+             } catch (_) { /* optional */ }
+             try {
+                 mediaRecorder.stop();
+             } catch (stopErr) {
+                 console.error('MediaRecorder.stop:', stopErr);
+             }
          }
        };
 

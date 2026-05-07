@@ -1,4 +1,4 @@
-﻿using OpenAI;
+using OpenAI;
 using OpenAI.Audio;
 using OpenAI.Chat;
 using Microsoft.Extensions.Logging;
@@ -12,11 +12,12 @@ public class OpenAIService2
 
     public OpenAIService2(IConfiguration config, ILogger<OpenAIService2>? logger = null)
     {
+        // OpenAI:ApiKey — environment variable OpenAI__ApiKey is bound by default configuration providers.
         _apiKey = config["OpenAI:ApiKey"]?.Trim();
         _logger = logger;
         if (!string.IsNullOrEmpty(_apiKey))
         {
-            _audioClient = new AudioClient("gpt-4o-mini-transcribe", _apiKey);
+            _audioClient = new AudioClient("whisper-1", _apiKey);
             _chatClient = new ChatClient("gpt-4o-mini", _apiKey);
         }
     }

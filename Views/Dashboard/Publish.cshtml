@@ -27,12 +27,30 @@
 }
 
 <style>
-    .publish-page { font-family: 'Inter', sans-serif; max-width: 1200px; margin: 0 auto; }
+    .publish-page { font-family: 'Inter', sans-serif; margin: 0 auto; }
     .publish-hero-title { font-family: 'Playfair Display', serif; }
-    .publish-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 1.25rem; padding: 1.5rem; box-shadow: 0 16px 32px -18px rgba(79, 70, 229, 0.2); }
-    .publish-platform-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; }
-    .publish-platform-btn { border: 1px solid #e2e8f0; border-radius: 1rem; padding: 1.25rem; text-align: left; cursor: pointer; transition: all 0.2s; background: #fafafa; }
-    .publish-platform-btn:hover { border-color: #c4b5fd; background: #f5f3ff; box-shadow: 0 8px 24px -12px rgba(124, 58, 237, 0.35); }
+    .publish-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        box-shadow: 0 12px 28px -20px rgba(79, 70, 229, 0.18);
+        transition: box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease;
+    }
+    .publish-card:hover {
+        box-shadow: 0 20px 44px -22px rgba(76, 29, 149, 0.22);
+        transform: translateY(-2px);
+        border-color: #e9d5ff;
+    }
+    @@media (prefers-reduced-motion: reduce) {
+        .publish-card {
+            transition: none;
+        }
+        .publish-card:hover {
+            transform: none;
+        }
+    }
+    .publish-platform-btn { cursor: pointer; border: 0; background: transparent; width: 100%; }
     .publish-detail-overlay { display: none; position: fixed; inset: 0; z-index: 10050; background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(6px); align-items: center; justify-content: center; padding: 1rem; }
     .publish-detail-overlay.open { display: flex; }
     .publish-detail-box { background: #fff; border-radius: 1.25rem; max-width: 720px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #e2e8f0; }
@@ -226,13 +244,26 @@
         }
 </style>
 
-<div class="publish-page p-6 lg:p-10 text-slate-800">
-    <div class="mb-8">
-        <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">Distribution</p>
-        <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Publish your book</h1>
-        <p class="text-slate-500 mt-2 max-w-2xl">Finalize listing metadata, complete secure checkout, and your title is marked published only after Stripe confirms payment. Platform guides use embedded YouTube tutorials.</p>
+<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
+<main class="flex-1 overflow-y-auto overflow-x-hidden w-full min-h-0 p-8 lg:p-12">
+
+<section class="w-full overflow-hidden bg-white pt-10 pb-14 border-b border-gray-100 -mx-8 lg:-mx-12 px-8 lg:px-12 shadow-sm">
+    <div class="max-w-[1600px] mx-auto w-full">
+        <div class="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">Distribution</p>
+                <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Publish your book</h1>
+                <p class="text-slate-500 mt-3 max-w-2xl leading-relaxed">Finalize listing metadata, complete secure checkout, and your title is marked published only after Stripe confirms payment. Platform guides use embedded YouTube tutorials.</p>
+            </div>
+            <div class="relative rounded-3xl overflow-hidden shadow-2xl shadow-violet-900/10 ring-1 ring-slate-900/5 aspect-[16/10] lg:aspect-[5/3] w-full">
+                <img src="https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&amp;w=1600&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async" width="800" height="480">
+                <div class="absolute inset-0 bg-gradient-to-br from-violet-800/55 via-violet-600/15 to-transparent pointer-events-none" aria-hidden="true"></div>
+            </div>
+        </div>
     </div>
-    
+</section>
+
+<div class="publish-page text-slate-800 max-w-[1600px] mx-auto w-full px-0 py-10 lg:py-12">
 
     <div class="container mb-8">
         @if (bookId > 0 && !string.IsNullOrEmpty(pbTitle))
@@ -368,22 +399,42 @@
         <section class="publish-card">
             <h2 class="text-lg font-semibold text-slate-900 mb-1">Option A — External platforms</h2>
             <p class="text-sm text-slate-500 mb-4">Checklists and embedded YouTube tutorials.</p>
-            <div class="publish-platform-grid">
-                <button type="button" class="publish-platform-btn" data-platform="kdp">
-                    <div class="font-semibold text-slate-800"><i class="fab fa-amazon text-amber-600 mr-2"></i>Amazon KDP</div>
-                    <div class="text-xs text-slate-500 mt-1">eBook, paperback, hardcover</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="kdp">
+                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
+                        <img src="https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                    </div>
+                    <div class="p-4">
+                        <div class="font-semibold text-slate-800"><i class="fab fa-amazon text-amber-600 mr-2"></i>Amazon KDP</div>
+                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">eBook, paperback, hardcover</div>
+                    </div>
                 </button>
-                <button type="button" class="publish-platform-btn" data-platform="bn">
-                    <div class="font-semibold text-slate-800"><i class="fas fa-book text-slate-600 mr-2"></i>Barnes &amp; Noble Press</div>
-                    <div class="text-xs text-slate-500 mt-1">NOOK &amp; print</div>
+                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="bn">
+                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
+                        <img src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                    </div>
+                    <div class="p-4">
+                        <div class="font-semibold text-slate-800"><i class="fas fa-book text-slate-600 mr-2"></i>Barnes &amp; Noble Press</div>
+                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">NOOK &amp; print</div>
+                    </div>
                 </button>
-                <button type="button" class="publish-platform-btn" data-platform="lulu">
-                    <div class="font-semibold text-slate-800"><i class="fas fa-print text-purple-600 mr-2"></i>Lulu</div>
-                    <div class="text-xs text-slate-500 mt-1">Print &amp; global reach</div>
+                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="lulu">
+                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
+                        <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                    </div>
+                    <div class="p-4">
+                        <div class="font-semibold text-slate-800"><i class="fas fa-print text-purple-600 mr-2"></i>Lulu</div>
+                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">Print &amp; global reach</div>
+                    </div>
                 </button>
-                <button type="button" class="publish-platform-btn" data-platform="ingram">
-                    <div class="font-semibold text-slate-800"><i class="fas fa-network-wired text-indigo-600 mr-2"></i>IngramSpark</div>
-                    <div class="text-xs text-slate-500 mt-1">Wide distribution</div>
+                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="ingram">
+                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
+                        <img src="https://images.unsplash.com/photo-1554774853-719586f37d05?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                    </div>
+                    <div class="p-4">
+                        <div class="font-semibold text-slate-800"><i class="fas fa-network-wired text-indigo-600 mr-2"></i>IngramSpark</div>
+                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">Wide distribution</div>
+                    </div>
                 </button>
             </div>
         </section>
@@ -434,6 +485,9 @@
             </div>
         </section>
     </div>
+</div>
+
+</main>
 </div>
 
 <div id="publishDetailOverlay" class="publish-detail-overlay" role="dialog" aria-modal="true">

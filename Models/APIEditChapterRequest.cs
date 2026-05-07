@@ -1,22 +1,24 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace EBookDashboard.Models
 {
     public class APIEditChapterRequest
     {
-        // Keep same naming style as external API expects if you forward body directly
         [JsonProperty("user_id")]
-        public string? UserId { get; set; }= string.Empty;
+        [JsonPropertyName("user_id")]
+        public string? UserId { get; set; } = string.Empty;
 
         [JsonProperty("book_id")]
+        [JsonPropertyName("book_id")]
         public string BookId { get; set; } = string.Empty;
 
-        // External API previously used string for chapter in example; keep as string to be flexible.
         [JsonProperty("chapter")]
+        [JsonPropertyName("chapter")]
         public string? Chapter { get; set; } = string.Empty;
 
         [JsonProperty("changes")]
+        [JsonPropertyName("changes")]
         public string? Changes { get; set; } = string.Empty;
-
     }
 }

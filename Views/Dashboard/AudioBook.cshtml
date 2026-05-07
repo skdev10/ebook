@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Global Styles */
         * {
@@ -48,14 +49,14 @@
                 color: #e0e0e0;
             }
 
-        /* Main Content Styles - Full Width */
+        /* Main content sits inside centered shell (aligned with dashboard AI Writer width) */
         .main-content {
-            padding: 20px;
-            min-height: 100vh;
+            padding: 0;
+            min-height: 0;
             position: relative;
-            width: 93%;
+            width: 100%;
             max-width: none;
-            margin-left: 115px;
+            margin-left: 0;
         }
 
         .top-header {
@@ -962,7 +963,7 @@
 
          @@media (max-width: 576px) {
             .main-content {
-                padding: 15px;
+                padding: 0;
             }
 
             .header-left h1 {
@@ -1032,6 +1033,9 @@
     </style>
 </head>
 <body>
+<div class="bg-[#f5f7f9] min-h-[100dvh] flex flex-col text-slate-900">
+<main class="flex-1 w-full min-h-0 overflow-x-hidden overflow-y-auto p-8 lg:p-12">
+<div class="max-w-[1600px] mx-auto w-full flex flex-col min-h-0">
     <div class="main-content">
         <div id="audioPremiumBanner" class="elevenlabs-panel" style="display:none;">
             <strong style="color:#7c3aed;"><i class="fas fa-info-circle"></i> Preview mode</strong>
@@ -1277,6 +1281,9 @@
             </div>
         </div>
     </div>
+</div>
+</main>
+</div>
 
     <!-- Premium Modal -->
     <div id="premiumModal" class="modal">

@@ -154,7 +154,10 @@
     #covPreviewTitle.cov-line-empty, #covPreviewAuthor.cov-line-empty { opacity: 0; min-height: 0.1em; }
 </style>
 
-<div class="cover-design-page bg-[#f5f7f9] min-h-full py-4 md:py-8 px-3 md:px-6 flex justify-center items-start antialiased">
+<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
+    <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
+        <div class="max-w-[1600px] mx-auto w-full flex flex-col min-h-0">
+<div class="cover-design-page antialiased w-full flex justify-center items-start py-0 px-0 md:px-0">
     <!-- Loading -->
     <div id="screenLoading" class="bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full max-w-[1280px] min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-8 flex flex-col gap-3 animate-pulse">
         <div class="h-8 bg-slate-200 rounded-xl w-1/3"></div>
@@ -327,6 +330,9 @@
             </div>
         </div>
     </div>
+</div>
+        </div>
+    </main>
 </div>
 
 <script src="~/js/cover-download-modal.js" asp-append-version="true"></script>
@@ -666,53 +672,69 @@
             });
     }
 
-    function getBase64FromCurrentPreview() {
-        var src = covPreviewBgImg && covPreviewBgImg.src ? covPreviewBgImg.src : '';
-        if (!src || src.indexOf('data:image') !== 0) return null;
-        var i = src.indexOf('base64,');
-        return i >= 0 ? src.substring(i + 7) : null;
+    function getPreviewImageAsBase64Async() {
+        return new Promise(function (resolve) {
+            var src = covPreviewBgImg && covPreviewBgImg.src ? covPreviewBgImg.src.trim() : '';
+            if (!src) { resolve(null); return; }
+            if (src.indexOf('data:image') === 0) {
+                var i = src.indexOf('base64,');
+                resolve(i >= 0 ? src.substring(i + 7) : null);
+                return;
+            }
+            fetch(src, { credentials: 'same-origin', mode: 'cors' })
+                .then(function (r) { return r.ok ? r.blob() : Promise.reject(new Error('HTTP ' + r.status)); })
+                .then(function (blob) {
+                    var reader = new FileReader();
+                    reader.onloadend = function () {
+                        var s = typeof reader.result === 'string' ? reader.result : '';
+                        var ix = s.indexOf('base64,');
+                        resolve(ix >= 0 ? s.substring(ix + 7) : null);
+                    };
+                    reader.onerror = function () { resolve(null); };
+                    reader.readAsDataURL(blob);
+                })
+                .catch(function (e) {
+                    console.warn('[CoverDesign] could not rasterize preview for edit:', e);
+                    resolve(null);
+                });
+        });
     }
 
-    function editCoverWithApi() {
-        var b64 = getBase64FromCurrentPreview();
-        if (!b64) {
-            toast('info', 'Generate a cover first (needs in-browser image). Or use Regenerate with updated fields.');
-            return;
-        }
+    async function editCoverWithApi() {
         var direction = (imageDirection.value || '').trim();
         console.log('[CoverDesign] POST /Dashboard/EditCover, direction length:', direction.length);
         setBusy(true);
-        fetch('/Dashboard/EditCover', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            body: JSON.stringify({
-                bookId: selectedBook ? selectedBook.bookId : 0,
-                encoded_image: b64,
-                image_direction: direction,
-                size: null
-            })
-        })
-            .then(function (r) {
-                return r.text().then(function (text) {
-                    var d = {};
-                    try { d = text ? JSON.parse(text) : {}; } catch (e) { d = { success: false, message: text }; }
-                    return d;
-                });
-            })
-            .then(function (d) {
-                setBusy(false);
-                if (d.status === 'error' || d.success === false) {
-                    toast('error', d.message || 'Edit failed.');
-                    return;
-                }
-                if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
-                applyGenerationSuccess(d, 'edit');
-            })
-            .catch(function (err) {
-                setBusy(false);
-                console.error('[CoverDesign] EditCover error', err);
-                toast('error', err.message || 'Edit request failed.');
+        try {
+            var b64 = await getPreviewImageAsBase64Async();
+            if (!b64) {
+                toast('info', 'Generate a cover first, then you can refine it — or regenerate with updated fields.');
+                return;
+            }
+            var r = await fetch('/Dashboard/EditCover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    bookId: selectedBook ? selectedBook.bookId : 0,
+                    encoded_image: b64,
+                    image_direction: direction,
+                    size: null
+                })
             });
+            var text = await r.text();
+            var d = {};
+            try { d = text ? JSON.parse(text) : {}; } catch (e) { d = { success: false, message: text }; }
+            if (d.status === 'error' || d.success === false) {
+                toast('error', d.message || 'Edit failed.');
+                return;
+            }
+            if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
+            applyGenerationSuccess(d, 'edit');
+        } catch (err) {
+            console.error('[CoverDesign] EditCover error', err);
+            toast('error', err.message || 'Edit request failed.');
+        } finally {
+            setBusy(false);
+        }
     }
 
     function bindBook(bookId) {

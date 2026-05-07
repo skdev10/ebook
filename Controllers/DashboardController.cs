@@ -222,7 +222,7 @@ namespace EBookDashboard.Controllers
 
         private async Task<List<Books>> EnsureDemoBooksAsync(Users user, Authors? author, List<Books> existingBooks)
         {
-            var demoTitles = new[] { "The Wizarding Chronicles", "The Bird", "SOUL", "Good Things Are Up Ahead", "Fairy Tale", "Conquest of Flames", "The Cambers of Secrets" };
+            var demoTitles = new[] { "The Wizarding Chronicles", "The Bird", "SOUL", "Good Things Are Up Ahead", "Fairy Tale", "Conquest of Flames", "The Chambers of Secrets" };
             var existingTitles = existingBooks.Select(b => b.Title).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var toAdd = demoTitles.Where(t => !existingTitles.Contains(t)).ToList();
             if (toAdd.Count == 0) return existingBooks;
@@ -255,7 +255,7 @@ namespace EBookDashboard.Controllers
                 ["Good Things Are Up Ahead"] = "Published",
                 ["Fairy Tale"] = "Published",
                 ["Conquest of Flames"] = "Draft",
-                ["The Cambers of Secrets"] = "Draft"
+                ["The Chambers of Secrets"] = "Draft"
             };
             var coverUrls = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -265,7 +265,7 @@ namespace EBookDashboard.Controllers
                 ["Good Things Are Up Ahead"] = DemoCoverUrls[2],
                 ["Fairy Tale"] = DemoCoverUrls[3],
                 ["Conquest of Flames"] = DemoCoverUrls[4],
-                ["The Cambers of Secrets"] = DemoCoverUrls[6]
+                ["The Chambers of Secrets"] = DemoCoverUrls[6]
             };
 
             foreach (var title in toAdd)
@@ -341,8 +341,9 @@ namespace EBookDashboard.Controllers
 
         private static (string title, string progressLabel, int percent, string coverUrl, int? bookId) GetDemoCurrentRead(List<Books> books)
         {
-            const string title = "The Cambers of Secrets";
-            var book = books.FirstOrDefault(b => b.Title.Equals(title, StringComparison.OrdinalIgnoreCase));
+            const string title = "The Chambers of Secrets";
+            var book = books.FirstOrDefault(b => b.Title.Equals(title, StringComparison.OrdinalIgnoreCase))
+                ?? books.FirstOrDefault(b => b.Title.Equals("The Cambers of Secrets", StringComparison.OrdinalIgnoreCase));
             return (title, "154 / 300 pages", 51, DemoCoverUrls[6], book?.BookId);
         }
 
@@ -516,15 +517,15 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalSlowApi");
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
                 if (!string.IsNullOrEmpty(apiKey))
                     httpRequest.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromMinutes(3));
-                var response = await client.SendAsync(httpRequest, cts.Token);
+                cts.CancelAfter(TimeSpan.FromMinutes(8));
+                var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
@@ -638,15 +639,15 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient("ExternalSlowApi");
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 httpRequest.Content = new StringContent(payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
                 if (!string.IsNullOrEmpty(apiKey))
                     httpRequest.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromMinutes(3));
-                var response = await client.SendAsync(httpRequest, cts.Token);
+                cts.CancelAfter(TimeSpan.FromMinutes(8));
+                var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
                 if (!response.IsSuccessStatusCode)
                     return Json(new { success = false, status = "error", message = $"Edit service returned {(int)response.StatusCode}." });

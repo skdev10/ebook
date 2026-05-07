@@ -23,11 +23,13 @@ Public URL for Stripe redirects / emails:
 Optional payment API (Plans/BuyPlan):
   PaymentApi__BaseUrl
 
-OAuth (omit handlers auto-register only when both ClientId + ClientSecret non-empty):
+OAuth — REQUIRED on App Platform for Google/Facebook login (if unset, schemes are not registered and users see social_unavailable / icons hidden):
   Authentication__Google__ClientId
   Authentication__Google__ClientSecret
+    Web OAuth always needs BOTH; Client ID may also exist in appsettings.json but the secret must never be committed — set via env or dotnet user-secrets locally.
   Authentication__Facebook__AppId
   Authentication__Facebook__AppSecret
+  Callback URLs in Google Cloud / Meta apps must match your live site, e.g. https://YOUR_DOMAIN/signin-google and https://YOUR_DOMAIN/signin-facebook
 
 External chapter/cover API:
   ExternalApi__BaseUrl
@@ -40,9 +42,12 @@ External chapter/cover API:
   ExternalApi__QueueDataUrl
   ExternalApi__BookChaptersNameUrl
   ExternalApi__ApiKey
+  Optional (default false / omit): ExternalApi__AudioSendLocalFilePath
+    Set to "true" only if the audio worker runs on the same machine as this app and can read the saved file path. On App Platform, leave unset so only the uploaded bytes are sent (avoids upstream 500 from invalid paths).
 
 OpenAI:
   OpenAI__ApiKey
+    If ExternalApi audio returns 500, this app retries transcription with OpenAI when this key is set (configure both for resilience).
 
 Stripe:
   Stripe__PublishableKey

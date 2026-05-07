@@ -35,6 +35,9 @@ _buildcheck/
 Thumbs.db
 Desktop.ini
 
+## User-generated recordings (do not commit)
+wwwroot/uploads/audio/
+
 ## Local overrides with real secrets (optional)
 appsettings.Local.json
 appsettings.*.local.json

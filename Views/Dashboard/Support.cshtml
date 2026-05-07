@@ -17,10 +17,9 @@
 
     .support-page {
         width: 100%;
-        min-height: 100vh;
-        padding: 30px 34px;
-        background: var(--support-bg);
+        flex: 1;
         font-family: 'Inter', sans-serif;
+        background: transparent;
     }
 
     .support-header {
@@ -60,16 +59,17 @@
     .support-card {
         background: #fff;
         border: 1px solid var(--support-border);
-        border-radius: 18px;
-        box-shadow: var(--support-shadow);
+        border-radius: 1.25rem;
+        box-shadow: 0 12px 28px -20px rgba(79, 70, 229, 0.2);
         padding: 26px;
         margin-bottom: 24px;
-        transition: transform .2s ease, box-shadow .2s ease;
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease;
     }
 
     .support-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 34px -20px rgba(79, 70, 229, 0.45);
+        transform: translateY(-3px);
+        box-shadow: 0 22px 44px -22px rgba(76, 29, 149, 0.28);
+        border-color: #ddd6fe;
     }
 
     .support-card-header {
@@ -159,16 +159,53 @@
     .support-mode-toggle label { font-size: 0.85rem; font-weight: 600; color: var(--support-text); }
 </style>
 
-<div class="support-page">
-    <div class="support-header">
-        <div>
-            <h2 class="support-title">Support & Resources</h2>
-            <p class="support-subtitle">Fast support and answers for your publishing journey.</p>
-        </div>
-        <div class="support-badge">Priority Help</div>
-    </div>
+<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
+<main class="flex-1 overflow-y-auto overflow-x-hidden w-full min-h-0 p-8 lg:p-12">
 
-    <div class="support-card">
+<section class="w-full overflow-hidden bg-white pt-10 pb-14 border-b border-gray-100 -mx-8 lg:-mx-12 px-8 lg:px-12 shadow-sm">
+    <div class="max-w-[1600px] mx-auto w-full">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+            <div class="max-w-2xl">
+                <h2 class="support-title mb-3">Support &amp; Resources</h2>
+                <p class="support-subtitle text-lg leading-relaxed">Fast support and answers for your publishing journey.</p>
+            </div>
+            <span class="support-badge shrink-0 self-start lg:self-center">Priority Help</span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-10">
+            <div class="rounded-2xl overflow-hidden border border-slate-200/90 bg-white shadow-sm hover:shadow-lg hover:border-violet-200/70 transition-all duration-300 group">
+                <div class="aspect-[16/10] overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&amp;w=900&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
+                </div>
+                <div class="p-4">
+                    <h3 class="text-base font-bold text-slate-900 m-0">Guides &amp; learning</h3>
+                    <p class="text-sm text-[var(--support-muted)] mt-1 mb-0">Step-by-step help for Kindle, print, and wide distribution.</p>
+                </div>
+            </div>
+            <div class="rounded-2xl overflow-hidden border border-slate-200/90 bg-white shadow-sm hover:shadow-lg hover:border-violet-200/70 transition-all duration-300 group">
+                <div class="aspect-[16/10] overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1521791136064-7986c2920216?q=80&amp;w=900&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
+                </div>
+                <div class="p-4">
+                    <h3 class="text-base font-bold text-slate-900 m-0">Chat &amp; email</h3>
+                    <p class="text-sm text-[var(--support-muted)] mt-1 mb-0">Reach our team during business hours for account help.</p>
+                </div>
+            </div>
+            <div class="rounded-2xl overflow-hidden border border-slate-200/90 bg-white shadow-sm hover:shadow-lg hover:border-violet-200/70 transition-all duration-300 group">
+                <div class="aspect-[16/10] overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&amp;w=900&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
+                </div>
+                <div class="p-4">
+                    <h3 class="text-base font-bold text-slate-900 m-0">FAQ library</h3>
+                    <p class="text-sm text-[var(--support-muted)] mt-1 mb-0">Common answers on royalties, specs, and tax setup.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="support-page max-w-[1600px] mx-auto w-full px-0 py-10 lg:py-12">
+
+    <div class="support-card mt-0">
         <div class="support-card-header">AI publishing assistant</div>
         <p style="color: var(--support-muted); margin: -8px 0 12px; font-size: 0.9rem;">Ask in plain language — answers are instant (demo knowledge base + optional live API).</p>
         <div class="support-ai-chat">
@@ -200,17 +237,32 @@
         </button>
 
         <div class="support-grid">
-            <div class="support-item">
-                <strong><i class="fas fa-envelope"></i> Email</strong>
-                <span>support@ebookai.com</span>
+            <div class="rounded-2xl border border-[var(--support-border)] bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 overflow-hidden flex flex-col">
+                <div class="aspect-[16/9] shrink-0 overflow-hidden bg-slate-100">
+                    <img src="https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&amp;w=600&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover" loading="lazy">
+                </div>
+                <div class="p-4">
+                    <strong><i class="fas fa-envelope"></i> Email</strong>
+                    <span>support@ebookai.com</span>
+                </div>
             </div>
-            <div class="support-item">
-                <strong><i class="fas fa-phone"></i> Phone</strong>
-                <span>+1 (555) 123-4567</span>
+            <div class="rounded-2xl border border-[var(--support-border)] bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 overflow-hidden flex flex-col">
+                <div class="aspect-[16/9] shrink-0 overflow-hidden bg-slate-100">
+                    <img src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&amp;w=600&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover" loading="lazy">
+                </div>
+                <div class="p-4">
+                    <strong><i class="fas fa-phone"></i> Phone</strong>
+                    <span>+1 (555) 123-4567</span>
+                </div>
             </div>
-            <div class="support-item">
-                <strong><i class="fas fa-clock"></i> Support Hours</strong>
-                <span>Monday - Friday: 9:00 AM - 6:00 PM EST</span>
+            <div class="rounded-2xl border border-[var(--support-border)] bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 overflow-hidden flex flex-col">
+                <div class="aspect-[16/9] shrink-0 overflow-hidden bg-slate-100">
+                    <img src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&amp;w=600&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover" loading="lazy">
+                </div>
+                <div class="p-4">
+                    <strong><i class="fas fa-clock"></i> Support Hours</strong>
+                    <span>Monday - Friday: 9:00 AM - 6:00 PM EST</span>
+                </div>
             </div>
         </div>
     </div>
@@ -292,6 +344,9 @@
             }
         </div>
     </div>
+</div>
+
+</main>
 </div>
 
 <script>

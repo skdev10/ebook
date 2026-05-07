@@ -697,13 +697,13 @@ namespace EBookDashboard.Controllers
             {
                 try
                 {
-                    using var client = new HttpClient();
-                    client.Timeout = TimeSpan.FromMinutes(30);
-                    client.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+                    var editGenClient = _httpClientFactory.CreateClient("ExternalChapterGeneration");
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
+                    using var requestMsg = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
+                    requestMsg.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
-                    var response = await client.PostAsync(apiUrl, content);
-                    responseData = await response.Content.ReadAsStringAsync();
+                    using var response = await editGenClient.SendAsync(requestMsg, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
+                    responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
 
                     try
                     {
@@ -1905,17 +1905,18 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(apiKey))
                     return BadRequest(new { success = false, message = "ExternalApi:ApiKey is not set." });
 
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromMinutes(2);
-                client.DefaultRequestHeaders.TryAddWithoutValidation(apiHeaderName, apiKey);
-
+                var editClient = _httpClientFactory.CreateClient("ExternalChapterGeneration");
                 var json = JsonConvert.SerializeObject(model);
-                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                using var httpRequestEdit = new HttpRequestMessage(HttpMethod.Post, apiUrl)
+                {
+                    Content = new StringContent(json, Encoding.UTF8, "application/json")
+                };
+                httpRequestEdit.Headers.TryAddWithoutValidation(apiHeaderName, apiKey);
 
                 Console.WriteLine($"📤Forwarding edit request to API: {json}");
 
-                var response = await client.PostAsync(apiUrl, content);
-                responseData = await response.Content.ReadAsStringAsync();
+                using var response = await editClient.SendAsync(httpRequestEdit, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
+                responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
 
                 // Save raw response for audit
                 rawResponseId = await _rawResponseService.SaveRawResponseAsync(

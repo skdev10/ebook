@@ -5,6 +5,7 @@ using EBookDashboard.Models.ViewModels;
 using Humanizer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -47,8 +48,9 @@ namespace EBookDashboard.Controllers
         //---------------------------------------------------           
         // GET: /Account/Login
         [HttpGet]
-        public IActionResult Login()
+        public async Task<IActionResult> Login()
         {
+            await SetOAuthLoginAvailabilityAsync();
             return View();
         }
 
@@ -109,10 +111,20 @@ namespace EBookDashboard.Controllers
             return RedirectToAction("Dashboard", "Admin");
         }
 
+        private async Task SetOAuthLoginAvailabilityAsync()
+        {
+            var schemeProvider = HttpContext.RequestServices.GetRequiredService<IAuthenticationSchemeProvider>();
+            // Always show Google UI on login; /auth/google validates when ClientId+Secret are configured.
+            ViewBag.GoogleLoginAvailable = true;
+            ViewBag.GoogleOAuthConfigured = await schemeProvider.GetSchemeAsync(GoogleDefaults.AuthenticationScheme) != null;
+            ViewBag.FacebookLoginAvailable = await schemeProvider.GetSchemeAsync("Facebook") != null;
+        }
+
         // GET: /Account/UserLogin - User login page
         [HttpGet]
-        public IActionResult UserLogin()
+        public async Task<IActionResult> UserLogin()
         {
+            await SetOAuthLoginAvailabilityAsync();
             return View();
         }
 
@@ -120,6 +132,7 @@ namespace EBookDashboard.Controllers
         [HttpPost]
         public async Task<IActionResult> UserLogin(string UserEmail, string Password, bool RememberMe)
         {
+            await SetOAuthLoginAvailabilityAsync();
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.UserEmail == UserEmail && u.Password == Password);
 
@@ -173,6 +186,21 @@ namespace EBookDashboard.Controllers
             return RedirectToAction("Index", "Dashboard");
         }
 
+        /// <summary>Entry point for Google OAuth (middleware callback is Authentication:Google:CallbackPath, default /auth/google/callback).</summary>
+        [HttpGet("/auth/google")]
+        public async Task<IActionResult> GoogleLoginStart([FromServices] IAuthenticationSchemeProvider schemeProvider)
+        {
+            if (await schemeProvider.GetSchemeAsync(GoogleDefaults.AuthenticationScheme) == null)
+            {
+                _logger.LogWarning("Google login requested but Google authentication is not configured (missing ClientSecret or credentials).");
+                return RedirectToAction(nameof(UserLogin), new { error = "google_not_configured" });
+            }
+
+            var redirectUrl = Url.Action("ExternalLoginCallback", "Account");
+            var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+            return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+        }
+
         // GET: /Account/ExternalLogin - Redirect to Google or Facebook
         [HttpGet]
         public async Task<IActionResult> ExternalLogin(string provider, string? returnUrl)
@@ -184,7 +212,7 @@ namespace EBookDashboard.Controllers
             if (await schemeProvider.GetSchemeAsync(provider) == null)
             {
                 _logger.LogWarning("External login requested for '{Provider}' but that scheme is not configured.", provider);
-                return RedirectToAction("UserLogin", new { error = "social_unavailable" });
+                return RedirectToAction("UserLogin");
             }
 
             var redirectUrl = Url.Action("ExternalLoginCallback", "Account", new { returnUrl });
@@ -199,7 +227,10 @@ namespace EBookDashboard.Controllers
             if (!string.IsNullOrEmpty(remoteError))
             {
                 _logger.LogWarning("External login error: {Error}", remoteError);
-                return RedirectToAction("UserLogin", new { error = remoteError });
+                var qErr = string.Equals(remoteError, "access_denied", StringComparison.OrdinalIgnoreCase)
+                    ? "oauth_denied"
+                    : "oauth_failed";
+                return RedirectToAction("UserLogin", new { error = qErr });
             }
 
             var authSchemes = new[] { "Google", "Facebook" };
@@ -219,7 +250,7 @@ namespace EBookDashboard.Controllers
             if (authResult?.Succeeded != true || authResult.Principal == null)
             {
                 _logger.LogWarning("External login: no identity from provider.");
-                return RedirectToAction("UserLogin");
+                return RedirectToAction("UserLogin", new { error = "oauth_failed" });
             }
 
             var email = authResult.Principal.FindFirstValue(ClaimTypes.Email)
@@ -232,7 +263,7 @@ namespace EBookDashboard.Controllers
             {
                 _logger.LogWarning("External login: no email claim from provider.");
                 await HttpContext.SignOutAsync(schemeUsed!);
-                return RedirectToAction("UserLogin");
+                return RedirectToAction("UserLogin", new { error = "oauth_failed" });
             }
 
             var user = await _context.Users
@@ -585,6 +616,7 @@ namespace EBookDashboard.Controllers
             else
             {
                 // ❌ Login failed → show error message
+                await SetOAuthLoginAvailabilityAsync();
                 ViewBag.Error = "Invalid username or password. Please try again.";
                 ViewBag.UserId = userId; // ✅ send to Razor view
                 return View();

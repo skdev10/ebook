@@ -28,10 +28,57 @@
     .profile-dash-hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .profile-dash-wrap { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
     /* Keep profile content above dashboard chrome where needed */
-    .profile-dash-inner { max-width: 1280px; margin-left: auto; margin-right: auto; }
+    .profile-dash-inner { max-width: 100%; margin-left: auto; margin-right: auto; }
 </style>
 
-<div class="profile-dash-wrap bg-slate-100 min-h-full w-full -m-4 p-4 md:p-6 lg:p-8 flex justify-center items-start antialiased text-slate-900">
+<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
+<main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
+<div class="max-w-[1600px] mx-auto w-full flex flex-col gap-8">
+
+<section class="w-full overflow-hidden bg-white pt-10 pb-14 border-b border-gray-100 -mx-8 lg:-mx-12 px-8 lg:px-12 rounded-none shadow-sm">
+    <div class="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-violet-600 mb-2">eBook AI</p>
+            <h1 class="text-3xl lg:text-[2rem] font-medium text-slate-900 tracking-tight" style="font-family:'Playfair Display',Georgia,serif;">Your author profile</h1>
+            <p class="text-slate-500 mt-3 max-w-xl leading-relaxed">Manage identity, credentials, billing, and quick links — same workspace rhythm as AI Writer &amp; My Books.</p>
+        </div>
+        <div class="relative rounded-3xl overflow-hidden shadow-xl shadow-violet-900/10 ring-1 ring-black/5 aspect-[16/10] lg:aspect-[5/3]">
+            <img src="https://images.unsplash.com/photo-1524996297542-sadfcd2d824f?q=80&amp;w=1400&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async">
+            <div class="absolute inset-0 bg-gradient-to-tr from-violet-900/60 via-transparent to-indigo-500/25 pointer-events-none" aria-hidden="true"></div>
+        </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-10">
+        <button type="button" class="profile-dash-shortcut text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-900/[0.06] hover:border-violet-200/75 hover:-translate-y-1 transition-all duration-300 ease-out overflow-hidden group" data-tab="account">
+            <div class="aspect-[16/10] overflow-hidden bg-slate-100">
+                <img src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&amp;w=720&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Account &amp; details</p>
+                <p class="text-xs text-slate-500 m-0">Name, username, locale</p>
+            </div>
+        </button>
+        <button type="button" class="profile-dash-shortcut text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-900/[0.06] hover:border-violet-200/75 hover:-translate-y-1 transition-all duration-300 ease-out overflow-hidden group" data-tab="security">
+            <div class="aspect-[16/10] overflow-hidden bg-slate-100">
+                <img src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&amp;w=720&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Security</p>
+                <p class="text-xs text-slate-500 m-0">Password &amp; sign-in hygiene</p>
+            </div>
+        </button>
+        <button type="button" class="profile-dash-shortcut text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-900/[0.06] hover:border-violet-200/75 hover:-translate-y-1 transition-all duration-300 ease-out overflow-hidden group" data-tab="plan">
+            <div class="aspect-[16/10] overflow-hidden bg-slate-100">
+                <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&amp;w=720&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
+            </div>
+            <div class="p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Plan &amp; billing</p>
+                <p class="text-xs text-slate-500 m-0">Tier, renewal, exports</p>
+            </div>
+        </button>
+    </div>
+</section>
+
+<div class="profile-dash-wrap w-full flex justify-center items-start antialiased text-slate-900">
     <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] w-full profile-dash-inner min-h-[calc(100vh-120px)] flex flex-col overflow-hidden border border-slate-200/80">
 
         <!-- In-page header (complements dashboard sidebar) -->
@@ -241,6 +288,10 @@
     </div>
 </div>
 
+</div>
+</main>
+</div>
+
 <script>
 (function () {
     function lucideInit() {
@@ -313,6 +364,13 @@
     tabAccount?.addEventListener('click', function () { setTab('account'); });
     tabSecurity?.addEventListener('click', function () { setTab('security'); });
     tabPlan?.addEventListener('click', function () { setTab('plan'); });
+
+    document.querySelectorAll('.profile-dash-shortcut').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var t = btn.getAttribute('data-tab');
+            if (t) setTab(t);
+        });
+    });
 
     btnUpdateProfile?.addEventListener('click', async function () {
         syncFullName();

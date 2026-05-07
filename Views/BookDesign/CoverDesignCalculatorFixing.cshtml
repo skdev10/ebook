@@ -75,9 +75,9 @@
         box-shadow: 0 8px 18px -14px rgba(124, 58, 237, .28);
     }
 
-    /* ----- Reader: fixed height, no long scroll ----- */
+    /* ----- Reader: match AI Book Writer .paginated-reader-shell height (953px) ----- */
     .reader-content-wrap {
-        height: 800px;
+        height: 953px;
         overflow: auto;
         display: flex;
         flex-direction: column;
@@ -510,14 +510,31 @@
         gap: 10px;
     }
     .reader-chrome-row label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
-    /* ----- Studio: cover mock + interior canvas (formatter) ----- */
+    /* ----- Studio: same outer preview card as AI Book Writer #bookResult ----- */
     .fmt-studio-stage {
         --fmt-preview-accent: #5b21b6;
-        border-radius: 20px;
-        background: linear-gradient(165deg, #f8fafc 0%, #eef2ff 40%, #faf5ff 100%);
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 20px 50px -24px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.8) inset;
-        padding: 1.25rem 1.25rem 1rem;
+        width: 70%;
+        max-width: 100%;
+        min-height: min(72vh, 640px);
+        margin-left: 0;
+        margin-right: auto;
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        flex-shrink: 1;
+        overflow: visible;
+        position: relative;
+        border: 1px solid #ddd6fe;
+        box-shadow: 0 16px 32px -22px rgba(91, 33, 182, 0.22);
+        background: #f5f3ff;
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    @@media (min-width: 768px) {
+        .fmt-studio-stage { padding: 2rem; }
+    }
+    @@media (min-width: 1024px) {
+        .fmt-studio-stage { padding: 2.5rem; }
     }
     .fmt-studio-cover-row {
         display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: 1.25rem;
@@ -623,12 +640,16 @@
         cursor: pointer;
         transition: background 0.15s ease, transform 0.15s ease;
     }
+    .fmt-cover-mock.shrink-0 {
+    display: none;
+}
+div#fmt-finalize-panel {
+    display: none;
+}
+
     #reader-bookmark-btn:hover { background: #f5f3ff; transform: translateY(-1px); }
     .reader-page-inner.reader-anim-out { opacity: 0; transform: translateX(12px); }
     .reader-page-inner.reader-anim-in { opacity: 1; transform: translateX(0); transition: opacity 0.28s ease, transform 0.32s ease; }
-    @@media (max-width: 1023px) {
-        .reader-content-wrap { height: 520px; }
-    }
 </style>
 
 @{
@@ -636,12 +657,12 @@
     if (formatFromUrl == "Print") { formatFromUrl = "Paperback"; }
     var uid = (Model?.UserId ?? 0) != 0 ? Model.UserId : (ViewBag.UserId ?? 0);
 }
-<div class="bg-white text-gray-800 antialiased min-h-full flex flex-col" id="book-formatter-root" data-user-id="@uid" data-book-id="@bookId" data-format="@formatFromUrl">
-    <main class="flex-1 overflow-y-auto">
-        <div class="max-w-[1400px] mx-auto p-8 lg:p-12">
-            <div class="flex flex-col lg:flex-row gap-16">
+<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1 antialiased" id="book-formatter-root" data-user-id="@uid" data-book-id="@bookId" data-format="@formatFromUrl">
+    <main class="flex-1 overflow-y-auto p-8 lg:p-12">
+        <div class="max-w-[1600px] mx-auto w-full">
+            <div class="flex flex-col lg:flex-row gap-12 lg:gap-24">
                 <!-- Left: AI Book Formatter (your design) -->
-                <div class="w-full lg:w-[450px] flex-shrink-0 flex flex-col pt-4">
+                <div class="w-full lg:w-[480px] flex-shrink-0 flex flex-col pt-4">
                     <h1 class="font-serif text-3xl font-medium text-gray-900 mb-3 tracking-tight">AI Book Formatter</h1>
                     <div class="mb-8">
                         <label for="formatter-display-author" class="block text-xs font-semibold text-gray-500 mb-2.5">Author (matches your account &amp; export)</label>
@@ -831,8 +852,8 @@
                     </div>
                 </div>
 
-                <!-- Right: studio preview — live cover mock (title/author only) + interior reader -->
-                <div class="flex-1 flex flex-col pt-4 min-h-0">
+                <!-- Right: studio preview — aligned with AI Book Writer preview column -->
+                <div class="flex-1 flex flex-col pt-2 min-w-[300px] min-h-0 overflow-x-hidden">
                     <div class="mb-5">
                         <div class="flex items-center gap-2 mb-2">
                             <div class="w-3 h-[2px] bg-purple-600"></div>
@@ -844,7 +865,7 @@
                         </p>
                     </div>
 
-                    <div id="fmt-studio-stage" class="fmt-studio-stage max-w-5xl w-full flex flex-col min-h-0">
+                    <div id="fmt-studio-stage" class="fmt-studio-stage w-full flex flex-col min-h-0">
                         <div class="fmt-studio-cover-row items-start">
                             <div class="fmt-cover-mock shrink-0" aria-hidden="true">
                                 <img id="fmt-cover-mock-img" class="fmt-cover-mock__img" src="" alt="" width="280" height="420" />
@@ -865,7 +886,7 @@
                                 </div>
                                 <div class="fmt-studio-zoom-inner flex-1 min-h-0" id="fmt-studio-zoom-inner">
                                     <div class="flex-1 relative flex pb-4 overflow-hidden min-h-[320px]" id="preview-wrapper" data-guided-tour="fmt-preview">
-                                        <div id="preview-single" class="preview-panel-single relative w-full max-w-2xl bg-white border border-gray-100 rounded-xl shadow-2xl flex flex-col overflow-hidden ring-4 ring-gray-50/50 mx-auto" tabindex="0">
+                                        <div id="preview-single" class="preview-panel-single relative w-full max-w-full bg-white border border-gray-100 rounded-xl shadow-2xl flex flex-col overflow-hidden ring-4 ring-gray-50/50" tabindex="0">
                                             <div id="preview-content" class="flex-1 flex flex-col min-h-0">
                                                 <div class="reader-content-wrap" id="reader-wrap-single">
                                                     <div class="reader-page-inner" id="preview-content-inner">
@@ -879,7 +900,7 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div id="preview-both" class="preview-panel-both hidden w-full max-w-4xl mx-auto" style="display:none;">
+                                        <div id="preview-both" class="preview-panel-both hidden w-full max-w-full" style="display:none;">
                                             <div class="preview-split">
                                                 <div class="preview-half flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-[#FFFCF9]">
                                                     <p class="text-xs font-semibold text-purple-600 mb-2 px-4 pt-4 flex-shrink-0">Ebook</p>
@@ -919,7 +940,6 @@
                             <button type="button" id="fmt-zoom-out" title="Zoom out">−</button>
                             <input type="range" id="fmt-zoom-range" class="fmt-zoom-range" min="80" max="115" value="100" aria-label="Preview zoom" />
                             <button type="button" id="fmt-zoom-in" title="Zoom in">+</button>
-                            <button type="button" id="fmt-download-preview"><i class="fas fa-download"></i> Download</button>
                             <button type="button" id="fmt-refresh-preview"><i class="fas fa-sync-alt"></i> Refresh</button>
                         </div>
                     </div>
@@ -1112,46 +1132,6 @@
         var p = Math.max(80, Math.min(115, parseInt(pct, 10) || 100));
         if (rng) rng.value = String(p);
         if (inner) inner.style.transform = 'scale(' + (p / 100) + ')';
-    }
-
-    function loadScriptOnceFormatter(src, key) {
-        return new Promise(function(resolve, reject) {
-            if (document.querySelector('script[data-fmt-asset="' + key + '"]')) { resolve(); return; }
-            var s = document.createElement('script');
-            s.src = src;
-            s.async = true;
-            s.setAttribute('data-fmt-asset', key);
-            s.onload = function() { resolve(); };
-            s.onerror = function() { reject(new Error(key)); };
-            document.head.appendChild(s);
-        });
-    }
-
-    function fmtDownloadStudioPreview() {
-        loadScriptOnceFormatter('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js', 'html2canvas-fmt')
-            .then(function() {
-                var stage = document.getElementById('fmt-studio-stage');
-                if (!stage || typeof html2canvas === 'undefined') {
-                    showToast('Could not capture preview.');
-                    return null;
-                }
-                return html2canvas(stage, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#f1f5f9' });
-            })
-            .then(function(canvas) {
-                if (!canvas) return;
-                try {
-                    var a = document.createElement('a');
-                    a.href = canvas.toDataURL('image/png');
-                    a.download = 'formatting-studio-preview.png';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    showToast('Preview downloaded');
-                } catch (e) {
-                    showToast('Download failed');
-                }
-            })
-            .catch(function() { showToast('Could not load capture library'); });
     }
 
     function storageReaderKey(bid) {
@@ -2601,7 +2581,6 @@
                     showToast('Preview refreshed');
                 } else showToast('Load a book first');
             });
-            document.getElementById('fmt-download-preview')?.addEventListener('click', function() { fmtDownloadStudioPreview(); });
             setFmtPreviewZoom(100);
             syncFmtInteriorCardsFromSelect();
             syncFmtTypographyPillsFromSelects();

@@ -107,16 +107,39 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
 });
 
 // OAuth handlers validate ClientId/AppId on first request — skip registration when secrets are missing (e.g. cloud env vars not set).
-var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
-var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+// Credentials: Authentication:Google:* or top-level Google:* (env: Google__ClientSecret, Authentication__Google__ClientSecret, etc.)
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"]
+                     ?? builder.Configuration["Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
+                        ?? builder.Configuration["Google:ClientSecret"];
+var googleCallbackPath = builder.Configuration["Authentication:Google:CallbackPath"]
+                         ?? builder.Configuration["Google:CallbackPath"]
+                         ?? "/auth/google/callback";
 if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
 {
     authenticationBuilder.AddGoogle(options =>
     {
-        options.ClientId = googleClientId;
-        options.ClientSecret = googleClientSecret;
-        options.CallbackPath = builder.Configuration["Authentication:Google:CallbackPath"] ?? "/signin-google";
+        options.ClientId = googleClientId.Trim();
+        options.ClientSecret = googleClientSecret.Trim();
+        options.CallbackPath = googleCallbackPath;
+        options.Scope.Add("openid");
+        options.Scope.Add("email");
+        options.Scope.Add("profile");
+        options.SaveTokens = true;
+        options.Events.OnRemoteFailure = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()
+                ?.CreateLogger("GoogleOAuth");
+            logger?.LogWarning(context.Failure, "Google sign-in remote failure.");
+            context.HandleResponse();
+            context.Response.Redirect("/Account/UserLogin?error=google_login_failed");
+            return Task.CompletedTask;
+        };
     });
+}
+else
+{
+    Console.WriteLine("[OAuth] Google login disabled: set Authentication:Google:ClientId and Authentication:Google:ClientSecret (e.g. Authentication__Google__ClientId / Authentication__Google__ClientSecret). Client ID alone is not enough for the web OAuth flow.");
 }
 
 var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"];
@@ -131,6 +154,10 @@ if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(face
         options.Scope.Add("email");
         options.Fields.Add("email");
     });
+}
+else
+{
+    Console.WriteLine("[OAuth] Facebook login disabled: set Authentication:Facebook:AppId and Authentication:Facebook:AppSecret (e.g. Authentication__Facebook__AppId on DigitalOcean).");
 }
 
 // ✅ Authorization middleware (roles, policies etc.)
@@ -168,6 +195,11 @@ builder.Services.AddHttpClient("ExternalChapterGeneration", (sp, client) =>
     var mins = int.TryParse(cfg["ChapterGeneration:HttpTimeoutMinutes"], out var m) ? m : 30;
     mins = Math.Clamp(mins, 1, 120);
     client.Timeout = TimeSpan.FromMinutes(mins);
+});
+// Cover generation/edit and other multi-minute AI calls — default HttpClient times out at 100s without this.
+builder.Services.AddHttpClient("ExternalSlowApi", (sp, client) =>
+{
+    client.Timeout = TimeSpan.FromMinutes(10);
 });
 builder.Services.AddScoped<IBookChapterPipelineService, BookChapterPipelineService>();
 
