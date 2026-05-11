@@ -1,3 +1,4 @@
+using EBookDashboard.Infrastructure;
 using EBookDashboard.Interfaces;
 using Microsoft.AspNetCore.Http;
 using EBookDashboard.Models;
@@ -28,7 +29,7 @@ namespace EBookDashboard.Controllers
         [HttpGet]
         public IActionResult GetPublishableKey()
         {
-            var key = _config["Stripe:PublishableKey"];
+            var key = StripeKeys.Publishable(_config);
             if (string.IsNullOrEmpty(key))
                 return BadRequest(new { message = "Stripe publishable key not configured." });
 
@@ -40,7 +41,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var secretKey = _config["Stripe:SecretKey"];
+                var secretKey = StripeKeys.Secret(_config);
                 if (string.IsNullOrEmpty(secretKey))
                     return BadRequest(new { message = "Stripe secret key not configured." });
 
@@ -119,7 +120,7 @@ namespace EBookDashboard.Controllers
             ViewBag.BookTitle = book.Title ?? "Your Book";
             var bs = book.Status ?? "";
             ViewBag.Paid = bs.Equals("Paid", StringComparison.OrdinalIgnoreCase) || bs.Equals("Published", StringComparison.OrdinalIgnoreCase);
-            ViewBag.PublishableKey = _config["Stripe:PublishableKey"] ?? "";
+            ViewBag.PublishableKey = StripeKeys.Publishable(_config) ?? "";
             return View();
         }
 
@@ -136,7 +137,7 @@ namespace EBookDashboard.Controllers
             if (st.Equals("Paid", StringComparison.OrdinalIgnoreCase) || st.Equals("Published", StringComparison.OrdinalIgnoreCase))
                 return Ok(new { sessionId = (string?)null, alreadyPaid = true });
 
-            var secretKey = _config["Stripe:SecretKey"];
+            var secretKey = StripeKeys.Secret(_config);
             if (string.IsNullOrEmpty(secretKey)) return BadRequest(new { message = "Stripe not configured." });
             StripeConfiguration.ApiKey = secretKey;
 
@@ -186,7 +187,7 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> BookPaymentSuccess(string session_id)
         {
             if (string.IsNullOrEmpty(session_id)) return RedirectToAction("MyBooks", "Dashboard");
-            var secretKey = _config["Stripe:SecretKey"];
+            var secretKey = StripeKeys.Secret(_config);
             if (string.IsNullOrEmpty(secretKey)) return RedirectToAction("MyBooks", "Dashboard");
             StripeConfiguration.ApiKey = secretKey;
             try

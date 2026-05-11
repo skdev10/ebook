@@ -24,6 +24,7 @@
         : "bg-amber-50 text-amber-700 border-amber-200/60";
     var premiumDimClass = !paid ? "opacity-40 select-none blur-[1px] pointer-events-none" : "";
     var pbChapterCount = ViewBag.PublishBookChapterCount is int pcc ? pcc : 0;
+    var publishReady = ViewBag.PublishBookReady as bool? ?? false;
 }
 
 <style>
@@ -250,7 +251,7 @@
 <div class="publish-page text-slate-800 max-w-[1600px] mx-auto w-full px-0 py-10 lg:py-12">
 
     <div class="container mb-8">
-        @if (bookId > 0 && !string.IsNullOrEmpty(pbTitle))
+        @if (bookId > 0 && !string.IsNullOrEmpty(pbTitle) && publishReady)
         {
             <div class="book-card">
                 <div class="book-cover">
@@ -264,38 +265,46 @@
                     }
                 </div>
                 <div class="book-info">
-                    <div class="label">Your book for this publish session</div>
+                    <div class="label">Ready to publish</div>
                     <h1 class="book-title">@pbTitle</h1>
                     <p class="book-description">
-                        @(string.IsNullOrWhiteSpace(pbDesc) ? "Add or edit the description in AI Writer or My Books." : pbDesc)
+                        @(string.IsNullOrWhiteSpace(pbDesc) ? "Description can be updated in AI Writer or My Books." : pbDesc)
                     </p>
-                    <p class="text-sm text-slate-600 mb-4">
-                        @if (pbChapterCount > 0)
-                        {
-                            <span><strong>@pbChapterCount</strong> chapter@(pbChapterCount == 1 ? "" : "s") recorded in your library or AI history for this title.</span>
-                        }
-                        else
-                        {
-                            <span>No chapters saved yet — open <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a> to generate your first chapter, then return here.</span>
-                        }
-                    </p>
+                    @if (pbChapterCount > 0)
+                    {
+                        <p class="text-sm text-slate-600 mb-4"><strong>@pbChapterCount</strong> chapter@(pbChapterCount == 1 ? "" : "s") on file.</p>
+                    }
                     <div class="tags flex-wrap">
                         @if (!string.IsNullOrEmpty(pbGenre))
                         {
                             <span class="tag fiction" style="cursor:default;">@pbGenre</span>
                         }
-                        else
-                        {
-                            <span class="tag fiction" style="cursor:default;">Genre</span>
-                        }
-                        <span class="tag draft" style="cursor:default;">@(alreadyListed ? "Published" : (string.IsNullOrEmpty(pbStatus) ? "Draft" : pbStatus))</span>
+                        <span class="tag draft" style="cursor:default;">@(alreadyListed ? "Published" : pbStatus)</span>
                     </div>
-                    <div class="mt-6 flex flex-wrap gap-3">
-                        <a href="/Books/AIGenerateBook?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700">Open AI Writer</a>
-                        <a href="/Books/AIGenerateBookFormat?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">Formatting</a>
-                        <a href="/Dashboard/CoverDesign?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">AI Cover Design</a>
-                        <a href="/Dashboard/MyBooks" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">My Books</a>
-                    </div>
+                    <p class="text-xs text-slate-500 mt-4">Finalized title and cover from your library. To replace the cover or manuscript, use <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a> or <a href="/Dashboard/MyBooks" class="text-violet-700 font-semibold underline">My Books</a>.</p>
+                </div>
+            </div>
+        }
+        else if (bookId > 0 && !string.IsNullOrEmpty(pbTitle) && !publishReady)
+        {
+            <div class="book-card border-amber-100 bg-gradient-to-br from-amber-50/40 to-white">
+                <div class="book-cover">
+                    @if (!string.IsNullOrEmpty(pbCover))
+                    {
+                        <img src="@CoverUrl(pbCover)" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&amp;w=600&amp;auto=format&amp;fit=crop';" />
+                    }
+                    else
+                    {
+                        <div class="book-cover-placeholder">Cover pending</div>
+                    }
+                </div>
+                <div class="book-info">
+                    <div class="label text-amber-800">Not ready for checkout</div>
+                    <h1 class="book-title text-slate-900">@pbTitle</h1>
+                    <p class="book-description text-slate-600">
+                        Publishing checkout unlocks when the book is marked <strong>Finalized</strong> (or <strong>Published</strong> / <strong>Paid</strong>) and a saved cover is on file. Finish <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">formatting</a>, and <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">cover design</a>, then return.
+                    </p>
+                    <p class="text-sm text-slate-500">Current status: <strong>@(string.IsNullOrEmpty(pbStatus) ? "Draft" : pbStatus)</strong></p>
                 </div>
             </div>
         }
@@ -321,6 +330,8 @@
     </div>
 
     <div class="space-y-10">
+        @if (publishReady || bookId <= 0)
+        {
         <section class="publish-card">
             <h2 class="text-lg font-semibold text-slate-900 mb-2">List your book on Ebook Hub</h2>
             <p class="text-sm text-slate-500 mb-4">Complete these fields for this release. Publishing requires a successful Stripe payment — your book is marked Published only after checkout succeeds.</p>
@@ -369,7 +380,15 @@
             </div>
             <p id="pub-stripe-err" class="text-sm text-red-600 mt-3 hidden"></p>
         </section>
+        }
 
+        @if (!publishReady && bookId > 0)
+        {
+            <p class="text-center text-sm text-slate-500 py-2">Complete the steps above to enable checkout.</p>
+        }
+
+        @if (publishReady)
+        {
         <section class="publish-card">
             <h2 class="text-lg font-semibold text-slate-900 mb-2">Your publishing pipeline</h2>
             <ol class="list-decimal list-inside text-sm text-slate-700 space-y-1">
@@ -468,6 +487,7 @@
                 <a href="/Payments/FeaturesSelection" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium px-5 py-2.5 text-sm">View plans</a>
             </div>
         </section>
+        }
     </div>
 </div>
 
@@ -490,7 +510,7 @@
     </div>
 </div>
 
-@if (!alreadyListed && bookId > 0)
+@if (!alreadyListed && bookId > 0 && publishReady)
 {
     <script src="https://js.stripe.com/v3/"></script>
 }
@@ -498,6 +518,7 @@
 (function () {
     var paid = @((ViewBag.PublishViaPlatformPaid as bool? ?? false).ToString().ToLowerInvariant());
     var bookId = @(bookId);
+    var publishReady = @(publishReady.ToString().ToLowerInvariant());
     var alreadyListed = @(alreadyListed.ToString().ToLowerInvariant());
     var publishableKey = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishableKey));
 
@@ -692,7 +713,7 @@
             });
     }
 
-    if (stripeBtn && !alreadyListed && bookId > 0) {
+    if (stripeBtn && !alreadyListed && bookId > 0 && publishReady) {
         stripeBtn.addEventListener('click', function () {
             var agree = document.getElementById('pubAgree');
             if (agree && !agree.checked) {

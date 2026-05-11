@@ -1,4 +1,5 @@
 // Services/ICheckoutService.cs
+using EBookDashboard.Infrastructure;
 using EBookDashboard.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Stripe;
@@ -15,8 +16,8 @@ namespace EBookDashboard.Services
 
         public CheckoutService(IConfiguration config, IHttpContextAccessor httpContextAccessor)
         {
-            var secretKey = config["Stripe:SecretKey"];
-            _webhookSecret = config["Stripe:WebhookSecret"] ?? string.Empty;
+            var secretKey = StripeKeys.Secret(config);
+            _webhookSecret = StripeKeys.WebhookSecret(config) ?? string.Empty;
             _client = string.IsNullOrWhiteSpace(secretKey) ? null : new StripeClient(secretKey.Trim());
             _configuration = config;
             _httpContextAccessor = httpContextAccessor;

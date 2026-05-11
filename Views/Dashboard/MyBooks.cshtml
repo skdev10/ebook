@@ -30,6 +30,7 @@
         return path.StartsWith("/") ? path : "/" + path;
     }
 
+    var stripeReady = ViewBag.StripePaymentsReady as bool? ?? false;
     var books = rawBooks.Select(b => new
     {
         BookId = AsInt(Prop(b, "BookId")),
@@ -414,6 +415,12 @@
 
         <!-- Left: Recommended + Categories -->
         <div class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 flex flex-col overflow-y-auto no-scrollbar rounded-2xl lg:rounded-3xl relative order-1">
+            @if (!stripeReady)
+            {
+                <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 text-amber-950 text-sm px-4 py-3" role="status">
+                    Payments are not active until Stripe keys are configured (<code class="text-xs">Stripe:PublishableKey</code> and <code class="text-xs">Stripe:SecretKey</code> in configuration or environment). Checkout links will remind you until then.
+                </div>
+            }
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl tracking-tight font-semibold text-slate-900">Recommended</h2>
                 <div class="flex items-center gap-2">
@@ -472,7 +479,7 @@
                             <p class="text-sm text-slate-500 truncate">@authorName</p>
                             @if (chCount > 0)
                             {
-                                <p class="text-[11px] text-violet-700 font-semibold mt-1.5 truncate" title="Total AI generation saves stored for this book (all chapters). Open AI Writer to see per-chapter versions."><i class="fas fa-history" aria-hidden="true"></i> @chCount AI save(s) — book mein data hai</p>
+                                <p class="text-[11px] text-violet-700 font-semibold mt-1.5 truncate" title="Total AI generation saves stored for this book (all chapters). Open AI Writer to see per-chapter versions."><i class="fas fa-history" aria-hidden="true"></i> @chCount AI save(s) on file</p>
                             }
                         </div>
                     }

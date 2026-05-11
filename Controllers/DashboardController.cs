@@ -1,3 +1,4 @@
+using EBookDashboard.Infrastructure;
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
@@ -958,15 +959,11 @@ namespace EBookDashboard.Controllers
         }
 
         [Route("AudioBook")]
-        public async Task<IActionResult> AudioBook()
+        public IActionResult AudioBook()
         {
-            ViewBag.UserName = User.Identity?.Name ?? "User";
-            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
-            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserEmail == userEmail);
-            var roleId = user?.RoleId ?? 0;
-            // RoleId 1 or 2: page stays open, no Upgrade Required popup
-            ViewBag.ShowUpgradePrompt = (roleId != 1 && roleId != 2);
-            return View();
+            // Feature not available yet — sidebar entry is commented out; block direct URL access.
+            TempData["InfoMessage"] = "Audio book tools are not available yet. Check back later.";
+            return RedirectToAction("Index", "Dashboard");
         }
 
         /// <summary>Publishing hub: external platform guides + full-service option (demo gating by role/plan).</summary>
@@ -979,7 +976,7 @@ namespace EBookDashboard.Controllers
             var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserEmail == userEmail);
             var roleId = user?.RoleId ?? 0;
             ViewBag.PublishViaPlatformPaid = roleId == 1 || roleId == 2;
-            ViewBag.PublishableKey = _configuration["Stripe:PublishableKey"] ?? "";
+            ViewBag.PublishableKey = StripeKeys.Publishable(_configuration) ?? "";
             ViewBag.SelectedBookId = bookId;
             ViewBag.PublishBookTitle = (string?)null;
             ViewBag.PublishBookDescription = (string?)null;
@@ -988,6 +985,7 @@ namespace EBookDashboard.Controllers
             ViewBag.PublishBookStatus = (string?)null;
             ViewBag.PublishBookAlreadyListed = false;
             ViewBag.PublishBookChapterCount = 0;
+            ViewBag.PublishBookReady = false;
 
             if (user != null && bookId.HasValue && bookId.Value > 0)
             {
@@ -997,7 +995,12 @@ namespace EBookDashboard.Controllers
                     ViewBag.PublishBookTitle = pb.Title;
                     ViewBag.PublishBookDescription = pb.Description;
                     ViewBag.PublishBookGenre = pb.Genre;
-                    ViewBag.PublishBookCover = pb.CoverImagePath;
+                    var aiCoverKey = $"book:{bookId.Value}:aiCoverLastPreview";
+                    var aiCoverRow = await _context.Settings.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Key == aiCoverKey);
+                    var aiCover = (aiCoverRow?.Value ?? "").Trim();
+                    var pathCover = (pb.CoverImagePath ?? "").Trim();
+                    ViewBag.PublishBookCover = !string.IsNullOrEmpty(aiCover) ? aiCover : pathCover;
                     ViewBag.PublishBookStatus = pb.Status;
                     var ps = pb.Status ?? "";
                     ViewBag.PublishBookAlreadyListed = ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
@@ -1020,6 +1023,14 @@ namespace EBookDashboard.Controllers
                             .MaxAsync(r => r.Chapter);
                     }
                     ViewBag.PublishBookChapterCount = Math.Max(maxCh, maxRaw);
+
+                    var coverReady = !string.IsNullOrWhiteSpace(ViewBag.PublishBookCover as string);
+                    var statusReady =
+                        ps.Equals("Finalized", StringComparison.OrdinalIgnoreCase)
+                        || ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
+                        || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase)
+                        || ps.Equals("Final", StringComparison.OrdinalIgnoreCase);
+                    ViewBag.PublishBookReady = statusReady && coverReady;
                 }
             }
 
@@ -1919,7 +1930,10 @@ namespace EBookDashboard.Controllers
             ViewBag.Books = books;
             ViewBag.UserId = user.UserId;
             ViewBag.AuthorName = user.FullName ?? user.UserEmail ?? "Author";
-            
+            ViewBag.StripePaymentsReady =
+                !string.IsNullOrWhiteSpace(StripeKeys.Publishable(_configuration))
+                && !string.IsNullOrWhiteSpace(StripeKeys.Secret(_configuration));
+
             return View();
         }
 

@@ -127,30 +127,21 @@
     #covPreviewShell.cov-style-elegant #covPreviewAuthor { font-family: 'Playfair Display', Georgia, serif; font-style: italic; letter-spacing: 0.06em; text-transform: none; font-size: 0.95rem; }
     #covPreviewShell.cov-style-modern #covPreviewAuthor { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.7rem; }
     #covPreviewShell.cov-style-vintage #covPreviewAuthor { font-family: Georgia, serif; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.72rem; opacity: 0.95; }
-    .cov-preview-book-stage { perspective: 1200px; padding: 0.5rem 0 1rem; }
-    .cov-preview-zoom-inner { transform-origin: top center; transform: rotateY(-4deg) rotateX(2deg) scale(1) !important; transition: transform 0.2s ease; }
-    .cov-preview-3d {
-        transform: none;
+    .cov-preview-book-stage {
+        perspective: 1200px;
+        padding: 0.5rem 0 1rem;
+        transform-style: preserve-3d;
+    }
+    /* Preview: no zoom wrapper — 3D tilt on the shell only */
+    #covPreviewShell.cov-preview-3d {
+        transform: rotateY(-4deg) rotateX(2deg);
+        transform-style: preserve-3d;
+        transition: transform 0.2s ease, box-shadow 0.35s ease;
         box-shadow:
             0 2px 4px rgba(15, 23, 42, 0.06),
             0 24px 48px -12px rgba(15, 23, 42, 0.35),
             0 0 0 1px rgba(255, 255, 255, 0.06) inset;
     }
-    .cov-preview-toolbar {
-        display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem;
-        margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 16px;
-        border: 1px solid #e2e8f0; background: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
-        max-width: 440px;
-    }
-    .cov-preview-toolbar label { font-size: 0.7rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
-    .cov-preview-zoom-wrap { display: flex; align-items: center; gap: 0.35rem; flex: 1; min-width: 140px; }
-    .cov-preview-zoom-wrap input[type="range"] { flex: 1; accent-color: #7c3aed; }
-    .cov-preview-toolbar-btn {
-        display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 12px; border: 1px solid #e2e8f0;
-        background: #fff; color: #475569; font-size: 0.8rem; font-weight: 600; padding: 0.45rem 0.75rem; cursor: pointer;
-        transition: background 0.15s, border-color 0.15s, color 0.15s;
-    }
-    .cov-preview-toolbar-btn:hover { border-color: #c4b5fd; color: #5b21b6; background: #faf5ff; }
     #covPreviewTitle.cov-line-empty, #covPreviewAuthor.cov-line-empty { opacity: 0; min-height: 0.1em; }
 </style>
 
@@ -186,25 +177,17 @@
                 </div>
                 <div class="flex flex-col gap-5" data-guided-tour="cov-fields">
                 <div>
-                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Title</label>
-                    <input type="text" id="bookTitle" placeholder="Your book title" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all" />
+                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Title <span class="text-slate-400 font-normal">(from your book)</span></label>
+                    <input type="text" id="bookTitle" readonly tabindex="-1" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-slate-50 cursor-default outline-none transition-all duration-200" title="Loaded from your book; edit in AI Writer" />
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-600 mb-2 font-medium">Author Name</label>
-                    <input type="text" id="authorName" placeholder="Author name" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-400 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all" />
+                    <label class="block text-sm text-slate-600 mb-2 font-medium">Author Name <span class="text-slate-400 font-normal">(from your account / book)</span></label>
+                    <input type="text" id="authorName" readonly tabindex="-1" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-slate-50 cursor-default outline-none transition-all duration-200" title="Loaded from your profile or book" />
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Category / Genre</label>
-                    <select id="bookCategory" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 transition-all bg-white appearance-none cursor-pointer" style="background-image:url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e\");background-repeat:no-repeat;background-position:right 1rem center;background-size:1rem;padding-right:2.5rem;">
-                        <option value="Sci-Fi">Sci-Fi</option>
-                        <option value="Fantasy">Fantasy</option>
-                        <option value="Thriller">Thriller</option>
-                        <option value="Romance">Romance</option>
-                        <option value="Mystery">Mystery</option>
-                        <option value="Non-Fiction">Non-Fiction</option>
-                        <option value="Biography">Biography</option>
-                        <option value="Horror">Horror</option>
-                        <option value="General">General</option>
+                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Category / Genre <span class="text-slate-400 font-normal">(from your book)</span></label>
+                    <select id="bookCategory" disabled class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 outline-none bg-slate-50 cursor-default appearance-none opacity-100" style="background-image:url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e\");background-repeat:no-repeat;background-position:right 1rem center;background-size:1rem;padding-right:2.5rem;">
+                        <option value="">Loading from your library…</option>
                     </select>
                 </div>
                 <input type="hidden" id="coverStyle" value="modern" autocomplete="off" />
@@ -248,8 +231,7 @@
             <p class="text-sm text-slate-500 leading-relaxed max-w-lg mb-6">Only your title and author appear on the cover. Fields on the left never render as labels here.</p>
 
             <div class="cov-preview-book-stage self-start w-full max-w-[440px]">
-                <div id="covPreviewZoomInner" class="cov-preview-zoom-inner cov-preview-3d">
-                    <div id="covPreviewShell" class="w-full aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
+                    <div id="covPreviewShell" class="cov-preview-3d w-full aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
                         <img id="covPreviewBgImg" src="" alt="" class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500 pointer-events-none" />
                         <div id="covPreviewFallbackBg" class="cov-preview-fallback-purple absolute inset-0 transition-opacity duration-500"></div>
                         <div class="absolute inset-0 flex flex-col items-center justify-between pt-[12%] pb-[14%] px-5 sm:px-7 text-center z-10 cov-preview-typography">
@@ -261,7 +243,6 @@
                             <span class="text-sm font-medium">Generating…</span>
                         </div>
                     </div>
-                </div>
             </div>
 
             <input type="hidden" id="coverGeneratedPayload" value="" />
@@ -318,7 +299,6 @@
     var coverGeneratedPayload = document.getElementById('coverGeneratedPayload');
     var btnGoToPublish = document.getElementById('btnGoToPublish');
     var covPreviewShell = document.getElementById('covPreviewShell');
-    var covPreviewZoomInner = document.getElementById('covPreviewZoomInner');
 
     function toast(icon, text) {
         if (typeof Swal !== 'undefined') Swal.fire({ icon: icon, text: text, timer: 2600, showConfirmButton: false });
@@ -357,8 +337,21 @@
         });
     }
 
-    function setCoverZoomPercent() {
-        if (covPreviewZoomInner) covPreviewZoomInner.style.transform = '';
+    /** Genre list is driven only by book API (no static catalog). */
+    function setGenreFromApi(g) {
+        if (!bookCategory) return;
+        var genre = (g || '').trim();
+        bookCategory.innerHTML = '';
+        var o = document.createElement('option');
+        if (!genre) {
+            o.value = '';
+            o.textContent = 'No genre on file — set in AI Writer / My Books';
+        } else {
+            o.value = genre;
+            o.textContent = genre;
+        }
+        bookCategory.appendChild(o);
+        bookCategory.value = genre;
     }
 
     function updateLivePreview() {
@@ -388,11 +381,7 @@
                 bookTitle.value = (b.title != null) ? b.title : bookTitle.value;
                 var srvAuthor = (b.authorName || '').trim();
                 if (srvAuthor) authorName.value = srvAuthor;
-                var g = (b.genre || '').trim();
-                if (g) {
-                    var o = Array.prototype.find.call(bookCategory.options, function (opt) { return opt.value.toLowerCase() === g.toLowerCase(); });
-                    if (o) bookCategory.value = o.value;
-                }
+                setGenreFromApi((b.genre || '').trim());
                 var dir = (b.aiCoverPrompt || '').trim();
                 if (dir) imageDirection.value = dir;
                 var path = (b.aiCoverLastPreview || b.coverImagePath || '').trim();
@@ -412,7 +401,7 @@
     function buildStructuredPrompt() {
         var title = (bookTitle.value || '').trim() || (selectedBook && selectedBook.title) || 'My Book';
         var author = (authorName.value || '').trim() || (selectedBook && selectedBook.authorName) || '';
-        var genre = (bookCategory.value || '').trim() || 'General';
+        var genre = (bookCategory.value || '').trim();
         var style = (coverStyle.value || '').trim() || 'modern';
         var description = (imageDirection.value || '').trim();
         return (
@@ -560,7 +549,7 @@
             prompt: prompt,
             title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
             author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
-            genre: (bookCategory.value || '').trim() || 'General',
+            genre: (bookCategory.value || '').trim(),
             style: (coverStyle.value || '').trim() || 'modern',
             description: (imageDirection.value || '').trim()
         };
@@ -672,11 +661,7 @@
         if (!selectedBook) return;
         bookTitle.value = selectedBook.title || '';
         authorName.value = selectedBook.authorName || '';
-        var g = (selectedBook.genre || '').trim();
-        if (g) {
-            var o = Array.prototype.find.call(bookCategory.options, function (opt) { return opt.value.toLowerCase() === g.toLowerCase(); });
-            if (o) bookCategory.value = o.value;
-        }
+        setGenreFromApi((selectedBook.genre || '').trim());
         imageDirection.value = selectedBook.aiCoverPrompt || selectedBook.description || '';
         selectedPath = (selectedBook.aiCoverLastPreview || selectedBook.coverImagePath || '').trim();
         coverHistory = [];
@@ -721,7 +706,6 @@
         refreshBookFromServer(defaultId);
         applyCoverStyleClass();
         syncCoverStyleCards();
-        setCoverZoomPercent();
         refreshLucide();
     }
 
@@ -748,10 +732,6 @@
         bindBook(this.value);
         refreshBookFromServer(this.value);
     });
-    bookTitle.addEventListener('input', updateLivePreview);
-    authorName.addEventListener('input', updateLivePreview);
-    bookCategory.addEventListener('change', updateLivePreview);
-
     btnGenerate.addEventListener('click', function () { generateCoverFromDashboard(); });
     if (btnRegenerate) btnRegenerate.addEventListener('click', function () {
         console.log('[CoverDesign] Regenerate clicked');

@@ -244,7 +244,7 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "RequestVerificationToken";
 });
 
-var stripeSecretKey = builder.Configuration["Stripe:SecretKey"];
+var stripeSecretKey = StripeKeys.Secret(builder.Configuration);
 if (!string.IsNullOrWhiteSpace(stripeSecretKey))
     Stripe.StripeConfiguration.ApiKey = stripeSecretKey.Trim();
 

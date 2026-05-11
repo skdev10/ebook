@@ -52,6 +52,11 @@
     <PackageReference Include="UglyToad.PdfPig" Version="0.1.8-alpha001-patch1" />
   </ItemGroup>
 
+  <!-- Duplicate nested copy of Program.cs was being compiled and caused CS8802 (two top-level entry points). -->
+  <ItemGroup>
+    <Compile Remove="newEbook\**\*.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="Certificates\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

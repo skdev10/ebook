@@ -3359,6 +3359,7 @@
                     }
                 </li> *@
                 <li style="margin-top: 8px;"><div style="height: 1px; background: #e5e7eb; margin: 0 16px;"></div></li>
+                @* AUDIOBOOK — Temporarily disabled (preserve for re-enable)
                 <li>
                     @if (hasGeneratedBook) {
                         <a href="/Dashboard/AudioBook" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AudioBook" ? "active" : "")">
@@ -3370,6 +3371,7 @@
                         </a>
                     }
                 </li>
+                *@
                 <li>
                     <a href="/Books/EBookHub" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Books" && ViewContext.RouteData.Values["Action"]?.ToString() == "EBookHub" ? "active" : "")">
                         <i data-lucide="users-round" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Ebook Hub</span>

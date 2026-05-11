@@ -71,7 +71,7 @@
     .preview-state-error { color: #b91c1c; }
     .preview-panel-single { display: block !important; }
     .preview-panel-single.hidden { display: none !important; }
-    .preview-panel-both .preview-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 400px; }
+    .preview-panel-both .preview-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 0; height: 100%; }
     .preview-panel-both .preview-split .preview-half { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; }
     .config-card {
         border: 1px solid #ede9fe;
@@ -81,7 +81,7 @@
         box-shadow: 0 8px 18px -14px rgba(124, 58, 237, .28);
     }
 
-    /* ----- Reader: align with AI Book Writer (min-height, extra bottom padding) ----- */
+    /* ----- Reader: default block (config column / elsewhere). Live preview uses fixed shell below — no vh-based min-height (avoids resize/flicker). ----- */
     .reader-content-wrap {
         min-height: min(85vh, 953px);
         height: auto;
@@ -416,6 +416,19 @@
         margin-top: auto;
         flex-shrink: 0;
     }
+    /* Match AI Book Writer `#chapterPreviewNav` sticky dock inside live preview */
+    #preview-wrapper .reader-nav-bar.fmt-reader-nav-dock {
+        position: sticky;
+        bottom: 0;
+        z-index: 8;
+        padding-top: 0.75rem;
+        background: linear-gradient(to top, #fafaf9 72%, rgba(250, 250, 249, 0.94) 90%, transparent);
+        border-top: 1px solid rgba(196, 181, 253, 0.5);
+        box-shadow: 0 -8px 24px -14px rgba(91, 33, 182, 0.12);
+    }
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single .reader-nav-bar.fmt-reader-nav-dock {
+        background: linear-gradient(to top, #fff 75%, rgba(255, 255, 255, 0.92) 92%, transparent);
+    }
     .reader-nav-bar.reader-dark { border-top-color: #374151; }
     .reader-nav-btn {
         min-width: 100px;
@@ -438,7 +451,23 @@
         flex-shrink: 0;
     }
     .reader-toolbar.reader-dark { border-bottom: 1px solid #374151; }
-    .preview-panel-both .reader-content-wrap { height: 360px; }
+    /* Dual preview: fill fixed studio column (no arbitrary 360px jump vs single mode) */
+    .preview-panel-both .preview-split {
+        height: 100%;
+        min-height: 0;
+        max-height: 100%;
+    }
+    .preview-panel-both .preview-half {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .preview-panel-both .reader-content-wrap {
+        flex: 1 1 auto;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+    }
     .reader-retry-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.875rem; background: #7c3aed; color: #fff; border: none; cursor: pointer; }
     .reader-retry-btn:hover { background: #6d28d9; }
 
@@ -458,12 +487,29 @@
     #preview-wrapper .reader-page-body {
         pointer-events: none; /* lock text interaction */
     }
-    #preview-wrapper .reader-nav-btn {
+    #preview-wrapper .reader-nav-btn,
+    #preview-wrapper .fmt-preview-side-nav {
         pointer-events: auto;
     }
 
     /* Premium format: visible only in main config column, never inside live preview chrome */
     #preview-wrapper .premium-format-ui-only { display: none !important; }
+
+    /* Inside fixed preview chrome: never tie height to viewport (matches AI Book Writer stability) */
+    #preview-wrapper.fmt-formatter-preview-fixed .reader-content-wrap {
+        min-height: 0 !important;
+        max-height: none !important;
+    }
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both {
+        height: 100%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both .preview-split {
+        flex: 1 1 auto;
+        min-height: 0;
+    }
     .format-premium-banner {
         display: none;
         align-items: center;
@@ -497,6 +543,13 @@
         background: #faf5ff;
         box-shadow: 0 8px 24px -18px rgba(124, 58, 237, 0.45);
     }
+    /* Above live preview: white “card” like chapter chrome sitting on lavender (AI Writer feel) */
+    .fmt-interior-canvas > #reader-chrome-main.reader-chrome-bar:not(.hidden) {
+        background: #fff;
+        border: 1px solid rgba(196, 181, 253, 0.55);
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(91, 33, 182, 0.08);
+    }
     .reader-progress-track {
         height: 4px;
         border-radius: 999px;
@@ -518,25 +571,28 @@
         gap: 10px;
     }
     .reader-chrome-row label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
-    /* ----- Studio: same outer preview card as AI Book Writer #bookResult ----- */
+    /* ----- Studio: match AI Book Writer `#bookResult` preview shell (width / height band) ----- */
     .fmt-studio-stage {
         --fmt-preview-accent: #5b21b6;
         width: 70%;
         max-width: 100%;
-        min-height: min(72vh, 640px);
+        height: 969px;
+        min-height: 1002px;
+        max-height: 1112px;
         margin-left: 0;
         margin-right: auto;
         display: flex;
         flex-direction: column;
-        flex: 1 1 auto;
-        flex-shrink: 1;
-        overflow: visible;
+        flex-shrink: 0;
+        overflow: hidden;
         position: relative;
         border: 1px solid #ddd6fe;
         box-shadow: 0 16px 32px -22px rgba(91, 33, 182, 0.22);
         background: #f5f3ff;
         border-radius: 12px;
+        box-sizing: border-box;
         padding: 1.5rem;
+        transition: box-shadow 0.2s ease;
     }
     @@media (min-width: 768px) {
         .fmt-studio-stage { padding: 2rem; }
@@ -547,6 +603,7 @@
     .fmt-studio-cover-row {
         display: flex; flex-wrap: wrap; align-items: stretch; justify-content: center; gap: 1.25rem;
         margin-bottom: 1.25rem;
+        flex-shrink: 0;
     }
     .fmt-cover-mock {
         width: 140px; flex-shrink: 0; aspect-ratio: 2 / 3; border-radius: 14px; position: relative; overflow: hidden;
@@ -581,7 +638,7 @@
         font-size: 0.58rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255, 255, 255, 0.92);
         max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .fmt-interior-canvas { flex: 1; min-width: 0; max-width: 100%; }
+    .fmt-interior-canvas { flex: 1 1 auto; min-width: 0; min-height: 0; max-width: 100%; display: flex; flex-direction: column; }
     .fmt-int-card {
         border-radius: 12px; border: 2px solid #e5e7eb; background: #fff; padding: 0.65rem 0.5rem;
         text-align: center; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
@@ -608,7 +665,203 @@
         margin: 0 !important; padding: 0 !important; height: 0 !important; min-height: 0 !important;
         overflow: hidden !important; visibility: hidden !important;
     }
-    .fmt-studio-zoom-inner { transform-origin: top center; transform: scale(1) !important; transition: transform 0.18s ease; }
+    /* Fills remaining space inside `.fmt-studio-stage` (fixed outer card like AI Writer #bookResult) */
+    #preview-wrapper.fmt-formatter-preview-fixed {
+        width: 100%;
+        max-width: 100%;
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        max-height: none;
+        overflow: hidden;
+        flex-shrink: 1;
+        box-sizing: border-box;
+    }
+    /* Same inner frame as AI Book Writer `.paginated-reader-shell` (Views/Books/AIGenerateBook.cshtml) */
+    .fmt-ai-writer-preview-shell {
+        border-radius: 14px;
+        border: 1px solid rgba(196, 181, 253, 0.65);
+        background: #fff;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.9),
+            0 4px 20px -8px rgba(91, 33, 182, 0.15);
+        box-sizing: border-box;
+    }
+    #preview-single.fmt-formatter-preview-card.fmt-ai-writer-preview-shell {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    #preview-single.fmt-formatter-preview-card #preview-content {
+        position: relative;
+        z-index: 1;
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    /* White reading canvas + padding = AI Writer `#preview-content.chapter-preview-viewport` */
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap {
+        flex: 1 1 0%;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden;
+        padding: 1.25rem 1.5rem 2.5rem 1.5rem;
+        background: #fff !important;
+        border: none !important;
+        border-radius: 0;
+        box-shadow: none !important;
+    }
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-novel,
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-modern,
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-classic,
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-minimalist,
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-elegant-trade {
+        background: #fff !important;
+        border-color: transparent !important;
+    }
+    /* Dual preview: each column uses same shell as single mode */
+    #preview-both .preview-half.fmt-ai-writer-preview-shell {
+        background: #fff;
+    }
+    #preview-both .preview-half .reader-content-wrap {
+        background: #fff !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single .reader-page-inner {
+        flex: 1 1 0%;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* Match AI Book Writer side chevrons (siblings of reader shell inside `#preview-content`) */
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav,
+    #preview-both .fmt-preview-side-nav {
+        position: absolute;
+        top: 50%;
+        z-index: 24;
+        pointer-events: auto;
+        width: 2.5rem;
+        height: 3.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #64748b;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        padding: 0;
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav:hover:not(:disabled),
+    #preview-both .fmt-preview-side-nav:hover:not(:disabled) {
+        border-color: #c4b5fd;
+        color: #5b21b6;
+        box-shadow: 0 8px 22px rgba(91, 33, 182, 0.18);
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav:disabled,
+    #preview-both .fmt-preview-side-nav:disabled {
+        opacity: 0.32;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-prev,
+    #preview-both .fmt-preview-side-prev { left: 0; transform: translate(-42%, -50%); }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-prev:hover:not(:disabled),
+    #preview-both .fmt-preview-side-prev:hover:not(:disabled) { transform: translate(-42%, -50%) scale(1.04); }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-next,
+    #preview-both .fmt-preview-side-next { right: 0; transform: translate(42%, -50%); }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-next:hover:not(:disabled),
+    #preview-both .fmt-preview-side-next:hover:not(:disabled) { transform: translate(42%, -50%) scale(1.04); }
+    .fmt-chapter-nav-below {
+        border-top: 1px solid rgba(196, 181, 253, 0.35);
+        padding-top: 0.5rem;
+    }
+    #preview-both .fmt-preview-both-main {
+        position: relative;
+        flex: 1 1 0%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    #preview-both .fmt-preview-both-main .preview-split {
+        flex: 1 1 0%;
+        min-height: 0;
+    }
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both .reader-page-inner {
+        flex: 1 1 0%;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single .reader-nav-bar,
+    #preview-both .reader-nav-bar {
+        position: relative;
+        z-index: 6;
+        background: #fff;
+    }
+    .fmt-preview-root {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
+    /* AI Writer `#bookResult` lavender card */
+    .fmt-book-result {
+        box-sizing: border-box;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    /* AI Writer `.chapter-preview-scroll-host` */
+    .fmt-chapter-preview-scroll-host {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+    }
+    /* AI Writer `.chapter-read-progress` in bottom dock */
+    .fmt-chapter-read-progress {
+        height: 6px;
+        border-radius: 9999px;
+        background: rgba(148, 163, 184, 0.35);
+        overflow: hidden;
+        margin: 0 auto 0.15rem auto;
+    }
+    .fmt-chapter-read-progress-fill {
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #7c3aed, #a78bfa);
+        transition: width 0.35s ease;
+    }
+    /* AI Writer `#chapterPreviewNav.chapter-reader-nav-dock` */
+    #preview-wrapper .reader-nav-bar.chapter-preview-nav.fmt-reader-nav-dock {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        margin-top: auto;
+        padding-top: 0.85rem;
+        padding-bottom: 0.35rem;
+        background: linear-gradient(to top, #f5f3ff 70%, rgba(245, 243, 255, 0.92) 90%, transparent);
+        border-top: 1px solid rgba(196, 181, 253, 0.55);
+        box-shadow: 0 -8px 24px -12px rgba(91, 33, 182, 0.18);
+    }
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single .reader-nav-bar.chapter-preview-nav.fmt-reader-nav-dock {
+        background: linear-gradient(to top, #fff 72%, rgba(255, 255, 255, 0.94) 90%, transparent);
+        border-top: 1px solid rgba(196, 181, 253, 0.45);
+    }
     #reader-chapter-jump {
         flex: 1;
         min-width: 160px;
@@ -837,7 +1090,7 @@ div#fmt-finalize-panel {
                         </div>
                     </div>
 
-                    <div class="mt-6 flex flex-col gap-3" data-guided-tour="fmt-actions">
+                    <div class="mt-6 flex flex-col gap-3" data-guided-tour="fmt-actions" id="fmt-actions-panel">
                         <button type="button" id="btn-generate-manuscript" class="formatter-ui-radius w-full bg-violet-700 hover:bg-violet-800 active:scale-95 text-white text-sm font-medium py-2.5 px-6 shadow-lg shadow-violet-200/80 transition-all">
                             Apply Formatting
                         </button>
@@ -861,7 +1114,7 @@ div#fmt-finalize-panel {
                         </p>
                     </div>
 
-                    <div id="fmt-studio-stage" class="fmt-studio-stage w-full flex flex-col min-h-0">
+                    <div id="fmt-studio-stage" class="fmt-studio-stage flex flex-col min-h-0">
                         <div class="fmt-studio-cover-row items-start">
                             <div class="fmt-cover-mock shrink-0" aria-hidden="true">
                                 <img id="fmt-cover-mock-img" class="fmt-cover-mock__img" src="" alt="" width="280" height="420" />
@@ -880,53 +1133,95 @@ div#fmt-finalize-panel {
                                         <button type="button" id="reader-bookmark-btn" title="Save reading position on this device">Bookmark</button>
                                     </div>
                                 </div>
-                                <div class="fmt-studio-zoom-inner flex-1 min-h-0" id="fmt-studio-zoom-inner">
-                                    <div class="flex-1 relative flex pb-4 overflow-hidden min-h-[320px]" id="preview-wrapper" data-guided-tour="fmt-preview">
-                                        <div id="preview-single" class="preview-panel-single relative w-full max-w-full bg-white border border-gray-100 rounded-xl shadow-2xl flex flex-col overflow-hidden ring-4 ring-gray-50/50" tabindex="0">
-                                            <div id="preview-content" class="flex-1 flex flex-col min-h-0">
-                                                <div class="reader-content-wrap" id="reader-wrap-single">
-                                                    <div class="reader-page-inner" id="preview-content-inner">
+                                <div id="fmt-studio-preview-toolbar" class="mb-2 flex flex-wrap items-center justify-between gap-2 shrink-0 w-full">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <button type="button" id="fmt-btn-studio-preview" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 border-0 cursor-pointer hover:opacity-95 shrink-0" style="background-color:#6d28d9;" title="Refresh interior & cover preview from current settings">
+                                            <i class="fas fa-book-open" aria-hidden="true"></i> Preview
+                                        </button>
+                                        <button type="button" id="fmt-btn-studio-fix" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 transition-colors shrink-0" title="Jump to Apply Formatting on the left">
+                                            <i class="fas fa-sliders-h" aria-hidden="true"></i> Fix
+                                        </button>
+                                    </div>
+                                    <button type="button" id="fmt-btn-studio-next" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 transition-colors shrink-0" title="Continue to AI Cover Design">
+                                        Next <i class="fas fa-arrow-right" aria-hidden="true"></i>
+                                    </button>
+                                </div>
+                                <!-- Match AI Book Writer `#bookResult` lavender panel + chapter title + scroll host -->
+                                <div id="fmt-book-result" class="fmt-book-result relative rounded-xl p-5 md:p-7 lg:p-8 shadow-sm border flex flex-col flex-1 min-h-0" style="background-color:#f5f3ff;border-color:#ddd6fe;">
+                                    <h3 id="fmt-preview-chapter-header" class="text-xl sm:text-2xl font-medium text-slate-700 tracking-tight mb-2 shrink-0 hidden" aria-live="polite">Reading preview</h3>
+                                    <div class="fmt-preview-root fmt-chapter-preview-scroll-host flex-1 min-h-0 flex flex-col">
+                                    <div class="flex-1 relative flex pb-0 overflow-hidden fmt-formatter-preview-fixed" id="preview-wrapper" data-guided-tour="fmt-preview">
+                                        <!-- Inner shell ≈ `#paginatedReaderShell` -->
+                                        <div id="preview-single" class="preview-panel-single fmt-formatter-preview-card fmt-ai-writer-preview-shell relative w-full max-w-full flex flex-col min-h-0 overflow-hidden" tabindex="0">
+                                            <div id="preview-content" class="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+                                                <div class="reader-content-wrap fmt-formatter-viewport flex flex-col flex-1 min-h-0 overflow-hidden" id="reader-wrap-single">
+                                                    <div class="reader-page-inner text-base text-slate-700 leading-relaxed" id="preview-content-inner">
                                                         <p class="preview-state-message">Select a book in AI Writer, then open Book Formatting (or use Next Step) to load your manuscript here.</p>
                                                     </div>
-                                                    <div class="reader-nav-bar">
-                                                        <button type="button" id="btn-prev-format-bar" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50" disabled>Previous</button>
-                                                        <span class="reader-page-indicator" id="page-indicator-format">Page 0 of 0</span>
-                                                        <button type="button" id="btn-next-format-bar" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50" disabled>Next</button>
+                                                    <div class="reader-nav-bar fmt-reader-nav-dock chapter-preview-nav flex flex-wrap items-stretch justify-between gap-2 relative" role="toolbar" aria-label="Page navigation">
+                                                        <button type="button" id="btn-prev-format-bar" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><i class="fas fa-chevron-left" aria-hidden="true"></i> <span class="hidden sm:inline">Previous</span></button>
+                                                        <div class="fmt-nav-center order-last sm:order-none w-full sm:w-auto flex flex-col items-center flex-1 min-w-[8rem] gap-1 px-1">
+                                                            <div class="fmt-chapter-read-progress w-full max-w-[220px]" aria-hidden="true"><div id="fmt-preview-nav-progress" class="fmt-chapter-read-progress-fill"></div></div>
+                                                            <span id="fmt-preview-read-hint" class="text-sm font-medium text-slate-600 text-center px-2 leading-snug">Page 0 of 0</span>
+                                                            <span class="sr-only" id="page-indicator-format">Page 0 of 0</span>
+                                                        </div>
+                                                        <button type="button" id="btn-next-format-bar" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><span class="hidden sm:inline">Next</span> <i class="fas fa-chevron-right" aria-hidden="true"></i></button>
                                                     </div>
                                                 </div>
+                                                <button type="button" id="fmt-preview-side-prev" class="fmt-preview-side-nav fmt-preview-side-prev ai-writer-side-fmt" aria-label="Previous page" title="Previous page" disabled><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
+                                                <button type="button" id="fmt-preview-side-next" class="fmt-preview-side-nav fmt-preview-side-next ai-writer-side-fmt" aria-label="Next page" title="Next page" disabled><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
                                             </div>
                                         </div>
-                                        <div id="preview-both" class="preview-panel-both hidden w-full max-w-full" style="display:none;">
-                                            <div class="preview-split">
-                                                <div class="preview-half flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-[#FFFCF9]">
-                                                    <p class="text-xs font-semibold text-purple-600 mb-2 px-4 pt-4 flex-shrink-0">Ebook</p>
-                                                    <div class="reader-content-wrap flex-1 min-h-0" id="reader-wrap-ebook">
-                                                        <div class="reader-page-inner" id="preview-content-ebook"></div>
-                                                        <div class="reader-nav-bar reader-nav-bar-inline">
-                                                            <button type="button" id="btn-prev-ebook" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Prev</button>
-                                                            <span class="reader-page-indicator text-xs" id="page-indicator-ebook">0 / 0</span>
-                                                            <button type="button" id="btn-next-ebook" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Next</button>
+                                        <div id="preview-both" class="preview-panel-both hidden w-full max-w-full min-h-0 flex-1 flex flex-col relative" style="display:none;">
+                                            <div class="fmt-preview-both-main">
+                                                <div class="preview-split">
+                                                    <div class="preview-half fmt-ai-writer-preview-shell flex flex-col overflow-hidden">
+                                                        <p class="text-xs font-semibold text-purple-600 mb-2 px-4 pt-4 flex-shrink-0">Ebook</p>
+                                                        <div class="reader-content-wrap flex flex-col flex-1 min-h-0 overflow-hidden" id="reader-wrap-ebook">
+                                                            <div class="reader-page-inner text-base text-slate-700 leading-relaxed" id="preview-content-ebook"></div>
+                                                            <div class="reader-nav-bar reader-nav-bar-inline fmt-reader-nav-dock">
+                                                                <button type="button" id="btn-prev-ebook" class="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                                                                <span class="reader-page-indicator text-xs text-slate-600 text-center px-1 flex-1 min-w-0" id="page-indicator-ebook">0 / 0</span>
+                                                                <button type="button" id="btn-next-ebook" class="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="preview-half fmt-ai-writer-preview-shell flex flex-col overflow-hidden">
+                                                        <p class="text-xs font-semibold text-amber-600 mb-2 px-4 pt-4 flex-shrink-0">Paperback</p>
+                                                        <div class="reader-content-wrap flex flex-col flex-1 min-h-0 overflow-hidden" id="reader-wrap-paperback">
+                                                            <div class="reader-page-inner text-base text-slate-700 leading-relaxed" id="preview-content-paperback"></div>
+                                                            <div class="reader-nav-bar reader-nav-bar-inline fmt-reader-nav-dock">
+                                                                <button type="button" id="btn-prev-paperback" class="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                                                                <span class="reader-page-indicator text-xs text-slate-600 text-center px-1 flex-1 min-w-0" id="page-indicator-paperback">0 / 0</span>
+                                                                <button type="button" id="btn-next-paperback" class="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="preview-half flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-[#fafaf9]">
-                                                    <p class="text-xs font-semibold text-amber-600 mb-2 px-4 pt-4 flex-shrink-0">Paperback</p>
-                                                    <div class="reader-content-wrap flex-1 min-h-0" id="reader-wrap-paperback">
-                                                        <div class="reader-page-inner" id="preview-content-paperback"></div>
-                                                        <div class="reader-nav-bar reader-nav-bar-inline">
-                                                            <button type="button" id="btn-prev-paperback" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Prev</button>
-                                                            <span class="reader-page-indicator text-xs" id="page-indicator-paperback">0 / 0</span>
-                                                            <button type="button" id="btn-next-paperback" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 text-xs py-1.5" disabled>Next</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                <button type="button" id="fmt-preview-both-side-prev" class="fmt-preview-side-nav fmt-preview-side-prev" aria-label="Previous page" title="Previous page" disabled><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
+                                                <button type="button" id="fmt-preview-both-side-next" class="fmt-preview-side-nav fmt-preview-side-next" aria-label="Next page" title="Next page" disabled><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
                                             </div>
-                                            <div class="flex justify-between items-center mt-4 px-2">
-                                                <button type="button" id="btn-prev-both" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2"><i class="fas fa-chevron-left mr-1"></i> Previous</button>
-                                                <span id="page-indicator-both" class="reader-page-indicator">Page 0 of 0</span>
-                                                <button type="button" id="btn-next-both" class="reader-nav-btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 px-4 py-2">Next <i class="fas fa-chevron-right ml-1"></i></button>
+                                            <div class="fmt-reader-nav-dock-dual flex flex-wrap items-stretch justify-between gap-2 relative mt-4 px-2 flex-shrink-0 pt-3 border-t border-violet-100/80 bg-gradient-to-t from-[#f5f3ff] to-transparent rounded-b-xl">
+                                                <button type="button" id="btn-prev-both" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"><i class="fas fa-chevron-left" aria-hidden="true"></i> <span class="hidden sm:inline">Previous</span></button>
+                                                <span id="page-indicator-both" class="reader-page-indicator text-sm text-slate-600 self-center px-2">Page 0 of 0</span>
+                                                <button type="button" id="btn-next-both" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"><span class="hidden sm:inline">Next</span> <i class="fas fa-chevron-right" aria-hidden="true"></i></button>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                                <!-- Below lavender preview: chapter + library (AI Writer pattern, does not cover the reader) -->
+                                <div id="fmt-chapter-nav-below" class="fmt-chapter-nav-below mt-3 shrink-0 hidden flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-3 px-1 pb-1">
+                                    <a href="/Books/AIGenerateBook" id="fmt-link-switch-book" class="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-violet-800 border-2 border-violet-200 bg-white hover:bg-violet-50 transition-colors shrink-0 self-center" title="Open AI Book Writer to choose another book">
+                                        <i class="fas fa-book" aria-hidden="true"></i> <span>Books</span>
+                                    </a>
+                                    <div class="flex flex-wrap items-center justify-center gap-2 flex-1 min-w-0">
+                                        <button type="button" id="fmt-btn-chapter-prev" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="First page of previous chapter">
+                                            <i class="fas fa-angle-double-left" aria-hidden="true"></i> <span class="hidden sm:inline">Prev chapter</span>
+                                        </button>
+                                        <span id="fmt-chapter-nav-label" class="text-xs sm:text-sm font-medium text-slate-600 text-center max-w-[min(100%,18rem)] leading-snug px-2"></span>
+                                        <button type="button" id="fmt-btn-chapter-next" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="First page of next chapter">
+                                            <span class="hidden sm:inline">Next chapter</span> <i class="fas fa-angle-double-right" aria-hidden="true"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -955,6 +1250,21 @@ div#fmt-finalize-panel {
     const userId = parseInt((root && root.getAttribute('data-user-id')) || '0', 10);
     let initialBookId = parseInt((root && root.getAttribute('data-book-id')) || '0', 10);
     let formatFromUrl = (root && root.getAttribute('data-format')) || 'Ebook';
+
+    /** When present on the URL (?format=Ebook etc.), keep preview mode in sync after GetBookFormatting / local draft (matches AI Writer deep links). */
+    function getFormatQueryParam() {
+        try {
+            var v = new URLSearchParams(window.location.search || '').get('format');
+            if (!v) return null;
+            v = String(v).trim();
+            if (/^print$/i.test(v)) return 'Paperback';
+            if (/^paperback$/i.test(v)) return 'Paperback';
+            if (/^ebook$/i.test(v)) return 'Ebook';
+            if (/^both$/i.test(v)) return 'Both';
+        } catch (e) { /* ignore */ }
+        return null;
+    }
+    var formatLockedByQuery = getFormatQueryParam();
 
     if (root && initialBookId <= 0) {
         let stored = 0;
@@ -1014,7 +1324,8 @@ div#fmt-finalize-panel {
         } catch (e) { /* ignore quota issues */ }
     }
 
-    function applyFormatterStateToUi(state) {
+    function applyFormatterStateToUi(state, opts) {
+        opts = opts || {};
         if (!state) return;
         const fmtEl = document.getElementById('format-select');
         const styleEl = document.getElementById('style-select');
@@ -1031,7 +1342,7 @@ div#fmt-finalize-panel {
             accentIn.value = String(state.previewAccent).trim();
         }
         updatePremiumFormatUi();
-        togglePreviewMode();
+        if (!opts.skipPreviewToggle) togglePreviewMode();
         syncFmtInteriorCardsFromSelect();
         syncFmtTypographyPillsFromSelects();
         applyFmtStudioAccent();
@@ -1113,11 +1424,6 @@ div#fmt-finalize-panel {
                 img.src = url;
             })
             .catch(function() { /* optional cover */ });
-    }
-
-    function setFmtPreviewZoom() {
-        var inner = document.getElementById('fmt-studio-zoom-inner');
-        if (inner) inner.style.transform = 'scale(1)';
     }
 
     function storageReaderKey(bid) {
@@ -1628,15 +1934,34 @@ div#fmt-finalize-panel {
         const indB = document.getElementById('page-indicator-both');
         const indE = document.getElementById('page-indicator-ebook');
         const indP = document.getElementById('page-indicator-paperback');
-        if (indF) indF.textContent = 'Page 0 of 0';
+        if (indF) { indF.textContent = 'Page 0 of 0'; indF.removeAttribute('title'); }
         if (indB) indB.textContent = 'Page 0 of 0';
         if (indE) indE.textContent = '0 / 0';
         if (indP) indP.textContent = '0 / 0';
         setReaderNavDisabled(true, true);
+        syncFormatterSideNavVisibility();
         const fill = document.getElementById('reader-progress-fill');
         if (fill) fill.style.width = '0%';
+        var dockProg = document.getElementById('fmt-preview-nav-progress');
+        if (dockProg) dockProg.style.width = '0%';
+        var hint = document.getElementById('fmt-preview-read-hint');
+        if (hint) hint.textContent = 'Page 0 of 0';
+        var fh = document.getElementById('fmt-preview-chapter-header');
+        if (fh) fh.classList.add('hidden');
+        var chRow = document.getElementById('fmt-chapter-nav-below');
+        if (chRow) { chRow.classList.add('hidden'); chRow.classList.remove('flex'); }
         const chrome = document.getElementById('reader-chrome-main');
         if (chrome) chrome.classList.add('hidden');
+    }
+
+    /** Match AI Book Writer: hide side chevrons when there is nothing to paginate. */
+    function syncFormatterSideNavVisibility() {
+        var hide = readerPages.length === 0;
+        ['fmt-preview-side-prev', 'fmt-preview-side-next', 'fmt-preview-both-side-prev', 'fmt-preview-both-side-next'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.visibility = hide ? 'hidden' : '';
+        });
     }
 
     function setReaderNavDisabled(prevDisabled, nextDisabled) {
@@ -1648,8 +1973,12 @@ div#fmt-finalize-panel {
         const nextE = document.getElementById('btn-next-ebook');
         const prevPb = document.getElementById('btn-prev-paperback');
         const nextPb = document.getElementById('btn-next-paperback');
-        [prevBar, prevBoth, prevE, prevPb].forEach(function(btn) { if (btn) btn.disabled = prevDisabled; });
-        [nextBar, nextBoth, nextE, nextPb].forEach(function(btn) { if (btn) btn.disabled = nextDisabled; });
+        const prevSide = document.getElementById('fmt-preview-side-prev');
+        const nextSide = document.getElementById('fmt-preview-side-next');
+        const prevBothSide = document.getElementById('fmt-preview-both-side-prev');
+        const nextBothSide = document.getElementById('fmt-preview-both-side-next');
+        [prevBar, prevBoth, prevE, prevPb, prevSide, prevBothSide].forEach(function(btn) { if (btn) btn.disabled = prevDisabled; });
+        [nextBar, nextBoth, nextE, nextPb, nextSide, nextBothSide].forEach(function(btn) { if (btn) btn.disabled = nextDisabled; });
     }
 
     function showErrorState(msg, userFriendly, retryBookId) {
@@ -1732,6 +2061,7 @@ div#fmt-finalize-panel {
             return;
         }
         if (chrome) chrome.classList.remove('hidden');
+        updateFmtChapterNavBelow();
         bookChapters.forEach(function(ch, idx) {
             const t = (ch && ch.chapterTitle) || ('Chapter ' + (idx + 1));
             const opt = document.createElement('option');
@@ -1743,9 +2073,11 @@ div#fmt-finalize-panel {
 
     function updateReaderProgressUi() {
         const fill = document.getElementById('reader-progress-fill');
+        const dockProg = document.getElementById('fmt-preview-nav-progress');
         const total = readerPages.length;
         const pct = total ? Math.round(((currentPageIdx + 1) / total) * 100) : 0;
         if (fill) fill.style.width = pct + '%';
+        if (dockProg) dockProg.style.width = pct + '%';
         const sel = document.getElementById('reader-chapter-jump');
         if (sel && readerPageChapterIdx.length > currentPageIdx) {
             sel.value = String(readerPageChapterIdx[currentPageIdx]);
@@ -1754,6 +2086,39 @@ div#fmt-finalize-panel {
         if (indF && total) {
             const ch = readerPageChapterIdx[currentPageIdx] != null ? readerPageChapterIdx[currentPageIdx] + 1 : 1;
             indF.setAttribute('title', 'Chapter ' + ch + ' — page ' + (currentPageIdx + 1) + ' of ' + total);
+        }
+    }
+
+    /** AI Writer–style chapter title + hint under progress (single preview mode only). */
+    function updateFmtPreviewChapterChrome() {
+        var h = document.getElementById('fmt-preview-chapter-header');
+        var hint = document.getElementById('fmt-preview-read-hint');
+        var singleEl = document.getElementById('preview-single');
+        var singleMode = singleEl && !singleEl.classList.contains('hidden') && singleEl.style.display !== 'none';
+        var total = readerPages.length;
+        if (h) {
+            if (!singleMode || !total || !bookChapters.length) {
+                h.classList.add('hidden');
+            } else {
+                h.classList.remove('hidden');
+                var ci = readerPageChapterIdx.length > currentPageIdx ? readerPageChapterIdx[currentPageIdx] : 0;
+                var ch = bookChapters[ci];
+                var chNum = ch && ch.chapterNo != null ? parseInt(String(ch.chapterNo), 10) : (ci + 1);
+                if (!Number.isFinite(chNum)) chNum = ci + 1;
+                var title = (ch && ch.chapterTitle) ? String(ch.chapterTitle) : ('Chapter ' + chNum);
+                h.textContent = title;
+            }
+        }
+        if (hint) {
+            if (!total) {
+                hint.textContent = 'Page 0 of 0';
+            } else {
+                var ci2 = readerPageChapterIdx.length > currentPageIdx ? readerPageChapterIdx[currentPageIdx] : 0;
+                var ch2 = bookChapters[ci2];
+                var cn = ch2 && ch2.chapterNo != null ? parseInt(String(ch2.chapterNo), 10) : (ci2 + 1);
+                if (!Number.isFinite(cn)) cn = ci2 + 1;
+                hint.textContent = 'Chapter ' + cn + ' · Page ' + (currentPageIdx + 1) + ' of ' + total;
+            }
         }
     }
 
@@ -1771,6 +2136,9 @@ div#fmt-finalize-panel {
         if (indP) indP.textContent = short;
         setReaderNavDisabled(currentPageIdx <= 0, currentPageIdx >= total - 1 || total === 0);
         updateReaderProgressUi();
+        updateFmtPreviewChapterChrome();
+        updateFmtChapterNavBelow();
+        syncFormatterSideNavVisibility();
     }
 
     function renderPreviewContent(animDir) {
@@ -1837,6 +2205,64 @@ div#fmt-finalize-panel {
         persistReaderPosition();
     }
 
+    function getCurrentChapterIndexFromPage() {
+        if (!readerPageChapterIdx.length || currentPageIdx < 0 || currentPageIdx >= readerPageChapterIdx.length) return 0;
+        return readerPageChapterIdx[currentPageIdx];
+    }
+
+    function goToPrevChapter() {
+        var ci = getCurrentChapterIndexFromPage();
+        if (ci <= 0 || !bookChapters.length) return;
+        currentPageIdx = firstPageForChapter(ci - 1);
+        const fmtEl = document.getElementById('format-select');
+        const fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        if (fmt === 'Both') renderBothPreviews(-1); else renderPreviewContent(-1);
+        persistReaderPosition();
+        refreshFormatterIterationsForCurrentChapter();
+    }
+
+    function goToNextChapter() {
+        var ci = getCurrentChapterIndexFromPage();
+        if (!bookChapters.length || ci >= bookChapters.length - 1) return;
+        currentPageIdx = firstPageForChapter(ci + 1);
+        const fmtEl = document.getElementById('format-select');
+        const fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        if (fmt === 'Both') renderBothPreviews(1); else renderPreviewContent(1);
+        persistReaderPosition();
+        refreshFormatterIterationsForCurrentChapter();
+    }
+
+    function updateFmtChapterNavBelow() {
+        var row = document.getElementById('fmt-chapter-nav-below');
+        var prevB = document.getElementById('fmt-btn-chapter-prev');
+        var nextB = document.getElementById('fmt-btn-chapter-next');
+        var lab = document.getElementById('fmt-chapter-nav-label');
+        if (!row || !prevB || !nextB) return;
+        if (!bookChapters.length || !readerPages.length) {
+            row.classList.add('hidden');
+            row.classList.remove('flex');
+            return;
+        }
+        row.classList.remove('hidden');
+        row.classList.add('flex');
+        var ci = getCurrentChapterIndexFromPage();
+        var ch = bookChapters[ci];
+        var n = bookChapters.length;
+        prevB.disabled = ci <= 0;
+        nextB.disabled = ci >= n - 1;
+        if (lab) {
+            var t = (ch && ch.chapterTitle) ? String(ch.chapterTitle) : ('Chapter ' + (ci + 1));
+            lab.textContent = 'Reading chapter ' + (ci + 1) + ' of ' + n + (t ? ': ' + t : '');
+        }
+    }
+
+    function syncFormatterSwitchBookLink(bid) {
+        var a = document.getElementById('fmt-link-switch-book');
+        if (!a) return;
+        var id = parseInt(String(bid || '0'), 10);
+        a.href = id > 0 ? ('/Books/AIGenerateBook?bookId=' + encodeURIComponent(id)) : '/Books/AIGenerateBook';
+    }
+
     function togglePreviewMode() {
         const fmtEl = document.getElementById('format-select');
         const fmt = (fmtEl && fmtEl.value) || 'Ebook';
@@ -1845,7 +2271,8 @@ div#fmt-finalize-panel {
         updatePremiumFormatUi();
         if (fmt === 'Both') {
             if (single) { single.classList.add('hidden'); single.style.display = 'none'; }
-            if (both) { both.classList.remove('hidden'); both.style.display = 'block'; }
+            /* flex column so .preview-split fills fixed #preview-wrapper height (no layout jump vs single) */
+            if (both) { both.classList.remove('hidden'); both.style.display = 'flex'; both.style.flexDirection = 'column'; }
             renderBothPreviews(0);
         } else {
             if (single) { single.classList.remove('hidden'); single.style.display = 'flex'; }
@@ -1868,8 +2295,6 @@ div#fmt-finalize-panel {
                     const ls = document.getElementById('line-spacing-select');
                     if (fmt && d.format) {
                         fmt.value = (d.format === 'Print' ? 'Paperback' : d.format);
-                        updatePremiumFormatUi();
-                        togglePreviewMode();
                     }
                     if (style && d.interiorStyle) style.value = d.interiorStyle;
                     if (sz && d.textSize) sz.value = d.textSize;
@@ -1877,13 +2302,20 @@ div#fmt-finalize-panel {
                     if (d.publishingPlatforms) setSelectedPlatforms(d.publishingPlatforms);
                     if (d.draftStateJson) {
                         try {
-                            applyFormatterStateToUi(JSON.parse(d.draftStateJson));
+                            applyFormatterStateToUi(JSON.parse(d.draftStateJson), { skipPreviewToggle: true });
                         } catch (e) { /* ignore */ }
                     } else {
                         const localDraft = loadFormatterDraftLocal(numId);
-                        if (localDraft) applyFormatterStateToUi(localDraft);
+                        if (localDraft) applyFormatterStateToUi(localDraft, { skipPreviewToggle: true });
                     }
                 }
+                if (formatLockedByQuery) {
+                    var fmtQ = document.getElementById('format-select');
+                    if (fmtQ && ['Ebook', 'Paperback', 'Both'].indexOf(formatLockedByQuery) >= 0) {
+                        fmtQ.value = formatLockedByQuery;
+                    }
+                }
+                updatePremiumFormatUi();
                 syncFmtInteriorCardsFromSelect();
                 syncFmtTypographyPillsFromSelects();
                 applyFmtStudioAccent();
@@ -1893,6 +2325,8 @@ div#fmt-finalize-panel {
                     readerPages = buildReaderPages();
                     currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
                 }
+                togglePreviewMode();
+                syncFormatPickerButton();
                 renderPreviewContent(0);
                 renderBothPreviews(0);
             })
@@ -1909,6 +2343,7 @@ div#fmt-finalize-panel {
         if (root && bid > 0) root.setAttribute('data-book-id', String(bid));
 
         if (!bid || bid <= 0) {
+            syncFormatterSwitchBookLink(0);
             showEmptyState();
             showToast('Open AI Writer and select a book, then use Next Step.');
             refreshFormatterIterationsForCurrentChapter();
@@ -2110,6 +2545,7 @@ div#fmt-finalize-panel {
         const numId = parseInt(bid, 10);
         if (isNaN(numId) || numId <= 0) {
             bookChapters = [];
+            syncFormatterSwitchBookLink(0);
             showEmptyState();
             refreshFormatterIterationsForCurrentChapter();
             return;
@@ -2220,6 +2656,7 @@ div#fmt-finalize-panel {
             if (hid) hid.value = String(numId);
             try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(numId)); } catch (e) {}
             if (root) root.setAttribute('data-book-id', String(numId));
+            syncFormatterSwitchBookLink(numId);
 
             if (bookChapters.length === 0) {
                 showNoDataState();
@@ -2405,6 +2842,10 @@ div#fmt-finalize-panel {
 
         document.getElementById('btn-prev-format-bar')?.addEventListener('click', goToPrevPage);
         document.getElementById('btn-next-format-bar')?.addEventListener('click', goToNextPage);
+        document.getElementById('fmt-preview-side-prev')?.addEventListener('click', goToPrevPage);
+        document.getElementById('fmt-preview-side-next')?.addEventListener('click', goToNextPage);
+        document.getElementById('fmt-preview-both-side-prev')?.addEventListener('click', goToPrevPage);
+        document.getElementById('fmt-preview-both-side-next')?.addEventListener('click', goToNextPage);
         document.getElementById('btn-prev-both')?.addEventListener('click', goToPrevPage);
         document.getElementById('btn-next-both')?.addEventListener('click', goToNextPage);
         document.getElementById('btn-prev-ebook')?.addEventListener('click', goToPrevPage);
@@ -2480,6 +2921,36 @@ div#fmt-finalize-panel {
             saveFormatting(function(ok) { if (ok) window.location.href = '/Dashboard/CoverDesign?bookId=' + bid; });
         });
 
+        document.getElementById('fmt-btn-studio-fix')?.addEventListener('click', function() {
+            var panel = document.getElementById('fmt-actions-panel');
+            var btn = document.getElementById('btn-generate-manuscript');
+            var el = panel || btn;
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        document.getElementById('fmt-btn-studio-preview')?.addEventListener('click', function() {
+            var hid = document.getElementById('selected-book-id');
+            var bid = parseInt((hid && hid.value) || '0', 10);
+            syncFmtCoverMock();
+            if (bid > 0) loadFmtCoverThumbForBook(bid);
+            if (bookChapters.length) {
+                readerPages = buildReaderPages();
+                currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
+            }
+            var fmtEl = document.getElementById('format-select');
+            var fmt = (fmtEl && fmtEl.value) || 'Ebook';
+            if (fmt === 'Both') renderBothPreviews(0); else renderPreviewContent(0);
+            showToast('Preview refreshed');
+        });
+        document.getElementById('fmt-btn-studio-next')?.addEventListener('click', function() {
+            document.getElementById('btn-next-cover')?.click();
+        });
+        document.getElementById('fmt-btn-chapter-prev')?.addEventListener('click', function() {
+            goToPrevChapter();
+        });
+        document.getElementById('fmt-btn-chapter-next')?.addEventListener('click', function() {
+            goToNextChapter();
+        });
+
         document.getElementById('text-size-select')?.addEventListener('change', function() {
             renderPreviewContent();
             renderBothPreviews();
@@ -2549,7 +3020,6 @@ div#fmt-finalize-panel {
                     queueAutosave(250);
                 });
             }
-            setFmtPreviewZoom();
             syncFmtInteriorCardsFromSelect();
             syncFmtTypographyPillsFromSelects();
             applyFmtStudioAccent();

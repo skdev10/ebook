@@ -38,27 +38,30 @@
     } */
     /* Preview card: fixed reading viewport (paginated); no growth from chapter length */
    
+    /* Preview card: same footprint as Book Formatting `.fmt-studio-stage` (70% width, fixed height band) */
     #bookResult {
-    width: 70%;
-    max-width: 100%;
-    min-height: min(72vh, 640px);
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-    flex-shrink: 1;
-    overflow: visible;
-    position: relative;
-    border: 1px solid #ddd6fe;
-    box-shadow: 0 16px 32px -22px rgba(91, 33, 182, 0.22);
-    background: #f5f3ff;
-    border-radius: 12px;
-}
+        width: 70%;
+        max-width: 100%;
+        height: 969px;
+        min-height: 1002px;
+        max-height: 1112px;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        overflow: hidden;
+        position: relative;
+        border: 1px solid #ddd6fe;
+        box-shadow: 0 16px 32px -22px rgba(91, 33, 182, 0.22);
+        background: #f5f3ff;
+        border-radius: 12px;
+        box-sizing: border-box;
+    }
     #bookResultContent {
         display: flex;
         flex-direction: column;
         flex: 1 1 auto;
         min-height: 0;
-        overflow: visible;
+        overflow: hidden;
     }
     .chapter-generation-overlay {
         position: absolute;
@@ -88,7 +91,7 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
-        overflow: visible;
+        overflow: hidden;
         position: relative;
     }
     /* Paginated reading "page": fixed height, full width of preview card, no inner scroll */
@@ -99,10 +102,13 @@
         max-width: 100%;
         margin-left: auto;
         margin-right: auto;
-        min-height: min(85vh, 953px);
+        flex: 1 1 auto;
+        min-height: 0;
         height: auto;
-        flex-shrink: 0;
-        overflow: visible;
+        max-height: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
         box-sizing: border-box;
         border-radius: 14px;
         border: 1px solid rgba(196, 181, 253, 0.65);
@@ -148,10 +154,11 @@
         position: relative;
         z-index: 1;
         width: 100%;
-        height: 100%;
+        flex: 1 1 auto;
         min-height: 0;
-        overflow: hidden;
+        overflow-y: auto;
         overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
         box-sizing: border-box;
         padding: 1.25rem 1.5rem 2.5rem 1.5rem;
         margin: 0;
@@ -275,7 +282,10 @@
     }
     .book-page-content {
         flex: 1;
-        overflow: hidden;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
         word-wrap: break-word;
         transform: none !important;
         scale: 1;
@@ -995,6 +1005,50 @@
     .ai-writer-sidebar #bookSelectionPreviewBtn {
         min-height: 3.25rem;
     }
+    /* Book Selection row: one baseline — controls share vertical center; chevrons stay optically centered */
+    .ai-writer-book-selection-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.625rem;
+        width: 100%;
+    }
+    .ai-writer-book-selection-row > .flex-1 {
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+        min-width: min(100%, 12rem);
+    }
+    .ai-writer-book-selection-row > .flex-1 > .relative {
+        width: 100%;
+        display: flex;
+        align-items: center;
+    }
+    .ai-writer-book-selection-row > .flex-1 select {
+        line-height: 1.35;
+    }
+    .ai-writer-book-selection-row > .flex-1 .pointer-events-none {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+    .ai-writer-book-selection-row #bookSelectionPreviewBtn,
+    .ai-writer-book-selection-row label[for="chapterImportFileInput"],
+    .ai-writer-book-selection-row #createBookBtn {
+        align-self: center;
+        height: 3.25rem;
+        min-height: 3.25rem;
+        box-sizing: border-box;
+    }
+    .ai-writer-book-selection-row #createBookBtn {
+        width: 3.25rem;
+        min-width: 3.25rem;
+        padding: 0;
+        line-height: 1;
+    }
     /* Modals on this page: match single-line control height */
     #createBookModal input#createBookModalTitle,
     #chapterEditModal input#chapterEditModalPrompt {
@@ -1064,9 +1118,12 @@
         <div class="ai-writer-sidebar w-full lg:w-[480px] flex flex-col gap-10 shrink-0">
             <section class="flex flex-col gap-5" data-guided-tour="ai-book-picker">
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">AI Book Writer</h2>
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-500">Book Selection</label>
-                    <div class="relative group flex gap-2 items-stretch flex-wrap w-full" style="display:flex;align-items:stretch;gap:0.5rem;">
+                <div class="flex flex-col gap-2.5">
+                    <div class="flex items-center gap-2.5">
+                        <span class="h-[2px] w-5 rounded-full bg-violet-600 shrink-0" aria-hidden="true"></span>
+                        <label class="text-sm font-medium text-slate-500 m-0" for="savedResponsesDropdown">Book Selection</label>
+                    </div>
+                    <div class="relative group ai-writer-book-selection-row w-full">
                         <div class="flex-1 min-w-0 basis-[min(100%,18rem)] relative">
                             <select id="savedResponsesDropdown" class="w-full max-w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3.5 pr-10 text-base text-slate-700 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm cursor-pointer" title="Select a saved book" onchange="loadSelectedResponse(this.value)">
                                 <option value="">Select saved book…</option>
@@ -1080,12 +1137,12 @@
                                 <i class="fas fa-chevron-down w-5 h-5"></i>
                             </div>
                         </div>
-                        <button id="bookSelectionPreviewBtn" type="button" class="preview-btn-outstanding shrink-0 rounded-xl px-4 py-2 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2 border-0 cursor-pointer hover:opacity-95 self-stretch min-h-[2.75rem] h-auto" style="background-color:#6d28d9;" onclick="previewFullBookFromBookSelection()" title="Show full book in preview below"><i class="fas fa-book-open"></i> Preview</button>
-                        <label for="chapterImportFileInput" title="Import PDF or text file" class="shrink-0 self-stretch cursor-pointer inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[1.1rem] text-[#7c3aed] min-h-[2.75rem] min-w-[2.75rem] px-2 transition-colors hover:bg-[#f5f3ff]" aria-label="Import PDF or text file">
+                        <button id="bookSelectionPreviewBtn" type="button" class="preview-btn-outstanding shrink-0 rounded-xl px-4 py-2.5 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 border-0 cursor-pointer hover:opacity-95" style="background-color:#6d28d9;" onclick="previewFullBookFromBookSelection()" title="Show full book in preview below"><i class="fas fa-book-open"></i> Preview</button>
+                        <label for="chapterImportFileInput" title="Import PDF or text file" class="shrink-0 cursor-pointer inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white text-[1.1rem] text-[#7c3aed] w-[3.25rem] transition-colors duration-200 hover:bg-[#f5f3ff]" aria-label="Import PDF or text file">
                             <i class="fas fa-file-import"></i>
                         </label>
                         <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain" class="sr-only" aria-hidden="true" />
-                        <button id="createBookBtn" type="button" class="create-book-plus-btn shrink-0 rounded-xl flex items-center justify-center text-xl font-bold text-white border-2 shadow-lg transition-all hover:scale-105 self-stretch min-h-[2.75rem] min-w-[2.75rem] h-auto px-3" style="background-color:#5b21b6;border-color:#4c1d95;" onclick="openCreateBookModal()" title="Create New Book">+</button>
+                        <button id="createBookBtn" type="button" class="create-book-plus-btn shrink-0 rounded-xl flex items-center justify-center text-xl font-bold text-white border-2 shadow-lg transition-all duration-200 hover:brightness-110 active:scale-[0.97]" style="background-color:#5b21b6;border-color:#4c1d95;" onclick="openCreateBookModal()" title="Create New Book"><span class="leading-none select-none">+</span></button>
                             <!-- Hidden Fields  class="hidden-fields"> -->
                             <div class="hidden-fields">
                                 <label>UserId:</label>
@@ -1149,6 +1206,10 @@
 
             <section class="flex flex-col gap-5" data-guided-tour="ai-topic-generate">
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">Chapter Topic</h2>
+                <div id="chapterTopicSuggestRow" class="hidden flex flex-col gap-2" aria-live="polite">
+                    <p class="text-xs font-semibold text-violet-700 uppercase tracking-wide">Suggested prompts — tap to fill the topic box</p>
+                    <div id="chapterTopicSuggestChips" class="flex flex-wrap gap-2"></div>
+                </div>
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
                     <textarea id="UserInput" placeholder="If you want peace, work for justice" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-4 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]">If you want peace, work for justice</textarea>
                     <div class="bg-slate-50/80 p-2 mx-2 mb-2 rounded-xl flex items-center justify-between border border-slate-100">
@@ -1225,7 +1286,7 @@
                     <div id="sideBySideNew" class="preview-side-body"></div>
                 </div>
             </div>
-            <div id="bookResult" class="relative w-full rounded-xl p-6 md:p-8 lg:p-10 shadow-sm border flex flex-col" style="background-color:#f5f3ff;border-color:#ddd6fe;" data-guided-tour="ai-preview-panel">
+            <div id="bookResult" class="relative rounded-xl p-6 md:p-8 lg:p-10 shadow-sm border flex flex-col" style="background-color:#f5f3ff;border-color:#ddd6fe;" data-guided-tour="ai-preview-panel">
                 <div id="chapterGenerationOverlay" class="chapter-generation-overlay hidden" role="status" aria-live="polite">
                     <div class="animate-spin rounded-full h-12 w-12 border-4 border-violet-200 border-t-violet-600"></div>
                     <p id="chapterGenerationOverlayText" class="text-slate-800 font-semibold text-center">Writing…</p>
@@ -1410,6 +1471,78 @@ window.EBOOK_FORMATTER_BOOK_KEY = 'ebook_formatter_book_id';
 window.persistFormatterBookId = function (bookId) {
     if (!bookId || bookId === '0') return;
     try { sessionStorage.setItem(window.EBOOK_FORMATTER_BOOK_KEY, String(bookId)); } catch (e) {}
+};
+
+/** After new book redirect or chapter generation — show tappable prompts above Chapter Topic. */
+window.EBOOK_TOPIC_SUGGEST_PENDING_KEY = 'ebook_topic_suggest_pending_v1';
+window.buildChapterTopicSuggestions = function (ctx) {
+    ctx = ctx || {};
+    var bt = (ctx.bookTitle || '').trim() || 'this book';
+    var gn = (ctx.genre || '').trim();
+    var chNo = ctx.chapterNo != null ? parseInt(String(ctx.chapterNo), 10) : 1;
+    if (!Number.isFinite(chNo) || chNo < 1) chNo = 1;
+    var next = chNo + 1;
+    var chTit = (ctx.chapterTitle || '').trim();
+    var tail = (ctx.contentTail || '').trim();
+    var gline = gn ? (' Genre: ' + gn + '.') : '';
+    var s = [];
+    s.push('Continue "' + bt + '" with Chapter ' + next + ': open in medias res with a clear scene goal, dialogue that moves plot, and one sensory detail per beat.' + gline);
+    s.push('Next chapter for "' + bt + '": pivot from the prior resolution — introduce a new obstacle tied to the same theme; keep POV and tense consistent with Chapter ' + chNo + '.');
+    if (tail) {
+        s.push('Pick up the narrative thread after this moment: "' + tail + '" Expand into Chapter ' + next + ' with rising stakes (avoid long recap).');
+    } else {
+        s.push('Write Chapter ' + next + ': the protagonist makes a choice that cannot be undone; end on a hook that sets up the following chapter.');
+    }
+    s.push('Chapter topic — emotional arc: ground the chapter in one relationship under pressure; echo the central question of "' + bt + '" without fully resolving it yet.');
+    s.push('Structural brief: three beats — setup (same story day as Ch.' + chNo + '), confrontation (shift time or place), consequence (revelation about ' + (chTit || 'the protagonist') + ').');
+    return s;
+};
+window.renderChapterTopicSuggestionChips = function (suggestions) {
+    var row = document.getElementById('chapterTopicSuggestRow');
+    var host = document.getElementById('chapterTopicSuggestChips');
+    var userInput = document.getElementById('UserInput');
+    if (!row || !host) return;
+    host.innerHTML = '';
+    var list = Array.isArray(suggestions) ? suggestions.filter(Boolean) : [];
+    if (!list.length) { row.classList.add('hidden'); return; }
+    row.classList.remove('hidden');
+    list.slice(0, 5).forEach(function (text) {
+        var full = String(text);
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'text-left px-3 py-2 rounded-xl text-xs font-medium border border-violet-200 bg-violet-50/90 text-violet-900 hover:bg-violet-100 hover:border-violet-300 max-w-full sm:max-w-[min(100%,20rem)] transition-colors leading-snug';
+        b.setAttribute('title', full.length > 200 ? full : 'Use this prompt in Chapter Topic');
+        b.textContent = full.length > 130 ? (full.slice(0, 127) + '…') : full;
+        b.addEventListener('click', function () {
+            if (!userInput) return;
+            userInput.value = full;
+            userInput.dispatchEvent(new Event('input', { bubbles: true }));
+            try { userInput.focus(); } catch (e) {}
+            if (typeof showNotification === 'function') showNotification('Topic prompt applied — edit if you like, then Generate.', 'success');
+        });
+        host.appendChild(b);
+    });
+};
+window.offerChapterTopicSuggestionsAfterGeneration = function (bookData) {
+    try {
+        var btEl = document.getElementById('BookTitle');
+        var chTitEl = document.getElementById('Title');
+        var chNoEl = document.getElementById('ChapterNo');
+        var bt = btEl ? btEl.value.trim() : '';
+        var ctx = (window._aiBookPreviewContext && typeof window._aiBookPreviewContext === 'object') ? window._aiBookPreviewContext : {};
+        if (!bt && ctx.bookTitle) bt = String(ctx.bookTitle).trim();
+        var genre = (ctx.genre && String(ctx.genre).trim()) || '';
+        var chNo = chNoEl ? parseInt(chNoEl.value, 10) : 1;
+        var chTit = chTitEl ? chTitEl.value.trim() : '';
+        var raw = '';
+        if (typeof window.extractChapterBodyFromGenerateResponse === 'function' && bookData) {
+            raw = window.extractChapterBodyFromGenerateResponse(bookData) || '';
+        }
+        var plain = raw ? String(raw).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+        var tail = plain.length > 220 ? plain.slice(plain.length - 220) : plain;
+        var suggestions = window.buildChapterTopicSuggestions({ bookTitle: bt, genre: genre, chapterNo: chNo, chapterTitle: chTit, contentTail: tail });
+        window.renderChapterTopicSuggestionChips(suggestions);
+    } catch (e) { console.warn('offerChapterTopicSuggestionsAfterGeneration', e); }
 };
 
 /** Multi-chapter preview + paginated viewport: #preview-content is fixed size; overflow becomes next "page". */
@@ -1886,8 +2019,8 @@ window.updateChapterPreviewNavUI = function () {
     var chCount = list.length;
     if (label) {
         label.textContent = ch.loading
-            ? ('Loading… Ch ' + (chIdx + 1) + '/' + chCount)
-            : ('Ch ' + (chIdx + 1) + '/' + chCount + ' · Page ' + (pgIdx + 1) + '/' + pageCount + (ch.title ? ' — ' + ch.title : ''));
+            ? ('Loading… Chapter ' + (chIdx + 1) + ' / ' + chCount)
+            : ('Chapter ' + (chIdx + 1) + ' / ' + chCount + ' · Page ' + (pgIdx + 1) + ' / ' + pageCount + (ch.title ? ' — ' + ch.title : ''));
     }
     if (ch.loading) {
         if (prev) prev.disabled = true;
@@ -2457,9 +2590,17 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnClearTopic) btnClearTopic.addEventListener('click', function() {
         inputChapterTopic.value = '';
         updatePreviewUI();
+        var row = document.getElementById('chapterTopicSuggestRow');
+        var host = document.getElementById('chapterTopicSuggestChips');
+        if (row) row.classList.add('hidden');
+        if (host) host.innerHTML = '';
     });
 
     selectBook.addEventListener('change', function() {
+        var row = document.getElementById('chapterTopicSuggestRow');
+        var host = document.getElementById('chapterTopicSuggestChips');
+        if (row) row.classList.add('hidden');
+        if (host) host.innerHTML = '';
         var bookId = getBookId();
         if (bookId > 0) {
             inputBookTitle.value = selectBook.options[selectBook.selectedIndex].text;
@@ -2619,6 +2760,17 @@ document.addEventListener('DOMContentLoaded', function() {
               document.getElementById('BookId').value = String(selectedBookId);
               if (typeof loadSelectedResponse === 'function') loadSelectedResponse(String(selectedBookId));
           }
+
+          setTimeout(function () {
+              try {
+                  if (sessionStorage.getItem(window.EBOOK_TOPIC_SUGGEST_PENDING_KEY) === '1') {
+                      sessionStorage.removeItem(window.EBOOK_TOPIC_SUGGEST_PENDING_KEY);
+                      if (typeof window.offerChapterTopicSuggestionsAfterGeneration === 'function') {
+                          window.offerChapterTopicSuggestionsAfterGeneration(null);
+                      }
+                  }
+              } catch (ePending) { /* ignore */ }
+          }, 900);
 
            // Show debug info after delay
           setTimeout(debugBooks, 1000);
@@ -2919,6 +3071,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   var result = JSON.parse(responseText);
                   showNotification('Book saved permanently!', 'success');
                   closeCreateBookModal();
+                  try { sessionStorage.setItem(window.EBOOK_TOPIC_SUGGEST_PENDING_KEY, '1'); } catch (e1) { /* ignore */ }
                   var newBookId = result && result.bookId ? result.bookId : null;
                   window.location.href = newBookId ? '/Books/AIGenerateBook?bookId=' + encodeURIComponent(newBookId) : '/Books/AIGenerateBook';
                   return;
@@ -3915,6 +4068,9 @@ document.addEventListener('DOMContentLoaded', function() {
                              } else if (typeof showNotification === 'function') {
                                  showNotification('Chapter ready. Draft saved — finalize on Book formatting when you are ready.', 'success');
                              }
+                             if (typeof window.offerChapterTopicSuggestionsAfterGeneration === 'function') {
+                                 window.offerChapterTopicSuggestionsAfterGeneration(bookData);
+                             }
                          });
                      } else {
                          loadSavedBooksDropdown();
@@ -3936,6 +4092,9 @@ document.addEventListener('DOMContentLoaded', function() {
                              });
                          } else if (typeof showNotification === 'function') {
                              showNotification('Chapter ready.', 'success');
+                         }
+                         if (typeof window.offerChapterTopicSuggestionsAfterGeneration === 'function') {
+                             window.offerChapterTopicSuggestionsAfterGeneration(bookData);
                          }
                      }
                  } else {

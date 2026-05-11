@@ -38,6 +38,10 @@
 <div class="bg-white text-gray-800 antialiased h-full flex flex-1 overflow-hidden w-full">
     <!-- Main Content -->
     <main class="flex-1 h-full overflow-y-auto bg-white relative">
+        @if (TempData["InfoMessage"] is string infoMsg && !string.IsNullOrWhiteSpace(infoMsg))
+        {
+            <div class="mx-4 sm:mx-8 mt-4 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm px-4 py-3 shadow-sm" role="status">@infoMsg</div>
+        }
         <div class="max-w-5xl mx-auto px-8 py-8" data-aos="fade-up" data-aos-duration="500">
             <!-- Search -->
             <div class="relative mb-10 group">
