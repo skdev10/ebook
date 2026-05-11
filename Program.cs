@@ -93,7 +93,7 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.LoginPath = "/Account/AdminLogin";
     options.LogoutPath = "/Account/Logout";
     options.AccessDeniedPath = "/Account/AccessDenied";
-    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
     options.SlidingExpiration = true;
 })
 .AddCookie("UserCookie", options =>
@@ -102,7 +102,7 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.LoginPath = "/Account/UserLogin";
     options.LogoutPath = "/Account/Logout";
     options.AccessDeniedPath = "/Account/AccessDenied";
-    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
     options.SlidingExpiration = true;
 });
 
@@ -210,7 +210,7 @@ builder.Services.AddHttpClient();
 //Register Sessions
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30); // session timeout
+    options.IdleTimeout = TimeSpan.FromMinutes(120); // long AI edit / generate waits (was 30 — caused save failures after idle)
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });

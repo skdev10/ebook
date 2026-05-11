@@ -1,26 +1,54 @@
-# AI Book Generation Platform — API Documentation
+# External Book Service — API Reference
 
-**Base URL:** `http://162.229.248.26:8001`  
-**Authentication:** All requests must include the API key in the header.
+Upstream base URL: **`http://162.229.248.26:8001`**
 
----
-
-## Authentication
-
-| Header     | Value |
-|-----------|--------|
-| `X-API-Key` | `AK-proj-c8r15p0EYc1B0SKi5_hP58HEyL6xP0ywmZ2hEpvpvU5y-i7yZ8IiyLv1K7cGSkyNh` |
-
-- Store the key in server configuration (e.g. `appsettings.json` → `ExternalApi:ApiKey`). Do not expose it in frontend code.
-- Ensure no leading/trailing spaces in the key.
+This document describes the **upstream** REST API (Python/service).  
+The ASP.NET app proxies most calls using `ExternalApi:*` URLs and **`ExternalApi:ApiKey`** — set the key via **environment** or **user secrets**, not in git.
 
 ---
 
-## 1. Generate Chapter
+## Security
 
-**Endpoint:** `POST http://162.229.248.26:8001/api/generate_chapter`
+| Item | Requirement |
+|------|--------------|
+| Header | **`X-API-Key`** on every request (unless your deployment uses a different header — this app sends `X-API-Key`) |
+| Key storage | Use `ExternalApi__ApiKey` env var or `dotnet user-secrets set "ExternalApi:ApiKey" "<key>"` |
+| Rotation | **Never paste production keys into chat or commit them.** If a key was exposed, rotate it on the upstream service immediately. |
 
-**Request:**
+**Example header**
+
+```http
+X-API-Key: YOUR_SECRET_KEY_HERE
+```
+
+---
+
+## Quick reference
+
+| # | Endpoint | Method | Purpose |
+|---|----------|--------|---------|
+| 1 | `/api/generate_chapter` | POST | Generate a chapter from `user_input` |
+| 2 | `/api/edit` | POST | Edit an existing chapter (natural-language `changes`) |
+| 3 | `/api/audio` | POST | Audio → text transcription |
+| 4 | `/api/approve` | POST | User confirms chapter (move to confirmed storage on upstream DB) |
+| 5 | `/api/queue-data` | GET | Queue: running / waiting / limits / totals |
+| 6 | `/api/generate-cover` | POST | New cover image |
+| 7 | `/api/edit-cover` | POST | Edit cover from base64 image + prompt |
+| 8 | `/api/book_chapters_name` | POST | Suggest chapter names (`highlights` context) |
+
+**Cover-only options (do *not* apply to `/api/edit` chapter prose):**
+
+- **`VALID_SIZES`**: `1024x1024`, `1536x1024`, `1024x1536`, `auto`
+- **`VALID_QUALITIES`** (generate-cover): `low`, `medium`, `high`, `auto`
+
+---
+
+## 1. Generate chapter
+
+**`POST /api/generate_chapter`**
+
+**Body (JSON)** — identifiers are strings unless your worker accepts numbers:
+
 ```json
 {
   "user_id": "u123",
@@ -30,86 +58,113 @@
 }
 ```
 
-**Response example:** e.g. heading `"The gravitational force is invented in 8790"`.  
-**Storage:** Save response in **Temporary_database**.
+**Note:** The .NET proxy (`POST /Books/AIGenerateBook`) also sends `title`, `chapter` as **int**, `user_input`, and `preview_only` per `AIBookRequest` — aligned with upstream expectations.
+
+**Example outcome:** Response may include a heading like *"The gravitational force is invented in 8790"* (upstream content shape varies).
+
+**Typical persistence (upstream):** `Temporary_database`.
 
 ---
 
-## 2. Edit Chapter
+## 2. Edit chapter
 
-**Endpoint:** `POST http://162.229.248.26:8001/api/edit`
+**`POST /api/edit`**
 
-**Valid sizes (for reference):** `1024x1024`, `1536x1024`, `1024x1536`, `auto`
+Edits prose via **`changes`** (plain-language instructions).
 
-**Request:**
 ```json
 {
   "user_id": "u123",
   "book_id": "b456",
   "chapter": "18",
-  "changes": "change the title something else"
+  "changes": "Replace in heading 8790 with 6789"
 }
 ```
 
-**Example:** To change 8790 to 6789 in the heading:  
-`"changes": "replace in heading with 8790 with 6789"`
+Examples for `changes`:
 
-**Storage:** Updated content stays in temporary flow until user approves. Show Original | Updated side-by-side in UI.
+- `"Change the title to something about Newton"`
+- `"Replace in heading with 8790 with 6789"`
+
+Chapter edit **does not** use image `VALID_SIZES`; those apply only to **cover** endpoints.
+
+**.NET proxy:** `POST /Books/AIEditBook` — sends `user_id`, `book_id`, `title`, `chapter`, `changes` (see controller).
 
 ---
 
-## 3. Approve (Finalize) Chapter
+## 3. Audio transcription
 
-**Endpoint:** `POST http://162.229.248.26:8001/api/approve`
+**`POST /api/audio`**
 
-**Request:**
+**Supported file types:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
+
+### Option A — JSON with server-local path (upstream / same machine only)
+
+Illustrative (Python-style). Real JSON requires proper quoting:
+
 ```json
 {
-  "user_id": "user_id",
-  "book_id": "book_id",
-  "chapter": 18,
+  "user_id": "u123",
+  "book_id": "b456",
+  "chapter": 14,
+  "audio_file_path": "c:\\book_project\\Audio_transcribe_into_text\\JohnsMorningRoutine.mp3"
+}
+```
+
+### Option B — Multipart upload (recommended for browsers / this app)
+
+This app uploads the file bytes with form fields:
+
+- `user_id`, `book_id`, `chapter`
+- Optional: `audio_file_path` when `ExternalApi:AudioSendLocalFilePath` is true (advanced)
+- File field names tried: `audio`, `audio_file`, `file` (see `ExternalApi:AudioMultipartFieldNames`)
+
+**.NET proxies**
+
+- `POST /Audio/Upload` (multipart)
+- `POST /api/AudioToText/convert` (`AudioToTextController`, multipart)
+
+---
+
+## 4. Approve (confirm) chapter
+
+**`POST /api/approve`**
+
+Use valid JSON (**no trailing spaces in keys**, booleans lowercase in JSON):
+
+```json
+{
+  "user_id": "u123",
+  "book_id": "b456",
+  "chapter": "18",
   "approve": true
 }
 ```
 
-**Storage:** On success, move data from **Temporary_database** to **User_confirm**.
+`chapter` may be sent as a string or number depending on upstream; this app serializes **`APIFinalizeChapterRequest`** with snake_case keys.
+
+**.NET proxy:** `POST /Books/FinalizeChapterAPI`
+
+**Typical persistence (upstream):** `User_confirm`
 
 ---
 
-## 4. Audio Transcription
+## 5. Queue status
 
-**Endpoint:** `POST http://162.229.248.26:8001/api/audio`
+**`GET /api/queue-data`**
 
-**Request (form/multipart or JSON):**
-- `user_id` — e.g. `"u123"`
-- `book_id` — e.g. `"b456"`
-- `chapter` — e.g. `14`
-- `audio_file_path` — e.g. `r"c:\book_project\Audio_transcribe_into_text\John s Morning Routi.mp3"`
+No body. Returns queue metrics (e.g. running count, waiting, max concurrent, total requests) — exact JSON keys depend on upstream implementation.
 
-**Supported formats:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
+**.NET proxy:** `GET /Books/GetQueueData`
 
-**Storage:** **audio_transcriptions** table.
+**Typical persistence (upstream):** `queue_monitor`
 
 ---
 
-## 5. Queue Data
+## 6. Generate cover
 
-**Endpoint:** `GET http://162.229.248.26:8001/api/queue-data`
+**`POST /api/generate-cover`**
 
-**Returns:** Number of requests running, waiting, max concurrent, total requests.
-
-**Storage:** **queue_monitor** table.
-
----
-
-## 6. Generate Cover
-
-**Endpoint:** `POST http://162.229.248.26:8001/api/generate-cover`
-
-**Valid sizes:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`  
-**Valid qualities:** `low`, `medium`, `high`, `auto`
-
-**Request:**
 ```json
 {
   "title": "The Power of Gravity",
@@ -121,146 +176,172 @@
 }
 ```
 
-Optional: some implementations accept `prompt` for extra instructions (e.g. `"prompt": "space theme, blue background"`).
+- **`size`**: `1024x1024` \| `1536x1024` \| `1024x1536` \| `auto`
+- **`quality`**: `low` \| `medium` \| `high` \| `auto`
 
-**Response:** API may return `options` / `urls` (array of image URLs) or `url` / `image_url` / `cover_url` (single URL) or `image` (base64). This app normalizes these for the UI.
-
-**Use only on:** Cover Design page (`/BookDesign/CoverDesignCalculatorFixing` or `/Dashboard/CoverDesign`), not on AI Generate Book page.
+**.NET:** `DashboardController` / `BooksController` cover preview actions use `GenerateCoverUrl` + `CoverGenerateSize` / `CoverGenerateQuality` defaults from config.
 
 ---
 
-## 7. Edit Cover
+## 7. Edit cover
 
-**Endpoint:** `POST http://162.229.248.26:8001/api/edit-cover`
+**`POST /api/edit-cover`**
 
-**Request:**
 ```json
 {
   "encoded_image": "iVBORw0KGgoAAAANSUhEUgAA...",
-  "image_direction": "image direction in prompt",
+  "image_direction": "Warm sunset palette, subtle sci-fi typography",
   "size": "1024x1536"
 }
 ```
 
-- `encoded_image`: base64-encoded image to edit.  
-- `image_direction`: text prompt for the edit (e.g. "change background color").  
-- `size`: one of `1024x1024`, `1536x1024`, `1024x1536`, `auto`.
+- **`encoded_image`**: raw base64 (no `data:image/png;base64,` prefix unless upstream documents it).
+- **`image_direction`**: edit instructions (prompt).
+
+**.NET:** e.g. `DashboardController` edit-cover endpoint forwarding to `ExternalApi:EditCoverUrl`.
 
 ---
 
-## 8. Chapter Name Suggestions
+## 8. Chapter name suggestions
 
-**Endpoint:** `POST http://162.229.248.26:8001/api/book_chapters_name`
+**`POST /api/book_chapters_name`**
 
-**Request:**
 ```json
 {
-  "user_id": "str",
-  "book_id": "str",
-  "highlights": [ "HighlightItem" ]
+  "user_id": "42",
+  "book_id": "59",
+  "highlights": [
+    { "chapter": 1, "summary": "Hook: protagonist discovers anomaly." },
+    { "chapter": 2, "summary": "Rising stakes in the laboratory." }
+  ]
 }
 ```
 
-**Response:** Suggested chapter names (e.g. 5 suggestions).  
-**Storage:** Store in **Temporary_database.suggest_chapter_name**. User’s chosen name goes in **chapter_name**.
+`highlights` is a list of context objects — align field names with your upstream **`HighlightItem`** schema.
+
+**.NET proxy:** `POST /Books/BookChaptersName` (forwards JSON body).
+
+**Persistence:** upstream may populate **`Temporary_database.suggest_chapter_name`** (e.g. five suggestions); user’s chosen title can be saved in **`chapter_name`**.
 
 ---
 
-## Database Tables
+## Upstream database tables (reference)
 
-Use these for storage. Do not add new columns/tables without approval.
+Schemas are maintained by the upstream service. Typical usage:
 
-### 1. Temporary_database (temporary data)
+### 1. `Temporary_database`
 
-| Column                      | Type        | Notes |
-|----------------------------|-------------|--------|
-| id                         | INT         | AUTO_INCREMENT PRIMARY KEY |
-| user_id                    | VARCHAR(255)| |
-| book_id                    | VARCHAR(255)| |
-| chapter                    | INT         | |
-| chapter_name               | VARCHAR(255)| User-selected name |
-| user_input                 | TEXT        | |
-| content                    | LONGTEXT    | |
-| suggest_chapter_name       | TEXT        | 5 suggested names from API |
-| highlight_of_previous_chapter | LONGTEXT | |
-| date                       | DATE        | DEFAULT (CURRENT_DATE) |
-| time                       | TIME        | DEFAULT (CURRENT_TIME) |
+Temporary drafts: `user_id`, `book_id`, `chapter`, `chapter_name`, `user_input`, `content`, `suggest_chapter_name`, `highlight_of_previous_chapter`, timestamps.  
+**Note:** `suggest_chapter_name` may store suggested names before the user picks one.
 
-### 2. User_confirm (approved data)
+### 2. `User_confirm`
 
-| Column                      | Type        | Notes |
-|----------------------------|-------------|--------|
-| id                         | INT         | AUTO_INCREMENT PRIMARY KEY |
-| user_id                    | VARCHAR(255)| |
-| book_id                    | VARCHAR(255)| |
-| chapter                    | INT         | |
-| chapter_name               | VARCHAR(255)| |
-| user_input                 | TEXT        | |
-| content                    | LONGTEXT    | |
-| highlight_of_previous_chapter | LONGTEXT | |
-| date                       | DATE        | DEFAULT (CURRENT_DATE) |
-| time                       | TIME        | DEFAULT (CURRENT_TIME) |
+Approved chapters after **`/api/approve`**.
 
-### 3. audio_transcriptions
+### 3. `audio_transcriptions`
 
-| Column          | Type         | Notes |
-|-----------------|--------------|--------|
-| id              | INT          | AUTO_INCREMENT PRIMARY KEY |
-| date            | DATE         | DEFAULT (CURRENT_DATE) |
-| time            | TIME         | DEFAULT (CURRENT_TIME) |
-| user_input      | TEXT         | |
-| book_id         | VARCHAR(50)  | |
-| chapter         | INT          | |
-| user_id         | VARCHAR(50)  | |
-| audio_file_path | VARCHAR(255) | |
+Audio workflow: paths or transcription metadata (`user_input`, `book_id`, `chapter`, `user_id`, `audio_file_path`, …).
 
-### 4. queue_monitor
+### 4. `queue_monitor`
 
-| Column                  | Type         | Notes |
-|-------------------------|--------------|--------|
-| id                      | INT          | AUTO_INCREMENT PRIMARY KEY |
-| status_running          | INT          | |
-| status_waiting          | INT          | |
-| status_max_concurrent   | INT          | |
-| status_total_requests   | INT          | |
-| logs                    | TEXT         | |
-| user_id                 | VARCHAR(50)  | |
-| book_id                 | VARCHAR(50)  | |
-| chapter                 | INT          | |
-| log_date                | DATE         | DEFAULT (CURRENT_DATE) |
-| log_time                | TIME         | DEFAULT (CURRENT_TIME) |
+Queue metrics history (`status_running`, `status_waiting`, `status_max_concurrent`, `status_total_requests`, `logs`, …).
 
-### 5. error_logs
+### 5. `error_logs`
 
-| Column      | Type         | Notes |
-|-------------|--------------|--------|
-| id          | INT          | AUTO_INCREMENT PRIMARY KEY |
-| line_number | INT          | |
-| error       | TEXT         | |
-| filename    | VARCHAR(255) | |
-| error_date  | DATE         | DEFAULT (CURRENT_DATE) |
-| error_time  | TIME         | DEFAULT (CURRENT_TIME) |
+Upstream error logging (`line_number`, `error`, `filename`, …).
 
 ---
 
-## Backend Proxy Endpoints (This App)
+## ASP.NET proxies (this repository)
 
-These endpoints call the external API with `X-API-Key` from server config. Use them from the frontend.
+Configured under **`ExternalApi`** in `appsettings.json` (URLs) and **`ExternalApi:ApiKey`** (secret from env/secrets).
 
-| Purpose              | Method | URL (this app) | Notes |
-|----------------------|--------|----------------|-------|
-| Queue status         | GET    | `/Books/GetQueueData` | Proxies to GET /api/queue-data |
-| Chapter name suggestions | POST | `/Books/BookChaptersName` | Body: `{ user_id, book_id, highlights }` |
-| **Cover preview**    | POST   | `/Books/GenerateAICoverPreview?bookId={id}` | Body: `{ prompt, title, style }`. Sends title, author_name, category, cover_style, size, quality (and prompt if provided) to POST /api/generate-cover. |
-| Finalize cover       | POST   | `/Books/FinalizeCover?bookId={id}` | Body: `{ coverPath }` — saves selected cover to book. |
-| Audio transcription  | POST   | `/Audio/Upload` | Form: audio file, userId, bookId, chapter. Proxies to POST /api/audio |
-| Edit chapter         | POST   | `/Books/AIEditBook` | Body: `{ UserId, BookId, Title, chapter, changes }`. Proxies to POST /api/edit |
-| Approve chapter      | POST   | `/Books/FinalizeChapterAPI` | Body: `{ user_id, book_id, chapter, approve: true }`. Proxies to POST /api/approve |
+| Upstream | This app entry point |
+|----------|----------------------|
+| `POST /api/generate_chapter` | `POST /Books/AIGenerateBook` |
+| `POST /api/edit` | `POST /Books/AIEditBook`, `Books/EditChapter`, etc. |
+| `POST /api/approve` | `POST /Books/FinalizeChapterAPI` |
+| `GET /api/queue-data` | `GET /Books/GetQueueData` |
+| `POST /api/book_chapters_name` | `POST /Books/BookChaptersName` |
+| `POST /api/generate-cover` | Cover flows in `BooksController` / `DashboardController` |
+| `POST /api/edit-cover` | Dashboard / Books edit-cover handlers |
+| `POST /api/audio` | `POST /Audio/Upload`, `POST /api/AudioToText/convert` |
+
+All integrated paths send **`X-API-Key`** when `ExternalApi:ApiKey` is set.
 
 ---
 
-## Error Handling
+## cURL templates
 
-- Log all failures to **error_logs** (line_number, error, filename, error_date, error_time).
-- Use timeouts and retry logic for external API calls.
-- Return JSON from proxy endpoints (e.g. `{ success: false, message: "..." }`) so the frontend can show a clear error instead of "Generation failed."
+Replace `YOUR_KEY` and base URL if needed.
+
+```bash
+# Generate chapter
+curl -sS -X POST "http://162.229.248.26:8001/api/generate_chapter" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"user_id":"u123","book_id":"b456","chapter":"18","user_input":"topic here"}'
+
+# Edit chapter
+curl -sS -X POST "http://162.229.248.26:8001/api/edit" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"user_id":"u123","book_id":"b456","chapter":"18","changes":"Replace 8790 with 6789 in the heading"}'
+
+# Queue
+curl -sS "http://162.229.248.26:8001/api/queue-data" \
+  -H "X-API-Key: YOUR_KEY"
+
+# Approve
+curl -sS -X POST "http://162.229.248.26:8001/api/approve" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"user_id":"u123","book_id":"b456","chapter":"18","approve":true}'
+```
+
+---
+
+## Local configuration snippet
+
+```json
+"ExternalApi": {
+  "BaseUrl": "http://162.229.248.26:8001",
+  "GenerateUrl": "http://162.229.248.26:8001/api/generate_chapter",
+  "EditUrl": "http://162.229.248.26:8001/api/edit",
+  "ApproveUrl": "http://162.229.248.26:8001/api/approve",
+  "GenerateCoverUrl": "http://162.229.248.26:8001/api/generate-cover",
+  "EditCoverUrl": "http://162.229.248.26:8001/api/edit-cover",
+  "AudioUrl": "http://162.229.248.26:8001/api/audio",
+  "QueueDataUrl": "http://162.229.248.26:8001/api/queue-data",
+  "BookChaptersNameUrl": "http://162.229.248.26:8001/api/book_chapters_name",
+  "ApiKey": ""
+}
+```
+
+Set the key at deploy time:
+
+```bash
+export ExternalApi__ApiKey="your-key-here"
+```
+
+Windows (PowerShell): `$env:ExternalApi__ApiKey = "your-key-here"`
+
+### Local Visual Studio / `dotnet run` (chapter edit fails with “ExternalApi:ApiKey is not set”)
+
+The base `appsettings.json` intentionally leaves **`ExternalApi:ApiKey` empty** so keys are not committed.
+
+**Option A — User secrets (Development only, recommended)**
+
+```bash
+dotnet user-secrets set "ExternalApi:ApiKey" "YOUR_KEY_NO_SPACES" --project path/to/newEbook.csproj
+```
+
+Then restart the app. User secrets load when `ASPNETCORE_ENVIRONMENT` is **Development**.
+
+**Option B — `appsettings.Local.json` (any environment)**
+
+Copy **`appsettings.Local.example.json`** to **`appsettings.Local.json`** (this file is **gitignored**), set `ExternalApi:ApiKey`, restart. `Program.cs` loads it automatically.
+
+---
+
+*Document version: aligns with codebase `Controllers/BooksController.cs`, `Services/ExternalBookApiAudio.cs`, and `appsettings.json` ExternalApi keys.*

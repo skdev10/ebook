@@ -1215,6 +1215,7 @@
                     <div class="bg-slate-50/80 p-2 mx-2 mb-2 rounded-xl flex items-center justify-between border border-slate-100">
                         <div class="flex items-center gap-3 pl-2">
                             <button type="button" id="EditBtn" class="text-slate-400 hover:text-blue-500 transition-colors text-xl p-1.5 rounded-lg hover:bg-blue-50" title="Edit chapter (modal)" onclick="openChapterEditModal()"><i class="fas fa-pen"></i></button>
+                            <button type="button" id="btnSaveChapterTopic" class="text-slate-400 hover:text-emerald-600 transition-colors text-xl p-1.5 rounded-lg hover:bg-emerald-50" title="Save chapter topic prompt &amp; current chapter draft"><i class="fas fa-save"></i></button>
                             <button type="button" id="btnClearTopic" class="text-slate-400 hover:text-orange-600 transition-colors text-xl p-1.5 rounded-lg hover:bg-orange-50" title="Clear chapter topic"><i class="fas fa-eraser"></i></button>
                         </div>
                         <div class="flex items-center gap-2 pr-1">
@@ -1601,6 +1602,63 @@ window.loadReaderBookState = function (bookId) {
         if (typeof legacy === 'number') return { ch: legacy, pg: 0 };
     } catch (e) { /* ignore */ }
     return null;
+};
+
+/** Keep hidden ChapterNo + ChapterDropdown aligned (used by generate + edit APIs). */
+window.syncChapterNoDropdownAndHidden = function (chapterNum) {
+    var n = parseInt(String(chapterNum), 10);
+    if (!Number.isFinite(n) || n < 1) return;
+    var s = String(n);
+    var hidden = document.getElementById('ChapterNo');
+    var ddl = document.getElementById('ChapterDropdown');
+    if (hidden) hidden.value = s;
+    if (ddl) {
+        var found = false;
+        for (var k = 0; k < ddl.options.length; k++) {
+            if (ddl.options[k].value === s) { found = true; break; }
+        }
+        if (!found) {
+            var opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = 'Chapter ' + n;
+            ddl.appendChild(opt);
+        }
+        ddl.value = s;
+    }
+};
+
+/** Full chapter HTML for AI edit / save (not a single paginated slice). */
+window.getWriterPreviewChapterHtmlForEdit = function () {
+    var ci = window._previewChapterIndex || 0;
+    var list = window._previewChaptersMeta || [];
+    if (list.length && list[ci] && list[ci].html && String(list[ci].html).trim()) {
+        return list[ci].html;
+    }
+    if (window._currentChapterContent && String(window._currentChapterContent).trim()) {
+        return window._currentChapterContent;
+    }
+    var pe = document.getElementById('preview-content');
+    return (pe && pe.innerHTML) ? pe.innerHTML : '';
+};
+
+/** Before opening edit modal or saving: align form fields + cache from current preview chapter. */
+window.syncWriterChapterContextForEdit = function () {
+    var html = typeof window.getWriterPreviewChapterHtmlForEdit === 'function' ? window.getWriterPreviewChapterHtmlForEdit() : '';
+    if (html) window._currentChapterContent = html;
+    var ci = window._previewChapterIndex || 0;
+    var list = window._previewChaptersMeta || [];
+    var ch = list[ci];
+    if (!ch) return;
+    var chNoSync = parseInt(ch && ch.chapterNo, 10);
+    if (!Number.isFinite(chNoSync)) chNoSync = ci + 1;
+    if (typeof window.syncChapterNoDropdownAndHidden === 'function') {
+        window.syncChapterNoDropdownAndHidden(chNoSync);
+    }
+    var titEl = document.getElementById('Title');
+    if (titEl && ch.title) {
+        var ct = String(ch.title).replace(/^Chapter\s*\d+\s*[–\-:]\s*/i, '').trim();
+        if (ct) titEl.value = ct;
+    }
 };
 
 window._readerEscHtml = function (t) {
@@ -2087,6 +2145,19 @@ window.applyPreviewChapterIndex = function (idx, opts) {
         previewHeader.classList.remove('hidden');
         previewHeader.textContent = ch.title || ('Chapter ' + (i + 1));
     }
+    var chNoSync = (ch && ch.chapterNo != null && ch.chapterNo !== '') ? parseInt(ch.chapterNo, 10) : NaN;
+    if (!Number.isFinite(chNoSync)) chNoSync = i + 1;
+    if (typeof window.syncChapterNoDropdownAndHidden === 'function') {
+        window.syncChapterNoDropdownAndHidden(chNoSync);
+    }
+    if (ch && ch.html) {
+        window._currentChapterContent = ch.html;
+    }
+    var titleForm = document.getElementById('Title');
+    if (titleForm && ch && ch.title) {
+        var cleanTitle = String(ch.title).replace(/^Chapter\s*\d+\s*[–\-:]\s*/i, '').trim();
+        if (cleanTitle) titleForm.value = cleanTitle;
+    }
     if (ch.loading) {
         window._previewChapterPages = [];
         if (previewContent) {
@@ -2292,7 +2363,7 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                 var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
                 var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                 var wc = plain.split(/\s+/).filter(Boolean).length;
-                chaptersMeta.push({ html: fragment, title: title || headText, wordCount: wc });
+                chaptersMeta.push({ html: fragment, title: title || headText, wordCount: wc, chapterNo: chNo });
             });
             var startIdx = 0;
             var startPg = 0;
@@ -2563,6 +2634,9 @@ document.addEventListener('DOMContentLoaded', function() {
         var chNo = getChapterNo();
         var chTitle = inputChapterTitle.value.trim();
         previewChapterHeader.textContent = chTitle ? 'Chapter ' + chNo + ': ' + chTitle : 'Chapter ' + chNo;
+        if (window._previewChaptersMeta && window._previewChaptersMeta.length > 0) {
+            return;
+        }
         var topic = inputChapterTopic.value.trim();
         if (topic) {
             var paras = topic.split('\n').filter(function(p) { return p.trim() !== ''; });
@@ -2594,6 +2668,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var host = document.getElementById('chapterTopicSuggestChips');
         if (row) row.classList.add('hidden');
         if (host) host.innerHTML = '';
+    });
+    var btnSaveTopic = document.getElementById('btnSaveChapterTopic');
+    if (btnSaveTopic) btnSaveTopic.addEventListener('click', function () {
+        if (typeof window.saveChapterTopicDraft === 'function') window.saveChapterTopicDraft();
     });
 
     selectBook.addEventListener('change', function() {
@@ -2644,13 +2722,36 @@ document.addEventListener('DOMContentLoaded', function() {
                     var c = data.chapters[0];
                     if (c.content) {
                         var txt = (typeof getContentFromPossibleJson === 'function' ? getContentFromPossibleJson(c.content) : c.content) || '';
-                        var html = '<p>' + String(txt).replace(/\n/g, '</p><p>') + '</p>';
-                        previewContent.innerHTML = html;
+                        var chNum = parseInt(c.chapterNumber || c.ChapterNumber || chapterNo, 10);
+                        if (!Number.isFinite(chNum)) chNum = parseInt(String(chapterNo), 10) || 1;
+                        var titleRaw = (c.title || c.Title || '').trim();
+                        var escT = typeof window.escapeHtml === 'function' ? window.escapeHtml : function (s) {
+                            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        };
+                        var headText = 'Chapter ' + chNum + (titleRaw ? ' – ' + escT(titleRaw) : '');
+                        var bodyHtml;
+                        if (String(txt).indexOf('<') >= 0) {
+                            bodyHtml = typeof window.formatManuscriptBodyToHtml === 'function' ? window.formatManuscriptBodyToHtml(txt) : txt;
+                        } else {
+                            bodyHtml = '<p class="manuscript-p">' + String(txt).replace(/\n/g, '</p><p class="manuscript-p">') + '</p>';
+                        }
+                        var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
+                        var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                        var wc = plain.split(/\s+/).filter(Boolean).length;
+                        var meta = [{ html: fragment, title: titleRaw || headText, wordCount: wc, chapterNo: chNum }];
+                        if (typeof window.setPreviewChaptersFromList === 'function') {
+                            window.setPreviewChaptersFromList(meta, 0, 0);
+                        } else {
+                            previewContent.innerHTML = bodyHtml;
+                        }
                         previewContent.classList.remove('text-slate-400');
                         previewContent.classList.add('text-slate-800');
-                        window._currentChapterContent = html;
-                        window._currentChapterTitle = c.title || c.Title || ('Chapter ' + (c.chapterNumber || c.ChapterNumber || ''));
-                        window._currentChapterNo = c.chapterNumber || c.ChapterNumber || (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value);
+                        window._currentChapterContent = fragment;
+                        window._currentChapterTitle = titleRaw || headText;
+                        window._currentChapterNo = chNum;
+                        if (typeof window.syncChapterNoDropdownAndHidden === 'function') {
+                            window.syncChapterNoDropdownAndHidden(chNum);
+                        }
                     }
                     if (data.bookTitle) previewBookTitle.textContent = data.bookTitle;
                 }
@@ -3892,6 +3993,7 @@ document.addEventListener('DOMContentLoaded', function() {
          }
          ddl.value = s;
      }
+     try { window.ensureChapterDropdownOption = ensureChapterDropdownOption; } catch (e1) { /* ignore */ }
      //==================
      async function generateBook() {
          console.log("🟢 Step 1: generateBook() function started");
@@ -5297,7 +5399,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
             var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
             var wc = plain.split(/\s+/).filter(Boolean).length;
-            return { html: fragment, title: title || headText, wordCount: wc };
+            return { html: fragment, title: title || headText, wordCount: wc, chapterNo: chNo };
         };
         window.patchPreviewMetaArrayWithGeneration = function (chaptersMeta, bookData, phBase) {
             if (!chaptersMeta || !bookData) return 0;
@@ -5312,7 +5414,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 chaptersMeta.push({
                     html: '<h4 class="manuscript-chapter-heading">Chapter ' + n + '</h4><p class="manuscript-p text-slate-500">No content for this chapter yet.</p>',
                     title: 'Chapter ' + n,
-                    wordCount: 0
+                    wordCount: 0,
+                    chapterNo: n
                 });
             }
             if (chaptersMeta.length === ix) {
@@ -5406,7 +5509,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  var wc = text.split(/\s+/).filter(Boolean).length;
                  var contentHtml = typeof formatManuscriptBodyToHtml === 'function' ? formatManuscriptBodyToHtml(content) : ((content + '').indexOf('<') >= 0 ? content : '<p>' + (content + '').replace(/\n/g, '</p><p>') + '</p>');
                  var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + contentHtml;
-                 chaptersMeta.push({ html: fragment, title: title || headText, wordCount: wc });
+                 chaptersMeta.push({ html: fragment, title: title || headText, wordCount: wc, chapterNo: chNo });
               });
 
               if (previewContent) previewContent.classList.remove('hidden');
@@ -5436,13 +5539,18 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (typeof showNotification === 'function') showNotification('This chapter is finalized and cannot be edited.', 'error');
                  return;
              }
+             if (typeof window.syncWriterChapterContextForEdit === 'function') {
+                 window.syncWriterChapterContextForEdit();
+             }
              var userId = document.getElementById('UserId') && document.getElementById('UserId').value;
              var bookId = document.getElementById('BookId') && document.getElementById('BookId').value;
              var chapterNo = document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value;
              var titleEl = document.getElementById('Title');
              var title = (titleEl && titleEl.value) ? titleEl.value : (window._currentChapterTitle || 'Chapter');
              var origEl = document.getElementById('preview-content');
-             var origHtml = (origEl && origEl.innerHTML) ? origEl.innerHTML : (window._currentChapterContent || '');
+             var origHtml = (typeof window.getWriterPreviewChapterHtmlForEdit === 'function' ? window.getWriterPreviewChapterHtmlForEdit() : '') || '';
+             if (!origHtml) origHtml = (origEl && origEl.innerHTML) ? origEl.innerHTML : '';
+             if (!origHtml) origHtml = (window._currentChapterContent || '');
              var origText = (typeof origHtml === 'string') ? origHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
              if (!origText && !window._currentChapterContent) {
                  if (typeof showNotification === 'function') showNotification('Generate or load a chapter first, then click Edit.', 'info');
@@ -5485,6 +5593,20 @@ document.addEventListener('DOMContentLoaded', function() {
                  var re = new RegExp(escapeRe(oldStr), 'gi');
                  return orig.replace(re, newStr);
              } catch (_) { return orig; }
+         }
+         function parseSaveChapterJsonResponse(r, text) {
+             var data = {};
+             try {
+                 data = (text && String(text).trim()) ? JSON.parse(text) : {};
+             } catch (e) {
+                 data = {
+                     success: false,
+                     message: (r.status === 401 || r.status === 403)
+                         ? 'Session expired. Refresh the page, sign in again, then save your draft.'
+                         : 'Save failed — the server did not return JSON (often a login timeout). Refresh, sign in, and try again.'
+                 };
+             }
+             return { ok: r.ok, status: r.status, data: data };
          }
          function wireChapterEditModal() {
              var modal = document.getElementById('chapterEditModal');
@@ -5534,7 +5656,13 @@ document.addEventListener('DOMContentLoaded', function() {
                  fetch('/Books/AIEditBook', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({ UserId: state.userId, BookId: state.bookId, Title: state.title, chapter: parseInt(state.chapter, 10), changes: prompt }),
+                     body: JSON.stringify({
+                         user_id: String(state.userId || ''),
+                         book_id: String(state.bookId || ''),
+                         title: state.title || '',
+                         chapter: parseInt(state.chapter, 10),
+                         changes: prompt
+                     }),
                      signal: controller.signal
                  }).then(function(r) {
                      return r.text().then(function(text) {
@@ -5596,12 +5724,18 @@ document.addEventListener('DOMContentLoaded', function() {
                  fetch('/Books/SaveChapterContent', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify(savePayload)
-                 }).then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }).catch(function() { return { ok: r.ok, data: {} }; }); })
+                     body: JSON.stringify(savePayload),
+                     credentials: 'same-origin'
+                 }).then(function(r) {
+                     return r.text().then(function(t) { return parseSaveChapterJsonResponse(r, t); });
+                 })
                    .then(function(saveResult) {
                      finalizeBtn.disabled = false;
                      if (!saveResult.ok || !(saveResult.data && saveResult.data.success)) {
-                         if (typeof showNotification === 'function') showNotification((saveResult.data && saveResult.data.message) || 'Could not save chapter content.', 'error');
+                         var errMsg = (saveResult.data && saveResult.data.message) ||
+                             ((saveResult.status === 401 || saveResult.status === 403) ? 'Session expired. Refresh the page, sign in again, then save.' : null) ||
+                             'Could not save chapter content.';
+                         if (typeof showNotification === 'function') showNotification(errMsg, 'error');
                          return;
                      }
                      if (saveResult.data && saveResult.data.responseId) {
@@ -5622,31 +5756,43 @@ document.addEventListener('DOMContentLoaded', function() {
          document.addEventListener('DOMContentLoaded', function() { wireChapterEditModal(); });
 
          function finalizeChapterTopicSave() {
+             if (typeof window.syncWriterChapterContextForEdit === 'function') {
+                 window.syncWriterChapterContextForEdit();
+             }
              var userId = document.getElementById('UserId') && document.getElementById('UserId').value;
              var bookId = document.getElementById('BookId') && document.getElementById('BookId').value;
              var chapterNo = document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value;
-             var content = document.getElementById('UserInput') && document.getElementById('UserInput').value;
+             var topicText = document.getElementById('UserInput') && document.getElementById('UserInput').value;
              if (!userId || !bookId || !chapterNo) {
                  if (typeof showNotification === 'function') showNotification('Please select a book and chapter.', 'error');
                  return;
              }
              var titleEl = document.getElementById('Title');
+             var bodyHtml = (typeof window.getWriterPreviewChapterHtmlForEdit === 'function' ? window.getWriterPreviewChapterHtmlForEdit() : '') || '';
              var previewEl = document.getElementById('preview-content');
-             var bodyHtml = (previewEl && previewEl.innerHTML) ? previewEl.innerHTML : '';
+             if (!bodyHtml && previewEl && previewEl.innerHTML) bodyHtml = previewEl.innerHTML;
+             if (!bodyHtml) bodyHtml = (window._currentChapterContent || '');
              var payload = {
                  UserId: userId,
                  BookId: bookId,
                  Chapter: String(chapterNo),
-                 NewContent: bodyHtml || content || '',
+                 NewContent: bodyHtml,
                  ChapterTitle: (titleEl && titleEl.value) || '',
-                 Topic: content || '',
+                 Topic: (topicText != null ? String(topicText) : '') || '',
                  RecordVersion: true
              };
+             if (!payload.NewContent || !String(payload.NewContent).trim()) {
+                 if (typeof showNotification === 'function') showNotification('No chapter prose to save. Generate or Preview a chapter first.', 'error');
+                 return;
+             }
              fetch('/Books/SaveChapterContent', {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify(payload)
-             }).then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+                 body: JSON.stringify(payload),
+                 credentials: 'same-origin'
+             }).then(function(r) {
+                 return r.text().then(function(t) { return parseSaveChapterJsonResponse(r, t); });
+             })
                .then(function(result) {
                    var box = document.getElementById('chapterTopicBox');
                    var panel = document.getElementById('chapterEditPanel');
@@ -5670,6 +5816,7 @@ document.addEventListener('DOMContentLoaded', function() {
                    if (typeof showNotification === 'function') showNotification('Error saving chapter: ' + (err.message || 'Unknown'), 'error');
                });
          }
+         window.saveChapterTopicDraft = finalizeChapterTopicSave;
          /** Pull chapter prose from generate_chapter / proxy JSON (Postman shape may differ from legacy UI assumptions). */
          function extractChapterBodyFromGenerateResponse(bookData) {
              if (bookData == null || typeof bookData !== 'object') return '';
@@ -5810,7 +5957,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      var headText = 'Chapter ' + chNo + (title ? (' – ' + esc(String(title))) : '');
                      var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
                      var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                     list = [{ html: fragment, title: title || headText, wordCount: plain.split(/\s+/).filter(Boolean).length }];
+                     list = [{ html: fragment, title: title || headText, wordCount: plain.split(/\s+/).filter(Boolean).length, chapterNo: chNo }];
                      ix = 0;
                  }
                  if (typeof window.setPreviewChaptersFromList === 'function') {

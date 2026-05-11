@@ -2049,71 +2049,102 @@ namespace EBookDashboard.Controllers
         /// Used when user finalizes edits from the chapter preview.
         /// </summary>
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> SaveChapterContent([FromBody] APIChangeChapterModel model)
         {
-            if (model == null || string.IsNullOrEmpty(model.BookId) || string.IsNullOrEmpty(model.Chapter))
-                return BadRequest("Invalid data.");
-
-            if (!int.TryParse(model.UserId, out int userId) || !int.TryParse(model.BookId, out int bookId) || !int.TryParse(model.Chapter, out int chapterNum))
-                return BadRequest("Invalid UserId, BookId, or Chapter.");
-
-            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
-            if (book == null)
-                return NotFound("Book not found or access denied.");
-
-            var chapter = await _context.Chapters.FirstOrDefaultAsync(c => c.BookId == bookId && c.ChapterNumber == chapterNum);
-            if (chapter != null)
+            static string TruncateTitle(string? t, int max = 200)
             {
-                chapter.Content = model.NewContent ?? string.Empty;
-                chapter.UpdatedAt = DateTime.UtcNow;
-                _context.Chapters.Update(chapter);
+                if (string.IsNullOrWhiteSpace(t)) return string.Empty;
+                var s = t.Trim();
+                return s.Length <= max ? s : s.Substring(0, max);
             }
-            else
+
+            try
             {
-                _context.Chapters.Add(new Chapters
+                if (model == null || string.IsNullOrEmpty(model.BookId) || string.IsNullOrEmpty(model.Chapter))
+                    return BadRequest(new { success = false, message = "Invalid data — missing book or chapter." });
+
+                if (!int.TryParse(model.UserId, out int userId) || !int.TryParse(model.BookId, out int bookId) || !int.TryParse(model.Chapter, out int chapterNum))
+                    return BadRequest(new { success = false, message = "Invalid UserId, BookId, or Chapter." });
+
+                var sessionUserId = HttpContext.Session.GetInt32("UserId");
+                if (sessionUserId.HasValue && sessionUserId.Value != userId)
+                    return Unauthorized(new { success = false, message = "Session user does not match request. Refresh the page and sign in again." });
+
+                var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
+                if (book == null)
+                    return NotFound(new { success = false, message = "Book not found or access denied." });
+
+                var titleTrim = TruncateTitle(model.ChapterTitle);
+                if (string.IsNullOrEmpty(titleTrim))
+                    titleTrim = $"Chapter {chapterNum}";
+
+                var chapter = await _context.Chapters.FirstOrDefaultAsync(c => c.BookId == bookId && c.ChapterNumber == chapterNum);
+                if (chapter != null)
                 {
-                    BookId = bookId,
-                    ChapterNumber = chapterNum,
-                    Title = $"Chapter {chapterNum}",
-                    Content = model.NewContent ?? string.Empty,
-                    Status = "Draft",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    chapter.Content = model.NewContent ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(model.ChapterTitle))
+                        chapter.Title = titleTrim;
+                    chapter.UpdatedAt = DateTime.UtcNow;
+                    chapter.UpdatedByUserId = userId;
+                    _context.Chapters.Update(chapter);
+                }
+                else
+                {
+                    _context.Chapters.Add(new Chapters
+                    {
+                        BookId = bookId,
+                        ChapterNumber = chapterNum,
+                        SrNo = chapterNum,
+                        OrderIndex = chapterNum,
+                        Title = titleTrim,
+                        Content = model.NewContent ?? string.Empty,
+                        LanguageId = 1,
+                        Status = "Draft",
+                        UpdatedByUserId = userId,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+
+                int? newResponseId = null;
+                if (model.RecordVersion)
+                {
+                    try
+                    {
+                        var titleForVersion = !string.IsNullOrWhiteSpace(model.ChapterTitle)
+                            ? TruncateTitle(model.ChapterTitle, 500)
+                            : (chapter?.Title ?? titleTrim);
+                        newResponseId = await _chapterIterationService.RecordUserContentVersionAsync(
+                            userId,
+                            bookId,
+                            chapterNum,
+                            titleForVersion,
+                            model.NewContent ?? string.Empty,
+                            model.Topic,
+                            "manual-save",
+                            HttpContext.RequestAborted);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "RecordUserContentVersionAsync after SaveChapterContent failed");
+                    }
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    message = "Chapter updated successfully.",
+                    responseId = newResponseId
                 });
             }
-
-            await _context.SaveChangesAsync();
-
-            int? newResponseId = null;
-            if (model.RecordVersion)
+            catch (Exception ex)
             {
-                try
-                {
-                    var titleForVersion = string.IsNullOrWhiteSpace(model.ChapterTitle)
-                        ? (chapter?.Title ?? $"Chapter {chapterNum}")
-                        : model.ChapterTitle!.Trim();
-                    newResponseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                        userId,
-                        bookId,
-                        chapterNum,
-                        titleForVersion,
-                        model.NewContent ?? string.Empty,
-                        model.Topic,
-                        "manual-save",
-                        HttpContext.RequestAborted);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "RecordUserContentVersionAsync after SaveChapterContent failed");
-                }
+                _logger.LogError(ex, "SaveChapterContent failed");
+                return StatusCode(500, new { success = false, message = "Could not save chapter: " + ex.Message });
             }
-
-            return Json(new
-            {
-                success = true,
-                message = "Chapter updated successfully.",
-                responseId = newResponseId
-            });
         }
 
         /// <summary>Extract plain text from an uploaded .txt / .md or .pdf (first pass) for chapter import.</summary>
