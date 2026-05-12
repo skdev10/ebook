@@ -6397,16 +6397,67 @@ document.addEventListener('DOMContentLoaded', function() {
          //===================================
          //    Audio Recording (single mic on strip: click = start, then Stop appears)
          //===================================
+         /** Legacy browsers / embedded WebViews may omit navigator.mediaDevices; map webkit/moz getUserMedia to a Promise API. */
+         (function ebookPatchMediaDevicesGetUserMedia() {
+             try {
+                 if (typeof navigator === 'undefined') return;
+                 if (!navigator.mediaDevices)
+                     navigator.mediaDevices = {};
+                 if (typeof navigator.mediaDevices.getUserMedia === 'function') return;
+                 var legacy = navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.getUserMedia || navigator.msGetUserMedia;
+                 if (typeof legacy !== 'function') return;
+                 navigator.mediaDevices.getUserMedia = function (constraints) {
+                     return new Promise(function (resolve, reject) {
+                         legacy.call(navigator, constraints, resolve, reject);
+                     });
+                 };
+             } catch (e) {
+                 console.warn('[voice] mediaDevices polyfill:', e);
+             }
+         })();
           var startRecBtn = document.getElementById('startRecBtn');
           var stopRecBtn = document.getElementById('stopRecBtn');
           var recordingStripArea = document.getElementById('recordingStripArea');
           if (startRecBtn) startRecBtn.onclick = async () => {
-         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-             showNotification('Your browser does not support microphone recording. Try Chrome or Edge.', 'error');
+         if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+             showNotification('Microphone API is not available. Use https://, allow microphone in site settings, or try Chrome / Edge / Firefox / Safari.', 'error');
              return;
          }
          if (typeof MediaRecorder === 'undefined') {
-             showNotification('MediaRecorder is not available (update your browser or use HTTPS).', 'error');
+             var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+             if (SR) {
+                 var useSpeech = true;
+                 if (typeof Swal !== 'undefined') {
+                     var pick = await Swal.fire({
+                         icon: 'info',
+                         title: 'Voice typing',
+                         text: 'This browser cannot record an audio file (MediaRecorder). You can speak once using built-in recognition instead.',
+                         showCancelButton: true,
+                         confirmButtonText: 'Speak now',
+                         cancelButtonText: 'Cancel',
+                         confirmButtonColor: '#7c3aed'
+                     });
+                     useSpeech = !!(pick && pick.isConfirmed);
+                 } else {
+                     showNotification('Recording file not supported — starting one-time voice typing.', 'info');
+                 }
+                 if (!useSpeech) return;
+                 try {
+                     startRecBtn.disabled = true;
+                     var localTxt = await ebookTryBrowserSpeechOnce();
+                     if (localTxt) {
+                         var uiSp = document.getElementById('UserInput');
+                         if (uiSp) uiSp.value = (uiSp.value ? (uiSp.value + ' ') : '') + localTxt;
+                         showNotification('Text added using voice typing.', 'success');
+                     } else {
+                         showNotification('No speech detected. Allow microphone, try again, or type your text.', 'error');
+                     }
+                 } finally {
+                     startRecBtn.disabled = false;
+                 }
+                 return;
+             }
+             showNotification('MediaRecorder is not available. Use a recent Chrome, Edge, or Safari on https://, or type your text.', 'error');
              return;
          }
          var host = window.location.hostname || '';
