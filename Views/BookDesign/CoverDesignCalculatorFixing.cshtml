@@ -15,6 +15,17 @@
         --fmt-purple: #6d28d9;
         --fmt-purple-dark: #5b21b6;
     }
+    /* Studio preview: hide toolbar row (Preview / Fix / Next) — controls remain on left; JS still binds by id. */
+    .fmt-studio-preview-toolbar,
+    #fmt-studio-preview-toolbar {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
     #book-formatter-root label { font-size: 0.9375rem; }
     #book-formatter-root .text-xs.text-gray-500,
     #book-formatter-root .text-xs.text-slate-500,
@@ -764,6 +775,21 @@
         overflow: visible;
         padding-bottom: 1.25rem;
     }
+    /*
+     * Formatter preview + interior-classic: `.classic-body { flex: 1 }` inside `.book-preview-sheet` (flex column)
+     * was shrinking the body to the remaining viewport height and clipping long chapters. Let the sheet grow with
+     * content; scroll stays on `.fmt-manuscript-scroll-host`. `interior-classic` look unchanged outside preview card.
+     */
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-classic .book-preview-sheet,
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both .reader-content-wrap.interior-classic .book-preview-sheet {
+        min-height: auto;
+    }
+    #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-classic .reader-page-body.classic-body,
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both .reader-content-wrap.interior-classic .reader-page-body.classic-body {
+        flex: 0 1 auto !important;
+        min-height: min-content;
+        overflow: visible !important;
+    }
     /* Match AI Book Writer side chevrons (siblings of reader shell inside `#preview-content`) */
     #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav,
     #preview-both .fmt-preview-side-nav {
@@ -920,13 +946,16 @@
         min-width: 0 !important;
         display: block !important;
         overflow-x: hidden !important;
-        overflow-y: scroll !important;
+        overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior-y: contain;
         touch-action: pan-y;
         scrollbar-gutter: stable;
         scrollbar-width: auto;
         scrollbar-color: #a78bfa #ede9fe;
+        /* Last lines stay above docked nav / viewport rounding */
+        padding-bottom: max(3.5rem, env(safe-area-inset-bottom, 0px)) !important;
+        box-sizing: border-box;
     }
     #book-formatter-root #preview-wrapper .fmt-manuscript-scroll-host::-webkit-scrollbar {
         width: 12px;
@@ -1240,7 +1269,7 @@ div#fmt-finalize-panel {
                                         <button type="button" id="reader-bookmark-btn" title="Save reading position on this device">Bookmark</button>
                                     </div>
                                 </div>
-                                <div id="fmt-studio-preview-toolbar" class="mb-2 flex flex-wrap items-center justify-between gap-2 shrink-0 w-full">
+                                <div id="fmt-studio-preview-toolbar" class="fmt-studio-preview-toolbar mb-2 flex flex-wrap items-center justify-between gap-2 shrink-0 w-full" aria-hidden="true">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button type="button" id="fmt-btn-studio-preview" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 border-0 cursor-pointer hover:opacity-95 shrink-0" style="background-color:#6d28d9;" title="Refresh interior & cover preview from current settings">
                                             <i class="fas fa-book-open" aria-hidden="true"></i> Preview
