@@ -197,14 +197,14 @@ public class BookChapterPipelineService : IBookChapterPipelineService
 
         var apiPayload = GenerateChapterPayloadBuilder.CloneForExternalGenerateApi(aiRequest);
         var apiUrl = _configuration["ExternalApi:GenerateUrl"] ?? "http://162.229.248.26:8001/api/generate_chapter";
-        var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+        var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
         if (string.IsNullOrEmpty(apiKey))
         {
-            _logger.LogError("ExternalApi:ApiKey is not configured; chapter generation cannot run.");
+            _logger.LogError("External API key not configured (ExternalApi:ApiKey or OpenAI:ApiKey); chapter generation cannot run.");
             return new ChapterGenerateResultDto
             {
                 Success = false,
-                Message = "Server configuration error: API key missing.",
+                Message = ExternalApiKeyResolver.MissingKeyUserMessage,
                 ChapterNumber = chapterNumber,
                 LastHttpStatus = 0
             };

@@ -499,9 +499,9 @@ namespace EBookDashboard.Controllers
             var size = (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim();
             var quality = (_configuration["ExternalApi:CoverGenerateQuality"] ?? "medium").Trim();
             var apiUrl = (_configuration["ExternalApi:GenerateCoverUrl"] ?? "http://162.229.248.26:8001/api/generate-cover").Trim();
-            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
-                return Json(new { success = false, status = "error", message = "ExternalApi:ApiKey is not set. Add it in appsettings.json, appsettings.Local.json, or user secrets (dotnet user-secrets set \"ExternalApi:ApiKey\" \"your-key\")." });
+                return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
 
             var payloadObj = new JObject
             {
@@ -620,9 +620,9 @@ namespace EBookDashboard.Controllers
 
             var size = !string.IsNullOrWhiteSpace(req.Size) ? req.Size!.Trim() : (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim();
             var apiUrl = (_configuration["ExternalApi:EditCoverUrl"] ?? "http://162.229.248.26:8001/api/edit-cover").Trim();
-            var apiKey = (_configuration["ExternalApi:ApiKey"] ?? "").Trim();
+            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
-                return Json(new { success = false, status = "error", message = "ExternalApi:ApiKey is not set. Add it in appsettings.json, appsettings.Local.json, or user secrets." });
+                return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
 
             var encoded = req.EncodedImage.Trim();
             if (encoded.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))

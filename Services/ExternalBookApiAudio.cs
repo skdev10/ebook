@@ -63,7 +63,7 @@ public static class ExternalBookApiAudio
         CancellationToken cancellationToken)
     {
         var apiUrl = configuration["ExternalApi:AudioUrl"] ?? "http://162.229.248.26:8001/api/audio";
-        var apiKey = (configuration["ExternalApi:ApiKey"] ?? "").Trim();
+        var apiKey = ExternalApiKeyResolver.Resolve(configuration);
 
         var sendLocalPath =
             string.Equals(configuration["ExternalApi:AudioSendLocalFilePath"], "true", StringComparison.OrdinalIgnoreCase)
