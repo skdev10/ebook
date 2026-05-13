@@ -53,9 +53,15 @@
     <PackageReference Include="UglyToad.PdfPig" Version="0.1.8-alpha001-patch1" />
   </ItemGroup>
 
-  <!-- Duplicate nested copy of Program.cs was being compiled and caused CS8802 (two top-level entry points). -->
+  <!--
+    Exclude accidental nested full-project copies from compilation.
+    - newEbook/: duplicate tree caused CS8802 (two entry points).
+    - EbookAI/: same codebase cloned/copied under ./EbookAI/ on Linux deploys (/root/latest/EbookAI/EbookAI/...) causes CS0111 duplicate members.
+  -->
   <ItemGroup>
     <Compile Remove="newEbook\**\*.cs" />
+    <Compile Remove="EbookAI\**\*.cs" />
+    <Content Remove="EbookAI\**\*.cshtml" />
   </ItemGroup>
 
   <ItemGroup>
