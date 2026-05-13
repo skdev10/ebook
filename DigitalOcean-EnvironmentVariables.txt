@@ -7,6 +7,11 @@ Required for database & startup:
 
 Security: Rotate any DB password committed in appsettings if the repo is shared or public; prefer secrets + env on production hosts.
 
+Login on plain HTTP (e.g. http://YOUR_DROPLET_IP:5000/ during testing):
+  Authentication__CookieSecurePolicy
+    Use SameAsRequest (default in appsettings) so auth + session cookies are accepted over HTTP; on HTTPS they become Secure.
+    Set to Always only when the app is never served over HTTP — otherwise browsers will not store login cookies and sign-in appears broken.
+
 Bare VM / production-style run (local MySQL); appsettings.Production.json sets UseLocalFallbackConnection=true.
   You must supply credentials (Linux MySQL rarely allows root with no password):
     MYSQL_ROOT_PASSWORD=...   (or MYSQL_PASSWORD=...)

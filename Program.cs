@@ -82,6 +82,20 @@ builder.Services.AddScoped<RequireAdminAuthorizationFilter>();
 
 var isDevelopmentEnvironment = builder.Environment.IsDevelopment();
 
+// Auth + session cookies: Production used CookieSecurePolicy.Always, which breaks login on plain HTTP
+// (e.g. http://IP:5000) — browsers drop Secure cookies. SameAsRequest marks Secure only on HTTPS requests.
+static CookieSecurePolicy ResolveAuthCookieSecurePolicy(IConfiguration configuration)
+{
+    var s = configuration["Authentication:CookieSecurePolicy"]?.Trim();
+    if (string.Equals(s, "Always", StringComparison.OrdinalIgnoreCase))
+        return CookieSecurePolicy.Always;
+    if (string.Equals(s, "None", StringComparison.OrdinalIgnoreCase))
+        return CookieSecurePolicy.None;
+    return CookieSecurePolicy.SameAsRequest;
+}
+
+var authCookieSecurePolicy = ResolveAuthCookieSecurePolicy(builder.Configuration);
+
 // ✅ Dual cookie schemes so Admin and User can be logged in in different tabs simultaneously.
 // Path-based: /Admin/* uses AdminCookie, everything else uses UserCookie.
 var authenticationBuilder = builder.Services.AddAuthentication(options =>
@@ -109,11 +123,8 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.AccessDeniedPath = "/Account/AccessDenied";
     options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
     options.SlidingExpiration = true;
-    if (!isDevelopmentEnvironment)
-    {
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-    }
+    options.Cookie.SecurePolicy = authCookieSecurePolicy;
+    options.Cookie.SameSite = SameSiteMode.Lax;
 })
 .AddCookie("UserCookie", options =>
 {
@@ -123,11 +134,8 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.AccessDeniedPath = "/Account/AccessDenied";
     options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
     options.SlidingExpiration = true;
-    if (!isDevelopmentEnvironment)
-    {
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-    }
+    options.Cookie.SecurePolicy = authCookieSecurePolicy;
+    options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
 // OAuth handlers validate ClientId/AppId on first request — skip registration when secrets are missing (e.g. cloud env vars not set).
@@ -237,11 +245,8 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(120); // long AI edit / generate waits (was 30 — caused save failures after idle)
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
-    if (!isDevelopmentEnvironment)
-    {
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-    }
+    options.Cookie.SecurePolicy = authCookieSecurePolicy;
+    options.Cookie.SameSite = SameSiteMode.Lax;
 });
 // ✅ Swagger for API documentation
 builder.Services.AddControllers();
