@@ -18,6 +18,7 @@ public static class ExternalApiKeyResolver
     }
 
     public static string MissingKeyUserMessage { get; } =
-        "Server configuration error: ExternalApi:ApiKey is not set. Add it in appsettings, environment variables " +
-        "(ExternalApi__ApiKey or OpenAI__ApiKey), appsettings.Local.json, or user secrets.";
+        "Server configuration error: no API key for the book service. On production set environment variable " +
+        "ExternalApi__ApiKey (preferred) or OpenAI__ApiKey; locally use appsettings.Local.json or dotnet user-secrets. " +
+        "Keeping ApiKey empty in appsettings.json in git is intentional — do not commit secrets.";
 }

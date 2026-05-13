@@ -37,6 +37,9 @@ OAuth — REQUIRED on App Platform for Google/Facebook login (if unset, schemes 
     Callback URLs in Google Cloud / Meta apps must match your live site, e.g. https://YOUR_DOMAIN/auth/google/callback and https://YOUR_DOMAIN/signin-facebook
 
 External chapter/cover API:
+  ExternalApi__ApiKey
+    Required for generate/edit/cover/audio calls to the Python upstream (sent as X-API-Key). appsettings*.json often keeps ApiKey empty in git — set this on the server instead.
+    Fallback: OpenAI__ApiKey is also read if ExternalApi__ApiKey is unset (same resolver).
   ExternalApi__BaseUrl
   ExternalApi__GenerateUrl
   ExternalApi__EditUrl
