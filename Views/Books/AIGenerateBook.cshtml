@@ -1220,7 +1220,9 @@
                         </div>
                         <div class="flex items-center gap-2 pr-1">
                             <span id="voiceControlWrap" class="flex items-center gap-2">
-                                <button id="startRecBtn" type="button" class="bg-slate-200 hover:bg-green-500 hover:text-white text-slate-600 p-2 rounded-full shadow-sm transition-all flex items-center justify-center w-9 h-9" title="Voice to text"><i class="fas fa-microphone text-sm"></i></button>
+                                <button id="startRecBtn" type="button" class="bg-slate-200 hover:bg-green-500 hover:text-white text-slate-600 p-2 rounded-full shadow-sm transition-all flex items-center justify-center w-9 h-9" title="Voice to text (microphone)"><i class="fas fa-microphone text-sm"></i></button>
+                                <input type="file" id="voiceFileUpload" accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm,audio/*" class="hidden" aria-label="Upload audio file for transcription" />
+                                <button type="button" id="voiceUploadBtn" class="text-xs font-medium text-slate-500 hover:text-purple-600 underline decoration-dotted px-1" title="Upload an audio file instead of recording">Upload audio</button>
                                 <span id="recordingStripArea" class="hidden items-center gap-2">
                                     <span class="text-xs font-medium text-red-600">🔴 Recording</span>
                                     <button id="stopRecBtn" type="button" disabled class="px-2 py-1 rounded-lg bg-red-400 hover:bg-red-500 text-white text-xs font-medium">Stop</button>
@@ -6415,12 +6417,62 @@ document.addEventListener('DOMContentLoaded', function() {
                  console.warn('[voice] mediaDevices polyfill:', e);
              }
          })();
+         function ebookClientHasMicApis() {
+             return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && window.MediaRecorder);
+         }
+         async function ebookUploadAudioFileForTopic(file) {
+             if (!file || !file.size) return;
+             var formData = new FormData();
+             formData.append("audio", file, file.name);
+             formData.append("AudioFile", file, file.name);
+             formData.append("Language", "en-US");
+             var uid = document.getElementById("UserId") && document.getElementById("UserId").value ? document.getElementById("UserId").value : "";
+             var bid = document.getElementById("BookId") && document.getElementById("BookId").value ? document.getElementById("BookId").value : "";
+             var ch = document.getElementById("ChapterNo") && document.getElementById("ChapterNo").value ? document.getElementById("ChapterNo").value : "0";
+             if (uid) formData.append("userId", uid);
+             if (bid) formData.append("bookId", bid);
+             if (ch) formData.append("chapter", ch);
+             var res = await fetch("/api/AudioToText/convert", { method: "POST", body: formData, credentials: "same-origin" });
+             var raw = await res.text();
+             var data = {};
+             if (raw) { try { data = JSON.parse(raw); } catch (e) { data = {}; } }
+             if (!res.ok) {
+                 var errMsg = (data && (data.message || data.Message)) ? String(data.message || data.Message) : ('HTTP ' + res.status);
+                 showNotification('Upload failed: ' + errMsg, 'error');
+                 return;
+             }
+             if (data.success && data.text) {
+                 var txt = data.text.replace(/<p[^>]*>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                 var ui = document.getElementById("UserInput");
+                 if (ui) ui.value = (ui.value ? (ui.value + ' ') : '') + txt;
+                 showNotification('Transcription added from file.', 'success');
+             } else {
+                 showNotification('No text returned from uploaded audio.', 'error');
+             }
+         }
+         (function ebookBindVoiceUpload() {
+             var fu = document.getElementById('voiceFileUpload');
+             var bu = document.getElementById('voiceUploadBtn');
+             if (bu && fu) {
+                 bu.onclick = function () { fu.click(); };
+                 fu.onchange = async function () {
+                     var f = fu.files && fu.files[0];
+                     fu.value = '';
+                     if (!f) return;
+                     try {
+                         await ebookUploadAudioFileForTopic(f);
+                     } catch (ex) {
+                         showNotification('Upload error: ' + (ex.message || 'unknown'), 'error');
+                     }
+                 };
+             }
+         })();
           var startRecBtn = document.getElementById('startRecBtn');
           var stopRecBtn = document.getElementById('stopRecBtn');
           var recordingStripArea = document.getElementById('recordingStripArea');
           if (startRecBtn) startRecBtn.onclick = async () => {
-         if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
-             showNotification('Microphone API is not available. Use https://, allow microphone in site settings, or try Chrome / Edge / Firefox / Safari.', 'error');
+         if (!ebookClientHasMicApis()) {
+             showNotification('Microphone recording is not available in this browser. Use “Upload audio” next to the mic, or type your topic.', 'error');
              return;
          }
          if (typeof MediaRecorder === 'undefined') {
@@ -6457,7 +6509,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  }
                  return;
              }
-             showNotification('MediaRecorder is not available. Use a recent Chrome, Edge, or Safari on https://, or type your text.', 'error');
+             showNotification('MediaRecorder is not available in this browser. Use Upload audio or type your text.', 'error');
              return;
          }
          var host = window.location.hostname || '';
@@ -6495,7 +6547,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  var voiceFileName = 'voice' + ext;
                  if (!blob.size) {
                      console.error('Voice recording: empty blob — browser may need periodic timeslices or requestData() before stop.');
-                     showNotification('Recording had no audio data. Try again or use Chrome/Edge.', 'error');
+                     showNotification('Recording had no audio data. Try again or use Upload audio.', 'error');
                      if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                      if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                      if (stopRecBtn) stopRecBtn.disabled = true;

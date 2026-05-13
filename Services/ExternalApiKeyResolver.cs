@@ -18,6 +18,6 @@ public static class ExternalApiKeyResolver
     }
 
     public static string MissingKeyUserMessage { get; } =
-        "Server configuration error: no API key for the external book API. Set ExternalApi:ApiKey or OpenAI:ApiKey " +
-        "(on the host use environment variables ExternalApi__ApiKey or OpenAI__ApiKey).";
+        "Server configuration error: ExternalApi:ApiKey is not set. Add it in appsettings, environment variables " +
+        "(ExternalApi__ApiKey or OpenAI__ApiKey), appsettings.Local.json, or user secrets.";
 }

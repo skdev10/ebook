@@ -1,0 +1,74 @@
+### Upstream FastAPI smoke tests (replace BASE and KEY)
+@BASE = http://162.229.248.26:8001
+@KEY = YOUR_EXTERNAL_API_KEY
+
+### GET queue
+GET {{BASE}}/api/queue-data
+X-API-Key: {{KEY}}
+
+### POST generate chapter (long-running)
+POST {{BASE}}/api/generate_chapter
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"user_id":"u123","book_id":"b456","chapter":"18","user_input":"how gravity was discovered"}
+
+### POST edit
+POST {{BASE}}/api/edit
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"user_id":"u123","book_id":"b456","chapter":"18","changes":"replace 8790 with 6789 in heading"}
+
+### POST audio (path must exist on upstream worker if it reads paths; otherwise use multipart via .NET app)
+POST {{BASE}}/api/audio
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"user_id":"u123","book_id":"b456","chapter":14,"audio_file_path":"/uploads/abc.mp3"}
+
+### POST approve
+POST {{BASE}}/api/approve
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"user_id":"u123","book_id":"b456","chapter":18,"approve":true}
+
+### POST generate cover
+POST {{BASE}}/api/generate-cover
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"title":"The Power of Gravity","author_name":"Hasan Rahim","category":"Science","cover_style":"Modern Illustration","size":"1024x1536","quality":"medium"}
+
+### POST edit cover (trim base64 in real runs)
+POST {{BASE}}/api/edit-cover
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"encoded_image":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==","image_direction":"brighter foreground","size":"1024x1536"}
+
+### POST book chapter names
+POST {{BASE}}/api/book_chapters_name
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"user_id":"u1","book_id":"b1","highlights":[{"chapter_name":"Intro","detailed_bullet_summary":"..."}]}
+
+### POST refine cover prompt
+POST {{BASE}}/api/refine_cover_prompt
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"user_prompt":"mystical forest at dawn"}
+
+### POST suggest cover prompt from highlights
+POST {{BASE}}/api/suggest-cover-prompt-from-highlights
+X-API-Key: {{KEY}}
+Content-Type: application/json
+
+{"user_id":"u1","book_id":"b1","highlights":[{"chapter_name":"Intro","detailed_bullet_summary":"..."}]}
+
+### BFF health (after deploy)
+# @name bffhealth
+GET https://YOUR_APP_DOMAIN/health

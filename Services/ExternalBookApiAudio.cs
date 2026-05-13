@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using EBookDashboard.Services.BookApi;
 
 namespace EBookDashboard.Services;
 
@@ -9,7 +10,7 @@ public static class ExternalBookApiAudio
 {
     /// <summary>Tries multipart file field names until one succeeds. Configure with <c>ExternalApi:AudioMultipartFieldNames</c> as comma-separated list.</summary>
     public static async Task<string> TranscribeFileAsync(
-        HttpClient http,
+        IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         string absoluteFilePath,
         int userId,
@@ -31,7 +32,7 @@ public static class ExternalBookApiAudio
             try
             {
                 return await TranscribeOnceWithMultipartFieldAsync(
-                    http,
+                    httpClientFactory,
                     configuration,
                     absoluteFilePath,
                     userId,
@@ -53,7 +54,7 @@ public static class ExternalBookApiAudio
     }
 
     private static async Task<string> TranscribeOnceWithMultipartFieldAsync(
-        HttpClient http,
+        IHttpClientFactory httpClientFactory,
         IConfiguration configuration,
         string absoluteFilePath,
         int userId,
@@ -63,7 +64,6 @@ public static class ExternalBookApiAudio
         CancellationToken cancellationToken)
     {
         var apiUrl = configuration["ExternalApi:AudioUrl"] ?? "http://162.229.248.26:8001/api/audio";
-        var apiKey = ExternalApiKeyResolver.Resolve(configuration);
 
         var sendLocalPath =
             string.Equals(configuration["ExternalApi:AudioSendLocalFilePath"], "true", StringComparison.OrdinalIgnoreCase)
@@ -107,9 +107,8 @@ public static class ExternalBookApiAudio
         var authHdr = configuration["ExternalApi:AudioAuthorizationHeader"]?.Trim();
         if (!string.IsNullOrEmpty(authHdr))
             req.Headers.TryAddWithoutValidation("Authorization", authHdr);
-        else if (!string.IsNullOrEmpty(apiKey))
-            req.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
+        var http = httpClientFactory.CreateClient(BookApiConstants.HttpClientNameShort);
         using var response = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)

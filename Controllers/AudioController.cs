@@ -1,4 +1,5 @@
 using EBookDashboard.Services;
+using EBookDashboard.Services.BookApi;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using System.IO;
@@ -29,6 +30,9 @@ namespace EBookDashboard.Controllers
             if (audio == null || audio.Length == 0)
                 return BadRequest("Audio file is required.");
 
+            if (!BookApiInputValidation.IsAllowedAudioExtension(audio.FileName))
+                return BadRequest("Unsupported audio type. Allowed: " + string.Join(", ", BookApiConstants.ValidAudioExtensions));
+
             var folder = Path.Combine(_env.WebRootPath, "uploads/audio");
             Directory.CreateDirectory(folder);
 
@@ -41,9 +45,7 @@ namespace EBookDashboard.Controllers
             var text = "";
             try
             {
-                var http = _httpClientFactory.CreateClient();
-                http.Timeout = TimeSpan.FromMinutes(5);
-                text = await ExternalBookApiAudio.TranscribeFileAsync(http, _configuration, filePath, userId, bookId, chapterId);
+                text = await ExternalBookApiAudio.TranscribeFileAsync(_httpClientFactory, _configuration, filePath, userId, bookId, chapterId);
             }
             catch (Exception)
             {

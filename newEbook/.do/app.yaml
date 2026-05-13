@@ -1,5 +1,5 @@
-# DigitalOcean App Platform spec — link this repo in the DO UI or apply with doctl apps update --spec .do/app.yaml
-# Replace the github.repo value with your GitHub org/repo (e.g. myorg/eBookProjectGit25) before first deploy.
+# DigitalOcean App Platform — update github.repo and paths for your account.
+# Build context: repository root where newEbook.csproj lives.
 name: ebook-dashboard
 region: nyc
 features:
@@ -9,12 +9,11 @@ alerts:
 services:
   - name: web
     github:
-      repo: YOUR_GITHUB_USER_OR_ORG/YOUR_REPO_NAME
+      repo: YOUR_GITHUB_USER_ORG/YOUR_REPO_NAME
       branch: main
       deploy_on_push: true
     source_dir: /
-    # Explicit publish output so run_command can always find the DLL (fixes "EBookDashboard.dll does not exist").
-    build_command: dotnet publish ./EBookDashboard.csproj -c Release -o publish
+    build_command: dotnet publish ./newEbook.csproj -c Release -o publish
     run_command: dotnet publish/EBookDashboard.dll
     http_port: 8080
     instance_count: 1
@@ -26,5 +25,35 @@ services:
       timeout_seconds: 5
       success_threshold: 1
       failure_threshold: 3
-    # Set the MySQL connection string in the dashboard (Secrets) — do not commit real credentials.
-    # Key: ConnectionStrings__DefaultConnection  Scope: RUN_TIME  Type: SECRET
+    envs:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+        scope: RUN_TIME
+      - key: ExternalApi__BaseUrl
+        value: http://162.229.248.26:8001
+        scope: RUN_TIME
+      - key: ExternalApi__ApiKey
+        value: EV[1:YOUR_ENCRYPTED_SECRET_REF]
+        type: SECRET
+        scope: RUN_TIME
+      - key: ConnectionStrings__DefaultConnection
+        value: EV[1:YOUR_DB_SECRET_REF]
+        type: SECRET
+        scope: RUN_TIME
+      - key: Authentication__Google__ClientId
+        value: YOUR_GOOGLE_CLIENT_ID
+        scope: RUN_TIME
+      - key: Authentication__Google__ClientSecret
+        value: EV[1:YOUR_GOOGLE_SECRET_REF]
+        type: SECRET
+        scope: RUN_TIME
+      - key: Authentication__Facebook__AppId
+        value: YOUR_META_APP_ID
+        scope: RUN_TIME
+      - key: Authentication__Facebook__AppSecret
+        value: EV[1:YOUR_META_SECRET_REF]
+        type: SECRET
+        scope: RUN_TIME
+      - key: App__PublicBaseUrl
+        value: https://YOUR_APP.ondigitalocean.app
+        scope: RUN_TIME

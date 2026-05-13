@@ -1,3 +1,5 @@
+using EBookDashboard.Models.Options;
+using EBookDashboard.Services.BookApi;
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
@@ -12,6 +14,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Recommendations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Org.BouncyCastle.Asn1.Cmp;
 using Org.BouncyCastle.Asn1.Ocsp;
@@ -41,6 +44,8 @@ namespace EBookDashboard.Controllers
     //[Route("[controller]/[action]")]
     public class BooksController : Controller
     {
+        private readonly IBookApiClient _bookApiClient;
+        private readonly IOptionsSnapshot<ExternalApiOptions> _externalApiOptions;
         private readonly HttpClient _httpClient;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IBookService _bookService;
@@ -55,6 +60,8 @@ namespace EBookDashboard.Controllers
             IBookService bookService,
             ApplicationDbContext context,
             IHttpClientFactory httpClientFactory,
+            IBookApiClient bookApiClient,
+            IOptionsSnapshot<ExternalApiOptions> externalApiOptions,
             IAPIRawResponseService rawResponseService,
             IConfiguration configuration,
             ILogger<BooksController> logger,
@@ -62,6 +69,8 @@ namespace EBookDashboard.Controllers
             IBookPdfService bookPdfService)
         {
             _httpClientFactory = httpClientFactory;
+            _bookApiClient = bookApiClient;
+            _externalApiOptions = externalApiOptions;
             _httpClient = httpClientFactory.CreateClient();
             _bookService = bookService;
             _rawResponseService = rawResponseService;
@@ -516,7 +525,7 @@ namespace EBookDashboard.Controllers
             if (model == null)
                 return Json(new { error = true, message = "Invalid request data — empty body or invalid JSON." });
 
-            var apiUrl = _configuration["ExternalApi:GenerateUrl"] ?? "http://162.229.248.26:8001/api/generate_chapter";
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateUrl, "/api/generate_chapter");
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -524,17 +533,15 @@ namespace EBookDashboard.Controllers
             int? rawResponseId = null;
             try
             {
-                // Named client: timeout from ChapterGeneration:HttpTimeoutMinutes (see Program.cs). Do not use new HttpClient() here.
-                var client = _httpClientFactory.CreateClient("ExternalChapterGeneration");
+                var client = _bookApiClient;
                 var apiPayload = GenerateChapterPayloadBuilder.CloneForExternalGenerateApi(model);
                 var json = JsonConvert.SerializeObject(apiPayload);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
-                httpRequest.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
-                Console.WriteLine($"📤Sending request to API: {apiUrl} (payload length {json.Length})");
+                _logger.LogInformation("Sending generate_chapter to upstream (payload length {Len}).", json.Length);
                 // RequestAborted: if the browser aborts (timeout / navigation), stop waiting on the external API.
-                using var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseContentRead, HttpContext.RequestAborted);
+                using var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, HttpContext.RequestAborted);
                 responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
 
                     // Log the API response in VS Output or console
@@ -644,7 +651,7 @@ namespace EBookDashboard.Controllers
         [HttpPost]
         public async Task<ActionResult> EditChapter(string userId, string bookId, string chapter, string changes)
         {
-            var apiUrl = _configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit";
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit");
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -655,8 +662,7 @@ namespace EBookDashboard.Controllers
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
-            req.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
-            using var response = await _httpClient.SendAsync(req);
+            using var response = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
             var result = await response.Content.ReadAsStringAsync();
             return Content(result, "application/json");
         }
@@ -673,7 +679,7 @@ namespace EBookDashboard.Controllers
             if (model == null)
                 return Json(new { error = true, message = "Invalid request data" });
 
-            var apiUrl = _configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit";
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit");
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -697,12 +703,10 @@ namespace EBookDashboard.Controllers
             {
                 try
                 {
-                    var editGenClient = _httpClientFactory.CreateClient("ExternalChapterGeneration");
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
                     using var requestMsg = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
-                    requestMsg.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
-                    using var response = await editGenClient.SendAsync(requestMsg, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
+                    using var response = await _bookApiClient.SendAsync(requestMsg, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                     responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
 
                     try
@@ -1893,9 +1897,8 @@ namespace EBookDashboard.Controllers
         {
             if (model == null)
                 return BadRequest("Invalid request payload.");
-            var apiUrl = (_configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit").Trim();
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
-            const string apiHeaderName = "X-API-Key";
 
             string responseData = string.Empty;
             int? rawResponseId = null;
@@ -1905,17 +1908,15 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(apiKey))
                     return BadRequest(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
 
-                var editClient = _httpClientFactory.CreateClient("ExternalChapterGeneration");
                 var json = JsonConvert.SerializeObject(model);
                 using var httpRequestEdit = new HttpRequestMessage(HttpMethod.Post, apiUrl)
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
                 };
-                httpRequestEdit.Headers.TryAddWithoutValidation(apiHeaderName, apiKey);
 
                 Console.WriteLine($"📤Forwarding edit request to API: {json}");
 
-                using var response = await editClient.SendAsync(httpRequestEdit, HttpCompletionOption.ResponseHeadersRead, HttpContext.RequestAborted);
+                using var response = await _bookApiClient.SendAsync(httpRequestEdit, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                 responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
 
                 // Save raw response for audit
@@ -1998,7 +1999,7 @@ namespace EBookDashboard.Controllers
             // ✅ Read from appsettings.json
             //var apiUrl = "http://162.229.248.26:8001/api/changecontent";
 
-            var apiUrl = (_configuration["ExternalApi:EditUrl"] ?? "http://162.229.248.26:8001/api/edit").Trim();
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -2016,8 +2017,7 @@ namespace EBookDashboard.Controllers
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
-            req.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
-            using var response = await _httpClient.SendAsync(req);
+            using var response = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
             var responseData = await response.Content.ReadAsStringAsync();
 
             // Step 2: Parse response JSON
@@ -2418,9 +2418,8 @@ namespace EBookDashboard.Controllers
             // ✅ Load from appsettings.json
            
 
-            var apiUrl = (_configuration["ExternalApi:ApproveUrl"] ?? "http://162.229.248.26:8001/api/approve").Trim();
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.ApproveUrl, "/api/approve").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
-            const string apiHeaderName = "X-API-Key";
 
             string responseData = string.Empty;
             int? rawResponseId = null;
@@ -2430,16 +2429,13 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(apiKey))
                     return BadRequest(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
 
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromMinutes(2);
-                client.DefaultRequestHeaders.TryAddWithoutValidation(apiHeaderName, apiKey);
-
                 var json = JsonConvert.SerializeObject(model);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                 Console.WriteLine($"📤 Sending finalize request to API: {json}");
 
-                var response = await client.PostAsync(apiUrl, content);
+                using var httpReq = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
+                using var response = await _bookApiClient.SendAsync(httpReq, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                 responseData = await response.Content.ReadAsStringAsync();
                 
                 // 🧾 Save raw API response
@@ -3018,9 +3014,13 @@ namespace EBookDashboard.Controllers
                 category = catIn.Trim();
 
             var coverStyleLabel = MapCoverStyleForExternalApi(styleKey, prompt);
-            var size = (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim();
-            var quality = (_configuration["ExternalApi:CoverGenerateQuality"] ?? "medium").Trim();
-            var apiUrl = (_configuration["ExternalApi:GenerateCoverUrl"] ?? "http://162.229.248.26:8001/api/generate-cover").Trim();
+            var size = BookApiInputValidation.NormalizeSize(
+                (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim(),
+                "1024x1536");
+            var quality = BookApiInputValidation.NormalizeQuality(
+                (_configuration["ExternalApi:CoverGenerateQuality"] ?? "medium").Trim(),
+                "medium");
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateCoverUrl, "/api/generate-cover").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -3037,17 +3037,15 @@ namespace EBookDashboard.Controllers
             };
 
             var json = payloadObj.ToString(Newtonsoft.Json.Formatting.None);
-            _logger.LogInformation("Generate cover request bookId={BookId} url={Url} payload={Payload}", bookId, apiUrl, json);
+            _logger.LogInformation("Generate cover request bookId={BookId} url={Url} jsonChars={Chars}", bookId, apiUrl, json.Length);
 
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-                if (!string.IsNullOrEmpty(apiKey))
-                    request.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-                var response = await _httpClient.SendAsync(request, cts.Token);
+                using var response = await _bookApiClient.SendAsync(request, BookApiCallTimeoutKind.LongRunning, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
@@ -3103,8 +3101,9 @@ namespace EBookDashboard.Controllers
 
             var size = body?["size"]?.ToString();
             if (string.IsNullOrWhiteSpace(size)) size = _configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536";
+            size = BookApiInputValidation.NormalizeSize(size, "1024x1536");
 
-            var apiUrl = (_configuration["ExternalApi:EditCoverUrl"] ?? "http://162.229.248.26:8001/api/edit-cover").Trim();
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditCoverUrl, "/api/edit-cover").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -3120,9 +3119,8 @@ namespace EBookDashboard.Controllers
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 request.Content = new StringContent(payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
-                request.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
                 using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-                var response = await _httpClient.SendAsync(request, cts.Token);
+                using var response = await _bookApiClient.SendAsync(request, BookApiCallTimeoutKind.LongRunning, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
                 if (!response.IsSuccessStatusCode)
                     return Json(new { success = false, message = $"Edit cover HTTP {(int)response.StatusCode}" });
@@ -3275,15 +3273,11 @@ namespace EBookDashboard.Controllers
         [HttpGet]
         public async Task<IActionResult> GetQueueData()
         {
-            var apiUrl = _configuration["ExternalApi:QueueDataUrl"] ?? "http://162.229.248.26:8001/api/queue-data";
-            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.QueueDataUrl, "/api/queue-data");
             try
             {
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromSeconds(15);
-                if (!string.IsNullOrEmpty(apiKey))
-                    client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", apiKey);
-                var response = await client.GetAsync(apiUrl);
+                using var httpReq = new HttpRequestMessage(HttpMethod.Get, apiUrl);
+                using var response = await _bookApiClient.SendAsync(httpReq, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.IsSuccessStatusCode)
                     return Content(json, "application/json");
@@ -3300,16 +3294,12 @@ namespace EBookDashboard.Controllers
         [HttpPost]
         public async Task<IActionResult> BookChaptersName([FromBody] JObject body)
         {
-            var apiUrl = _configuration["ExternalApi:BookChaptersNameUrl"] ?? "http://162.229.248.26:8001/api/book_chapters_name";
-            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.BookChaptersNameUrl, "/api/book_chapters_name");
             try
             {
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromMinutes(1);
-                if (!string.IsNullOrEmpty(apiKey))
-                    client.DefaultRequestHeaders.TryAddWithoutValidation("X-API-Key", apiKey);
                 var content = new StringContent(body?.ToString() ?? "{}", Encoding.UTF8, "application/json");
-                var response = await client.PostAsync(apiUrl, content);
+                using var httpReq = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
+                using var response = await _bookApiClient.SendAsync(httpReq, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.IsSuccessStatusCode)
                     return Content(json, "application/json");
@@ -3320,6 +3310,48 @@ namespace EBookDashboard.Controllers
                 _logger.LogWarning(ex, "Book chapters name API failed.");
                 return BadRequest(new { success = false, message = ex.Message });
             }
+        }
+
+        /// <summary>Proxies POST /api/refine_cover_prompt to the FastAPI upstream.</summary>
+        [HttpPost]
+        public async Task<IActionResult> RefineCoverPrompt([FromBody] JObject? body)
+        {
+            if (HttpContext.Session.GetInt32("UserId") == null) return Unauthorized();
+            if (body == null) return BadRequest(new { success = false, message = "Body required." });
+            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
+            var url = _bookApiClient.ResolveUrl(_externalApiOptions.Value.RefineCoverPromptUrl, "/api/refine_cover_prompt");
+            using var req = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(body.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json")
+            };
+            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
+            var json = await resp.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            if (resp.IsSuccessStatusCode)
+                return Content(json, "application/json");
+            return StatusCode((int)resp.StatusCode, json);
+        }
+
+        /// <summary>Proxies POST /api/suggest-cover-prompt-from-highlights to the FastAPI upstream.</summary>
+        [HttpPost]
+        public async Task<IActionResult> SuggestCoverPromptFromHighlights([FromBody] JObject? body)
+        {
+            if (HttpContext.Session.GetInt32("UserId") == null) return Unauthorized();
+            if (body == null) return BadRequest(new { success = false, message = "Body required." });
+            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
+            var url = _bookApiClient.ResolveUrl(_externalApiOptions.Value.SuggestCoverPromptFromHighlightsUrl, "/api/suggest-cover-prompt-from-highlights");
+            using var req = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(body.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json")
+            };
+            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
+            var json = await resp.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            if (resp.IsSuccessStatusCode)
+                return Content(json, "application/json");
+            return StatusCode((int)resp.StatusCode, json);
         }
 
         // ========================== STYLING (requires purchased style feature) ===========================

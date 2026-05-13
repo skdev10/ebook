@@ -1,3 +1,4 @@
+using EBookDashboard.Services.BookApi;
 using EBookDashboard.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -57,6 +58,16 @@ namespace EBookDashboard.Controllers
                 });
             }
 
+            if (!BookApiInputValidation.IsAllowedAudioExtension(audioFile.FileName))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    text = "",
+                    message = "Unsupported audio type. Allowed: " + string.Join(", ", BookApiConstants.ValidAudioExtensions)
+                });
+            }
+
             var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "audio");
             Directory.CreateDirectory(uploadsFolder);
 
@@ -98,10 +109,8 @@ namespace EBookDashboard.Controllers
                     externalAttempted = true;
                     try
                     {
-                        var http = _httpClientFactory.CreateClient();
-                        http.Timeout = TimeSpan.FromMinutes(5);
                         text = await ExternalBookApiAudio.TranscribeFileAsync(
-                            http,
+                            _httpClientFactory,
                             _configuration,
                             savedFilePath,
                             uid,

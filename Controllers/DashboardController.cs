@@ -1,5 +1,7 @@
-using EBookDashboard.Infrastructure;
+using EBookDashboard.Models.Options;
+using EBookDashboard.Services.BookApi;
 using EBookDashboard.Interfaces;
+using EBookDashboard.Infrastructure;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
@@ -8,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Crypto.Generators;
 using System;
@@ -30,6 +33,8 @@ namespace EBookDashboard.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IDashboardService _dashboardService;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IBookApiClient _bookApiClient;
+        private readonly IOptionsSnapshot<ExternalApiOptions> _externalApiOptions;
         private readonly IConfiguration _configuration;
         private readonly ILogger<DashboardController> _logger;
         private readonly IBookService _bookService;
@@ -40,6 +45,8 @@ namespace EBookDashboard.Controllers
             ApplicationDbContext context,
             IDashboardService dashboardService,
             IHttpClientFactory httpClientFactory,
+            IBookApiClient bookApiClient,
+            IOptionsSnapshot<ExternalApiOptions> externalApiOptions,
             IConfiguration configuration,
             ILogger<DashboardController> logger,
             IBookService bookService,
@@ -49,6 +56,8 @@ namespace EBookDashboard.Controllers
             _context = context;
             _dashboardService = dashboardService;
             _httpClientFactory = httpClientFactory;
+            _bookApiClient = bookApiClient;
+            _externalApiOptions = externalApiOptions;
             _configuration = configuration;
             _logger = logger;
             _bookService = bookService;
@@ -496,9 +505,13 @@ namespace EBookDashboard.Controllers
             var styleKey = string.IsNullOrWhiteSpace(req.Style) ? "modern" : req.Style.Trim();
             var coverStyleLabel = CoverExternalApiHelper.MapCoverStyleForExternalApi(styleKey, description);
 
-            var size = (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim();
-            var quality = (_configuration["ExternalApi:CoverGenerateQuality"] ?? "medium").Trim();
-            var apiUrl = (_configuration["ExternalApi:GenerateCoverUrl"] ?? "http://162.229.248.26:8001/api/generate-cover").Trim();
+            var size = BookApiInputValidation.NormalizeSize(
+                (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim(),
+                "1024x1536");
+            var quality = BookApiInputValidation.NormalizeQuality(
+                (_configuration["ExternalApi:CoverGenerateQuality"] ?? "medium").Trim(),
+                "medium");
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateCoverUrl, "/api/generate-cover").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -518,15 +531,13 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                var client = _httpClientFactory.CreateClient("ExternalSlowApi");
+                var client = _bookApiClient;
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
-                if (!string.IsNullOrEmpty(apiKey))
-                    httpRequest.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(TimeSpan.FromMinutes(8));
-                var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
 
                 if (!response.IsSuccessStatusCode)
@@ -619,7 +630,8 @@ namespace EBookDashboard.Controllers
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
             var size = !string.IsNullOrWhiteSpace(req.Size) ? req.Size!.Trim() : (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim();
-            var apiUrl = (_configuration["ExternalApi:EditCoverUrl"] ?? "http://162.229.248.26:8001/api/edit-cover").Trim();
+            size = BookApiInputValidation.NormalizeSize(size, "1024x1536");
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditCoverUrl, "/api/edit-cover").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -640,15 +652,13 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                var client = _httpClientFactory.CreateClient("ExternalSlowApi");
+                var client = _bookApiClient;
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 httpRequest.Content = new StringContent(payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
-                if (!string.IsNullOrEmpty(apiKey))
-                    httpRequest.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 cts.CancelAfter(TimeSpan.FromMinutes(8));
-                var response = await client.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
                 if (!response.IsSuccessStatusCode)
                     return Json(new { success = false, status = "error", message = $"Edit service returned {(int)response.StatusCode}." });

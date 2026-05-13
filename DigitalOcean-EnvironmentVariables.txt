@@ -29,7 +29,7 @@ OAuth — REQUIRED on App Platform for Google/Facebook login (if unset, schemes 
     Web OAuth always needs BOTH; Client ID may also exist in appsettings.json but the secret must never be committed — set via env or dotnet user-secrets locally.
   Authentication__Facebook__AppId
   Authentication__Facebook__AppSecret
-  Callback URLs in Google Cloud / Meta apps must match your live site, e.g. https://YOUR_DOMAIN/signin-google and https://YOUR_DOMAIN/signin-facebook
+    Callback URLs in Google Cloud / Meta apps must match your live site, e.g. https://YOUR_DOMAIN/auth/google/callback and https://YOUR_DOMAIN/signin-facebook
 
 External chapter/cover API:
   ExternalApi__BaseUrl
@@ -40,8 +40,8 @@ External chapter/cover API:
   ExternalApi__EditCoverUrl
   ExternalApi__AudioUrl
   ExternalApi__QueueDataUrl
-  ExternalApi__BookChaptersNameUrl
-  ExternalApi__ApiKey
+  ExternalApi__RefineCoverPromptUrl
+  ExternalApi__SuggestCoverPromptFromHighlightsUrl
   Optional (default false / omit): ExternalApi__AudioSendLocalFilePath
     Set to "true" only if the audio worker runs on the same machine as this app and can read the saved file path. On App Platform, leave unset so only the uploaded bytes are sent (avoids upstream 500 from invalid paths).
 

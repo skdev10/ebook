@@ -1,19 +1,31 @@
 using Microsoft.OpenApi.Models;
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
+using EBookDashboard.Models.Options;
 using EBookDashboard.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using System;
 using EBookDashboard.Filters;
 using EBookDashboard.Hubs;
 using EBookDashboard.Infrastructure;
+using EBookDashboard.Health;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 // Optional local overrides (secrets); never commit — see DigitalOcean-EnvironmentVariables.txt for production env vars.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // DigitalOcean App Platform (and similar) inject PORT; default URLs may not bind correctly in the container.
 var portEnv = Environment.GetEnvironmentVariable("PORT");
@@ -68,6 +80,8 @@ builder.Services.AddDbContext<ApplicationDbContext>((sp, options) =>
 builder.Services.AddSignalR();
 builder.Services.AddScoped<RequireAdminAuthorizationFilter>();
 
+var isDevelopmentEnvironment = builder.Environment.IsDevelopment();
+
 // ✅ Dual cookie schemes so Admin and User can be logged in in different tabs simultaneously.
 // Path-based: /Admin/* uses AdminCookie, everything else uses UserCookie.
 var authenticationBuilder = builder.Services.AddAuthentication(options =>
@@ -95,6 +109,11 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.AccessDeniedPath = "/Account/AccessDenied";
     options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
     options.SlidingExpiration = true;
+    if (!isDevelopmentEnvironment)
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    }
 })
 .AddCookie("UserCookie", options =>
 {
@@ -104,6 +123,11 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.AccessDeniedPath = "/Account/AccessDenied";
     options.ExpireTimeSpan = TimeSpan.FromMinutes(120);
     options.SlidingExpiration = true;
+    if (!isDevelopmentEnvironment)
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    }
 });
 
 // OAuth handlers validate ClientId/AppId on first request — skip registration when secrets are missing (e.g. cloud env vars not set).
@@ -153,6 +177,15 @@ if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(face
         options.CallbackPath = builder.Configuration["Authentication:Facebook:CallbackPath"] ?? "/signin-facebook";
         options.Scope.Add("email");
         options.Fields.Add("email");
+        options.Events.OnRemoteFailure = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()
+                ?.CreateLogger("FacebookOAuth");
+            logger?.LogWarning(context.Failure, "Facebook sign-in remote failure.");
+            context.HandleResponse();
+            context.Response.Redirect("/Account/UserLogin?error=oauth_failed");
+            return Task.CompletedTask;
+        };
     });
 }
 else
@@ -189,18 +222,9 @@ builder.Services.AddScoped<IBookPdfService, BookPdfService>();
 builder.Services.AddScoped<IChapterIterationService, ChapterIterationService>();
 builder.Services.Configure<ChapterGenerationOptions>(
     builder.Configuration.GetSection(ChapterGenerationOptions.SectionName));
-builder.Services.AddHttpClient("ExternalChapterGeneration", (sp, client) =>
-{
-    var cfg = sp.GetRequiredService<IConfiguration>();
-    var mins = int.TryParse(cfg["ChapterGeneration:HttpTimeoutMinutes"], out var m) ? m : 30;
-    mins = Math.Clamp(mins, 1, 120);
-    client.Timeout = TimeSpan.FromMinutes(mins);
-});
-// Cover generation/edit and other multi-minute AI calls — default HttpClient times out at 100s without this.
-builder.Services.AddHttpClient("ExternalSlowApi", (sp, client) =>
-{
-    client.Timeout = TimeSpan.FromMinutes(10);
-});
+builder.Services.AddBookUpstreamHttpClients();
+builder.Services.AddHealthChecks()
+    .AddCheck<UpstreamBookApiHealthCheck>("upstream_book_api", failureStatus: HealthStatus.Degraded, tags: ["ready"]);
 builder.Services.AddScoped<IBookChapterPipelineService, BookChapterPipelineService>();
 
 // Add session services
@@ -213,6 +237,11 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(120); // long AI edit / generate waits (was 30 — caused save failures after idle)
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    if (!isDevelopmentEnvironment)
+    {
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+    }
 });
 // ✅ Swagger for API documentation
 builder.Services.AddControllers();
@@ -249,6 +278,22 @@ if (!string.IsNullOrWhiteSpace(stripeSecretKey))
     Stripe.StripeConfiguration.ApiKey = stripeSecretKey.Trim();
 
 var app = builder.Build();
+
+{
+    using var scope = app.Services.CreateScope();
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+    var cfgForStartup = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    var extOpt = scope.ServiceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ExternalApiOptions>>().Value;
+    var hasBase = !string.IsNullOrWhiteSpace(extOpt.BaseUrl)
+                  || !string.IsNullOrWhiteSpace(extOpt.GenerateUrl);
+    var hasKey = !string.IsNullOrWhiteSpace(ExternalApiKeyResolver.Resolve(cfgForStartup));
+    startupLogger.LogInformation(
+        "External API: BaseUrl or per-endpoint URLs configured={HasBase}, upstream API credential configured={HasKey}",
+        hasBase,
+        hasKey);
+}
+
+app.UseForwardedHeaders();
 // Serve book cover images from Images/book_covers at /book-covers
 var bookCoversPath = Path.Combine(app.Environment.ContentRootPath, "Images", "book_covers");
 Directory.CreateDirectory(bookCoversPath); // publish/container often omits empty folders; PhysicalFileProvider requires an existing root
@@ -350,6 +395,10 @@ app.MapGet("/Dashboard/undefined", (Microsoft.AspNetCore.Http.HttpContext contex
 });
 
 // Anonymous health for load balancers / App Platform HTTP probes (global MVC auth does not apply here).
-app.MapGet("/health", () => Results.Ok(new { status = "Healthy" }));
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    AllowCachingResponses = false,
+    ResponseWriter = HealthCheckResponseWriter.WriteAsync
+}).AllowAnonymous();
 
 app.Run();

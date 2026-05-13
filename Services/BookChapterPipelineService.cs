@@ -5,6 +5,8 @@ using System.Text.RegularExpressions;
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
+using EBookDashboard.Models.Options;
+using EBookDashboard.Services.BookApi;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
@@ -15,7 +17,6 @@ namespace EBookDashboard.Services;
 public class BookChapterPipelineService : IBookChapterPipelineService
 {
     private const int MaxContinuityChars = 14_000;
-    private const string HttpClientName = "ExternalChapterGeneration";
 
     /// <summary>Serializes concurrent generation for the same (book, chapter) slot only — different chapters on one book can run in parallel.</summary>
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> ChapterSlotLocks = new();
@@ -25,7 +26,8 @@ public class BookChapterPipelineService : IBookChapterPipelineService
     private readonly IAPIRawResponseService _rawResponseService;
     private readonly IBookService _bookService;
     private readonly IChapterIterationService _chapterIterationService;
-    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IBookApiClient _bookApiClient;
+    private readonly IOptionsSnapshot<ExternalApiOptions> _externalApiOptions;
     private readonly IOptions<ChapterGenerationOptions> _genOptions;
     private readonly ILogger<BookChapterPipelineService> _logger;
 
@@ -35,7 +37,8 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         IAPIRawResponseService rawResponseService,
         IBookService bookService,
         IChapterIterationService chapterIterationService,
-        IHttpClientFactory httpClientFactory,
+        IBookApiClient bookApiClient,
+        IOptionsSnapshot<ExternalApiOptions> externalApiOptions,
         IOptions<ChapterGenerationOptions> genOptions,
         ILogger<BookChapterPipelineService> logger)
     {
@@ -44,7 +47,8 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         _rawResponseService = rawResponseService;
         _bookService = bookService;
         _chapterIterationService = chapterIterationService;
-        _httpClientFactory = httpClientFactory;
+        _bookApiClient = bookApiClient;
+        _externalApiOptions = externalApiOptions;
         _genOptions = genOptions;
         _logger = logger;
     }
@@ -196,7 +200,7 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         };
 
         var apiPayload = GenerateChapterPayloadBuilder.CloneForExternalGenerateApi(aiRequest);
-        var apiUrl = _configuration["ExternalApi:GenerateUrl"] ?? "http://162.229.248.26:8001/api/generate_chapter";
+        var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateUrl, "/api/generate_chapter");
         var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
         if (string.IsNullOrEmpty(apiKey))
         {
@@ -223,7 +227,7 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         try
         {
             return await CallExternalGenerateWithRetriesAsync(
-                aiRequest, apiUrl, apiKey, apiPayload, bookId, chapterNumber, maxRetries, cancellationToken);
+                aiRequest, apiUrl, apiPayload, bookId, chapterNumber, maxRetries, cancellationToken);
         }
         finally
         {
@@ -235,14 +239,13 @@ public class BookChapterPipelineService : IBookChapterPipelineService
     private async Task<ChapterGenerateResultDto> CallExternalGenerateWithRetriesAsync(
         AIBookRequest aiRequest,
         string apiUrl,
-        string apiKey,
         object apiPayload,
         int bookId,
         int chapterNumber,
         int maxRetries,
         CancellationToken cancellationToken)
     {
-        var client = _httpClientFactory.CreateClient(HttpClientName);
+        var client = _bookApiClient;
         var json = JsonConvert.SerializeObject(apiPayload);
         var totalAttempts = maxRetries + 1;
         string? lastBody = "";
@@ -256,9 +259,8 @@ public class BookChapterPipelineService : IBookChapterPipelineService
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
                 };
-                req.Headers.TryAddWithoutValidation("X-API-Key", apiKey);
 
-                using var response = await client.SendAsync(req, HttpCompletionOption.ResponseContentRead, cancellationToken);
+                using var response = await client.SendAsync(req, BookApiCallTimeoutKind.LongRunning, cancellationToken);
                 lastBody = await response.Content.ReadAsStringAsync(cancellationToken);
                 lastStatus = (int)response.StatusCode;
 
