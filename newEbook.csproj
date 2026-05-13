@@ -62,6 +62,11 @@
     <Compile Remove="newEbook\**\*.cs" />
     <Compile Remove="EbookAI\**\*.cs" />
     <Content Remove="EbookAI\**\*.cshtml" />
+    <!-- Scoped CSS must pair with a view in the same tree; nested duplicate folders often keep *.css without *.cshtml → BLAZOR102. -->
+    <Content Remove="newEbook\**\*.cshtml.css" />
+    <Content Remove="EbookAI\**\*.cshtml.css" />
+    <None Remove="newEbook\**\*.cshtml.css" />
+    <None Remove="EbookAI\**\*.cshtml.css" />
   </ItemGroup>
 
   <ItemGroup>
