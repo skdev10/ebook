@@ -1,0 +1,41 @@
+## Build / IDE
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Bb]uild/
+[Ll]og/
+[Ll]ogs/
+.vs/
+.idea/
+*.user
+*.userosscache
+*.suo
+
+## Logs (large; never commit)
+build.log
+*.log
+msbuild*.log
+
+## Publish and internal check outputs (regenerate with dotnet publish)
+publish/
+_build_out/
+_buildcheck/
+
+## Puppeteer / Chromium download caches (often land under bin/ — huge; never commit)
+**/Chrome/
+**/ChromeHeadlessShell/
+**/.local-chromium/
+
+## NuGet packages cache (if present)
+**/packages/*
+*.nupkg
+
+## OS
+Thumbs.db
+Desktop.ini
+
+## Local overrides with real secrets (optional)
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
