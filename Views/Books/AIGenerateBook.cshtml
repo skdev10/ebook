@@ -4,7 +4,7 @@
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var userId = ViewBag.UserId as int? ?? 0;
     var selectedBookId = ViewBag.SelectedBookId as int?;
-    var chapterGenFetchTimeoutMs = 720000;
+    var chapterGenFetchTimeoutMs = 3300000;
     if (ViewBag.ChapterGenerateFetchTimeoutMs is int tms) { chapterGenFetchTimeoutMs = tms; }
     else if (ViewBag.ChapterGenerateFetchTimeoutMs != null)
     {
@@ -1115,7 +1115,7 @@
     <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
         <div class="max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-12 lg:gap-24 min-h-0" data-aos="fade-up" data-aos-duration="500">
         <!-- Left Column: Forms -->
-        <div class="ai-writer-sidebar w-full lg:w-[480px] flex flex-col gap-10 shrink-0">
+        <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-10 shrink-0">
             <section class="flex flex-col gap-5" data-guided-tour="ai-book-picker">
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">AI Book Writer</h2>
                 <div class="flex flex-col gap-2.5">
@@ -1220,11 +1220,14 @@
                         </div>
                         <div class="flex items-center gap-2 pr-1">
                             <span id="voiceControlWrap" class="flex items-center gap-2">
-                                <button id="startRecBtn" type="button" class="bg-slate-200 hover:bg-green-500 hover:text-white text-slate-600 p-2 rounded-full shadow-sm transition-all flex items-center justify-center w-9 h-9" title="Voice to text (microphone)"><i class="fas fa-microphone text-sm"></i></button>
+                                <button id="startRecBtn" type="button" class="bg-slate-200 hover:bg-green-500 hover:text-white text-slate-600 p-2 rounded-full shadow-sm transition-all flex items-center justify-center w-9 h-9" title="Speak: text appears live in Chapter Topic (Chrome, Edge, Safari). Stop when done."><i class="fas fa-microphone text-sm"></i></button>
                                 <input type="file" id="voiceFileUpload" accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm,audio/*" class="hidden" aria-label="Upload audio file for transcription" />
-                                <button type="button" id="voiceUploadBtn" class="text-xs font-medium text-slate-500 hover:text-purple-600 underline decoration-dotted px-1" title="Upload an audio file instead of recording">Upload audio</button>
+                                <button type="button" id="voiceUploadBtn" class="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-violet-900 px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm" title="Upload an audio file instead of recording">
+                                    <i class="fas fa-cloud-upload-alt text-violet-600 text-sm" aria-hidden="true"></i>
+                                    <span>Upload audio</span>
+                                </button>
                                 <span id="recordingStripArea" class="hidden items-center gap-2">
-                                    <span class="text-xs font-medium text-red-600">🔴 Recording</span>
+                                    <span id="voiceRecordingStatusText" class="text-xs font-medium text-red-600" aria-live="polite">Listening…</span>
                                     <button id="stopRecBtn" type="button" disabled class="px-2 py-1 rounded-lg bg-red-400 hover:bg-red-500 text-white text-xs font-medium">Stop</button>
                                 </span>
                             </span>
@@ -2807,6 +2810,12 @@ document.addEventListener('DOMContentLoaded', function() {
        let mediaRecorder;
        let audioChunks = [];
        let recordingStream = null;
+       /** 'idle' | 'live_speech' | 'file_record' — drives Stop button behavior. */
+       let voiceInputMode = 'idle';
+       let ebookLiveSpeechRecognition = null;
+       let ebookLiveDictationShouldRun = false;
+       let ebookLiveSpeechFinalChunk = '';
+       let ebookLiveSpeechBaseText = '';
 
       const userId = '@ViewBag.UserId';
       var selectedBookId = @(selectedBookId ?? 0);
@@ -4112,6 +4121,7 @@ document.addEventListener('DOMContentLoaded', function() {
                          method: 'POST',
                          headers: { 'Content-Type': 'application/json' },
                          body: JSON.stringify(payload),
+                         credentials: 'same-origin',
                          signal: ac.signal
                      });
                  } finally {
@@ -4209,7 +4219,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  console.error("🔥 Generate error:", error);
                  var aborted = error && (error.name === 'AbortError' || (String(error.message || '').indexOf('aborted') >= 0));
                  var msg = aborted
-                     ? ('Request stopped after waiting too long (' + Math.round(genTimeoutMs / 60000) + ' min). If your API usually finishes in under 5 minutes, check server/IIS timeout, firewall, or ExternalApi URL.')
+                     ? ('This page stopped waiting after ' + Math.round(genTimeoutMs / 60000) + ' minutes (browser limit). Increase ChapterGeneration:BrowserFetchTimeoutMinutes in appsettings or env; on IIS raise aspNetCore requestTimeout in web.config and proxy limits.')
                      : ('Something went wrong: ' + (error && error.message ? error.message : 'unknown'));
                  addMessage(msg, false);
                  showNotification(aborted ? 'Generation timed out' : 'Generation failed', 'error');
@@ -4317,7 +4327,8 @@ document.addEventListener('DOMContentLoaded', function() {
              const response = await fetch('/Books/AIEditBook', {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify(requestData)
+                 body: JSON.stringify(requestData),
+                 credentials: 'same-origin'
              });
 
              console.log("📨 Step 6: Received the response from API:", response.status);
@@ -5665,6 +5676,7 @@ document.addEventListener('DOMContentLoaded', function() {
                          chapter: parseInt(state.chapter, 10),
                          changes: prompt
                      }),
+                     credentials: 'same-origin',
                      signal: controller.signal
                  }).then(function(r) {
                      return r.text().then(function(text) {
@@ -6417,8 +6429,18 @@ document.addEventListener('DOMContentLoaded', function() {
                  console.warn('[voice] mediaDevices polyfill:', e);
              }
          })();
-         function ebookClientHasMicApis() {
+         function ebookSpeechRecognitionCtor() {
+             return window.SpeechRecognition || window.webkitSpeechRecognition;
+         }
+         function ebookHasLiveSpeechRecognition() {
+             return typeof ebookSpeechRecognitionCtor() === 'function';
+         }
+         function ebookClientHasFileRecording() {
              return !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function' && window.MediaRecorder);
+         }
+         function ebookClientHasAnyVoiceInput() {
+             if (ebookHasLiveSpeechRecognition()) return true;
+             return ebookClientHasFileRecording();
          }
          async function ebookUploadAudioFileForTopic(file) {
              if (!file || !file.size) return;
@@ -6471,8 +6493,102 @@ document.addEventListener('DOMContentLoaded', function() {
           var stopRecBtn = document.getElementById('stopRecBtn');
           var recordingStripArea = document.getElementById('recordingStripArea');
           if (startRecBtn) startRecBtn.onclick = async () => {
-         if (!ebookClientHasMicApis()) {
-             showNotification('Microphone recording is not available in this browser. Use “Upload audio” next to the mic, or type your topic.', 'error');
+         if (voiceInputMode !== 'idle') {
+             showNotification('Microphone is already active. Press Stop first.', 'info');
+             return;
+         }
+         if (!ebookClientHasAnyVoiceInput()) {
+             showNotification('Microphone and live speech are not available in this browser. Use "Upload audio" next to the mic, or type your topic.', 'error');
+             return;
+         }
+         var host = window.location.hostname || '';
+         if (!window.isSecureContext && host !== 'localhost' && host !== '127.0.0.1') {
+             showNotification('Voice recording needs HTTPS on this site (microphone requirement).', 'error');
+             return;
+         }
+         // Live Web Speech API: interim + final results stream into Chapter Topic immediately (Chrome, Edge, Safari).
+         if (ebookHasLiveSpeechRecognition()) {
+             try {
+                 var SR = ebookSpeechRecognitionCtor();
+                 var rec = new SR();
+                 rec.lang = (navigator.language || 'en-US');
+                 rec.continuous = true;
+                 rec.interimResults = true;
+                 rec.maxAlternatives = 1;
+                 var ta0 = document.getElementById('UserInput');
+                 ebookLiveSpeechBaseText = ta0 ? ta0.value : '';
+                 ebookLiveSpeechFinalChunk = '';
+                 ebookLiveDictationShouldRun = true;
+                 voiceInputMode = 'live_speech';
+                 rec.onresult = function (event) {
+                     var interim = '';
+                     for (var i = event.resultIndex; i < event.results.length; i++) {
+                         var result = event.results[i];
+                         var t = (result[0] && result[0].transcript) ? result[0].transcript : '';
+                         if (result.isFinal) ebookLiveSpeechFinalChunk += t;
+                         else interim += t;
+                     }
+                     var ta = document.getElementById('UserInput');
+                     if (ta) {
+                         ta.value = ebookLiveSpeechBaseText + ebookLiveSpeechFinalChunk + interim;
+                         try { ta.scrollTop = ta.scrollHeight; } catch (_) {}
+                     }
+                 };
+                 rec.onerror = function (ev) {
+                     if (!ev) return;
+                     if (ev.error === 'aborted') return;
+                     if (ev.error === 'no-speech') return;
+                     console.warn('[voice] live speech error:', ev.error);
+                     if (ev.error === 'not-allowed') {
+                         showNotification('Microphone was denied for live dictation. Allow the microphone in your browser settings.', 'error');
+                     } else {
+                         showNotification('Live voice: ' + String(ev.error) + '. Try again, Upload audio, or type your topic.', 'error');
+                     }
+                     ebookLiveDictationShouldRun = false;
+                     voiceInputMode = 'idle';
+                     ebookLiveSpeechRecognition = null;
+                     if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                     if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                     if (stopRecBtn) stopRecBtn.disabled = true;
+                 };
+                 rec.onend = function () {
+                     if (voiceInputMode === 'live_speech' && ebookLiveDictationShouldRun) {
+                         try { rec.start(); } catch (eRestart) {
+                             console.warn('[voice] live speech restart:', eRestart);
+                             ebookLiveDictationShouldRun = false;
+                             voiceInputMode = 'idle';
+                             ebookLiveSpeechRecognition = null;
+                             if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                             if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                             if (stopRecBtn) stopRecBtn.disabled = true;
+                         }
+                     } else {
+                         voiceInputMode = 'idle';
+                         ebookLiveSpeechRecognition = null;
+                         if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                         if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                         if (stopRecBtn) stopRecBtn.disabled = true;
+                     }
+                 };
+                 ebookLiveSpeechRecognition = rec;
+                 rec.start();
+                 if (startRecBtn) startRecBtn.style.display = 'none';
+                 if (recordingStripArea) {
+                     recordingStripArea.classList.remove('hidden');
+                     recordingStripArea.classList.add('flex');
+                     recordingStripArea.style.display = '';
+                 }
+                 var sts0 = document.getElementById('voiceRecordingStatusText');
+                 if (sts0) sts0.textContent = 'Listening — text appears as you speak';
+                 if (stopRecBtn) stopRecBtn.disabled = false;
+             } catch (ex) {
+                 console.error('[voice] live speech start:', ex);
+                 ebookLiveDictationShouldRun = false;
+                 voiceInputMode = 'idle';
+                 ebookLiveSpeechRecognition = null;
+                 showNotification('Could not start live dictation: ' + (ex.message || 'unknown') + '. Try Upload audio.', 'error');
+                 if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+             }
              return;
          }
          if (typeof MediaRecorder === 'undefined') {
@@ -6512,11 +6628,6 @@ document.addEventListener('DOMContentLoaded', function() {
              showNotification('MediaRecorder is not available in this browser. Use Upload audio or type your text.', 'error');
              return;
          }
-         var host = window.location.hostname || '';
-         if (!window.isSecureContext && host !== 'localhost' && host !== '127.0.0.1') {
-             showNotification('Voice recording needs HTTPS on this site (mic API requirement).', 'error');
-             return;
-         }
          try {
              startRecBtn.disabled = true;
              var constraints = { audio: true };
@@ -6533,6 +6644,22 @@ document.addEventListener('DOMContentLoaded', function() {
              }
              audioChunks = [];
              mediaRecorder.ondataavailable = function (e) { if (e.data && e.data.size > 0) audioChunks.push(e.data); };
+             mediaRecorder.onerror = function (ev) {
+                 console.error('[voice] MediaRecorder error:', ev && ev.error ? ev.error : ev);
+                 var en = (ev && ev.error && ev.error.name) ? String(ev.error.name) : 'Unknown';
+                 showNotification('Recording stopped unexpectedly (' + en + '). Try again, use Upload audio, or type your topic.', 'error');
+                 try {
+                     if (recordingStream) {
+                         recordingStream.getTracks().forEach(function (t) { t.stop(); });
+                         recordingStream = null;
+                     }
+                 } catch (e0) { /* ignore */ }
+                 audioChunks = [];
+                 if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+                 if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                 if (stopRecBtn) stopRecBtn.disabled = true;
+                 voiceInputMode = 'idle';
+             };
              mediaRecorder.onstop = async () => {
                  if (recordingStream) {
                      recordingStream.getTracks().forEach(t => t.stop());
@@ -6551,6 +6678,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                      if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                      if (stopRecBtn) stopRecBtn.disabled = true;
+                     voiceInputMode = 'idle';
                      return;
                  }
                  const formData = new FormData();
@@ -6564,7 +6692,20 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (bid) formData.append("bookId", bid);
                  if (ch) formData.append("chapter", ch);
                  try {
-                     const res = await fetch("/api/AudioToText/convert", { method: "POST", body: formData, credentials: "same-origin" });
+                     showNotification('Uploading and transcribing audio…', 'info');
+                     var ac = new AbortController();
+                     var uploadTid = setTimeout(function () { try { ac.abort(); } catch (eAb) {} }, 180000);
+                     var res;
+                     try {
+                         res = await fetch("/api/AudioToText/convert", {
+                             method: "POST",
+                             body: formData,
+                             credentials: "same-origin",
+                             signal: ac.signal
+                         });
+                     } finally {
+                         clearTimeout(uploadTid);
+                     }
                      const raw = await res.text();
                      var data = {};
                      if (raw) {
@@ -6598,6 +6739,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                      if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                                      if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                                      if (stopRecBtn) stopRecBtn.disabled = true;
+                                     voiceInputMode = 'idle';
                                      return;
                                  }
                                  showNotification('Voice unavailable. Please type your topic manually.', 'error');
@@ -6607,28 +6749,33 @@ document.addEventListener('DOMContentLoaded', function() {
                              if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                              if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                              if (stopRecBtn) stopRecBtn.disabled = true;
+                             voiceInputMode = 'idle';
                              return;
                          }
                          showNotification('Failed to convert audio: ' + errMsg, 'error');
                          if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                          if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                          if (stopRecBtn) stopRecBtn.disabled = true;
+                         voiceInputMode = 'idle';
                          return;
                      }
                      if (data.success && data.text) {
                          var txt = data.text.replace(/<p[^>]*>/gi, '\n').replace(/<\/p>/gi, '\n').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim();
-                         document.getElementById("UserInput").value = txt;
+                         var uiTopic = document.getElementById("UserInput");
+                         if (uiTopic) uiTopic.value = (uiTopic.value ? (uiTopic.value.trim() + ' ') : '') + txt;
                          showNotification('Voice converted to text.', 'success');
                      } else {
                          showNotification('No text returned from audio.', 'error');
                      }
                  } catch (err) {
                      console.error("Error converting audio:", err);
-                     showNotification('Error converting audio: ' + (err.message || 'Unknown'), 'error');
+                     var isAbort = err && (err.name === 'AbortError' || String(err.message || '').indexOf('abort') !== -1);
+                     showNotification(isAbort ? 'Transcription took too long or was cancelled. Try a shorter clip or Upload audio.' : ('Error converting audio: ' + (err.message || 'Unknown')), 'error');
                  }
                  if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                  if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                  if (stopRecBtn) stopRecBtn.disabled = true;
+                 voiceInputMode = 'idle';
              };
              // Short timeslice reliably yields non-empty blobs on Chrome/Edge/Safari; plain start() often produced 0-byte audio.
              try {
@@ -6638,6 +6785,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  showNotification('Could not start recording: ' + (startErr.message || 'unknown'), 'error');
                  if (recordingStream) { recordingStream.getTracks().forEach(function (t) { t.stop(); }); recordingStream = null; }
                  if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+                 voiceInputMode = 'idle';
                  return;
              }
              if (startRecBtn) startRecBtn.style.display = 'none';
@@ -6647,6 +6795,9 @@ document.addEventListener('DOMContentLoaded', function() {
                  recordingStripArea.style.display = '';
              }
              if (stopRecBtn) stopRecBtn.disabled = false;
+             voiceInputMode = 'file_record';
+             var stsFile = document.getElementById('voiceRecordingStatusText');
+             if (stsFile) stsFile.textContent = 'Recording file — press Stop to send for transcription';
          } catch (e) {
              var msg = (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError')
                  ? 'Microphone access was denied. Please allow microphone in your browser settings and try again.'
@@ -6656,21 +6807,61 @@ document.addEventListener('DOMContentLoaded', function() {
              showNotification(msg, 'error');
              console.error('getUserMedia error:', e.name, e.message);
              if (startRecBtn) { startRecBtn.disabled = false; startRecBtn.style.display = ''; }
+             voiceInputMode = 'idle';
          }
      };
 
        if (stopRecBtn) stopRecBtn.onclick = function () {
-         if (!mediaRecorder) return;
-         if (mediaRecorder.state === 'recording' || mediaRecorder.state === 'paused') {
+         if (voiceInputMode === 'live_speech') {
+             ebookLiveDictationShouldRun = false;
+             voiceInputMode = 'idle';
+             var rLive = ebookLiveSpeechRecognition;
+             ebookLiveSpeechRecognition = null;
+             try { if (rLive) rLive.stop(); } catch (eLive) { /* ignore */ }
+             if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+             if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+             stopRecBtn.disabled = true;
+             showNotification('Live dictation stopped. You can edit the Chapter Topic text above.', 'success');
+             return;
+         }
+         if (!mediaRecorder) {
+             showNotification('Recorder is not ready. Click the microphone to start again.', 'info');
+             return;
+         }
+         var st = mediaRecorder.state;
+         if (st !== 'recording' && st !== 'paused') {
+             showNotification('Recording is not active. Click the mic to start a new recording.', 'info');
              try {
-                 if (typeof mediaRecorder.requestData === 'function')
-                     mediaRecorder.requestData();
-             } catch (_) { /* optional */ }
-             try {
-                 mediaRecorder.stop();
-             } catch (stopErr) {
-                 console.error('MediaRecorder.stop:', stopErr);
+                 if (recordingStream) {
+                     recordingStream.getTracks().forEach(function (t) { t.stop(); });
+                     recordingStream = null;
+                 }
+             } catch (e1) { /* ignore */ }
+             if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+             if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+             stopRecBtn.disabled = true;
+             voiceInputMode = 'idle';
+             return;
+         }
+         stopRecBtn.disabled = true;
+         showNotification('Stopping recorder and sending audio…', 'info');
+         try {
+             if (typeof mediaRecorder.requestData === 'function')
+                 mediaRecorder.requestData();
+         } catch (_) { /* optional */ }
+         try {
+             mediaRecorder.stop();
+         } catch (stopErr) {
+             console.error('MediaRecorder.stop:', stopErr);
+             showNotification('Could not stop recording: ' + (stopErr.message || 'unknown'), 'error');
+             if (recordingStream) {
+                 try { recordingStream.getTracks().forEach(function (t) { t.stop(); }); } catch (e2) { /* ignore */ }
+                 recordingStream = null;
              }
+             if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
+             if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
+             stopRecBtn.disabled = true;
+             voiceInputMode = 'idle';
          }
        };
 

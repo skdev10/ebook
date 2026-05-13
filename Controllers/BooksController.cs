@@ -110,9 +110,9 @@ namespace EBookDashboard.Controllers
                 AvailablePlans = _context.Plans.ToList(),
                 UserBooks = userBooks
             };
-            // Browser must abort fetch before proxies/IIS default timeouts leave the UI stuck on "Generating…"
-            var fetchMins = int.TryParse(_configuration["ChapterGeneration:BrowserFetchTimeoutMinutes"], out var fm) ? fm : 12;
-            fetchMins = Math.Clamp(fetchMins, 5, 45);
+            // Browser fetch() abort budget — must be ≥ typical chapter generation + Polly pipeline (see BookApiLong total timeout).
+            var fetchMins = int.TryParse(_configuration["ChapterGeneration:BrowserFetchTimeoutMinutes"], out var fm) ? fm : 55;
+            fetchMins = Math.Clamp(fetchMins, 5, 180);
             ViewBag.ChapterGenerateFetchTimeoutMs = fetchMins * 60 * 1000;
             return View(model);
         }
@@ -514,6 +514,7 @@ namespace EBookDashboard.Controllers
         // ✅ 2️⃣ — POST: Call external API and return book data as JSON
         // Generate Book via API
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         [Route("Books/AIGenerateBook")]
         public async Task<IActionResult> AIGenerateBook()
         {
@@ -526,6 +527,11 @@ namespace EBookDashboard.Controllers
                 return Json(new { error = true, message = "Invalid request data — empty body or invalid JSON." });
 
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateUrl, "/api/generate_chapter");
+            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
+            {
+                _logger.LogError("AIGenerateBook: invalid absolute upstream URL: {Url}", apiUrl);
+                return Json(new { error = true, message = "Server misconfiguration: ExternalApi generate URL is not a valid absolute URL.", detail = apiUrl });
+            }
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -548,13 +554,20 @@ namespace EBookDashboard.Controllers
                     Console.WriteLine($"📥API Response Status: {response.StatusCode}");
                     Console.WriteLine($"📥API Response Data: {responseData}");
 
-                    // ✅ SAVE RAW RESPONSE FIRST
-                    rawResponseId = await _rawResponseService.SaveRawResponseAsync(
-                        model,
-                        responseData,
-                        apiUrl,
-                        response.StatusCode.ToString()
-                    );
+                    // ✅ SAVE RAW RESPONSE FIRST (never fail the user response if DB/audit save fails)
+                    try
+                    {
+                        rawResponseId = await _rawResponseService.SaveRawResponseAsync(
+                            model,
+                            responseData,
+                            apiUrl,
+                            response.StatusCode.ToString()
+                        );
+                    }
+                    catch (Exception saveEx)
+                    {
+                        _logger.LogWarning(saveEx, "SaveRawResponseAsync failed after successful upstream call; returning generation JSON to client.");
+                    }
 
                     Console.WriteLine($"📥 API Response Status: {response.StatusCode}");
                     Console.WriteLine($"📥 Raw Response saved with ID: {rawResponseId}");
@@ -647,9 +660,10 @@ namespace EBookDashboard.Controllers
             }
         }
 
-        //=============================================
+        /// <summary>Legacy edit forwarder (query/form). Prefer <see cref="AIEditBook"/> or <see cref="EditChapter"/> with JSON body.</summary>
         [HttpPost]
-        public async Task<ActionResult> EditChapter(string userId, string bookId, string chapter, string changes)
+        [Route("Books/EditChapterFromQuery")]
+        public async Task<ActionResult> EditChapterFromQuery(string userId, string bookId, string chapter, string changes)
         {
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit");
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
@@ -673,6 +687,7 @@ namespace EBookDashboard.Controllers
         // ✅ 2️⃣ — POST: Call external API and return book data as JSON
         // Generate Book via API
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         [Route("Books/AIEditBook")]
         public async Task<IActionResult> AIEditBook([FromBody] AIBookRequestEdit model)
         {
@@ -680,6 +695,11 @@ namespace EBookDashboard.Controllers
                 return Json(new { error = true, message = "Invalid request data" });
 
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit");
+            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
+            {
+                _logger.LogError("AIEditBook: invalid absolute upstream URL: {Url}", apiUrl);
+                return Json(new { error = true, message = "Server misconfiguration: ExternalApi edit URL is not a valid absolute URL.", detail = apiUrl });
+            }
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
@@ -1898,6 +1918,11 @@ namespace EBookDashboard.Controllers
             if (model == null)
                 return BadRequest("Invalid request payload.");
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit").Trim();
+            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
+            {
+                _logger.LogError("EditChapter (body): invalid absolute upstream URL: {Url}", apiUrl);
+                return BadRequest(new { success = false, message = "Server misconfiguration: ExternalApi edit URL is not a valid absolute URL.", detail = apiUrl });
+            }
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
 
             string responseData = string.Empty;
@@ -1919,20 +1944,27 @@ namespace EBookDashboard.Controllers
                 using var response = await _bookApiClient.SendAsync(httpRequestEdit, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                 responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
 
-                // Save raw response for audit
-                rawResponseId = await _rawResponseService.SaveRawResponseAsync(
-                    // reuse AIBookRequest-like object for logging; create minimal AIBookRequest
-                    new AIBookRequest
-                    {
-                        UserId = model.UserId,
-                        BookId = model.BookId,
-                        Chapter = int.TryParse(model.Chapter, out var c) ? c : 0,
-                        UserInput = model.Changes
-                    },
-                    responseData,
-                    apiUrl,
-                    response.StatusCode.ToString()
-                );
+                // Save raw response for audit (do not fail the client if this throws)
+                try
+                {
+                    rawResponseId = await _rawResponseService.SaveRawResponseAsync(
+                        // reuse AIBookRequest-like object for logging; create minimal AIBookRequest
+                        new AIBookRequest
+                        {
+                            UserId = model.UserId,
+                            BookId = model.BookId,
+                            Chapter = int.TryParse(model.Chapter, out var c) ? c : 0,
+                            UserInput = model.Changes
+                        },
+                        responseData,
+                        apiUrl,
+                        response.StatusCode.ToString()
+                    );
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogWarning(saveEx, "EditChapter: SaveRawResponseAsync failed; continuing with upstream body.");
+                }
 
                 Console.WriteLine($"📥 Edit API response status: {response.StatusCode}");
 
@@ -2419,6 +2451,11 @@ namespace EBookDashboard.Controllers
            
 
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.ApproveUrl, "/api/approve").Trim();
+            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
+            {
+                _logger.LogError("FinalizeChapterAPI: invalid absolute upstream URL: {Url}", apiUrl);
+                return BadRequest(new { success = false, message = "Server misconfiguration: ExternalApi approve URL is not a valid absolute URL.", detail = apiUrl });
+            }
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
 
             string responseData = string.Empty;
@@ -2437,20 +2474,27 @@ namespace EBookDashboard.Controllers
                 using var httpReq = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
                 using var response = await _bookApiClient.SendAsync(httpReq, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                 responseData = await response.Content.ReadAsStringAsync();
-                
-                // 🧾 Save raw API response
-                rawResponseId = await _rawResponseService.SaveRawResponseAsync(
-                    new AIBookRequest
-                    {
-                        UserId = model.UserId,
-                        BookId = model.BookId,
-                        Chapter = int.TryParse(model.Chapter, out var ch) ? ch : 0,
-                        UserInput = "Finalize"
-                    },
-                    responseData,
-                    apiUrl,
-                    response.StatusCode.ToString()
-                );
+
+                // Audit log must not fail the client after upstream approve succeeded.
+                try
+                {
+                    rawResponseId = await _rawResponseService.SaveRawResponseAsync(
+                        new AIBookRequest
+                        {
+                            UserId = model.UserId,
+                            BookId = model.BookId,
+                            Chapter = int.TryParse(model.Chapter, out var ch) ? ch : 0,
+                            UserInput = "Finalize"
+                        },
+                        responseData,
+                        apiUrl,
+                        response.StatusCode.ToString()
+                    );
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogWarning(saveEx, "FinalizeChapterAPI: SaveRawResponseAsync failed; still returning upstream result.");
+                }
 
                 Console.WriteLine($"📥 Finalize API Response Status: {response.StatusCode}");
                 if (!response.IsSuccessStatusCode)

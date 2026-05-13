@@ -18,7 +18,8 @@ public static class BookUpstreamHttpClientExtensions
         services.AddTransient<BookApiLoggingHandler>();
 
         AddClient(services, BookApiConstants.HttpClientNameShort, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(48));
-        AddClient(services, BookApiConstants.HttpClientNameLong, TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(180));
+        // Chapter generate/edit can run many minutes; previous 120s attempt + 180s total aborted real upstream work.
+        AddClient(services, BookApiConstants.HttpClientNameLong, TimeSpan.FromMinutes(12), TimeSpan.FromMinutes(50));
         services.AddScoped<IBookApiClient, BookApiClient>();
         return services;
     }
@@ -36,7 +37,10 @@ public static class BookUpstreamHttpClientExtensions
                 options.Retry.MaxDelay = TimeSpan.FromSeconds(20);
                 options.AttemptTimeout.Timeout = attemptTimeout;
                 options.TotalRequestTimeout.Timeout = totalTimeout;
-                options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(2);
+                // Circuit breaker sampling window must be >= 2× attempt timeout (library validation).
+                var minSampling = TimeSpan.FromTicks(attemptTimeout.Ticks * 2);
+                options.CircuitBreaker.SamplingDuration =
+                    minSampling > TimeSpan.FromMinutes(2) ? minSampling : TimeSpan.FromMinutes(2);
             });
     }
 }

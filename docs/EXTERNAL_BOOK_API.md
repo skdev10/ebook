@@ -2,7 +2,9 @@
 
 This document describes the **upstream HTTP API** used for chapter generation, editing, audio transcription, approval, queue status, cover art, and chapter-name suggestions. The EBookDashboard app calls these endpoints using values under the `ExternalApi` section in `appsettings.json` (see [Configuration](#configuration)).
 
-**Security:** The repo ships a default `ExternalApi:ApiKey` in `appsettings.json` for local/dev parity with your upstream service. For production, prefer **environment variables** (`ExternalApi__ApiKey`) or `appsettings.Local.json` (gitignored — copy from `appsettings.Local.json.example`) so the key is not in source control long term. Rotate the key if it was ever exposed in chat or logs.
+**Canonical reference:** See **`API-DOCUMENTATION.md`** in the repository root for the full upstream + BFF route table, `refine_cover_prompt`, `suggest-cover-prompt-from-highlights`, database table notes, and troubleshooting.
+
+**Security:** Do **not** commit production API keys. Use **`ExternalApi__ApiKey`** (environment), **user secrets**, or **`appsettings.Local.json`** (gitignored). Rotate any key that was exposed.
 
 ---
 
