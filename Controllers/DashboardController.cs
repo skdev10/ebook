@@ -1943,6 +1943,7 @@ namespace EBookDashboard.Controllers
             ViewBag.StripePaymentsReady =
                 !string.IsNullOrWhiteSpace(StripeKeys.Publishable(_configuration))
                 && !string.IsNullOrWhiteSpace(StripeKeys.Secret(_configuration));
+            ViewBag.PaymentJustCompleted = string.Equals(Request.Query["payment"], "success", StringComparison.OrdinalIgnoreCase);
 
             return View();
         }

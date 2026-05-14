@@ -64,7 +64,7 @@ namespace EBookDashboard.Middleware
                             return;
                         }
                         
-                        context.Response.Redirect("/Account/Login?sessionExpired=true");
+                        context.Response.Redirect("/Account/UserLogin?sessionExpired=true");
                         return;
                     }
                 }

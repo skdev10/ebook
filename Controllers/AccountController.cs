@@ -5,6 +5,7 @@ using EBookDashboard.Models.ViewModels;
 using Humanizer;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Facebook;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authorization;
@@ -46,12 +47,11 @@ namespace EBookDashboard.Controllers
         //---------------------------------------------------
         //------   Action Method to Display User Login  ----
         //---------------------------------------------------           
-        // GET: /Account/Login
+        // GET: /Account/Login — redirect to primary user sign-in (Google/Facebook + password).
         [HttpGet]
-        public async Task<IActionResult> Login()
+        public IActionResult Login()
         {
-            await SetOAuthLoginAvailabilityAsync();
-            return View();
+            return RedirectToAction(nameof(UserLogin));
         }
 
         // GET: /Account/AdminLogin - Administrator login page
@@ -117,7 +117,8 @@ namespace EBookDashboard.Controllers
             // Always show Google UI on login; /auth/google validates when ClientId+Secret are configured.
             ViewBag.GoogleLoginAvailable = true;
             ViewBag.GoogleOAuthConfigured = await schemeProvider.GetSchemeAsync(GoogleDefaults.AuthenticationScheme) != null;
-            ViewBag.FacebookLoginAvailable = await schemeProvider.GetSchemeAsync("Facebook") != null;
+            ViewBag.FacebookLoginAvailable = true;
+            ViewBag.FacebookOAuthConfigured = await schemeProvider.GetSchemeAsync(FacebookDefaults.AuthenticationScheme) != null;
         }
 
         // GET: /Account/UserLogin - User login page
@@ -212,7 +213,10 @@ namespace EBookDashboard.Controllers
             if (await schemeProvider.GetSchemeAsync(provider) == null)
             {
                 _logger.LogWarning("External login requested for '{Provider}' but that scheme is not configured.", provider);
-                return RedirectToAction("UserLogin");
+                var err = string.Equals(provider, FacebookDefaults.AuthenticationScheme, StringComparison.OrdinalIgnoreCase)
+                    ? "facebook_not_configured"
+                    : "social_unavailable";
+                return RedirectToAction(nameof(UserLogin), new { error = err });
             }
 
             var redirectUrl = Url.Action("ExternalLoginCallback", "Account", new { returnUrl });
@@ -284,6 +288,7 @@ namespace EBookDashboard.Controllers
                 };
                 _context.Users.Add(user);
                 await _context.SaveChangesAsync();
+                user = await _context.Users.Include(u => u.Role).FirstAsync(u => u.UserId == user.UserId);
             }
 
             if (user.Role?.RoleName == "Admin")

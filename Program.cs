@@ -138,12 +138,9 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
-// OAuth handlers validate ClientId/AppId on first request — skip registration when secrets are missing (e.g. cloud env vars not set).
-// Credentials: Authentication:Google:* or top-level Google:* (env: Google__ClientSecret, Authentication__Google__ClientSecret, etc.)
-var googleClientId = builder.Configuration["Authentication:Google:ClientId"]
-                     ?? builder.Configuration["Google:ClientId"];
-var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]
-                        ?? builder.Configuration["Google:ClientSecret"];
+// OAuth: read from Authentication:*, Google:*, Facebook:*, User Secrets, appsettings.Local.json, and common env var names.
+var googleClientId = OAuthCredentialResolver.GoogleClientId(builder.Configuration);
+var googleClientSecret = OAuthCredentialResolver.GoogleClientSecret(builder.Configuration);
 var googleCallbackPath = builder.Configuration["Authentication:Google:CallbackPath"]
                          ?? builder.Configuration["Google:CallbackPath"]
                          ?? "/auth/google/callback";
@@ -171,17 +168,17 @@ if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(goo
 }
 else
 {
-    Console.WriteLine("[OAuth] Google login disabled: set Authentication:Google:ClientId and Authentication:Google:ClientSecret (e.g. Authentication__Google__ClientId / Authentication__Google__ClientSecret). Client ID alone is not enough for the web OAuth flow.");
+    Console.WriteLine("[OAuth] Google handlers not registered: missing ClientId and/or ClientSecret in configuration.");
 }
 
-var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"];
-var facebookAppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+var facebookAppId = OAuthCredentialResolver.FacebookAppId(builder.Configuration);
+var facebookAppSecret = OAuthCredentialResolver.FacebookAppSecret(builder.Configuration);
 if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(facebookAppSecret))
 {
     authenticationBuilder.AddFacebook(options =>
     {
-        options.AppId = facebookAppId;
-        options.AppSecret = facebookAppSecret;
+        options.AppId = facebookAppId.Trim();
+        options.AppSecret = facebookAppSecret.Trim();
         options.CallbackPath = builder.Configuration["Authentication:Facebook:CallbackPath"] ?? "/signin-facebook";
         options.Scope.Add("email");
         options.Fields.Add("email");
@@ -198,7 +195,7 @@ if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(face
 }
 else
 {
-    Console.WriteLine("[OAuth] Facebook login disabled: set Authentication:Facebook:AppId and Authentication:Facebook:AppSecret (e.g. Authentication__Facebook__AppId on DigitalOcean).");
+    Console.WriteLine("[OAuth] Facebook handlers not registered: missing AppId and/or AppSecret in configuration.");
 }
 
 // ✅ Authorization middleware (roles, policies etc.)
@@ -230,6 +227,8 @@ builder.Services.AddScoped<IBookPdfService, BookPdfService>();
 builder.Services.AddScoped<IChapterIterationService, ChapterIterationService>();
 builder.Services.Configure<ChapterGenerationOptions>(
     builder.Configuration.GetSection(ChapterGenerationOptions.SectionName));
+builder.Services.Configure<BookPaymentOptions>(
+    builder.Configuration.GetSection(BookPaymentOptions.SectionName));
 builder.Services.AddBookUpstreamHttpClients();
 builder.Services.AddHealthChecks()
     .AddCheck<UpstreamBookApiHealthCheck>("upstream_book_api", failureStatus: HealthStatus.Degraded, tags: ["ready"]);
@@ -296,6 +295,14 @@ var app = builder.Build();
         "External API: BaseUrl or per-endpoint URLs configured={HasBase}, upstream API credential configured={HasKey}",
         hasBase,
         hasKey);
+    var gOk = !string.IsNullOrWhiteSpace(OAuthCredentialResolver.GoogleClientId(cfgForStartup))
+              && !string.IsNullOrWhiteSpace(OAuthCredentialResolver.GoogleClientSecret(cfgForStartup));
+    var fOk = !string.IsNullOrWhiteSpace(OAuthCredentialResolver.FacebookAppId(cfgForStartup))
+              && !string.IsNullOrWhiteSpace(OAuthCredentialResolver.FacebookAppSecret(cfgForStartup));
+    startupLogger.LogInformation(
+        "OAuth handlers: Google={GoogleOk}, Facebook={FacebookOk}.",
+        gOk,
+        fOk);
 }
 
 app.UseForwardedHeaders();
@@ -359,7 +366,7 @@ app.MapHub<AdminActivityHub>("/hubs/admin").RequireAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Account}/{action=Login}/{id?}");
+    pattern: "{controller=Account}/{action=UserLogin}/{id?}");
 
 // Role-based dashboard routes
 app.MapControllerRoute(

@@ -5,33 +5,74 @@
     var bookTitle = ViewBag.BookTitle as string ?? "Your Book";
     var paid = ViewBag.Paid as bool? ?? false;
     var publishableKey = ViewBag.PublishableKey as string ?? "";
+    var stripeReady = !string.IsNullOrWhiteSpace(publishableKey) && publishableKey.StartsWith("pk_", StringComparison.Ordinal);
 }
 <style>
-    .book-payment-card { max-width: 420px; margin: 0 auto; }
-    .book-payment-card .btn-pay { background: #7c3aed; color: white; padding: 12px 24px; border-radius: 12px; font-weight: 600; border: none; cursor: pointer; }
-    .book-payment-card .btn-pay:hover { background: #6d28d9; }
-    .book-payment-card .btn-pay:disabled { opacity: 0.7; cursor: not-allowed; }
+    .book-pay-wrap { min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 2rem 1.25rem 3rem; background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 45%, #eef2ff 100%); }
+    .book-pay-card {
+        width: 100%; max-width: 440px;
+        background: #fff; border-radius: 1.25rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 20px 50px -24px rgba(91, 33, 182, 0.35);
+        padding: 2.25rem 2rem 2.5rem;
+        text-align: center;
+    }
+    .book-pay-card h1 { font-size: 1.375rem; font-weight: 700; letter-spacing: -0.02em; color: #0f172a; margin: 0 0 0.35rem; }
+    .book-pay-card .sub { color: #64748b; font-size: 0.9375rem; margin: 0 0 1.5rem; line-height: 1.55; }
+    .book-pay-card .title-pill {
+        display: inline-block; max-width: 100%; padding: 0.35rem 0.85rem; border-radius: 9999px;
+        background: #f5f3ff; color: #5b21b6; font-size: 0.8125rem; font-weight: 600; margin-bottom: 1.25rem;
+        border: 1px solid #ddd6fe;
+    }
+    .btn-pay-stripe {
+        width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+        background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+        color: #fff; padding: 0.9rem 1.25rem; border-radius: 0.875rem; font-weight: 600; font-size: 0.9375rem;
+        border: none; cursor: pointer; box-shadow: 0 10px 28px -12px rgba(109, 40, 217, 0.65);
+        transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+    }
+    .btn-pay-stripe:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 14px 32px -10px rgba(91, 33, 182, 0.55); }
+    .btn-pay-stripe:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+    .btn-pay-stripe .pay-spinner {
+        width: 1.125rem; height: 1.125rem; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
+        border-radius: 50%; animation: pay-spin 0.7s linear infinite; display: none;
+    }
+    .btn-pay-stripe.is-loading .pay-spinner { display: inline-block; }
+    .btn-pay-stripe.is-loading .pay-label { opacity: 0.92; }
+    @@keyframes pay-spin { to { transform: rotate(360deg); } }
+    .book-pay-foot { margin-top: 1.25rem; font-size: 0.75rem; color: #94a3b8; line-height: 1.45; }
+    .book-pay-back { margin-top: 1rem; }
+    .book-pay-back a { color: #7c3aed; font-weight: 600; font-size: 0.875rem; text-decoration: none; }
+    .book-pay-back a:hover { text-decoration: underline; }
 </style>
-<div class="min-h-full flex items-center justify-center p-6 bg-[#f5f7f9]">
-    <div class="book-payment-card bg-white rounded-2xl shadow-lg border border-slate-200 p-8 text-center">
-        <h1 class="text-xl font-semibold text-slate-800 mb-2">Complete Payment</h1>
-        <p class="text-slate-600 mb-6">@bookTitle</p>
+<div class="book-pay-wrap">
+    <div class="book-pay-card">
+        <h1>Complete payment</h1>
+        <p class="sub">Secure checkout via Stripe. After payment, downloads and publishing unlock for this book.</p>
+        <div class="title-pill" title="@bookTitle">@bookTitle</div>
         @if (paid)
         {
-            <p class="text-green-600 font-medium mb-6">You have already paid for this book. Downloads are unlocked.</p>
-            <a href="/Dashboard/MyBooks" class="inline-block bg-purple-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-purple-700">Go to My Books</a>
+            <p class="text-emerald-700 font-semibold mb-6 text-sm leading-relaxed">This book is already paid. Your downloads are unlocked.</p>
+            <a href="/Dashboard/MyBooks" class="btn-pay-stripe no-underline" style="text-decoration:none;">Go to My Books</a>
+        }
+        else if (bookId <= 0)
+        {
+            <p class="text-amber-800 text-sm mb-4">Invalid book. Open payment from My Books or your book workflow.</p>
+            <a href="/Dashboard/MyBooks" class="book-pay-back"><span>Back to My Books</span></a>
         }
         else
         {
-            <p class="text-slate-500 text-sm mb-6">Complete payment to unlock downloads (PDF, EPUB, MOBI) and publishing features.</p>
-            <button type="button" id="btn-pay-now" class="btn-pay inline-flex items-center gap-2">
-                <i class="fas fa-lock-open"></i> Pay Now
+            <button type="button" id="btn-pay-now" class="btn-pay-stripe" @(stripeReady ? "" : "disabled")>
+                <span class="pay-spinner" aria-hidden="true"></span>
+                <span class="pay-label"><i class="fas fa-lock" aria-hidden="true"></i> Pay with Stripe</span>
             </button>
-            <p id="pay-error" class="text-red-500 text-sm mt-3 hidden"></p>
+            <p id="pay-error" class="text-red-600 text-sm mt-3 hidden text-left leading-snug" role="alert"></p>
+            <p class="book-pay-foot">You will leave this site briefly to complete checkout, then return here automatically.</p>
+            <div class="book-pay-back"><a href="/Dashboard/MyBooks">Cancel and return to My Books</a></div>
         }
     </div>
 </div>
-@if (!paid && bookId > 0 && !string.IsNullOrWhiteSpace(publishableKey))
+@if (!paid && bookId > 0 && stripeReady)
 {
 <script src="https://js.stripe.com/v3/"></script>
 <script>
@@ -40,39 +81,61 @@
     var btn = document.getElementById('btn-pay-now');
     var errEl = document.getElementById('pay-error');
     if (!btn) return;
+    function setLoading(on) {
+        btn.disabled = !!on;
+        btn.classList.toggle('is-loading', !!on);
+    }
     btn.addEventListener('click', function() {
-        btn.disabled = true;
+        setLoading(true);
         if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
         fetch('/Checkout/CreateBookCheckoutSession', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookId: bookId })
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ bookId: bookId, publishIntent: false })
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.alreadyPaid) {
-                window.location.href = '/Dashboard/MyBooks';
+        .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+        .then(function(res) {
+            var data = res.data;
+            if (data && data.alreadyPaid) {
+                window.location.href = '/Dashboard/MyBooks?payment=success';
+                return;
+            }
+            if (!res.ok) {
+                if (errEl) {
+                    errEl.textContent = (data && data.message) ? data.message : 'Could not start checkout.';
+                    errEl.classList.remove('hidden');
+                }
+                setLoading(false);
                 return;
             }
             if (data.url) {
                 window.location.href = data.url;
                 return;
             }
-            var pk = '@Html.Raw(publishableKey)';
+            var pk = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishableKey));
             if (data.sessionId && typeof Stripe !== 'undefined' && pk && pk.indexOf('pk_') === 0) {
                 var stripe = Stripe(pk);
                 stripe.redirectToCheckout({ sessionId: data.sessionId }).then(function(result) {
-                    if (result.error && errEl) { errEl.textContent = result.error.message || 'Checkout failed.'; errEl.classList.remove('hidden'); }
-                    btn.disabled = false;
+                    if (result.error && errEl) {
+                        errEl.textContent = result.error.message || 'Checkout failed.';
+                        errEl.classList.remove('hidden');
+                    }
+                    setLoading(false);
                 });
                 return;
             }
-            if (errEl) { errEl.textContent = data.message || 'Could not start checkout.'; errEl.classList.remove('hidden'); }
-            btn.disabled = false;
+            if (errEl) {
+                errEl.textContent = (data && data.message) ? data.message : 'Could not start checkout.';
+                errEl.classList.remove('hidden');
+            }
+            setLoading(false);
         })
         .catch(function() {
-            if (errEl) { errEl.textContent = 'Network error. Please try again.'; errEl.classList.remove('hidden'); }
-            btn.disabled = false;
+            if (errEl) {
+                errEl.textContent = 'Network error. Please try again.';
+                errEl.classList.remove('hidden');
+            }
+            setLoading(false);
         });
     });
 })();
@@ -87,7 +150,7 @@ else if (!paid && bookId > 0)
     if (!btn) return;
     btn.addEventListener('click', function () {
         if (errEl) {
-            errEl.textContent = 'Payment is not configured yet. Add Stripe keys or contact support.';
+            errEl.textContent = 'Stripe is not configured. Add PublishableKey and SecretKey under Stripe (or PaymentSettings:Stripe) in configuration, then restart the app.';
             errEl.classList.remove('hidden');
         }
     });

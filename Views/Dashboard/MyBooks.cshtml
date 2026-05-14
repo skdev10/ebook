@@ -31,6 +31,7 @@
     }
 
     var stripeReady = ViewBag.StripePaymentsReady as bool? ?? false;
+    var paymentJustCompleted = ViewBag.PaymentJustCompleted as bool? ?? false;
     var books = rawBooks.Select(b => new
     {
         BookId = AsInt(Prop(b, "BookId")),
@@ -83,8 +84,6 @@
         border-radius: 12px;
         padding: 10px 8px;
     }
-    .btn-read-now { background: #6d28d9; box-shadow: 0 8px 20px rgba(91, 33, 182, 0.35); }
-    .btn-read-now:hover { background: #7c3aed; box-shadow: 0 8px 24px rgba(91, 33, 182, 0.45); }
     .category-pill-active { background: #6d28d9 !important; color: white !important; }
     .book-card-selected {
         border: 1.5px solid #7c3aed !important;
@@ -415,6 +414,13 @@
 
         <!-- Left: Recommended + Categories -->
         <div class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 flex flex-col overflow-y-auto no-scrollbar rounded-2xl lg:rounded-3xl relative order-1">
+            @if (paymentJustCompleted)
+            {
+                <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50/95 text-emerald-950 text-sm px-4 py-3 flex items-start gap-3" role="status">
+                    <i class="fas fa-circle-check mt-0.5 text-emerald-600" aria-hidden="true"></i>
+                    <span><strong>Payment received.</strong> Your book is marked paid — downloads and publish actions are unlocked.</span>
+                </div>
+            }
             @if (!stripeReady)
             {
                 <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 text-amber-950 text-sm px-4 py-3" role="status">
@@ -586,9 +592,6 @@
                     <a id="btn-download-publish" href="#" class="w-full py-3.5 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#047857;color:#ecfdf5;">
                         <i class="fas fa-download"></i> <span id="btn-download-label">Download / Publish</span>
                     </a>
-                    <a id="btn-read-now" href="#" class="btn-read-now w-full text-white py-3.5 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden">
-                        <i class="fas fa-book-reader"></i> Read Now
-                    </a>
                     <a id="btn-edit-book" href="#" class="w-full text-white py-3 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#4c1d95;">
                         <i class="fas fa-edit"></i> Edit
                     </a>
@@ -729,8 +732,6 @@
         document.getElementById('aside-status').textContent = book.status || '—';
         document.getElementById('aside-desc').textContent = book.desc || 'No description.';
         document.getElementById('btn-view-book').classList.remove('hidden');
-        document.getElementById('btn-read-now').href = '/Checkout/BookPayment?bookId=' + book.bookId;
-        document.getElementById('btn-read-now').classList.remove('hidden');
         document.getElementById('btn-edit-book').href = '/Books/AIGenerateBook?bookId=' + book.bookId;
         document.getElementById('btn-edit-book').classList.remove('hidden');
         document.getElementById('btn-delete-book').classList.remove('hidden');

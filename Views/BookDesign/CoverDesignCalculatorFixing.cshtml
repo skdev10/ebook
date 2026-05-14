@@ -11,9 +11,10 @@
 
 
     :root {
-        --fmt-radius: 12px;
+        --fmt-radius: 14px;
         --fmt-purple: #6d28d9;
         --fmt-purple-dark: #5b21b6;
+        --fmt-card-shadow: 0 10px 40px -18px rgba(91, 33, 182, 0.28);
     }
     /* Studio preview: hide toolbar row (Preview / Fix / Next) — controls remain on left; JS still binds by id. */
     .fmt-studio-preview-toolbar,
@@ -85,23 +86,27 @@
     .preview-panel-both .preview-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; min-height: 0; height: 100%; }
     .preview-panel-both .preview-split .preview-half { border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; background: #fff; }
     .config-card {
-        border: 1px solid #ede9fe;
-        background: #faf5ff;
+        border: 1px solid #e9d5ff;
+        background: linear-gradient(180deg, #faf5ff 0%, #f5f3ff 100%);
         border-radius: var(--fmt-radius);
-        padding: 14px;
-        box-shadow: 0 8px 18px -14px rgba(124, 58, 237, .28);
+        padding: 1rem 1rem 1.1rem;
+        box-shadow: 0 12px 28px -20px rgba(124, 58, 237, 0.35);
+        transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    .config-card:hover {
+        border-color: #ddd6fe;
+        box-shadow: var(--fmt-card-shadow);
     }
 
     /* ----- Reader: default block (config column / elsewhere). Live preview uses fixed shell below — no vh-based min-height (avoids resize/flicker). ----- */
     .reader-content-wrap {
-        min-height: min(85vh, 953px);
+        min-height: min(88vh, 1180px);
         height: auto;
         max-height: none;
         overflow: auto;
         display: flex;
         flex-direction: column;
-        padding: 1.25rem 1.5rem 2.5rem 1.5rem;
-        background: #fafaf9;
+        padding: 1.25rem 1.5rem 3.25rem 1.5rem;
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
         border: 1px solid #f3e8ff;
         border-radius: var(--fmt-radius);
@@ -135,12 +140,12 @@
     .reader-page-body {
         font-family: 'Merriweather', serif;
         text-align: left;
-        line-height: 1.85;
+        line-height: 1.92;
         color: #1f2937;
         font-size: 16px;
     }
     .reader-page-body p {
-        margin-bottom: 1rem;
+        margin-bottom: 1.2rem;
         text-indent: 1.2rem;
     }
     .reader-page-body .manuscript-heading {
@@ -167,10 +172,16 @@
         width: min(100%, 760px);
         margin: 0 auto;
         background: #fffefb;
-        border: 1px solid #ece7df;
+        border: 1px solid #e8e0d4;
         border-radius: var(--fmt-radius);
-        box-shadow: 0 12px 28px -20px rgba(17,24,39,0.35);
-        padding: 2.2rem 2.1rem 3rem 2.1rem;
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.85) inset,
+            0 14px 40px -22px rgba(17, 24, 39, 0.22),
+            0 4px 16px -8px rgba(91, 33, 182, 0.08);
+        padding: 2.5rem 2.35rem 6rem 2.35rem;
+        /* Taller “page” so vertical scroll shows more of each chapter / full-book read */
+        min-height: clamp(42rem, 62dvh, 56rem);
+        box-sizing: border-box;
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
     }
     .reader-page-title,
@@ -227,7 +238,7 @@
         color: #334155;
         font-size: 15px;
         letter-spacing: 0.02em;
-        line-height: 1.75;
+        line-height: 1.82;
     }
     .reader-content-wrap.interior-modern .reader-page-body p {
         text-indent: 0;
@@ -245,10 +256,10 @@
         background: #fdfcfa;
         border: 1px solid #e5e0d8;
         box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
-        padding: 2.5rem 2.75rem 2rem;
+        padding: 2.75rem 2.75rem 5.5rem;
         max-width: 36rem;
         margin: 0 auto;
-        min-height: 42rem;
+        min-height: clamp(50rem, 68dvh, 60rem);
         display: flex;
         flex-direction: column;
     }
@@ -350,7 +361,7 @@
         background: #fafafa;
         border: 1px solid #e5e5e5;
         box-shadow: none;
-        padding: 2.75rem 2.5rem;
+        padding: 2.85rem 2.5rem 6rem;
     }
     .reader-content-wrap.interior-minimalist .reader-page-title {
         font-family: 'Inter', sans-serif;
@@ -382,7 +393,7 @@
         background: #fdfbf7;
         border: 1px solid #d4c9b8;
         box-shadow: 0 10px 36px -18px rgba(62, 47, 32, 0.35);
-        padding: 2.35rem 2.4rem;
+        padding: 2.5rem 2.4rem 6rem;
     }
     .reader-content-wrap.interior-elegant-trade .reader-page-title {
         font-family: 'Lora', 'Times New Roman', serif;
@@ -427,7 +438,7 @@
         margin-top: auto;
         flex-shrink: 0;
     }
-    /* Dock below manuscript scroll host (no viewport sticky — scroll is inside .fmt-manuscript-scroll-host). */
+    /* Dock below reading viewport (scroll is on `#preview-content` single / `#reader-wrap-*` dual — same idea as AI Writer). */
     #preview-wrapper .reader-nav-bar.fmt-reader-nav-dock {
         position: relative;
         bottom: auto;
@@ -588,9 +599,9 @@
         --fmt-preview-accent: #5b21b6;
         width: 70%;
         max-width: 100%;
-        height: 990px;
-        min-height: 990px;
-        max-height: 990px;
+        height: 1240px;
+        min-height: 1240px;
+        max-height: 1240px;
         margin-left: 0;
         margin-right: auto;
         display: flex;
@@ -599,12 +610,31 @@
         overflow: hidden;
         position: relative;
         border: 1px solid #ddd6fe;
-        box-shadow: 0 16px 32px -22px rgba(91, 33, 182, 0.22);
+        box-shadow: 0 20px 50px -28px rgba(91, 33, 182, 0.28);
         background: #f5f3ff;
-        border-radius: 12px;
+        border-radius: 14px;
         box-sizing: border-box;
-        padding: 1.5rem;
-        transition: box-shadow 0.2s ease;
+        padding: 1.65rem;
+        transition: box-shadow 0.25s ease, border-color 0.2s ease;
+    }
+    #fmt-studio-stage.fmt-studio-stage:hover {
+        box-shadow: 0 24px 56px -26px rgba(91, 33, 182, 0.38);
+    }
+    @@media (max-width: 1279px) {
+        #fmt-studio-stage.fmt-studio-stage {
+            width: 100%;
+            height: min(1240px, calc(100dvh - 7.25rem));
+            min-height: max(560px, min(820px, calc(100dvh - 9.5rem)));
+            max-height: min(1240px, calc(100dvh - 5.25rem));
+        }
+    }
+    @@media (max-width: 767px) {
+        #fmt-studio-stage.fmt-studio-stage {
+            height: min(1100px, calc(100dvh - 6.25rem));
+            min-height: max(520px, min(700px, calc(100dvh - 8.75rem)));
+            max-height: min(1100px, calc(100dvh - 4.25rem));
+            padding: 1.25rem;
+        }
     }
     @@media (min-width: 768px) {
         .fmt-studio-stage { padding: 2rem; }
@@ -660,6 +690,11 @@
         flex-direction: column;
         overflow: hidden;
     }
+    /* Ensure the preview column inside the studio always receives vertical space (flex sibling to cover row). */
+    #fmt-studio-stage .fmt-interior-canvas {
+        flex: 1 1 auto;
+        min-height: clamp(28rem, 50dvh, 44rem);
+    }
     .fmt-int-card {
         border-radius: 12px; border: 2px solid #e5e7eb; background: #fff; padding: 0.65rem 0.5rem;
         text-align: center; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
@@ -692,7 +727,7 @@
         max-width: 100%;
         flex: 1 1 0%;
         flex-direction: column;
-        min-height: 0;
+        min-height: clamp(12rem, 32dvh, 24rem);
         height: auto;
         max-height: none;
         overflow: hidden;
@@ -709,12 +744,13 @@
     }
     /* Same inner frame as AI Book Writer `.paginated-reader-shell` (Views/Books/AIGenerateBook.cshtml) */
     .fmt-ai-writer-preview-shell {
-        border-radius: 14px;
-        border: 1px solid rgba(196, 181, 253, 0.65);
+        border-radius: 16px;
+        border: 1px solid rgba(196, 181, 253, 0.75);
         background: #fff;
         box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.9),
-            0 4px 20px -8px rgba(91, 33, 182, 0.15);
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            0 6px 28px -10px rgba(91, 33, 182, 0.18),
+            0 2px 12px -4px rgba(15, 23, 42, 0.08);
         box-sizing: border-box;
     }
     #preview-single.fmt-formatter-preview-card.fmt-ai-writer-preview-shell {
@@ -724,26 +760,48 @@
         display: flex;
         flex-direction: column;
     }
+    /* Mirrors AI Book Writer `#preview-content.chapter-preview-viewport`: one bounded flex child scrolls; avoids nested flex + inner overflow clipping. */
     #preview-single.fmt-formatter-preview-card #preview-content {
-        position: relative;
         z-index: 1;
         flex: 1 1 0%;
         min-height: 0;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        scrollbar-gutter: stable;
+        scrollbar-width: auto;
+        scrollbar-color: #a78bfa #ede9fe;
+        scroll-padding-bottom: 1rem;
+    }
+    #preview-single.fmt-formatter-preview-card #preview-content::-webkit-scrollbar {
+        width: 12px;
+    }
+    #preview-single.fmt-formatter-preview-card #preview-content::-webkit-scrollbar-thumb {
+        background: #a78bfa;
+        border-radius: 8px;
+        border: 2px solid #f5f3ff;
+    }
+    #preview-single.fmt-formatter-preview-card #preview-content::-webkit-scrollbar-thumb:hover {
+        background: #8b5cf6;
     }
     /* White reading canvas + padding = AI Writer `#preview-content.chapter-preview-viewport` */
     #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap {
-        flex: 1 1 0%;
+        flex: 0 1 auto;
+        width: 100%;
         min-height: 0 !important;
         height: auto !important;
         max-height: none;
         display: flex !important;
         flex-direction: column !important;
-        overflow: hidden;
-        /* Match top/bottom inset inside white preview (was heavier bottom only; now symmetric + nav/dock padding below) */
-        padding: 1.5rem 1.5rem 1.5rem 1.5rem;
+        overflow-x: hidden;
+        overflow-y: visible;
+        /* Side arrows sit in card margin; keep text clear of circular controls */
+        padding: 1.35rem clamp(1.35rem, 4vw, 2.85rem) 3.5rem clamp(1.35rem, 4vw, 2.85rem);
         background: #fff !important;
         border: none !important;
         border-radius: 0;
@@ -765,24 +823,55 @@
         background: #fff !important;
         border: none !important;
         box-shadow: none !important;
-        padding: 1.5rem 1.25rem 1.5rem 1.25rem;
+        padding: 1.35rem 1.35rem 3.5rem 1.35rem;
         box-sizing: border-box;
     }
-    /* Manuscript lives inside .fmt-manuscript-scroll-host (see markup); inner .reader-page-inner grows, host scrolls. */
+    /* Dual mode: each column scrolls like AI Writer `#preview-content` (manuscript host stays overflow-visible). */
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both #reader-wrap-ebook,
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both #reader-wrap-paperback {
+        flex: 1 1 0%;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none;
+        overflow-x: hidden;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        scrollbar-gutter: stable;
+        scrollbar-width: auto;
+        scrollbar-color: #a78bfa #ede9fe;
+        scroll-padding-bottom: 0.75rem;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both #reader-wrap-ebook::-webkit-scrollbar,
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both #reader-wrap-paperback::-webkit-scrollbar {
+        width: 10px;
+    }
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both #reader-wrap-ebook::-webkit-scrollbar-thumb,
+    #preview-wrapper.fmt-formatter-preview-fixed #preview-both #reader-wrap-paperback::-webkit-scrollbar-thumb {
+        background: #a78bfa;
+        border-radius: 8px;
+        border: 2px solid #fff;
+    }
+    /* Manuscript host grows with content; vertical scroll is on `#preview-content` (single) or reader-wrap (dual). */
     #preview-single.fmt-formatter-preview-card #reader-wrap-single .reader-page-inner {
         flex: none;
         min-height: min-content;
         overflow: visible;
-        padding-bottom: 1.25rem;
+        padding-bottom: 3rem;
     }
     /*
      * Formatter preview + interior-classic: `.classic-body { flex: 1 }` inside `.book-preview-sheet` (flex column)
      * was shrinking the body to the remaining viewport height and clipping long chapters. Let the sheet grow with
-     * content; scroll stays on `.fmt-manuscript-scroll-host`. `interior-classic` look unchanged outside preview card.
+     * content; scroll stays on `#preview-content`. `interior-classic` look unchanged outside preview card.
      */
     #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-classic .book-preview-sheet,
     #preview-wrapper.fmt-formatter-preview-fixed #preview-both .reader-content-wrap.interior-classic .book-preview-sheet {
         min-height: auto;
+        padding-bottom: 5.5rem;
     }
     #preview-single.fmt-formatter-preview-card #reader-wrap-single.reader-content-wrap.interior-classic .reader-page-body.classic-body,
     #preview-wrapper.fmt-formatter-preview-fixed #preview-both .reader-content-wrap.interior-classic .reader-page-body.classic-body {
@@ -790,47 +879,108 @@
         min-height: min-content;
         overflow: visible !important;
     }
-    /* Match AI Book Writer side chevrons (siblings of reader shell inside `#preview-content`) */
+    /* Side page arrows: fixed to preview card (not the scroll layer), circular, inset — no half-off-screen offset */
     #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav,
-    #preview-both .fmt-preview-side-nav {
+    #preview-both .fmt-preview-both-main .fmt-preview-side-nav {
         position: absolute;
         top: 50%;
-        z-index: 24;
+        z-index: 30;
         pointer-events: auto;
-        width: 2.5rem;
-        height: 3.5rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+        width: 2.875rem;
+        height: 2.875rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(196, 181, 253, 0.95);
+        background: linear-gradient(165deg, #ffffff 0%, #faf5ff 55%, #f4f0ff 100%);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.9) inset,
+            0 4px 14px rgba(91, 33, 182, 0.14),
+            0 10px 28px -12px rgba(15, 23, 42, 0.18);
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        color: #64748b;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        color: #5b21b6;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
         padding: 0;
     }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav .fmt-preview-side-nav__icon,
+    #preview-both .fmt-preview-both-main .fmt-preview-side-nav .fmt-preview-side-nav__icon {
+        font-size: 1.05rem;
+        line-height: 1;
+    }
     #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav:hover:not(:disabled),
-    #preview-both .fmt-preview-side-nav:hover:not(:disabled) {
-        border-color: #c4b5fd;
-        color: #5b21b6;
-        box-shadow: 0 8px 22px rgba(91, 33, 182, 0.18);
+    #preview-both .fmt-preview-both-main .fmt-preview-side-nav:hover:not(:disabled) {
+        border-color: #a78bfa;
+        color: #4c1d95;
+        background: linear-gradient(165deg, #ffffff 0%, #f5f3ff 50%, #ede9fe 100%);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.95) inset,
+            0 6px 20px rgba(91, 33, 182, 0.22),
+            0 12px 32px -10px rgba(15, 23, 42, 0.2);
+        transform: translateY(-50%) scale(1.06);
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav:active:not(:disabled),
+    #preview-both .fmt-preview-both-main .fmt-preview-side-nav:active:not(:disabled) {
+        transform: translateY(-50%) scale(1.02);
     }
     #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav:disabled,
-    #preview-both .fmt-preview-side-nav:disabled {
-        opacity: 0.32;
+    #preview-both .fmt-preview-both-main .fmt-preview-side-nav:disabled {
+        opacity: 0.38;
         cursor: not-allowed;
+        color: #94a3b8;
+        border-color: #e2e8f0;
+        background: #f8fafc;
         box-shadow: none;
     }
-    #preview-single.fmt-formatter-preview-card .fmt-preview-side-prev,
-    #preview-both .fmt-preview-side-prev { left: 0; transform: translate(-42%, -50%); }
-    #preview-single.fmt-formatter-preview-card .fmt-preview-side-prev:hover:not(:disabled),
-    #preview-both .fmt-preview-side-prev:hover:not(:disabled) { transform: translate(-42%, -50%) scale(1.04); }
-    #preview-single.fmt-formatter-preview-card .fmt-preview-side-next,
-    #preview-both .fmt-preview-side-next { right: 0; transform: translate(42%, -50%); }
-    #preview-single.fmt-formatter-preview-card .fmt-preview-side-next:hover:not(:disabled),
-    #preview-both .fmt-preview-side-next:hover:not(:disabled) { transform: translate(42%, -50%) scale(1.04); }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-prev {
+        left: 0.65rem;
+        right: auto;
+        transform: translateY(-50%);
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-prev:hover:not(:disabled) {
+        transform: translateY(-50%) scale(1.06);
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-next {
+        right: 0.65rem;
+        left: auto;
+        transform: translateY(-50%);
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-next:hover:not(:disabled) {
+        transform: translateY(-50%) scale(1.06);
+    }
+    #preview-both .fmt-preview-both-main .fmt-preview-side-prev {
+        left: 0.5rem;
+        transform: translateY(-50%);
+    }
+    #preview-both .fmt-preview-both-main .fmt-preview-side-prev:hover:not(:disabled) {
+        transform: translateY(-50%) scale(1.06);
+    }
+    #preview-both .fmt-preview-both-main .fmt-preview-side-next {
+        right: 0.5rem;
+        transform: translateY(-50%);
+    }
+    #preview-both .fmt-preview-both-main .fmt-preview-side-next:hover:not(:disabled) {
+        transform: translateY(-50%) scale(1.06);
+    }
+    #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav:focus-visible,
+    #preview-both .fmt-preview-both-main .fmt-preview-side-nav:focus-visible {
+        outline: 2px solid #7c3aed;
+        outline-offset: 3px;
+    }
+    @@media (max-width: 480px) {
+        #preview-single.fmt-formatter-preview-card .fmt-preview-side-nav {
+            width: 2.5rem;
+            height: 2.5rem;
+        }
+        #preview-single.fmt-formatter-preview-card .fmt-preview-side-prev { left: 0.35rem; }
+        #preview-single.fmt-formatter-preview-card .fmt-preview-side-next { right: 0.35rem; }
+        #preview-both .fmt-preview-both-main .fmt-preview-side-nav {
+            width: 2.35rem;
+            height: 2.35rem;
+        }
+        #preview-both .fmt-preview-both-main .fmt-preview-side-prev { left: 0.35rem; }
+        #preview-both .fmt-preview-both-main .fmt-preview-side-next { right: 0.35rem; }
+    }
     .fmt-chapter-nav-below {
         border-top: 1px solid rgba(196, 181, 253, 0.35);
         padding-top: 0.5rem;
@@ -900,7 +1050,7 @@
         flex: none;
         min-height: min-content;
         overflow: visible;
-        padding-bottom: 1.25rem;
+        padding-bottom: 3rem;
     }
     #preview-single.fmt-formatter-preview-card #reader-wrap-single .reader-nav-bar,
     #preview-both .reader-nav-bar {
@@ -920,6 +1070,23 @@
         box-sizing: border-box;
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
     }
+    /*
+     * Preview card height floor: without this, flex-1 + min-h-0 ancestors can shrink the reader to a strip
+     * and chapter text looks "compressed" or clipped. Single-mode scroll: `#preview-content`; dual: `#reader-wrap-ebook` / `#reader-wrap-paperback`.
+     */
+    #fmt-book-result.fmt-book-result {
+        flex: 1 1 auto;
+        min-height: clamp(32rem, 62dvh, 48rem);
+    }
+    @@media (min-width: 640px) {
+        #fmt-book-result.fmt-book-result { min-height: clamp(36rem, 60dvh, 50rem); }
+    }
+    @@media (min-width: 1024px) {
+        #fmt-book-result.fmt-book-result { min-height: max(920px, min(82dvh, 60rem)); }
+    }
+    @@media (min-width: 1280px) {
+        #fmt-book-result.fmt-book-result { min-height: max(960px, min(84dvh, 62rem)); }
+    }
     /* AI Writer `.chapter-preview-scroll-host` */
     .fmt-chapter-preview-scroll-host {
         min-height: 0;
@@ -928,45 +1095,34 @@
         overflow: hidden;
         position: relative;
     }
-    /* Preview stack clip; real Y scroll is on .reader-page-inner below (high specificity). */
+    #fmt-book-result .fmt-chapter-preview-scroll-host {
+        flex: 1 1 auto;
+        min-height: max(16rem, min(48dvh, 38rem));
+    }
+    /* Flex column between chrome + preview-wrapper; min height guarantees space for inner scroll region */
     #fmt-preview-scroll-host {
         flex: 1 1 0%;
-        min-height: 0 !important;
         min-width: 0;
+        min-height: max(18rem, min(52dvh, 42rem));
         position: relative;
-        overflow: hidden !important;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
     /*
-     * Dedicated scroll box: flex child with min-height 0 + overflow-y scroll (reliable).
-     * Inner .reader-page-inner is height:auto so long pages overflow this host → visible scrollbar.
+     * Manuscript strip: grows with chapter HTML (no nested scroll). Matches AI Writer leaving scroll on the outer viewport.
      */
     #book-formatter-root #preview-wrapper .fmt-manuscript-scroll-host {
-        flex: 1 1 0% !important;
+        flex: 0 1 auto !important;
         min-height: 0 !important;
         min-width: 0 !important;
-        display: block !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior-y: contain;
-        touch-action: pan-y;
-        scrollbar-gutter: stable;
-        scrollbar-width: auto;
-        scrollbar-color: #a78bfa #ede9fe;
-        /* Last lines stay above docked nav / viewport rounding */
-        padding-bottom: max(3.5rem, env(safe-area-inset-bottom, 0px)) !important;
+        width: 100%;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: visible !important;
         box-sizing: border-box;
-    }
-    #book-formatter-root #preview-wrapper .fmt-manuscript-scroll-host::-webkit-scrollbar {
-        width: 12px;
-    }
-    #book-formatter-root #preview-wrapper .fmt-manuscript-scroll-host::-webkit-scrollbar-thumb {
-        background: #a78bfa;
-        border-radius: 8px;
-        border: 2px solid #f5f3ff;
-    }
-    #book-formatter-root #preview-wrapper .fmt-manuscript-scroll-host::-webkit-scrollbar-thumb:hover {
-        background: #8b5cf6;
+        /* Space before docked nav (nav sits below this host in the DOM) */
+        padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px)) !important;
     }
     /* AI Writer `.chapter-read-progress` in bottom dock */
     .fmt-chapter-read-progress {
@@ -988,8 +1144,8 @@
         position: relative;
         z-index: 10;
         margin-top: auto;
-        padding-top: 0.85rem;
-        padding-bottom: 1rem;
+        padding-top: 1rem;
+        padding-bottom: 1.25rem;
         background: linear-gradient(to top, #f5f3ff 70%, rgba(245, 243, 255, 0.92) 90%, transparent);
         border-top: 1px solid rgba(196, 181, 253, 0.55);
         box-shadow: 0 -8px 24px -12px rgba(91, 33, 182, 0.18);
@@ -1043,7 +1199,7 @@ div#fmt-finalize-panel {
     var uid = (Model?.UserId ?? 0) != 0 ? Model.UserId : (ViewBag.UserId ?? 0);
 }
 <div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1 antialiased" id="book-formatter-root" data-user-id="@uid" data-book-id="@bookId" data-format="@formatFromUrl">
-    <main class="flex-1 overflow-y-auto p-8 lg:p-12">
+    <main class="flex-1 overflow-y-auto p-8 lg:p-12 pb-16 lg:pb-24">
         <div class="max-w-[1600px] mx-auto w-full">
             <div class="flex flex-col lg:flex-row gap-12 lg:gap-24">
                 <!-- Left: AI Book Formatter (your design) -->
@@ -1283,7 +1439,7 @@ div#fmt-finalize-panel {
                                     </button>
                                 </div>
                                 <!-- Match AI Book Writer `#bookResult` lavender panel + chapter title + scroll host -->
-                                <div id="fmt-book-result" class="fmt-book-result relative rounded-xl p-5 md:p-7 lg:p-8 shadow-sm border flex flex-col flex-1 min-h-0" style="background-color:#f5f3ff;border-color:#ddd6fe;">
+                                <div id="fmt-book-result" class="fmt-book-result relative rounded-2xl p-6 md:p-8 lg:p-10 shadow-md border flex flex-col flex-1 min-h-[28rem] sm:min-h-[32rem] md:min-h-[38rem] lg:min-h-[800px] xl:min-h-[min(82dvh,58rem)] overflow-hidden transition-shadow duration-200 hover:shadow-lg" style="background-color:#f5f3ff;border-color:#ddd6fe;">
                                     <h3 id="fmt-preview-chapter-header" class="text-xl sm:text-2xl font-medium text-slate-700 tracking-tight mb-2 shrink-0 hidden" aria-live="polite">Reading preview</h3>
                                     <div id="fmt-fullbook-read-bar" class="fmt-fullbook-read-bar" role="toolbar" aria-label="Read full book — previous and next page">
                                         <button type="button" id="fmt-btn-read-prev-page" class="fmt-read-page-btn" disabled title="Previous page" aria-label="Previous page">
@@ -1298,7 +1454,7 @@ div#fmt-finalize-panel {
                                     <div class="flex-1 relative flex flex-col min-h-0 pb-3 overflow-hidden fmt-formatter-preview-fixed" id="preview-wrapper" data-guided-tour="fmt-preview">
                                         <!-- Inner shell ≈ `#paginatedReaderShell` -->
                                         <div id="preview-single" class="preview-panel-single fmt-formatter-preview-card fmt-ai-writer-preview-shell relative w-full max-w-full flex flex-col min-h-0 overflow-hidden" tabindex="0">
-                                            <div id="preview-content" class="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+                                            <div id="preview-content" class="relative flex-1 flex flex-col min-h-0 overflow-x-hidden overflow-y-auto">
                                                 <div class="reader-content-wrap fmt-formatter-viewport flex flex-col flex-1 min-h-0 overflow-hidden" id="reader-wrap-single">
                                                     <div id="fmt-scroll-manuscript-single" class="fmt-manuscript-scroll-host min-h-0 flex-1" role="region" aria-label="Manuscript — scroll to read">
                                                     <div class="reader-page-inner text-base text-slate-700 leading-relaxed" id="preview-content-inner">
@@ -1315,9 +1471,9 @@ div#fmt-finalize-panel {
                                                         <button type="button" id="btn-next-format-bar" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><span>Next</span> <i class="fas fa-chevron-right" aria-hidden="true"></i></button>
                                                     </div>
                                                 </div>
-                                                <button type="button" id="fmt-preview-side-prev" class="fmt-preview-side-nav fmt-preview-side-prev ai-writer-side-fmt" aria-label="Previous page" title="Previous page" disabled><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
-                                                <button type="button" id="fmt-preview-side-next" class="fmt-preview-side-nav fmt-preview-side-next ai-writer-side-fmt" aria-label="Next page" title="Next page" disabled><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
                                             </div>
+                                            <button type="button" id="fmt-preview-side-prev" class="fmt-preview-side-nav fmt-preview-side-prev ai-writer-side-fmt" aria-label="Previous page" title="Previous page" disabled><i class="fas fa-chevron-left fmt-preview-side-nav__icon" aria-hidden="true"></i></button>
+                                            <button type="button" id="fmt-preview-side-next" class="fmt-preview-side-nav fmt-preview-side-next ai-writer-side-fmt" aria-label="Next page" title="Next page" disabled><i class="fas fa-chevron-right fmt-preview-side-nav__icon" aria-hidden="true"></i></button>
                                         </div>
                                         <div id="preview-both" class="preview-panel-both hidden w-full max-w-full min-h-0 flex-1 flex flex-col relative" style="display:none;">
                                             <div class="fmt-preview-both-main">
@@ -1349,8 +1505,8 @@ div#fmt-finalize-panel {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <button type="button" id="fmt-preview-both-side-prev" class="fmt-preview-side-nav fmt-preview-side-prev" aria-label="Previous page" title="Previous page" disabled><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
-                                                <button type="button" id="fmt-preview-both-side-next" class="fmt-preview-side-nav fmt-preview-side-next" aria-label="Next page" title="Next page" disabled><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
+                                                <button type="button" id="fmt-preview-both-side-prev" class="fmt-preview-side-nav fmt-preview-side-prev" aria-label="Previous page" title="Previous page" disabled><i class="fas fa-chevron-left fmt-preview-side-nav__icon" aria-hidden="true"></i></button>
+                                                <button type="button" id="fmt-preview-both-side-next" class="fmt-preview-side-nav fmt-preview-side-next" aria-label="Next page" title="Next page" disabled><i class="fas fa-chevron-right fmt-preview-side-nav__icon" aria-hidden="true"></i></button>
                                             </div>
                                             <div class="fmt-reader-nav-dock-dual flex flex-wrap items-stretch justify-between gap-2 relative mt-4 px-2 pb-3 flex-shrink-0 pt-3 border-t border-violet-100/80 bg-gradient-to-t from-[#f5f3ff] to-transparent rounded-b-xl">
                                                 <button type="button" id="btn-prev-both" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"><i class="fas fa-chevron-left" aria-hidden="true"></i> <span>Previous</span></button>
@@ -1440,8 +1596,8 @@ div#fmt-finalize-panel {
     /** Parallel to readerPages: source chapter index (0-based) for each page. */
     let readerPageChapterIdx = [];
     let currentPageIdx = 0;
-    const PARAS_PER_PAGE = 5;
-    const CONTENT_CHARS_SOFT_LIMIT = 2800;
+    const PARAS_PER_PAGE = 8;
+    const CONTENT_CHARS_SOFT_LIMIT = 5500;
     const FORMATTER_DRAFT_PREFIX = 'formatter_draft_v2_';
     let autosaveTimer = null;
     let autosaveInFlight = false;
@@ -1620,6 +1776,82 @@ div#fmt-finalize-panel {
         return out;
     }
 
+    /** Split oversized HTML on closing </p> boundaries so tags stay intact. */
+    function splitHtmlByApproxSize(html, maxChars) {
+        var s = String(html);
+        var pieces = [];
+        var curStart = 0;
+        var re = /<\/p\s*>/gi;
+        var m;
+        while ((m = re.exec(s)) !== null) {
+            var end = m.index + m[0].length;
+            var piece = s.substring(curStart, end).trim();
+            curStart = end;
+            if (piece) pieces.push(piece);
+        }
+        if (curStart < s.length) {
+            var tail = s.substring(curStart).trim();
+            if (tail) pieces.push(tail);
+        }
+        if (!pieces.length) {
+            if (s.length <= maxChars) return [s];
+            var st = s.replace(/<[^>]+>/g, ' ');
+            return splitLongText(st, maxChars);
+        }
+        var out = [];
+        var buf = '';
+        for (var i = 0; i < pieces.length; i++) {
+            if (!buf.length) {
+                buf = pieces[i];
+            } else if (buf.length + pieces[i].length + 2 <= maxChars) {
+                buf += '\n\n' + pieces[i];
+            } else {
+                out.push(buf);
+                buf = pieces[i];
+            }
+        }
+        if (buf) out.push(buf);
+        for (var j = 0; j < out.length; j++) {
+            if (out[j].length > maxChars) {
+                var stripped = out[j].replace(/<[^>]+>/g, ' ');
+                out[j] = splitLongText(stripped, maxChars).join('\n\n');
+            }
+        }
+        return out.length ? out : [s];
+    }
+
+    /** Top-level block nodes from parsed HTML (avoids breaking tags mid-chapter). */
+    function splitHtmlChapterIntoBlocks(html) {
+        var s = String(html || '').trim();
+        if (!s) return [];
+        try {
+            var doc = new DOMParser().parseFromString(s, 'text/html');
+            var body = doc.body;
+            if (!body) return [s];
+            var blocks = [];
+            for (var i = 0; i < body.childNodes.length; i++) {
+                var n = body.childNodes[i];
+                if (n.nodeType === 1) blocks.push(n.outerHTML);
+            }
+            if (!blocks.length && body.innerHTML && body.innerHTML.trim()) {
+                return [body.innerHTML.trim()];
+            }
+            if (blocks.length === 1) {
+                var el = body.firstElementChild;
+                if (el && el.tagName === 'DIV' && el.children && el.children.length > 1) {
+                    var inner = [];
+                    for (var k = 0; k < el.children.length; k++) {
+                        inner.push(el.children[k].outerHTML);
+                    }
+                    if (inner.length > 1) return inner;
+                }
+            }
+            return blocks.length ? blocks : [s];
+        } catch (e) {
+            return [s];
+        }
+    }
+
     /** Split chapter body into logical blocks for pagination (handles single \\n manuscripts and long HTML). */
     function splitChapterIntoParas(raw) {
         const content = (raw || '').toString().trim();
@@ -1627,13 +1859,18 @@ div#fmt-finalize-panel {
         const looksLikeHtml = /<\s*(p|h1|h2|h3|h4|blockquote|ul|ol|li|br|div)\b/i.test(content);
         var paras;
         if (looksLikeHtml) {
-            var pieces = content.split(/(?=<\/p>\s*)/i).map(function(x) { return x.trim(); }).filter(Boolean);
-            if (pieces.length <= 1) {
-                pieces = content.split(/<br\s*\/?>/i).map(function(x) { return x.trim(); }).filter(Boolean);
-            }
-            paras = pieces.length ? pieces : [content];
-            if (paras.length === 1 && paras[0].length > CONTENT_CHARS_SOFT_LIMIT) {
-                paras = splitLongText(paras[0].replace(/<[^>]+>/g, ' '), CONTENT_CHARS_SOFT_LIMIT);
+            paras = splitHtmlChapterIntoBlocks(content);
+            if (!paras.length) paras = [content];
+            if (paras.length === 1) {
+                var one = paras[0];
+                if (one.length > CONTENT_CHARS_SOFT_LIMIT) {
+                    var brPieces = one.split(/<br\s*\/?>/i).map(function(x) { return x.trim(); }).filter(Boolean);
+                    if (brPieces.length > 1) {
+                        paras = brPieces;
+                    } else {
+                        paras = splitHtmlByApproxSize(one, Math.max(CONTENT_CHARS_SOFT_LIMIT * 2, 8000));
+                    }
+                }
             }
         } else {
             paras = content.split(/\n\n+/).filter(Boolean);
@@ -1648,13 +1885,20 @@ div#fmt-finalize-panel {
 
     /** Split any oversized blocks so Next/Previous always has meaningful steps. */
     function expandParasForPaging(paras) {
-        const maxChars = 2000;
-        const out = [];
+        var maxPlain = 5500;
+        var maxHtml = 22000;
+        var out = [];
         (paras || []).forEach(function(p) {
-            const s = (p || '').trim();
+            var s = (p || '').trim();
             if (!s) return;
-            if (s.length <= maxChars) out.push(s);
-            else Array.prototype.push.apply(out, splitLongText(s, maxChars));
+            var isHtml = /<\s*[a-z]/i.test(s);
+            if (isHtml) {
+                if (s.length <= maxHtml) out.push(s);
+                else Array.prototype.push.apply(out, splitHtmlByApproxSize(s, maxHtml));
+            } else {
+                if (s.length <= maxPlain) out.push(s);
+                else Array.prototype.push.apply(out, splitLongText(s, maxPlain));
+            }
         });
         return out;
     }
@@ -1662,6 +1906,8 @@ div#fmt-finalize-panel {
     function scrollReaderPanelsToTop() {
         var host = document.getElementById('fmt-preview-scroll-host');
         if (host) try { host.scrollTop = 0; } catch (e) { /* ignore */ }
+        var pc = document.getElementById('preview-content');
+        if (pc) try { pc.scrollTop = 0; } catch (e) { /* ignore */ }
         document.querySelectorAll('#preview-wrapper .fmt-manuscript-scroll-host').forEach(function(w) {
             try { w.scrollTop = 0; } catch (e) { /* ignore */ }
         });
