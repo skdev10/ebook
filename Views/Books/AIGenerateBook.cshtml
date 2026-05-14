@@ -1127,7 +1127,7 @@
                         <div class="flex-1 min-w-0 basis-[min(100%,18rem)] relative">
                             <select id="savedResponsesDropdown" class="w-full max-w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3.5 pr-10 text-base text-slate-700 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm cursor-pointer" title="Select a saved book" onchange="loadSelectedResponse(this.value)">
                                 <option value="">Select saved book…</option>
-                        @foreach (var b in Model.UserBooks)
+                        @foreach (var b in Model?.UserBooks ?? new List<BookDropdownItem>())
                         {
                             if (selectedBookId == b.BookId) { <option value="@b.BookId" selected>@b.Title</option> }
                             else { <option value="@b.BookId">@b.Title</option> }

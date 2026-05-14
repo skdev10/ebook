@@ -95,19 +95,37 @@ namespace EBookDashboard.Controllers
             }
             if (bookId.HasValue && bookId.Value > 0)
             {
-                await SetActiveBookAsync(userId.Value, bookId.Value);
+                try
+                {
+                    await SetActiveBookAsync(userId.Value, bookId.Value);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "AIGenerateBook: SetActiveBookAsync failed for user {UserId}, book {BookId}. Page will still load.", userId.Value, bookId.Value);
+                }
             }
             ViewBag.UserId = userId;
             ViewBag.SelectedBookId = bookId;
             var userBooks = await _context.Books
+                .AsNoTracking()
                 .Where(b => b.UserId == userId.Value)
                 .OrderByDescending(b => b.CreatedAt)
-                .Select(b => new BookDropdownItem { BookId = b.BookId, Title = b.Title })
+                .Select(b => new BookDropdownItem
+                {
+                    BookId = b.BookId,
+                    Title = string.IsNullOrWhiteSpace(b.Title) ? "Untitled" : b.Title
+                })
                 .ToListAsync();
+
+            var plans = await _context.Plans
+                .AsNoTracking()
+                .OrderBy(p => p.PlanId)
+                .ToListAsync();
+
             var model = new AIGenerateBookViewModel
             {
                 BookRequest = new AIBookRequest(),
-                AvailablePlans = _context.Plans.ToList(),
+                AvailablePlans = plans,
                 UserBooks = userBooks
             };
             // Browser fetch() abort budget — must be ≥ typical chapter generation + Polly pipeline (see BookApiLong total timeout).
