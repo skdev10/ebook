@@ -8,33 +8,22 @@ namespace EBookDashboard.Controllers
     [Route("api/[controller]")]
     public class AudioToTextController : ControllerBase
     {
-        private readonly OpenAIService2 _openAIService;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AudioToTextController> _logger;
         private readonly IWebHostEnvironment _env;
 
         public AudioToTextController(
-            OpenAIService2 openAIService,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
             ILogger<AudioToTextController> logger,
             IWebHostEnvironment env)
         {
-            _openAIService = openAIService;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
             _env = env;
         }
-
-        /// <summary>Resolved OpenAI key (config + optional env binding via OpenAI__ApiKey).</summary>
-        private string? ResolvedOpenAiKey =>
-            (_configuration["OpenAI:ApiKey"] ?? Environment.GetEnvironmentVariable("OpenAI__ApiKey"))
-            ?.Trim();
-
-        private static bool HasConfiguredOpenAi(OpenAIService2 svc, string? keyFromConfig)
-            => !string.IsNullOrEmpty(keyFromConfig) || svc.IsConfigured;
 
         [HttpPost("convert")]
         [Consumes("multipart/form-data")]
@@ -73,9 +62,6 @@ namespace EBookDashboard.Controllers
 
             var fileName = $"{Guid.NewGuid()}{Path.GetExtension(audioFile.FileName)}";
             var savedFilePath = Path.Combine(uploadsFolder, fileName);
-            var tempFilePath = Path.Combine(
-                Path.GetTempPath(),
-                $"{Guid.NewGuid()}{Path.GetExtension(audioFile.FileName)}");
 
             try
             {
@@ -83,8 +69,6 @@ namespace EBookDashboard.Controllers
                 {
                     await audioFile.CopyToAsync(fs);
                 }
-
-                System.IO.File.Copy(savedFilePath, tempFilePath, true);
 
                 _logger.LogInformation(
                     "Audio received: {File}, Size: {Size}, Saved to: {Path}",
@@ -103,7 +87,6 @@ namespace EBookDashboard.Controllers
                 var externalAttempted = false;
                 Exception? externalError = null;
 
-                // 1) External service first — if it fails (e.g. 500), Whisper is the fallback.
                 if (!string.IsNullOrEmpty(extKey))
                 {
                     externalAttempted = true;
@@ -127,37 +110,12 @@ namespace EBookDashboard.Controllers
                     {
                         externalError = ex;
                         text = string.Empty;
-                        _logger.LogWarning(
-                            ex,
-                            "External audio API failed (non-success or parse error); will try OpenAI whisper-1 if configured.");
+                        _logger.LogWarning(ex, "External audio API failed.");
                     }
                 }
                 else
                 {
-                    _logger.LogWarning("External API key empty (ExternalApi:ApiKey or OpenAI:ApiKey) — skipping external transcription.");
-                }
-
-                // 2) OpenAI Whisper (whisper-1) fallback when external is missing/unavailable returned no text.
-                var openAiKey = ResolvedOpenAiKey;
-                if (string.IsNullOrWhiteSpace(text) && HasConfiguredOpenAi(_openAIService, openAiKey))
-                {
-                    try
-                    {
-                        text = await _openAIService.TranscribeAudioAsync(
-                            userId ?? "unknown",
-                            bookId ?? "unknown",
-                            chap,
-                            tempFilePath);
-
-                        _logger.LogInformation(
-                            "OpenAI whisper transcription length after external: {Len} chars.",
-                            string.IsNullOrEmpty(text) ? 0 : text.Length);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "OpenAI Whisper transcription failed after external attempt.");
-                        text = string.Empty;
-                    }
+                    _logger.LogWarning("External API key empty (ExternalApi:ApiKey) — skipping external transcription.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(text))
@@ -170,13 +128,12 @@ namespace EBookDashboard.Controllers
                     });
                 }
 
-                var openAiAbsent = string.IsNullOrEmpty(openAiKey);
                 string failMessage;
 
-                if (externalAttempted && externalError != null && openAiAbsent)
+                if (externalAttempted && externalError != null)
                 {
                     failMessage =
-                        "Voice transcription servers are unavailable, and cloud fallback is not configured. You can try browser speech recognition or type your topic.";
+                        "Voice transcription servers are unavailable. You can try browser speech recognition or type your topic.";
                     return StatusCode(503, new
                     {
                         success = false,
@@ -186,10 +143,10 @@ namespace EBookDashboard.Controllers
                     });
                 }
 
-                if (!externalAttempted && openAiAbsent)
+                if (!externalAttempted)
                 {
                     failMessage =
-                        "Voice input is unavailable: set ExternalApi:ApiKey or OpenAI:ApiKey (environment: ExternalApi__ApiKey or OpenAI__ApiKey).";
+                        "Voice input is unavailable: set ExternalApi:ApiKey (environment: ExternalApi__ApiKey).";
                     return StatusCode(503, new
                     {
                         success = false,
@@ -200,8 +157,8 @@ namespace EBookDashboard.Controllers
                 }
 
                 failMessage =
-                    externalAttempted && externalError != null
-                        ? $"Audio transcription failed after external API and Whisper: {externalError.Message}"
+                    externalError != null
+                        ? $"Audio transcription failed: {externalError.Message}"
                         : "Audio transcription returned empty result.";
 
                 return StatusCode(503, new
@@ -236,20 +193,6 @@ namespace EBookDashboard.Controllers
                     suggestBrowserSpeech = true
                 });
             }
-            finally
-            {
-                if (System.IO.File.Exists(tempFilePath))
-                {
-                    try
-                    {
-                        System.IO.File.Delete(tempFilePath);
-                    }
-                    catch (Exception deleteEx)
-                    {
-                        _logger.LogWarning(deleteEx, "Failed to delete temp file");
-                    }
-                }
-            }
         }
 
         [HttpGet("health")]
@@ -258,7 +201,7 @@ namespace EBookDashboard.Controllers
             return Ok(new
             {
                 status = "Healthy",
-                service = "Audio transcription (external + Whisper)",
+                service = "Audio transcription (external API)",
                 timestamp = DateTime.UtcNow
             });
         }

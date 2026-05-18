@@ -29,8 +29,8 @@ public sealed class ExternalApiOptionsValidator : IValidateOptions<ExternalApiOp
             if (string.IsNullOrWhiteSpace(key))
             {
                 return ValidateOptionsResult.Fail(
-                    "ExternalApi:ApiKey is not set (and no OpenAI:ApiKey fallback). " +
-                    "Set environment variable ExternalApi__ApiKey or OpenAI__ApiKey on the server.");
+                    "ExternalApi:ApiKey is not set. " +
+                    "Set environment variable ExternalApi__ApiKey on the server.");
             }
         }
 

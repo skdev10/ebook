@@ -28,7 +28,7 @@ public sealed class UpstreamBookApiHealthCheck : IHealthCheck
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(ExternalApiKeyResolver.Resolve(_configuration)))
-            return HealthCheckResult.Degraded("Upstream API key is not configured (ExternalApi__ApiKey / OpenAI__ApiKey).");
+            return HealthCheckResult.Degraded("Upstream API key is not configured (ExternalApi__ApiKey).");
 
         var url = _options.Value.ResolveUrl(_options.Value.QueueDataUrl, "/api/queue-data");
         try

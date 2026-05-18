@@ -219,8 +219,7 @@ builder.Services.AddScoped<IAPIRawResponseService, APIRawResponseService>();
 builder.Services.AddScoped<BookProcessingService>();
 builder.Services.AddScoped<IAuthorPlansService, AuthorPlansService>();
 builder.Services.AddScoped<IAuthorBillsService, AuthorBillsService>();
-//builder.Services.AddScoped<OpenAIService2>();
-builder.Services.AddScoped<OpenAIService2>();
+// OpenAIService2 disabled — voice uses ExternalApi:AudioUrl only.
 builder.Services.AddScoped<CommonMethodsService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IBookPdfService, BookPdfService>();
@@ -264,7 +263,7 @@ builder.Services.AddSwaggerGen(c =>
 // Register services
 builder.Services.AddScoped<IAudioToTextService, AudioToTextService>();
 builder.Services.Configure<EBookDashboard.Services.OpenAiOptions>(
-builder.Configuration.GetSection(EBookDashboard.Services.OpenAiOptions.SectionName));
+    builder.Configuration.GetSection(EBookDashboard.Services.OpenAiOptions.SectionName));
 builder.Services.AddHttpClient<IChatService, ChatService>();
 
 // Add HttpContextAccessor
