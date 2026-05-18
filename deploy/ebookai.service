@@ -1,0 +1,24 @@
+[Unit]
+Description=EBookDashboard (ASP.NET Core)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/EbookAI/app-out
+
+# Create /etc/default/ebookai with KEY=value lines (same as DigitalOcean double-underscore names, or use dot for file? default uses export style)
+# Example line: ConnectionStrings__DefaultConnection=server=...
+EnvironmentFile=-/etc/default/ebookai
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+# Bind on port 5000 (change or add URLs in /etc/default/ebookai: ASPNETCORE_URLS=http://0.0.0.0:5000)
+ExecStart=/opt/EbookAI/app-out/EBookDashboard --urls http://0.0.0.0:5000
+Restart=always
+RestartSec=5
+User=www-data
+Group=www-data
+# If app files are owned by root, use User=root temporarily or chown WorkingDirectory to www-data
+
+[Install]
+WantedBy=multi-user.target

@@ -106,21 +106,38 @@ namespace EBookDashboard.Controllers
             }
             ViewBag.UserId = userId;
             ViewBag.SelectedBookId = bookId;
-            var userBooks = await _context.Books
-                .AsNoTracking()
-                .Where(b => b.UserId == userId.Value)
-                .OrderByDescending(b => b.CreatedAt)
-                .Select(b => new BookDropdownItem
-                {
-                    BookId = b.BookId,
-                    Title = string.IsNullOrWhiteSpace(b.Title) ? "Untitled" : b.Title
-                })
-                .ToListAsync();
 
-            var plans = await _context.Plans
-                .AsNoTracking()
-                .OrderBy(p => p.PlanId)
-                .ToListAsync();
+            List<BookDropdownItem> userBooks = new();
+            try
+            {
+                userBooks = await _context.Books
+                    .AsNoTracking()
+                    .Where(b => b.UserId == userId.Value)
+                    .OrderByDescending(b => b.CreatedAt)
+                    .Select(b => new BookDropdownItem
+                    {
+                        BookId = b.BookId,
+                        Title = string.IsNullOrWhiteSpace(b.Title) ? "Untitled" : b.Title
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AIGenerateBook: Books list query failed for user {UserId}.", userId.Value);
+            }
+
+            List<Plans> plans = new();
+            try
+            {
+                plans = await _context.Plans
+                    .AsNoTracking()
+                    .OrderBy(p => p.PlanId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AIGenerateBook: Plans query failed (check MySQL table name/casing and migrations).");
+            }
 
             var model = new AIGenerateBookViewModel
             {
