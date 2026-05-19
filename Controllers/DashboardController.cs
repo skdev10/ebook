@@ -146,19 +146,10 @@ namespace EBookDashboard.Controllers
             // For now, return 0 if no ratings exist
             var averageRating = 0m; // Replace with actual rating calculation when Ratings table exists
 
-            // Ensure demo books exist in DB for this user (same as attached image)
-            books = await EnsureDemoBooksAsync(user, author, books);
-            bookIds = books.Select(b => b.BookId).ToList();
-            rawResponseCounts = await _context.APIRawResponse
-                .Where(r => r.UserId == user.UserId && r.BookId != null && bookIds.Contains(r.BookId.Value))
-                .GroupBy(r => r.BookId)
-                .Select(g => new { BookId = g.Key, Count = g.Count() })
-                .ToListAsync();
-            chaptersGeneratedByBookId = rawResponseCounts.ToDictionary(x => x.BookId!.Value, x => x.Count);
             totalBooksPublished = books.Count(b => b.Status == "Published" || b.Status == "Finalized");
             totalBooksGenerated = books.Count(b => b.Status == "Finalized");
 
-            // Demo data matching the attached image (exact books, covers, reader friends)
+            // Dashboard display data (real user books, preserving approved visual style)
             var demoPublished = GetDemoPublishedBooks(books);
             var demoDrafts = GetDemoDrafts(books);
             var demoHero = GetDemoHeroBook(books);
@@ -185,7 +176,9 @@ namespace EBookDashboard.Controllers
                         Status = b.Status,
                         ProgressPercentage = progressPct,
                         ProgressText = progressText,
-                        CoverImagePath = b.CoverImagePath
+                        CoverImagePath = b.CoverImagePath,
+                        LastEditedAt = b.UpdatedAt ?? b.CreatedAt,
+                        LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
                     };
                 }).ToList(),
                 RecentActivities = new List<ActivityViewModel>
@@ -303,58 +296,81 @@ namespace EBookDashboard.Controllers
 
         private static List<DemoPublishedBookViewModel> GetDemoPublishedBooks(List<Books> books)
         {
-            var published = books.Where(b => b.Status == "Published" || b.Status == "Finalized").ToList();
-            var titles = new[] { ("The Bird", "Emily Duvert", null), ("SOUL", "Olivia Wilson", "Volume II"), ("Good Things Are Up Ahead", "Saad Rehman", null), ("Fairy Tale", "", null) };
-            var urls = new[] { DemoCoverUrls[0], DemoCoverUrls[1], DemoCoverUrls[2], DemoCoverUrls[3] };
-            var result = new List<DemoPublishedBookViewModel>();
-            for (int i = 0; i < titles.Length; i++)
+            var published = books
+                .Where(b => b.Status == "Published" || b.Status == "Finalized")
+                .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .ToList();
+            var idx = 0;
+            return published.Select(b =>
             {
-                var (title, author, sub) = titles[i];
-                var book = published.FirstOrDefault(b => b.Title.Equals(title, StringComparison.OrdinalIgnoreCase));
-                result.Add(new DemoPublishedBookViewModel
+                var fallback = DemoCoverUrls[idx % DemoCoverUrls.Length];
+                idx++;
+                return new DemoPublishedBookViewModel
                 {
-                    Title = title,
-                    Author = author,
-                    Subtitle = sub,
-                    CoverUrl = urls[i],
-                    BookId = book?.BookId ?? 0
-                });
-            }
-            return result;
+                    Title = b.Title,
+                    Author = string.Empty,
+                    Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? null : b.Subtitle,
+                    CoverUrl = string.IsNullOrWhiteSpace(b.CoverImagePath) ? fallback : b.CoverImagePath!,
+                    BookId = b.BookId,
+                    Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
+                    LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
+                };
+            }).ToList();
         }
 
         private static List<DemoDraftViewModel> GetDemoDrafts(List<Books> books)
         {
-            var drafts = books.Where(b => b.Status != "Published" && b.Status != "Finalized").ToList();
-            var title = "Conquest of Flames";
-            var book = drafts.FirstOrDefault(b => b.Title.Equals(title, StringComparison.OrdinalIgnoreCase));
-            return new List<DemoDraftViewModel>
+            var drafts = books
+                .Where(b => b.Status != "Published" && b.Status != "Finalized")
+                .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .ToList();
+            var idx = 0;
+            return drafts.Select(b =>
             {
-                new DemoDraftViewModel
+                var fallback = DemoCoverUrls[idx % DemoCoverUrls.Length];
+                idx++;
+                return new DemoDraftViewModel
                 {
-                    Title = title,
-                    Subtitle = "8 chapters each vol",
-                    Volumes = "2 vol",
-                    CoverUrl = book?.CoverImagePath ?? DemoCoverUrls[4],
-                    BookId = book?.BookId ?? 0
-                }
-            };
+                    Title = b.Title,
+                    Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? "Continue writing your manuscript" : b.Subtitle!,
+                    Volumes = "Draft",
+                    CoverUrl = string.IsNullOrWhiteSpace(b.CoverImagePath) ? fallback : b.CoverImagePath!,
+                    BookId = b.BookId,
+                    Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
+                    LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
+                };
+            }).ToList();
         }
 
         private static (string title, string description, string coverUrl, Books? book) GetDemoHeroBook(List<Books> books)
         {
-            const string title = "The Wizarding Chronicles";
-            const string description = "You've delved deep into the wizarding world's secrets. Have Harry's parents died yet? Oops, looks like you're not there yet. Get reading now!";
-            var book = books.FirstOrDefault(b => b.Title.Equals(title, StringComparison.OrdinalIgnoreCase));
-            return (title, description, DemoCoverUrls[5], book);
+            var book = books
+                .OrderByDescending(b => b.isActive)
+                .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .FirstOrDefault();
+            if (book == null)
+                return ("Your Library", "Create your first book and start writing with AI.", DemoCoverUrls[0], null);
+            var heroCover = string.IsNullOrWhiteSpace(book.CoverImagePath) ? DemoCoverUrls[book.BookId % DemoCoverUrls.Length] : book.CoverImagePath!;
+            return (book.Title, "Continue where you left off. Edit chapters, format pages, and get ready to publish.", heroCover, book);
         }
 
         private static (string title, string progressLabel, int percent, string coverUrl, int? bookId) GetDemoCurrentRead(List<Books> books)
         {
-            const string title = "The Chambers of Secrets";
-            var book = books.FirstOrDefault(b => b.Title.Equals(title, StringComparison.OrdinalIgnoreCase))
-                ?? books.FirstOrDefault(b => b.Title.Equals("The Cambers of Secrets", StringComparison.OrdinalIgnoreCase));
-            return (title, "154 / 300 pages", 51, DemoCoverUrls[6], book?.BookId);
+            var book = books.OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt).FirstOrDefault();
+            if (book == null) return ("Start reading", "0 / 0 pages", 0, DemoCoverUrls[0], null);
+            var cover = string.IsNullOrWhiteSpace(book.CoverImagePath) ? DemoCoverUrls[book.BookId % DemoCoverUrls.Length] : book.CoverImagePath!;
+            return (book.Title, "In progress", 51, cover, book.BookId);
+        }
+
+        private static string FormatLastEditedText(DateTime when)
+        {
+            var utc = when.Kind == DateTimeKind.Utc ? when : DateTime.SpecifyKind(when, DateTimeKind.Utc);
+            var diff = DateTime.UtcNow - utc;
+            if (diff.TotalMinutes < 1) return "Edited just now";
+            if (diff.TotalHours < 1) return $"Edited {(int)Math.Max(1, diff.TotalMinutes)} min ago";
+            if (diff.TotalDays < 1) return $"Edited {(int)Math.Max(1, diff.TotalHours)}h ago";
+            if (diff.TotalDays < 7) return $"Edited {(int)Math.Max(1, diff.TotalDays)}d ago";
+            return "Edited " + utc.ToLocalTime().ToString("MMM d, yyyy");
         }
 
         private static List<DemoReaderFriendViewModel> GetDemoReaderFriends()
@@ -437,6 +453,35 @@ namespace EBookDashboard.Controllers
             }
             await _context.SaveChangesAsync();
             return Json(new { success = true, message = "Reading stats saved." });
+        }
+
+        [HttpGet]
+        [Route("TourStatus")]
+        public async Task<IActionResult> TourStatus()
+        {
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+            var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            if (user == null)
+                return Json(new { success = false, hasCompletedTour = true });
+            return Json(new { success = true, hasCompletedTour = user.HasCompletedTour ?? true });
+        }
+
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Route("CompleteTour")]
+        public async Task<IActionResult> CompleteTour()
+        {
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            if (user == null)
+                return Json(new { success = false });
+            if (user.HasCompletedTour != true)
+            {
+                user.HasCompletedTour = true;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            return Json(new { success = true, hasCompletedTour = true });
         }
 
         [Route("EBook")]
@@ -979,7 +1024,7 @@ namespace EBookDashboard.Controllers
         /// <summary>Publishing hub: external platform guides + full-service option (demo gating by role/plan).</summary>
         [Route("/publish")]
         [Route("Publish")]
-        public async Task<IActionResult> Publish(int? bookId = null)
+        public async Task<IActionResult> Publish(int? bookId = null, string? flow = null)
         {
             ViewBag.UserName = User.Identity?.Name ?? "User";
             var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
@@ -996,6 +1041,9 @@ namespace EBookDashboard.Controllers
             ViewBag.PublishBookAlreadyListed = false;
             ViewBag.PublishBookChapterCount = 0;
             ViewBag.PublishBookReady = false;
+            ViewBag.PublishPrintReadyMode = false;
+
+            var forcedPrintReadyFlow = string.Equals((flow ?? "").Trim(), "printready", StringComparison.OrdinalIgnoreCase);
 
             if (user != null && bookId.HasValue && bookId.Value > 0)
             {
@@ -1040,7 +1088,19 @@ namespace EBookDashboard.Controllers
                         || ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
                         || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase)
                         || ps.Equals("Final", StringComparison.OrdinalIgnoreCase);
-                    ViewBag.PublishBookReady = statusReady && coverReady;
+
+                    var fmt = await _context.BookFormatting.AsNoTracking()
+                        .FirstOrDefaultAsync(f => f.BookId == bookId.Value && f.UserId == user.UserId);
+                    var primaryPlatform = (fmt?.PublishingPlatform ?? "").Trim();
+                    var platformCsv = (fmt?.PublishingPlatforms ?? "").Trim();
+                    var hasPrintReadyPlatform =
+                        primaryPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
+                        || platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase));
+
+                    var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform;
+                    ViewBag.PublishPrintReadyMode = isPrintReadyFlow;
+                    ViewBag.PublishBookReady = isPrintReadyFlow ? statusReady : (statusReady && coverReady);
                 }
             }
 

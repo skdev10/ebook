@@ -1951,7 +1951,7 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> EditChapter([FromBody] APIEditChapterRequest model)
         {
             if (model == null)
-                return BadRequest("Invalid request payload.");
+                return BadRequest(new { success = false, error = true, message = "Invalid request payload." });
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit").Trim();
             if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
             {
@@ -2005,14 +2005,22 @@ namespace EBookDashboard.Controllers
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    // return the raw content and code so frontend can show error
-                    return StatusCode((int)response.StatusCode, responseData);
+                    var statusMessage = $"Edit API error: {(int)response.StatusCode}";
+                    return StatusCode((int)response.StatusCode, new
+                    {
+                        success = false,
+                        error = true,
+                        message = statusMessage,
+                        detail = responseData?.Length > 300 ? responseData.Substring(0, 300) + "..." : responseData
+                    });
                 }
                 // Optionally parse and persist edited content into Chapters table
+                string newContent = string.Empty;
+                JObject? parsedJson = null;
                 try
                 {
-                    dynamic parsed = JsonConvert.DeserializeObject(responseData);
-                    string newContent = parsed?.data?.content ?? parsed?.content ?? null;
+                    parsedJson = JsonConvert.DeserializeObject<JObject>(responseData);
+                    newContent = parsedJson?["data"]?["content"]?.ToString() ?? parsedJson?["content"]?.ToString() ?? string.Empty;
 
                     if (!string.IsNullOrEmpty(newContent) && int.TryParse(model.BookId, out int bookId))
                     {
@@ -2033,8 +2041,13 @@ namespace EBookDashboard.Controllers
                     // Log parsing/persistence error but still return api response
                     Console.WriteLine($"⚠️ Unable to persist edited chapter: {ex.Message}");
                 }
-                // Optionally parse response as JSON to easily return it. We'll return raw content with application/json content type.
-                return Content(responseData, "application/json");
+                return Json(new
+                {
+                    success = true,
+                    responseId = rawResponseId,
+                    content = newContent,
+                    data = parsedJson ?? new JObject()
+                });
             }
             catch (Exception ex)
             {
@@ -2051,7 +2064,7 @@ namespace EBookDashboard.Controllers
                 }
 
                 Console.WriteLine($"❌ EditChapter Exception: {ex.Message}");
-                return StatusCode(500, $"Server error: {ex.Message}");
+                return StatusCode(500, new { success = false, error = true, message = "Editing failed on server.", detail = ex.Message });
             }
         }
 

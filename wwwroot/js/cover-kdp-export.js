@@ -8,6 +8,7 @@
     var EBOOK_COVER = { w: 1600, h: 2560 }; // KDP: min 1000px shortest side; 2560px longest recommended
     var BLEED_IN = 0.125;
     var PRINT_DPI = 300;
+    var KDP_DEFAULT_PAPER = 'White paper';
 
     var TRIM_SIZES = {
         '5x8': { w: 5, h: 8 },
@@ -57,12 +58,11 @@
         return x || 'book';
     }
 
-    /** Spine estimate (inches) — aligns with common KDP white/cream approximations; verify in KDP calculator. */
-    function estimateSpineInches(pageCount, paperType, interiorBw) {
+    /** Spine estimate (inches) — mirrors KDP calculator defaults for white paper. */
+    function estimateSpineInches(pageCount, _paperType, interiorBw) {
         var p = Math.max(24, Math.min(828, parseInt(pageCount, 10) || 200));
         var mult = 0.002252;
-        if (paperType === 'cream') mult = 0.0025;
-        if (paperType === 'color' || interiorBw === false) mult = 0.002347;
+        if (interiorBw === false) mult = 0.002347;
         var sp = p * mult;
         return Math.max(0.055, sp);
     }
@@ -72,9 +72,9 @@
         return { w: t.w, h: t.h };
     }
 
-    function printLayoutInches(trimKey, pageCount, paperType, interiorBw, savedSpine) {
+    function printLayoutInches(trimKey, pageCount, _paperType, interiorBw, savedSpine) {
         var trim = parseTrim(trimKey);
-        var spine = savedSpine > 0 ? savedSpine : estimateSpineInches(pageCount, paperType, interiorBw !== false);
+        var spine = savedSpine > 0 ? savedSpine : estimateSpineInches(pageCount, KDP_DEFAULT_PAPER, interiorBw !== false);
         var totalW = 2 * trim.w + spine + 2 * BLEED_IN;
         var totalH = trim.h + 2 * BLEED_IN;
         var backPanel = trim.w + BLEED_IN;
@@ -262,7 +262,11 @@
         return c;
     }
 
-    /** KDP-style dimension model (mm) — aligned with Amazon print cover calculator logic. */
+    /**
+     * KDP-style dimension model (mm) aligned to Amazon calculator.
+     * Reference: https://kdp.amazon.com/cover-calculator
+     * Paper type is intentionally fixed to KDP white paper to keep this automatic.
+     */
     function computeKdpDimensionsMm(binding, interior, paper, trimStr, pages) {
         var raw = String(trimStr || '').split(/[x×]/i);
         var trimW = parseFloat((raw[0] || '152.4').trim()) || 152.4;
@@ -270,7 +274,6 @@
         var p = Math.max(24, Math.min(828, parseInt(pages, 10) || 100));
 
         var thickness = 0.0572;
-        if (interior === 'Black & white' && paper === 'Cream paper') thickness = 0.0635;
         if (interior === 'Premium color') thickness = 0.0596;
 
         var spine = p * thickness;
@@ -308,7 +311,7 @@
             data: data,
             binding: binding,
             interior: interior,
-            paper: paper,
+            paper: KDP_DEFAULT_PAPER,
             trimW: trimW,
             trimH: trimH,
             spineMm: spine,
@@ -533,7 +536,7 @@
                 });
             });
 
-            ['_binding', '_interior', '_paper', '_direction', '_units', '_trim', '_pages'].forEach(function (suf) {
+            ['_binding', '_interior', '_direction', '_units', '_trim', '_pages'].forEach(function (suf) {
                 var sel = root.querySelector('#' + prefix + suf);
                 if (sel) {
                     sel.addEventListener('change', function () { runCalc(false); });
@@ -620,11 +623,71 @@
 
         var state = {
             frontImg: null,
-            lastComposite: null
+            lastComposite: null,
+            sequential: null
         };
 
         var meta = { title: title, author: author, synopsis: synopsis };
         var base = sanitizeFilename(title);
+
+        function loadSequentialImageSet() {
+            var seq = global.__coverDesignSequentialAssets;
+            if (!seq || !seq.front || !seq.back || !seq.spine) {
+                state.sequential = null;
+                return Promise.resolve(null);
+            }
+            return Promise.all([
+                loadImageElement(seq.front),
+                loadImageElement(seq.back),
+                loadImageElement(seq.spine),
+                seq.wrap ? loadImageElement(seq.wrap).catch(function () { return null; }) : Promise.resolve(null)
+            ]).then(function (imgs) {
+                state.sequential = {
+                    front: imgs[0],
+                    back: imgs[1],
+                    spine: imgs[2],
+                    wrap: imgs[3]
+                };
+                if (!state.frontImg) state.frontImg = imgs[0];
+                return state.sequential;
+            }).catch(function () {
+                state.sequential = null;
+                return null;
+            });
+        }
+
+        function buildCompositeFromState(calc) {
+            if (!calc) return null;
+            var scale = PRINT_DPI / 25.4;
+            var W = Math.round(calc.data[1].w * scale);
+            var H = Math.round(calc.data[1].h * scale);
+            var spineW = Math.round(calc.data[6].w * scale);
+            var restPx = W - spineW;
+            var backW = Math.floor(restPx / 2);
+            var frontW = restPx - backW;
+
+            var c = document.createElement('canvas');
+            c.width = W;
+            c.height = H;
+            var ctx = c.getContext('2d');
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, W, H);
+
+            if (state.sequential && state.sequential.back && state.sequential.spine && state.sequential.front) {
+                drawCoverContain(ctx, state.sequential.back, 0, 0, backW, H);
+                drawCoverContain(ctx, state.sequential.spine, backW, 0, spineW, H);
+                drawCoverContain(ctx, state.sequential.front, backW + spineW, 0, frontW, H);
+            } else if (state.frontImg) {
+                drawBackPanel(ctx, 0, 0, backW, H, meta);
+                drawSpine(ctx, backW, 0, spineW, H, meta.title);
+                drawCoverContain(ctx, state.frontImg, backW + spineW, 0, frontW, H);
+            } else {
+                return null;
+            }
+
+            c._dbkParts = { backW: backW, spineW: spineW, frontW: frontW, H: H };
+            return c;
+        }
 
         function syncCalcFromStorage() {
             return CoverDownloadModal.loadCalcFromStorage(bookId);
@@ -693,16 +756,16 @@
             if (backImg) {
                 try { backImg.src = renderBackThumb(calc); } catch (e) { backImg.src = ''; }
             }
-            if (!calc || !state.frontImg) {
+            if (!calc || (!state.frontImg && !state.sequential)) {
                 var cf = root.querySelector('#dbkCompositeThumb');
                 if (cf) cf.src = '';
                 state.lastComposite = null;
                 return;
             }
             try {
-                var canvas = buildPrintCanvasFromCalc(state.frontImg, calc, meta);
+                var canvas = buildCompositeFromState(calc);
                 state.lastComposite = canvas;
-                var url = canvas.toDataURL('image/png');
+                var url = canvas ? canvas.toDataURL('image/png') : '';
                 var comp = root.querySelector('#dbkCompositeThumb');
                 if (comp) comp.src = url;
             } catch (e) {
@@ -775,27 +838,37 @@
                 }
 
                 function resolveFrontImage() {
-                    var src = getFrontSrc && getFrontSrc();
-                    if (src) {
-                        return loadImageElement(src).then(function (img) {
-                            state.frontImg = img;
-                            var im = root.querySelector('#dbkImgFront');
-                            if (im) im.src = src;
-                            refreshCoverUi(root);
-                        });
-                    }
-                    if (capturePreviewShell) {
-                        return capturePreviewShell().then(function (dataUrl) {
-                            if (!dataUrl) throw new Error('No cover');
-                            return loadImageElement(dataUrl).then(function (img) {
+                    return loadSequentialImageSet().then(function () {
+                        var src = getFrontSrc && getFrontSrc();
+                        if (src) {
+                            return loadImageElement(src).then(function (img) {
                                 state.frontImg = img;
                                 var im = root.querySelector('#dbkImgFront');
-                                if (im) im.src = dataUrl;
+                                if (im) im.src = src;
                                 refreshCoverUi(root);
                             });
-                        });
-                    }
-                    return Promise.reject(new Error('No cover'));
+                        }
+                        if (capturePreviewShell) {
+                            return capturePreviewShell().then(function (dataUrl) {
+                                if (!dataUrl) throw new Error('No cover');
+                                return loadImageElement(dataUrl).then(function (img) {
+                                    state.frontImg = img;
+                                    var im = root.querySelector('#dbkImgFront');
+                                    if (im) im.src = dataUrl;
+                                    refreshCoverUi(root);
+                                });
+                            });
+                        }
+                        if (state.sequential && state.sequential.front) {
+                            var im2 = root.querySelector('#dbkImgFront');
+                            if (im2 && global.__coverDesignSequentialAssets && global.__coverDesignSequentialAssets.front) {
+                                im2.src = global.__coverDesignSequentialAssets.front;
+                            }
+                            refreshCoverUi(root);
+                            return;
+                        }
+                        return Promise.reject(new Error('No cover'));
+                    });
                 }
 
                 resolveFrontImage().catch(function () {
@@ -805,7 +878,7 @@
                 });
 
                 function requireCover() {
-                    if (!state.frontImg) {
+                    if (!state.frontImg && !(state.sequential && state.sequential.front)) {
                         Swal.fire({ icon: 'warning', title: 'No cover', text: 'Generate or select a cover first.', confirmButtonColor: '#7c3aed' });
                         return false;
                     }
@@ -828,8 +901,8 @@
 
                 function getComposite() {
                     var calc = requireCalcForExport();
-                    if (!calc || !state.frontImg) return null;
-                    return buildPrintCanvasFromCalc(state.frontImg, calc, meta);
+                    if (!calc || (!state.frontImg && !state.sequential)) return null;
+                    return buildCompositeFromState(calc);
                 }
 
                 root.querySelector('#dbkDownloadEpub').addEventListener('click', function () {
@@ -852,9 +925,7 @@
 
                 root.querySelector('#dbkDlWrap').addEventListener('click', function () {
                     if (!requireCover()) return;
-                    var calc = requireCalcForExport();
-                    if (!calc) return;
-                    var cv = buildPrintCanvasFromCalc(state.frontImg, calc, meta);
+                    var cv = getComposite();
                     if (!cv) return;
                     cv.toBlob(function (blob) {
                         if (blob) triggerDownload(blob, base + '-print-full-wrap.png');
@@ -863,9 +934,7 @@
 
                 function downloadSlice(which) {
                     if (!requireCover()) return;
-                    var calc = requireCalcForExport();
-                    if (!calc) return;
-                    var cv = buildPrintCanvasFromCalc(state.frontImg, calc, meta);
+                    var cv = getComposite();
                     if (!cv || !cv._dbkParts) return;
                     var p = cv._dbkParts;
                     var slice;
@@ -885,7 +954,7 @@
                     if (!requireCover()) return;
                     var calc = requireCalcForExport();
                     if (!calc) return;
-                    var cv = buildPrintCanvasFromCalc(state.frontImg, calc, meta);
+                    var cv = getComposite();
                     if (!cv || !cv._dbkParts) return;
                     var p = cv._dbkParts;
                     var backCv = sliceCanvasRegion(cv, 0, 0, p.backW, p.H);

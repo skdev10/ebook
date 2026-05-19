@@ -15,9 +15,32 @@
 <script>
     window.__chapterGenFetchTimeoutMs = @chapterGenFetchTimeoutMs;
 </script>
+<link rel="stylesheet" href="~/css/book-page-preview.css" asp-append-version="true" />
 <style>
 
     body { font-family: 'Inter', sans-serif; }
+    .ai-writer-main-layout { width: 100%; }
+    @@media (min-width: 1024px) {
+        .ai-writer-main-layout {
+            display: grid !important;
+            grid-template-columns: minmax(0, 550px) minmax(0, 1fr);
+            gap: 3rem;
+            align-items: stretch;
+            min-height: calc(100dvh - 10rem);
+        }
+        .ai-writer-main-layout .ai-writer-sidebar,
+        .ai-writer-main-layout #aiWriterPreviewColumn {
+            height: 100%;
+            min-height: 0;
+        }
+        .ai-writer-main-layout .ai-writer-sidebar {
+            overflow-y: auto;
+            padding-right: 0.25rem;
+        }
+        .ai-writer-main-layout #aiWriterPreviewColumn {
+            overflow-y: auto;
+        }
+    }
     .font-serif-custom { font-family: 'Playfair Display', serif; }
     /* Preview panel: stay inside the right column (no full-viewport breakout / stray side-by-side) */
     /* #bookResult {
@@ -38,16 +61,16 @@
     } */
     /* Preview card: fixed reading viewport (paginated); no growth from chapter length */
    
-    /* Preview card: same footprint as Book Formatting `.fmt-studio-stage` (70% width, fixed height band) */
+    /* Responsive shell: prevents clipping on small and large screens */
     #bookResult {
-        width: 70%;
+        width: min(100%, 42rem);
         max-width: 100%;
-        height: 969px;
-        min-height: 1002px;
-        max-height: 1112px;
+        /* margin-inline: auto; */
+        min-height: 0;
+        max-height: none;
         display: flex;
         flex-direction: column;
-        flex-shrink: 0;
+        flex-shrink: 1;
         overflow: hidden;
         position: relative;
         border: 1px solid #ddd6fe;
@@ -105,15 +128,13 @@
         flex: 1 1 auto;
         min-height: 0;
         height: auto;
-        max-height: 100%;
+        max-height: none;
+        aspect-ratio: 6 / 9;
+        max-width: min(100%, 36rem);
         overflow: hidden;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
-        border-radius: 14px;
-        border: 1px solid rgba(196, 181, 253, 0.65);
-        background: #fff;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 20px -8px rgba(91, 33, 182, 0.15);
     }
     /* Match Book Formatting / CoverDesignCalculator side chevrons */
     .ai-writer-preview-side-nav {
@@ -160,7 +181,7 @@
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         box-sizing: border-box;
-        padding: 1.25rem 1.5rem 2.5rem 1.5rem;
+        padding: 1.5rem;
         margin: 0;
     }
     /* Off-DOM measurement clone (same box model / typography as viewport) */
@@ -172,7 +193,7 @@
         pointer-events: none;
         overflow: visible;
         box-sizing: border-box;
-        padding: 1.25rem 1.5rem 2.5rem 1.5rem;
+        padding: 1.5rem;
         margin: 0;
         font-size: 1.0625rem;
         line-height: 1.85;
@@ -274,7 +295,7 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
-        padding: 2.25rem 2.75rem 3rem 2.75rem;
+        padding: 2.5rem;
         box-sizing: border-box;
         transform: none !important;
         scale: 1;
@@ -388,7 +409,7 @@
     .reader-chapters-wrap:not(.hidden) { display: flex !important; flex-direction: column; gap: 0; width: 100%; }
     .reader-chapter-block {
         box-sizing: border-box;
-        padding: 2rem 2.25rem 2.5rem 2.25rem;
+        padding: 2.25rem;
         background: transparent;
         color: #1e293b;
         font-size: 1.0625rem;
@@ -1113,7 +1134,7 @@
 
 <div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
     <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
-        <div class="max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-12 lg:gap-24 min-h-0" data-aos="fade-up" data-aos-duration="500">
+        <div class="ai-writer-main-layout max-w-[1600px] mx-auto w-full flex flex-col lg:flex-row gap-12 lg:gap-24 min-h-0" data-aos="fade-up" data-aos-duration="500">
         <!-- Left Column: Forms -->
         <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-10 shrink-0">
             <section class="flex flex-col gap-5" data-guided-tour="ai-book-picker">
@@ -1215,16 +1236,13 @@
                     <div class="bg-slate-50/80 p-2 mx-2 mb-2 rounded-xl flex items-center justify-between border border-slate-100">
                         <div class="flex items-center gap-3 pl-2">
                             <button type="button" id="EditBtn" class="text-slate-400 hover:text-blue-500 transition-colors text-xl p-1.5 rounded-lg hover:bg-blue-50" title="Edit chapter (modal)" onclick="openChapterEditModal()"><i class="fas fa-pen"></i></button>
-                            <button type="button" id="btnSaveChapterTopic" class="text-slate-400 hover:text-emerald-600 transition-colors text-xl p-1.5 rounded-lg hover:bg-emerald-50" title="Save chapter topic prompt &amp; current chapter draft"><i class="fas fa-save"></i></button>
-                            <button type="button" id="btnClearTopic" class="text-slate-400 hover:text-orange-600 transition-colors text-xl p-1.5 rounded-lg hover:bg-orange-50" title="Clear chapter topic"><i class="fas fa-eraser"></i></button>
                         </div>
                         <div class="flex items-center gap-2 pr-1">
                             <span id="voiceControlWrap" class="flex items-center gap-2">
                                 <button id="startRecBtn" type="button" class="bg-slate-200 hover:bg-green-500 hover:text-white text-slate-600 p-2 rounded-full shadow-sm transition-all flex items-center justify-center w-9 h-9" title="Speak: text appears live in Chapter Topic (Chrome, Edge, Safari). Stop when done."><i class="fas fa-microphone text-sm"></i></button>
                                 <input type="file" id="voiceFileUpload" accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm,audio/*" class="hidden" aria-label="Upload audio file for transcription" />
-                                <button type="button" id="voiceUploadBtn" class="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-violet-900 px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm" title="Upload an audio file instead of recording">
+                                <button type="button" id="voiceUploadBtn" aria-label="Upload audio file for transcription" class="inline-flex items-center justify-center text-xs font-semibold text-slate-700 hover:text-violet-900 px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm" title="Upload an audio file instead of recording">
                                     <i class="fas fa-cloud-upload-alt text-violet-600 text-sm" aria-hidden="true"></i>
-                                    <span>Upload audio</span>
                                 </button>
                                 <span id="recordingStripArea" class="hidden items-center gap-2">
                                     <span id="voiceRecordingStatusText" class="text-xs font-medium text-red-600" aria-live="polite">Listening…</span>
@@ -1250,6 +1268,7 @@
                     </div>
                     <p class="chapter-edit-notice"><i class="fas fa-info-circle text-purple-500"></i> Save draft here; official chapter lock &amp; PDF — <strong>Book formatting</strong> page par last step.</p>
                 </div>
+                <p id="writerAutoSaveStatus" class="text-xs text-slate-400 min-h-[1.25rem] leading-relaxed" aria-live="polite"></p>
                 <input type="hidden" id="APIRawResponse">
 
                 <div id="nextStepSection" class="mt-4 pt-4 border-t border-slate-200 flex flex-col gap-2 w-full" data-guided-tour="ai-next-step">
@@ -1301,12 +1320,12 @@
                 <div id="bookResultContent" class="book-result-content flex flex-col flex-1 min-h-0">
                     <h3 id="preview-chapter-header" class="text-2xl font-medium text-slate-700 tracking-tight mb-3 shrink-0">Chapter 1</h3>
                     <div id="chapterPreviewScrollHost" class="chapter-preview-scroll-host min-h-0 flex-1 flex flex-col">
-                    <div id="paginatedReaderShell" class="paginated-reader-shell">
-                    <div id="preview-content" class="chapter-preview-viewport flex flex-col gap-6 text-base text-slate-700 leading-relaxed"></div>
+                    <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell">
+                    <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col gap-6 text-base text-slate-700 leading-relaxed"></div>
                     <button type="button" id="btnAiWriterPrevSide" class="ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
                     <button type="button" id="btnAiWriterNextSide" class="ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page"><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
                     </div>
-                    <div id="previewMeasureHost" class="preview-measure-host" aria-hidden="true"></div>
+                    <div id="previewMeasureHost" class="preview-measure-host book-page-preview-measure" aria-hidden="true"></div>
                     <div id="readerViewport" class="hidden">
                         <div id="readerChaptersWrap" class="reader-chapters-wrap hidden flex flex-col gap-4"></div>
                         <div id="bookStage" class="book-stage" style="display: none;">
@@ -2566,7 +2585,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var inputChapterNo = document.getElementById('ChapterDropdown');
     var inputChapterTitle = document.getElementById('Title');
     var inputChapterTopic = document.getElementById('UserInput');
-    var btnClearTopic = document.getElementById('btnClearTopic');
+    var writerAutoSaveStatus = document.getElementById('writerAutoSaveStatus');
     var previewBookTitle = document.getElementById('preview-book-title');
     var previewChapterHeader = document.getElementById('preview-chapter-header');
     var previewContent = document.getElementById('preview-content');
@@ -2577,6 +2596,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var defaultPreviewHtml = previewContent ? previewContent.innerHTML : '';
     var defaultBookTitle = previewBookTitle ? previewBookTitle.textContent : '';
+    var writerAutosaveTimer = null;
+    var writerAutosaveInFlight = false;
+    var writerAutosaveQueued = false;
+    var writerAutosaveStatusTimer = null;
 
     function getChapterTopicFromRequestData(requestData) {
         if (!requestData || typeof requestData !== 'string') return requestData || '';
@@ -2633,6 +2656,94 @@ document.addEventListener('DOMContentLoaded', function() {
         return t ? t.value : '';
     }
 
+    function setWriterAutoSaveStatus(text, isError) {
+        if (!writerAutoSaveStatus) return;
+        writerAutoSaveStatus.textContent = text || '';
+        writerAutoSaveStatus.classList.toggle('text-red-600', !!isError);
+        writerAutoSaveStatus.classList.toggle('text-slate-400', !isError);
+    }
+
+    function parseWriterAutosaveResponse(r, text) {
+        var data = {};
+        try {
+            data = text && String(text).trim() ? JSON.parse(text) : {};
+        } catch (_) {
+            data = { success: false, message: 'Autosave failed: invalid server response.' };
+        }
+        return { ok: r.ok, status: r.status, data: data };
+    }
+
+    function buildWriterAutosavePayload() {
+        var statusValue = (document.getElementById('Status') && document.getElementById('Status').value) || '';
+        if (String(statusValue).toLowerCase() === 'readonly') return null;
+        var userIdValue = (document.getElementById('UserId') && document.getElementById('UserId').value) || '';
+        var bookIdValue = (document.getElementById('BookId') && document.getElementById('BookId').value) || '';
+        var chapterNoValue = (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '';
+        if (!userIdValue || userIdValue === '0' || !bookIdValue || bookIdValue === '0' || !chapterNoValue) return null;
+        var bodyHtml = '';
+        if (typeof window.getWriterPreviewChapterHtmlForEdit === 'function') bodyHtml = window.getWriterPreviewChapterHtmlForEdit() || '';
+        if (!bodyHtml && previewContent && previewContent.innerHTML) bodyHtml = previewContent.innerHTML;
+        if (!bodyHtml) bodyHtml = window._currentChapterContent || '';
+        var topicText = (inputChapterTopic && inputChapterTopic.value) ? String(inputChapterTopic.value) : '';
+        if (!String(bodyHtml || '').trim() && !topicText.trim()) return null;
+        return {
+            UserId: String(userIdValue),
+            BookId: String(bookIdValue),
+            Chapter: String(chapterNoValue),
+            NewContent: bodyHtml || '<p></p>',
+            ChapterTitle: (inputChapterTitle && inputChapterTitle.value) ? String(inputChapterTitle.value) : '',
+            Topic: topicText,
+            RecordVersion: false
+        };
+    }
+
+    function runWriterAutosaveNow() {
+        var payload = buildWriterAutosavePayload();
+        if (!payload) return;
+        if (writerAutosaveInFlight) {
+            writerAutosaveQueued = true;
+            return;
+        }
+        writerAutosaveInFlight = true;
+        setWriterAutoSaveStatus('Saving…', false);
+        fetch('/Books/SaveChapterContent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin'
+        }).then(function (r) {
+            return r.text().then(function (t) { return parseWriterAutosaveResponse(r, t); });
+        }).then(function (result) {
+            if (result.ok && result.data && result.data.success) {
+                setWriterAutoSaveStatus('Saved', false);
+                if (writerAutosaveStatusTimer) clearTimeout(writerAutosaveStatusTimer);
+                writerAutosaveStatusTimer = setTimeout(function () {
+                    setWriterAutoSaveStatus('', false);
+                }, 1600);
+            } else {
+                var msg = (result.data && result.data.message) ? result.data.message : 'Could not autosave.';
+                setWriterAutoSaveStatus(msg, true);
+                setTimeout(function () { queueWriterAutosave(1200); }, 1200);
+            }
+        }).catch(function () {
+            setWriterAutoSaveStatus('Could not autosave. Retrying…', true);
+            setTimeout(function () { queueWriterAutosave(1500); }, 1500);
+        }).finally(function () {
+            writerAutosaveInFlight = false;
+            if (writerAutosaveQueued) {
+                writerAutosaveQueued = false;
+                queueWriterAutosave(250);
+            }
+        });
+    }
+
+    function queueWriterAutosave(delayMs) {
+        if (writerAutosaveTimer) clearTimeout(writerAutosaveTimer);
+        writerAutosaveTimer = setTimeout(function () {
+            runWriterAutosaveNow();
+        }, typeof delayMs === 'number' ? delayMs : 700);
+    }
+
     function updatePreviewUI() {
         var bookTitle = getBookTitle() || defaultBookTitle;
         previewBookTitle.textContent = bookTitle || 'Your Chapter\'s Preview';
@@ -2664,19 +2775,9 @@ document.addEventListener('DOMContentLoaded', function() {
     inputBookTitle.addEventListener('input', updatePreviewUI);
     inputChapterNo.addEventListener('change', updatePreviewUI);
     inputChapterTitle.addEventListener('input', updatePreviewUI);
-    inputChapterTopic.addEventListener('input', updatePreviewUI);
-
-    if (btnClearTopic) btnClearTopic.addEventListener('click', function() {
-        inputChapterTopic.value = '';
+    inputChapterTopic.addEventListener('input', function () {
         updatePreviewUI();
-        var row = document.getElementById('chapterTopicSuggestRow');
-        var host = document.getElementById('chapterTopicSuggestChips');
-        if (row) row.classList.add('hidden');
-        if (host) host.innerHTML = '';
-    });
-    var btnSaveTopic = document.getElementById('btnSaveChapterTopic');
-    if (btnSaveTopic) btnSaveTopic.addEventListener('click', function () {
-        if (typeof window.saveChapterTopicDraft === 'function') window.saveChapterTopicDraft();
+        queueWriterAutosave(700);
     });
 
     selectBook.addEventListener('change', function() {
@@ -2713,6 +2814,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             updatePreviewUI();
         }
+        setWriterAutoSaveStatus('', false);
     });
 
     function loadChapterPreview(bookId, chapterNo) {
@@ -2767,6 +2869,7 @@ document.addEventListener('DOMContentLoaded', function() {
     inputChapterNo.addEventListener('change', function() {
         var bookId = getBookId();
         if (bookId > 0) loadChapterPreview(bookId, getChapterNo());
+        queueWriterAutosave(700);
     });
 
     // Generate is handled by onclick="confirmGenerateChapter()" -> generateBook() in second script (correct payload: UserId, BookId, etc.)
@@ -2774,6 +2877,8 @@ document.addEventListener('DOMContentLoaded', function() {
     updatePreviewUI();
     var bookId = getBookId();
     if (bookId > 0) loadChapterPreview(bookId, getChapterNo());
+    inputChapterTitle.addEventListener('input', function () { queueWriterAutosave(700); });
+    inputBookTitle.addEventListener('input', function () { queueWriterAutosave(700); });
 })();
 
     function getContentFromPossibleJson(value) {
@@ -4242,13 +4347,12 @@ document.addEventListener('DOMContentLoaded', function() {
          console.log("🟢 Step 1: editInChapter function started");
 
           // --- Step 2: Collect input values from the page ---  messageElement
-         // 🔧 FIX: Create the correct request structure for the API
           const requestData = {
-              UserId: document.getElementById('UserId').value,
-              BookId: document.getElementById('BookId').value,
-              Title: document.getElementById('Title')?.value || '',
-              Chapter: parseInt(document.getElementById('ChapterNo').value, 10) || 1,
-              Changes: document.getElementById('UserInput')?.value || ''
+              user_id: document.getElementById('UserId').value,
+              book_id: document.getElementById('BookId').value,
+              title: document.getElementById('Title')?.value || '',
+              chapter: String(parseInt(document.getElementById('ChapterNo').value, 10) || 1),
+              changes: document.getElementById('UserInput')?.value || ''
           };
            // Create a new AbortController for this request
              abortController = new AbortController();
@@ -4261,23 +4365,23 @@ document.addEventListener('DOMContentLoaded', function() {
              return;
          }
 
-          if (!requestData.UserId || requestData.UserId == "0") {
+         if (!requestData.user_id || requestData.user_id == "0") {
               alert('Please select a user');
               hideGenerateLoading();
               return;
           }
 
-          if (!requestData.BookId || requestData.BookId == "0") {
+         if (!requestData.book_id || requestData.book_id == "0") {
               alert('Please select a book');
               hideGenerateLoading();
               return;
           }
-            if (!requestData.Changes || requestData.Changes.length === 0) {
+            if (!requestData.changes || requestData.changes.length === 0) {
                alert('Please enter prompt');
                hideGenerateLoading();
                return;
            }
-           if (!requestData.Chapter || requestData.Chapter === 0) {
+           if (!requestData.chapter || requestData.chapter === "0") {
                alert('Please select a Chapter');
                hideGenerateLoading();
                return;
@@ -4301,10 +4405,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
          var cc = document.getElementById("chatContainer");
               if (cc) {
-                  addMessage(`I want to edit chapter ${requestData.Chapter}: "${requestData.Changes}"`, true);
+                  addMessage(`I want to edit chapter ${requestData.chapter}: "${requestData.changes}"`, true);
               }
 
-         console.log("🚀 POST /Books/AIEditBook (edit flow)");
+        console.log("🚀 POST /Books/EditChapter (edit flow)");
 
          setTimeout(function () {
              processEditRequest(requestData);
@@ -4320,16 +4424,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
           console.log("📨 Step 5: Execute processEditRequest() to POST Request:");
             const messageElement = document.getElementById('processingMessage');
+            var controller = null;
+            var timeoutId = null;
          try {
              if (typeof window.showChapterGenerationOverlay === 'function') {
                  window.showChapterGenerationOverlay('Applying edits…');
              }
-             const response = await fetch('/Books/AIEditBook', {
+             controller = new AbortController();
+             timeoutId = setTimeout(function () { controller.abort(); }, 180000);
+             const response = await fetch('/Books/EditChapter', {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify(requestData),
-                 credentials: 'same-origin'
+                 credentials: 'same-origin',
+                 signal: controller.signal
              });
+             if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
 
              console.log("📨 Step 6: Received the response from API:", response.status);
              var responseText = await response.text();
@@ -4377,8 +4487,9 @@ document.addEventListener('DOMContentLoaded', function() {
              if (chatContainer && typeof addMessage === 'function') {
                  addMessage(`❌ Sorry, I encountered an error: ${error.message}`);
              }
-             showNotification('Failed to edit chapter', 'error');
+            showNotification('Failed to edit chapter: ' + (error && error.message ? error.message : 'Unknown error'), 'error');
          } finally {
+             if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
              if (typeof window.hideChapterGenerationOverlay === 'function') window.hideChapterGenerationOverlay();
              if (typeof hideGenerateLoading === 'function') hideGenerateLoading();
              enableControls();
@@ -5666,14 +5777,14 @@ document.addEventListener('DOMContentLoaded', function() {
                      if (updatedDiv) updatedDiv.innerHTML = (instantPreview || '') + '<p class="text-xs text-amber-600 mt-2">' + msg + ' You can <strong>Save draft</strong> for the preview above, or try Apply again. Official lock: Book formatting.</p>';
                      if (typeof showNotification === 'function') showNotification(isTimeout ? 'Request timed out. You can save the preview or try again.' : 'Request failed. You can save the preview or try again.', 'error');
                  }
-                 fetch('/Books/AIEditBook', {
+                fetch('/Books/EditChapter', {
                      method: 'POST',
                      headers: { 'Content-Type': 'application/json' },
                      body: JSON.stringify({
                          user_id: String(state.userId || ''),
                          book_id: String(state.bookId || ''),
                          title: state.title || '',
-                         chapter: parseInt(state.chapter, 10),
+                        chapter: String(parseInt(state.chapter, 10) || 1),
                          changes: prompt
                      }),
                      credentials: 'same-origin',
@@ -6498,7 +6609,7 @@ document.addEventListener('DOMContentLoaded', function() {
              return;
          }
          if (!ebookClientHasAnyVoiceInput()) {
-             showNotification('Microphone and live speech are not available in this browser. Use "Upload audio" next to the mic, or type your topic.', 'error');
+            showNotification('Microphone and live speech are not available in this browser. Use the audio upload icon next to the mic, or type your topic.', 'error');
              return;
          }
          var host = window.location.hostname || '';
@@ -6542,7 +6653,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      if (ev.error === 'not-allowed') {
                          showNotification('Microphone was denied for live dictation. Allow the microphone in your browser settings.', 'error');
                      } else {
-                         showNotification('Live voice: ' + String(ev.error) + '. Try again, Upload audio, or type your topic.', 'error');
+                        showNotification('Live voice: ' + String(ev.error) + '. Try again, use the audio upload icon, or type your topic.', 'error');
                      }
                      ebookLiveDictationShouldRun = false;
                      voiceInputMode = 'idle';
@@ -6586,7 +6697,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  ebookLiveDictationShouldRun = false;
                  voiceInputMode = 'idle';
                  ebookLiveSpeechRecognition = null;
-                 showNotification('Could not start live dictation: ' + (ex.message || 'unknown') + '. Try Upload audio.', 'error');
+                showNotification('Could not start live dictation: ' + (ex.message || 'unknown') + '. Try the audio upload icon.', 'error');
                  if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
              }
              return;
@@ -6625,7 +6736,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  }
                  return;
              }
-             showNotification('MediaRecorder is not available in this browser. Use Upload audio or type your text.', 'error');
+            showNotification('MediaRecorder is not available in this browser. Use the audio upload icon or type your text.', 'error');
              return;
          }
          try {
@@ -6647,7 +6758,7 @@ document.addEventListener('DOMContentLoaded', function() {
              mediaRecorder.onerror = function (ev) {
                  console.error('[voice] MediaRecorder error:', ev && ev.error ? ev.error : ev);
                  var en = (ev && ev.error && ev.error.name) ? String(ev.error.name) : 'Unknown';
-                 showNotification('Recording stopped unexpectedly (' + en + '). Try again, use Upload audio, or type your topic.', 'error');
+                showNotification('Recording stopped unexpectedly (' + en + '). Try again, use the audio upload icon, or type your topic.', 'error');
                  try {
                      if (recordingStream) {
                          recordingStream.getTracks().forEach(function (t) { t.stop(); });
@@ -6674,7 +6785,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  var voiceFileName = 'voice' + ext;
                  if (!blob.size) {
                      console.error('Voice recording: empty blob — browser may need periodic timeslices or requestData() before stop.');
-                     showNotification('Recording had no audio data. Try again or use Upload audio.', 'error');
+                    showNotification('Recording had no audio data. Try again or use the audio upload icon.', 'error');
                      if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                      if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }
                      if (stopRecBtn) stopRecBtn.disabled = true;
@@ -6770,7 +6881,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  } catch (err) {
                      console.error("Error converting audio:", err);
                      var isAbort = err && (err.name === 'AbortError' || String(err.message || '').indexOf('abort') !== -1);
-                     showNotification(isAbort ? 'Transcription took too long or was cancelled. Try a shorter clip or Upload audio.' : ('Error converting audio: ' + (err.message || 'Unknown')), 'error');
+                    showNotification(isAbort ? 'Transcription took too long or was cancelled. Try a shorter clip or use the audio upload icon.' : ('Error converting audio: ' + (err.message || 'Unknown')), 'error');
                  }
                  if (recordingStripArea) { recordingStripArea.classList.add('hidden'); recordingStripArea.classList.remove('flex'); }
                  if (startRecBtn) { startRecBtn.style.display = ''; startRecBtn.disabled = false; }

@@ -1168,15 +1168,29 @@
         }
 
         /* Guided tour: violet spotlight + popover */
+        #guidedTourBackdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(15, 23, 42, 0.58);
+            backdrop-filter: blur(1px);
+            -webkit-backdrop-filter: blur(1px);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        #guidedTourBackdrop.is-visible {
+            opacity: 1;
+        }
         .tour-highlight {
             position: relative;
             outline: none;
-            border-radius: 12px;
-            z-index: 100001 !important;
-            transition: box-shadow 0.35s ease, transform 0.35s ease;
+            border-radius: 14px;
+            z-index: 100003 !important;
+            transition: box-shadow 0.25s ease, transform 0.25s ease;
             box-shadow:
-                0 0 0 3px rgba(124, 58, 237, 0.95),
-                0 0 0 9999px rgba(15, 23, 42, 0.52) !important;
+                0 0 0 4px rgba(124, 58, 237, 0.95),
+                0 10px 28px -12px rgba(124, 58, 237, 0.65) !important;
         }
         #guidedTourPopover {
             position: fixed;
@@ -1185,8 +1199,9 @@
             background: #fff;
             color: #0f172a;
             border-radius: 16px;
-            padding: 18px 18px 14px;
-            box-shadow: 0 20px 50px -12px rgba(124, 58, 237, 0.35), 0 0 0 1px rgba(124, 58, 237, 0.12);
+            padding: 20px 20px 15px;
+            border: 1px solid rgba(124, 58, 237, 0.16);
+            box-shadow: 0 24px 56px -16px rgba(124, 58, 237, 0.38), 0 0 0 1px rgba(124, 58, 237, 0.12);
             font-size: 14px;
             line-height: 1.45;
         }
@@ -4706,9 +4721,7 @@
             return 'default';
         }
 
-        function guidedTourStorageKey(route) {
-            return 'ebookGuidedTourDone_v3_' + route;
-        }
+        var __tourCompletionPersisted = false;
 
         const GUIDED_TOUR_ROUTES = {
             'dashboard': [
@@ -4729,7 +4742,7 @@
                 { sel: '[data-guided-tour="fmt-book"]', title: 'Select book', body: 'Choose which book you are formatting. The preview loads from your saved manuscript.' },
                 { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Novel, Modern, Classic, and Minimalist change colors, headings, and paragraph treatment in the live preview.' },
                 { sel: '[data-guided-tour="fmt-preview"]', title: 'Live preview', body: 'This frame simulates a real book page. Use the page controls to flip through.' },
-                { sel: '[data-guided-tour="fmt-actions"]', title: 'Apply & continue', body: 'Apply Formatting saves settings; Next sends you to AI Cover Design to generate artwork with the cover API.' }
+                { sel: '[data-guided-tour="fmt-actions"]', title: 'Auto-save & continue', body: 'Formatting changes save automatically. Use Next to continue to AI Cover Design.' }
             ],
             'cover-design': [
                 { sel: '[data-guided-tour="cov-book"]', title: 'Select book', body: 'Pick the book this cover belongs to. Title and author can sync from your library.' },
@@ -4750,16 +4763,41 @@
             document.querySelectorAll('.tour-highlight').forEach(function (el) { el.classList.remove('tour-highlight'); });
         }
 
+        function __ensureGuidedTourBackdrop() {
+            var existing = document.getElementById('guidedTourBackdrop');
+            if (existing) return existing;
+            var el = document.createElement('div');
+            el.id = 'guidedTourBackdrop';
+            document.body.appendChild(el);
+            return el;
+        }
+
+        function __showGuidedTourBackdrop() {
+            var bd = __ensureGuidedTourBackdrop();
+            requestAnimationFrame(function () { bd.classList.add('is-visible'); });
+        }
+
+        function __hideGuidedTourBackdrop() {
+            var bd = document.getElementById('guidedTourBackdrop');
+            if (!bd) return;
+            bd.classList.remove('is-visible');
+            setTimeout(function () {
+                var still = document.getElementById('guidedTourBackdrop');
+                if (still && !still.classList.contains('is-visible')) still.remove();
+            }, 220);
+        }
+
         function __positionGuidedPopover(popover, target) {
             if (!popover || !target) return;
             var rect = target.getBoundingClientRect();
-            var margin = 12;
+            var margin = 16;
+            var gap = 24;
             var pw = popover.offsetWidth || 320;
             var ph = popover.offsetHeight || 160;
             var left = rect.left + rect.width / 2 - pw / 2;
             left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
-            var top = rect.bottom + margin;
-            if (top + ph > window.innerHeight - margin) top = rect.top - ph - margin;
+            var top = rect.bottom + gap;
+            if (top + ph > window.innerHeight - margin) top = rect.top - ph - gap;
             if (top < margin) top = margin;
             popover.style.left = left + 'px';
             popover.style.top = top + 'px';
@@ -4768,6 +4806,7 @@
         function endGuidedTour(showToast) {
             teardownGuidedTourListeners();
             __clearGuidedTourHighlight();
+            __hideGuidedTourBackdrop();
             var pop = document.getElementById('guidedTourPopover');
             if (pop) pop.remove();
             __guidedTourActive = null;
@@ -4776,17 +4815,29 @@
             }
         }
 
+        function persistGuidedTourCompletion() {
+            if (__tourCompletionPersisted) return;
+            __tourCompletionPersisted = true;
+            fetch('/Dashboard/CompleteTour', {
+                method: 'POST',
+                credentials: 'same-origin'
+            }).catch(function () {
+                __tourCompletionPersisted = false;
+            });
+        }
+
         function startGuidedTourForRoute(routeKey, opts) {
             opts = opts || {};
             teardownGuidedTourListeners();
             endGuidedTour(false);
+            __showGuidedTourBackdrop();
             var steps = GUIDED_TOUR_ROUTES[routeKey] || GUIDED_TOUR_ROUTES['default'];
             var i = 0;
-            var routeForStorage = routeKey;
             var anyStepShown = false;
+            var shouldPersistCompletion = !!opts.persistCompletion;
 
             function persistDone() {
-                try { localStorage.setItem(guidedTourStorageKey(routeForStorage), '1'); } catch (e) {}
+                if (shouldPersistCompletion && anyStepShown) persistGuidedTourCompletion();
             }
 
             function nextStep() {
@@ -4827,6 +4878,7 @@
                     __positionGuidedPopover(pop, target);
 
                     pop.querySelector('[data-gt="skip"]').onclick = function () {
+                        persistDone();
                         endGuidedTour(false);
                     };
                     pop.querySelector('[data-gt="next"]').onclick = function () {
@@ -4862,11 +4914,22 @@
         }
 
         function maybeAutoStartGuidedTour() {
-            var route = guidedTourRouteKey();
-            try {
-                if (localStorage.getItem(guidedTourStorageKey(route)) === '1') return;
-            } catch (e) { return; }
-            setTimeout(function () { startGuidedTourForCurrentPage({}); }, 700);
+            fetch('/Dashboard/TourStatus', {
+                method: 'GET',
+                credentials: 'same-origin'
+            })
+            .then(function (r) { return r.ok ? r.json() : { success: false, hasCompletedTour: true }; })
+            .then(function (data) {
+                if (!data || data.success === false) return;
+                if (data.hasCompletedTour === true) {
+                    __tourCompletionPersisted = true;
+                    return;
+                }
+                setTimeout(function () {
+                    startGuidedTourForCurrentPage({ persistCompletion: true });
+                }, 700);
+            })
+            .catch(function () { /* do not block app startup */ });
         }
 
         function ensureGuidedTourFab() {
@@ -4878,13 +4941,13 @@
             fab.innerHTML = '<i class="fas fa-map-signs"></i> Tour';
             document.body.appendChild(fab);
             fab.addEventListener('click', function () {
-                startGuidedTourForCurrentPage({ silent: false });
+                startGuidedTourForCurrentPage({ silent: false, persistCompletion: true });
             });
         }
 
         // Legacy name: "How to start" modal → dashboard-style steps
         function startDashboardTour() {
-            startGuidedTourForRoute('dashboard', { silent: false });
+            startGuidedTourForRoute('dashboard', { silent: false, persistCompletion: true });
         }
 
         function endDashboardTour() {

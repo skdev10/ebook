@@ -108,7 +108,6 @@
             '<form id="' + prefix + '_CalcForm" class="dbk-form">' +
             fieldRow(prefix, 'Binding type', 'binding', ['Hardcover', 'Paperback'], 'Paperback') +
             fieldRow(prefix, 'Interior type', 'interior', ['Premium color', 'Standard color', 'Black & white'], 'Black & white') +
-            fieldRow(prefix, 'Paper type', 'paper', ['White paper', 'Cream paper'], 'White paper') +
             fieldRow(prefix, 'Reading Direction', 'direction', ['Right to Left', 'Left to Right'], 'Right to Left') +
             fieldRow(prefix, 'Measurement units', 'units', ['Millimeters', 'Inches'], 'Millimeters') +
             fieldRowTrim(prefix) +
@@ -226,7 +225,6 @@
         return {
             binding: v('binding'),
             interior: v('interior'),
-            paper: v('paper'),
             direction: v('direction'),
             units: v('units'),
             trim: v('trim'),

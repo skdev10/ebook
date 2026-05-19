@@ -24,5 +24,6 @@ namespace EBookDashboard.Models
         public Roles? Role { get; set; } // navigation property
         public string AuthorCode { get; set; } = string.Empty;
         public DateTime? UpdatedAt { get; set; }
+        public bool? HasCompletedTour { get; set; }
     }
 }

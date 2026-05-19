@@ -67,6 +67,8 @@ namespace EBookDashboard.Models
         public int ProgressPercentage { get; set; }
         public string ProgressText { get; set; } = string.Empty;
         public string? CoverImagePath { get; set; }
+        public DateTime? LastEditedAt { get; set; }
+        public string LastEditedText { get; set; } = string.Empty;
     }
 
     public class ActivityViewModel
@@ -243,6 +245,8 @@ namespace EBookDashboard.Models
         public string? Subtitle { get; set; }
         public string CoverUrl { get; set; } = string.Empty;
         public int BookId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string LastEditedText { get; set; } = string.Empty;
     }
 
     /// <summary>Demo display item for Drafts section.</summary>
@@ -253,6 +257,8 @@ namespace EBookDashboard.Models
         public string Volumes { get; set; } = string.Empty;
         public string CoverUrl { get; set; } = string.Empty;
         public int BookId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string LastEditedText { get; set; } = string.Empty;
     }
 
     /// <summary>Demo display for Reader Friends in sidebar.</summary>

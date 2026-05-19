@@ -19,58 +19,527 @@
         return path.StartsWith("/") ? path : "/" + path;
     }
 
-    var statusBadgeClass = alreadyListed
-        ? "bg-emerald-50 text-emerald-700 border-emerald-200/60"
-        : "bg-amber-50 text-amber-700 border-amber-200/60";
     var premiumDimClass = !paid ? "opacity-40 select-none blur-[1px] pointer-events-none" : "";
     var pbChapterCount = ViewBag.PublishBookChapterCount is int pcc ? pcc : 0;
     var publishReady = ViewBag.PublishBookReady as bool? ?? false;
+    var publishStateText = alreadyListed ? "Published listing" : (publishReady ? "Ready for checkout" : "Draft in progress");
+    var isPrintReadyFlow = ViewBag.PublishPrintReadyMode as bool? ?? false;
 }
 
 <style>
-    .publish-page { font-family: 'Inter', sans-serif; margin: 0 auto; }
+    .publish-page {
+        --pub-bg: #f5f7fb;
+        --pub-surface: #ffffff;
+        --pub-border: #e2e8f0;
+        --pub-text: #0f172a;
+        --pub-muted: #64748b;
+        --pub-accent: #5b21b6;
+        font-family: 'Inter', sans-serif;
+        margin: 0 auto;
+        width: 100%;
+        max-width: 1400px;
+        min-height: calc(100dvh - 5rem);
+    }
     .publish-hero-title { font-family: 'Playfair Display', serif; }
-    .publish-card {
-        background: #fff;
+    .publish-hero {
+        border: 1px solid #ddd6fe;
+        background: #ffffff;
+        border-radius: 1.5rem;
+        padding: clamp(1.15rem, 1.5vw + 0.85rem, 2rem);
+        box-shadow: 0 30px 45px -36px rgba(91, 33, 182, 0.42);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem 1.25rem;
+    }
+    .publish-kicker {
+        margin: 0 0 0.45rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #6d28d9;
+    }
+    .publish-hero-copy {
+        margin-top: 0.55rem;
+        color: #64748b;
+        max-width: 56rem;
+        line-height: 1.65;
+        font-size: 0.95rem;
+    }
+    .publish-hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+    .publish-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
         border: 1px solid #e2e8f0;
-        border-radius: 1.25rem;
-        padding: 1.5rem;
-        box-shadow: 0 12px 28px -20px rgba(79, 70, 229, 0.18);
-        transition: box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.25s ease;
+        padding: 0.38rem 0.78rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        line-height: 1.1;
+        white-space: nowrap;
+        background: #ffffff;
+        color: #334155;
+    }
+    .publish-chip-neutral { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
+    .publish-chip-ready { background: #ecfeff; color: #0f766e; border-color: #a5f3fc; }
+    .publish-stat-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.8rem;
+    }
+    .publish-stat {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 0.9rem 0.95rem;
+        box-shadow: 0 10px 20px -16px rgba(15, 23, 42, 0.35);
+    }
+    .publish-stat-label {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        color: #7c3aed;
+        margin-bottom: 0.32rem;
+    }
+    .publish-stat-value {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f172a;
+        line-height: 1.25;
+    }
+    .publish-stat-sub {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 0.18rem;
+    }
+
+    .publish-sections { display: grid; gap: 1.25rem; }
+    .publish-card {
+        background: var(--pub-surface);
+        border: 1px solid var(--pub-border);
+        border-radius: 1.3rem;
+        padding: clamp(1rem, 0.7rem + 1vw, 1.6rem);
+        box-shadow: 0 12px 24px -18px rgba(15, 23, 42, 0.38);
+        transition: box-shadow 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
     }
     .publish-card:hover {
-        box-shadow: 0 20px 44px -22px rgba(76, 29, 149, 0.22);
         transform: translateY(-2px);
-        border-color: #e9d5ff;
+        border-color: #d8b4fe;
+        box-shadow: 0 20px 36px -22px rgba(76, 29, 149, 0.4);
     }
-    @@media (prefers-reduced-motion: reduce) {
-        .publish-card {
-            transition: none;
+    .publish-card--checkout {
+        border-color: #ddd6fe;
+        box-shadow: 0 24px 38px -30px rgba(91, 33, 182, 0.5);
+    }
+    .publish-card--checkout h2 {
+        font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.3rem);
+    }
+    .publish-card-title {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+    }
+    .publish-card-title i {
+        width: 1.95rem;
+        height: 1.95rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.7rem;
+        background: #ede9fe;
+        color: #5b21b6;
+        font-size: 0.9rem;
+    }
+    .publish-card-sub {
+        color: #64748b;
+        line-height: 1.65;
+    }
+    .publish-form-grid {
+        margin-top: 0.35rem;
+    }
+    .publish-form-grid input,
+    .publish-form-grid select {
+        background: #ffffff;
+        border-color: #dbe3ee !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+    }
+    .publish-form-grid input:focus,
+    .publish-form-grid select:focus {
+        border-color: #8b5cf6 !important;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.12);
+    }
+    #pubFormatOptions {
+        border-color: #dbe3ee !important;
+        padding: 0.25rem !important;
+    }
+    #pubFormatOptions .pub-format-btn {
+        border: 1px solid transparent;
+        border-radius: 0.7rem;
+        transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+    #pubFormatOptions .pub-format-btn:not(.bg-violet-600):hover {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+    }
+    #pubFormatOptions .pub-format-btn.bg-violet-600 {
+        background: #5b21b6 !important;
+        color: #ffffff !important;
+        box-shadow: 0 10px 20px -14px rgba(91, 33, 182, 0.85);
+    }
+    #btnStripePublish {
+        border-radius: 0.95rem !important;
+        font-size: 0.9rem;
+        padding-block: 0.82rem !important;
+        padding-inline: 1.15rem !important;
+    }
+    #pub-stripe-hint {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        padding: 0.38rem 0.8rem;
+    }
+
+    .publish-platform-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+    .publish-platform-btn {
+        cursor: pointer;
+        border: 0;
+        background: transparent;
+        width: 100%;
+    }
+    .publish-card--platforms {
+        background: #0f172a;
+        border-color: #1e293b;
+    }
+    .publish-card--platforms .publish-card-title,
+    .publish-card--platforms .publish-card-title i {
+        color: #f8fafc;
+    }
+    .publish-card--platforms .publish-card-title i {
+        background: #1e293b;
+    }
+    .publish-card--platforms .publish-card-sub {
+        color: #94a3b8;
+    }
+    .publish-platform-btn {
+        border-radius: 1rem;
+    }
+    .publish-platform-media {
+        border-bottom: 1px solid #1e293b;
+    }
+    .publish-platform-body {
+        background: #111827;
+        min-height: 84px;
+    }
+    .publish-platform-name {
+        color: #f8fafc;
+        font-weight: 700;
+        font-size: 0.94rem;
+    }
+    .publish-platform-sub {
+        color: #94a3b8;
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+        line-height: 1.35;
+    }
+    .publish-card--pipeline {
+        border-left: 4px solid #a78bfa;
+    }
+    .publish-pipeline-list {
+        list-style: none;
+        margin: 0;
+        padding: 0.2rem 0 0;
+        display: grid;
+        gap: 0.58rem;
+        counter-reset: publishStep;
+    }
+    .publish-pipeline-list li {
+        counter-increment: publishStep;
+        position: relative;
+        padding-left: 2.45rem;
+        font-size: 0.9rem;
+        color: #334155;
+        line-height: 1.45;
+    }
+    .publish-pipeline-list li::before {
+        content: counter(publishStep);
+        position: absolute;
+        left: 0;
+        top: 0.02rem;
+        width: 1.55rem;
+        height: 1.55rem;
+        border-radius: 0.58rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.74rem;
+        font-weight: 700;
+        color: #ffffff;
+        background: #6d28d9;
+        box-shadow: 0 8px 16px -12px rgba(109, 40, 217, 0.9);
+    }
+    .publish-card--pro .publish-metric {
+        border: 1px solid #e7eaf0;
+        background: #f8fafc;
+        border-radius: 0.95rem;
+        padding: 0.95rem;
+    }
+    .publish-card--pro .publish-metric p:first-child {
+        color: #0f172a;
+    }
+    .publish-card--pro .publish-metric p:last-child {
+        color: #64748b;
+    }
+    .publish-card--printready {
+        border-color: #cbd5e1;
+        box-shadow: 0 22px 34px -28px rgba(15, 23, 42, 0.5);
+    }
+    .publish-printready-shell {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+        gap: 1rem;
+        align-items: stretch;
+    }
+    .publish-printready-form {
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 1rem;
+        background: #f8fafc;
+        display: grid;
+        gap: 0.75rem;
+        min-height: 100%;
+    }
+    .publish-printready-form .kdp-field-label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 0.35rem;
+    }
+    .publish-printready-form input,
+    .publish-printready-form select {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        border-radius: 0.75rem;
+        padding: 0.58rem 0.72rem;
+        font-size: 0.84rem;
+        color: #0f172a;
+        outline: none;
+    }
+    .publish-printready-form input:focus,
+    .publish-printready-form select:focus {
+        border-color: #8b5cf6;
+        box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.14);
+    }
+    .kdp-result-grid {
+        display: grid;
+        gap: 0.5rem;
+    }
+    .kdp-result-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+        border: 1px dashed #cbd5e1;
+        background: #ffffff;
+        border-radius: 0.75rem;
+        padding: 0.55rem 0.72rem;
+        font-size: 0.8rem;
+        color: #334155;
+    }
+    .kdp-result-row strong {
+        color: #0f172a;
+        font-size: 0.82rem;
+    }
+    .kdp-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        margin-top: 0.2rem;
+    }
+    .kdp-reference-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 0.85rem;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+    .kdp-template {
+        position: relative;
+        min-height: 320px;
+        border-radius: 0.85rem;
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        overflow: hidden;
+    }
+    .kdp-template::before,
+    .kdp-template::after {
+        content: "";
+        position: absolute;
+        inset: 10px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 0.65rem;
+    }
+    .kdp-template::after {
+        inset: 22px;
+        border-color: #94a3b8;
+    }
+    .kdp-spine-zone {
+        position: absolute;
+        top: 18px;
+        bottom: 18px;
+        left: 50%;
+        width: 44px;
+        transform: translateX(-50%);
+        border-left: 2px solid #94a3b8;
+        border-right: 2px solid #94a3b8;
+        background: rgba(148, 163, 184, 0.18);
+    }
+    .kdp-barcode-zone {
+        position: absolute;
+        right: 12%;
+        bottom: 14%;
+        width: 86px;
+        height: 68px;
+        border: 1px solid #64748b;
+        border-radius: 0.25rem;
+        background: repeating-linear-gradient(
+            to right,
+            #475569 0 2px,
+            #e2e8f0 2px 4px
+        );
+        opacity: 0.45;
+    }
+    .kdp-pin {
+        position: absolute;
+        width: 1.45rem;
+        height: 1.45rem;
+        border-radius: 999px;
+        background: #0f172a;
+        color: #ffffff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 6px 16px -10px rgba(15, 23, 42, 0.9);
+    }
+    .kdp-pin.p1 { top: 7%; left: 3%; }
+    .kdp-pin.p2 { top: 13%; left: 7%; }
+    .kdp-pin.p3 { top: 19%; left: 11%; }
+    .kdp-pin.p4 { top: 8%; left: 29%; }
+    .kdp-pin.p5 { top: 11%; left: 36%; }
+    .kdp-pin.p6 { top: 22%; left: 57%; }
+    .kdp-pin.p7 { top: 30%; left: 57%; }
+    .kdp-pin.p8 { top: 38%; left: 57%; }
+    .kdp-pin.p9 { right: 17%; bottom: 29%; }
+    .kdp-caption {
+        font-size: 0.75rem;
+        color: #64748b;
+        line-height: 1.45;
+    }
+    @@media (max-width: 1024px) {
+        .publish-printready-shell {
+            grid-template-columns: 1fr;
         }
-        .publish-card:hover {
-            transform: none;
+        .kdp-template {
+            min-height: 290px;
         }
     }
-    .publish-platform-btn { cursor: pointer; border: 0; background: transparent; width: 100%; }
-    .publish-detail-overlay { display: none; position: fixed; inset: 0; z-index: 10050; background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(6px); align-items: center; justify-content: center; padding: 1rem; }
+    .publish-paid-wrap { position: relative; }
+    .publish-paid-wrap.disabled::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: rgba(248, 250, 252, 0.65);
+        border-radius: 1.25rem;
+        pointer-events: none;
+    }
+    .publish-badge-disabled {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        padding: 0.35rem 0.65rem;
+        border-radius: 9999px;
+    }
+
+    .publish-detail-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10050;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(6px);
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
     .publish-detail-overlay.open { display: flex; }
-    .publish-detail-box { background: #fff; border-radius: 1.25rem; max-width: 720px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; border: 1px solid #e2e8f0; }
-    .publish-step { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.65rem 0; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; color: #334155; }
+    .publish-detail-box {
+        background: #fff;
+        border-radius: 1.25rem;
+        max-width: 720px;
+        width: 100%;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #e2e8f0;
+    }
+    .publish-step {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+        padding: 0.65rem 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem;
+        color: #334155;
+    }
     .publish-step:last-child { border-bottom: 0; }
-    .publish-step-num { flex-shrink: 0; width: 1.75rem; height: 1.75rem; border-radius: 0.75rem; background: #6d28d9; color: #fff; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .publish-step-num {
+        flex-shrink: 0;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 0.75rem;
+        background: #6d28d9;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
     .publish-progress { display: flex; gap: 0.35rem; margin: 1rem 0; flex-wrap: wrap; }
     .publish-progress span { flex: 1; min-width: 60px; height: 6px; border-radius: 9999px; background: #e2e8f0; }
     .publish-progress span.done { background: #7c3aed; }
-    .publish-paid-wrap { position: relative; }
-    .publish-paid-wrap.disabled::after { content: ''; position: absolute; inset: 0; background: rgba(248, 250, 252, 0.65); border-radius: 1.25rem; pointer-events: none; }
-    .publish-badge-disabled { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0; padding: 0.35rem 0.65rem; border-radius: 9999px; }
     .publish-video-frame { width: 100%; aspect-ratio: 16/9; border: 0; border-radius: 0.75rem; background: #0f172a; }
 
-    /* SweetAlert2: pre-checkout Lulu + KDP learning hub */
     .publish-learning-swal-popup {
         border-radius: 1.5rem !important;
         padding: 1.35rem 1.35rem 1rem !important;
-        background: linear-gradient(165deg, #ffffff 0%, #faf5ff 45%, #f1f5f9 100%) !important;
+        background: #f8fafc !important;
         border: 1px solid rgba(124, 58, 237, 0.2) !important;
         box-shadow: 0 25px 50px -12px rgba(76, 29, 149, 0.28) !important;
     }
@@ -79,21 +548,37 @@
     .publish-learning-swal-actions { margin-top: 1.15rem !important; gap: 0.65rem !important; }
     .pub-learn-wrap { text-align: left; font-family: 'Inter', system-ui, sans-serif; color: #0f172a; }
     .pub-learn-lede {
-        font-size: 0.8125rem; color: #64748b; margin: 0 0 1rem; line-height: 1.55;
-        padding: 0.65rem 0.85rem; border-radius: 0.75rem; background: rgba(255, 255, 255, 0.85);
+        font-size: 0.8125rem;
+        color: #64748b;
+        margin: 0 0 1rem;
+        line-height: 1.55;
+        padding: 0.65rem 0.85rem;
+        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.9);
         border: 1px solid #e9d5ff;
     }
     .pub-learn-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
     .pub-learn-tab {
-        flex: 1; padding: 0.65rem 0.75rem; border-radius: 0.875rem; border: 1px solid #e2e8f0;
-        background: #fff; cursor: pointer; font-weight: 600; font-size: 0.8125rem; color: #475569;
+        flex: 1;
+        padding: 0.65rem 0.75rem;
+        border-radius: 0.875rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 0.8125rem;
+        color: #475569;
         transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s, background 0.2s, color 0.2s;
-        display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
     }
     .pub-learn-tab:hover { border-color: #c4b5fd; color: #5b21b6; }
     .pub-learn-tab--active {
-        background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
-        color: #fff !important; border-color: transparent;
+        background: #5b21b6;
+        color: #fff !important;
+        border-color: transparent;
         box-shadow: 0 10px 28px -10px rgba(124, 58, 237, 0.65);
         transform: translateY(-1px);
     }
@@ -103,152 +588,184 @@
     .pub-learn-panel--active { display: block; }
     @@keyframes pubLearnIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
     .pub-learn-card {
-        margin-bottom: 0.875rem; border: 1px solid #e2e8f0; border-radius: 1rem; overflow: hidden;
-        background: #fff; box-shadow: 0 4px 18px -10px rgba(15, 23, 42, 0.15);
+        margin-bottom: 0.875rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 4px 18px -10px rgba(15, 23, 42, 0.15);
     }
     .pub-learn-card-head {
-        padding: 0.55rem 0.9rem; font-size: 0.75rem; font-weight: 700; color: #3730a3;
-        background: linear-gradient(90deg, #f5f3ff 0%, #fff 100%); border-bottom: 1px solid #ede9fe;
+        padding: 0.55rem 0.9rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #3730a3;
+        background: #f5f3ff;
+        border-bottom: 1px solid #ede9fe;
         letter-spacing: 0.01em;
     }
     .pub-learn-embed { aspect-ratio: 16/9; background: #0f172a; position: relative; }
     .pub-learn-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-    .container {
-            width: 100%;
-            max-width: 1200px;
-        }
 
+    .container { width: 100%; max-width: none; }
+    .book-card {
+        background: #ffffff;
+        border-radius: 1.5rem;
+        border: 1px solid #dbe3ee;
+        padding: clamp(1.15rem, 2.2vw, 2.4rem);
+        box-shadow: 0 26px 44px -34px rgba(30, 41, 59, 0.4);
+        display: flex;
+        gap: clamp(1rem, 1.4vw, 2rem);
+        align-items: flex-start;
+    }
+    .book-cover {
+        flex-shrink: 0;
+        width: clamp(170px, 16vw, 220px);
+        height: clamp(238px, 22vw, 308px);
+        border-radius: 0.85rem;
+        overflow: hidden;
+        box-shadow: 0 16px 34px -18px rgba(15, 23, 42, 0.55);
+        position: relative;
+    }
+    .book-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .book-cover-placeholder {
+        width: 100%;
+        height: 100%;
+        background: #5b21b6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff;
+        font-size: 0.86rem;
+        font-weight: 600;
+    }
+    .book-info { flex: 1; min-width: 0; padding-top: 0.15rem; }
+    .label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #7c3aed;
+        text-transform: uppercase;
+        margin-bottom: 0.7rem;
+    }
+    .book-title {
+        font-size: clamp(1.5rem, 1.25rem + 1vw, 2.2rem);
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.95rem;
+        line-height: 1.2;
+    }
+    .book-description {
+        font-size: 0.93rem;
+        line-height: 1.72;
+        color: #64748b;
+        margin-bottom: 1.2rem;
+        max-width: 68ch;
+    }
+    .tags { display: flex; flex-wrap: wrap; gap: 0.55rem; align-items: center; }
+    .tag {
+        padding: 0.42rem 0.82rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: default;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+        line-height: 1.15;
+    }
+    .tag.fiction { background: #ede9fe; color: #6d28d9; border-color: #ddd6fe; }
+    .tag.draft { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+
+    @@media (min-width: 1180px) {
+        .publish-sections {
+            grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+            align-items: start;
+        }
+        .publish-card--checkout,
+        .publish-card--platforms {
+            grid-column: 1 / -1;
+        }
+        .publish-card--checkout { order: 0; }
+        .publish-card--pipeline {
+            order: 1;
+            grid-column: 1;
+        }
+        .publish-card--pro {
+            order: 2;
+            grid-column: 2;
+        }
+        .publish-card--platforms { order: 3; }
+    }
+    @@media (max-width: 768px) {
+        .publish-hero {
+            border-radius: 1.1rem;
+        }
         .book-card {
-            background: #ffffff;
-            border-radius: 24px;
-            padding: 48px;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
-            display: flex;
-            gap: 48px;
-            align-items: flex-start;
+            flex-direction: column;
+            border-radius: 1.1rem;
         }
-
         .book-cover {
-            flex-shrink: 0;
-            width: 200px;
-            height: 280px;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-            position: relative;
+            margin: 0 auto;
         }
-
-        .book-cover img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* Placeholder for book cover */
-        .book-cover-placeholder {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
         .book-info {
-            flex: 1;
-            padding-top: 8px;
+            text-align: left;
         }
-
-        .label {
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            color: #7c3aed;
-            text-transform: uppercase;
-            margin-bottom: 16px;
+    }
+    @@media (prefers-reduced-motion: reduce) {
+        .publish-card {
+            transition: none;
         }
-
-        .book-title {
-            font-size: 32px;
-            font-weight: 700;
-            color: #1a1a1a;
-            margin-bottom: 24px;
-            line-height: 1.2;
+        .publish-card:hover {
+            transform: none;
         }
-
-        .book-description {
-            font-size: 15px;
-            line-height: 1.7;
-            color: #6b7280;
-            margin-bottom: 32px;
-            max-width: 900px;
-        }
-
-        .tags {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .tag {
-            padding: 8px 20px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: none;
-            outline: none;
-        }
-
-        .tag.fiction {
-            background: #ede9fe;
-            color: #7c3aed;
-        }
-
-        .tag.fiction:hover {
-            background: #ddd6fe;
-        }
-
-        .tag.draft {
-            background: #fef3c7;
-            color: #d97706;
-        }
-
-        .tag.draft:hover {
-            background: #fde68a;
-        }
-
-        @@media (max-width: 768px) {
-            .book-card {
-                flex-direction: column;
-                padding: 32px;
-                gap: 32px;
-            }
-
-            .book-cover {
-                width: 160px;
-                height: 224px;
-                margin: 0 auto;
-            }
-
-            .book-title {
-                font-size: 28px;
-            }
-
-            .book-description {
-                font-size: 14px;
-            }
-        }
+    }
 </style>
 
 <div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
-<main class="flex-1 overflow-y-auto overflow-x-hidden w-full min-h-0 p-8 lg:p-12">
+<main class="flex-1 overflow-y-auto overflow-x-hidden w-full min-h-0 p-4 sm:p-6 lg:p-8">
 
-<div class="publish-page text-slate-800 max-w-[1600px] mx-auto w-full px-0 py-10 lg:py-12">
+<div class="publish-page text-slate-800 max-w-none mx-auto w-full px-0 py-6 sm:py-8 lg:py-10">
+    <section class="publish-hero mb-6 sm:mb-8 lg:mb-10">
+        <div>
+            <p class="publish-kicker">Distribution Console</p>
+            <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Publish your book</h1>
+            <p class="publish-hero-copy">Finalize listing metadata, complete secure checkout, and your title is marked published only after Stripe confirms payment.</p>
+        </div>
+        <div class="publish-hero-meta">
+            <span class="publish-chip @(alreadyListed ? "publish-chip-ready" : "publish-chip-neutral")">
+                <i class="fas @(alreadyListed ? "fa-check-circle" : "fa-hourglass-half")" aria-hidden="true"></i> @publishStateText
+            </span>
+            @if (isPrintReadyFlow)
+            {
+                <span class="publish-chip publish-chip-neutral"><i class="fas fa-ruler-combined" aria-hidden="true"></i> Print-ready mode</span>
+            }
+            <span class="publish-chip publish-chip-neutral">
+                <i class="fas fa-book-open" aria-hidden="true"></i> Book ID @(bookId > 0 ? bookId.ToString() : "Not selected")
+            </span>
+            @if (pbChapterCount > 0)
+            {
+                <span class="publish-chip publish-chip-neutral"><i class="fas fa-list-ol" aria-hidden="true"></i> @pbChapterCount chapter@(pbChapterCount == 1 ? "" : "s")</span>
+            }
+        </div>
+    </section>
+
+    <section class="publish-stat-strip mb-6 sm:mb-8">
+        <article class="publish-stat">
+            <p class="publish-stat-label">Selection</p>
+            <p class="publish-stat-value">@(bookId > 0 ? "Book linked" : "Book not selected")</p>
+            <p class="publish-stat-sub">@(bookId > 0 ? ("ID " + bookId) : "Select a title in My Books")</p>
+        </article>
+        <article class="publish-stat">
+            <p class="publish-stat-label">Manuscript</p>
+            <p class="publish-stat-value">@(pbChapterCount > 0 ? (pbChapterCount + " chapter" + (pbChapterCount == 1 ? "" : "s")) : "No chapters yet")</p>
+            <p class="publish-stat-sub">Generated or finalized content</p>
+        </article>
+        <article class="publish-stat">
+            <p class="publish-stat-label">Checkout state</p>
+            <p class="publish-stat-value">@publishStateText</p>
+            <p class="publish-stat-sub">Stripe confirms publish status</p>
+        </article>
+    </section>
 
     <div class="container mb-8">
         @if (bookId > 0 && !string.IsNullOrEmpty(pbTitle) && publishReady)
@@ -281,13 +798,22 @@
                         }
                         <span class="tag draft" style="cursor:default;">@(alreadyListed ? "Published" : pbStatus)</span>
                     </div>
-                    <p class="text-xs text-slate-500 mt-4">Finalized title and cover from your library. To replace the cover or manuscript, use <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a> or <a href="/Dashboard/MyBooks" class="text-violet-700 font-semibold underline">My Books</a>.</p>
+                    <p class="text-xs text-slate-500 mt-4">
+                        @if (isPrintReadyFlow)
+                        {
+                            <text>Print-ready mode uses formatting + trim dimensions. Update manuscript in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a> or formatting in <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">Book Formatting</a>.</text>
+                        }
+                        else
+                        {
+                            <text>Finalized title and cover from your library. To replace the cover or manuscript, use <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a> or <a href="/Dashboard/MyBooks" class="text-violet-700 font-semibold underline">My Books</a>.</text>
+                        }
+                    </p>
                 </div>
             </div>
         }
         else if (bookId > 0 && !string.IsNullOrEmpty(pbTitle) && !publishReady)
         {
-            <div class="book-card border-amber-100 bg-gradient-to-br from-amber-50/40 to-white">
+            <div class="book-card border-amber-100 bg-white">
                 <div class="book-cover">
                     @if (!string.IsNullOrEmpty(pbCover))
                     {
@@ -302,7 +828,14 @@
                     <div class="label text-amber-800">Not ready for checkout</div>
                     <h1 class="book-title text-slate-900">@pbTitle</h1>
                     <p class="book-description text-slate-600">
-                        Publishing checkout unlocks when the book is marked <strong>Finalized</strong> (or <strong>Published</strong> / <strong>Paid</strong>) and a saved cover is on file. Finish <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">formatting</a>, and <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">cover design</a>, then return.
+                        @if (isPrintReadyFlow)
+                        {
+                            <text>Print-ready mode is active. Finalize your manuscript status in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a> and keep formatting updated in <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">Formatting</a>, then return to calculate wrap dimensions.</text>
+                        }
+                        else
+                        {
+                            <text>Publishing checkout unlocks when the book is marked <strong>Finalized</strong> (or <strong>Published</strong> / <strong>Paid</strong>) and a saved cover is on file. Finish <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">formatting</a>, and <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">cover design</a>, then return.</text>
+                        }
                     </p>
                     <p class="text-sm text-slate-500">Current status: <strong>@(string.IsNullOrEmpty(pbStatus) ? "Draft" : pbStatus)</strong></p>
                 </div>
@@ -329,164 +862,245 @@
         }
     </div>
 
-    <div class="space-y-10">
-        @if (publishReady || bookId <= 0)
+    <div class="publish-sections">
+        @if (isPrintReadyFlow && bookId > 0)
         {
-        <section class="publish-card">
-            <h2 class="text-lg font-semibold text-slate-900 mb-2">List your book on Ebook Hub</h2>
-            <p class="text-sm text-slate-500 mb-4">Complete these fields for this release. Publishing requires a successful Stripe payment — your book is marked Published only after checkout succeeds.</p>
-            <div class="grid md:grid-cols-2 gap-4 mb-6">
-                <label class="block text-sm">
-                    <span class="text-slate-700 font-medium">Retail price (USD)</span>
-                    <input type="text" id="pubRetailPrice" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none" placeholder="9.99" value="9.99" autocomplete="off" />
-                </label>
-                <label class="block text-sm">
-                    <span class="text-slate-700 font-medium">Primary category</span>
-                    <input type="text" id="pubCategory" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none" placeholder="Fiction / Business" value="@pbGenre" autocomplete="off" />
-                </label>
-                <label class="block text-sm md:col-span-2">
-                    <span class="text-slate-700 font-medium">Distribution territories</span>
-                    <select id="pubTerritories" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none bg-white">
-                        <option value="worldwide" selected>Worldwide (all marketplaces)</option>
-                        <option value="us">United States only</option>
-                        <option value="uk-eu">UK &amp; EU</option>
-                    </select>
-                </label>
-                <label class="flex items-start gap-2 md:col-span-2 text-sm text-slate-600 cursor-pointer">
-                    <input type="checkbox" id="pubAgree" class="mt-1 rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
-                    <span>I confirm I hold rights to publish this work and accept the platform listing terms for this release.</span>
-                </label>
-            </div>
-            @if (alreadyListed)
-            {
-                <div class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm px-4 py-3 mb-4">
-                    This book already has a completed payment or publish status. Open <a href="/Dashboard/MyBooks" class="font-semibold underline">My Books</a> to manage downloads.
+            <section class="publish-card publish-card--printready">
+                <h2 class="text-lg font-semibold text-slate-900 mb-2 publish-card-title"><i class="fas fa-ruler-combined"></i><span>Print-ready cover template (KDP-style)</span></h2>
+                <p class="text-sm text-slate-500 mb-4 publish-card-sub">You selected <strong>Just print-ready file</strong> in Formatting, so this flow opens a trim + spine calculator style workspace. Ebook cover generation remains in AI Cover Design.</p>
+                <div class="publish-printready-shell">
+                    <div class="publish-printready-form">
+                        <div class="grid sm:grid-cols-2 gap-3">
+                            <label>
+                                <span class="kdp-field-label">Binding type</span>
+                                <select id="prBindingType">
+                                    <option value="paperback" selected>Paperback</option>
+                                    <option value="hardcover">Hardcover</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span class="kdp-field-label">Interior type</span>
+                                <select id="prInteriorType">
+                                    <option value="bw" selected>Black &amp; white</option>
+                                    <option value="color">Color interior</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span class="kdp-field-label">Paper type</span>
+                                <select id="prPaperType">
+                                    <option value="white" selected>White paper</option>
+                                    <option value="cream">Cream paper</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span class="kdp-field-label">Trim size</span>
+                                <select id="prTrimSize">
+                                    <option value="6x9" selected>6 x 9 in</option>
+                                    <option value="5.5x8.5">5.5 x 8.5 in</option>
+                                    <option value="8.5x11">8.5 x 11 in</option>
+                                </select>
+                            </label>
+                            <label class="sm:col-span-2">
+                                <span class="kdp-field-label">Page count</span>
+                                <input id="prPageCount" type="number" min="24" max="828" value="200" />
+                            </label>
+                        </div>
+                        <div class="kdp-result-grid">
+                            <div class="kdp-result-row"><span>Spine width</span><strong id="prSpineIn">0.450 in</strong></div>
+                            <div class="kdp-result-row"><span>Spine width (mm)</span><strong id="prSpineMm">11.43 mm</strong></div>
+                            <div class="kdp-result-row"><span>Full wrap size (in)</span><strong id="prWrapIn">12.700 × 9.250 in</strong></div>
+                            <div class="kdp-result-row"><span>Full wrap size (mm)</span><strong id="prWrapMm">322.58 × 234.95 mm</strong></div>
+                        </div>
+                        <div class="kdp-actions">
+                            <a href="https://kdp.amazon.com/cover-calculator" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl bg-violet-700 text-white font-semibold px-4 py-2.5 text-sm hover:bg-violet-800">
+                                <i class="fas fa-external-link-alt"></i> Open KDP Cover Calculator
+                            </a>
+                            <a href="/Dashboard/Publish?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50">
+                                <i class="fas fa-credit-card"></i> Switch to Stripe publish UI
+                            </a>
+                        </div>
+                    </div>
+                    <div class="kdp-reference-card">
+                        <div class="kdp-template" aria-hidden="true">
+                            <div class="kdp-spine-zone"></div>
+                            <div class="kdp-barcode-zone"></div>
+                            <span class="kdp-pin p1">1</span><span class="kdp-pin p2">2</span><span class="kdp-pin p3">3</span>
+                            <span class="kdp-pin p4">4</span><span class="kdp-pin p5">5</span><span class="kdp-pin p6">6</span>
+                            <span class="kdp-pin p7">7</span><span class="kdp-pin p8">8</span><span class="kdp-pin p9">9</span>
+                        </div>
+                        <p class="kdp-caption">Template-style preview for print wrap planning (back + spine + front). Use this as a visual guide before exporting and uploading your final PDF/PNG files.</p>
+                    </div>
                 </div>
-            }
-            <div class="flex flex-wrap gap-3 items-center">
+            </section>
+        }
+        else
+        {
+            @if (publishReady || bookId <= 0)
+            {
+            <section class="publish-card publish-card--checkout">
+                <h2 class="text-lg font-semibold text-slate-900 mb-2 publish-card-title"><i class="fas fa-rocket"></i><span>List your book on Ebook Hub</span></h2>
+                <p class="text-sm text-slate-500 mb-4 publish-card-sub">Complete these fields for this release. Publishing requires a successful Stripe payment — your book is marked Published only after checkout succeeds.</p>
+                <div class="publish-form-grid grid md:grid-cols-2 gap-4 mb-6">
+                    <label class="block text-sm">
+                        <span class="text-slate-700 font-medium">Retail price (USD)</span>
+                        <input type="text" id="pubRetailPrice" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none" placeholder="9.99" value="9.99" autocomplete="off" />
+                    </label>
+                    <label class="block text-sm">
+                        <span class="text-slate-700 font-medium">Primary category</span>
+                        <input type="text" id="pubCategory" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none" placeholder="Fiction / Business" value="@pbGenre" autocomplete="off" />
+                    </label>
+                    <div class="block text-sm md:col-span-2">
+                        <span class="text-slate-700 font-medium">Publishing format</span>
+                        <input type="hidden" id="pubFormat" value="Ebook" />
+                        <div id="pubFormatOptions" class="mt-1 inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 gap-1">
+                            <button type="button" data-format="Ebook" class="pub-format-btn rounded-lg px-4 py-2 text-sm font-semibold bg-violet-600 text-white">Ebook</button>
+                            <button type="button" data-format="Paperback" class="pub-format-btn rounded-lg px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Paperback</button>
+                        </div>
+                    </div>
+                    <label class="block text-sm md:col-span-2">
+                        <span class="text-slate-700 font-medium">Distribution territories</span>
+                        <select id="pubTerritories" class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500 outline-none bg-white">
+                            <option value="worldwide" selected>Worldwide (all marketplaces)</option>
+                            <option value="us">United States only</option>
+                            <option value="uk-eu">UK &amp; EU</option>
+                        </select>
+                    </label>
+                    <label class="flex items-start gap-2 md:col-span-2 text-sm text-slate-600 cursor-pointer">
+                        <input type="checkbox" id="pubAgree" class="mt-1 rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
+                        <span>I confirm I hold rights to publish this work and accept the platform listing terms for this release.</span>
+                    </label>
+                </div>
                 @if (alreadyListed)
                 {
-                    <button type="button" id="btnStripePublish" disabled class="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-600 font-semibold px-5 py-3 text-sm cursor-not-allowed">
-                        <i class="fas fa-credit-card"></i> Pay &amp; publish with Stripe
-                    </button>
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm px-4 py-3 mb-4">
+                        This book already has a completed payment or publish status. Open <a href="/Dashboard/MyBooks" class="font-semibold underline">My Books</a> to manage downloads.
+                    </div>
                 }
-                else
-                {
-                    <button type="button" id="btnStripePublish" class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-semibold px-5 py-3 text-sm shadow-md hover:from-violet-700 hover:to-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                        <i class="fas fa-credit-card"></i> Pay &amp; publish with Stripe
-                    </button>
-                }
-                <span id="pub-stripe-hint" class="text-xs text-slate-500">Secure Checkout · Book ID @(bookId > 0 ? bookId.ToString() : "— select a book from Cover Design or My Books")</span>
-            </div>
-            <p id="pub-stripe-err" class="text-sm text-red-600 mt-3 hidden"></p>
-        </section>
-        }
-
-        @if (!publishReady && bookId > 0)
-        {
-            <p class="text-center text-sm text-slate-500 py-2">Complete the steps above to enable checkout.</p>
-        }
-
-        @if (publishReady)
-        {
-        <section class="publish-card">
-            <h2 class="text-lg font-semibold text-slate-900 mb-2">Your publishing pipeline</h2>
-            <ol class="list-decimal list-inside text-sm text-slate-700 space-y-1">
-                <li><a href="/Books/AIGenerateBook" class="text-violet-600 hover:underline">AI Writer</a> — manuscript</li>
-                <li><a href="/Books/AIGenerateBookFormat" class="text-violet-600 hover:underline">Formatting</a></li>
-                <li><a href="/Dashboard/CoverDesign" class="text-violet-600 hover:underline">AI cover design</a></li>
-                <li>Publish — payment &amp; distribution (this page)</li>
-            </ol>
-        </section>
-
-        <section class="publish-card">
-            <h2 class="text-lg font-semibold text-slate-900 mb-1">Option A — External platforms</h2>
-            <p class="text-sm text-slate-500 mb-4">Checklists and embedded YouTube tutorials.</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="kdp">
-                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
-                        <img src="https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
-                    </div>
-                    <div class="p-4">
-                        <div class="font-semibold text-slate-800"><i class="fab fa-amazon text-amber-600 mr-2"></i>Amazon KDP</div>
-                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">eBook, paperback, hardcover</div>
-                    </div>
-                </button>
-                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="bn">
-                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
-                        <img src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
-                    </div>
-                    <div class="p-4">
-                        <div class="font-semibold text-slate-800"><i class="fas fa-book text-slate-600 mr-2"></i>Barnes &amp; Noble Press</div>
-                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">NOOK &amp; print</div>
-                    </div>
-                </button>
-                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="lulu">
-                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
-                        <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
-                    </div>
-                    <div class="p-4">
-                        <div class="font-semibold text-slate-800"><i class="fas fa-print text-purple-600 mr-2"></i>Lulu</div>
-                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">Print &amp; global reach</div>
-                    </div>
-                </button>
-                <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="ingram">
-                    <div class="aspect-[16/10] overflow-hidden bg-slate-100">
-                        <img src="https://images.unsplash.com/photo-1554774853-719586f37d05?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
-                    </div>
-                    <div class="p-4">
-                        <div class="font-semibold text-slate-800"><i class="fas fa-network-wired text-indigo-600 mr-2"></i>IngramSpark</div>
-                        <div class="text-xs text-slate-500 mt-1 leading-relaxed">Wide distribution</div>
-                    </div>
-                </button>
-            </div>
-        </section>
-
-        <section class="publish-card publish-paid-wrap @(paid ? "" : "disabled")">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
-                <div>
-                    <h2 class="text-lg font-semibold text-slate-900">Option B — Publish through our platform</h2>
-                    <p class="text-sm text-slate-500">We handle submission, metadata, and distribution on your behalf.</p>
+                <div class="flex flex-wrap gap-3 items-center">
+                    @if (alreadyListed)
+                    {
+                        <button type="button" id="btnStripePublish" disabled class="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-600 font-semibold px-5 py-3 text-sm cursor-not-allowed">
+                            <i class="fas fa-credit-card"></i> Pay &amp; publish with Stripe
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" id="btnStripePublish" class="publish-stripe-btn inline-flex items-center gap-2 rounded-xl bg-violet-700 text-white font-semibold px-5 py-3 text-sm shadow-md hover:bg-violet-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-credit-card"></i> Pay &amp; publish with Stripe
+                        </button>
+                    }
+                    <span id="pub-stripe-hint" class="text-xs text-slate-500">Secure Checkout · Book ID @(bookId > 0 ? bookId.ToString() : "— select a book from Cover Design or My Books")</span>
                 </div>
-                @if (!paid)
-                {
-                    <span class="publish-badge-disabled" title="Available after plan upgrade"><i class="fas fa-lock"></i> Premium</span>
-                }
-                else
-                {
-                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">Active</span>
-                }
-            </div>
-            <div class="grid md:grid-cols-3 gap-4 text-sm @premiumDimClass">
-                <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p class="font-semibold text-slate-800 mb-1">Timeline</p>
-                    <p class="text-slate-600">Estimated 14–21 business days from approved files to live listings (demo).</p>
-                </div>
-                <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p class="font-semibold text-slate-800 mb-1">Distribution</p>
-                    <p class="text-slate-600">Major English-language channels + library partners.</p>
-                </div>
-                <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                    <p class="font-semibold text-slate-800 mb-1">Revenue</p>
-                    <p class="text-slate-600">Net royalties after platform fees; 85% to author on direct sales (demo).</p>
-                </div>
-            </div>
-            <div class="mt-4 flex flex-wrap gap-3 @premiumDimClass">
-                @if (paid)
-                {
-                    <button type="button" id="btnSubmitFullService" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold px-5 py-2.5 text-sm shadow-md transition-colors">
-                        <i class="fas fa-paper-plane"></i> Submit for full-service publish
+                <p id="pub-stripe-err" class="text-sm text-red-600 mt-3 hidden"></p>
+            </section>
+            }
+
+            @if (!publishReady && bookId > 0)
+            {
+                <p class="text-center text-sm text-slate-500 py-2">Complete the steps above to enable checkout.</p>
+            }
+
+            @if (publishReady)
+            {
+            <section class="publish-card publish-card--pipeline">
+                <h2 class="text-lg font-semibold text-slate-900 mb-2 publish-card-title"><i class="fas fa-route"></i><span>Your publishing pipeline</span></h2>
+                <ol class="publish-pipeline-list">
+                    <li><a href="/Books/AIGenerateBook" class="text-violet-600 hover:underline">AI Writer</a> — manuscript</li>
+                    <li><a href="/Books/AIGenerateBookFormat" class="text-violet-600 hover:underline">Formatting</a></li>
+                    <li><a href="/Dashboard/CoverDesign" class="text-violet-600 hover:underline">AI cover design</a></li>
+                    <li>Publish — payment &amp; distribution (this page)</li>
+                </ol>
+            </section>
+
+            <section class="publish-card publish-card--platforms">
+                <h2 class="text-lg font-semibold text-slate-900 mb-1 publish-card-title"><i class="fas fa-globe"></i><span>Option A — External platforms</span></h2>
+                <p class="text-sm text-slate-500 mb-4 publish-card-sub">Checklists and embedded YouTube tutorials.</p>
+                <div class="publish-platform-grid">
+                    <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="kdp">
+                        <div class="publish-platform-media aspect-[16/10] overflow-hidden bg-slate-100">
+                            <img src="https://images.unsplash.com/photo-1543002588-bfa74002ed7e?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                        </div>
+                        <div class="publish-platform-body p-4">
+                            <div class="publish-platform-name"><i class="fab fa-amazon text-amber-600 mr-2"></i>Amazon KDP</div>
+                            <div class="publish-platform-sub">eBook, paperback, hardcover</div>
+                        </div>
                     </button>
-                }
-                else
-                {
-                    <button type="button" id="btnSubmitFullService" disabled class="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-500 font-semibold px-5 py-2.5 text-sm cursor-not-allowed opacity-60">
-                        <i class="fas fa-paper-plane"></i> Submit for full-service publish
+                    <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="bn">
+                        <div class="publish-platform-media aspect-[16/10] overflow-hidden bg-slate-100">
+                            <img src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                        </div>
+                        <div class="publish-platform-body p-4">
+                            <div class="publish-platform-name"><i class="fas fa-book text-slate-600 mr-2"></i>Barnes &amp; Noble Press</div>
+                            <div class="publish-platform-sub">NOOK &amp; print</div>
+                        </div>
                     </button>
-                }
-                <a href="/Payments/FeaturesSelection" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium px-5 py-2.5 text-sm">View plans</a>
-            </div>
-        </section>
+                    <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="lulu">
+                        <div class="publish-platform-media aspect-[16/10] overflow-hidden bg-slate-100">
+                            <img src="https://images.unsplash.com/photo-1589829085413-56de8ae18c73?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                        </div>
+                        <div class="publish-platform-body p-4">
+                            <div class="publish-platform-name"><i class="fas fa-print text-purple-600 mr-2"></i>Lulu</div>
+                            <div class="publish-platform-sub">Print &amp; global reach</div>
+                        </div>
+                    </button>
+                    <button type="button" class="group text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-500/10 hover:border-violet-200/80 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden publish-platform-btn" data-platform="ingram">
+                        <div class="publish-platform-media aspect-[16/10] overflow-hidden bg-slate-100">
+                            <img src="https://images.unsplash.com/photo-1554774853-719586f37d05?q=80&amp;w=800&amp;auto=format&amp;fit=crop" alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" decoding="async">
+                        </div>
+                        <div class="publish-platform-body p-4">
+                            <div class="publish-platform-name"><i class="fas fa-network-wired text-indigo-600 mr-2"></i>IngramSpark</div>
+                            <div class="publish-platform-sub">Wide distribution</div>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <section class="publish-card publish-card--pro publish-paid-wrap @(paid ? "" : "disabled")">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-900 publish-card-title"><i class="fas fa-crown"></i><span>Option B — Publish through our platform</span></h2>
+                        <p class="text-sm text-slate-500 publish-card-sub">We handle submission, metadata, and distribution on your behalf.</p>
+                    </div>
+                    @if (!paid)
+                    {
+                        <span class="publish-badge-disabled" title="Available after plan upgrade"><i class="fas fa-lock"></i> Premium</span>
+                    }
+                    else
+                    {
+                        <span class="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">Active</span>
+                    }
+                </div>
+                <div class="grid md:grid-cols-3 gap-4 text-sm @premiumDimClass">
+                    <div class="publish-metric">
+                        <p class="font-semibold text-slate-800 mb-1">Timeline</p>
+                        <p class="text-slate-600">Estimated 14–21 business days from approved files to live listings (demo).</p>
+                    </div>
+                    <div class="publish-metric">
+                        <p class="font-semibold text-slate-800 mb-1">Distribution</p>
+                        <p class="text-slate-600">Major English-language channels + library partners.</p>
+                    </div>
+                    <div class="publish-metric">
+                        <p class="font-semibold text-slate-800 mb-1">Revenue</p>
+                        <p class="text-slate-600">Net royalties after platform fees; 85% to author on direct sales (demo).</p>
+                    </div>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-3 @premiumDimClass">
+                    @if (paid)
+                    {
+                        <button type="button" id="btnSubmitFullService" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold px-5 py-2.5 text-sm shadow-md transition-colors">
+                            <i class="fas fa-paper-plane"></i> Submit for full-service publish
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" id="btnSubmitFullService" disabled class="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-500 font-semibold px-5 py-2.5 text-sm cursor-not-allowed opacity-60">
+                            <i class="fas fa-paper-plane"></i> Submit for full-service publish
+                        </button>
+                    }
+                    <a href="/Payments/FeaturesSelection" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium px-5 py-2.5 text-sm">View plans</a>
+                </div>
+            </section>
+            }
         }
     </div>
 </div>
@@ -496,7 +1110,7 @@
 
 <div id="publishDetailOverlay" class="publish-detail-overlay" role="dialog" aria-modal="true">
     <div class="publish-detail-box">
-        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-violet-700 text-white">
             <h3 id="publishDetailTitle" class="text-lg font-semibold">Guide</h3>
             <button type="button" id="publishDetailClose" class="p-2 rounded-lg hover:bg-white/15 text-white" aria-label="Close"><i class="fas fa-times"></i></button>
         </div>
@@ -510,7 +1124,7 @@
     </div>
 </div>
 
-@if (!alreadyListed && bookId > 0 && publishReady)
+@if (!alreadyListed && bookId > 0 && publishReady && !isPrintReadyFlow)
 {
     <script src="https://js.stripe.com/v3/"></script>
 }
@@ -520,7 +1134,47 @@
     var bookId = @(bookId);
     var publishReady = @(publishReady.ToString().ToLowerInvariant());
     var alreadyListed = @(alreadyListed.ToString().ToLowerInvariant());
+    var isPrintReadyFlow = @(isPrintReadyFlow.ToString().ToLowerInvariant());
     var publishableKey = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishableKey));
+
+    function initPrintReadyCalculator() {
+        if (!isPrintReadyFlow) return;
+        var trimMap = {
+            '6x9': { w: 6, h: 9 },
+            '5.5x8.5': { w: 5.5, h: 8.5 },
+            '8.5x11': { w: 8.5, h: 11 }
+        };
+        var pageInput = document.getElementById('prPageCount');
+        var trimSelect = document.getElementById('prTrimSize');
+        var interiorSelect = document.getElementById('prInteriorType');
+        var spineInEl = document.getElementById('prSpineIn');
+        var spineMmEl = document.getElementById('prSpineMm');
+        var wrapInEl = document.getElementById('prWrapIn');
+        var wrapMmEl = document.getElementById('prWrapMm');
+        if (!pageInput || !trimSelect || !interiorSelect || !spineInEl || !spineMmEl || !wrapInEl || !wrapMmEl) return;
+
+        function toMm(vIn) { return vIn * 25.4; }
+        function fmtNum(v, d) { return Number(v || 0).toFixed(d); }
+        function recalc() {
+            var pages = parseInt(pageInput.value || '200', 10);
+            if (!Number.isFinite(pages)) pages = 200;
+            pages = Math.max(24, Math.min(828, pages));
+            pageInput.value = String(pages);
+            var trim = trimMap[trimSelect.value] || trimMap['6x9'];
+            var mult = interiorSelect.value === 'color' ? 0.002347 : 0.002252;
+            var bleed = 0.125;
+            var spineIn = Math.max(0.055, pages * mult);
+            var wrapWIn = (trim.w * 2) + spineIn + (bleed * 2);
+            var wrapHIn = trim.h + (bleed * 2);
+            spineInEl.textContent = fmtNum(spineIn, 3) + ' in';
+            spineMmEl.textContent = fmtNum(toMm(spineIn), 2) + ' mm';
+            wrapInEl.textContent = fmtNum(wrapWIn, 3) + ' × ' + fmtNum(wrapHIn, 3) + ' in';
+            wrapMmEl.textContent = fmtNum(toMm(wrapWIn), 2) + ' × ' + fmtNum(toMm(wrapHIn), 2) + ' mm';
+        }
+        [pageInput, trimSelect, interiorSelect, document.getElementById('prBindingType'), document.getElementById('prPaperType')]
+            .forEach(function (el) { if (el) el.addEventListener('input', recalc); if (el) el.addEventListener('change', recalc); });
+        recalc();
+    }
 
     var guides = {
         kdp: {
@@ -677,15 +1331,33 @@
 
     var stripeBtn = document.getElementById('btnStripePublish');
     var errEl = document.getElementById('pub-stripe-err');
+    var pubFormatOptions = document.getElementById('pubFormatOptions');
+    var pubFormatInput = document.getElementById('pubFormat');
+
+    if (pubFormatOptions && pubFormatInput) {
+        pubFormatOptions.addEventListener('click', function (e) {
+            var btn = e.target && e.target.closest ? e.target.closest('.pub-format-btn') : null;
+            if (!btn) return;
+            var v = btn.getAttribute('data-format') || 'Ebook';
+            pubFormatInput.value = v;
+            pubFormatOptions.querySelectorAll('.pub-format-btn').forEach(function (b) {
+                var active = b === btn;
+                b.classList.toggle('bg-violet-600', active);
+                b.classList.toggle('text-white', active);
+                b.classList.toggle('text-slate-700', !active);
+            });
+        });
+    }
 
     function runStripePublishCheckout() {
         if (!stripeBtn) return;
         stripeBtn.disabled = true;
         if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+        var publishFormat = (document.getElementById('pubFormat') && document.getElementById('pubFormat').value) || 'Ebook';
         fetch('/Checkout/CreateBookCheckoutSession', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookId: bookId, publishIntent: true })
+            body: JSON.stringify({ bookId: bookId, publishIntent: true, format: publishFormat })
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -713,7 +1385,7 @@
             });
     }
 
-    if (stripeBtn && !alreadyListed && bookId > 0 && publishReady) {
+    if (stripeBtn && !isPrintReadyFlow && !alreadyListed && bookId > 0 && publishReady) {
         stripeBtn.addEventListener('click', function () {
             var agree = document.getElementById('pubAgree');
             if (agree && !agree.checked) {
@@ -723,7 +1395,7 @@
             }
             if (typeof Swal !== 'undefined') {
                 Swal.fire({
-                    title: '<span style="font-family:Georgia,\'Playfair Display\',serif;font-weight:600;font-size:1.35rem;background:linear-gradient(90deg,#5b21b6,#4f46e5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Publish hub</span>',
+                    title: '<span style="font-family:Georgia,\'Playfair Display\',serif;font-weight:600;font-size:1.35rem;color:#5b21b6">Publish hub</span>',
                     html: buildPublishLearningModalHtml(),
                     width: 920,
                     showCancelButton: true,
@@ -749,5 +1421,7 @@
             }
         });
     }
+
+    initPrintReadyCalculator();
 })();
 </script>

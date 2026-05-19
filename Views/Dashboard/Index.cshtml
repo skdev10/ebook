@@ -100,13 +100,17 @@
                                 </div>
                                 <h3 class="font-medium text-gray-900 text-base">@book.Title</h3>
                                 @if (!string.IsNullOrEmpty(book.Subtitle)) { <p class="text-gray-400 text-sm font-light italic">@book.Subtitle</p> }
+                                <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                    <span class="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 font-medium text-purple-700">@(string.IsNullOrWhiteSpace(book.Status) ? "Draft" : book.Status)</span>
+                                    <span>@(string.IsNullOrWhiteSpace(book.LastEditedText) ? "Recently edited" : book.LastEditedText)</span>
+                                </div>
                             </a>
                         }
                     }
                     else if (publishedBooks.Any())
                     {
                         var idx = 0;
-                        foreach (var book in publishedBooks.Take(4))
+                        foreach (var book in publishedBooks)
                         {
                             var coverUrl = !string.IsNullOrEmpty(book.CoverImagePath) ? (book.CoverImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? book.CoverImagePath : Url.Content("~/" + book.CoverImagePath.TrimStart('/'))) : bookCoverFallbacks[idx % bookCoverFallbacks.Length];
                             idx++;
@@ -119,6 +123,10 @@
                                     </div>
                                 </div>
                                 <h3 class="font-medium text-gray-900 text-base">@book.Title</h3>
+                                <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                    <span class="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 font-medium text-purple-700">@book.Status</span>
+                                    <span>@(string.IsNullOrWhiteSpace(book.LastEditedText) ? "Edited recently" : book.LastEditedText)</span>
+                                </div>
                             </a>
                         }
                     }
@@ -152,10 +160,11 @@
                                     <div>
                                         <h3 class="font-semibold text-gray-900 text-base group-hover:text-purple-700 transition-colors">@draft.Title</h3>
                                         <p class="text-gray-400 text-sm mt-0.5">@draft.Subtitle</p>
+                                        <p class="text-gray-400 text-xs mt-0.5">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-4">
-                                    <span class="text-gray-400 text-sm font-medium">@draft.Volumes</span>
+                                    <span class="text-gray-400 text-sm font-medium">@(string.IsNullOrWhiteSpace(draft.Status) ? draft.Volumes : draft.Status)</span>
                                     <span class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-purple-50 text-gray-300 group-hover:text-purple-600 transition-colors">
                                         <i class="fas fa-edit w-4 h-4"></i>
                                     </span>
@@ -169,7 +178,7 @@
                     else if (draftBooksShow.Any())
                     {
                         var draftIdx = 0;
-                        foreach (var draft in draftBooksShow)
+                        foreach (var draft in draftBooks)
                         {
                             var draftCover = !string.IsNullOrEmpty(draft.CoverImagePath) ? (draft.CoverImagePath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? draft.CoverImagePath : Url.Content("~/" + draft.CoverImagePath.TrimStart('/'))) : bookCoverFallbacks[draftIdx % bookCoverFallbacks.Length];
                             draftIdx++;
@@ -179,10 +188,11 @@
                                     <div>
                                         <h3 class="font-semibold text-gray-900 text-base group-hover:text-purple-700 transition-colors">@draft.Title</h3>
                                         <p class="text-gray-400 text-sm mt-0.5">@draft.ProgressText</p>
+                                        <p class="text-gray-400 text-xs mt-0.5">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-4">
-                                    <span class="text-gray-400 text-sm font-medium">@draft.ProgressPercentage%</span>
+                                    <span class="text-gray-400 text-sm font-medium">@draft.Status</span>
                                     <span class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-purple-50 text-gray-300 group-hover:text-purple-600 transition-colors">
                                         <i class="fas fa-edit w-4 h-4"></i>
                                     </span>
