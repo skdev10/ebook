@@ -45,11 +45,22 @@ External chapter/cover API:
   ExternalApi__EditUrl
   ExternalApi__ApproveUrl
   ExternalApi__GenerateCoverUrl
+  ExternalApi__GenerateSpineBookCoverUrl
   ExternalApi__EditCoverUrl
   ExternalApi__AudioUrl
   ExternalApi__QueueDataUrl
   ExternalApi__RefineCoverPromptUrl
   ExternalApi__SuggestCoverPromptFromHighlightsUrl
+  Optional defaults for print-ready auto cover:
+  ExternalApi__PrintReadyCoverSize
+  ExternalApi__PrintReadyCoverQuality
+  ExternalApi__PrintReadyCoverStyle
+  PrintReadyCover__WhitePaperSpineInchesPerPage
+  PrintReadyCover__CreamPaperSpineInchesPerPage
+  PrintReadyCover__ColorPaperSpineInchesPerPage
+  PrintReadyCover__BleedInches
+  PrintReadyCover__DefaultTrimWidthInches
+  PrintReadyCover__DefaultTrimHeightInches
   Optional (default false / omit): ExternalApi__AudioSendLocalFilePath
     Set to "true" only if the audio worker runs on the same machine as this app and can read the saved file path. On App Platform, leave unset so only the uploaded bytes are sent (avoids upstream 500 from invalid paths).
 
@@ -65,6 +76,10 @@ Stripe:
   PaymentSettings__Stripe__SecretKey
   PaymentSettings__Stripe__WebhookSecret
   PaymentSettings__Stripe__BaseUrl
+  BookPayment__UsePageBasedPricing
+  BookPayment__PerPagePriceCents
+  BookPayment__MinimumChargeCents
+  BookPayment__MaximumChargeCents
 
 JWT (if used):
   JwtSettings__SecretKey

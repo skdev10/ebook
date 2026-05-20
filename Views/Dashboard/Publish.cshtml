@@ -21,6 +21,8 @@
 
     var premiumDimClass = !paid ? "opacity-40 select-none blur-[1px] pointer-events-none" : "";
     var pbChapterCount = ViewBag.PublishBookChapterCount is int pcc ? pcc : 0;
+    var pbEstimatedPages = ViewBag.PublishBookEstimatedPages is int pep ? pep : 0;
+    var pbWordCount = ViewBag.PublishBookWordCount is int pwc ? pwc : 0;
     var publishReady = ViewBag.PublishBookReady as bool? ?? false;
     var publishStateText = alreadyListed ? "Published listing" : (publishReady ? "Ready for checkout" : "Draft in progress");
     var isPrintReadyFlow = ViewBag.PublishPrintReadyMode as bool? ?? false;
@@ -200,6 +202,50 @@
         font-size: 0.9rem;
         padding-block: 0.82rem !important;
         padding-inline: 1.15rem !important;
+    }
+    #btnDownloadEbook,
+    #btnDownloadEbookPrint,
+    #btnDownloadFullBookPdf,
+    #btnDownloadInteriorPdf,
+    #btnDownloadKdpCover,
+    #btnDownloadCoverWrap,
+    #btnPrintReadyPublishPrimary,
+    #btnPrintReadyStripe,
+    #btnGeneratePrintReadyCover {
+        border-radius: 0.95rem !important;
+        font-size: 0.88rem;
+        padding-block: 0.78rem !important;
+        padding-inline: 1rem !important;
+    }
+    .pr-primary-action {
+        background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 55%, #8b5cf6 100%);
+        color: #fff;
+        border: 1px solid #6d28d9;
+        box-shadow: 0 14px 28px -18px rgba(91, 33, 182, 0.9);
+    }
+    .pr-primary-action:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 18px 32px -20px rgba(91, 33, 182, 0.95);
+    }
+    .pr-secondary-action {
+        border: 1px solid #cbd5e1;
+        background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
+        color: #0f172a;
+        box-shadow: 0 10px 24px -22px rgba(15, 23, 42, 0.75);
+    }
+    .pr-secondary-action:hover {
+        border-color: #a78bfa;
+        color: #4c1d95;
+        background: #f5f3ff;
+    }
+    .pr-tertiary-action {
+        border: 1px solid #dbeafe;
+        background: linear-gradient(160deg, #ffffff 0%, #eff6ff 100%);
+        color: #1e3a8a;
+    }
+    .pr-tertiary-action:hover {
+        border-color: #93c5fd;
+        background: #dbeafe;
     }
     #pub-stripe-hint {
         background: #f8fafc;
@@ -453,12 +499,56 @@
         color: #64748b;
         line-height: 1.45;
     }
+    .pr-cover-preview {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.85rem;
+        background: #f8fafc;
+        min-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    .pr-cover-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .pr-cover-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.5rem;
+    }
+    .pr-cover-tile {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.65rem;
+        background: #fff;
+        min-height: 92px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .pr-cover-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pr-cover-tile span { font-size: 0.72rem; color: #64748b; }
+    .pr-sync-note {
+        font-size: 0.74rem;
+        color: #475569;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        border-radius: 0.7rem;
+        padding: 0.45rem 0.62rem;
+    }
     @@media (max-width: 1024px) {
         .publish-printready-shell {
             grid-template-columns: 1fr;
         }
         .kdp-template {
             min-height: 290px;
+        }
+        .pr-cover-grid {
+            grid-template-columns: 1fr;
         }
     }
     .publish-paid-wrap { position: relative; }
@@ -757,13 +847,13 @@
         </article>
         <article class="publish-stat">
             <p class="publish-stat-label">Manuscript</p>
-            <p class="publish-stat-value">@(pbChapterCount > 0 ? (pbChapterCount + " chapter" + (pbChapterCount == 1 ? "" : "s")) : "No chapters yet")</p>
-            <p class="publish-stat-sub">Generated or finalized content</p>
+            <p class="publish-stat-value">@(pbEstimatedPages > 0 ? (pbEstimatedPages + " estimated pages") : (pbChapterCount > 0 ? (pbChapterCount + " chapter" + (pbChapterCount == 1 ? "" : "s")) : "No chapters yet"))</p>
+            <p class="publish-stat-sub">Single page-count source for PDF + Stripe</p>
         </article>
         <article class="publish-stat">
             <p class="publish-stat-label">Checkout state</p>
             <p class="publish-stat-value">@publishStateText</p>
-            <p class="publish-stat-sub">Stripe confirms publish status</p>
+            <p class="publish-stat-sub">@(pbWordCount > 0 ? (pbWordCount.ToString("N0") + " words in manuscript") : "Stripe confirms publish status")</p>
         </article>
     </section>
 
@@ -797,6 +887,47 @@
                             <span class="tag fiction" style="cursor:default;">@pbGenre</span>
                         }
                         <span class="tag draft" style="cursor:default;">@(alreadyListed ? "Published" : pbStatus)</span>
+                        @if (pbEstimatedPages > 0)
+                        {
+                            <span class="tag fiction" style="cursor:default;">@pbEstimatedPages pages</span>
+                        }
+                    </div>
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                        @if (isPrintReadyFlow)
+                        {
+                            if (!alreadyListed && publishReady)
+                            {
+                                <button type="button" id="btnPrintReadyPublishPrimary" class="inline-flex items-center gap-2 rounded-xl font-semibold px-4 py-2.5 text-sm transition-all pr-primary-action">
+                                    <i class="fas fa-credit-card"></i> Publish with Stripe
+                                </button>
+                            }
+                            else
+                            {
+                                <button type="button" id="btnPrintReadyPublishPrimary" disabled class="inline-flex items-center gap-2 rounded-xl bg-slate-300 text-slate-600 font-semibold px-4 py-2.5 text-sm cursor-not-allowed">
+                                    <i class="fas fa-check-circle"></i> @(alreadyListed ? "Already published" : "Publish unavailable")
+                                </button>
+                            }
+                            <button type="button" id="btnDownloadKdpCover" class="inline-flex items-center gap-2 rounded-xl font-semibold px-4 py-2.5 text-sm transition-all pr-secondary-action">
+                                <i class="fas fa-image"></i> Download KDP Cover
+                            </button>
+                            <button type="button" id="btnDownloadFullBookPdf" class="inline-flex items-center gap-2 rounded-xl font-semibold px-4 py-2.5 text-sm transition-all pr-tertiary-action">
+                                <i class="fas fa-file-pdf"></i> Download Full Book
+                            </button>
+                            <span id="pub-pdf-hint" class="text-xs text-slate-500">Three quick actions: publish, download KDP wrap cover, or download full book PDF.</span>
+                        }
+                        else
+                        {
+                            <button type="button" id="btnDownloadEbook" class="inline-flex items-center gap-2 rounded-xl bg-slate-900 text-white font-semibold px-4 py-2.5 text-sm hover:bg-slate-800 transition-colors">
+                                <i class="fas fa-file-pdf"></i> Full print-ready PDF
+                            </button>
+                            <button type="button" id="btnDownloadInteriorPdf" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50">
+                                <i class="fas fa-book-open"></i> Interior only PDF
+                            </button>
+                            <button type="button" id="btnDownloadCoverWrap" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50">
+                                <i class="fas fa-image"></i> Cover wrap PNG
+                            </button>
+                            <span id="pub-pdf-hint" class="text-xs text-slate-500">Download options: full print-ready, interior-only, or saved wrap cover asset.</span>
+                        }
                     </div>
                     <p class="text-xs text-slate-500 mt-4">
                         @if (isPrintReadyFlow)
@@ -866,71 +997,10 @@
         @if (isPrintReadyFlow && bookId > 0)
         {
             <section class="publish-card publish-card--printready">
-                <h2 class="text-lg font-semibold text-slate-900 mb-2 publish-card-title"><i class="fas fa-ruler-combined"></i><span>Print-ready cover template (KDP-style)</span></h2>
-                <p class="text-sm text-slate-500 mb-4 publish-card-sub">You selected <strong>Just print-ready file</strong> in Formatting, so this flow opens a trim + spine calculator style workspace. Ebook cover generation remains in AI Cover Design.</p>
-                <div class="publish-printready-shell">
-                    <div class="publish-printready-form">
-                        <div class="grid sm:grid-cols-2 gap-3">
-                            <label>
-                                <span class="kdp-field-label">Binding type</span>
-                                <select id="prBindingType">
-                                    <option value="paperback" selected>Paperback</option>
-                                    <option value="hardcover">Hardcover</option>
-                                </select>
-                            </label>
-                            <label>
-                                <span class="kdp-field-label">Interior type</span>
-                                <select id="prInteriorType">
-                                    <option value="bw" selected>Black &amp; white</option>
-                                    <option value="color">Color interior</option>
-                                </select>
-                            </label>
-                            <label>
-                                <span class="kdp-field-label">Paper type</span>
-                                <select id="prPaperType">
-                                    <option value="white" selected>White paper</option>
-                                    <option value="cream">Cream paper</option>
-                                </select>
-                            </label>
-                            <label>
-                                <span class="kdp-field-label">Trim size</span>
-                                <select id="prTrimSize">
-                                    <option value="6x9" selected>6 x 9 in</option>
-                                    <option value="5.5x8.5">5.5 x 8.5 in</option>
-                                    <option value="8.5x11">8.5 x 11 in</option>
-                                </select>
-                            </label>
-                            <label class="sm:col-span-2">
-                                <span class="kdp-field-label">Page count</span>
-                                <input id="prPageCount" type="number" min="24" max="828" value="200" />
-                            </label>
-                        </div>
-                        <div class="kdp-result-grid">
-                            <div class="kdp-result-row"><span>Spine width</span><strong id="prSpineIn">0.450 in</strong></div>
-                            <div class="kdp-result-row"><span>Spine width (mm)</span><strong id="prSpineMm">11.43 mm</strong></div>
-                            <div class="kdp-result-row"><span>Full wrap size (in)</span><strong id="prWrapIn">12.700 × 9.250 in</strong></div>
-                            <div class="kdp-result-row"><span>Full wrap size (mm)</span><strong id="prWrapMm">322.58 × 234.95 mm</strong></div>
-                        </div>
-                        <div class="kdp-actions">
-                            <a href="https://kdp.amazon.com/cover-calculator" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 rounded-xl bg-violet-700 text-white font-semibold px-4 py-2.5 text-sm hover:bg-violet-800">
-                                <i class="fas fa-external-link-alt"></i> Open KDP Cover Calculator
-                            </a>
-                            <a href="/Dashboard/Publish?bookId=@bookId" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50">
-                                <i class="fas fa-credit-card"></i> Switch to Stripe publish UI
-                            </a>
-                        </div>
-                    </div>
-                    <div class="kdp-reference-card">
-                        <div class="kdp-template" aria-hidden="true">
-                            <div class="kdp-spine-zone"></div>
-                            <div class="kdp-barcode-zone"></div>
-                            <span class="kdp-pin p1">1</span><span class="kdp-pin p2">2</span><span class="kdp-pin p3">3</span>
-                            <span class="kdp-pin p4">4</span><span class="kdp-pin p5">5</span><span class="kdp-pin p6">6</span>
-                            <span class="kdp-pin p7">7</span><span class="kdp-pin p8">8</span><span class="kdp-pin p9">9</span>
-                        </div>
-                        <p class="kdp-caption">Template-style preview for print wrap planning (back + spine + front). Use this as a visual guide before exporting and uploading your final PDF/PNG files.</p>
-                    </div>
-                </div>
+                <h2 class="text-lg font-semibold text-slate-900 mb-2 publish-card-title"><i class="fas fa-check-circle"></i><span>Print-ready flow active</span></h2>
+                <p class="text-sm text-slate-500 mb-3 publish-card-sub">KDP-style template panel removed. Use the three action buttons above for final publish, KDP cover download, and full book PDF download.</p>
+                <p class="text-xs text-slate-500">Source-of-truth page count: <strong>@(pbEstimatedPages > 0 ? pbEstimatedPages : 0)</strong> · Stripe checkout uses server-side validation.</p>
+                <p id="pub-stripe-err" class="text-sm text-red-600 hidden mt-3"></p>
             </section>
         }
         else
@@ -1124,7 +1194,7 @@
     </div>
 </div>
 
-@if (!alreadyListed && bookId > 0 && publishReady && !isPrintReadyFlow)
+@if (!alreadyListed && bookId > 0 && publishReady)
 {
     <script src="https://js.stripe.com/v3/"></script>
 }
@@ -1136,6 +1206,10 @@
     var alreadyListed = @(alreadyListed.ToString().ToLowerInvariant());
     var isPrintReadyFlow = @(isPrintReadyFlow.ToString().ToLowerInvariant());
     var publishableKey = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishableKey));
+    var pbTitle = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbTitle));
+    var pbGenre = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbGenre));
+    var pbDesc = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbDesc));
+    var pbEstimatedPages = @(pbEstimatedPages);
 
     function initPrintReadyCalculator() {
         if (!isPrintReadyFlow) return;
@@ -1151,6 +1225,7 @@
         var spineMmEl = document.getElementById('prSpineMm');
         var wrapInEl = document.getElementById('prWrapIn');
         var wrapMmEl = document.getElementById('prWrapMm');
+        var syncedPageEl = document.getElementById('prSyncedPageCount');
         if (!pageInput || !trimSelect || !interiorSelect || !spineInEl || !spineMmEl || !wrapInEl || !wrapMmEl) return;
 
         function toMm(vIn) { return vIn * 25.4; }
@@ -1160,6 +1235,7 @@
             if (!Number.isFinite(pages)) pages = 200;
             pages = Math.max(24, Math.min(828, pages));
             pageInput.value = String(pages);
+            if (syncedPageEl && pbEstimatedPages > 0) syncedPageEl.textContent = String(pbEstimatedPages);
             var trim = trimMap[trimSelect.value] || trimMap['6x9'];
             var mult = interiorSelect.value === 'color' ? 0.002347 : 0.002252;
             var bleed = 0.125;
@@ -1174,6 +1250,137 @@
         [pageInput, trimSelect, interiorSelect, document.getElementById('prBindingType'), document.getElementById('prPaperType')]
             .forEach(function (el) { if (el) el.addEventListener('input', recalc); if (el) el.addEventListener('change', recalc); });
         recalc();
+    }
+
+    function showTransientMessage(kind, text) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: kind,
+                text: text,
+                timer: 2600,
+                showConfirmButton: false
+            });
+        } else {
+            alert(text);
+        }
+    }
+
+    function downloadBlobAsFile(blob, filename) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function safeBookSlug() {
+        return String(pbTitle || 'book')
+            .toLowerCase()
+            .replace(/[^\w\s-]+/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'book';
+    }
+
+    function runPublishPdfDownload(triggerBtn) {
+        if (!bookId || bookId <= 0) {
+            showTransientMessage('warning', 'Select a book first.');
+            return;
+        }
+        if (triggerBtn) triggerBtn.disabled = true;
+
+        fetch('/Dashboard/DownloadBookPdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookId: bookId,
+                displayTitle: pbTitle || '',
+                displayAuthor: '',
+                displayGenre: pbGenre || '',
+                publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
+            })
+        })
+            .then(function (res) {
+                if (!res.ok) {
+                    return res.text().then(function (t) {
+                        throw new Error(t || 'Could not generate PDF.');
+                    });
+                }
+                return res.blob();
+            })
+            .then(function (blob) {
+                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '.pdf');
+                showTransientMessage('success', 'Full print-ready PDF download started.');
+            })
+            .catch(function (err) {
+                showTransientMessage('error', err && err.message ? err.message : 'PDF download failed.');
+            })
+            .finally(function () {
+                if (triggerBtn) triggerBtn.disabled = false;
+            });
+    }
+
+    function runInteriorPdfDownload(triggerBtn) {
+        if (!bookId || bookId <= 0) {
+            showTransientMessage('warning', 'Select a book first.');
+            return;
+        }
+        if (triggerBtn) triggerBtn.disabled = true;
+        fetch('/Dashboard/DownloadBookInteriorPdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookId: bookId,
+                displayTitle: pbTitle || '',
+                displayAuthor: '',
+                displayGenre: pbGenre || '',
+                publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
+            })
+        })
+            .then(function (res) {
+                if (!res.ok) {
+                    return res.text().then(function (t) { throw new Error(t || 'Could not generate interior PDF.'); });
+                }
+                return res.blob();
+            })
+            .then(function (blob) {
+                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-interior.pdf');
+                showTransientMessage('success', 'Interior-only PDF download started.');
+            })
+            .catch(function (err) {
+                showTransientMessage('error', err && err.message ? err.message : 'Interior PDF download failed.');
+            })
+            .finally(function () {
+                if (triggerBtn) triggerBtn.disabled = false;
+            });
+    }
+
+    function runCoverWrapDownload(triggerBtn) {
+        if (!bookId || bookId <= 0) {
+            showTransientMessage('warning', 'Select a book first.');
+            return;
+        }
+        if (triggerBtn) triggerBtn.disabled = true;
+        fetch('/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bookId) + '&part=wrap')
+            .then(function (res) {
+                if (!res.ok) throw new Error('Cover wrap not available yet. Generate print-ready cover first.');
+                return Promise.all([res.blob(), res.headers.get('content-type') || 'image/png']);
+            })
+            .then(function (pair) {
+                var blob = pair[0];
+                var ctype = pair[1];
+                var ext = ctype.indexOf('jpeg') >= 0 ? 'jpg' : (ctype.indexOf('webp') >= 0 ? 'webp' : 'png');
+                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-cover-wrap.' + ext);
+                showTransientMessage('success', 'Cover wrap download started.');
+            })
+            .catch(function (err) {
+                showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
+            })
+            .finally(function () {
+                if (triggerBtn) triggerBtn.disabled = false;
+            });
     }
 
     var guides = {
@@ -1349,15 +1556,92 @@
         });
     }
 
-    function runStripePublishCheckout() {
-        if (!stripeBtn) return;
-        stripeBtn.disabled = true;
+    function setImgOrLabel(imgEl, labelEl, value) {
+        if (!imgEl || !labelEl) return;
+        if (value) {
+            imgEl.src = value;
+            imgEl.classList.remove('hidden');
+            labelEl.classList.add('hidden');
+        } else {
+            imgEl.src = '';
+            imgEl.classList.add('hidden');
+            labelEl.classList.remove('hidden');
+        }
+    }
+
+    function runPrintReadyAutoCover(triggerBtn) {
+        if (!isPrintReadyFlow || !bookId || bookId <= 0) return;
+        var statusEl = document.getElementById('pr-cover-status');
+        var trimEl = document.getElementById('prTrimSize');
+        var prPageInput = document.getElementById('prPageCount');
+        var pageCount = pbEstimatedPages > 0 ? pbEstimatedPages : parseInt((prPageInput && prPageInput.value) || '0', 10);
+
+        if (triggerBtn) triggerBtn.disabled = true;
+        if (statusEl) statusEl.textContent = 'Generating back + spine + front cover set...';
+
+        fetch('/Dashboard/GeneratePrintReadyCover', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                bookId: bookId,
+                trimSize: trimEl ? trimEl.value : '6x9',
+                pageCount: pageCount
+            })
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || data.success === false) {
+                    throw new Error((data && data.message) || 'Could not generate print-ready cover.');
+                }
+
+                var wrapImg = document.getElementById('prWrapPreview');
+                var wrapPlaceholder = document.getElementById('prWrapPlaceholder');
+                var wrap = data.cover && data.cover.wrap ? data.cover.wrap : '';
+                if (wrapImg) {
+                    if (wrap) {
+                        wrapImg.src = wrap;
+                        wrapImg.classList.remove('hidden');
+                        if (wrapPlaceholder) wrapPlaceholder.classList.add('hidden');
+                    } else {
+                        wrapImg.src = '';
+                        wrapImg.classList.add('hidden');
+                        if (wrapPlaceholder) wrapPlaceholder.classList.remove('hidden');
+                    }
+                }
+
+                setImgOrLabel(document.getElementById('prBackPreview'), document.getElementById('prBackLabel'), data.cover && data.cover.back ? data.cover.back : '');
+                setImgOrLabel(document.getElementById('prSpinePreview'), document.getElementById('prSpineLabel'), data.cover && data.cover.spine ? data.cover.spine : '');
+                setImgOrLabel(document.getElementById('prFrontPreview'), document.getElementById('prFrontLabel'), data.cover && data.cover.front ? data.cover.front : '');
+
+                if (data.pageCount && prPageInput) prPageInput.value = String(data.pageCount);
+                if (statusEl) statusEl.textContent = 'Auto-cover generated from title/content. Ready for checkout + export.';
+            })
+            .catch(function (err) {
+                if (statusEl) statusEl.textContent = (err && err.message) ? err.message : 'Auto cover generation failed.';
+                showTransientMessage('error', (err && err.message) ? err.message : 'Auto cover generation failed.');
+            })
+            .finally(function () {
+                if (triggerBtn) triggerBtn.disabled = false;
+            });
+    }
+
+    function runStripePublishCheckout(opts) {
+        var activeBtn = (opts && opts.button) ? opts.button : stripeBtn;
+        if (!activeBtn) return;
+        activeBtn.disabled = true;
         if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
         var publishFormat = (document.getElementById('pubFormat') && document.getElementById('pubFormat').value) || 'Ebook';
+        var requestedPageCount = (opts && opts.pageCount) ? opts.pageCount : (pbEstimatedPages > 0 ? pbEstimatedPages : 0);
         fetch('/Checkout/CreateBookCheckoutSession', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bookId: bookId, publishIntent: true, format: publishFormat })
+            body: JSON.stringify({
+                bookId: bookId,
+                publishIntent: true,
+                format: publishFormat,
+                pageCount: requestedPageCount,
+                printReadyFlow: !!(opts && opts.printReadyFlow)
+            })
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -1373,16 +1657,42 @@
                     var stripe = Stripe(publishableKey);
                     return stripe.redirectToCheckout({ sessionId: data.sessionId }).then(function (result) {
                         if (result.error && errEl) { errEl.textContent = result.error.message || 'Checkout failed.'; errEl.classList.remove('hidden'); }
-                        stripeBtn.disabled = false;
+                        activeBtn.disabled = false;
                     });
                 }
                 if (errEl) { errEl.textContent = data.message || 'Could not start checkout. Is Stripe configured?'; errEl.classList.remove('hidden'); }
-                stripeBtn.disabled = false;
+                activeBtn.disabled = false;
             })
             .catch(function () {
                 if (errEl) { errEl.textContent = 'Network error. Please try again.'; errEl.classList.remove('hidden'); }
-                stripeBtn.disabled = false;
+                activeBtn.disabled = false;
             });
+    }
+
+    var pdfBtn = document.getElementById('btnDownloadEbook');
+    var pdfBtnPrint = document.getElementById('btnDownloadEbookPrint');
+    var fullBookBtn = document.getElementById('btnDownloadFullBookPdf');
+    var interiorBtn = document.getElementById('btnDownloadInteriorPdf');
+    var coverWrapBtn = document.getElementById('btnDownloadCoverWrap');
+    var kdpCoverBtn = document.getElementById('btnDownloadKdpCover');
+    var printReadyPublishPrimaryBtn = document.getElementById('btnPrintReadyPublishPrimary');
+    if (pdfBtn) {
+        pdfBtn.addEventListener('click', function () { runPublishPdfDownload(pdfBtn); });
+    }
+    if (pdfBtnPrint) {
+        pdfBtnPrint.addEventListener('click', function () { runPublishPdfDownload(pdfBtnPrint); });
+    }
+    if (fullBookBtn) {
+        fullBookBtn.addEventListener('click', function () { runPublishPdfDownload(fullBookBtn); });
+    }
+    if (interiorBtn) {
+        interiorBtn.addEventListener('click', function () { runInteriorPdfDownload(interiorBtn); });
+    }
+    if (coverWrapBtn) {
+        coverWrapBtn.addEventListener('click', function () { runCoverWrapDownload(coverWrapBtn); });
+    }
+    if (kdpCoverBtn) {
+        kdpCoverBtn.addEventListener('click', function () { runCoverWrapDownload(kdpCoverBtn); });
     }
 
     if (stripeBtn && !isPrintReadyFlow && !alreadyListed && bookId > 0 && publishReady) {
@@ -1420,6 +1730,22 @@
                 runStripePublishCheckout();
             }
         });
+    }
+
+    if (printReadyPublishPrimaryBtn && isPrintReadyFlow && !alreadyListed && bookId > 0 && publishReady) {
+        printReadyPublishPrimaryBtn.addEventListener('click', function () {
+            runStripePublishCheckout({
+                button: printReadyPublishPrimaryBtn,
+                pageCount: (pbEstimatedPages > 0 ? pbEstimatedPages : 0),
+                printReadyFlow: true
+            });
+        });
+    }
+
+    var prGenerateBtn = document.getElementById('btnGeneratePrintReadyCover');
+    if (prGenerateBtn && isPrintReadyFlow && bookId > 0) {
+        prGenerateBtn.addEventListener('click', function () { runPrintReadyAutoCover(prGenerateBtn); });
+        setTimeout(function () { runPrintReadyAutoCover(prGenerateBtn); }, 220);
     }
 
     initPrintReadyCalculator();

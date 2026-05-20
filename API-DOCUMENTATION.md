@@ -23,10 +23,11 @@ This document covers:
 | 4 | `/api/approve` | POST | Confirm chapter → upstream **`User_confirm`** |
 | 5 | `/api/queue-data` | GET | Queue: running / waiting / max concurrent / totals |
 | 6 | `/api/generate-cover` | POST | Generate cover options |
-| 7 | `/api/edit-cover` | POST | Edit cover from base64 + prompt |
-| 8 | `/api/book_chapters_name` | POST | Suggest chapter names from `highlights` |
-| 9 | `/api/refine_cover_prompt` | POST | Refine a user’s cover prompt text |
-| 10 | `/api/suggest-cover-prompt-from-highlights` | POST | Suggest cover prompt from book highlights |
+| 7 | `/api/generate-spine-book-cover` | POST | Generate full print-ready wrap (back+spine+front) |
+| 8 | `/api/edit-cover` | POST | Edit cover from base64 + prompt |
+| 9 | `/api/book_chapters_name` | POST | Suggest chapter names from `highlights` |
+| 10 | `/api/refine_cover_prompt` | POST | Refine a user’s cover prompt text |
+| 11 | `/api/suggest-cover-prompt-from-highlights` | POST | Suggest cover prompt from book highlights |
 
 **Cover-only constants** (not used by `/api/edit` chapter text):
 
@@ -170,7 +171,29 @@ No body. Returns metrics (shape depends on upstream), e.g. running / waiting / m
 
 ---
 
-## 7. Edit cover
+## 7. Generate print-ready wrap cover
+
+**`POST /api/generate-spine-book-cover`**
+
+```json
+{
+  "title": "The Light Keeper",
+  "author_name": "Christina Wallace",
+  "category": "Fantasy / Adventure",
+  "cover_style": "Deep navy blue background with ornate gold frame and serif typography",
+  "size": "1536x1024",
+  "quality": "medium",
+  "Interior_trim_size": "6 x 9 in",
+  "page_count": 250
+}
+```
+
+**ASP.NET BFF:** `POST /Dashboard/GeneratePrintReadyCover`  
+Page count is sourced from the same shared estimator used by PDF export and Stripe pricing.
+
+---
+
+## 8. Edit cover
 
 **`POST /api/edit-cover`**
 
@@ -187,7 +210,7 @@ No body. Returns metrics (shape depends on upstream), e.g. running / waiting / m
 
 ---
 
-## 8. Chapter name suggestions
+## 9. Chapter name suggestions
 
 **`POST /api/book_chapters_name`**
 
@@ -301,10 +324,17 @@ All outbound calls that use **`IBookApiClient`** add **`X-API-Key`** from `Exter
 | `GET /api/queue-data` | `GET /Books/GetQueueData` |
 | `POST /api/book_chapters_name` | `POST /Books/BookChaptersName` |
 | `POST /api/generate-cover` | Books / Dashboard cover generate actions |
+| `POST /api/generate-spine-book-cover` | `POST /Dashboard/GeneratePrintReadyCover` |
 | `POST /api/edit-cover` | Books / Dashboard edit-cover actions |
 | `POST /api/audio` | `POST /api/AudioToText/convert`, `POST /Audio/Upload` |
 | `POST /api/refine_cover_prompt` | `POST /Books/RefineCoverPrompt` |
 | `POST /api/suggest-cover-prompt-from-highlights` | `POST /Books/SuggestCoverPromptFromHighlights` |
+
+Additional publish/download BFF endpoints:
+- `GET /Dashboard/BookPageMetrics?bookId=<id>` — shared manuscript page-count source-of-truth.
+- `POST /Dashboard/DownloadBookPdf` — full print-ready PDF (cover + interior).
+- `POST /Dashboard/DownloadBookInteriorPdf` — interior-only PDF.
+- `GET /Dashboard/DownloadPrintReadyCoverAsset?bookId=<id>&part=wrap|front|back|spine` — download saved print-ready cover assets.
 
 **Pipeline:** `BookApiShort` (standard) vs **`BookApiLong`** (chapter generate). Resilience timeouts are configured in `Infrastructure/BookUpstreamHttpClientExtensions.cs`. Browser wait: `ChapterGeneration:BrowserFetchTimeoutMinutes`. IIS: see **`web.config`** `requestTimeout` when hosting in-process.
 
@@ -347,13 +377,17 @@ URLs are committed; **API key is not**. Example:
   "EditUrl": "http://162.229.248.26:8001/api/edit",
   "ApproveUrl": "http://162.229.248.26:8001/api/approve",
   "GenerateCoverUrl": "http://162.229.248.26:8001/api/generate-cover",
+  "GenerateSpineBookCoverUrl": "http://162.229.248.26:8001/api/generate-spine-book-cover",
   "EditCoverUrl": "http://162.229.248.26:8001/api/edit-cover",
   "AudioUrl": "http://162.229.248.26:8001/api/audio",
   "QueueDataUrl": "http://162.229.248.26:8001/api/queue-data",
   "BookChaptersNameUrl": "http://162.229.248.26:8001/api/book_chapters_name",
   "RefineCoverPromptUrl": "http://162.229.248.26:8001/api/refine_cover_prompt",
   "SuggestCoverPromptFromHighlightsUrl": "http://162.229.248.26:8001/api/suggest-cover-prompt-from-highlights",
-  "ApiKey": ""
+  "ApiKey": "",
+  "PrintReadyCoverSize": "1536x1024",
+  "PrintReadyCoverQuality": "medium",
+  "PrintReadyCoverStyle": ""
 }
 ```
 

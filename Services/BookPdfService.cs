@@ -109,6 +109,7 @@ public class BookPdfService : IBookPdfService
             genre,
             details.Subtitle,
             coverSrc,
+            opt.IncludeCoverPage,
             copyrightHtml,
             tocHtml,
             sections.ToString(),
@@ -225,7 +226,7 @@ public class BookPdfService : IBookPdfService
         var sb = new StringBuilder();
         sb.AppendLine("""<div class="front-matter-page toc-page">""");
         sb.AppendLine("""<h1 class="toc-title">Contents</h1>""");
-        sb.AppendLine("""<p class="toc-hint">Chapter titles and in-chapter headings (print-style contents). Page numbers appear in the footer.</p>""");
+        sb.AppendLine("""<p class="toc-hint">Chapter titles and in-chapter headings (print-style contents) with clickable chapter links and page references.</p>""");
         sb.AppendLine("""<ol class="toc-list">""");
         for (var i = 0; i < chapters.Count; i++)
         {
@@ -246,7 +247,7 @@ public class BookPdfService : IBookPdfService
 
             sb.AppendLine("""<li class="toc-item">""");
             sb.AppendLine(CultureInvariant(
-                $"""<div class="toc-chapter-line"><a href="#ch-{displayNum}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a></div>"""));
+                $"""<div class="toc-chapter-line"><a href="#ch-{displayNum}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a><span class="toc-page-ref" data-target="ch-{displayNum}">…</span></div>"""));
             if (subHeadings.Count > 0)
             {
                 sb.AppendLine("""<ul class="toc-subheadings">""");
@@ -329,7 +330,9 @@ public class BookPdfService : IBookPdfService
             ".toc-hint { font-size: 9pt; color: #64748b; margin: 0 0 8mm; } ",
             ".toc-list { margin: 0; padding-left: 5mm; } ",
             ".toc-item { margin: 0 0 5mm; font-size: 11pt; list-style-position: outside; } ",
-            ".toc-chapter-line { font-weight: 600; margin: 0 0 2mm; } ",
+            ".toc-chapter-line { font-weight: 600; margin: 0 0 2mm; display: flex; align-items: baseline; gap: 6mm; } ",
+            ".toc-chapter-line::after { content: ''; flex: 1 1 auto; border-bottom: 1px dotted #94a3b8; transform: translateY(-2px); } ",
+            ".toc-page-ref { font-weight: 600; min-width: 9mm; text-align: right; color: #334155; } ",
             ".toc-subheadings { list-style: none; padding-left: 8mm; margin: 0 0 2mm; } ",
             ".toc-subheading-item { font-size: 10pt; color: #334155; margin: 0 0 1.8mm; font-weight: 400; line-height: 1.35; } ",
             ".toc-heading-prefix { font-weight: 600; color: #0f172a; margin-right: 2mm; } ",
@@ -441,6 +444,7 @@ public class BookPdfService : IBookPdfService
         string genre,
         string? subtitle,
         string? coverSrc,
+        bool includeCoverPage,
         string copyrightHtml,
         string tocHtml,
         string chapterSections,
@@ -448,7 +452,9 @@ public class BookPdfService : IBookPdfService
         string pageSizeCss,
         string bodyTemplateClass)
     {
-        var coverBlock = string.IsNullOrEmpty(coverSrc)
+        var coverBlock = !includeCoverPage
+            ? ""
+            : string.IsNullOrEmpty(coverSrc)
             ? """
               <div class="cover-page cover-fallback">
                 <div class="cover-fallback-inner">
@@ -472,6 +478,7 @@ public class BookPdfService : IBookPdfService
         var subtitleBlock = string.IsNullOrWhiteSpace(subtitle)
             ? ""
             : CultureInvariant($"""<p class="subtitle">{WebUtility.HtmlEncode(subtitle.Trim())}</p>""");
+        var pageHeightPx = pageSizeCss.Contains("A4", StringComparison.OrdinalIgnoreCase) ? 1122.0 : 864.0;
 
         var doc = new StringBuilder();
         doc.AppendLine("<!DOCTYPE html>");
@@ -510,6 +517,22 @@ public class BookPdfService : IBookPdfService
         doc.AppendLine("""<div class="manuscript-root">""");
         doc.Append(chapterSections);
         doc.AppendLine("</div>");
+        doc.AppendLine("<script>");
+        doc.AppendLine("(function () {");
+        doc.AppendLine("  var pageHeight = " + pageHeightPx.ToString("0.###", CultureInfo.InvariantCulture) + ";");
+        doc.AppendLine("  if (!Number.isFinite(pageHeight) || pageHeight <= 0) pageHeight = 864;");
+        doc.AppendLine("  var refs = document.querySelectorAll('.toc-page-ref[data-target]');");
+        doc.AppendLine("  refs.forEach(function (el) {");
+        doc.AppendLine("    var id = el.getAttribute('data-target');");
+        doc.AppendLine("    if (!id) return;");
+        doc.AppendLine("    var target = document.getElementById(id);");
+        doc.AppendLine("    if (!target) return;");
+        doc.AppendLine("    var top = target.getBoundingClientRect().top + window.scrollY;");
+        doc.AppendLine("    var pageNo = Math.max(1, Math.floor(top / pageHeight) + 1);");
+        doc.AppendLine("    el.textContent = String(pageNo);");
+        doc.AppendLine("  });");
+        doc.AppendLine("})();");
+        doc.AppendLine("</script>");
         doc.AppendLine("</body></html>");
         return doc.ToString();
     }

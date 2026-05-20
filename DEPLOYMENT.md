@@ -10,6 +10,16 @@ ASP.NET Core maps nested JSON keys to env vars using **double underscores** (`__
 |-----------------|----------------------|
 | `ExternalApi:ApiKey` | `ExternalApi__ApiKey` |
 | `ExternalApi:BaseUrl` | `ExternalApi__BaseUrl` |
+| `ExternalApi:GenerateSpineBookCoverUrl` | `ExternalApi__GenerateSpineBookCoverUrl` |
+| `BookPayment:PerPagePriceCents` | `BookPayment__PerPagePriceCents` |
+| `BookPayment:MinimumChargeCents` | `BookPayment__MinimumChargeCents` |
+| `BookPayment:MaximumChargeCents` | `BookPayment__MaximumChargeCents` |
+| `PrintReadyCover:WhitePaperSpineInchesPerPage` | `PrintReadyCover__WhitePaperSpineInchesPerPage` |
+| `PrintReadyCover:CreamPaperSpineInchesPerPage` | `PrintReadyCover__CreamPaperSpineInchesPerPage` |
+| `PrintReadyCover:ColorPaperSpineInchesPerPage` | `PrintReadyCover__ColorPaperSpineInchesPerPage` |
+| `PrintReadyCover:BleedInches` | `PrintReadyCover__BleedInches` |
+| `PrintReadyCover:DefaultTrimWidthInches` | `PrintReadyCover__DefaultTrimWidthInches` |
+| `PrintReadyCover:DefaultTrimHeightInches` | `PrintReadyCover__DefaultTrimHeightInches` |
 | `Authentication:Google:ClientId` | `Authentication__Google__ClientId` |
 | `Authentication:Google:ClientSecret` | `Authentication__Google__ClientSecret` |
 | `Authentication:Facebook:AppId` | `Authentication__Facebook__AppId` |
@@ -29,6 +39,8 @@ The app enables **`UseForwardedHeaders`** so `X-Forwarded-Proto` / `X-Forwarded-
 2. Set **Run command** to publish output, e.g. `dotnet EBookDashboard.dll` after `dotnet publish -c Release -o ./publish` (adjust to your Dockerfile or build output).
 3. Under **App Settings → Environment Variables**, add every required key. Mark secrets as **SECRET / encrypted**:
    - `ExternalApi__ApiKey` (SECRET)
+   - `ExternalApi__GenerateSpineBookCoverUrl`
+   - `BookPayment__PerPagePriceCents`, `BookPayment__MinimumChargeCents`, `BookPayment__MaximumChargeCents`
    - `ConnectionStrings__DefaultConnection` (SECRET)
    - `Authentication__Google__ClientSecret`, `Authentication__Facebook__AppSecret` (SECRET)
    - Optional: `OpenAI__ApiKey` (SECRET) — used as fallback if `ExternalApi__ApiKey` is empty for some flows
@@ -46,6 +58,16 @@ See `.do/app.yaml` for a starter spec (update `github.repo`, `source_dir`, and `
    ASPNETCORE_ENVIRONMENT=Production
    ExternalApi__ApiKey=...
    ExternalApi__BaseUrl=http://your-fastapi-host:8001
+   ExternalApi__GenerateSpineBookCoverUrl=http://your-fastapi-host:8001/api/generate-spine-book-cover
+   BookPayment__PerPagePriceCents=12
+   BookPayment__MinimumChargeCents=999
+   BookPayment__MaximumChargeCents=99999
+   PrintReadyCover__WhitePaperSpineInchesPerPage=0.002252
+   PrintReadyCover__CreamPaperSpineInchesPerPage=0.0025
+   PrintReadyCover__ColorPaperSpineInchesPerPage=0.002347
+   PrintReadyCover__BleedInches=0.125
+   PrintReadyCover__DefaultTrimWidthInches=6.0
+   PrintReadyCover__DefaultTrimHeightInches=9.0
    ConnectionStrings__DefaultConnection=...
    Authentication__Google__ClientId=...
    Authentication__Google__ClientSecret=...

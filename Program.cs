@@ -223,6 +223,7 @@ builder.Services.AddScoped<IAuthorBillsService, AuthorBillsService>();
 builder.Services.AddScoped<CommonMethodsService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IBookPdfService, BookPdfService>();
+builder.Services.AddScoped<IBookPageMetricsService, BookPageMetricsService>();
 builder.Services.AddScoped<IChapterIterationService, ChapterIterationService>();
 builder.Services.Configure<ChapterGenerationOptions>(
     builder.Configuration.GetSection(ChapterGenerationOptions.SectionName));

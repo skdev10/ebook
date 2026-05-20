@@ -18,6 +18,7 @@ public class ExternalApiOptions
     public string EditUrl { get; set; } = "";
     public string ApproveUrl { get; set; } = "";
     public string GenerateCoverUrl { get; set; } = "";
+    public string GenerateSpineBookCoverUrl { get; set; } = "";
     public string EditCoverUrl { get; set; } = "";
     public string AudioUrl { get; set; } = "";
     public string QueueDataUrl { get; set; } = "";
@@ -27,6 +28,9 @@ public class ExternalApiOptions
 
     public string CoverGenerateSize { get; set; } = "1024x1536";
     public string CoverGenerateQuality { get; set; } = "medium";
+    public string PrintReadyCoverSize { get; set; } = "1536x1024";
+    public string PrintReadyCoverQuality { get; set; } = "medium";
+    public string PrintReadyCoverStyle { get; set; } = "";
 
     public string? AudioMultipartFieldNames { get; set; }
     public bool AudioSendLocalFilePath { get; set; }

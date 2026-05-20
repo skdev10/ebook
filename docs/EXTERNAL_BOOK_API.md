@@ -167,6 +167,43 @@ Defaults in config: `ExternalApi:CoverGenerateSize`, `ExternalApi:CoverGenerateQ
 
 ---
 
+## 6b. Generate print-ready wrap cover (back + spine + front)
+
+**POST** `/api/generate-spine-book-cover`
+
+**JSON body**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Book title. |
+| `author_name` | string | Author display name. |
+| `category` | string | Book genre/category. |
+| `cover_style` | string | Visual direction/style prompt. |
+| `size` | string | Recommended for full wrap: `1536x1024`. |
+| `quality` | string | `low`, `medium`, `high`, `auto`. |
+| `Interior_trim_size` | string | Trim label such as `6 x 9 in`. |
+| `page_count` | number | Manuscript page count (single source-of-truth in app). |
+
+**Example**
+
+```json
+{
+  "title": "The Light Keeper",
+  "author_name": "Christina Wallace",
+  "category": "Fantasy / Adventure",
+  "cover_style": "Deep navy blue background with subtle damask pattern, ornate gold frame, premium serif typography",
+  "size": "1536x1024",
+  "quality": "medium",
+  "Interior_trim_size": "6 x 9 in",
+  "page_count": 250
+}
+```
+
+**EBookDashboard BFF:** `POST /Dashboard/GeneratePrintReadyCover`  
+The BFF computes page count from the same manuscript metrics used by PDF + Stripe, then calls upstream `generate-spine-book-cover`.
+
+---
+
 ## 7. Edit cover
 
 **POST** `/api/edit-cover`
@@ -214,9 +251,17 @@ In `appsettings.json` (or environment-specific files), set:
 | `ExternalApi:AudioUrl` | Audio transcription URL. |
 | `ExternalApi:QueueDataUrl` | Queue GET URL. |
 | `ExternalApi:GenerateCoverUrl` | Generate cover URL. |
+| `ExternalApi:GenerateSpineBookCoverUrl` | Print-ready wrap (back+spine+front) generation URL. |
 | `ExternalApi:EditCoverUrl` | Edit cover URL. |
 | `ExternalApi:BookChaptersNameUrl` | Chapter names suggestion URL. |
+| `ExternalApi:PrintReadyCoverSize` | Default size for print-ready generation (`1536x1024`). |
+| `ExternalApi:PrintReadyCoverQuality` | Default quality for print-ready generation. |
+| `ExternalApi:PrintReadyCoverStyle` | Optional default style prompt for print-ready generation. |
 | `ChapterGeneration:HttpTimeoutMinutes` | HTTP client timeout for long chapter generation (see `Program.cs`). |
+| `BookPayment:UsePageBasedPricing` | Enable Stripe amount calculation from shared page count. |
+| `BookPayment:PerPagePriceCents` | Price per page in cents. |
+| `BookPayment:MinimumChargeCents` | Minimum Stripe charge floor. |
+| `BookPayment:MaximumChargeCents` | Maximum Stripe charge cap. |
 
 **User Secrets (development)**
 
@@ -257,6 +302,13 @@ These tables live on the **external** AI service’s database, not necessarily i
 | `GET /Books/GetQueueData` | `GET .../api/queue-data` |
 | `POST /Books/BookChaptersName` | `POST .../api/book_chapters_name` |
 | `POST /Dashboard/GenerateCover` | `POST .../api/generate-cover` |
+| `POST /Dashboard/GeneratePrintReadyCover` | `POST .../api/generate-spine-book-cover` |
 | `POST /Dashboard/EditCover` | `POST .../api/edit-cover` |
+
+Additional shared page endpoint:
+- `GET /Dashboard/BookPageMetrics?bookId=<id>` — returns `pageCount`, `wordCount`, `chapterCount`, and estimator basis.
+- `POST /Dashboard/DownloadBookPdf` — full print-ready PDF (interior + cover).
+- `POST /Dashboard/DownloadBookInteriorPdf` — interior-only PDF (cover page omitted).
+- `GET /Dashboard/DownloadPrintReadyCoverAsset?bookId=<id>&part=wrap|front|back|spine` — download saved print-ready cover assets.
 
 All of the above send **`X-API-Key`** when `ExternalApi:ApiKey` is configured.

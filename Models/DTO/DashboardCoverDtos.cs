@@ -55,4 +55,17 @@ namespace EBookDashboard.Models.DTO
         public string? BookFormat { get; set; }
         public string? PublishingPlatform { get; set; }
     }
+
+    /// <summary>POST /Dashboard/GeneratePrintReadyCover — auto-generate back+spine+front cover set.</summary>
+    public class PrintReadyCoverRequest
+    {
+        [Required]
+        public int BookId { get; set; }
+
+        public int? PageCount { get; set; }
+        public string? TrimSize { get; set; }
+        public string? CoverStyle { get; set; }
+        public string? Size { get; set; }
+        public string? Quality { get; set; }
+    }
 }

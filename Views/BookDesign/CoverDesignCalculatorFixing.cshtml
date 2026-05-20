@@ -109,6 +109,190 @@
         cursor: not-allowed;
     }
     .platform-implement ul { margin: 0; }
+    .pr-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 11050;
+        background: rgba(15, 23, 42, 0.58);
+        backdrop-filter: blur(7px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.24s ease;
+    }
+    .pr-modal-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .pr-modal-shell {
+        width: min(1320px, 82vw);
+        max-height: 92vh;
+        overflow: hidden;
+        border-radius: 1.1rem;
+        background: linear-gradient(160deg, #ffffff 0%, #fbfbff 45%, #f8fafc 100%);
+        border: 1px solid rgba(226, 232, 240, 0.95);
+        box-shadow:
+            0 55px 110px -52px rgba(15, 23, 42, 0.72),
+            0 18px 44px -34px rgba(79, 70, 229, 0.48);
+        display: flex;
+        flex-direction: column;
+        transform: translateY(18px) scale(0.986);
+        transition: transform 0.26s ease;
+    }
+    .pr-modal-backdrop.open .pr-modal-shell { transform: translateY(0) scale(1); }
+    .pr-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.1rem;
+        border-bottom: 1px solid #e9eaff;
+        background: linear-gradient(90deg, rgba(250, 245, 255, 0.98), rgba(244, 244, 255, 0.98));
+    }
+    .pr-modal-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+        gap: 1rem;
+        padding: 1rem;
+        overflow: auto;
+    }
+    .pr-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.9rem;
+        background: linear-gradient(175deg, #ffffff 0%, #fbfdff 100%);
+        padding: 0.9rem;
+    }
+    .pr-auto-grid {
+        margin-top: 0.65rem;
+        display: grid;
+        gap: 0.5rem;
+    }
+    .pr-auto-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.65rem;
+        padding: 0.56rem 0.7rem;
+        border-radius: 0.72rem;
+        border: 1px solid #dbe3f0;
+        background: #ffffff;
+    }
+    .pr-auto-row .pr-auto-label {
+        font-size: 0.74rem;
+        color: #64748b;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+    }
+    .pr-auto-row .pr-auto-value {
+        font-size: 0.8rem;
+        color: #0f172a;
+        font-weight: 700;
+        text-align: right;
+    }
+    .pr-metric {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+        border: 1px dashed #cbd5e1;
+        border-radius: 0.7rem;
+        padding: 0.5rem 0.65rem;
+        font-size: 0.78rem;
+        color: #334155;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        margin-top: 0.45rem;
+    }
+    .pr-metric strong { color: #0f172a; font-size: 0.8rem; }
+    .pr-cover-wrap {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.82rem;
+        overflow: hidden;
+        min-height: 280px;
+        background:
+            radial-gradient(circle at 12% 22%, rgba(99, 102, 241, 0.16), transparent 48%),
+            radial-gradient(circle at 88% 24%, rgba(16, 185, 129, 0.12), transparent 46%),
+            linear-gradient(160deg, #f8fafc 0%, #eef2ff 52%, #f8fafc 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        perspective: 1200px;
+    }
+    .pr-cover-wrap::before {
+        content: "";
+        position: absolute;
+        width: 78%;
+        height: 76%;
+        border-radius: 0.85rem;
+        box-shadow: 0 36px 44px -28px rgba(15, 23, 42, 0.45);
+        transform: translateY(14px) rotateX(16deg);
+        background: rgba(15, 23, 42, 0.15);
+        filter: blur(10px);
+        pointer-events: none;
+    }
+    .pr-cover-wrap.loading::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.66) 48%, rgba(255,255,255,0) 100%);
+        animation: prShimmer 1.2s ease-in-out infinite;
+        pointer-events: none;
+    }
+    .pr-cover-wrap img {
+        width: 88%;
+        height: 84%;
+        object-fit: contain;
+        display: block;
+        border-radius: 0.72rem;
+        box-shadow: 0 26px 46px -24px rgba(15, 23, 42, 0.55);
+        transform: rotateY(-8deg) rotateX(2deg);
+        transition: transform 0.25s ease, opacity 0.2s ease;
+    }
+    .pr-cover-wrap img:hover {
+        transform: rotateY(-4deg) rotateX(1deg) translateY(-1px);
+    }
+    .pr-cover-parts {
+        margin-top: 0.6rem;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.45rem;
+    }
+    .pr-cover-part {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.6rem;
+        min-height: 102px;
+        background: linear-gradient(170deg, #ffffff 0%, #f8fafc 100%);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72rem;
+        color: #64748b;
+    }
+    .pr-cover-part img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pr-modal-footer {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        padding: 0.85rem 1rem;
+        border-top: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+    @@keyframes prShimmer {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(100%); }
+    }
+    @@media (max-width: 1024px) {
+        .pr-modal-body { grid-template-columns: 1fr; }
+        .pr-cover-parts { grid-template-columns: 1fr; }
+        .pr-modal-shell { width: min(1200px, 96vw); }
+        .pr-cover-wrap { min-height: 240px; }
+    }
     .formatter-loading-spinner {
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         padding: 12px 20px; color: #6b21a8; font-size: 14px; font-weight: 500;
@@ -1263,8 +1447,14 @@ div#fmt-finalize-panel {
     var formatFromUrl = Model?.Format ?? "Ebook";
     if (formatFromUrl == "Print") { formatFromUrl = "Paperback"; }
     var uid = (Model?.UserId ?? 0) != 0 ? Model.UserId : (ViewBag.UserId ?? 0);
+    var prWhite = ViewBag.PrintReadyWhitePaperMultiplier as double? ?? 0.002252;
+    var prCream = ViewBag.PrintReadyCreamPaperMultiplier as double? ?? 0.002500;
+    var prColor = ViewBag.PrintReadyColorPaperMultiplier as double? ?? 0.002347;
+    var prBleed = ViewBag.PrintReadyBleedInches as double? ?? 0.125;
+    var prTrimW = ViewBag.PrintReadyDefaultTrimWidthInches as double? ?? 6.0;
+    var prTrimH = ViewBag.PrintReadyDefaultTrimHeightInches as double? ?? 9.0;
 }
-<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1 antialiased" id="book-formatter-root" data-user-id="@uid" data-book-id="@bookId" data-format="@formatFromUrl">
+<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1 antialiased" id="book-formatter-root" data-user-id="@uid" data-book-id="@bookId" data-format="@formatFromUrl" data-pr-white="@prWhite.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-cream="@prCream.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-color="@prColor.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-bleed="@prBleed.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-trim-w="@prTrimW.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-trim-h="@prTrimH.ToString(System.Globalization.CultureInfo.InvariantCulture)">
     <main class="flex-1 overflow-y-auto p-8 lg:p-12 pb-16 lg:pb-24">
         <div class="max-w-[1600px] mx-auto w-full">
             <div class="fmt-main-layout flex flex-col lg:flex-row gap-12 lg:gap-24">
@@ -1595,6 +1785,66 @@ div#fmt-finalize-panel {
     </main>
 </div>
 
+<div id="printReadyModal" class="pr-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="prModalTitle">
+    <div class="pr-modal-shell">
+        <div class="pr-modal-header">
+            <div>
+                <p class="text-[11px] uppercase tracking-wide font-semibold text-violet-700">Print-ready branch</p>
+                <h3 id="prModalTitle" class="text-base font-semibold text-slate-900">KDP-style wrap cover generator</h3>
+            </div>
+            <button type="button" id="prModalClose" class="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50" aria-label="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="pr-modal-body">
+            <section class="pr-card">
+                <h4 class="text-sm font-semibold text-slate-900 mb-2">Auto-filled print inputs</h4>
+                <p class="text-xs text-slate-500">No manual typing required. Inputs are calculated from manuscript length and configuration.</p>
+                <div class="pr-auto-grid">
+                    <div class="pr-auto-row"><span class="pr-auto-label">Paper type</span><strong class="pr-auto-value" id="prModalPaperTypeValue">White paper</strong></div>
+                    <div class="pr-auto-row"><span class="pr-auto-label">Trim size</span><strong class="pr-auto-value" id="prModalTrimSizeValue">6 x 9 in</strong></div>
+                    <div class="pr-auto-row"><span class="pr-auto-label">Page count (source-of-truth)</span><strong class="pr-auto-value" id="prModalPageCountValue">24</strong></div>
+                    <div class="pr-auto-row"><span class="pr-auto-label">Book title</span><strong class="pr-auto-value" id="prModalTitleValue">—</strong></div>
+                    <div class="pr-auto-row"><span class="pr-auto-label">Author</span><strong class="pr-auto-value" id="prModalAuthorValue">—</strong></div>
+                    <div class="pr-auto-row"><span class="pr-auto-label">Genre theme</span><strong class="pr-auto-value" id="prModalGenreValue">—</strong></div>
+                </div>
+                <div class="mt-2">
+                    <div class="pr-metric"><span>Spine width</span><strong id="prModalSpineIn">—</strong></div>
+                    <div class="pr-metric"><span>Spine width (mm)</span><strong id="prModalSpineMm">—</strong></div>
+                    <div class="pr-metric"><span>Full wrap size (in)</span><strong id="prModalWrapIn">—</strong></div>
+                    <div class="pr-metric"><span>Full wrap size (mm)</span><strong id="prModalWrapMm">—</strong></div>
+                </div>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button type="button" id="prModalAutoGenerate" class="formatter-ui-radius inline-flex items-center gap-2 rounded-xl bg-violet-700 text-white font-semibold px-4 py-2.5 text-sm hover:bg-violet-800">
+                        <i class="fas fa-wand-magic-sparkles"></i> Auto-generate cover set
+                    </button>
+                </div>
+                <p id="prModalStatus" class="text-xs text-slate-500 mt-2 min-h-[1.25rem]">Ready to auto-generate.</p>
+            </section>
+            <section class="pr-card">
+                <h4 class="text-sm font-semibold text-slate-900 mb-2">Generated wrap preview</h4>
+                <div id="prModalWrapStage" class="pr-cover-wrap">
+                    <img id="prModalWrapImg" src="" alt="Print-ready wrap preview" class="hidden" />
+                    <span id="prModalWrapPlaceholder" class="text-xs text-slate-500">Auto-generated wrap preview appears here.</span>
+                </div>
+                <div class="pr-cover-parts">
+                    <div id="prModalBackTile" class="pr-cover-part hidden" data-optional="1"><img id="prModalBackImg" src="" alt="Back cover" class="hidden" /></div>
+                    <div id="prModalSpineTile" class="pr-cover-part hidden" data-optional="1"><img id="prModalSpineImg" src="" alt="Spine cover" class="hidden" /></div>
+                    <div class="pr-cover-part"><img id="prModalFrontImg" src="" alt="Front cover" class="hidden" /><span id="prModalFrontLabel">Front</span></div>
+                </div>
+                <p class="text-xs text-slate-500 mt-2">Back/spine/front are generated in one cohesive theme so back cover color style matches front design.</p>
+            </section>
+        </div>
+        <div class="pr-modal-footer">
+            <p class="text-xs text-slate-500">After confirm, you move to Publish with print-ready mode enabled.</p>
+            <div class="flex flex-wrap gap-2">
+                <button type="button" id="prModalCancel" class="formatter-ui-radius rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50">Cancel</button>
+                <button type="button" id="prModalConfirm" class="formatter-ui-radius rounded-xl bg-emerald-600 text-white font-semibold px-4 py-2.5 text-sm hover:bg-emerald-700" disabled>Confirm and continue</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="toast-formatter" class="toast-formatter">Notification</div>
 
 <script>
@@ -1612,6 +1862,19 @@ div#fmt-finalize-panel {
     const userId = parseInt((root && root.getAttribute('data-user-id')) || '0', 10);
     let initialBookId = parseInt((root && root.getAttribute('data-book-id')) || '0', 10);
     let formatFromUrl = (root && root.getAttribute('data-format')) || 'Ebook';
+    function parseRootFloat(name, fallback) {
+        var raw = root ? root.getAttribute(name) : '';
+        var n = parseFloat(raw || '');
+        return Number.isFinite(n) ? n : fallback;
+    }
+    const printReadyConfig = {
+        whiteMultiplier: parseRootFloat('data-pr-white', 0.002252),
+        creamMultiplier: parseRootFloat('data-pr-cream', 0.0025),
+        colorMultiplier: parseRootFloat('data-pr-color', 0.002347),
+        bleedInches: parseRootFloat('data-pr-bleed', 0.125),
+        defaultTrimW: parseRootFloat('data-pr-trim-w', 6.0),
+        defaultTrimH: parseRootFloat('data-pr-trim-h', 9.0)
+    };
 
     /** When present on the URL (?format=Ebook etc.), keep preview mode in sync after GetBookFormatting / local draft (matches AI Writer deep links). */
     function getFormatQueryParam() {
@@ -2081,6 +2344,466 @@ div#fmt-finalize-panel {
         toastEl.classList.add('show');
         if (toastTimeout) clearTimeout(toastTimeout);
         toastTimeout = setTimeout(function() { toastEl.classList.remove('show'); }, 3000);
+    }
+
+    const prModal = document.getElementById('printReadyModal');
+    const prModalStatus = document.getElementById('prModalStatus');
+    const prModalPageValue = document.getElementById('prModalPageCountValue');
+    const prModalPaperValue = document.getElementById('prModalPaperTypeValue');
+    const prModalTrimValue = document.getElementById('prModalTrimSizeValue');
+    const prModalTitleValue = document.getElementById('prModalTitleValue');
+    const prModalAuthorValue = document.getElementById('prModalAuthorValue');
+    const prModalGenreValue = document.getElementById('prModalGenreValue');
+    const prModalSpineIn = document.getElementById('prModalSpineIn');
+    const prModalSpineMm = document.getElementById('prModalSpineMm');
+    const prModalWrapIn = document.getElementById('prModalWrapIn');
+    const prModalWrapMm = document.getElementById('prModalWrapMm');
+    const prModalConfirmBtn = document.getElementById('prModalConfirm');
+    const prModalWrapStage = document.getElementById('prModalWrapStage');
+    let printReadyPendingBookId = 0;
+    let printReadyGenerated = null;
+    let printReadyOpenAfterSave = false;
+    let printReadyGenerationIteration = 0;
+    let printReadyComputed = {
+        pageCount: 24,
+        paperType: 'white',
+        trimValue: '6x9',
+        spineIn: 0.055,
+        wrapWIn: 12.305,
+        wrapHIn: 9.25
+    };
+    const PRINT_READY_STYLE_STORE_KEY = 'printready_style_recent_v1';
+    const PRINT_READY_STYLE_LIBRARY = [
+        { id: 'cinematic-atmosphere', category: 'premium-decorative', tone: 'cinematic', tags: ['horror', 'thriller', 'fantasy', 'sci-fi', 'adventure'], layout: 'asymmetric hero visual, diagonal energy, high drama', typography: 'high-contrast display serif + compact sans support', background: 'layered lighting with haze and vignette', visuals: 'hero art, atmospheric particles, soft glow' },
+        { id: 'minimal-typography-first', category: 'solid-color', tone: 'minimal', tags: ['business', 'self-help', 'leadership', 'finance', 'memoir'], layout: 'strict grid, large title block, disciplined whitespace', typography: 'bold modern sans + subtle serif accent', background: 'solid premium base with one geometric motif', visuals: 'shape-led composition, no clutter' },
+        { id: 'luxury-editorial', category: 'premium-decorative', tone: 'luxury', tags: ['romance', 'historical', 'drama', 'biography', 'literary'], layout: 'centered editorial structure with elegant symmetry', typography: 'refined serif pair + script accent', background: 'soft texture with foil-like highlights', visuals: 'ornamental lines, refined frame system' },
+        { id: 'dark-modern-texture', category: 'gradient', tone: 'dark-modern', tags: ['horror', 'mystery', 'crime', 'thriller'], layout: 'off-center hierarchy with depth layers', typography: 'condensed uppercase display + sturdy sans', background: 'deep gradient with gritty texture', visuals: 'shadow overlays, directional lighting' },
+        { id: 'futuristic-neon-grid', category: 'gradient', tone: 'futuristic', tags: ['sci-fi', 'technology', 'cyberpunk', 'ai'], layout: 'modular grid with layered planes', typography: 'sleek futuristic sans + mono accent', background: 'neon gradient mesh with light streaks', visuals: 'abstract tech overlays, glow trims' },
+        { id: 'fantasy-illustrative', category: 'premium-decorative', tone: 'fantasy-art', tags: ['fantasy', 'epic', 'magic', 'adventure'], layout: 'hero-centric art with atmospheric framing', typography: 'cinematic serif with embellished initials', background: 'rich painterly gradient and mist depth', visuals: 'mythic iconography, magical particles' },
+        { id: 'romance-soft-lux', category: 'gradient', tone: 'romance-elegant', tags: ['romance', 'love', 'drama', 'women-fiction'], layout: 'flowing diagonal balance with breathing space', typography: 'elegant serif + hand-lettered accent', background: 'pastel gradient with warm bloom', visuals: 'soft florals, subtle bokeh, premium sheen' },
+        { id: 'children-playful-illustration', category: 'solid-color', tone: 'children-illustration', tags: ['kids', 'children', 'child', 'picture-book'], layout: 'large central title with playful framing', typography: 'rounded friendly display + readable sans', background: 'bright solid base with playful supporting colors', visuals: 'illustrated characters, joyful shapes' },
+        { id: 'corporate-premium', category: 'solid-color', tone: 'corporate', tags: ['business', 'corporate', 'entrepreneurship', 'marketing'], layout: 'left aligned block system with authority rhythm', typography: 'clean geometric sans hierarchy', background: 'matte solid with subtle line pattern', visuals: 'precision icons, abstract data forms' },
+        { id: 'vintage-crafted', category: 'premium-decorative', tone: 'vintage', tags: ['history', 'memoir', 'western', 'classic'], layout: 'badge-led composition with ornamental borders', typography: 'classic serif + engraved style caps', background: 'paper texture with muted layered inks', visuals: 'decorative dividers, heritage motifs' }
+    ];
+
+    function fmtNumber(v, d) {
+        return Number(v || 0).toFixed(d);
+    }
+
+    function normalizeTrimValue(v) {
+        var key = String(v || '').toLowerCase().replace(/\s+/g, '');
+        if (key === '5.5x8.5') return '5.5x8.5';
+        if (key === '8.5x11') return '8.5x11';
+        return '6x9';
+    }
+
+    function inferTrimValueFromConfig() {
+        var w = Number(printReadyConfig.defaultTrimW || 6);
+        var h = Number(printReadyConfig.defaultTrimH || 9);
+        if (Math.abs(w - 5.5) < 0.11 && Math.abs(h - 8.5) < 0.11) return '5.5x8.5';
+        if (Math.abs(w - 8.5) < 0.11 && Math.abs(h - 11) < 0.11) return '8.5x11';
+        return '6x9';
+    }
+
+    function trimValueToDims(v) {
+        if (v === '6x9') return { w: 6.0, h: 9.0 };
+        if (v === '5.5x8.5') return { w: 5.5, h: 8.5 };
+        if (v === '8.5x11') return { w: 8.5, h: 11.0 };
+        return { w: printReadyConfig.defaultTrimW, h: printReadyConfig.defaultTrimH };
+    }
+
+    function trimLabel(v) {
+        if (v === '5.5x8.5') return '5.5 x 8.5 in';
+        if (v === '8.5x11') return '8.5 x 11 in';
+        return '6 x 9 in';
+    }
+
+    function normalizePaperType(paper) {
+        var v = String(paper || '').toLowerCase();
+        if (v === 'cream' || v === 'color') return v;
+        return 'white';
+    }
+
+    function paperLabel(paper) {
+        var v = normalizePaperType(paper);
+        if (v === 'cream') return 'Cream paper';
+        if (v === 'color') return 'Color paper';
+        return 'White paper';
+    }
+
+    function inferPaperTypeFromGenre(genre) {
+        var g = String(genre || '').toLowerCase();
+        if (!g) return 'white';
+        if (/(kids|children|child|picture)/.test(g)) return 'color';
+        if (/(romance|fantasy|historical|poetry|drama)/.test(g)) return 'cream';
+        return 'white';
+    }
+
+    function paperMultiplier(paper) {
+        var v = normalizePaperType(paper);
+        if (v === 'cream') return printReadyConfig.creamMultiplier;
+        if (v === 'color') return printReadyConfig.colorMultiplier;
+        return printReadyConfig.whiteMultiplier;
+    }
+
+    function getGenreProfile(genre) {
+        var g = String(genre || '').toLowerCase();
+        if (/(horror|thriller|mystery)/.test(g)) {
+            return {
+                tone: 'Dark cinematic',
+                palette: 'charcoal black, deep crimson, moody gray',
+                typography: 'high-contrast condensed title with sharp readable caps',
+                composition: 'strong focal image with negative space and subtle texture'
+            };
+        }
+        if (/(romance|love)/.test(g)) {
+            return {
+                tone: 'Elegant and emotional',
+                palette: 'soft rose, blush, cream, warm plum accents',
+                typography: 'premium serif display title with graceful script accent',
+                composition: 'balanced romantic composition with clean hierarchy'
+            };
+        }
+        if (/(business|finance|self-help|leadership)/.test(g)) {
+            return {
+                tone: 'Minimal professional',
+                palette: 'midnight blue, white, subtle teal highlights',
+                typography: 'modern geometric sans with bold primary title',
+                composition: 'structured grid composition with confident whitespace'
+            };
+        }
+        if (/(fantasy|magic|epic|adventure|sci-fi|science fiction)/.test(g)) {
+            return {
+                tone: 'Rich dramatic',
+                palette: 'indigo, gold, cosmic violet, emerald accents',
+                typography: 'cinematic serif with stylized but readable subtitle',
+                composition: 'immersive artwork feel with light effects and layered depth'
+            };
+        }
+        if (/(kids|children|child)/.test(g)) {
+            return {
+                tone: 'Colorful playful',
+                palette: 'bright cyan, yellow, coral, mint',
+                typography: 'friendly rounded type with large readable title blocks',
+                composition: 'joyful illustrated layout with energetic shapes'
+            };
+        }
+        return {
+            tone: 'Modern premium',
+            palette: 'balanced complementary colors with subtle gradients',
+            typography: 'clean premium title hierarchy with strong readability',
+            composition: 'market-ready composition with front-spine-back cohesion'
+        };
+    }
+
+    function shortText(s, maxLen) {
+        var t = String(s || '').replace(/\s+/g, ' ').trim();
+        if (!t) return '';
+        return t.length > maxLen ? (t.substring(0, maxLen).trim() + '...') : t;
+    }
+
+    function syncPrIdentityRows() {
+        if (prModalTitleValue) prModalTitleValue.textContent = shortText(bookPreviewContext.bookTitle || 'Untitled book', 38);
+        if (prModalAuthorValue) prModalAuthorValue.textContent = shortText(bookPreviewContext.authorName || 'Unknown author', 32);
+        var genreLabel = shortText(bookPreviewContext.genre || 'General market', 28);
+        if (prModalGenreValue) prModalGenreValue.textContent = genreLabel;
+    }
+
+    function setPrModalStatus(msg, isError) {
+        if (!prModalStatus) return;
+        prModalStatus.textContent = msg || '';
+        prModalStatus.classList.toggle('text-red-600', !!isError);
+        prModalStatus.classList.toggle('text-slate-500', !isError);
+    }
+
+    function setPartImage(imgId, labelId, url) {
+        var img = document.getElementById(imgId);
+        var label = labelId ? document.getElementById(labelId) : null;
+        var tile = img && img.closest ? img.closest('.pr-cover-part') : null;
+        if (!img) return;
+        if (url) {
+            img.src = url;
+            img.classList.remove('hidden');
+            if (label) label.classList.add('hidden');
+            if (tile) tile.classList.remove('hidden');
+        } else {
+            img.src = '';
+            img.classList.add('hidden');
+            if (label) label.classList.remove('hidden');
+            if (tile && tile.getAttribute('data-optional') === '1') tile.classList.add('hidden');
+        }
+    }
+
+    function recalcPrintReadyModalMetrics(overrides) {
+        if (overrides && typeof overrides === 'object') {
+            printReadyComputed = Object.assign({}, printReadyComputed, overrides);
+        }
+        var pages = parseInt(printReadyComputed.pageCount || '0', 10);
+        if (!Number.isFinite(pages) || pages <= 0) pages = 24;
+        pages = Math.max(24, Math.min(828, pages));
+        var paper = normalizePaperType(printReadyComputed.paperType || inferPaperTypeFromGenre(bookPreviewContext.genre));
+        var trimValue = normalizeTrimValue(printReadyComputed.trimValue || inferTrimValueFromConfig());
+
+        var trim = trimValueToDims(trimValue);
+        var mul = paperMultiplier(paper);
+        var bleed = printReadyConfig.bleedInches;
+        var spineIn = Math.max(0.055, pages * mul);
+        var wrapWIn = (trim.w * 2) + spineIn + (bleed * 2);
+        var wrapHIn = trim.h + (bleed * 2);
+        var toMm = function(v) { return v * 25.4; };
+
+        printReadyComputed = {
+            pageCount: pages,
+            paperType: paper,
+            trimValue: trimValue,
+            spineIn: spineIn,
+            wrapWIn: wrapWIn,
+            wrapHIn: wrapHIn
+        };
+
+        if (prModalPageValue) prModalPageValue.textContent = String(pages);
+        if (prModalPaperValue) prModalPaperValue.textContent = paperLabel(paper);
+        if (prModalTrimValue) prModalTrimValue.textContent = trimLabel(trimValue);
+
+        if (prModalSpineIn) prModalSpineIn.textContent = fmtNumber(spineIn, 3) + ' in';
+        if (prModalSpineMm) prModalSpineMm.textContent = fmtNumber(toMm(spineIn), 2) + ' mm';
+        if (prModalWrapIn) prModalWrapIn.textContent = fmtNumber(wrapWIn, 3) + ' × ' + fmtNumber(wrapHIn, 3) + ' in';
+        if (prModalWrapMm) prModalWrapMm.textContent = fmtNumber(toMm(wrapWIn), 2) + ' × ' + fmtNumber(toMm(wrapHIn), 2) + ' mm';
+        return printReadyComputed;
+    }
+
+    function hashStringToInt(input) {
+        var s = String(input || '');
+        var h = 2166136261;
+        for (var i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+        }
+        return Math.abs(h >>> 0);
+    }
+
+    function pickDeterministicIndex(seed, mod) {
+        if (!mod || mod <= 0) return 0;
+        return hashStringToInt(seed) % mod;
+    }
+
+    function getRecentStyleHistory(bookId) {
+        if (!bookId) return [];
+        try {
+            var raw = sessionStorage.getItem(PRINT_READY_STYLE_STORE_KEY);
+            if (!raw) return [];
+            var all = JSON.parse(raw);
+            var arr = all && all[String(bookId)];
+            return Array.isArray(arr) ? arr.slice(0, 8) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveRecentStyleHistory(bookId, arr) {
+        if (!bookId) return;
+        try {
+            var raw = sessionStorage.getItem(PRINT_READY_STYLE_STORE_KEY);
+            var all = raw ? JSON.parse(raw) : {};
+            all[String(bookId)] = (arr || []).slice(0, 8);
+            sessionStorage.setItem(PRINT_READY_STYLE_STORE_KEY, JSON.stringify(all));
+        } catch (e) { /* ignore */ }
+    }
+
+    function selectDesignDirection(bookId, genre, iterationSeed) {
+        var g = String(genre || '').toLowerCase();
+        var recent = getRecentStyleHistory(bookId);
+        var score = function(style) {
+            var s = 1;
+            if (style && Array.isArray(style.tags)) {
+                for (var i = 0; i < style.tags.length; i++) {
+                    if (g.indexOf(style.tags[i]) >= 0) s += 3;
+                }
+            }
+            if (recent.indexOf(style.id) >= 0) s -= 5;
+            return s;
+        };
+        var ranked = PRINT_READY_STYLE_LIBRARY
+            .map(function(style) { return { style: style, score: score(style) }; })
+            .sort(function(a, b) { return b.score - a.score; })
+            .map(function(item) { return item.style; });
+        var candidatePool = ranked.slice(0, Math.min(5, ranked.length));
+        var seed = String(iterationSeed || Date.now()) + '|' + String(bookId || '') + '|' + String(genre || '');
+        var idx = pickDeterministicIndex(seed, candidatePool.length || 1);
+        var selected = candidatePool[idx] || ranked[0] || PRINT_READY_STYLE_LIBRARY[0];
+        var nextRecent = [selected.id].concat(recent.filter(function(id) { return id !== selected.id; })).slice(0, 5);
+        saveRecentStyleHistory(bookId, nextRecent);
+        return selected;
+    }
+
+    function buildGenerationInstructionBundle(selectedStyle) {
+        return [
+            'Variation system requirements:',
+            '1) DO NOT reuse prior layout skeleton or just recolor existing template.',
+            '2) Change composition architecture this generation: title block location, image massing, and negative-space ratio.',
+            '3) Change typography treatment this generation: font family pairing, weight rhythm, line breaks, and title lockup shape.',
+            '4) Change decorative language this generation: overlays, textures, motifs, frame system, and spine strip treatment.',
+            '5) Keep professional hierarchy and readability at thumbnail size.',
+            'Selected category: ' + selectedStyle.category + '.',
+            'Selected visual direction: ' + selectedStyle.tone + '.',
+            'Required layout style: ' + selectedStyle.layout + '.',
+            'Required background strategy: ' + selectedStyle.background + '.',
+            'Required visual assets style: ' + selectedStyle.visuals + '.',
+            'Required typography direction: ' + selectedStyle.typography + '.'
+        ].join(' ');
+    }
+
+    function buildSmartCoverPrompt(spec, selectedStyle, generationIteration) {
+        var profile = getGenreProfile(bookPreviewContext.genre || '');
+        var subtitle = shortText(bookPreviewContext.subtitle || '', 80);
+        var description = shortText(bookPreviewContext.description || '', 320);
+        var firstChapter = (bookChapters && bookChapters.length > 0)
+            ? shortText(bookChapters[0].content || '', 320)
+            : '';
+        var trim = trimLabel(spec.trimValue);
+        var paper = paperLabel(spec.paperType);
+        var structureInstructions = buildGenerationInstructionBundle(selectedStyle);
+        return [
+            'You are a senior KDP print-cover art director generating one unique, world-class wrap cover.',
+            'Output objective: Commercial-quality Amazon KDP cover that looks human-designed, premium, and market-ready.',
+            structureInstructions,
+            'Distinct design families must remain structurally different:',
+            '- Solid-color family: bold matte base, controlled accents, typography-led hierarchy.',
+            '- Gradient family: intentional gradient transitions, light depth, cinematic atmosphere.',
+            '- Premium-decorative family: refined textures, ornaments, framing, polished artistic detail.',
+            'Print-ready constraints:',
+            '- Build a single wrap layout with exact front + spine + back continuity.',
+            '- Respect bleed safe area and avoid critical text near trim/cut edges.',
+            '- Keep spine typography centered and readable with proper top/bottom margin.',
+            '- Preserve clean barcode-safe area on back lower-right.',
+            '- Ensure KDP-compatible production quality, high detail, and export-safe structure.',
+            'Book personalization input:',
+            'Title: ' + shortText(bookPreviewContext.bookTitle || 'Untitled', 140) + '.',
+            (subtitle ? ('Subtitle: ' + subtitle + '.') : ''),
+            'Author: ' + shortText(bookPreviewContext.authorName || 'Unknown author', 80) + '.',
+            'Genre: ' + shortText(bookPreviewContext.genre || 'General', 60) + '.',
+            'Mood profile: ' + profile.tone + '.',
+            'Color guidance: ' + profile.palette + '.',
+            'Composition guidance: ' + profile.composition + '.',
+            'Typography guidance: ' + profile.typography + '.',
+            'Trim size: ' + trim + '. Paper: ' + paper + '. Page count: ' + String(spec.pageCount || 24) + '.',
+            'Spine width: ' + fmtNumber(spec.spineIn || 0.055, 3) + ' in.',
+            'Full wrap size: ' + fmtNumber(spec.wrapWIn || 12.305, 3) + ' x ' + fmtNumber(spec.wrapHIn || 9.25, 3) + ' in.',
+            (description ? ('Story/theme context: ' + description + '.') : ''),
+            (firstChapter ? ('Narrative sample: ' + firstChapter + '.') : ''),
+            'Generation token: iteration ' + String(generationIteration || 1) + ', style id ' + selectedStyle.id + '.'
+        ].filter(Boolean).join(' ');
+    }
+
+    function resetPrintReadyModalPreview() {
+        var wrapImg = document.getElementById('prModalWrapImg');
+        var wrapPlaceholder = document.getElementById('prModalWrapPlaceholder');
+        if (prModalWrapStage) prModalWrapStage.classList.remove('loading');
+        if (wrapImg) {
+            wrapImg.src = '';
+            wrapImg.style.opacity = '1';
+            wrapImg.classList.add('hidden');
+        }
+        if (wrapPlaceholder) {
+            wrapPlaceholder.textContent = 'Auto-generated premium wrap preview appears here.';
+            wrapPlaceholder.classList.remove('hidden');
+        }
+        setPartImage('prModalBackImg', 'prModalBackLabel', '');
+        setPartImage('prModalSpineImg', 'prModalSpineLabel', '');
+        setPartImage('prModalFrontImg', 'prModalFrontLabel', '');
+        printReadyGenerated = null;
+        if (prModalConfirmBtn) prModalConfirmBtn.disabled = true;
+    }
+
+    function closePrintReadyModal() {
+        if (!prModal) return;
+        prModal.classList.remove('open');
+        printReadyPendingBookId = 0;
+        printReadyOpenAfterSave = false;
+    }
+
+    async function openPrintReadyModal(bid) {
+        if (!prModal || !bid) return;
+        printReadyPendingBookId = bid;
+        printReadyOpenAfterSave = false;
+        printReadyGenerationIteration = 0;
+        syncPrIdentityRows();
+        resetPrintReadyModalPreview();
+        setPrModalStatus('Loading page metrics…');
+        recalcPrintReadyModalMetrics({
+            pageCount: 24,
+            paperType: inferPaperTypeFromGenre(bookPreviewContext.genre),
+            trimValue: inferTrimValueFromConfig()
+        });
+        prModal.classList.add('open');
+        try {
+            var metricsRes = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid));
+            var metrics = await metricsRes.json();
+            var pages = (metrics && metrics.success && metrics.pageCount) ? parseInt(metrics.pageCount, 10) : 24;
+            if (!Number.isFinite(pages) || pages <= 0) pages = 24;
+            recalcPrintReadyModalMetrics({ pageCount: pages });
+            setPrModalStatus('Page count synced. Click Auto-generate cover set.');
+        } catch (err) {
+            recalcPrintReadyModalMetrics();
+            setPrModalStatus((err && err.message) ? err.message : 'Could not load page metrics.', true);
+        }
+    }
+
+    async function runPrintReadyModalAutoGenerate() {
+        if (!printReadyPendingBookId) return;
+        var spec = recalcPrintReadyModalMetrics();
+        var pages = parseInt(spec.pageCount || '24', 10);
+        var trim = spec.trimValue || '6x9';
+        printReadyGenerationIteration += 1;
+        var selectedStyle = selectDesignDirection(printReadyPendingBookId, bookPreviewContext.genre || '', printReadyGenerationIteration);
+        var coverStyle = buildSmartCoverPrompt(spec, selectedStyle, printReadyGenerationIteration);
+        var autoBtn = document.getElementById('prModalAutoGenerate');
+        if (autoBtn) autoBtn.disabled = true;
+        if (prModalWrapStage) prModalWrapStage.classList.add('loading');
+        setPrModalStatus('Generating ' + selectedStyle.tone + ' direction (' + selectedStyle.category + ') with unique structure…');
+        try {
+            var response = await fetch('/Dashboard/GeneratePrintReadyCover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    bookId: printReadyPendingBookId,
+                    pageCount: pages,
+                    trimSize: trim,
+                    coverStyle: coverStyle
+                })
+            });
+            var data = await response.json();
+            if (!response.ok || !data || data.success === false) {
+                throw new Error((data && data.message) ? data.message : ('HTTP ' + response.status));
+            }
+            var wrapUrl = data.cover && data.cover.wrap ? data.cover.wrap : '';
+            var wrapImg = document.getElementById('prModalWrapImg');
+            var wrapPlaceholder = document.getElementById('prModalWrapPlaceholder');
+            if (wrapImg && wrapUrl) {
+                wrapImg.src = wrapUrl;
+                wrapImg.style.opacity = '0';
+                wrapImg.classList.remove('hidden');
+                if (wrapPlaceholder) wrapPlaceholder.classList.add('hidden');
+                requestAnimationFrame(function() { wrapImg.style.opacity = '1'; });
+            } else if (wrapPlaceholder) {
+                wrapPlaceholder.classList.remove('hidden');
+            }
+            setPartImage('prModalBackImg', 'prModalBackLabel', (data.cover && data.cover.back) || '');
+            setPartImage('prModalSpineImg', 'prModalSpineLabel', (data.cover && data.cover.spine) || '');
+            setPartImage('prModalFrontImg', 'prModalFrontLabel', (data.cover && data.cover.front) || '');
+
+            if (data.pageCount) recalcPrintReadyModalMetrics({ pageCount: data.pageCount });
+            printReadyGenerated = data;
+            if (prModalConfirmBtn) prModalConfirmBtn.disabled = false;
+            setPrModalStatus('Cover set ready in ' + selectedStyle.tone + ' direction. Confirm to continue.');
+            showToast('Print-ready cover set generated');
+        } catch (err) {
+            setPrModalStatus((err && err.message) ? err.message : 'Cover generation failed.', true);
+            showToast((err && err.message) ? err.message : 'Cover generation failed');
+        } finally {
+            if (autoBtn) autoBtn.disabled = false;
+            if (prModalWrapStage) prModalWrapStage.classList.remove('loading');
+        }
     }
 
     function syncPlatformBlockUi(cb) {
@@ -3418,11 +4141,27 @@ div#fmt-finalize-panel {
             saveFormatting(function(ok) {
                 if (!ok) return;
                 if (isPrintReadyFlow) {
-                    window.location.href = '/Dashboard/Publish?bookId=' + bid + '&flow=printready';
+                    printReadyOpenAfterSave = true;
+                    openPrintReadyModal(bid);
                     return;
                 }
                 window.location.href = '/Dashboard/CoverDesign?bookId=' + bid;
             });
+        });
+
+        document.getElementById('prModalAutoGenerate')?.addEventListener('click', function() { runPrintReadyModalAutoGenerate(); });
+        document.getElementById('prModalCancel')?.addEventListener('click', function() { closePrintReadyModal(); });
+        document.getElementById('prModalClose')?.addEventListener('click', function() { closePrintReadyModal(); });
+        document.getElementById('prModalConfirm')?.addEventListener('click', function() {
+            if (!printReadyPendingBookId) return;
+            if (!printReadyGenerated) {
+                showToast('Generate cover set first.');
+                return;
+            }
+            window.location.href = '/Dashboard/Publish?bookId=' + printReadyPendingBookId + '&flow=printready';
+        });
+        prModal?.addEventListener('click', function(e) {
+            if (e.target === prModal) closePrintReadyModal();
         });
 
         document.getElementById('fmt-btn-studio-fix')?.addEventListener('click', function() {

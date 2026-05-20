@@ -22,12 +22,14 @@ namespace EBookDashboard.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IBookDesignService _bookDesignService;
         private readonly IWebHostEnvironment _env;
+        private readonly IConfiguration _configuration;
 
-        public BookDesignController(ApplicationDbContext context, IBookDesignService bookDesignService, IWebHostEnvironment env)
+        public BookDesignController(ApplicationDbContext context, IBookDesignService bookDesignService, IWebHostEnvironment env, IConfiguration configuration)
         {
             _context = context;
             _bookDesignService = bookDesignService ?? throw new ArgumentNullException(nameof(bookDesignService));
             _env = env;
+            _configuration = configuration;
         }
         // GET: /BookDesign/CoverDesignCalculator
         public IActionResult Index(int bookId = 0)
@@ -665,6 +667,12 @@ namespace EBookDashboard.Controllers
                 ViewBag.SelectedBookName = viewModel.Title;
                 ViewBag.SelectedFormat = preferredFormat;
                 ViewBag.BookCoverPages = viewModel.BookCoverPages;
+                ViewBag.PrintReadyWhitePaperMultiplier = ParseDoubleSetting("PrintReadyCover:WhitePaperSpineInchesPerPage", 0.002252);
+                ViewBag.PrintReadyCreamPaperMultiplier = ParseDoubleSetting("PrintReadyCover:CreamPaperSpineInchesPerPage", 0.002500);
+                ViewBag.PrintReadyColorPaperMultiplier = ParseDoubleSetting("PrintReadyCover:ColorPaperSpineInchesPerPage", 0.002347);
+                ViewBag.PrintReadyBleedInches = ParseDoubleSetting("PrintReadyCover:BleedInches", 0.125);
+                ViewBag.PrintReadyDefaultTrimWidthInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimWidthInches", 6.0);
+                ViewBag.PrintReadyDefaultTrimHeightInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimHeightInches", 9.0);
 
                 return View("CoverDesignCalculatorFixing", viewModel);
             }
@@ -682,6 +690,14 @@ namespace EBookDashboard.Controllers
                 };
                 return View("CoverDesignCalculatorFixing", fallbackModel);
             }
+        }
+
+        private double ParseDoubleSetting(string key, double fallback)
+        {
+            var raw = (_configuration[key] ?? "").Trim();
+            if (double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var value))
+                return value;
+            return fallback;
         }
 
         /// <summary>

@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using EBookDashboard.Infrastructure;
 using EBookDashboard.Models;
+using EBookDashboard.Models.DTO;
 using EBookDashboard.Models.Options;
+using EBookDashboard.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -18,17 +20,23 @@ namespace EBookDashboard.Controllers
         private readonly IConfiguration _config;
         private readonly ApplicationDbContext _context;
         private readonly IOptionsSnapshot<BookPaymentOptions> _bookPaymentOptions;
+        private readonly IBookService _bookService;
+        private readonly IBookPageMetricsService _bookPageMetricsService;
         private readonly ILogger<CheckoutController> _logger;
 
         public CheckoutController(
             IConfiguration config,
             ApplicationDbContext context,
             IOptionsSnapshot<BookPaymentOptions> bookPaymentOptions,
+            IBookService bookService,
+            IBookPageMetricsService bookPageMetricsService,
             ILogger<CheckoutController> logger)
         {
             _config = config;
             _context = context;
             _bookPaymentOptions = bookPaymentOptions;
+            _bookService = bookService;
+            _bookPageMetricsService = bookPageMetricsService;
             _logger = logger;
         }
 
@@ -158,7 +166,10 @@ namespace EBookDashboard.Controllers
             StripeConfiguration.ApiKey = secretKey;
 
             var pay = _bookPaymentOptions.Value;
-            var amountCents = pay.AmountCents > 0 ? pay.AmountCents : 999;
+            var metrics = await BuildBookPageMetricsAsync(userId.Value, request.BookId);
+            // Single source-of-truth: always derive billing pages server-side from manuscript metrics.
+            var pageCount = metrics.PageCount;
+            var amountCents = ResolveCheckoutAmountCents(pay, pageCount);
             var currency = string.IsNullOrWhiteSpace(pay.Currency) ? "usd" : pay.Currency.Trim().ToLowerInvariant();
 
             var origin = ResolvePublicOrigin();
@@ -193,7 +204,7 @@ namespace EBookDashboard.Controllers
                             ProductData = new SessionLineItemPriceDataProductDataOptions
                             {
                                 Name = "E-book: " + (book.Title ?? "Your Book"),
-                                Description = "Unlock downloads and publishing for this book."
+                                Description = $"Unlock downloads and publishing for this book. {pageCount} pages."
                             }
                         },
                         Quantity = 1
@@ -207,7 +218,9 @@ namespace EBookDashboard.Controllers
                 {
                     { "bookId", request.BookId.ToString() },
                     { "userId", userId.Value.ToString() },
-                    { "publishIntent", request.PublishIntent ? "1" : "0" }
+                    { "publishIntent", request.PublishIntent ? "1" : "0" },
+                    { "pageCount", pageCount.ToString() },
+                    { "amountCents", amountCents.ToString() }
                 }
             };
             if (!string.IsNullOrEmpty(customerEmail))
@@ -217,13 +230,52 @@ namespace EBookDashboard.Controllers
             {
                 var service = new SessionService();
                 var session = service.Create(options);
-                return Ok(new { sessionId = session.Id, url = session.Url, alreadyPaid = false });
+                return Ok(new
+                {
+                    sessionId = session.Id,
+                    url = session.Url,
+                    alreadyPaid = false,
+                    pageCount,
+                    amountCents
+                });
             }
             catch (StripeException ex)
             {
                 _logger.LogWarning(ex, "Stripe CreateBookCheckoutSession failed for book {BookId}", request.BookId);
                 return BadRequest(new { message = ex.StripeError?.Message ?? ex.Message });
             }
+        }
+
+        private int ResolveCheckoutAmountCents(BookPaymentOptions pay, int pageCount)
+        {
+            if (pay.UsePageBasedPricing && pageCount > 0)
+            {
+                var perPage = pay.PerPagePriceCents > 0 ? pay.PerPagePriceCents : 12;
+                var amount = pageCount * perPage;
+                var min = pay.MinimumChargeCents > 0 ? pay.MinimumChargeCents : 999;
+                var max = pay.MaximumChargeCents > 0 ? pay.MaximumChargeCents : int.MaxValue;
+                amount = Math.Max(amount, min);
+                amount = Math.Min(amount, max);
+                return amount;
+            }
+
+            return pay.AmountCents > 0 ? pay.AmountCents : 999;
+        }
+
+        private async Task<BookPageMetricsDto> BuildBookPageMetricsAsync(int userId, int bookId)
+        {
+            var details = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
+            if (details == null || !details.Success)
+                return new BookPageMetricsDto { PageCount = 24, Basis = "fallback_no_book_details" };
+
+            var draftRow = await _context.Settings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:formattingDraft");
+            var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
+            var fmtRow = await _context.BookFormatting.AsNoTracking()
+                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId);
+            exportOpt.MergeFromBookFormatting(fmtRow);
+
+            return _bookPageMetricsService.Estimate(details, exportOpt);
         }
 
         /// <summary>Stripe return URL: verify paid session, then set book status.</summary>
@@ -299,6 +351,9 @@ namespace EBookDashboard.Controllers
         public int BookId { get; set; }
         /// <summary>When true, success marks the book Published (listing); otherwise Paid (downloads).</summary>
         public bool PublishIntent { get; set; }
+        public string? Format { get; set; }
+        public int? PageCount { get; set; }
+        public bool PrintReadyFlow { get; set; }
     }
 
     public class CheckoutRequest

@@ -7,6 +7,7 @@ namespace EBookDashboard.Models.DTO;
 /// <summary>Interior options for PDF export — mirrors formatter draft JSON (camelCase) and BookFormatting rows.</summary>
 public class BookPdfExportOptions
 {
+    public bool IncludeCoverPage { get; set; } = true;
     public string InteriorStyle { get; set; } = "Novel";
     public string TextSize { get; set; } = "Medium";
     public string LineSpacing { get; set; } = "1.6";
@@ -32,6 +33,11 @@ public class BookPdfExportOptions
             if (TryGetString(root, "format", out s)) o.Format = NormalizeFormatToken(s);
             if (TryGetString(root, "publishingPlatform", out s)) o.PublishingPlatform = s;
             if (TryGetString(root, "publishingPlatforms", out s)) o.PublishingPlatforms = s;
+            if (root.TryGetProperty("includeCoverPage", out var c))
+            {
+                if (c.ValueKind == JsonValueKind.True) o.IncludeCoverPage = true;
+                else if (c.ValueKind == JsonValueKind.False) o.IncludeCoverPage = false;
+            }
         }
         catch
         {

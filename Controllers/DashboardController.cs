@@ -39,6 +39,7 @@ namespace EBookDashboard.Controllers
         private readonly ILogger<DashboardController> _logger;
         private readonly IBookService _bookService;
         private readonly IBookPdfService _bookPdfService;
+        private readonly IBookPageMetricsService _bookPageMetricsService;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -50,7 +51,8 @@ namespace EBookDashboard.Controllers
             IConfiguration configuration,
             ILogger<DashboardController> logger,
             IBookService bookService,
-            IBookPdfService bookPdfService)
+            IBookPdfService bookPdfService,
+            IBookPageMetricsService bookPageMetricsService)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -62,6 +64,7 @@ namespace EBookDashboard.Controllers
             _logger = logger;
             _bookService = bookService;
             _bookPdfService = bookPdfService;
+            _bookPageMetricsService = bookPageMetricsService;
         }
 
         [Route("")]
@@ -799,13 +802,8 @@ namespace EBookDashboard.Controllers
             if (details == null || !details.Success)
                 return Json(new { success = false, message = details?.Message ?? "Could not load book." });
 
-            var draftKey = $"book:{bookId}:formattingDraft";
-            var draftRow = await _context.Settings.AsNoTracking()
-                .FirstOrDefaultAsync(s => s.Key == draftKey, cancellationToken);
-            var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
-            var fmtRow = await _context.BookFormatting.AsNoTracking()
-                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == sessionUserId.Value, cancellationToken);
-            exportOpt.MergeFromBookFormatting(fmtRow);
+            var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, bookId, cancellationToken);
+            var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
 
             var title = (details.BookTitle ?? "").Trim();
             var author = (details.AuthorName ?? "").Trim();
@@ -852,6 +850,8 @@ namespace EBookDashboard.Controllers
                 subtitle = details.Subtitle,
                 coverImagePath = coverUrl,
                 totalChapters = chapters.Count,
+                pageCount = metrics.PageCount,
+                wordCount = metrics.WordCount,
                 chapters = list,
                 formatting = new
                 {
@@ -861,6 +861,14 @@ namespace EBookDashboard.Controllers
                     format = exportOpt.Format,
                     publishingPlatform = exportOpt.PublishingPlatform,
                     publishingPlatforms = exportOpt.PublishingPlatforms
+                },
+                pageMetrics = new
+                {
+                    pageCount = metrics.PageCount,
+                    wordCount = metrics.WordCount,
+                    chapterCount = metrics.ChapterCount,
+                    imageCount = metrics.ImageCount,
+                    basis = metrics.Basis
                 }
             });
         }
@@ -894,17 +902,14 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                var draftRow = await _context.Settings.AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Key == $"book:{req.BookId}:formattingDraft", cancellationToken);
-                var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
-                var fmtRow = await _context.BookFormatting.AsNoTracking()
-                    .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == sessionUserId.Value, cancellationToken);
-                exportOpt.MergeFromBookFormatting(fmtRow);
+                var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(req.InteriorStyle)) exportOpt.InteriorStyle = req.InteriorStyle!;
                 if (!string.IsNullOrWhiteSpace(req.TextSize)) exportOpt.TextSize = req.TextSize!;
                 if (!string.IsNullOrWhiteSpace(req.LineSpacing)) exportOpt.LineSpacing = req.LineSpacing!;
                 if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
                 if (!string.IsNullOrWhiteSpace(req.PublishingPlatform)) exportOpt.PublishingPlatform = req.PublishingPlatform!;
+
+                var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
 
                 var userRow = await _context.Users.AsNoTracking()
                     .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
@@ -927,6 +932,8 @@ namespace EBookDashboard.Controllers
                 safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
                 if (string.IsNullOrEmpty(safe)) safe = "book";
                 var fileName = $"{safe}-{req.BookId}.pdf";
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", metrics.PageCount.ToString(), "Book", cancellationToken);
+                Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
                 return File(pdfBytes, "application/pdf", fileName);
             }
             catch (Exception ex)
@@ -934,6 +941,373 @@ namespace EBookDashboard.Controllers
                 _logger.LogError(ex, "DownloadBookPdf failed for book {BookId}", req.BookId);
                 return Json(new { success = false, message = "PDF generation failed. If this persists, verify Chromium (Puppeteer) can run on this machine." });
             }
+        }
+
+        [HttpPost]
+        [Route("DownloadBookInteriorPdf")]
+        public async Task<IActionResult> DownloadBookInteriorPdf([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
+            if (details == null || !details.Success)
+                return Json(new { success = false, message = details?.Message ?? "Could not load book." });
+
+            var orderedChapters = details.Chapters.OrderBy(c => c.ChapterNumber).ToList();
+            if (orderedChapters.Count == 0)
+                return Json(new { success = false, message = "Add at least one chapter in AI Writer before exporting the PDF." });
+
+            try
+            {
+                var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
+                exportOpt.IncludeCoverPage = false;
+                if (!string.IsNullOrWhiteSpace(req.InteriorStyle)) exportOpt.InteriorStyle = req.InteriorStyle!;
+                if (!string.IsNullOrWhiteSpace(req.TextSize)) exportOpt.TextSize = req.TextSize!;
+                if (!string.IsNullOrWhiteSpace(req.LineSpacing)) exportOpt.LineSpacing = req.LineSpacing!;
+                if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
+                if (!string.IsNullOrWhiteSpace(req.PublishingPlatform)) exportOpt.PublishingPlatform = req.PublishingPlatform!;
+
+                var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
+                var userRow = await _context.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
+                var publisherLabel = userRow?.FullName;
+                if (string.IsNullOrWhiteSpace(publisherLabel)) publisherLabel = userRow?.UserEmail;
+
+                var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
+                    details,
+                    null,
+                    (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
+                    (req.DisplayAuthor ?? "").Trim(),
+                    (req.DisplayGenre ?? "").Trim(),
+                    exportOpt,
+                    publisherLabel,
+                    cancellationToken);
+
+                var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book-interior").Trim();
+                if (string.IsNullOrEmpty(rawName)) rawName = "book-interior";
+                var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
+                safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
+                if (string.IsNullOrEmpty(safe)) safe = "book-interior";
+                var fileName = $"{safe}-{req.BookId}-interior.pdf";
+                Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
+                return File(pdfBytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DownloadBookInteriorPdf failed for book {BookId}", req.BookId);
+                return Json(new { success = false, message = "Interior PDF generation failed." });
+            }
+        }
+
+        [HttpGet]
+        [Route("GetPrintReadyCoverAssets")]
+        public async Task<IActionResult> GetPrintReadyCoverAssets(int bookId, CancellationToken cancellationToken = default)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+            if (bookId <= 0)
+                return Json(new { success = false, message = "Invalid book." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var keys = new[]
+            {
+                $"book:{bookId}:printReadyCoverWrap",
+                $"book:{bookId}:printReadyCoverFront",
+                $"book:{bookId}:printReadyCoverBack",
+                $"book:{bookId}:printReadyCoverSpine"
+            };
+            var rows = await _context.Settings.AsNoTracking()
+                .Where(s => keys.Contains(s.Key))
+                .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+
+            return Json(new
+            {
+                success = true,
+                bookId,
+                cover = new
+                {
+                    wrap = rows.GetValueOrDefault(keys[0], ""),
+                    front = rows.GetValueOrDefault(keys[1], ""),
+                    back = rows.GetValueOrDefault(keys[2], ""),
+                    spine = rows.GetValueOrDefault(keys[3], "")
+                }
+            });
+        }
+
+        [HttpGet]
+        [Route("DownloadPrintReadyCoverAsset")]
+        public async Task<IActionResult> DownloadPrintReadyCoverAsset(int bookId, string? part = null, CancellationToken cancellationToken = default)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Unauthorized();
+            if (bookId <= 0) return BadRequest("Invalid book.");
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns) return NotFound("Book not found.");
+
+            var keySuffix = (part ?? "wrap").Trim().ToLowerInvariant() switch
+            {
+                "front" => "printReadyCoverFront",
+                "back" => "printReadyCoverBack",
+                "spine" => "printReadyCoverSpine",
+                _ => "printReadyCoverWrap"
+            };
+            var settingKey = $"book:{bookId}:{keySuffix}";
+            var row = await _context.Settings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == settingKey, cancellationToken);
+            var refValue = (row?.Value ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(refValue))
+                return NotFound("Cover asset not found.");
+
+            if (refValue.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+            {
+                var comma = refValue.IndexOf(',', StringComparison.Ordinal);
+                if (comma < 0) return BadRequest("Invalid data URL.");
+                var meta = refValue.Substring(0, comma);
+                var b64 = refValue[(comma + 1)..].Trim();
+                var bytes = Convert.FromBase64String(b64);
+                var ext = meta.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
+                return File(bytes, $"image/{(ext == "jpg" ? "jpeg" : ext)}", $"book-{bookId}-{keySuffix}.{ext}");
+            }
+
+            if (refValue.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || refValue.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                var client = _httpClientFactory.CreateClient();
+                var resp = await client.GetAsync(refValue, cancellationToken);
+                if (!resp.IsSuccessStatusCode)
+                    return BadRequest("Could not fetch remote cover asset.");
+                var bytes = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
+                var contentType = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
+                var ext = contentType.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
+                return File(bytes, contentType, $"book-{bookId}-{keySuffix}.{ext}");
+            }
+
+            if (refValue.StartsWith("/", StringComparison.Ordinal))
+            {
+                var rel = refValue.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
+                var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", rel);
+                if (!System.IO.File.Exists(fullPath))
+                    return NotFound("Cover file missing on disk.");
+                var ext = Path.GetExtension(fullPath).ToLowerInvariant();
+                var contentType = ext switch
+                {
+                    ".jpg" or ".jpeg" => "image/jpeg",
+                    ".webp" => "image/webp",
+                    ".gif" => "image/gif",
+                    _ => "image/png"
+                };
+                return PhysicalFile(fullPath, contentType, $"book-{bookId}-{keySuffix}{ext}");
+            }
+
+            return BadRequest("Unsupported cover asset reference.");
+        }
+
+        [HttpGet]
+        [Route("BookPageMetrics")]
+        public async Task<IActionResult> BookPageMetrics(int bookId, CancellationToken cancellationToken = default)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+            if (bookId <= 0)
+                return Json(new { success = false, message = "Invalid book." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, bookId);
+            if (details == null || !details.Success)
+                return Json(new { success = false, message = details?.Message ?? "Could not load book." });
+
+            var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, bookId, cancellationToken);
+            var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
+            return Json(new
+            {
+                success = true,
+                bookId,
+                pageCount = metrics.PageCount,
+                wordCount = metrics.WordCount,
+                chapterCount = metrics.ChapterCount,
+                imageCount = metrics.ImageCount,
+                basis = metrics.Basis
+            });
+        }
+
+        [HttpPost]
+        [Route("GeneratePrintReadyCover")]
+        public async Task<IActionResult> GeneratePrintReadyCover([FromBody] PrintReadyCoverRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, status = "error", message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, status = "error", message = "Please sign in." });
+
+            var book = await _context.Books
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (book == null)
+                return Json(new { success = false, status = "error", message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
+            if (details == null || !details.Success)
+                return Json(new { success = false, status = "error", message = details?.Message ?? "Could not load book details." });
+
+            var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
+            var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
+            var pageCountForCover = metrics.PageCount > 0 ? metrics.PageCount : Math.Max(24, req.PageCount ?? 24);
+
+            var title = (details.BookTitle ?? book.Title ?? "My Book").Trim();
+            if (string.IsNullOrWhiteSpace(title)) title = "My Book";
+
+            var user = await _context.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
+            var authorName = (user?.FullName ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(authorName))
+                authorName = (user?.UserEmail ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(authorName))
+                authorName = sessionUserId.Value.ToString();
+
+            var coverStyle = (req.CoverStyle ?? _externalApiOptions.Value.PrintReadyCoverStyle ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(coverStyle))
+            {
+                coverStyle = "Deep navy blue background with subtle damask pattern, ornate gold baroque decorative frame on front cover, elegant gold serif typography, luxurious premium publishing style. Keep back cover and spine in the same palette, texture, and ornamental language as the front cover for one cohesive wraparound design.";
+            }
+            var quality = BookApiInputValidation.NormalizeQuality(
+                (req.Quality ?? _externalApiOptions.Value.PrintReadyCoverQuality ?? "medium").Trim(),
+                "medium");
+            var size = BookApiInputValidation.NormalizeSize(
+                (req.Size ?? _externalApiOptions.Value.PrintReadyCoverSize ?? "1536x1024").Trim(),
+                "1536x1024");
+            var trimSize = NormalizeTrimSizeForApi(req.TrimSize, exportOpt);
+
+            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateSpineBookCoverUrl, "/api/generate-spine-book-cover").Trim();
+            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
+            if (string.IsNullOrEmpty(apiKey))
+                return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
+
+            var payloadObj = new JObject
+            {
+                ["title"] = title,
+                ["author_name"] = authorName,
+                ["category"] = (details.Genre ?? book.Genre ?? "General").Trim(),
+                ["cover_style"] = coverStyle,
+                ["size"] = size,
+                ["quality"] = quality,
+                ["Interior_trim_size"] = trimSize,
+                ["page_count"] = pageCountForCover
+            };
+
+            try
+            {
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+                httpRequest.Content = new StringContent(payloadObj.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
+
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromMinutes(8));
+                var response = await _bookApiClient.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, cts.Token);
+                var responseData = await response.Content.ReadAsStringAsync(cts.Token);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("GeneratePrintReadyCover HTTP {Code} for book {BookId}: {Body}", (int)response.StatusCode, req.BookId, responseData);
+                    return Json(new { success = false, status = "error", message = $"Cover service returned {(int)response.StatusCode}." });
+                }
+
+                var urls = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(responseData);
+                var assets = CoverExternalApiHelper.ExtractNamedCoverAssetsFromApiResponse(responseData);
+                var wrapRef = !string.IsNullOrWhiteSpace(assets.Wrap) ? assets.Wrap : (urls.FirstOrDefault() ?? "");
+                if (string.IsNullOrWhiteSpace(wrapRef))
+                    return Json(new { success = false, status = "error", message = "No image found in print-ready cover response." });
+
+                var persistedWrap = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, wrapRef, cancellationToken) ?? wrapRef;
+                var persistedFront = string.IsNullOrWhiteSpace(assets.Front)
+                    ? ""
+                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Front, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Front));
+                var persistedBack = string.IsNullOrWhiteSpace(assets.Back)
+                    ? ""
+                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Back, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Back));
+                var persistedSpine = string.IsNullOrWhiteSpace(assets.Spine)
+                    ? ""
+                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Spine, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Spine));
+
+                if (persistedWrap.Length <= Models.Settings.DbCompatMaxValueLength)
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverLastPreview", persistedWrap, "Book", cancellationToken);
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrap", persistedWrap, "Book", cancellationToken);
+                if (!string.IsNullOrWhiteSpace(persistedFront))
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverFront", persistedFront, "Book", cancellationToken);
+                if (!string.IsNullOrWhiteSpace(persistedBack))
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverBack", persistedBack, "Book", cancellationToken);
+                if (!string.IsNullOrWhiteSpace(persistedSpine))
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverSpine", persistedSpine, "Book", cancellationToken);
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", pageCountForCover.ToString(), "Book", cancellationToken);
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyTrimSize", trimSize, "Book", cancellationToken);
+
+                return Json(new
+                {
+                    success = true,
+                    status = "success",
+                    bookId = req.BookId,
+                    pageCount = pageCountForCover,
+                    trimSize,
+                    cover = new
+                    {
+                        wrap = persistedWrap,
+                        front = persistedFront,
+                        spine = persistedSpine,
+                        back = persistedBack
+                    },
+                    options = urls.ToArray()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GeneratePrintReadyCover failed for book {BookId}", req.BookId);
+                return Json(new { success = false, status = "error", message = ex.Message });
+            }
+        }
+
+        private async Task<BookPdfExportOptions> LoadExportOptionsAsync(int userId, int bookId, CancellationToken cancellationToken)
+        {
+            var draftRow = await _context.Settings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:formattingDraft", cancellationToken);
+            var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
+            var fmtRow = await _context.BookFormatting.AsNoTracking()
+                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
+            exportOpt.MergeFromBookFormatting(fmtRow);
+            return exportOpt;
+        }
+
+        private static string NormalizeTrimSizeForApi(string? trimFromRequest, BookPdfExportOptions exportOptions)
+        {
+            var src = (trimFromRequest ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(src))
+                src = (exportOptions.Format ?? "").Trim();
+
+            var compact = src.Replace(" ", "", StringComparison.OrdinalIgnoreCase).ToLowerInvariant();
+            if (compact == "5.5x8.5" || compact == "5.5xin8.5in") return "5.5 x 8.5 in";
+            if (compact == "8.5x11" || compact == "8.5xin11in") return "8.5 x 11 in";
+            if (compact == "6x9" || compact == "6xin9in" || compact == "paperback" || compact == "print" || compact == "both")
+                return "6 x 9 in";
+            return "6 x 9 in";
         }
 
         /// <summary>Writes <see cref="Settings"/> rows. Values are clamped to <see cref="Settings.DbCompatMaxValueLength"/> until MySQL column is LONGTEXT.</summary>
@@ -1040,6 +1414,8 @@ namespace EBookDashboard.Controllers
             ViewBag.PublishBookStatus = (string?)null;
             ViewBag.PublishBookAlreadyListed = false;
             ViewBag.PublishBookChapterCount = 0;
+            ViewBag.PublishBookEstimatedPages = 0;
+            ViewBag.PublishBookWordCount = 0;
             ViewBag.PublishBookReady = false;
             ViewBag.PublishPrintReadyMode = false;
 
@@ -1081,6 +1457,22 @@ namespace EBookDashboard.Controllers
                             .MaxAsync(r => r.Chapter);
                     }
                     ViewBag.PublishBookChapterCount = Math.Max(maxCh, maxRaw);
+
+                    try
+                    {
+                        var details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, bid);
+                        if (details != null && details.Success)
+                        {
+                            var exportOpt = await LoadExportOptionsAsync(user.UserId, bid, HttpContext.RequestAborted);
+                            var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
+                            ViewBag.PublishBookEstimatedPages = metrics.PageCount;
+                            ViewBag.PublishBookWordCount = metrics.WordCount;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Publish: could not compute page metrics for book {BookId}", bid);
+                    }
 
                     var coverReady = !string.IsNullOrWhiteSpace(ViewBag.PublishBookCover as string);
                     var statusReady =
