@@ -1,0 +1,10 @@
+{
+  "user_id": "u1",
+  "book_id": "b1",
+  "highlights": [
+    {
+      "chapter_name": "Chapter 1",
+      "detailed_bullet_summary": "The protagonist discovers an anomaly."
+    }
+  ]
+}

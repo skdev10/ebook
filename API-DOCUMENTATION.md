@@ -29,6 +29,29 @@ This document covers:
 | 10 | `/api/refine_cover_prompt` | POST | Refine a user’s cover prompt text |
 | 11 | `/api/suggest-cover-prompt-from-highlights` | POST | Suggest cover prompt from book highlights |
 
+### Task 1 — inventory vs code audit
+
+Validated against app route usage in `Controllers/BooksController.cs`, `Controllers/DashboardController.cs`, `Controllers/AudioController.cs`, `Controllers/AudioToTextController.cs`, and `Health/UpstreamBookApiHealthCheck.cs`.
+
+| Endpoint | In your inventory | Found in code usage | Notes |
+|---|---|---|---|
+| `/api/generate_chapter` | Yes | Yes | Used by `POST /Books/AIGenerateBook` and chapter pipeline service. |
+| `/api/edit` | Yes | Yes | Used by `AIEditBook` and edit chapter actions. |
+| `/api/audio` | Yes | Yes | Used by multipart upload + JSON/path fallback helper. |
+| `/api/approve` | Yes | Yes | Uses strict `chapter` key (no trailing-space key). |
+| `/api/queue-data` | Yes | Yes | Used by queue endpoint + health check probe. |
+| `/api/generate-cover` | Yes | Yes | Used by cover generation actions. |
+| `/api/generate-spine-book-cover` | Yes | Yes | Used by `POST /Dashboard/GeneratePrintReadyCover`. |
+| `/api/edit-cover` | Yes | Yes | Used by cover edit actions. |
+| `/api/book_chapters_name` | Yes | Yes | Used by chapter-name suggestion endpoint. |
+| `/api/refine_cover_prompt` | No | Yes | Extra endpoint in codebase (documented below). |
+| `/api/suggest-cover-prompt-from-highlights` | No | Yes | Extra endpoint in codebase (documented below). |
+
+**Live connectivity sanity-check (without secret):**
+
+- `GET /api/queue-data` reachable from current environment and returns `401` when `X-API-Key` is missing/invalid.
+- This confirms host/port reachability and auth enforcement.
+
 **Cover-only constants** (not used by `/api/edit` chapter text):
 
 - **`VALID_SIZES`**: `1024x1024`, `1536x1024`, `1024x1536`, `auto`
@@ -407,6 +430,38 @@ URLs are committed; **API key is not**. Example:
 | 401/403 from upstream | Wrong or expired `X-API-Key`; rotate key |
 | Empty or HTML error from BFF | Upstream down or URL typo; check app logs for `BookApi` lines |
 | Refine / suggest cover 404 | `RefineCoverPromptUrl` / `SuggestCoverPromptFromHighlightsUrl` must be absolute `http(s)://...` paths |
+
+---
+
+## Automated smoke tests (recommended before every deploy)
+
+### Python smoke script
+
+```bash
+pip install -r requirements.txt
+set API_BASE_URL=http://162.229.248.26:8001
+set API_KEY=YOUR_EXTERNAL_API_KEY
+python Scripts/smoke_test.py --json-output smoke-results.json
+```
+
+### Pytest suite
+
+```bash
+pip install -r requirements.txt
+set API_BASE_URL=http://162.229.248.26:8001
+set API_KEY=YOUR_EXTERNAL_API_KEY
+pytest tests/test_api.py -q
+```
+
+### REST Client script
+
+Use `smoke-tests.http` with `@BASE` + `@KEY`, including `POST /api/generate-spine-book-cover`.
+
+Reusable JSON payload samples are provided in `tests/payloads/`.
+
+### Latest live audit snapshot
+
+See `API-LIVE-AUDIT.md` for the latest direct-live probe results and timeout findings.
 
 ---
 

@@ -3,10 +3,26 @@
     ViewData["Title"] = "Profile";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var profilePathOrig = ViewBag.ProfilePicturePath as string;
+    var profileBackgroundOrig = ViewBag.ProfileBackgroundPath as string;
+    var defaultCoverImage = "https://images.unsplash.com/photo-1524996297542-sadfcd2d824f?q=80&w=2000&auto=format&fit=crop";
+
+    string ResolveMedia(string? path, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return fallback;
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+        return path.StartsWith("/") ? path : "/" + path;
+    }
+
     var safeName = Uri.EscapeDataString(Model?.UserName ?? "User");
-    var avatar = string.IsNullOrWhiteSpace(profilePathOrig)
-        ? $"https://ui-avatars.com/api/?name={safeName}&size=256&background=7c3aed&color=fff"
-        : profilePathOrig;
+    var avatar = ResolveMedia(
+        profilePathOrig,
+        $"https://ui-avatars.com/api/?name={safeName}&size=256&background=7c3aed&color=fff");
+    var profileBackgroundImage = ResolveMedia(profileBackgroundOrig, defaultCoverImage);
     var baseUrl = $"{Context.Request.Scheme}://{Context.Request.Host}";
     var writeUrl = baseUrl + "/Books/AIGenerateBook";
     var full = (Model?.UserName ?? "").Trim();
@@ -17,6 +33,7 @@
     var memberSinceText = Model != null && Model.MemberSince != default ? Model.MemberSince.ToString("dd MMM yyyy") : "—";
     var nextBillingText = Model != null && Model.NextBillingDate != default ? Model.NextBillingDate.ToString("dd MMM yyyy") : "—";
     var premiumUnlocked = ViewBag.PremiumContentUnlocked as bool? ?? false;
+    var profileBio = ViewBag.ProfileBio as string ?? "";
 }
 
 <form id="profileAntiForgery" method="post" style="display:none;">
@@ -35,48 +52,6 @@
 <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
 <div class="max-w-[1600px] mx-auto w-full flex flex-col gap-8">
 
-<section class="w-full overflow-hidden bg-white pt-10 pb-14 border-b border-gray-100 -mx-8 lg:-mx-12 px-8 lg:px-12 rounded-none shadow-sm">
-    <div class="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
-        <div>
-            <p class="text-xs font-semibold uppercase tracking-wide text-violet-600 mb-2">eBook AI</p>
-            <h1 class="text-3xl lg:text-[2rem] font-medium text-slate-900 tracking-tight" style="font-family:'Playfair Display',Georgia,serif;">Your author profile</h1>
-            <p class="text-slate-500 mt-3 max-w-xl leading-relaxed">Manage identity, credentials, billing, and quick links — same workspace rhythm as AI Writer &amp; My Books.</p>
-        </div>
-        <div class="relative rounded-3xl overflow-hidden shadow-xl shadow-violet-900/10 ring-1 ring-black/5 aspect-[16/10] lg:aspect-[5/3]">
-            <img src="https://images.unsplash.com/photo-1524996297542-sadfcd2d824f?q=80&amp;w=1400&amp;auto=format&amp;fit=crop" alt="" class="profile-media-img w-full h-full object-cover" loading="lazy" decoding="async">
-            <div class="absolute inset-0 bg-gradient-to-tr from-violet-900/60 via-transparent to-indigo-500/25 pointer-events-none" aria-hidden="true"></div>
-        </div>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mt-10">
-        <button type="button" class="profile-dash-shortcut text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-900/[0.06] hover:border-violet-200/75 hover:-translate-y-1 transition-all duration-300 ease-out overflow-hidden group" data-tab="account">
-            <div class="aspect-[16/10] overflow-hidden bg-slate-100">
-                <img src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?q=80&amp;w=720&amp;auto=format&amp;fit=crop" alt="" class="profile-media-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
-            </div>
-            <div class="p-4">
-                <p class="text-sm font-semibold text-slate-900 mb-1">Account &amp; details</p>
-                <p class="text-xs text-slate-500 m-0">Name, username, locale</p>
-            </div>
-        </button>
-        <button type="button" class="profile-dash-shortcut text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-900/[0.06] hover:border-violet-200/75 hover:-translate-y-1 transition-all duration-300 ease-out overflow-hidden group" data-tab="security">
-            <div class="aspect-[16/10] overflow-hidden bg-slate-100">
-                <img src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?q=80&amp;w=720&amp;auto=format&amp;fit=crop" alt="" class="profile-media-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
-            </div>
-            <div class="p-4">
-                <p class="text-sm font-semibold text-slate-900 mb-1">Security</p>
-                <p class="text-xs text-slate-500 m-0">Password &amp; sign-in hygiene</p>
-            </div>
-        </button>
-        <button type="button" class="profile-dash-shortcut text-left rounded-2xl border border-slate-200/90 bg-white shadow-sm hover:shadow-xl hover:shadow-violet-900/[0.06] hover:border-violet-200/75 hover:-translate-y-1 transition-all duration-300 ease-out overflow-hidden group" data-tab="plan">
-            <div class="aspect-[16/10] overflow-hidden bg-slate-100">
-                <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?q=80&amp;w=720&amp;auto=format&amp;fit=crop" alt="" class="profile-media-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy">
-            </div>
-            <div class="p-4">
-                <p class="text-sm font-semibold text-slate-900 mb-1">Plan &amp; billing</p>
-                <p class="text-xs text-slate-500 m-0">Tier, renewal, exports</p>
-            </div>
-        </button>
-    </div>
-</section>
 
 <div class="profile-dash-wrap w-full flex justify-center items-start antialiased text-slate-900">
     <div class="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] w-full profile-dash-inner min-h-[calc(100vh-120px)] flex flex-col overflow-hidden border border-slate-200/80">
@@ -91,7 +66,7 @@
                 <a href="/Dashboard/MyBooks" class="hidden sm:inline-flex text-sm font-medium text-slate-600 hover:text-violet-600 transition-colors">My Books</a>
                 <a href="/Books/AIGenerateBook" class="hidden sm:inline-flex text-sm font-medium text-violet-600 hover:text-violet-700 transition-colors">AI Writer</a>
                 <div class="flex items-center gap-2 cursor-default">
-                    <img src="@avatar" alt="" class="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200" id="profileHeaderAvatar" />
+                    <img src="@avatar" alt="" class="profile-media-img w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200" id="profileHeaderAvatar" />
                     <span class="text-sm font-medium text-slate-700 max-w-[140px] truncate hidden sm:inline" id="profileHeaderName">@(Model?.UserName ?? "User")</span>
                 </div>
             </div>
@@ -100,12 +75,14 @@
         <div class="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto">
             <!-- Cover -->
             <div class="h-52 md:h-64 relative bg-violet-600 overflow-hidden shrink-0">
-                <div class="absolute inset-0 opacity-35 mix-blend-overlay" style="background-image: url('https://images.unsplash.com/photo-1524996297542-sadfcd2d824f?q=80&amp;w=2000&amp;auto=format&amp;fit=crop'); background-size: cover; background-position: center;"></div>
+                <img id="profileCoverImage" src="@profileBackgroundImage" alt="" class="profile-media-img absolute inset-0 w-full h-full object-cover opacity-35 mix-blend-overlay" loading="lazy" decoding="async" />
                 <div class="absolute inset-0 bg-gradient-to-r from-violet-700/70 via-violet-600/40 to-transparent"></div>
-                <button type="button" id="btnChangeCover" class="absolute top-5 right-6 bg-black/15 hover:bg-black/25 text-white border border-white/25 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm">
-                    <i data-lucide="camera" class="w-4 h-4" stroke-width="1.5"></i>
-                    Change photo
-                </button>
+                <div class="absolute top-5 right-6">
+                    <span class="bg-black/15 text-white border border-white/25 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 shadow-sm">
+                        <i data-lucide="lock" class="w-4 h-4" stroke-width="1.5"></i>
+                        Background locked
+                    </span>
+                </div>
             </div>
 
             <div class="px-4 sm:px-8 pb-12 md:pb-16 -mt-20 md:-mt-24 relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
@@ -113,10 +90,7 @@
                 <!-- Left: card -->
                 <div class="w-full lg:w-[320px] bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center shrink-0 mx-auto lg:mx-0">
                     <div class="relative -mt-14 md:-mt-16 mb-4 group">
-                        <img id="profileImageMain" src="@avatar" alt="Profile" class="w-[108px] h-[108px] md:w-[120px] md:h-[120px] rounded-full object-cover border-4 border-white shadow-md bg-white" />
-                        <button type="button" id="btnPickImage" class="absolute bottom-1 right-1 bg-violet-600 text-white p-2 rounded-full border-2 border-white hover:bg-violet-700 transition-colors shadow-sm" title="Upload photo">
-                            <i data-lucide="camera" class="w-4 h-4" stroke-width="1.5"></i>
-                        </button>
+                        <img id="profileImageMain" src="@avatar" alt="Profile" class="profile-media-img w-[108px] h-[108px] md:w-[120px] md:h-[120px] rounded-full object-cover border-4 border-white shadow-md bg-white" />
                     </div>
                     <h2 id="profileNameHeading" class="text-xl font-medium text-slate-900 tracking-tight text-center">@(Model?.UserName ?? "User")</h2>
                     <p class="text-sm text-slate-500 mt-1 text-center">@(Model?.UserRole ?? "Reader") · @planLabel</p>
@@ -147,10 +121,7 @@
                         </button>
                     </div>
 
-                    <button type="button" id="btnRemoveImage" class="w-full mt-3 text-sm text-red-600 hover:text-red-700 py-2 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
-                        Remove photo
-                    </button>
-                    <input id="profileFileInput" type="file" accept=".jpg,.jpeg,.png" class="hidden" />
+                    <p class="w-full mt-3 text-center text-xs text-slate-400 border border-slate-200 rounded-lg py-2 bg-slate-50">Profile photo is locked</p>
                 </div>
 
                 <!-- Right: tabs + forms -->
@@ -182,11 +153,16 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-500 mb-2">Country</label>
-                            <input type="text" readonly value="@(Model?.Country ?? "—")" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                            <input type="text" id="country" value="@(Model?.Country ?? "")" autocomplete="country-name" class="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-shadow" />
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-slate-500 mb-2">Member since</label>
                             <input type="text" readonly value="@memberSinceText" class="w-full border border-slate-100 bg-slate-50 rounded-lg px-4 py-2.5 text-base text-slate-600" />
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-slate-500 mb-2">Bio</label>
+                            <textarea id="profileBio" rows="4" maxlength="500" class="w-full border border-slate-200 rounded-lg px-4 py-3 text-base text-slate-800 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-shadow resize-y" placeholder="Tell readers about yourself...">@profileBio</textarea>
+                            <p class="text-xs text-slate-400 mt-1">Max 500 characters.</p>
                         </div>
                         <div class="md:col-span-2 rounded-lg border border-violet-100 bg-violet-50/50 p-4 text-sm text-slate-600">
                             <p class="font-medium text-violet-800 mb-1">Your ebook workspace</p>
@@ -322,16 +298,22 @@
     var fullNameEl = document.getElementById('fullName');
     var username = document.getElementById('username');
     var email = document.getElementById('email');
+    var country = document.getElementById('country');
+    var profileBio = document.getElementById('profileBio');
     var btnUpdateProfile = document.getElementById('btnUpdateProfile');
     var btnChangePassword = document.getElementById('btnChangePassword');
     var btnPickImage = document.getElementById('btnPickImage');
     var btnChangeCover = document.getElementById('btnChangeCover');
+    var btnRemoveCover = document.getElementById('btnRemoveCover');
     var btnRemoveImage = document.getElementById('btnRemoveImage');
     var fileInput = document.getElementById('profileFileInput');
+    var backgroundFileInput = document.getElementById('profileBackgroundFileInput');
     var imageMain = document.getElementById('profileImageMain');
+    var coverImage = document.getElementById('profileCoverImage');
     var headerAvatar = document.getElementById('profileHeaderAvatar');
     var nameHeading = document.getElementById('profileNameHeading');
     var headerName = document.getElementById('profileHeaderName');
+    var defaultCoverImage = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(defaultCoverImage));
 
     function syncFullName() {
         var f = (firstNameEl.value || '').trim();
@@ -388,13 +370,50 @@
         });
     });
 
+    function validateProfileInputs(payload) {
+        if (!payload.fullName || payload.fullName.length < 2 || payload.fullName.length > 80) {
+            return 'Full name must be between 2 and 80 characters.';
+        }
+        if (!/^[a-zA-Z0-9\s.\-']+$/.test(payload.fullName)) {
+            return 'Full name contains invalid characters.';
+        }
+        var emailValue = String(payload.email || '');
+        var looksLikeEmail = emailValue.includes('@@') && emailValue.indexOf('@@') > 0 && emailValue.indexOf('.', emailValue.indexOf('@@')) > emailValue.indexOf('@@') + 1;
+        if (!emailValue || !looksLikeEmail) {
+            return 'Please provide a valid email address.';
+        }
+        if (payload.username && (payload.username.length < 3 || payload.username.length > 32)) {
+            return 'Username must be between 3 and 32 characters.';
+        }
+        if (payload.username && !/^[a-zA-Z0-9_.-]+$/.test(payload.username)) {
+            return 'Username can contain only letters, numbers, dot, underscore, and hyphen.';
+        }
+        if (payload.country && payload.country.length > 60) {
+            return 'Country must be 60 characters or fewer.';
+        }
+        if (payload.country && !/^[a-zA-Z\s.\-']+$/.test(payload.country)) {
+            return 'Country contains invalid characters.';
+        }
+        if (payload.bio && payload.bio.length > 500) {
+            return 'Bio must be 500 characters or fewer.';
+        }
+        return '';
+    }
+
     btnUpdateProfile?.addEventListener('click', async function () {
         syncFullName();
         var payload = {
             fullName: (fullNameEl.value || '').trim(),
             email: (email.value || '').trim(),
-            username: (username.value || '').trim()
+            username: (username.value || '').trim(),
+            country: (country && country.value ? country.value : '').trim(),
+            bio: (profileBio && profileBio.value ? profileBio.value : '').trim()
         };
+        var validationError = validateProfileInputs(payload);
+        if (validationError) {
+            notify('warning', validationError);
+            return;
+        }
         var res = await fetch('/Dashboard/UpdateProfile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
@@ -407,6 +426,9 @@
         if (headerName) headerName.textContent = display;
         fullNameEl.value = data.fullName != null ? data.fullName : fullNameEl.value;
         if (data.email != null) email.value = data.email;
+        if (data.username != null && username) username.value = data.username;
+        if (data.country != null && country) country.value = data.country;
+        if (data.bio != null && profileBio) profileBio.value = data.bio;
         if (data.fullName != null) {
             var parts = String(data.fullName).trim().split(/\s+/);
             if (firstNameEl) firstNameEl.value = parts[0] || '';
@@ -441,9 +463,10 @@
         notify('success', 'Password changed successfully.');
     });
 
-    function pickFile() { fileInput.click(); }
-    btnPickImage?.addEventListener('click', pickFile);
-    btnChangeCover?.addEventListener('click', pickFile);
+    function pickProfileFile() { if (fileInput) fileInput.click(); }
+    function pickBackgroundFile() { if (backgroundFileInput) backgroundFileInput.click(); }
+    btnPickImage?.addEventListener('click', pickProfileFile);
+    btnChangeCover?.addEventListener('click', pickBackgroundFile);
 
     fileInput?.addEventListener('change', async function () {
         if (!fileInput.files || !fileInput.files[0]) return;
@@ -467,6 +490,25 @@
         fileInput.value = '';
     });
 
+    backgroundFileInput?.addEventListener('change', async function () {
+        if (!backgroundFileInput.files || !backgroundFileInput.files[0]) return;
+        var fd = new FormData();
+        fd.append('backgroundImage', backgroundFileInput.files[0]);
+        var res = await fetch('/Dashboard/UploadProfileBackground', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token },
+            body: fd
+        });
+        var data = await res.json().catch(function () { return null; });
+        if (!data || !data.success) return notify('error', (data && data.message) ? data.message : 'Background upload failed.');
+        if (coverImage) {
+            coverImage.src = data.imagePath;
+            coverImage.setAttribute('data-fallback-applied', '0');
+        }
+        notify('success', 'Background image updated.');
+        backgroundFileInput.value = '';
+    });
+
     btnRemoveImage?.addEventListener('click', async function () {
         var res = await fetch('/Dashboard/RemoveProfilePicture', {
             method: 'POST',
@@ -478,6 +520,20 @@
         imageMain.src = fallback;
         if (headerAvatar) headerAvatar.src = fallback;
         notify('success', 'Profile photo removed.');
+    });
+
+    btnRemoveCover?.addEventListener('click', async function () {
+        var res = await fetch('/Dashboard/RemoveProfileBackground', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': token }
+        });
+        var data = await res.json().catch(function () { return null; });
+        if (!data || !data.success) return notify('error', (data && data.message) ? data.message : 'Could not remove background image.');
+        if (coverImage) {
+            coverImage.src = defaultCoverImage;
+            coverImage.setAttribute('data-fallback-applied', '0');
+        }
+        notify('success', 'Background image removed.');
     });
 
     document.getElementById('btnCopyWriteUrl')?.addEventListener('click', function () {

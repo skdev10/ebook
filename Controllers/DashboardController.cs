@@ -1600,6 +1600,27 @@ namespace EBookDashboard.Controllers
                 }).ToList();
             }
 
+            // Profile settings (stored in Settings for backward compatibility / no schema migration)
+            var settingsPrefix = $"profile:";
+            var profileSettings = await _context.Settings.AsNoTracking()
+                .Where(s =>
+                    s.Key == $"profile:username:{user.UserId}" ||
+                    s.Key == $"profile:country:{user.UserId}" ||
+                    s.Key == $"profile:bio:{user.UserId}" ||
+                    s.Key == $"profile:background:{user.UserId}")
+                .ToListAsync();
+
+            string? GetProfileSetting(string name)
+            {
+                var key = $"{settingsPrefix}{name}:{user.UserId}";
+                return profileSettings.FirstOrDefault(s => s.Key == key)?.Value;
+            }
+
+            var profileUsername = GetProfileSetting("username") ?? "";
+            var profileCountry = string.IsNullOrWhiteSpace(GetProfileSetting("country")) ? "United States" : (GetProfileSetting("country") ?? "United States");
+            var profileBio = GetProfileSetting("bio") ?? "";
+            var profileBackgroundPath = GetProfileSetting("background") ?? "";
+
             // Compute profile metrics from DB where possible
             var userBooks = await _context.Books.Where(b => b.UserId == user.UserId).ToListAsync();
             var totalBooks = userBooks.Count;
@@ -1613,7 +1634,7 @@ namespace EBookDashboard.Controllers
                 UserEmail = user.UserEmail,
                 UserRole = user.Role?.RoleName ?? "Reader",
                 MemberSince = user.CreatedAt,
-                Country = "United States",
+                Country = profileCountry,
                 TotalBooks = totalBooks,
                 BooksReading = booksReading,
                 Reviews = 0,
@@ -1629,14 +1650,14 @@ namespace EBookDashboard.Controllers
                 PlanFeatures = planFeatures
             };
 
-            // Optional username/account type (kept backward compatible without schema changes)
-            var usernameSetting = await _context.Settings.AsNoTracking()
-                .FirstOrDefaultAsync(s => s.Key == $"profile:username:{user.UserId}");
-            ViewBag.ProfileUsername = usernameSetting?.Value ?? "";
+            // Optional profile values/account type (kept backward compatible without schema changes)
+            ViewBag.ProfileUsername = profileUsername;
+            ViewBag.ProfileBio = profileBio;
             ViewBag.AccountType = activePlan?.Plan?.PlanName ?? "Free";
 
             // Pass profile picture path to view
             ViewBag.ProfilePicturePath = user.ProfilePicturePath;
+            ViewBag.ProfileBackgroundPath = profileBackgroundPath;
             ViewBag.PremiumContentUnlocked = user.RoleId == 1 || user.RoleId == 2;
 
             return View(viewModel);
@@ -1676,10 +1697,21 @@ namespace EBookDashboard.Controllers
                     return Json(new { success = false, message = "Invalid request." });
                 }
 
-                if (!string.IsNullOrWhiteSpace(request.FullName))
+                if (string.IsNullOrWhiteSpace(request.FullName))
                 {
-                    user.FullName = request.FullName.Trim();
+                    return Json(new { success = false, message = "Full name is required." });
                 }
+
+                var normalizedFullName = Regex.Replace(request.FullName.Trim(), @"\s{2,}", " ");
+                if (normalizedFullName.Length < 2 || normalizedFullName.Length > 80)
+                {
+                    return Json(new { success = false, message = "Full name must be between 2 and 80 characters." });
+                }
+                if (!Regex.IsMatch(normalizedFullName, @"^[a-zA-Z0-9\s\.\-']+$"))
+                {
+                    return Json(new { success = false, message = "Full name contains invalid characters." });
+                }
+                user.FullName = normalizedFullName;
 
                 if (!string.IsNullOrWhiteSpace(request.Email))
                 {
@@ -1697,29 +1729,65 @@ namespace EBookDashboard.Controllers
                     user.UserEmail = normalizedEmail;
                 }
 
-                // Store username in Settings table for backward compatibility
+                // Store username/country/bio in Settings table for backward compatibility
                 if (!string.IsNullOrWhiteSpace(request.Username))
                 {
                     var username = request.Username.Trim();
-                    var existingUsername = await _context.Settings.FirstOrDefaultAsync(s => s.Key == $"profile:username:{user.UserId}");
-                    if (existingUsername == null)
+                    if (username.Length < 3 || username.Length > 32)
                     {
-                        var nextId = await _context.NextSettingIdAsync(CancellationToken.None);
-                        _context.Settings.Add(new Settings
-                        {
-                            SettingId = nextId,
-                            Key = $"profile:username:{user.UserId}",
-                            Value = username,
-                            Category = "Profile",
-                            CreatedAt = DateTime.UtcNow,
-                            UpdatedAt = DateTime.UtcNow
-                        });
+                        return Json(new { success = false, message = "Username must be between 3 and 32 characters." });
                     }
-                    else
+                    if (!Regex.IsMatch(username, @"^[a-zA-Z0-9_.-]+$"))
                     {
-                        existingUsername.Value = username;
-                        existingUsername.UpdatedAt = DateTime.UtcNow;
+                        return Json(new { success = false, message = "Username can contain only letters, numbers, dot, underscore, and hyphen." });
                     }
+                    var usernameInUse = await _context.Settings.AsNoTracking().AnyAsync(s =>
+                        s.Key.StartsWith("profile:username:") &&
+                        s.Key != $"profile:username:{user.UserId}" &&
+                        s.Value != null &&
+                        s.Value == username);
+                    if (usernameInUse)
+                    {
+                        return Json(new { success = false, message = "Username is already in use." });
+                    }
+
+                    await UpsertProfileSettingAsync(user.UserId, "username", username, "Public profile username", CancellationToken.None);
+                }
+                else
+                {
+                    await UpsertProfileSettingAsync(user.UserId, "username", null, "Public profile username", CancellationToken.None);
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Country))
+                {
+                    var country = request.Country.Trim();
+                    if (country.Length > 60)
+                    {
+                        return Json(new { success = false, message = "Country must be 60 characters or fewer." });
+                    }
+                    if (!Regex.IsMatch(country, @"^[a-zA-Z\s\.\-']+$"))
+                    {
+                        return Json(new { success = false, message = "Country contains invalid characters." });
+                    }
+                    await UpsertProfileSettingAsync(user.UserId, "country", country, "Profile country", CancellationToken.None);
+                }
+                else
+                {
+                    await UpsertProfileSettingAsync(user.UserId, "country", null, "Profile country", CancellationToken.None);
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.Bio))
+                {
+                    var bio = request.Bio.Trim();
+                    if (bio.Length > 500)
+                    {
+                        return Json(new { success = false, message = "Bio must be 500 characters or fewer." });
+                    }
+                    await UpsertProfileSettingAsync(user.UserId, "bio", bio, "Profile biography", CancellationToken.None);
+                }
+                else
+                {
+                    await UpsertProfileSettingAsync(user.UserId, "bio", null, "Profile biography", CancellationToken.None);
                 }
 
                 user.UpdatedAt = DateTime.UtcNow;
@@ -1758,7 +1826,10 @@ namespace EBookDashboard.Controllers
                 {
                     success = true,
                     fullName = user.FullName,
-                    email = user.UserEmail
+                    email = user.UserEmail,
+                    username = request.Username?.Trim() ?? "",
+                    country = request.Country?.Trim() ?? "",
+                    bio = request.Bio?.Trim() ?? ""
                 });
             }
             catch (Exception ex)
@@ -2023,6 +2094,109 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 return Json(new { success = false, message = $"Error removing image: {ex.Message}" });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Route("UploadProfileBackground")]
+        public async Task<IActionResult> UploadProfileBackground(IFormFile backgroundImage)
+        {
+            try
+            {
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                if (user == null)
+                {
+                    return Json(new { success = false, message = "User not found" });
+                }
+
+                if (backgroundImage == null || backgroundImage.Length == 0)
+                {
+                    return Json(new { success = false, message = "Please select a background image" });
+                }
+
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+                var fileExtension = Path.GetExtension(backgroundImage.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(fileExtension))
+                {
+                    return Json(new { success = false, message = "Only JPG, JPEG, PNG, and WEBP files are allowed" });
+                }
+
+                const long maxFileSize = 5 * 1024 * 1024; // 5 MB
+                if (backgroundImage.Length > maxFileSize)
+                {
+                    return Json(new { success = false, message = "Background image size must be less than 5 MB" });
+                }
+
+                var oldBackground = await GetProfileSettingValueAsync(user.UserId, "background", HttpContext.RequestAborted);
+                if (!string.IsNullOrWhiteSpace(oldBackground))
+                {
+                    var oldFilePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", oldBackground.TrimStart('/'));
+                    if (System.IO.File.Exists(oldFilePath))
+                    {
+                        System.IO.File.Delete(oldFilePath);
+                    }
+                }
+
+                var fileName = $"profile_cover_{user.UserId}_{DateTime.UtcNow.Ticks}{fileExtension}";
+                var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "UserImages", fileName);
+                var relativePath = $"/UserImages/{fileName}";
+
+                var directory = Path.GetDirectoryName(uploadPath);
+                if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                await using (var stream = new FileStream(uploadPath, FileMode.Create))
+                {
+                    await backgroundImage.CopyToAsync(stream);
+                }
+
+                await UpsertProfileSettingAsync(user.UserId, "background", relativePath, "Profile background image", HttpContext.RequestAborted);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Background image updated successfully", imagePath = relativePath });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error uploading background image: {ex.Message}" });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Route("RemoveProfileBackground")]
+        public async Task<IActionResult> RemoveProfileBackground()
+        {
+            try
+            {
+                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                if (user == null)
+                {
+                    return Json(new { success = false, message = "User not found" });
+                }
+
+                var existingBackground = await GetProfileSettingValueAsync(user.UserId, "background", HttpContext.RequestAborted);
+                if (!string.IsNullOrWhiteSpace(existingBackground))
+                {
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", existingBackground.TrimStart('/'));
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        System.IO.File.Delete(filePath);
+                    }
+                }
+
+                await UpsertProfileSettingAsync(user.UserId, "background", null, "Profile background image", HttpContext.RequestAborted);
+                await _context.SaveChangesAsync();
+
+                return Json(new { success = true, message = "Background image removed successfully" });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error removing background image: {ex.Message}" });
             }
         }
 
@@ -2528,6 +2702,60 @@ namespace EBookDashboard.Controllers
             }
         }
 
+        private static string BuildProfileSettingKey(int userId, string name)
+        {
+            return $"profile:{name}:{userId}";
+        }
+
+        private async Task<string?> GetProfileSettingValueAsync(int userId, string name, CancellationToken cancellationToken = default)
+        {
+            var key = BuildProfileSettingKey(userId, name);
+            return await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == key)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        private async Task UpsertProfileSettingAsync(int userId, string name, string? value, string description, CancellationToken cancellationToken = default)
+        {
+            var key = BuildProfileSettingKey(userId, name);
+            var existing = await _context.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                if (existing != null)
+                {
+                    _context.Settings.Remove(existing);
+                }
+                return;
+            }
+
+            var clampedValue = EBookDashboard.Models.Settings.ClampValueLength(
+                value.Trim(),
+                EBookDashboard.Models.Settings.DbCompatMaxValueLength);
+            if (existing == null)
+            {
+                var nextId = await _context.NextSettingIdAsync(cancellationToken);
+                _context.Settings.Add(new Settings
+                {
+                    SettingId = nextId,
+                    Key = key,
+                    Value = clampedValue,
+                    Category = "Profile",
+                    Description = description,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                existing.Value = clampedValue;
+                existing.Category = "Profile";
+                existing.Description = description;
+                existing.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
         // ===================== SUPPORT SCREEN =====================
         [Route("Support")]
         public async Task<IActionResult> Support()
@@ -2560,6 +2788,8 @@ public class UpdateProfileRequest
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
+    public string Country { get; set; } = string.Empty;
+    public string Bio { get; set; } = string.Empty;
 }
 
 public class UpdatePasswordRequest
