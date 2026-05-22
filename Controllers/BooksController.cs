@@ -56,6 +56,7 @@ namespace EBookDashboard.Controllers
         private readonly IChapterIterationService _chapterIterationService;
         private readonly IBookPdfService _bookPdfService;
         private readonly IEpubExportService _epubExportService;
+        private readonly IDocxExportService _docxExportService;
         private readonly IBookPageMetricsService _bookPageMetricsService;
 
         public BooksController(
@@ -70,6 +71,7 @@ namespace EBookDashboard.Controllers
             IChapterIterationService chapterIterationService,
             IBookPdfService bookPdfService,
             IEpubExportService epubExportService,
+            IDocxExportService docxExportService,
             IBookPageMetricsService bookPageMetricsService)
         {
             _httpClientFactory = httpClientFactory;
@@ -84,6 +86,7 @@ namespace EBookDashboard.Controllers
             _chapterIterationService = chapterIterationService;
             _bookPdfService = bookPdfService;
             _epubExportService = epubExportService;
+            _docxExportService = docxExportService;
             _bookPageMetricsService = bookPageMetricsService;
         }
         //===========================================
@@ -2407,6 +2410,48 @@ namespace EBookDashboard.Controllers
             {
                 _logger.LogError(ex, "ExportEpub failed for book {BookId}", req.BookId);
                 return StatusCode(500, new { success = false, message = "EPUB export failed." });
+            }
+        }
+
+        /// <summary>Export book as Word document (.docx) for easy editing and EPUB conversion.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Route("Books/ExportDocx")]
+        public async Task<IActionResult> ExportDocx([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
+            if (details == null || !details.Success || details.Chapters == null || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
+                return BadRequest(new { success = false, message = "No chapter content to export." });
+
+            try
+            {
+                var bytes = _docxExportService.BuildDocx(
+                    details,
+                    (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
+                    (req.DisplayAuthor ?? details.AuthorName ?? "").Trim());
+
+                var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
+                var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
+                safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
+                if (string.IsNullOrEmpty(safe)) safe = "book";
+                return File(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", $"{safe}-{req.BookId}.docx");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExportDocx failed for book {BookId}", req.BookId);
+                return StatusCode(500, new { success = false, message = "Word export failed." });
             }
         }
 

@@ -1621,6 +1621,14 @@
                     </div>
 
                     <div class="mt-6 flex flex-col gap-3" data-guided-tour="fmt-actions" id="fmt-actions-panel">
+                        <div id="fmt-export-format-wrap" class="rounded-xl border border-violet-100 bg-violet-50/40 p-3">
+                            <label for="fmt-export-format" class="block text-xs font-semibold text-gray-600 mb-2">Ebook export format</label>
+                            <select id="fmt-export-format" class="custom-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 text-sm cursor-pointer shadow-sm" aria-label="Choose ebook export file format">
+                                <option value="epub">EPUB (.epub) — Kindle / Apple Books / KDP</option>
+                                <option value="docx">Word Document (.docx) — edit easily, then convert to EPUB</option>
+                            </select>
+                            <p class="text-[11px] text-gray-500 mt-2 leading-relaxed">Use <strong>.docx</strong> to polish in Microsoft Word; use <strong>.epub</strong> for direct upload to ebook stores.</p>
+                        </div>
                         <button type="button" id="fmt-btn-export-book" class="formatter-ui-radius w-full bg-violet-700 hover:bg-violet-800 text-white font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
                             <i class="fas fa-download" aria-hidden="true"></i> Export / Download
                         </button>
@@ -2842,9 +2850,8 @@
             syncPlatformBlockUi(cb);
         });
         setNonPrintPlatformsDisabled(arr.indexOf(PRINT_READY_PLATFORM) >= 0);
+        syncFmtExportFormatUi();
     }
-
-    function applyPublishingPlatformRules(changedCb) {
         var name = changedCb.getAttribute('data-platform');
         if (!changedCb.checked) {
             syncPlatformBlockUi(changedCb);
@@ -2870,9 +2877,8 @@
             setNonPrintPlatformsDisabled(false);
         }
         syncPlatformBlockUi(changedCb);
+        syncFmtExportFormatUi();
     }
-
-    function escapeHtml(s) {
         if (s == null) return '';
         const div = document.createElement('div');
         div.textContent = String(s);
@@ -3463,6 +3469,7 @@
         if (!bid) { showToast('Select a book first.'); return; }
         var platforms = getSelectedPlatforms().toLowerCase();
         var isPrint = platforms.indexOf('print ready') >= 0 || platforms.indexOf('just print ready') >= 0;
+        var exportFormat = (document.getElementById('fmt-export-format') && document.getElementById('fmt-export-format').value) || 'epub';
         var tokenEl = document.querySelector('input[name="__RequestVerificationToken"]');
         var token = tokenEl ? tokenEl.value : '';
         var titleEl = document.getElementById('formatting-preview-title');
@@ -3472,10 +3479,12 @@
             displayAuthor: bookPreviewContext.authorName || '',
             displayGenre: bookPreviewContext.genre || '',
             bookFormat: '6x9',
-            publishingPlatform: getSelectedPlatforms()
+            publishingPlatform: getSelectedPlatforms(),
+            exportFormat: exportFormat
         };
-        var url = isPrint ? '/Books/ExportPrintReadyBundle' : '/Books/ExportEpub';
-        showToast(isPrint ? 'Preparing print files…' : 'Building EPUB…');
+        var url = isPrint ? '/Books/ExportPrintReadyBundle' : (exportFormat === 'docx' ? '/Books/ExportDocx' : '/Books/ExportEpub');
+        var toastMsg = isPrint ? 'Preparing print files…' : (exportFormat === 'docx' ? 'Building Word document…' : 'Building EPUB…');
+        showToast(toastMsg);
         try {
             var r = await fetch(url, {
                 method: 'POST',
@@ -3495,7 +3504,8 @@
             var blob = await r.blob();
             var a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = isPrint ? ('print-ready-' + bid + '.zip') : ('book-' + bid + '.epub');
+            var safeTitle = (formatterBookTitle || 'book').replace(/[^\w\-\s]/g, '').replace(/\s+/g, '-').replace(/^-|-$/g, '') || 'book';
+            a.download = isPrint ? (safeTitle + '-print-ready-' + bid + '.zip') : (exportFormat === 'docx' ? (safeTitle + '-' + bid + '.docx') : (safeTitle + '-' + bid + '.epub'));
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -3503,6 +3513,14 @@
         } catch (e) {
             showToast('Export failed.');
         }
+    }
+
+    function syncFmtExportFormatUi() {
+        var wrap = document.getElementById('fmt-export-format-wrap');
+        if (!wrap) return;
+        var platforms = getSelectedPlatforms().toLowerCase();
+        var isPrint = platforms.indexOf('print ready') >= 0 || platforms.indexOf('just print ready') >= 0;
+        wrap.classList.toggle('hidden', isPrint);
     }
 
     function syncFormatterSwitchBookLink(bid) {
@@ -3829,6 +3847,7 @@
 
         var platformsStr = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model?.PublishingPlatforms ?? string.Empty));
         if (platformsStr) setSelectedPlatforms(platformsStr);
+        syncFmtExportFormatUi();
 
         const formatSelect = document.getElementById('format-select');
         if (formatSelect && formatFromUrl) {

@@ -224,6 +224,7 @@ builder.Services.AddScoped<CommonMethodsService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IBookPdfService, BookPdfService>();
 builder.Services.AddScoped<IEpubExportService, EpubExportService>();
+builder.Services.AddScoped<IDocxExportService, DocxExportService>();
 builder.Services.AddScoped<IBookPageMetricsService, BookPageMetricsService>();
 builder.Services.AddScoped<IChapterIterationService, ChapterIterationService>();
 builder.Services.Configure<ChapterGenerationOptions>(

@@ -53,6 +53,34 @@ public class EpubExportService : IEpubExportService
             var navItems = new StringBuilder();
             var itemIndex = 0;
 
+            const string epubCss = """
+                body {
+                  font-family: Georgia, "Times New Roman", serif;
+                  font-size: 1.05em;
+                  line-height: 1.65;
+                  margin: 1.2em 1em;
+                  color: #1e293b;
+                }
+                h1 {
+                  font-size: 1.55em;
+                  font-weight: 600;
+                  margin: 0 0 1.1em;
+                  line-height: 1.25;
+                  color: #0f172a;
+                  page-break-after: avoid;
+                }
+                p {
+                  margin: 0 0 0.95em;
+                  text-align: justify;
+                  text-indent: 1.25em;
+                }
+                p:first-of-type { text-indent: 0; }
+                img { max-width: 100%; height: auto; }
+                """;
+
+            WriteEntry(zip, "OEBPS/styles.css", epubCss);
+            manifest.AppendLine("    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\"/>");
+
             string? coverHref = null;
             byte[]? coverBytes = await ResolveCoverBytesAsync(coverImageUrlOrData, details.CoverImagePath, cancellationToken);
             if (coverBytes != null && coverBytes.Length > 0)
@@ -88,7 +116,10 @@ public class EpubExportService : IEpubExportService
                     <?xml version="1.0" encoding="UTF-8"?>
                     <!DOCTYPE html>
                     <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
-                    <head><title>{chTitle}</title></head>
+                    <head>
+                      <title>{chTitle}</title>
+                      <link rel="stylesheet" type="text/css" href="styles.css"/>
+                    </head>
                     <body>
                       <h1>{chTitle}</h1>
                       {body}
@@ -125,7 +156,10 @@ public class EpubExportService : IEpubExportService
                 <?xml version="1.0" encoding="UTF-8"?>
                 <!DOCTYPE html>
                 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">
-                <head><title>Navigation</title></head>
+                <head>
+                  <title>Navigation</title>
+                  <link rel="stylesheet" type="text/css" href="styles.css"/>
+                </head>
                 <body>
                   <nav epub:type="toc" id="toc">
                     <h1>Contents</h1>

@@ -54,6 +54,9 @@ namespace EBookDashboard.Models.DTO
         public string? LineSpacing { get; set; }
         public string? BookFormat { get; set; }
         public string? PublishingPlatform { get; set; }
+
+        /// <summary>Ebook export format: <c>epub</c> (default) or <c>docx</c> (Word document).</summary>
+        public string? ExportFormat { get; set; }
     }
 
     /// <summary>POST /Dashboard/GeneratePrintReadyCover — auto-generate back+spine+front cover set.</summary>
