@@ -205,6 +205,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 // Add BookService
 builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<BookPublishReadinessService>();
 // Add PlanService
 builder.Services.AddScoped<IPlansService, PlansService>();
 // Add FeatureCartService

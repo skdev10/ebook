@@ -435,8 +435,8 @@
                     </a>
                     @if (books.Any())
                     {
-                        <a id="btn-top-publish" href="/Checkout/BookPayment?bookId=@books.First().BookId" class="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
-                            <i class="fas fa-upload"></i> Publish
+                        <a id="btn-top-publish" href="/Dashboard/Publish?bookId=@books.First().BookId" class="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
+                            <i class="fas fa-download"></i> Export
                         </a>
                     }
                     else
@@ -485,7 +485,11 @@
                             <p class="text-sm text-slate-500 truncate">@authorName</p>
                             @if (chCount > 0)
                             {
-                                <p class="text-[11px] text-violet-700 font-semibold mt-1.5 truncate" title="Total AI generation saves stored for this book (all chapters). Open AI Writer to see per-chapter versions."><i class="fas fa-history" aria-hidden="true"></i> @chCount AI save(s) on file</p>
+                                <p class="text-[11px] text-violet-700 font-semibold mt-1.5 truncate" title="Chapters with exportable content"><i class="fas fa-book-open" aria-hidden="true"></i> @chCount chapter@(chCount == 1 ? "" : "s") ready</p>
+                                <div class="flex gap-1.5 mt-2 pt-2 border-t border-slate-100" onclick="event.stopPropagation();">
+                                    <button type="button" class="mybooks-export-epub flex-1 rounded-lg bg-violet-600 text-white text-[11px] font-semibold py-1.5 hover:bg-violet-700" data-book-id="@book.BookId" data-title="@title" data-genre="@genre">EPUB</button>
+                                    <button type="button" class="mybooks-export-docx flex-1 rounded-lg border border-violet-300 text-violet-800 text-[11px] font-semibold py-1.5 hover:bg-violet-50" data-book-id="@book.BookId" data-title="@title" data-genre="@genre">Word</button>
+                                </div>
                             }
                         </div>
                     }
@@ -534,6 +538,10 @@
                                 @if (book.ChapterCount > 0)
                                 {
                                     <p class="text-[10px] text-violet-600 font-semibold text-center mt-1 truncate">@book.ChapterCount AI save(s)</p>
+                                    <div class="flex gap-1 mt-1.5" onclick="event.stopPropagation();">
+                                        <button type="button" class="mybooks-export-epub flex-1 rounded-md bg-violet-600 text-white text-[10px] font-semibold py-1 hover:bg-violet-700" data-book-id="@book.BookId" data-title="@title" data-genre="@(book.Genre ?? "")">EPUB</button>
+                                        <button type="button" class="mybooks-export-docx flex-1 rounded-md border border-violet-300 text-violet-800 text-[10px] font-semibold py-1 hover:bg-violet-50" data-book-id="@book.BookId" data-title="@title" data-genre="@(book.Genre ?? "")">Word</button>
+                                    </div>
                                 }
                             </div>
                         }
@@ -589,8 +597,14 @@
                         <i class="fas fa-book-open" aria-hidden="true"></i> Preview full book
                     </button>
                     <p class="text-[11px] text-center leading-snug px-1" style="color:#c4b5fd;">Opens a print-style chapter preview (same data as your PDF export).</p>
-                    <a id="btn-download-publish" href="#" class="w-full py-3.5 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#047857;color:#ecfdf5;">
-                        <i class="fas fa-download"></i> <span id="btn-download-label">Download / Publish</span>
+                    <button type="button" id="btn-export-epub-aside" class="hidden w-full py-3 px-6 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer border-2 min-h-[44px]" style="background-color:#ffffff;color:#4c1d95;border-color:#e9d5ff;">
+                        <i class="fas fa-book"></i> Export EPUB
+                    </button>
+                    <button type="button" id="btn-export-docx-aside" class="hidden w-full py-3 px-6 rounded-xl text-sm font-semibold flex justify-center items-center gap-2 cursor-pointer min-h-[44px]" style="background-color:#5b21b6;color:#ede9fe;border:1px solid #7c3aed;">
+                        <i class="fas fa-file-word"></i> Export Word
+                    </button>
+                    <a id="btn-download-publish" href="#" class="w-full py-2.5 px-6 rounded-xl text-xs font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:transparent;color:#c4b5fd;border:1px solid rgba(255,255,255,0.2);">
+                        <i class="fas fa-external-link-alt"></i> <span id="btn-download-label">Open export page</span>
                     </a>
                     <a id="btn-edit-book" href="#" class="w-full text-white py-3 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#4c1d95;">
                         <i class="fas fa-edit"></i> Edit
@@ -735,24 +749,28 @@
         document.getElementById('btn-edit-book').href = '/Books/AIGenerateBook?bookId=' + book.bookId;
         document.getElementById('btn-edit-book').classList.remove('hidden');
         document.getElementById('btn-delete-book').classList.remove('hidden');
+        var hasChapters = (book.chapterCount || 0) > 0;
+        var epubAside = document.getElementById('btn-export-epub-aside');
+        var docxAside = document.getElementById('btn-export-docx-aside');
+        if (epubAside) {
+            if (hasChapters) epubAside.classList.remove('hidden');
+            else epubAside.classList.add('hidden');
+        }
+        if (docxAside) {
+            if (hasChapters) docxAside.classList.remove('hidden');
+            else docxAside.classList.add('hidden');
+        }
         var dlBtn = document.getElementById('btn-download-publish');
         var dlLabel = document.getElementById('btn-download-label');
         if (dlBtn && dlLabel) {
             dlBtn.classList.remove('hidden');
-            var isPaid = (book.status || '').toString() === 'Paid';
-            if (isPaid) {
-                dlBtn.href = '/Books/BookDownloads?bookId=' + book.bookId;
-                dlBtn.title = 'Download your book files';
-                dlLabel.textContent = 'Download / Publish';
-            } else {
-                dlBtn.href = '/Checkout/BookPayment?bookId=' + book.bookId;
-                dlBtn.title = 'Complete payment to unlock downloads';
-                dlLabel.textContent = 'Complete payment to unlock downloads';
-            }
+            dlBtn.href = '/Dashboard/Publish?bookId=' + book.bookId;
+            dlBtn.title = 'Export EPUB or Word';
+            dlLabel.textContent = 'Open export page';
         }
         var publishBtn = document.getElementById('btn-top-publish');
         if (publishBtn && !publishBtn.disabled) {
-            publishBtn.href = '/Checkout/BookPayment?bookId=' + book.bookId;
+            publishBtn.href = '/Dashboard/Publish?bookId=' + book.bookId;
         }
         var coverWrap = document.getElementById('aside-cover-wrapper');
         setAsideCover(coverWrap, book.cover, book.title);
@@ -900,6 +918,122 @@
                 else return res.text().then(t => { throw new Error(t || 'Delete failed'); });
             })
             .catch(function(e) { if (typeof Swal !== 'undefined') Swal.fire({ title: 'Error', text: e.message, icon: 'error' }); else alert(e.message); });
+    }
+
+    function getMyBooksAntiForgeryToken() {
+        var t = document.querySelector('input[name="__RequestVerificationToken"]');
+        return t ? t.value : '';
+    }
+
+    function safeBookSlugFromTitle(title) {
+        return String(title || 'book')
+            .toLowerCase()
+            .replace(/[^\w\s-]+/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/^-+|-+$/g, '') || 'book';
+    }
+
+    function downloadBlobAsFile(blob, filename) {
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename || 'book.epub';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () {
+            a.remove();
+            URL.revokeObjectURL(url);
+        }, 400);
+    }
+
+    function runMyBooksExport(bookId, title, genre, format, triggerBtn) {
+        if (!bookId || bookId <= 0) return;
+        var fmt = (format || 'epub').toLowerCase();
+        var url = fmt === 'docx' ? '/Books/ExportDocx' : '/Books/ExportEpub';
+        var token = getMyBooksAntiForgeryToken();
+        if (triggerBtn) triggerBtn.disabled = true;
+        var toast = function (msg, icon) {
+            if (typeof Swal !== 'undefined') Swal.fire({ toast: true, position: 'top-end', icon: icon || 'info', title: msg, showConfirmButton: false, timer: 2200 });
+        };
+        toast(fmt === 'docx' ? 'Building Word…' : 'Building EPUB…', 'info');
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                bookId: bookId,
+                displayTitle: title || '',
+                displayAuthor: '',
+                displayGenre: genre || '',
+                exportFormat: fmt
+            })
+        })
+            .then(function (res) {
+                if (!res.ok) {
+                    return res.json().catch(function () { return {}; }).then(function (j) {
+                        throw new Error((j && j.message) ? j.message : 'Export failed.');
+                    });
+                }
+                var cd = res.headers.get('Content-Disposition') || '';
+                var m = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
+                var serverName = '';
+                if (m) {
+                    try { serverName = decodeURIComponent((m[1] || m[2] || '').trim()); }
+                    catch (e) { serverName = (m[1] || m[2] || '').trim(); }
+                }
+                return res.blob().then(function (blob) {
+                    if (!blob || blob.size < 80) {
+                        throw new Error('Export file is empty. Add chapter text in AI Writer first.');
+                    }
+                    var ext = fmt === 'docx' ? 'docx' : 'epub';
+                    var mime = fmt === 'docx'
+                        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                        : 'application/epub+zip';
+                    var typed = blob.type ? blob : new Blob([blob], { type: mime });
+                    var fname = serverName || (safeBookSlugFromTitle(title) + '-' + bookId + '.' + ext);
+                    downloadBlobAsFile(typed, fname);
+                    toast(fmt === 'epub' ? 'EPUB saved — open in Books / Calibre' : 'Word file saved', 'success');
+                });
+            })
+            .catch(function (err) {
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Export failed', text: err && err.message ? err.message : 'Try again.', confirmButtonColor: '#7c3aed' });
+                else alert(err && err.message ? err.message : 'Export failed.');
+            })
+            .finally(function () {
+                if (triggerBtn) triggerBtn.disabled = false;
+            });
+    }
+
+    document.querySelectorAll('.mybooks-export-epub').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            runMyBooksExport(parseInt(btn.getAttribute('data-book-id'), 10), btn.getAttribute('data-title'), btn.getAttribute('data-genre'), 'epub', btn);
+        });
+    });
+    document.querySelectorAll('.mybooks-export-docx').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            runMyBooksExport(parseInt(btn.getAttribute('data-book-id'), 10), btn.getAttribute('data-title'), btn.getAttribute('data-genre'), 'docx', btn);
+        });
+    });
+
+    var epubAsideBtn = document.getElementById('btn-export-epub-aside');
+    var docxAsideBtn = document.getElementById('btn-export-docx-aside');
+    if (epubAsideBtn) {
+        epubAsideBtn.addEventListener('click', function () {
+            if (!selectedBookId) return;
+            var b = books && books.find(function (x) { return bookIdFrom(x) === selectedBookId; });
+            var bk = b ? getBook(b) : null;
+            if (bk) runMyBooksExport(bk.bookId, bk.title, bk.genre, 'epub', epubAsideBtn);
+        });
+    }
+    if (docxAsideBtn) {
+        docxAsideBtn.addEventListener('click', function () {
+            if (!selectedBookId) return;
+            var b = books && books.find(function (x) { return bookIdFrom(x) === selectedBookId; });
+            var bk = b ? getBook(b) : null;
+            if (bk) runMyBooksExport(bk.bookId, bk.title, bk.genre, 'docx', docxAsideBtn);
+        });
     }
 
     if (books && books.length > 0) fillAside(getBook(books[0]));

@@ -58,6 +58,7 @@ namespace EBookDashboard.Controllers
         private readonly IEpubExportService _epubExportService;
         private readonly IDocxExportService _docxExportService;
         private readonly IBookPageMetricsService _bookPageMetricsService;
+        private readonly BookPublishReadinessService _publishReadiness;
 
         public BooksController(
             IBookService bookService,
@@ -72,7 +73,8 @@ namespace EBookDashboard.Controllers
             IBookPdfService bookPdfService,
             IEpubExportService epubExportService,
             IDocxExportService docxExportService,
-            IBookPageMetricsService bookPageMetricsService)
+            IBookPageMetricsService bookPageMetricsService,
+            BookPublishReadinessService publishReadiness)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -88,6 +90,7 @@ namespace EBookDashboard.Controllers
             _epubExportService = epubExportService;
             _docxExportService = docxExportService;
             _bookPageMetricsService = bookPageMetricsService;
+            _publishReadiness = publishReadiness;
         }
         //===========================================
         //           On Page Load 
@@ -285,14 +288,20 @@ namespace EBookDashboard.Controllers
         // Get full book content (all chapters) for page-flip preview
         //=======================================================
         [HttpGet]
-        public async Task<IActionResult> GetFullBookContent(int userId, int bookId)
+        public async Task<IActionResult> GetFullBookContent(int bookId, int userId = 0)
         {
             try
             {
-                if (userId == 0 || bookId == 0)
-                    return Json(new { success = false, message = "User ID and Book ID are required" });
+                var sessionUserId = HttpContext.Session.GetInt32("UserId");
+                if (sessionUserId == null || sessionUserId.Value <= 0)
+                    return Json(new { success = false, message = "Please sign in." });
 
-                var result = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
+                if (bookId <= 0)
+                    return Json(new { success = false, message = "Book ID is required." });
+
+                var effectiveUserId = sessionUserId.Value;
+
+                var result = await _bookService.GetBookDetailsForPreviewAsync(effectiveUserId, bookId);
                 if (result == null || !result.Success)
                     return Json(new { success = false, message = result?.Message ?? "No book found." });
 
@@ -2349,11 +2358,12 @@ namespace EBookDashboard.Controllers
                     raw.UpdatedAt = DateTime.UtcNow;
                 }
 
-                var finalizedIter = await _context.ChapterIterations
-                    .Where(i => i.UserId == userId && i.BookId == request.BookId && i.ChapterNumber == chapterNum && i.IsFinalized)
-                    .FirstOrDefaultAsync();
-                if (finalizedIter != null)
-                    finalizedIter.Title = TruncateTitle(request.Title, 500);
+                var titleForIter = TruncateTitle(request.Title, 500);
+                var chapterIters = await _context.ChapterIterations
+                    .Where(i => i.UserId == userId && i.BookId == request.BookId && i.ChapterNumber == chapterNum)
+                    .ToListAsync();
+                foreach (var iter in chapterIters)
+                    iter.Title = titleForIter;
 
                 await _context.SaveChangesAsync();
                 return Json(new { success = true, title = titleTrim, message = "Chapter name updated." });
@@ -2405,6 +2415,10 @@ namespace EBookDashboard.Controllers
                 safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
                 if (string.IsNullOrEmpty(safe)) safe = "book";
                 return File(bytes, "application/epub+zip", $"{safe}-{req.BookId}.epub");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -2548,6 +2562,72 @@ namespace EBookDashboard.Controllers
                 _logger.LogError(ex, "ExportPrintReadyBundle failed for book {BookId}", req.BookId);
                 return StatusCode(500, new { success = false, message = "Print export failed." });
             }
+        }
+
+        /// <summary>Print-ready full wrap cover only (PNG) — second file for dual export.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Route("Books/ExportPrintReadyCoverImage")]
+        public async Task<IActionResult> ExportPrintReadyCoverImage([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            var wrapKey = $"book:{req.BookId}:printReadyCoverWrap";
+            var wrapRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == wrapKey, cancellationToken);
+            var wrapVal = (wrapRow?.Value ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(wrapVal))
+            {
+                var aiKey = $"book:{req.BookId}:aiCoverLastPreview";
+                var aiRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == aiKey, cancellationToken);
+                wrapVal = (aiRow?.Value ?? "").Trim();
+            }
+
+            byte[]? wrapBytes = null;
+            var fileName = "cover-wrap.png";
+            if (wrapVal.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+            {
+                var ix = wrapVal.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
+                if (ix >= 0) wrapBytes = Convert.FromBase64String(wrapVal[(ix + 7)..]);
+            }
+            else if (wrapVal.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || wrapVal.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    using var client = _httpClientFactory.CreateClient();
+                    wrapBytes = await client.GetByteArrayAsync(wrapVal, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ExportPrintReadyCoverImage fetch failed for book {BookId}", req.BookId);
+                }
+            }
+            else if (wrapVal.StartsWith("/"))
+            {
+                var physical = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", wrapVal.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                if (System.IO.File.Exists(physical))
+                    wrapBytes = await System.IO.File.ReadAllBytesAsync(physical, cancellationToken);
+            }
+
+            if (wrapBytes == null || wrapBytes.Length == 0)
+                return BadRequest(new { success = false, message = "No print wrap cover found. Generate it in Cover Design (print-ready flow) first." });
+
+            var book = await _context.Books.AsNoTracking().FirstOrDefaultAsync(b => b.BookId == req.BookId, cancellationToken);
+            var rawName = (book?.Title ?? "book").Trim();
+            var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
+            safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
+            if (string.IsNullOrEmpty(safe)) safe = "book";
+            fileName = $"{safe}-cover-wrap-{req.BookId}.png";
+            return File(wrapBytes, "image/png", fileName);
         }
 
         /// <summary>Extract plain text from an uploaded .txt / .md or .pdf (first pass) for chapter import.</summary>
@@ -2879,40 +2959,35 @@ namespace EBookDashboard.Controllers
                     if (int.TryParse(model.BookId, out int bookId))
                     {
                         var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId);
-                        if (book != null)
-                        {
-                            book.Status = "Final";
-                            book.UpdatedAt = DateTime.UtcNow;
-                            _context.Books.Update(book);
-                        }
                         int chapterNum = int.TryParse(model.Chapter, out var c) ? c : 0;
-                        // ✅ Save or update Book and Chapter
-                        var chapter = await _context.Chapters.FirstOrDefaultAsync(c => c.BookId == bookId && c.ChapterNumber == chapterNum);
+                        var chapter = await _context.Chapters.FirstOrDefaultAsync(ch => ch.BookId == bookId && ch.ChapterNumber == chapterNum);
 
                         if (chapter != null)
                         {
-                            chapter.Status = "Final";
+                            chapter.Status = "Finalized";
                             chapter.UpdatedAt = DateTime.UtcNow;
                             _context.Chapters.Update(chapter);
                         }
                         else
                         {
-                            // create stub chapter if not exists (optional)
                             _context.Chapters.Add(new Chapters
                             {
                                 BookId = bookId,
                                 ChapterNumber = chapterNum,
                                 Title = $"Chapter {chapterNum}",
-                                Content = "", // unchanged
-                                Status = "Final",
+                                Content = "",
+                                Status = "Finalized",
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             });
                         }
 
                         await _context.SaveChangesAsync();
+
+                        if (int.TryParse(model.UserId, out int uid) && uid > 0)
+                            await _publishReadiness.TryPromoteBookToFinalizedAsync(uid, bookId);
                     }
-                    if (int.TryParse(model.UserId, out int uid) && uid > 0)
+                    if (int.TryParse(model.UserId, out int uid2) && uid2 > 0)
                         HttpContext.Session.SetString("HasGeneratedBook", "1");
                 }
                 catch (Exception ex)

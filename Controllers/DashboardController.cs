@@ -40,6 +40,7 @@ namespace EBookDashboard.Controllers
         private readonly IBookService _bookService;
         private readonly IBookPdfService _bookPdfService;
         private readonly IBookPageMetricsService _bookPageMetricsService;
+        private readonly BookPublishReadinessService _publishReadiness;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -52,7 +53,8 @@ namespace EBookDashboard.Controllers
             ILogger<DashboardController> logger,
             IBookService bookService,
             IBookPdfService bookPdfService,
-            IBookPageMetricsService bookPageMetricsService)
+            IBookPageMetricsService bookPageMetricsService,
+            BookPublishReadinessService publishReadiness)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -65,6 +67,7 @@ namespace EBookDashboard.Controllers
             _bookService = bookService;
             _bookPdfService = bookPdfService;
             _bookPageMetricsService = bookPageMetricsService;
+            _publishReadiness = publishReadiness;
         }
 
         [Route("")]
@@ -811,24 +814,27 @@ namespace EBookDashboard.Controllers
             var phBase = BookManuscriptHtmlFormatter.CreateBaseContext(
                 title, details.Subtitle, details.Description, genre, author);
 
-            var chapters = details.Chapters.OrderBy(c => c.ChapterNumber).ToList();
+            var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
             var list = new List<object>();
             const int previewMax = 900;
+            var previewNarrative = 0;
             for (var i = 0; i < chapters.Count; i++)
             {
                 var ch = chapters[i];
-                var displayNum = i + 1;
-                var ph = phBase.WithChapter(ch.Title ?? "", displayNum, ch.ChapterNumber);
+                if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+                    previewNarrative++;
+                var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : previewNarrative;
+                var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
                 var tRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
                 var fullHtml = BookManuscriptHtmlFormatter.FormatBodyToHtml(
                     BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Content ?? "", ph));
                 var html = fullHtml;
                 if (html.Length > previewMax)
                     html = html.Substring(0, previewMax) + "…";
-                var displayHeading = BookChapterHeadingFormatter.GetDisplayTitle(tRaw, displayNum);
+                var displayHeading = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, phNum);
                 list.Add(new
                 {
-                    displayChapterNumber = displayNum,
+                    displayChapterNumber = phNum,
                     chapterTitle = tRaw,
                     chapterDisplayHeading = displayHeading,
                     previewHtml = html,
@@ -1421,8 +1427,50 @@ namespace EBookDashboard.Controllers
 
             var forcedPrintReadyFlow = string.Equals((flow ?? "").Trim(), "printready", StringComparison.OrdinalIgnoreCase);
 
+            if (user != null)
+            {
+                var publishBookRows = await _context.Books.AsNoTracking()
+                    .Where(b => b.UserId == user.UserId)
+                    .OrderByDescending(b => b.UpdatedAt)
+                    .ThenByDescending(b => b.CreatedAt)
+                    .Select(b => new { b.BookId, Title = string.IsNullOrWhiteSpace(b.Title) ? "Untitled" : b.Title! })
+                    .ToListAsync();
+
+                var publishPicker = new List<PublishBookPickerItem>();
+                foreach (var row in publishBookRows)
+                {
+                    var exportable = 0;
+                    try
+                    {
+                        var details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, row.BookId);
+                        if (details != null && details.Success)
+                            exportable = details.Chapters?.Count(c => !string.IsNullOrWhiteSpace(c.Content)) ?? 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Publish picker: chapter count for book {BookId}", row.BookId);
+                    }
+
+                    publishPicker.Add(new PublishBookPickerItem
+                    {
+                        BookId = row.BookId,
+                        Title = row.Title,
+                        ExportableChapterCount = exportable,
+                        CanExport = exportable > 0
+                    });
+                }
+
+                ViewBag.PublishBooks = publishPicker;
+            }
+            else
+            {
+                ViewBag.PublishBooks = new List<PublishBookPickerItem>();
+            }
+
             if (user != null && bookId.HasValue && bookId.Value > 0)
             {
+                await _publishReadiness.TryPromoteBookToFinalizedAsync(user.UserId, bookId.Value);
+
                 var pb = await _context.Books.AsNoTracking().FirstOrDefaultAsync(b => b.BookId == bookId.Value && b.UserId == user.UserId);
                 if (pb != null)
                 {
@@ -1437,32 +1485,20 @@ namespace EBookDashboard.Controllers
                     ViewBag.PublishBookCover = !string.IsNullOrEmpty(aiCover) ? aiCover : pathCover;
                     ViewBag.PublishBookStatus = pb.Status;
                     var ps = pb.Status ?? "";
-                    ViewBag.PublishBookAlreadyListed = ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase);
+                    ViewBag.PublishBookAlreadyListed = BookPublishReadinessService.IsListedBookStatus(ps);
 
                     var bid = bookId.Value;
                     var uid = user.UserId;
-                    var maxCh = 0;
-                    if (await _context.Chapters.AsNoTracking().AnyAsync(c => c.BookId == bid))
-                    {
-                        maxCh = await _context.Chapters.AsNoTracking()
-                            .Where(c => c.BookId == bid)
-                            .MaxAsync(c => c.ChapterNumber > 0 ? c.ChapterNumber : (c.OrderIndex > 0 ? c.OrderIndex : c.SrNo));
-                    }
-                    var maxRaw = 0;
-                    if (await _context.APIRawResponse.AsNoTracking().AnyAsync(r => r.UserId == uid && r.BookId == bid))
-                    {
-                        maxRaw = await _context.APIRawResponse.AsNoTracking()
-                            .Where(r => r.UserId == uid && r.BookId == bid)
-                            .MaxAsync(r => r.Chapter);
-                    }
-                    ViewBag.PublishBookChapterCount = Math.Max(maxCh, maxRaw);
-
+                    var exportableChapterCount = 0;
                     try
                     {
                         var details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, bid);
                         if (details != null && details.Success)
                         {
+                            exportableChapterCount = details.Chapters?
+                                .Count(c => !string.IsNullOrWhiteSpace(c.Content)) ?? 0;
+                            ViewBag.PublishBookChapterCount = exportableChapterCount;
+
                             var exportOpt = await LoadExportOptionsAsync(user.UserId, bid, HttpContext.RequestAborted);
                             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
                             ViewBag.PublishBookEstimatedPages = metrics.PageCount;
@@ -1474,29 +1510,8 @@ namespace EBookDashboard.Controllers
                         _logger.LogWarning(ex, "Publish: could not compute page metrics for book {BookId}", bid);
                     }
 
-                    var coverReady = !string.IsNullOrWhiteSpace(ViewBag.PublishBookCover as string);
-                    var hasChapterContent = ViewBag.PublishBookChapterCount is int chCnt && chCnt > 0;
-                    var statusReady =
-                        ps.Equals("Finalized", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Final", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Generated", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Saved", StringComparison.OrdinalIgnoreCase)
-                        || (hasChapterContent && !ps.Equals("Draft", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(ps));
-
-                    if (hasChapterContent && !statusReady && !ps.Equals("Archived", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var finalizedChapter = await _context.Chapters.AsNoTracking()
-                            .AnyAsync(c => c.BookId == bid && (
-                                c.Status == "Finalized" || c.Status == "Final" || c.IsPublished));
-                        if (finalizedChapter)
-                            statusReady = true;
-                    }
-
-                    ViewBag.PublishBookAlreadyListed = ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Finalized", StringComparison.OrdinalIgnoreCase);
+                    var hasChapterContent = exportableChapterCount > 0;
+                    var statusReady = BookPublishReadinessService.IsPublishReadyBookStatus(ps) || hasChapterContent;
 
                     var fmt = await _context.BookFormatting.AsNoTracking()
                         .FirstOrDefaultAsync(f => f.BookId == bookId.Value && f.UserId == user.UserId);
@@ -1509,7 +1524,9 @@ namespace EBookDashboard.Controllers
 
                     var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform;
                     ViewBag.PublishPrintReadyMode = isPrintReadyFlow;
-                    ViewBag.PublishBookReady = isPrintReadyFlow ? statusReady : (statusReady && coverReady);
+                    var canExport = hasChapterContent;
+                    ViewBag.PublishCanExport = canExport;
+                    ViewBag.PublishBookReady = canExport;
                 }
             }
 
@@ -2555,14 +2572,22 @@ namespace EBookDashboard.Controllers
 
             var userBooks = bookEntities.Select(b => new { b.BookId, b.Title, b.Status, b.CreatedAt, b.UpdatedAt, b.CoverImagePath, b.Description, b.Genre, b.WordCount }).ToList();
 
-            // Get chapter counts from apirawresponse (generated chapters per UserId + BookId)
             var bookIds = userBooks.Select(b => b.BookId).ToList();
-            var rawResponseCounts = await _context.APIRawResponse
-                .Where(r => r.UserId == user.UserId && r.BookId != null && bookIds.Contains(r.BookId.Value))
-                .GroupBy(r => r.BookId)
-                .Select(g => new { BookId = g.Key, Count = g.Count() })
-                .ToListAsync();
-            var chaptersByBookId = rawResponseCounts.ToDictionary(x => x.BookId!.Value, x => x.Count);
+            var exportableChaptersByBookId = new Dictionary<int, int>();
+            foreach (var bid in bookIds)
+            {
+                try
+                {
+                    var details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, bid);
+                    if (details != null && details.Success)
+                        exportableChaptersByBookId[bid] = details.Chapters?.Count(c => !string.IsNullOrWhiteSpace(c.Content)) ?? 0;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "MyBooks: exportable chapter count for book {BookId}", bid);
+                    exportableChaptersByBookId[bid] = 0;
+                }
+            }
 
             var books = userBooks.Select(b =>
             {
@@ -2572,7 +2597,7 @@ namespace EBookDashboard.Controllers
                 item.Status = b.Status;
                 item.CreatedAt = b.CreatedAt;
                 item.UpdatedAt = b.UpdatedAt;
-                item.ChapterCount = chaptersByBookId.GetValueOrDefault(b.BookId, 0);
+                item.ChapterCount = exportableChaptersByBookId.GetValueOrDefault(b.BookId, 0);
                 item.CoverImagePath = b.CoverImagePath;
                 item.Description = b.Description;
                 item.Genre = b.Genre;

@@ -73,21 +73,26 @@ public class BookPdfService : IBookPdfService
         var layout = BookPdfPlatformLayout.Resolve(opt);
 
         // One DB chapter = one PDF chapter. Do not split on in-body <h2> — those are section headings (##), not new chapters.
-        var chapters = OrderChaptersForPdf(details.Chapters);
+        var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
         var sections = new StringBuilder();
+        var narrativeOrdinal = 0;
         for (var i = 0; i < chapters.Count; i++)
         {
             var ch = chapters[i];
-            var displayNum = i + 1;
-            var ph = phBase.WithChapter(ch.Title ?? "", displayNum, ch.ChapterNumber);
+            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+                narrativeOrdinal++;
+            var displayNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 0 : narrativeOrdinal;
+            var phNum = displayNum > 0 ? displayNum : 1;
+            var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
-            var displayHeading = BookChapterHeadingFormatter.GetDisplayTitle(chTitleRaw, displayNum);
+            var displayHeading = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, phNum);
             var chTitleHtml = BookManuscriptHtmlFormatter.EscapeHtml(displayHeading);
+            var sectionId = i + 1;
             var metaHtml = string.IsNullOrWhiteSpace(ch.ExportMetaHtml) ? "" : ch.ExportMetaHtml;
             var bodyRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Content ?? "", ph);
             var bodyHtml = BookManuscriptHtmlFormatter.FormatBodyToHtml(bodyRaw);
             sections.Append(CultureInvariant($"""
-                <section class="chapter" id="ch-{displayNum}">
+                <section class="chapter" id="ch-{sectionId}">
                   <h2 class="chapter-heading">{chTitleHtml}</h2>
                   {metaHtml}
                   <div class="chapter-body">{bodyHtml}</div>
@@ -228,18 +233,16 @@ public class BookPdfService : IBookPdfService
         sb.AppendLine("""<h1 class="toc-title">Contents</h1>""");
         sb.AppendLine("""<p class="toc-hint">Chapter titles and in-chapter headings (print-style contents) with clickable chapter links and page references.</p>""");
         sb.AppendLine("""<ol class="toc-list">""");
+        var tocNarrative = 0;
         for (var i = 0; i < chapters.Count; i++)
         {
             var ch = chapters[i];
-            var displayNum = i + 1;
-            var ph = phBase.WithChapter(ch.Title ?? "", displayNum, ch.ChapterNumber);
-            var tRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph).Trim();
-            var displayTitle = BookChapterHeadingFormatter.GetTocLabel(tRaw, displayNum);
-            var partFallback = "Part " + displayNum.ToString(CultureInfo.InvariantCulture);
-            var chapterLine = "Chapter " + displayNum.ToString(CultureInfo.InvariantCulture);
-            if (!string.IsNullOrWhiteSpace(displayTitle) &&
-                !string.Equals(displayTitle, partFallback, StringComparison.Ordinal))
-                chapterLine += ": " + displayTitle;
+            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+                tocNarrative++;
+            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : tocNarrative;
+            var sectionId = i + 1;
+            var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
+            var chapterLine = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, phNum);
 
             var bodyRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Content ?? "", ph);
             var bodyHtml = BookManuscriptHtmlFormatter.FormatBodyToHtml(bodyRaw);
@@ -247,7 +250,7 @@ public class BookPdfService : IBookPdfService
 
             sb.AppendLine("""<li class="toc-item">""");
             sb.AppendLine(CultureInvariant(
-                $"""<div class="toc-chapter-line"><a href="#ch-{displayNum}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a><span class="toc-page-ref" data-target="ch-{displayNum}">…</span></div>"""));
+                $"""<div class="toc-chapter-line"><a href="#ch-{sectionId}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a><span class="toc-page-ref" data-target="ch-{sectionId}">…</span></div>"""));
             if (subHeadings.Count > 0)
             {
                 sb.AppendLine("""<ul class="toc-subheadings">""");

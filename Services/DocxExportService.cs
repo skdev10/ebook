@@ -29,10 +29,7 @@ public class DocxExportService : IDocxExportService
         var author = (displayAuthor ?? details.AuthorName ?? "Author").Trim();
         if (string.IsNullOrEmpty(author)) author = "Author";
 
-        var chapters = (details.Chapters ?? new List<ChapterDto>())
-            .Where(c => !string.IsNullOrWhiteSpace(c.Content))
-            .OrderBy(c => c.ChapterNumber > 0 ? c.ChapterNumber : int.MaxValue)
-            .ToList();
+        var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
 
         using var ms = new MemoryStream();
         using (var doc = WordprocessingDocument.Create(ms, WordprocessingDocumentType.Document, true))
@@ -45,11 +42,15 @@ public class DocxExportService : IDocxExportService
             body.Append(CreateParagraph($"by {author}", italic: true, fontSizeHalfPoints: 24, spacingAfter: 360));
             body.Append(CreateParagraph("", spacingAfter: 240));
 
-            var chapterIndex = 0;
+            var narrativeOrdinal = 0;
             foreach (var ch in chapters)
             {
-                chapterIndex++;
-                var chTitle = (ch.Title ?? $"Chapter {chapterIndex}").Trim();
+                if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+                    narrativeOrdinal++;
+                var displayOrd = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber)
+                    ? 1
+                    : narrativeOrdinal;
+                var chTitle = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, displayOrd).Trim();
                 body.Append(CreateParagraph(chTitle, bold: true, fontSizeHalfPoints: 32, spacingBefore: 360, spacingAfter: 180));
 
                 foreach (var para in ExtractParagraphs(ch.Content))

@@ -5,6 +5,7 @@ using EBookDashboard.Models.ViewModels;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using System.Globalization;
 using System.Text.RegularExpressions;
 namespace EBookDashboard.Services
 {
@@ -543,12 +544,39 @@ namespace EBookDashboard.Services
         }
 
         /// <summary>
+        /// Resolve manuscript body from <see cref="APIRawResponse.Content"/> or JSON in <see cref="APIRawResponse.ResponseData"/>.
+        /// </summary>
+        private static string ResolveChapterBodyContent(string? content, string? responseData)
+        {
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                var trimmed = content.Trim();
+                if (trimmed.StartsWith('{') || trimmed.StartsWith('['))
+                {
+                    var fromJson = APIRawResponseService.ExtractContentFromResponse(trimmed);
+                    if (!string.IsNullOrWhiteSpace(fromJson))
+                        return fromJson;
+                }
+                return content;
+            }
+
+            if (string.IsNullOrWhiteSpace(responseData))
+                return string.Empty;
+
+            var extracted = APIRawResponseService.ExtractContentFromResponse(responseData);
+            return !string.IsNullOrWhiteSpace(extracted) ? extracted : responseData;
+        }
+
+        /// <summary>
         /// One row per chapter: latest by CreatedAt, ordered by chapter number (fixes duplicate rows and wrong ordering).
         /// </summary>
         private async Task<List<ChapterDto>> GetLatestChapterRowsAsync(int userId, int bookId, bool noTracking = false)
         {
+            var bookKey = bookId.ToString(CultureInfo.InvariantCulture);
             IQueryable<APIRawResponse> query = _context.APIRawResponse
-                .Where(c => c.UserId == userId && c.BookId == bookId);
+                .Where(c => c.UserId == userId
+                            && (c.BookId == bookId
+                                || (c.ParsedBookId != null && c.ParsedBookId == bookKey)));
             if (noTracking)
                 query = query.AsNoTracking();
 
@@ -557,19 +585,20 @@ namespace EBookDashboard.Services
                 .ToListAsync();
 
             return raw
-                .GroupBy(c => c.Chapter)
+                .GroupBy(c => c.Chapter <= 0 ? 1 : c.Chapter)
                 .Select(g => g.First())
-                .OrderBy(c => c.Chapter)
+                .OrderBy(c => c.Chapter <= 0 ? 1 : c.Chapter)
                 .Select(c => new ChapterDto
                 {
                     ResponseId = c.ResponseId,
-                    ChapterNumber = c.Chapter,
+                    ChapterNumber = c.Chapter <= 0 ? 1 : c.Chapter,
                     Title = c.Title ?? "Untitled Chapter",
                     RequestData = c.RequestData,
-                    Content = !string.IsNullOrWhiteSpace(c.Content) ? c.Content : (c.ResponseData ?? ""),
+                    Content = ResolveChapterBodyContent(c.Content, c.ResponseData),
                     StatusCode = c.StatusCode ?? "Draft",
                     CreatedAt = c.CreatedAt
                 })
+                .Where(c => !string.IsNullOrWhiteSpace(c.Content) || !string.IsNullOrWhiteSpace(c.Title))
                 .ToList();
         }
 
@@ -685,6 +714,19 @@ namespace EBookDashboard.Services
         private async Task<List<ChapterDto>> GetMergedPreviewChaptersAsync(int userId, int bookId, bool noTracking = true)
         {
             var rawLatest = await GetLatestChapterRowsAsync(userId, bookId, noTracking);
+            IQueryable<ChapterIteration> iterQ = _context.ChapterIterations
+                .Where(i => i.UserId == userId && i.BookId == bookId && i.Content != null && i.Content.Trim().Length > 0);
+            if (noTracking)
+                iterQ = iterQ.AsNoTracking();
+            var iterRows = await iterQ.ToListAsync();
+            var iterByChapter = iterRows
+                .GroupBy(i => i.ChapterNumber)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(x => x.IsFinalized)
+                        .ThenByDescending(x => x.IterationNumber)
+                        .First());
+
             IQueryable<Chapters> chQ = _context.Chapters.Where(c => c.BookId == bookId);
             if (noTracking)
                 chQ = chQ.AsNoTracking();
@@ -692,26 +734,37 @@ namespace EBookDashboard.Services
             var official = libRows
                 .Where(c => !string.IsNullOrWhiteSpace(c.Content)
                             && (string.Equals(c.Status, "ReadOnly", StringComparison.OrdinalIgnoreCase)
-                                || string.Equals(c.Status, "Final", StringComparison.OrdinalIgnoreCase)))
+                                || string.Equals(c.Status, "Final", StringComparison.OrdinalIgnoreCase)
+                                || string.Equals(c.Status, "Finalized", StringComparison.OrdinalIgnoreCase)))
+                .GroupBy(c => c.ChapterNumber)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
+
+            var draftLibrary = libRows
+                .Where(c => !string.IsNullOrWhiteSpace(c.Content) && !official.ContainsKey(c.ChapterNumber))
                 .GroupBy(c => c.ChapterNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 
             var numbers = official.Keys
+                .Union(draftLibrary.Keys)
                 .Union(rawLatest.Select(r => r.ChapterNumber))
+                .Union(iterByChapter.Keys)
                 .Distinct()
                 .OrderBy(n => n)
                 .ToList();
 
             var result = new List<ChapterDto>();
+            var narrativeOrdinal = 0;
             foreach (var n in numbers)
             {
+                if (n > 0) narrativeOrdinal++;
+
                 if (official.TryGetValue(n, out var ch))
                 {
                     result.Add(new ChapterDto
                     {
                         ResponseId = 0,
                         ChapterNumber = n,
-                        Title = string.IsNullOrWhiteSpace(ch.Title) ? $"Chapter {n}" : ch.Title,
+                        Title = BookChapterExportHelper.GetDefaultStoredTitle(ch.Title, n, narrativeOrdinal),
                         Content = ch.Content ?? "",
                         StatusCode = ch.Status,
                         CreatedAt = ch.UpdatedAt != default ? ch.UpdatedAt : ch.CreatedAt
@@ -721,7 +774,36 @@ namespace EBookDashboard.Services
                 {
                     var r = rawLatest.FirstOrDefault(x => x.ChapterNumber == n);
                     if (r != null)
+                    {
+                        r.Title = BookChapterExportHelper.GetDefaultStoredTitle(r.Title, n, narrativeOrdinal);
                         result.Add(r);
+                        continue;
+                    }
+                    if (draftLibrary.TryGetValue(n, out var draftCh))
+                    {
+                        result.Add(new ChapterDto
+                        {
+                            ResponseId = 0,
+                            ChapterNumber = n,
+                            Title = BookChapterExportHelper.GetDefaultStoredTitle(draftCh.Title, n, narrativeOrdinal),
+                            Content = draftCh.Content ?? "",
+                            StatusCode = draftCh.Status,
+                            CreatedAt = draftCh.UpdatedAt != default ? draftCh.UpdatedAt : draftCh.CreatedAt
+                        });
+                        continue;
+                    }
+                    if (iterByChapter.TryGetValue(n, out var iter))
+                    {
+                        result.Add(new ChapterDto
+                        {
+                            ResponseId = iter.ResponseId ?? 0,
+                            ChapterNumber = n,
+                            Title = BookChapterExportHelper.GetDefaultStoredTitle(iter.Title, n, narrativeOrdinal),
+                            Content = iter.Content ?? "",
+                            StatusCode = iter.IsFinalized ? "Finalized" : "Draft",
+                            CreatedAt = iter.GenerationDate.Add(iter.GenerationTime)
+                        });
+                    }
                 }
             }
 
@@ -838,8 +920,11 @@ namespace EBookDashboard.Services
                 {
                     Console.WriteLine($"🔍 [Service] Filtering for Chapter: {chapterNo}");
                 }
+                var bookKey = bookId.ToString(CultureInfo.InvariantCulture);
                 var rawQuery = _context.APIRawResponse
-                    .Where(c => c.UserId == userId && c.BookId == bookId && c.Chapter == chapterNo);
+                    .Where(c => c.UserId == userId
+                                && (c.BookId == bookId || (c.ParsedBookId != null && c.ParsedBookId == bookKey))
+                                && c.Chapter == chapterNo);
                 if (responseId.HasValue && responseId.Value > 0)
                     rawQuery = rawQuery.Where(c => c.ResponseId == responseId.Value);
 
@@ -850,10 +935,10 @@ namespace EBookDashboard.Services
                 var chapters = rawChapters.Select(c => new ChapterDto
                 {
                     ResponseId = c.ResponseId,
-                    ChapterNumber = c.Chapter,
+                    ChapterNumber = c.Chapter <= 0 ? 1 : c.Chapter,
                     Title = c.Title ?? "Untitled Chapter",
                     RequestData = c.RequestData,
-                    Content = !string.IsNullOrWhiteSpace(c.Content) ? c.Content : (c.ResponseData ?? ""),
+                    Content = ResolveChapterBodyContent(c.Content, c.ResponseData),
                     StatusCode = c.StatusCode ?? "Draft",
                     CreatedAt = c.CreatedAt,
                 }).ToList();

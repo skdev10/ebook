@@ -237,6 +237,15 @@ namespace EBookDashboard.Models
         public decimal DraftToPublishedRate { get; set; }
     }
 
+    /// <summary>Book row for Publish page dropdown.</summary>
+    public class PublishBookPickerItem
+    {
+        public int BookId { get; set; }
+        public string Title { get; set; } = "Untitled";
+        public int ExportableChapterCount { get; set; }
+        public bool CanExport { get; set; }
+    }
+
     /// <summary>Demo display item for Published Books section (title, author, cover URL).</summary>
     public class DemoPublishedBookViewModel
     {

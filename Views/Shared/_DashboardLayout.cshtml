@@ -5064,7 +5064,7 @@
         
         // Welcome message function
         function showWelcomeMessage() {
-            const userName = '@Html.Raw(User.Identity?.Name ?? "Reader")';
+            const userName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(User.Identity?.Name ?? "Reader"));
             if (userName && userName !== 'Reader') {
                 // Only show welcome message if we're on the main dashboard page
                 if (window.location.pathname === '/Dashboard' || window.location.pathname === '/Dashboard/Index') {

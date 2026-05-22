@@ -27,29 +27,28 @@
     </style>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
 </head>
-<body class="bg-[#f5f7f9] min-h-screen flex items-center justify-center p-4 sm:p-8 relative overflow-hidden antialiased text-gray-800">
+<body class="auth-page-shell bg-[#f5f7f9] flex items-center justify-center p-4 sm:p-8 relative overflow-x-hidden overflow-y-auto antialiased text-gray-800">
 
     <!-- Background (dashboard theme) -->
     <div class="absolute top-[-15%] left-[-10%] w-[50vw] h-[50vw] bg-[#7c3aed]/10 rounded-full mix-blend-multiply filter blur-3xl opacity-60 pointer-events-none"></div>
     <div class="absolute bottom-[-15%] right-[-10%] w-[50vw] h-[50vw] bg-[#4a6cf7]/10 rounded-full mix-blend-multiply filter blur-3xl opacity-60 pointer-events-none"></div>
 
     <!-- Main Card Container -->
-    <div class="bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] w-full max-w-[1050px] min-h-[640px] flex relative z-10 overflow-hidden border border-white/50">
+    <div class="auth-card bg-white rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] min-h-[min(640px,100%)] flex flex-col md:flex-row relative z-10 overflow-hidden border border-white/50">
 
-        <!-- Left Side: Premium illustration (matches Sign Up style) -->
-        <div class="hidden md:flex relative w-[45%] lg:w-[50%] bg-[#f5f7f9] flex-shrink-0 items-center justify-center p-10 lg:p-14 overflow-hidden border-r border-gray-100">
-            <div class="relative w-full max-w-[340px] lg:max-w-sm aspect-square mx-auto">
-                <div class="absolute inset-0 rounded-full border-[6px] border-[#7c3aed] -translate-x-4 translate-y-4 opacity-20"></div>
-                <div class="absolute inset-0 rounded-full border-[6px] border-[#7c3aed] translate-x-2 -translate-y-2 opacity-50"></div>
-                <div class="absolute inset-0 rounded-full overflow-hidden bg-white shadow-2xl border-4 border-white z-10">
-                    <img src="~/images/login-premium-v2.jpg" asp-append-version="true" alt="Welcome back to eBook Publisher" class="w-full h-full object-cover object-center scale-105">
+        <!-- Left: premium illustration -->
+        <div class="hidden md:flex relative w-[45%] lg:w-[50%] bg-[#f5f7f9] flex-shrink-0 items-center justify-center p-10 lg:p-14 overflow-hidden border-r border-gray-100 min-h-[280px]">
+            <div class="auth-premium-hero">
+                <div class="auth-premium-hero__ring auth-premium-hero__ring--back" aria-hidden="true"></div>
+                <div class="auth-premium-hero__ring auth-premium-hero__ring--mid" aria-hidden="true"></div>
+                <div class="auth-premium-hero__frame">
+                    <img src="~/images/login-premium-v2.jpg" asp-append-version="true" alt="Premium library — welcome back to eBook Publisher" class="auth-premium-hero__img" loading="eager" decoding="async" />
                 </div>
-                <div class="absolute -bottom-6 -right-6 w-24 h-24 bg-[#7c3aed]/20 rounded-full blur-xl z-0"></div>
             </div>
         </div>
 
-        <!-- Right Side: Form Container -->
-        <div class="w-full md:w-[55%] lg:w-[50%] p-10 sm:p-14 lg:p-24 flex flex-col justify-center items-center bg-white relative z-40 shadow-[-30px_0_40px_-20px_rgba(255,255,255,1)]">
+        <!-- Right: form -->
+        <div class="auth-form-column w-full md:w-[55%] lg:w-[50%] p-10 sm:p-14 lg:p-24 flex flex-col justify-center items-center bg-white relative z-40 shadow-[-30px_0_40px_-20px_rgba(255,255,255,1)]">
 
             <div class="w-full max-w-[340px] flex flex-col items-center">
 
