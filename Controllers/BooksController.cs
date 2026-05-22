@@ -55,6 +55,8 @@ namespace EBookDashboard.Controllers
         private readonly ILogger<BooksController> _logger;
         private readonly IChapterIterationService _chapterIterationService;
         private readonly IBookPdfService _bookPdfService;
+        private readonly IEpubExportService _epubExportService;
+        private readonly IBookPageMetricsService _bookPageMetricsService;
 
         public BooksController(
             IBookService bookService,
@@ -66,7 +68,9 @@ namespace EBookDashboard.Controllers
             IConfiguration configuration,
             ILogger<BooksController> logger,
             IChapterIterationService chapterIterationService,
-            IBookPdfService bookPdfService)
+            IBookPdfService bookPdfService,
+            IEpubExportService epubExportService,
+            IBookPageMetricsService bookPageMetricsService)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -79,6 +83,8 @@ namespace EBookDashboard.Controllers
             _logger = logger;
             _chapterIterationService = chapterIterationService;
             _bookPdfService = bookPdfService;
+            _epubExportService = epubExportService;
+            _bookPageMetricsService = bookPageMetricsService;
         }
         //===========================================
         //           On Page Load 
@@ -2160,6 +2166,52 @@ namespace EBookDashboard.Controllers
                     titleTrim = $"Chapter {chapterNum}";
 
                 var chapter = await _context.Chapters.FirstOrDefaultAsync(c => c.BookId == bookId && c.ChapterNumber == chapterNum);
+
+                var isReadOnly = chapter != null &&
+                    string.Equals(chapter.Status, "ReadOnly", StringComparison.OrdinalIgnoreCase);
+                if (!isReadOnly)
+                {
+                    var latestRaw = await _context.APIRawResponse
+                        .Where(r => r.UserId == userId && r.BookId == bookId && r.Chapter == chapterNum)
+                        .OrderByDescending(r => r.CreatedAt)
+                        .FirstOrDefaultAsync();
+                    isReadOnly = latestRaw != null &&
+                        string.Equals(latestRaw.StatusCode, "ReadOnly", StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (isReadOnly)
+                {
+                    if (!model.TitleOnly)
+                        return BadRequest(new { success = false, message = "Finalized chapters cannot be edited. You can rename the chapter title only." });
+
+                    if (chapter != null)
+                    {
+                        chapter.Title = titleTrim;
+                        chapter.UpdatedAt = DateTime.UtcNow;
+                        chapter.UpdatedByUserId = userId;
+                        _context.Chapters.Update(chapter);
+                    }
+
+                    var rawResponses = await _context.APIRawResponse
+                        .Where(r => r.UserId == userId && r.BookId == bookId && r.Chapter == chapterNum)
+                        .ToListAsync();
+                    var titleForRaw = TruncateTitle(model.ChapterTitle, 500);
+                    foreach (var raw in rawResponses)
+                    {
+                        raw.Title = titleForRaw;
+                        raw.UpdatedAt = DateTime.UtcNow;
+                    }
+
+                    var finalizedIter = await _context.ChapterIterations
+                        .Where(i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNum && i.IsFinalized)
+                        .FirstOrDefaultAsync();
+                    if (finalizedIter != null)
+                        finalizedIter.Title = TruncateTitle(model.ChapterTitle, 500);
+
+                    await _context.SaveChangesAsync();
+                    return Json(new { success = true, message = "Chapter title updated.", titleOnly = true });
+                }
+
                 if (chapter != null)
                 {
                     chapter.Content = model.NewContent ?? string.Empty;
@@ -2224,6 +2276,232 @@ namespace EBookDashboard.Controllers
             {
                 _logger.LogError(ex, "SaveChapterContent failed");
                 return StatusCode(500, new { success = false, message = "Could not save chapter: " + ex.Message });
+            }
+        }
+
+        /// <summary>Rename a chapter title and persist to MySQL (chapters + related metadata).</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateChapterName([FromBody] UpdateChapterNameRequest request)
+        {
+            static string TruncateTitle(string? t, int max = 200)
+            {
+                if (string.IsNullOrWhiteSpace(t)) return string.Empty;
+                var s = t.Trim();
+                return s.Length <= max ? s : s.Substring(0, max);
+            }
+
+            try
+            {
+                if (request == null || request.BookId <= 0 || request.ChapterNumber <= 0)
+                    return BadRequest(new { success = false, message = "Invalid book or chapter." });
+
+                var titleTrim = TruncateTitle(request.Title);
+                if (string.IsNullOrWhiteSpace(titleTrim))
+                    return BadRequest(new { success = false, message = "Chapter name cannot be empty." });
+
+                var sessionUserId = HttpContext.Session.GetInt32("UserId");
+                if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
+                    return Unauthorized(new { success = false, message = "Please sign in." });
+
+                var userId = sessionUserId.Value;
+                var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == request.BookId && b.UserId == userId);
+                if (book == null)
+                    return NotFound(new { success = false, message = "Book not found or access denied." });
+
+                var chapterNum = request.ChapterNumber;
+                var chapter = await _context.Chapters.FirstOrDefaultAsync(c => c.BookId == request.BookId && c.ChapterNumber == chapterNum);
+                if (chapter != null)
+                {
+                    chapter.Title = titleTrim;
+                    chapter.UpdatedAt = DateTime.UtcNow;
+                    chapter.UpdatedByUserId = userId;
+                    _context.Chapters.Update(chapter);
+                }
+                else
+                {
+                    _context.Chapters.Add(new Chapters
+                    {
+                        BookId = request.BookId,
+                        ChapterNumber = chapterNum,
+                        SrNo = chapterNum,
+                        OrderIndex = chapterNum,
+                        Title = titleTrim,
+                        Content = string.Empty,
+                        LanguageId = 1,
+                        Status = "Draft",
+                        UpdatedByUserId = userId,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+
+                var rawResponses = await _context.APIRawResponse
+                    .Where(r => r.UserId == userId && r.BookId == request.BookId && r.Chapter == chapterNum)
+                    .ToListAsync();
+                var titleForRaw = TruncateTitle(request.Title, 500);
+                foreach (var raw in rawResponses)
+                {
+                    raw.Title = titleForRaw;
+                    raw.UpdatedAt = DateTime.UtcNow;
+                }
+
+                var finalizedIter = await _context.ChapterIterations
+                    .Where(i => i.UserId == userId && i.BookId == request.BookId && i.ChapterNumber == chapterNum && i.IsFinalized)
+                    .FirstOrDefaultAsync();
+                if (finalizedIter != null)
+                    finalizedIter.Title = TruncateTitle(request.Title, 500);
+
+                await _context.SaveChangesAsync();
+                return Json(new { success = true, title = titleTrim, message = "Chapter name updated." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "UpdateChapterName failed for book {BookId} chapter {Chapter}", request?.BookId, request?.ChapterNumber);
+                return StatusCode(500, new { success = false, message = "Could not update chapter name: " + ex.Message });
+            }
+        }
+
+        /// <summary>Export book as valid EPUB (cover first, then chapters). For KDP / Ebook platforms.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Route("Books/ExportEpub")]
+        public async Task<IActionResult> ExportEpub([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
+            if (details == null || !details.Success || details.Chapters == null || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
+                return BadRequest(new { success = false, message = "No chapter content to export." });
+
+            try
+            {
+                var coverKey = $"book:{req.BookId}:aiCoverLastPreview";
+                var coverRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == coverKey, cancellationToken);
+                var cover = (req.CoverImageDataUrl ?? coverRow?.Value ?? details.CoverImagePath ?? "").Trim();
+
+                var bytes = await _epubExportService.BuildEpubAsync(
+                    details,
+                    cover,
+                    (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
+                    (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
+                    cancellationToken);
+
+                var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
+                var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
+                safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
+                if (string.IsNullOrEmpty(safe)) safe = "book";
+                return File(bytes, "application/epub+zip", $"{safe}-{req.BookId}.epub");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExportEpub failed for book {BookId}", req.BookId);
+                return StatusCode(500, new { success = false, message = "EPUB export failed." });
+            }
+        }
+
+        /// <summary>Print-ready bundle: interior PDF (6×9) + full cover wrap ZIP in one download.</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Route("Books/ExportPrintReadyBundle")]
+        public async Task<IActionResult> ExportPrintReadyBundle([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
+            if (details == null || !details.Success)
+                return BadRequest(new { success = false, message = "Could not load book content." });
+
+            try
+            {
+                var draftRow = await _context.Settings.AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Key == $"book:{req.BookId}:formattingDraft", cancellationToken);
+                var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
+                var fmtRow = await _context.BookFormatting.AsNoTracking()
+                    .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == sessionUserId.Value, cancellationToken);
+                exportOpt.MergeFromBookFormatting(fmtRow);
+                exportOpt.Format = "Paperback";
+
+                var userRow = await _context.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
+                var publisherLabel = userRow?.FullName;
+                if (string.IsNullOrWhiteSpace(publisherLabel)) publisherLabel = userRow?.UserEmail;
+
+                var coverKey = $"book:{req.BookId}:aiCoverLastPreview";
+                var coverRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == coverKey, cancellationToken);
+                var cover = (req.CoverImageDataUrl ?? coverRow?.Value ?? "").Trim();
+
+                var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
+                    details,
+                    cover,
+                    (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
+                    (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
+                    (req.DisplayGenre ?? details.Genre ?? "").Trim(),
+                    exportOpt,
+                    publisherLabel,
+                    cancellationToken);
+
+                var wrapKey = $"book:{req.BookId}:printReadyCoverWrap";
+                var wrapRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == wrapKey, cancellationToken);
+                byte[]? wrapBytes = null;
+                var wrapVal = (wrapRow?.Value ?? "").Trim();
+                if (wrapVal.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+                {
+                    var ix = wrapVal.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
+                    if (ix >= 0) wrapBytes = Convert.FromBase64String(wrapVal[(ix + 7)..]);
+                }
+                else if (wrapVal.StartsWith("/"))
+                {
+                    var physical = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", wrapVal.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                    if (System.IO.File.Exists(physical))
+                        wrapBytes = await System.IO.File.ReadAllBytesAsync(physical, cancellationToken);
+                }
+
+                using var zipMs = new MemoryStream();
+                using (var zip = new System.IO.Compression.ZipArchive(zipMs, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+                {
+                    var pdfEntry = zip.CreateEntry("interior-6x9.pdf");
+                    await using (var es = pdfEntry.Open())
+                        await es.WriteAsync(pdfBytes, cancellationToken);
+
+                    if (wrapBytes != null && wrapBytes.Length > 0)
+                    {
+                        var coverEntry = zip.CreateEntry("cover-wrap-full.png");
+                        await using (var es = coverEntry.Open())
+                            await es.WriteAsync(wrapBytes, cancellationToken);
+                    }
+                }
+
+                var title = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
+                var safe = Regex.Replace(title, @"[^\w\-\s]", "");
+                safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
+                if (string.IsNullOrEmpty(safe)) safe = "book";
+                return File(zipMs.ToArray(), "application/zip", $"{safe}-print-ready-{req.BookId}.zip");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExportPrintReadyBundle failed for book {BookId}", req.BookId);
+                return StatusCode(500, new { success = false, message = "Print export failed." });
             }
         }
 

@@ -593,6 +593,20 @@
         color: #5b21b6;
         font-weight: 600;
     }
+    .chapter-index-item-row {
+        display: flex;
+        align-items: stretch;
+        gap: 0.25rem;
+        border-radius: 10px;
+    }
+    .chapter-index-item-row.is-current .chapter-index-rename {
+        color: #7c3aed;
+    }
+    .chapter-index-rename {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+    }
     /* Book page-turn: arrows + current page info */
     .book-page-turn-bar {
         display: flex;
@@ -1220,7 +1234,12 @@
                     </div>
                 </div>
                 <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-slate-500">Chapter Title</label>
+                    <label class="text-sm font-medium text-slate-500 flex items-center justify-between gap-2">
+                        <span>Chapter Title</span>
+                        <button type="button" id="btnSaveChapterName" class="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 hover:text-violet-900 px-2.5 py-1 rounded-lg border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors" title="Save chapter name permanently">
+                            <i class="fas fa-check text-[10px]" aria-hidden="true"></i> Save name
+                        </button>
+                    </label>
                     <input type="text" id="Title" placeholder="Chapter title" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm" value="The future of artificial intelligence">
                 </div>
             </section>
@@ -1318,7 +1337,12 @@
                 </div>
                 <div id="bookResultStatusBanner" class="hidden mb-4 rounded-xl border border-violet-300/80 bg-violet-50/95 px-4 py-3 text-sm text-slate-800 shadow-sm leading-relaxed" role="status" aria-live="polite"></div>
                 <div id="bookResultContent" class="book-result-content flex flex-col flex-1 min-h-0">
-                    <h3 id="preview-chapter-header" class="text-2xl font-medium text-slate-700 tracking-tight mb-3 shrink-0">Chapter 1</h3>
+                    <h3 id="preview-chapter-header" class="text-2xl font-medium text-slate-700 tracking-tight mb-3 shrink-0 flex items-center gap-2 group">
+                        <span id="preview-chapter-header-text" class="min-w-0 truncate">Chapter 1</span>
+                        <button type="button" id="btnRenameChapterFromPreview" class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-violet-700 hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-colors opacity-80 hover:opacity-100" title="Rename chapter" aria-label="Rename chapter">
+                            <i class="fas fa-pen text-xs" aria-hidden="true"></i>
+                        </button>
+                    </h3>
                     <div id="chapterPreviewScrollHost" class="chapter-preview-scroll-host min-h-0 flex-1 flex flex-col">
                     <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell">
                     <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col gap-6 text-base text-slate-700 leading-relaxed"></div>
@@ -1432,6 +1456,27 @@
         <div class="generate-confirm-modal-actions">
             <button type="button" id="generateConfirmCancel" class="btn btn-generate-cancel">Cancel</button>
             <button type="button" id="generateConfirmYes" class="btn btn-generate-yes"><i class="fas fa-arrow-up mr-1"></i> Generate</button>
+        </div>
+    </div>
+</div>
+
+<!-- Chapter rename modal -->
+<div id="chapterRenameModal" class="create-book-modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="chapterRenameModalTitle">
+    <div class="create-book-modal-box" onclick="event.stopPropagation()">
+        <div class="create-book-modal-header">
+            <div class="modal-icon"><i class="fas fa-pen"></i></div>
+            <h3 id="chapterRenameModalTitle">Rename chapter</h3>
+            <p class="text-sm text-slate-500 mt-1">This name is saved permanently for this chapter.</p>
+        </div>
+        <div class="create-book-modal-body">
+            <div class="create-book-form-group">
+                <label class="create-book-label" for="chapterRenameModalInput">Chapter name</label>
+                <input type="text" id="chapterRenameModalInput" class="create-book-input form-input-uniform" maxlength="200" placeholder="Enter chapter name">
+            </div>
+        </div>
+        <div class="create-book-modal-actions">
+            <button type="button" id="chapterRenameModalCancel" class="btn btn-confirm-no">Cancel</button>
+            <button type="button" id="chapterRenameModalSave" class="btn btn-confirm-yes"><i class="fas fa-save mr-1"></i> Save</button>
         </div>
     </div>
 </div>
@@ -1908,6 +1953,11 @@ window.invalidateReaderPageCaches = function () {
     });
 };
 
+window.setPreviewChapterHeaderText = function (text) {
+    var el = document.getElementById('preview-chapter-header-text');
+    if (el) el.textContent = text || '';
+};
+
 /** After chapter change, scroll the preview column so the heading is visible (smooth). */
 window.scrollAiWriterChapterToTop = function () {
     var header = document.getElementById('preview-chapter-header');
@@ -1975,17 +2025,37 @@ window.rebuildChapterIndexFlyoutList = function () {
     listEl.innerHTML = '';
     var list = window._previewChaptersMeta || [];
     list.forEach(function (ch, i) {
+        var row = document.createElement('div');
+        row.className = 'chapter-index-item-row flex items-center gap-1' + (i === (window._previewChapterIndex || 0) ? ' is-current' : '');
+
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'chapter-index-item' + (i === (window._previewChapterIndex || 0) ? ' is-current' : '');
+        btn.className = 'chapter-index-item flex-1 min-w-0 text-left' + (i === (window._previewChapterIndex || 0) ? ' is-current' : '');
         btn.setAttribute('role', 'menuitem');
+        var chNo = (ch && (ch.chapterNo || ch.chapter)) ? (ch.chapterNo || ch.chapter) : (i + 1);
         var t = (ch && ch.title) ? String(ch.title) : ('Chapter ' + (i + 1));
         btn.textContent = (i + 1) + '. ' + t;
         btn.addEventListener('click', function () {
             window.applyPreviewChapterIndex(i, { initialPage: 0 });
             window.closeChapterIndexFlyout();
         });
-        listEl.appendChild(btn);
+
+        var renameBtn = document.createElement('button');
+        renameBtn.type = 'button';
+        renameBtn.className = 'chapter-index-rename shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-violet-700 hover:bg-violet-50';
+        renameBtn.title = 'Rename chapter';
+        renameBtn.setAttribute('aria-label', 'Rename chapter ' + (i + 1));
+        renameBtn.innerHTML = '<i class="fas fa-pen text-[10px]" aria-hidden="true"></i>';
+        renameBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (typeof window.promptRenameChapter === 'function') {
+                window.promptRenameChapter(chNo, t, i);
+            }
+        });
+
+        row.appendChild(btn);
+        row.appendChild(renameBtn);
+        listEl.appendChild(row);
     });
 };
 
@@ -2167,7 +2237,7 @@ window.applyPreviewChapterIndex = function (idx, opts) {
     if (previewContent) previewContent.classList.remove('hidden');
     if (previewHeader) {
         previewHeader.classList.remove('hidden');
-        previewHeader.textContent = ch.title || ('Chapter ' + (i + 1));
+        previewHeader && window.setPreviewChapterHeaderText(ch.title || ('Chapter ' + (i + 1)));
     }
     var chNoSync = (ch && ch.chapterNo != null && ch.chapterNo !== '') ? parseInt(ch.chapterNo, 10) : NaN;
     if (!Number.isFinite(chNoSync)) chNoSync = i + 1;
@@ -2656,6 +2726,126 @@ document.addEventListener('DOMContentLoaded', function() {
         return t ? t.value : '';
     }
 
+    window.syncPreviewMetaChapterTitle = function (chapterNo, newTitle) {
+        var list = window._previewChaptersMeta || [];
+        var n = parseInt(String(chapterNo), 10);
+        list.forEach(function (ch, idx) {
+            var cNo = parseInt(String((ch && (ch.chapterNo || ch.chapter)) || (idx + 1)), 10);
+            if (cNo === n) ch.title = newTitle;
+        });
+        if (typeof window.updateChapterPreviewNavUI === 'function') window.updateChapterPreviewNavUI();
+        if (window._chapterIndexFlyoutOpen && typeof window.rebuildChapterIndexFlyoutList === 'function') {
+            window.rebuildChapterIndexFlyoutList();
+        }
+    };
+
+    window.saveChapterNameUpdate = async function (chapterNoOverride, titleOverride) {
+        var bookId = getBookId();
+        var chapterNo = chapterNoOverride != null ? parseInt(String(chapterNoOverride), 10) : getChapterNo();
+        var title = (titleOverride != null ? String(titleOverride) : (inputChapterTitle ? inputChapterTitle.value : '')).trim();
+        if (!bookId || bookId <= 0) {
+            setWriterAutoSaveStatus('Select a book before renaming.', true);
+            return { success: false };
+        }
+        if (!chapterNo || chapterNo <= 0) {
+            setWriterAutoSaveStatus('Invalid chapter number.', true);
+            return { success: false };
+        }
+        if (!title) {
+            setWriterAutoSaveStatus('Chapter name cannot be empty.', true);
+            return { success: false };
+        }
+
+        var saveBtn = document.getElementById('btnSaveChapterName');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.classList.add('opacity-60'); }
+        setWriterAutoSaveStatus('Saving chapter name…', false);
+
+        try {
+            var response = await fetch('/Books/UpdateChapterName', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': getToken()
+                },
+                body: JSON.stringify({ bookId: bookId, chapterNumber: chapterNo, title: title }),
+                credentials: 'same-origin'
+            });
+            var data = {};
+            try { data = await response.json(); } catch (_) {}
+            if (!response.ok || !data.success) {
+                var msg = (data && data.message) ? data.message : 'Could not save chapter name.';
+                setWriterAutoSaveStatus(msg, true);
+                return { success: false, message: msg };
+            }
+            var savedTitle = (data.title || title).trim();
+            if (inputChapterTitle && chapterNo === getChapterNo()) inputChapterTitle.value = savedTitle;
+            window.syncPreviewMetaChapterTitle(chapterNo, savedTitle);
+            if (typeof updatePreviewUI === 'function') updatePreviewUI();
+            var ddl = document.getElementById('ChapterDropdown');
+            if (ddl) {
+                Array.from(ddl.options).forEach(function (opt) {
+                    if (parseInt(opt.value, 10) === chapterNo) {
+                        opt.textContent = chapterNo + ' - ' + savedTitle;
+                        opt.setAttribute('data-title', savedTitle);
+                    }
+                });
+            }
+            setWriterAutoSaveStatus('Chapter name saved.', false);
+            if (writerAutosaveStatusTimer) clearTimeout(writerAutosaveStatusTimer);
+            writerAutosaveStatusTimer = setTimeout(function () { setWriterAutoSaveStatus('', false); }, 1800);
+            return { success: true, title: savedTitle };
+        } catch (err) {
+            setWriterAutoSaveStatus('Could not save chapter name. Try again.', true);
+            return { success: false };
+        } finally {
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.classList.remove('opacity-60'); }
+        }
+    };
+
+    window.promptRenameChapter = function (chapterNo, currentTitle, previewIndex) {
+        var modal = document.getElementById('chapterRenameModal');
+        var input = document.getElementById('chapterRenameModalInput');
+        var cancelBtn = document.getElementById('chapterRenameModalCancel');
+        var saveBtn = document.getElementById('chapterRenameModalSave');
+        if (!modal || !input) return;
+        input.value = currentTitle || '';
+        modal.style.display = 'flex';
+        modal._renameChapterNo = chapterNo;
+        modal._renamePreviewIndex = previewIndex;
+        setTimeout(function () { input.focus(); input.select(); }, 50);
+        function closeModal() {
+            modal.style.display = 'none';
+            modal._renameChapterNo = null;
+            modal._renamePreviewIndex = null;
+        }
+        function submitRename() {
+            var nextTitle = String(input.value || '').trim();
+            if (!nextTitle) {
+                setWriterAutoSaveStatus('Chapter name cannot be empty.', true);
+                input.focus();
+                return;
+            }
+            var chNo = modal._renameChapterNo;
+            var pIdx = modal._renamePreviewIndex;
+            closeModal();
+            window.saveChapterNameUpdate(chNo, nextTitle).then(function (result) {
+                if (result && result.success && typeof pIdx === 'number' && typeof window.applyPreviewChapterIndex === 'function') {
+                    window.applyPreviewChapterIndex(pIdx, { initialPage: 0 });
+                }
+            });
+        }
+        if (!modal._renameBound) {
+            modal._renameBound = true;
+            cancelBtn && cancelBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+            saveBtn && saveBtn.addEventListener('click', submitRename);
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); submitRename(); }
+                if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+            });
+        }
+    };
+
     function setWriterAutoSaveStatus(text, isError) {
         if (!writerAutoSaveStatus) return;
         writerAutoSaveStatus.textContent = text || '';
@@ -2675,11 +2865,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function buildWriterAutosavePayload() {
         var statusValue = (document.getElementById('Status') && document.getElementById('Status').value) || '';
-        if (String(statusValue).toLowerCase() === 'readonly') return null;
+        var isReadOnly = String(statusValue).toLowerCase() === 'readonly';
         var userIdValue = (document.getElementById('UserId') && document.getElementById('UserId').value) || '';
         var bookIdValue = (document.getElementById('BookId') && document.getElementById('BookId').value) || '';
         var chapterNoValue = (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '';
         if (!userIdValue || userIdValue === '0' || !bookIdValue || bookIdValue === '0' || !chapterNoValue) return null;
+        var chapterTitle = (inputChapterTitle && inputChapterTitle.value) ? String(inputChapterTitle.value).trim() : '';
+        if (isReadOnly) {
+            if (!chapterTitle) return null;
+            return {
+                UserId: String(userIdValue),
+                BookId: String(bookIdValue),
+                Chapter: String(chapterNoValue),
+                NewContent: '',
+                ChapterTitle: chapterTitle,
+                Topic: '',
+                RecordVersion: false,
+                TitleOnly: true
+            };
+        }
         var bodyHtml = '';
         if (typeof window.getWriterPreviewChapterHtmlForEdit === 'function') bodyHtml = window.getWriterPreviewChapterHtmlForEdit() || '';
         if (!bodyHtml && previewContent && previewContent.innerHTML) bodyHtml = previewContent.innerHTML;
@@ -2691,7 +2895,7 @@ document.addEventListener('DOMContentLoaded', function() {
             BookId: String(bookIdValue),
             Chapter: String(chapterNoValue),
             NewContent: bodyHtml || '<p></p>',
-            ChapterTitle: (inputChapterTitle && inputChapterTitle.value) ? String(inputChapterTitle.value) : '',
+            ChapterTitle: chapterTitle,
             Topic: topicText,
             RecordVersion: false
         };
@@ -2716,6 +2920,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }).then(function (result) {
             if (result.ok && result.data && result.data.success) {
                 setWriterAutoSaveStatus('Saved', false);
+                if (payload.TitleOnly && typeof loadBookAllChaptersNumbers === 'function') {
+                    loadBookAllChaptersNumbers();
+                }
                 if (writerAutosaveStatusTimer) clearTimeout(writerAutosaveStatusTimer);
                 writerAutosaveStatusTimer = setTimeout(function () {
                     setWriterAutoSaveStatus('', false);
@@ -2749,7 +2956,7 @@ document.addEventListener('DOMContentLoaded', function() {
         previewBookTitle.textContent = bookTitle || 'Your Chapter\'s Preview';
         var chNo = getChapterNo();
         var chTitle = inputChapterTitle.value.trim();
-        previewChapterHeader.textContent = chTitle ? 'Chapter ' + chNo + ': ' + chTitle : 'Chapter ' + chNo;
+        window.setPreviewChapterHeaderText(chTitle ? 'Chapter ' + chNo + ': ' + chTitle : 'Chapter ' + chNo);
         if (window._previewChaptersMeta && window._previewChaptersMeta.length > 0) {
             return;
         }
@@ -2879,6 +3086,28 @@ document.addEventListener('DOMContentLoaded', function() {
     if (bookId > 0) loadChapterPreview(bookId, getChapterNo());
     inputChapterTitle.addEventListener('input', function () { queueWriterAutosave(700); });
     inputBookTitle.addEventListener('input', function () { queueWriterAutosave(700); });
+
+    var btnSaveChapterName = document.getElementById('btnSaveChapterName');
+    if (btnSaveChapterName) {
+        btnSaveChapterName.addEventListener('click', function () {
+            window.saveChapterNameUpdate();
+        });
+    }
+    var btnRenameChapterFromPreview = document.getElementById('btnRenameChapterFromPreview');
+    if (btnRenameChapterFromPreview) {
+        btnRenameChapterFromPreview.addEventListener('click', function () {
+            if (inputChapterTitle) inputChapterTitle.focus();
+            inputChapterTitle && inputChapterTitle.select();
+        });
+    }
+    if (inputChapterTitle) {
+        inputChapterTitle.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                window.saveChapterNameUpdate();
+            }
+        });
+    }
 })();
 
     function getContentFromPossibleJson(value) {
@@ -2977,17 +3206,6 @@ document.addEventListener('DOMContentLoaded', function() {
               document.getElementById('BookId').value = String(selectedBookId);
               if (typeof loadSelectedResponse === 'function') loadSelectedResponse(String(selectedBookId));
           }
-
-          setTimeout(function () {
-              try {
-                  if (sessionStorage.getItem(window.EBOOK_TOPIC_SUGGEST_PENDING_KEY) === '1') {
-                      sessionStorage.removeItem(window.EBOOK_TOPIC_SUGGEST_PENDING_KEY);
-                      if (typeof window.offerChapterTopicSuggestionsAfterGeneration === 'function') {
-                          window.offerChapterTopicSuggestionsAfterGeneration(null);
-                      }
-                  }
-              } catch (ePending) { /* ignore */ }
-          }, 900);
 
            // Show debug info after delay
           setTimeout(debugBooks, 1000);
@@ -3288,7 +3506,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   var result = JSON.parse(responseText);
                   showNotification('Book saved permanently!', 'success');
                   closeCreateBookModal();
-                  try { sessionStorage.setItem(window.EBOOK_TOPIC_SUGGEST_PENDING_KEY, '1'); } catch (e1) { /* ignore */ }
                   var newBookId = result && result.bookId ? result.bookId : null;
                   window.location.href = newBookId ? '/Books/AIGenerateBook?bookId=' + encodeURIComponent(newBookId) : '/Books/AIGenerateBook';
                   return;
@@ -4957,6 +5174,7 @@ document.addEventListener('DOMContentLoaded', function() {
          const generateBtn = document.getElementById("GenerateBtn");
          const editBtn = document.getElementById("EditBtn");
          const finalizeMainBtn = document.getElementById("btnFinalizeCurrentVersion");
+         const chapterTitleInput = document.getElementById("Title");
 
          if (statusCode === "ReadOnly") {
              // Disable buttons for ReadOnly books
@@ -4976,9 +5194,13 @@ document.addEventListener('DOMContentLoaded', function() {
                  finalizeMainBtn.disabled = true;
                  finalizeMainBtn.title = "Chapter already finalized (read-only)";
              }
+             if (chapterTitleInput) {
+                 chapterTitleInput.disabled = false;
+                 chapterTitleInput.title = "Chapter content is locked, but you can rename the chapter title";
+             }
 
              console.log("🔒 Buttons disabled - Book is ReadOnly");
-             showNotification("📖 This book is ReadOnly - Editing disabled", "info");
+             showNotification("📖 Chapter finalized — content is locked, but you can rename the chapter title", "info");
 
          } else {
              // Enable buttons for non-ReadOnly books
@@ -4997,6 +5219,10 @@ document.addEventListener('DOMContentLoaded', function() {
              if (finalizeMainBtn) {
                  finalizeMainBtn.disabled = false;
                  finalizeMainBtn.title = "";
+             }
+             if (chapterTitleInput) {
+                 chapterTitleInput.disabled = false;
+                 chapterTitleInput.title = "";
              }
 
              console.log("🔓 Buttons enabled - Book is editable");
@@ -5234,7 +5460,7 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 // Safely update fields only if they exist
                 const bookIdElement = document.getElementById("BookId");
-                const titleElement = document.getElementById("Title");
+                const bookTitleElement = document.getElementById("BookTitle");
                 const descriptionElement = document.getElementById("Description");
                 const genreElement = document.getElementById("Genre");
 
@@ -5242,8 +5468,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     bookIdElement.value = bookData.bookId;
                 }
 
-                if (titleElement && bookData.bookTitle) {
-                    titleElement.value = bookData.bookTitle;
+                if (bookTitleElement && bookData.bookTitle) {
+                    bookTitleElement.value = bookData.bookTitle;
                 }
 
                 if (descriptionElement && bookData.description) {
@@ -5594,7 +5820,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  window._previewPageIndex = 0;
                  if (previewHeader) {
                      previewHeader.classList.remove('hidden');
-                     previewHeader.textContent = 'Preview';
+                     window.setPreviewChapterHeaderText('Preview');
                  }
                  if (previewContent) {
                      previewContent.classList.remove('hidden');
@@ -6030,7 +6256,7 @@ document.addEventListener('DOMContentLoaded', function() {
              if (previewBookTitle) previewBookTitle.textContent = title || "Your Chapter's Preview";
              if (previewHeader) {
                  previewHeader.classList.remove('hidden');
-                 previewHeader.textContent = title || ('Chapter ' + chNo);
+                 window.setPreviewChapterHeaderText(title || ('Chapter ' + chNo));
              }
              window._currentChapterContent = content && content.indexOf('<') >= 0 ? content : '<p>' + String(content).replace(/\n/g, '</p><p>') + '</p>';
              window._currentChapterTitle = title || 'New Chapter';

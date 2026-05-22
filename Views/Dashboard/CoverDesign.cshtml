@@ -143,6 +143,9 @@
             0 0 0 1px rgba(255, 255, 255, 0.06) inset;
     }
     #covPreviewTitle.cov-line-empty, #covPreviewAuthor.cov-line-empty { opacity: 0; min-height: 0.1em; }
+    /* Image-only preview: cover art from API, no title/author overlay */
+    .cov-preview-typography { display: none !important; }
+    .cov-preview-book-stage { max-width: 360px; margin-left: auto; margin-right: auto; }
 </style>
 
 <div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
@@ -194,7 +197,7 @@
                 </div>
             </div>
 
-            <div class="mt-8" data-guided-tour="cov-prompt">
+            <div class="mt-3" data-guided-tour="cov-prompt">
                 <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Image Direction</h2>
                 <p class="text-sm text-slate-500 mb-3 leading-snug">Mood, palette, main subject, and style references—the clearer you are, the stronger the cover.</p>
                 <div class="cov-image-direction-shell border border-slate-200 rounded-[20px] p-1.5 flex flex-col focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200 bg-white">
@@ -228,7 +231,7 @@
                 <span class="text-violet-600 font-medium text-sm tracking-wide">Ebook AI</span>
             </div>
             <h2 class="font-serif text-2xl md:text-3xl text-slate-900 font-medium tracking-tight mb-1">Cover preview</h2>
-            <p class="text-sm text-slate-500 leading-relaxed max-w-lg mb-6">Only your title and author appear on the cover. Fields on the left never render as labels here.</p>
+            <p class="text-sm text-slate-500 leading-relaxed max-w-lg mb-6">Cover preview shows only the AI-generated artwork — no title or author overlay.</p>
 
             <div class="cov-preview-book-stage self-start w-full max-w-[440px]">
                     <div id="covPreviewShell" class="cov-preview-3d w-full aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
@@ -243,6 +246,17 @@
                             <span id="previewBusyText" class="text-sm font-medium">Generating…</span>
                         </div>
                     </div>
+            </div>
+
+            <div id="covPrintWrapModal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-slate-900">Complete print cover (Front + Spine + Back)</h3>
+                        <button type="button" id="covPrintWrapClose" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Close"><i data-lucide="x" class="w-5 h-5"></i></button>
+                    </div>
+                    <img id="covPrintWrapImg" alt="Full wrap cover" class="w-full rounded-xl border border-slate-200 bg-slate-50" />
+                    <p class="text-xs text-slate-500 mt-3">Spine width computed from your page count. Continue to Publish when ready.</p>
+                </div>
             </div>
 
             <input type="hidden" id="coverGeneratedPayload" value="" />
@@ -288,6 +302,18 @@
     var coverHistory = [];
     var MAX_HISTORY = 3;
     var hasAiCoverThisSession = false;
+    var bookPublishingPlatform = '';
+
+    function isPrintReadyPlatform() {
+        var p = (bookPublishingPlatform || '').toLowerCase();
+        return p.indexOf('print ready') >= 0 || p.indexOf('just print ready') >= 0;
+    }
+
+    function isKdpOrEbookPlatform() {
+        var p = (bookPublishingPlatform || '').toLowerCase();
+        if (isPrintReadyPlatform()) return false;
+        return p.indexOf('kdp') >= 0 || p.indexOf('amazon') >= 0 || p.indexOf('ebook') >= 0 || p.indexOf('ingram') >= 0 || p.indexOf('barnes') >= 0 || !p;
+    }
 
     var screenLoading = document.getElementById('screenLoading');
     var emptyState = document.getElementById('emptyState');
@@ -507,14 +533,7 @@
     }
 
     function updateLivePreview() {
-        var t = (bookTitle.value || '').trim();
-        var a = (authorName.value || '').trim();
-        covPreviewTitle.textContent = t;
-        covPreviewAuthor.textContent = a;
-        covPreviewTitle.setAttribute('title', t);
-        covPreviewAuthor.setAttribute('title', a);
-        covPreviewTitle.classList.toggle('cov-line-empty', !t);
-        covPreviewAuthor.classList.toggle('cov-line-empty', !a);
+        /* Image-only stage — no text overlay on cover art */
     }
 
     /** Merge latest DB + Settings for one book; keeps form author if API has no display name. */
@@ -536,6 +555,14 @@
                 setGenreFromApi((b.genre || '').trim());
                 var dir = (b.aiCoverPrompt || '').trim();
                 if (dir) imageDirection.value = dir;
+                fetch('/BookDesign/GetBookFormatting?bookId=' + encodeURIComponent(b.bookId))
+                    .then(function (r) { return r.json(); })
+                    .then(function (fd) {
+                        if (fd && fd.success && fd.data) {
+                            bookPublishingPlatform = (fd.data.publishingPlatform || fd.data.publishingPlatforms || '').trim();
+                        }
+                    })
+                    .catch(function () {});
                 var path = (b.aiCoverLastPreview || b.coverImagePath || '').trim();
                 if (path) {
                     selectedPath = path;
@@ -732,17 +759,50 @@
             if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
             applyGenerationSuccess(d, 'generate');
 
-            setBusy(true, 'Generating spine…');
-            await new Promise(function (resolve) { setTimeout(resolve, 120); });
-            setBusy(true, 'Generating back cover…');
-            await new Promise(function (resolve) { setTimeout(resolve, 120); });
-            setBusy(true, 'Compositing Back | Spine | Front…');
-            var frontSource = d.coverUrl || selectedPath;
-            await buildSequentialCoverSet(frontSource, {
-                title: body.title,
-                author: body.author
-            });
-            toast('success', 'Cover set ready (Back | Spine | Front + full wrap).');
+            if (isPrintReadyPlatform()) {
+                setBusy(true, 'Building print wrap (front + spine + back)…');
+                var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.totalPages)) || 120;
+                try {
+                    var pr = await fetch('/Dashboard/GeneratePrintReadyCover', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({
+                            bookId: selectedBook.bookId,
+                            pageCount: pageCount,
+                            trimSize: '6x9',
+                            coverStyle: (coverStyle.value || 'modern').trim(),
+                            size: '1024x1536',
+                            quality: 'medium'
+                        })
+                    });
+                    var prData = await pr.json();
+                    var wrapUrl = (prData && prData.cover && prData.cover.wrap) ? prData.cover.wrap : (prData && prData.wrapUrl ? prData.wrapUrl : '');
+                    if (prData && prData.success && wrapUrl) {
+                        var modal = document.getElementById('covPrintWrapModal');
+                        var img = document.getElementById('covPrintWrapImg');
+                        if (img) img.src = wrapUrl;
+                        if (modal) modal.classList.remove('hidden');
+                        toast('success', 'Print wrap cover ready.');
+                    } else {
+                        await buildSequentialCoverSet(d.coverUrl || selectedPath, { title: body.title, author: body.author });
+                        toast('success', 'Cover set ready.');
+                    }
+                } catch (e) {
+                    toast('error', 'Print wrap generation failed.');
+                }
+            } else if (isKdpOrEbookPlatform()) {
+                if (sequentialCoverWrap) sequentialCoverWrap.classList.add('hidden');
+                toast('success', 'Front cover ready.');
+            } else {
+                setBusy(true, 'Generating spine…');
+                await new Promise(function (resolve) { setTimeout(resolve, 120); });
+                setBusy(true, 'Generating back cover…');
+                await new Promise(function (resolve) { setTimeout(resolve, 120); });
+                setBusy(true, 'Compositing Back | Spine | Front…');
+                var frontSource = d.coverUrl || selectedPath;
+                await buildSequentialCoverSet(frontSource, { title: body.title, author: body.author });
+                toast('success', 'Cover set ready (Back | Spine | Front + full wrap).');
+            }
         } catch (err) {
             console.error('[CoverDesign] GenerateCover fetch error', err);
             toast('error', err.message || 'Network error.');
@@ -896,6 +956,11 @@
         refreshBookFromServer(this.value);
     });
     btnGenerate.addEventListener('click', function () { generateCoverFromDashboard(); });
+    var covPrintWrapClose = document.getElementById('covPrintWrapClose');
+    if (covPrintWrapClose) covPrintWrapClose.addEventListener('click', function () {
+        var m = document.getElementById('covPrintWrapModal');
+        if (m) m.classList.add('hidden');
+    });
     if (btnRegenerate) btnRegenerate.addEventListener('click', function () {
         console.log('[CoverDesign] Regenerate clicked');
         generateCoverFromDashboard('/Dashboard/RegenerateCover');

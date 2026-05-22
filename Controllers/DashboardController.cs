@@ -1475,11 +1475,28 @@ namespace EBookDashboard.Controllers
                     }
 
                     var coverReady = !string.IsNullOrWhiteSpace(ViewBag.PublishBookCover as string);
+                    var hasChapterContent = ViewBag.PublishBookChapterCount is int chCnt && chCnt > 0;
                     var statusReady =
                         ps.Equals("Finalized", StringComparison.OrdinalIgnoreCase)
                         || ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
                         || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase)
-                        || ps.Equals("Final", StringComparison.OrdinalIgnoreCase);
+                        || ps.Equals("Final", StringComparison.OrdinalIgnoreCase)
+                        || ps.Equals("Generated", StringComparison.OrdinalIgnoreCase)
+                        || ps.Equals("Saved", StringComparison.OrdinalIgnoreCase)
+                        || (hasChapterContent && !ps.Equals("Draft", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(ps));
+
+                    if (hasChapterContent && !statusReady && !ps.Equals("Archived", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var finalizedChapter = await _context.Chapters.AsNoTracking()
+                            .AnyAsync(c => c.BookId == bid && (
+                                c.Status == "Finalized" || c.Status == "Final" || c.IsPublished));
+                        if (finalizedChapter)
+                            statusReady = true;
+                    }
+
+                    ViewBag.PublishBookAlreadyListed = ps.Equals("Published", StringComparison.OrdinalIgnoreCase)
+                        || ps.Equals("Paid", StringComparison.OrdinalIgnoreCase)
+                        || ps.Equals("Finalized", StringComparison.OrdinalIgnoreCase);
 
                     var fmt = await _context.BookFormatting.AsNoTracking()
                         .FirstOrDefaultAsync(f => f.BookId == bookId.Value && f.UserId == user.UserId);

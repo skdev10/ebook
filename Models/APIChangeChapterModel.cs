@@ -12,5 +12,7 @@ namespace EBookDashboard.Models
         public string? Topic { get; set; }
         /// <summary>When true (default), append a new row to version history. Set false only for silent/bulk ops.</summary>
         public bool RecordVersion { get; set; } = true;
+        /// <summary>When true, only update the chapter title (allowed on finalized/read-only chapters).</summary>
+        public bool TitleOnly { get; set; }
     }
 }

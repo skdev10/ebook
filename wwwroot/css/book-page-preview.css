@@ -20,6 +20,12 @@
     -webkit-overflow-scrolling: touch;
 }
 
+/* Formatter paginated preview: page nav only, no inner scroll */
+.fmt-formatter-preview-card .book-page-preview-content,
+#preview-single.fmt-formatter-preview-card #preview-content {
+    overflow-y: hidden;
+}
+
 .book-page-preview-measure {
     padding: 1.5rem;
     box-sizing: border-box;
