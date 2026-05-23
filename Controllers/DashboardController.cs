@@ -86,7 +86,12 @@ namespace EBookDashboard.Controllers
                 {
                     UserName = fallbackName,
                     UserEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "",
-                    CurrentProjects = new List<ProjectViewModel>()
+                    CurrentProjects = new List<ProjectViewModel>(),
+                    RecentActivities = new List<ActivityViewModel>(),
+                    DemoPublishedBooks = new List<DemoPublishedBookViewModel>(),
+                    DemoDrafts = new List<DemoDraftViewModel>(),
+                    DemoReaderFriends = new List<DemoReaderFriendViewModel>(),
+                    CurrentWorkingBook = new BookViewModel()
                 });
             }
         }
@@ -110,9 +115,18 @@ namespace EBookDashboard.Controllers
 
             // Get user information
             var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
-            var user = await _context.Users
-                .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            Users? user = null;
+            try
+            {
+                user = await _context.Users
+                    .AsNoTracking()
+                    .Include(u => u.Role)
+                    .FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Dashboard: could not load user row for {Email}.", userEmail);
+            }
 
             if (user == null)
             {
@@ -130,38 +144,74 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync(a => a.AuthorCode == user.UserId.ToString());
 
             // Get user's books
-            var books = await _context.Books
-                .Where(b => b.UserId == user.UserId)
-                .ToListAsync();
+            var books = new List<Books>();
+            try
+            {
+                books = await _context.Books
+                    .AsNoTracking()
+                    .Where(b => b.UserId == user.UserId)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Dashboard: could not load books for user {UserId}.", user.UserId);
+            }
 
             // Get chapter counts from apirawresponse (generated chapters per UserId + BookId)
             var bookIds = books.Select(b => b.BookId).ToList();
-            var rawResponseCounts = await _context.APIRawResponse
-                .Where(r => r.UserId == user.UserId && r.BookId != null && bookIds.Contains(r.BookId.Value))
-                .GroupBy(r => r.BookId)
-                .Select(g => new { BookId = g.Key, Count = g.Count() })
-                .ToListAsync();
-            var chaptersGeneratedByBookId = rawResponseCounts.ToDictionary(x => x.BookId!.Value, x => x.Count);
+            var chaptersGeneratedByBookId = new Dictionary<int, int>();
+            try
+            {
+                if (bookIds.Count > 0)
+                {
+                    var rawResponseCounts = await _context.APIRawResponse
+                        .Where(r => r.UserId == user.UserId && r.BookId != null && bookIds.Contains(r.BookId.Value))
+                        .GroupBy(r => r.BookId)
+                        .Select(g => new { BookId = g.Key, Count = g.Count() })
+                        .ToListAsync();
+                    chaptersGeneratedByBookId = rawResponseCounts.ToDictionary(x => x.BookId!.Value, x => x.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Dashboard: APIRawResponse stats skipped for user {UserId}.", user.UserId);
+            }
 
             // Calculate real statistics from database
             var totalBooksPublished = books.Count(b => b.Status == "Published");
             var totalBooksGenerated = books.Count(b => b.Status == "Finalized");
 
-            // Load user reading stats (UserStats table) - one row per user
-            var userStats = await _context.UserStats
-                .AsNoTracking()
-                .FirstOrDefaultAsync(s => s.UserId == user.UserId);
+            // Load user reading stats (UserStats table) - optional on older DBs
+            UserStats? userStats = null;
+            try
+            {
+                userStats = await _context.UserStats
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.UserId == user.UserId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Dashboard: UserStats skipped for user {UserId}.", user.UserId);
+            }
 
-            // Calculate monthly revenue from BookPrice table (if exists)
+            // Calculate monthly revenue from BookPrice table (optional)
             var currentMonth = DateTime.UtcNow.Month;
             var currentYear = DateTime.UtcNow.Year;
-            var monthlyRevenue = await _context.BookPrice
-                .Where(bp => bp.CreatedAt.Month == currentMonth && bp.CreatedAt.Year == currentYear)
-                .Join(_context.Books.Where(b => b.UserId == user.UserId),
-                    bp => bp.BookId,
-                    b => b.BookId,
-                    (bp, b) => bp)
-                .SumAsync(bp => (decimal?)bp.bookPrice) ?? 0m;
+            decimal monthlyRevenue = 0m;
+            try
+            {
+                monthlyRevenue = await _context.BookPrice
+                    .Where(bp => bp.CreatedAt.Month == currentMonth && bp.CreatedAt.Year == currentYear)
+                    .Join(_context.Books.Where(b => b.UserId == user.UserId),
+                        bp => bp.BookId,
+                        b => b.BookId,
+                        (bp, b) => bp)
+                    .SumAsync(bp => (decimal?)bp.bookPrice) ?? 0m;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Dashboard: BookPrice revenue skipped for user {UserId}.", user.UserId);
+            }
             
             // Calculate total downloads from database (if you have a Downloads table)
             // For now, using book count as a placeholder - replace with actual downloads table when available

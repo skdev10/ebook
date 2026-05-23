@@ -131,61 +131,65 @@ namespace EBookDashboard.Controllers
 
         // POST: /Account/UserLogin - Only allows non-Admin roles (User, Author, Reader)
         [HttpPost]
-        [ValidateAntiForgeryToken]
+        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> UserLogin(string UserEmail, string Password, bool RememberMe)
         {
-            await SetOAuthLoginAvailabilityAsync();
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.UserEmail == UserEmail && u.Password == Password);
-
-            if (user == null)
+            try
             {
-                ViewBag.Error = "Invalid email or password. Please try again.";
-                return View();
-            }
+                await SetOAuthLoginAvailabilityAsync();
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.UserEmail == UserEmail && u.Password == Password);
 
-            var role = await _context.Roles
-                .Where(r => r.RoleId == user.RoleId)
-                .Select(r => r.RoleName)
-                .FirstOrDefaultAsync();
+                if (user == null)
+                {
+                    ViewBag.Error = "Invalid email or password. Please try again.";
+                    return View();
+                }
 
-            if (role == "Admin")
-            {
-                ViewBag.Error = "This page is for users. Administrators should use the Admin login.";
-                return View();
-            }
+                var role = await _context.Roles
+                    .Where(r => r.RoleId == user.RoleId)
+                    .Select(r => r.RoleName)
+                    .FirstOrDefaultAsync();
 
-            HttpContext.Session.SetInt32("UserId", user.UserId);
-            HttpContext.Session.SetString("FullName", user.FullName ?? "");
+                if (role == "Admin")
+                {
+                    ViewBag.Error = "This page is for users. Administrators should use the Admin login.";
+                    return View();
+                }
 
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-                new Claim(ClaimTypes.Name, user.FullName ?? ""),
-                new Claim(ClaimTypes.Email, user.UserEmail),
-                new Claim(ClaimTypes.Role, role ?? "Reader")
-            };
+                HttpContext.Session.SetInt32("UserId", user.UserId);
+                HttpContext.Session.SetString("FullName", user.FullName ?? "");
 
-            var claimsIdentity = new ClaimsIdentity(claims, "UserCookie");
-            var authProperties = new AuthenticationProperties
-            {
-                IsPersistent = RememberMe,
-                ExpiresUtc = DateTime.UtcNow.AddMinutes(30)
-            };
+                var claims = new List<Claim>
+                {
+                    new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+                    new Claim(ClaimTypes.Name, user.FullName ?? ""),
+                    new Claim(ClaimTypes.Email, user.UserEmail),
+                    new Claim(ClaimTypes.Role, role ?? "Reader")
+                };
 
-            await HttpContext.SignInAsync(
-                "UserCookie",
-                new ClaimsPrincipal(claimsIdentity),
-                authProperties);
+                var claimsIdentity = new ClaimsIdentity(claims, "UserCookie");
+                var authProperties = new AuthenticationProperties
+                {
+                    IsPersistent = RememberMe,
+                    ExpiresUtc = DateTime.UtcNow.AddMinutes(120)
+                };
 
-            if (role == "User" || role == "Author" || role == "Reader")
-            {
-                var resume = TryRedirectToSavedResume(user.UserId);
-                if (resume != null) return resume;
+                await HttpContext.SignInAsync(
+                    "UserCookie",
+                    new ClaimsPrincipal(claimsIdentity),
+                    authProperties);
+
+                // Always open dashboard after password login (saved resume URLs can point at broken pages).
                 return RedirectToAction("Index", "Dashboard");
             }
-
-            return RedirectToAction("Index", "Dashboard");
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "UserLogin failed for {Email}", UserEmail);
+                ViewBag.Error = "Sign-in failed due to a server error. Please try again or contact support.";
+                await SetOAuthLoginAvailabilityAsync();
+                return View();
+            }
         }
 
         /// <summary>Entry point for Google OAuth (middleware callback is Authentication:Google:CallbackPath, default /auth/google/callback).</summary>
@@ -1131,6 +1135,10 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(path) || path.Length > 600) return null;
                 if (!path.StartsWith('/') || path.StartsWith("//", StringComparison.Ordinal)) return null;
                 if (path.Contains("://", StringComparison.Ordinal) || path.Contains('\\')) return null;
+                // After login, only resume within Dashboard (book writer URLs can crash on partial DB state).
+                var pathOnly = path.Split('?', 2)[0];
+                if (!pathOnly.StartsWith("/Dashboard", StringComparison.OrdinalIgnoreCase))
+                    return null;
                 return LocalRedirect(path);
             }
             catch (Exception ex)
