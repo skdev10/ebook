@@ -40,7 +40,9 @@ if [[ ! -f publish/EBookDashboard.dll ]]; then
   exit 1
 fi
 
-nohup dotnet publish/EBookDashboard.dll --urls "http://0.0.0.0:${PORT}" > nohup.out 2>&1 &
+cd "$APP_DIR/publish"
+
+nohup dotnet EBookDashboard.dll --urls "http://0.0.0.0:${PORT}" > "$APP_DIR/nohup.out" 2>&1 &
 echo "Started PID $! on port $PORT"
 sleep 2
 netstat -tpln 2>/dev/null | grep ":$PORT" || ss -tlnp | grep ":$PORT" || true

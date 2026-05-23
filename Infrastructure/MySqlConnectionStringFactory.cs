@@ -23,6 +23,14 @@ public static class MySqlConnectionStringFactory
             throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
 
         var csb = new MySqlConnectionStringBuilder(baseConnectionString);
+        var forceSslCa = configuration.GetValue("Database:ForceSslCa", false);
+
+        // VM/local MySQL (localhost) rarely has TLS configured; Required/VerifyCA breaks sign-in and every DB query.
+        if (IsLocalMySqlHost(csb.Server) && !forceSslCa)
+        {
+            ApplyLocalMySqlCompatibility(csb);
+            return csb.ConnectionString;
+        }
 
         var useSslCa = configuration.GetValue("Database:UseSslCa", true);
         if (!useSslCa)
@@ -65,15 +73,6 @@ public static class MySqlConnectionStringFactory
             }
         }
 
-        // Bundled CA is for managed cloud DBs (e.g. DigitalOcean). Local MySQL uses a different cert chain;
-        // forcing VerifyCA here causes RemoteCertificateChainErrors on sign-in.
-        var forceSslCa = configuration.GetValue("Database:ForceSslCa", false);
-        if (sslCaFullPath != null && IsLocalMySqlHost(csb.Server) && !forceSslCa)
-        {
-            EnsureNonSslAuthCompatibility(csb);
-            return csb.ConnectionString;
-        }
-
         if (sslCaFullPath != null)
         {
             csb.SslMode = MySqlSslMode.VerifyCA;
@@ -91,6 +90,14 @@ public static class MySqlConnectionStringFactory
     /// For local/non-SSL connections using MySQL 8+ default auth (caching_sha2_password),
     /// allow RSA key retrieval when TLS/CA verification is not enabled.
     /// </summary>
+    private static void ApplyLocalMySqlCompatibility(MySqlConnectionStringBuilder csb)
+    {
+        csb.SslMode = MySqlSslMode.Preferred;
+        csb.SslCa = null;
+        csb.CertificateFile = null;
+        csb.AllowPublicKeyRetrieval = true;
+    }
+
     private static void EnsureNonSslAuthCompatibility(MySqlConnectionStringBuilder csb)
     {
         if (csb.SslMode != MySqlSslMode.VerifyCA && csb.SslMode != MySqlSslMode.VerifyFull)

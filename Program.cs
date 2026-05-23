@@ -317,6 +317,18 @@ var app = builder.Build();
         "OAuth handlers: Google={GoogleOk}, Facebook={FacebookOk}.",
         gOk,
         fOk);
+
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        await db.Database.OpenConnectionAsync();
+        await db.Database.CloseConnectionAsync();
+        startupLogger.LogInformation("MySQL connection OK.");
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "MySQL connection FAILED at startup — login and dashboard will not work.");
+    }
 }
 
 app.UseForwardedHeaders();

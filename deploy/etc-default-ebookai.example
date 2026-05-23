@@ -8,7 +8,7 @@ ASPNETCORE_URLS=http://0.0.0.0:5000
 ExternalApi__ApiKey=PASTE_YOUR_KEY_HERE
 
 # MySQL on this VM
-ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=ebookpublications;User=root;Password=YOUR_PASSWORD;SslMode=Required;
+ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=ebookpublications;User=root;Password=YOUR_PASSWORD;SslMode=Preferred;AllowPublicKeyRetrieval=True;
 
 # Allow login over plain HTTP during testing
 Authentication__CookieSecurePolicy=SameAsRequest
