@@ -74,6 +74,25 @@ namespace EBookDashboard.Controllers
         [Route("Index")]
         public async Task<IActionResult> Index()
         {
+            try
+            {
+                return await IndexCoreAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Dashboard Index failed for {User}", User.Identity?.Name ?? "unknown");
+                var fallbackName = User.Identity?.Name ?? "User";
+                return View(new DashboardIndexViewModel
+                {
+                    UserName = fallbackName,
+                    UserEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "",
+                    CurrentProjects = new List<ProjectViewModel>()
+                });
+            }
+        }
+
+        private async Task<IActionResult> IndexCoreAsync()
+        {
             // Temporarily bypass the feature check to allow login
             /*
             // Check if user has an active plan

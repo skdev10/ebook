@@ -15,10 +15,21 @@ using EBookDashboard.Infrastructure;
 using EBookDashboard.Health;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 // Optional local overrides (secrets); never commit — see DigitalOcean-EnvironmentVariables.txt for production env vars.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
+var urlsCfgEarly = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
+    ?? builder.Configuration["Urls"]
+    ?? string.Empty;
+var httpsEndpointsConfigured = urlsCfgEarly.Contains("https://", StringComparison.OrdinalIgnoreCase);
+
+var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
+Directory.CreateDirectory(dataProtectionKeysPath);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -322,7 +333,8 @@ app.UseStaticFiles(new StaticFileOptions
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    if (httpsEndpointsConfigured)
+        app.UseHsts();
 }
 
 // ✅ Ensure database exists & apply migrations on startup (creates DB if missing)
@@ -339,10 +351,6 @@ if (!app.Environment.IsDevelopment())
 //}
 
 // HTTPS redirect only when Kestrel actually listens on HTTPS (avoids "Failed to determine the https port" on http-only profiles).
-var urlsCfg = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
-    ?? builder.Configuration["Urls"]
-    ?? string.Empty;
-var httpsEndpointsConfigured = urlsCfg.Contains("https://", StringComparison.OrdinalIgnoreCase);
 if (httpsEndpointsConfigured)
 {
     app.UseWhen(

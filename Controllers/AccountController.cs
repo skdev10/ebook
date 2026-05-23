@@ -131,6 +131,7 @@ namespace EBookDashboard.Controllers
 
         // POST: /Account/UserLogin - Only allows non-Admin roles (User, Author, Reader)
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UserLogin(string UserEmail, string Password, bool RememberMe)
         {
             await SetOAuthLoginAvailabilityAsync();
@@ -1122,13 +1123,21 @@ namespace EBookDashboard.Controllers
         private IActionResult? TryRedirectToSavedResume(int userId)
         {
             if (userId <= 0) return null;
-            var key = $"user:{userId}:lastBookWorkUrl";
-            var row = _context.Settings.AsNoTracking().FirstOrDefault(s => s.Key == key);
-            var path = row?.Value?.Trim();
-            if (string.IsNullOrEmpty(path) || path.Length > 600) return null;
-            if (!path.StartsWith('/') || path.StartsWith("//", StringComparison.Ordinal)) return null;
-            if (path.Contains("://", StringComparison.Ordinal) || path.Contains('\\')) return null;
-            return LocalRedirect(path);
+            try
+            {
+                var key = $"user:{userId}:lastBookWorkUrl";
+                var row = _context.Settings.AsNoTracking().FirstOrDefault(s => s.Key == key);
+                var path = row?.Value?.Trim();
+                if (string.IsNullOrEmpty(path) || path.Length > 600) return null;
+                if (!path.StartsWith('/') || path.StartsWith("//", StringComparison.Ordinal)) return null;
+                if (path.Contains("://", StringComparison.Ordinal) || path.Contains('\\')) return null;
+                return LocalRedirect(path);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not load saved resume URL for user {UserId}; continuing to dashboard.", userId);
+                return null;
+            }
         }
 
         // ... [Your existing other methods] ...

@@ -96,6 +96,7 @@
                 }
 
                 <form method="post" asp-action="UserLogin" asp-controller="Account" id="userLoginForm" class="w-full space-y-4">
+                    @Html.AntiForgeryToken()
                     <div class="relative">
                         <input type="email" id="UserEmail" name="UserEmail" value="@ViewBag.ReaderEmail" placeholder="Email" class="w-full bg-[#f1f5f9] text-gray-700 text-sm rounded-full py-3.5 px-6 placeholder-gray-400 border border-transparent focus:border-gray-200 focus:bg-white focus:ring-4 focus:ring-gray-100 transition-all duration-200 outline-none" required>
                     </div>
