@@ -28,7 +28,7 @@ public static class MySqlConnectionStringFactory
         // VM/local MySQL (localhost) rarely has TLS configured; Required/VerifyCA breaks sign-in and every DB query.
         if (IsLocalMySqlHost(csb.Server) && !forceSslCa)
         {
-            ApplyLocalMySqlCompatibility(csb);
+            ApplyLocalMySqlCompatibility(csb, configuration);
             return csb.ConnectionString;
         }
 
@@ -90,12 +90,44 @@ public static class MySqlConnectionStringFactory
     /// For local/non-SSL connections using MySQL 8+ default auth (caching_sha2_password),
     /// allow RSA key retrieval when TLS/CA verification is not enabled.
     /// </summary>
-    private static void ApplyLocalMySqlCompatibility(MySqlConnectionStringBuilder csb)
+    private static void ApplyLocalMySqlCompatibility(MySqlConnectionStringBuilder csb, IConfiguration configuration)
     {
-        csb.SslMode = MySqlSslMode.Preferred;
+        csb.SslMode = MySqlSslMode.None;
         csb.SslCa = null;
         csb.CertificateFile = null;
         csb.AllowPublicKeyRetrieval = true;
+
+        if (!OperatingSystem.IsLinux())
+            return;
+
+        var socket = configuration["Database:UnixSocket"]?.Trim()
+                     ?? Environment.GetEnvironmentVariable("Database__UnixSocket")?.Trim();
+        if (string.IsNullOrWhiteSpace(socket))
+        {
+            foreach (var candidate in new[]
+                     {
+                         "/var/run/mysqld/mysqld.sock",
+                         "/run/mysqld/mysqld.sock",
+                         "/tmp/mysql.sock"
+                     })
+            {
+                if (File.Exists(candidate))
+                {
+                    socket = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(socket) && File.Exists(socket))
+        {
+            csb.ConnectionProtocol = MySqlConnectionProtocol.UnixSocket;
+            csb.Server = socket;
+        }
+        else
+        {
+            csb.Server = "127.0.0.1";
+        }
     }
 
     private static void EnsureNonSslAuthCompatibility(MySqlConnectionStringBuilder csb)

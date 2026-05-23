@@ -327,7 +327,7 @@ var app = builder.Build();
     }
     catch (Exception ex)
     {
-        startupLogger.LogError(ex, "MySQL connection FAILED at startup — login and dashboard will not work.");
+        startupLogger.LogError(ex, "MySQL connection FAILED at startup — login and dashboard will not work. Error: {Message}", ex.Message);
     }
 }
 
