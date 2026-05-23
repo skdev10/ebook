@@ -599,9 +599,9 @@ namespace EBookDashboard.Controllers
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
 
                 _logger.LogInformation("Sending generate_chapter to upstream (payload length {Len}).", json.Length);
-                // RequestAborted: if the browser aborts (timeout / navigation), stop waiting on the external API.
-                using var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, HttpContext.RequestAborted);
-                responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+                using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                using var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+                responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
 
                     // Log the API response in VS Output or console
                     Console.WriteLine($"📥API Response Status: {response.StatusCode}");
@@ -729,7 +729,8 @@ namespace EBookDashboard.Controllers
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
-            using var response = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
+            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+            using var response = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
             var result = await response.Content.ReadAsStringAsync();
             return Content(result, "application/json");
         }
@@ -779,8 +780,9 @@ namespace EBookDashboard.Controllers
                     var content = new StringContent(json, Encoding.UTF8, "application/json");
                     using var requestMsg = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
 
-                    using var response = await _bookApiClient.SendAsync(requestMsg, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
-                    responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+                    using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                    using var response = await _bookApiClient.SendAsync(requestMsg, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+                    responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
 
                     try
                     {
@@ -1994,8 +1996,9 @@ namespace EBookDashboard.Controllers
 
                 Console.WriteLine($"📤Forwarding edit request to API: {json}");
 
-                using var response = await _bookApiClient.SendAsync(httpRequestEdit, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
-                responseData = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+                using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                using var response = await _bookApiClient.SendAsync(httpRequestEdit, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+                responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
 
                 // Save raw response for audit (do not fail the client if this throws)
                 try
@@ -2115,7 +2118,8 @@ namespace EBookDashboard.Controllers
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
-            using var response = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
+            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+            using var response = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
             var responseData = await response.Content.ReadAsStringAsync();
 
             // Step 2: Parse response JSON
@@ -3534,7 +3538,7 @@ namespace EBookDashboard.Controllers
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+                using var cts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
                 using var response = await _bookApiClient.SendAsync(request, BookApiCallTimeoutKind.LongRunning, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
 
@@ -3609,7 +3613,7 @@ namespace EBookDashboard.Controllers
             {
                 using var request = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 request.Content = new StringContent(payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+                using var cts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
                 using var response = await _bookApiClient.SendAsync(request, BookApiCallTimeoutKind.LongRunning, cts.Token);
                 var responseData = await response.Content.ReadAsStringAsync(cts.Token);
                 if (!response.IsSuccessStatusCode)
@@ -3816,8 +3820,9 @@ namespace EBookDashboard.Controllers
             {
                 Content = new StringContent(body.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json")
             };
-            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
-            var json = await resp.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+            var json = await resp.Content.ReadAsStringAsync(upstreamCts.Token);
             if (resp.IsSuccessStatusCode)
                 return Content(json, "application/json");
             return StatusCode((int)resp.StatusCode, json);
@@ -3837,8 +3842,9 @@ namespace EBookDashboard.Controllers
             {
                 Content = new StringContent(body.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json")
             };
-            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
-            var json = await resp.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+            var json = await resp.Content.ReadAsStringAsync(upstreamCts.Token);
             if (resp.IsSuccessStatusCode)
                 return Content(json, "application/json");
             return StatusCode((int)resp.StatusCode, json);

@@ -1,0 +1,14 @@
+# Copy to /etc/default/ebookai on the server (chmod 600).
+# Loaded by deploy/start-nohup.sh and deploy/ebookai.service
+
+ASPNETCORE_ENVIRONMENT=Production
+ASPNETCORE_URLS=http://0.0.0.0:5000
+
+# Required — Python upstream X-API-Key
+ExternalApi__ApiKey=PASTE_YOUR_KEY_HERE
+
+# MySQL on this VM
+ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=ebookpublications;User=root;Password=YOUR_PASSWORD;SslMode=Required;
+
+# Allow login over plain HTTP during testing
+Authentication__CookieSecurePolicy=SameAsRequest

@@ -586,10 +586,9 @@ namespace EBookDashboard.Controllers
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromMinutes(8));
-                var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, cts.Token);
-                var responseData = await response.Content.ReadAsStringAsync(cts.Token);
+                using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+                var responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -707,10 +706,9 @@ namespace EBookDashboard.Controllers
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 httpRequest.Content = new StringContent(payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
 
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromMinutes(8));
-                var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, cts.Token);
-                var responseData = await response.Content.ReadAsStringAsync(cts.Token);
+                using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+                var responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
                 if (!response.IsSuccessStatusCode)
                     return Json(new { success = false, status = "error", message = $"Edit service returned {(int)response.StatusCode}." });
 
@@ -1228,10 +1226,9 @@ namespace EBookDashboard.Controllers
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
                 httpRequest.Content = new StringContent(payloadObj.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
 
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromMinutes(8));
-                var response = await _bookApiClient.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, cts.Token);
-                var responseData = await response.Content.ReadAsStringAsync(cts.Token);
+                using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                var response = await _bookApiClient.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
+                var responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("GeneratePrintReadyCover HTTP {Code} for book {BookId}: {Body}", (int)response.StatusCode, req.BookId, responseData);

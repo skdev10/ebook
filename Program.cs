@@ -232,7 +232,7 @@ builder.Services.Configure<ChapterGenerationOptions>(
     builder.Configuration.GetSection(ChapterGenerationOptions.SectionName));
 builder.Services.Configure<BookPaymentOptions>(
     builder.Configuration.GetSection(BookPaymentOptions.SectionName));
-builder.Services.AddBookUpstreamHttpClients();
+builder.Services.AddBookUpstreamHttpClients(builder.Configuration);
 builder.Services.AddHealthChecks()
     .AddCheck<UpstreamBookApiHealthCheck>("upstream_book_api", failureStatus: HealthStatus.Degraded, tags: ["ready"]);
 builder.Services.AddScoped<IBookChapterPipelineService, BookChapterPipelineService>();

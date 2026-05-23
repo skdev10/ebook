@@ -1,5 +1,6 @@
 using EBookDashboard.Models.Options;
 using EBookDashboard.Services.BookApi;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -7,7 +8,7 @@ namespace EBookDashboard.Infrastructure;
 
 public static class BookUpstreamHttpClientExtensions
 {
-    public static IServiceCollection AddBookUpstreamHttpClients(this IServiceCollection services)
+    public static IServiceCollection AddBookUpstreamHttpClients(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<IValidateOptions<ExternalApiOptions>, ExternalApiOptionsValidator>();
         services.AddOptions<ExternalApiOptions>()
@@ -18,8 +19,12 @@ public static class BookUpstreamHttpClientExtensions
         services.AddTransient<BookApiLoggingHandler>();
 
         AddClient(services, BookApiConstants.HttpClientNameShort, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(48));
-        // Chapter generate/edit can run many minutes; previous 120s attempt + 180s total aborted real upstream work.
-        AddClient(services, BookApiConstants.HttpClientNameLong, TimeSpan.FromMinutes(12), TimeSpan.FromMinutes(50));
+
+        var longMins = BookApiUpstreamCancellation.ResolveTimeoutMinutes(configuration);
+        var longAttempt = TimeSpan.FromMinutes(longMins);
+        var longTotal = TimeSpan.FromMinutes(Math.Min(longMins + 10, 120));
+        AddClient(services, BookApiConstants.HttpClientNameLong, longAttempt, longTotal);
+
         services.AddScoped<IBookApiClient, BookApiClient>();
         return services;
     }
