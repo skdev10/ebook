@@ -41,7 +41,7 @@ cat <<EOF
 
 Done. Update /etc/default/ebookai:
 
-ConnectionStrings__DefaultConnection=Server=localhost;Port=3306;Database=${DB};User=${USER};Password=${PASS};SslMode=None;AllowPublicKeyRetrieval=True;
+ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=${DB};User=${USER};Password=${PASS};SslMode=None;AllowPublicKeyRetrieval=True;'
 
 Then restart: bash deploy/start-nohup.sh
 EOF

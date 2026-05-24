@@ -17,6 +17,11 @@ if [[ -f "$ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
+  if [[ -z "${ConnectionStrings__DefaultConnection:-}" || "${ConnectionStrings__DefaultConnection}" != *"Database="* ]]; then
+    echo "ERROR: ConnectionStrings__DefaultConnection is missing or truncated."
+    echo "Wrap the value in single quotes in $ENV_FILE (semicolons break unquoted bash source)."
+    exit 1
+  fi
 else
   echo "WARNING: $ENV_FILE not found. ExternalApi__ApiKey must be set or app will crash in Production."
 fi
