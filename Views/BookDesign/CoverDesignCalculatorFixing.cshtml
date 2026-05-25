@@ -3826,15 +3826,26 @@
             var sortedChapters = Array.isArray(data.chapters) ? data.chapters.slice().sort(function(a, b) {
                 return (parseInt(a.chapterNo, 10) || 0) - (parseInt(b.chapterNo, 10) || 0);
             }) : [];
+            function narrativeDisplayNum(list, idx) {
+                var chNo = parseInt(list[idx].chapterNo, 10);
+                if (!Number.isFinite(chNo) || chNo <= 0) return null;
+                var n = 0;
+                for (var i = 0; i <= idx; i++) {
+                    var cn = parseInt(list[i].chapterNo, 10);
+                    if (Number.isFinite(cn) && cn > 0) n++;
+                }
+                return n;
+            }
             bookChapters = sortedChapters.map(function(c, idx) {
                 var titleRaw = (c && (c.chapterTitle || c.title || c.Title)) || '';
                 var contentRaw = getContentFromPossibleJson((c && (c.content || c.Content || c.chapterContent || c.text)) || '');
                 var chapterNoDb = parseInt(c.chapterNo, 10);
                 if (!Number.isFinite(chapterNoDb)) chapterNoDb = idx + 1;
+                var narrativeNum = narrativeDisplayNum(sortedChapters, idx);
                 var phCtx = Object.assign({}, bookPreviewContext, {
                     chapterTitle: titleRaw,
                     chapterNumber: chapterNoDb,
-                    displayChapterNumber: idx + 1
+                    displayChapterNumber: narrativeNum != null ? narrativeNum : ''
                 });
                 return {
                     chapterNo: chapterNoDb,

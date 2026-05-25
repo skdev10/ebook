@@ -224,11 +224,41 @@ namespace EBookDashboard.Controllers
             totalBooksPublished = books.Count(b => b.Status == "Published" || b.Status == "Finalized");
             totalBooksGenerated = books.Count(b => b.Status == "Finalized");
 
+            // Resolve AI-generated covers from Settings (exact preview URLs — no stock fallbacks)
+            var aiCoverByBookId = new Dictionary<int, string>();
+            try
+            {
+                if (bookIds.Count > 0)
+                {
+                    var coverKeys = bookIds.Select(id => $"book:{id}:aiCoverLastPreview").ToList();
+                    var coverRows = await _context.Settings.AsNoTracking()
+                        .Where(s => coverKeys.Contains(s.Key))
+                        .ToListAsync();
+                    foreach (var row in coverRows)
+                    {
+                        var parts = row.Key.Split(':');
+                        if (parts.Length >= 2 && int.TryParse(parts[1], out var bid) && !string.IsNullOrWhiteSpace(row.Value))
+                            aiCoverByBookId[bid] = row.Value.Trim();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Dashboard: aiCoverLastPreview skipped for user {UserId}.", user.UserId);
+            }
+
+            string ResolveBookCover(Books b)
+            {
+                if (aiCoverByBookId.TryGetValue(b.BookId, out var ai) && !string.IsNullOrWhiteSpace(ai))
+                    return ai;
+                return (b.CoverImagePath ?? "").Trim();
+            }
+
             // Dashboard display data (real user books, preserving approved visual style)
-            var demoPublished = GetDemoPublishedBooks(books);
-            var demoDrafts = GetDemoDrafts(books);
-            var demoHero = GetDemoHeroBook(books);
-            var demoCurrentRead = GetDemoCurrentRead(books);
+            var demoPublished = GetDemoPublishedBooks(books, ResolveBookCover);
+            var demoDrafts = GetDemoDrafts(books, ResolveBookCover);
+            var demoHero = GetDemoHeroBook(books, ResolveBookCover);
+            var demoCurrentRead = GetDemoCurrentRead(books, ResolveBookCover);
             var demoReaderFriends = GetDemoReaderFriends();
 
             var viewModel = new DashboardIndexViewModel
@@ -243,7 +273,11 @@ namespace EBookDashboard.Controllers
                 {
                     var totalChapters = chaptersGeneratedByBookId.GetValueOrDefault(b.BookId, 0);
                     var progressPct = b.Status == "Published" || b.Status == "Finalized" ? 100 : totalChapters > 0 ? 100 : 0;
-                    var progressText = b.Status == "Published" || b.Status == "Finalized" ? "Complete" : totalChapters > 0 ? $"Chapter {totalChapters} of {totalChapters}" : "No chapters yet";
+                    var progressText = b.Status == "Published" || b.Status == "Finalized"
+                        ? "Complete"
+                        : totalChapters > 0
+                            ? $"{totalChapters} chapter{(totalChapters == 1 ? "" : "s")}"
+                            : "No chapters yet";
                     return new ProjectViewModel
                     {
                         BookId = b.BookId,
@@ -251,7 +285,7 @@ namespace EBookDashboard.Controllers
                         Status = b.Status,
                         ProgressPercentage = progressPct,
                         ProgressText = progressText,
-                        CoverImagePath = b.CoverImagePath,
+                        CoverImagePath = ResolveBookCover(b),
                         LastEditedAt = b.UpdatedAt ?? b.CreatedAt,
                         LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
                     };
@@ -263,7 +297,17 @@ namespace EBookDashboard.Controllers
                     new ActivityViewModel { Title = "New review for \"AI in Everyday Life\"", Description = "Received 5-star rating with positive feedback", TimeAgo = "1 day ago", IconClass = "fas fa-comment" },
                     new ActivityViewModel { Title = "New manuscript uploaded for \"Creative Writing Techniques\"", Description = "File processed and ready for editing", TimeAgo = "2 days ago", IconClass = "fas fa-file-alt" }
                 },
-                CurrentWorkingBook = demoHero.book != null ? new BookViewModel { BookId = demoHero.book.BookId, Title = demoHero.book.Title, BookIdText = demoHero.book.BookId.ToString(), ProgressPercentage = 100, ProgressText = "Complete", CoverImagePath = demoHero.coverUrl } : CreateCurrentWorkingBook(books, chaptersGeneratedByBookId),
+                CurrentWorkingBook = demoHero.book != null
+                    ? new BookViewModel
+                    {
+                        BookId = demoHero.book.BookId,
+                        Title = demoHero.book.Title,
+                        BookIdText = demoHero.book.BookId.ToString(),
+                        ProgressPercentage = 100,
+                        ProgressText = "Complete",
+                        CoverImagePath = demoHero.coverUrl
+                    }
+                    : CreateCurrentWorkingBook(books, chaptersGeneratedByBookId, ResolveBookCover),
                 TotalBooksGenerated = totalBooksGenerated,
                 BooksRead = 13,
                 HoursRead = userStats?.HoursRead ?? 45,
@@ -369,72 +413,61 @@ namespace EBookDashboard.Controllers
             return await _context.Books.Where(b => b.UserId == user.UserId).ToListAsync();
         }
 
-        private static List<DemoPublishedBookViewModel> GetDemoPublishedBooks(List<Books> books)
+        private static List<DemoPublishedBookViewModel> GetDemoPublishedBooks(List<Books> books, Func<Books, string> resolveCover)
         {
             var published = books
                 .Where(b => b.Status == "Published" || b.Status == "Finalized")
                 .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
-            var idx = 0;
-            return published.Select(b =>
+            return published.Select(b => new DemoPublishedBookViewModel
             {
-                var fallback = DemoCoverUrls[idx % DemoCoverUrls.Length];
-                idx++;
-                return new DemoPublishedBookViewModel
-                {
-                    Title = b.Title,
-                    Author = string.Empty,
-                    Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? null : b.Subtitle,
-                    CoverUrl = string.IsNullOrWhiteSpace(b.CoverImagePath) ? fallback : b.CoverImagePath!,
-                    BookId = b.BookId,
-                    Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
-                    LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
-                };
+                Title = b.Title,
+                Author = string.Empty,
+                Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? null : b.Subtitle,
+                CoverUrl = resolveCover(b),
+                BookId = b.BookId,
+                Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
+                LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
             }).ToList();
         }
 
-        private static List<DemoDraftViewModel> GetDemoDrafts(List<Books> books)
+        private static List<DemoDraftViewModel> GetDemoDrafts(List<Books> books, Func<Books, string> resolveCover)
         {
             var drafts = books
                 .Where(b => b.Status != "Published" && b.Status != "Finalized")
                 .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
-            var idx = 0;
-            return drafts.Select(b =>
+            return drafts.Select(b => new DemoDraftViewModel
             {
-                var fallback = DemoCoverUrls[idx % DemoCoverUrls.Length];
-                idx++;
-                return new DemoDraftViewModel
-                {
-                    Title = b.Title,
-                    Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? "Continue writing your manuscript" : b.Subtitle!,
-                    Volumes = "Draft",
-                    CoverUrl = string.IsNullOrWhiteSpace(b.CoverImagePath) ? fallback : b.CoverImagePath!,
-                    BookId = b.BookId,
-                    Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
-                    LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
-                };
+                Title = b.Title,
+                Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? "Continue writing your manuscript" : b.Subtitle!,
+                Volumes = "Draft",
+                CoverUrl = resolveCover(b),
+                BookId = b.BookId,
+                Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
+                LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
             }).ToList();
         }
 
-        private static (string title, string description, string coverUrl, Books? book) GetDemoHeroBook(List<Books> books)
+        private static (string title, string description, string coverUrl, Books? book) GetDemoHeroBook(List<Books> books, Func<Books, string> resolveCover)
         {
             var book = books
                 .OrderByDescending(b => b.isActive)
                 .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .FirstOrDefault();
             if (book == null)
-                return ("Your Library", "Create your first book and start writing with AI.", DemoCoverUrls[0], null);
-            var heroCover = string.IsNullOrWhiteSpace(book.CoverImagePath) ? DemoCoverUrls[book.BookId % DemoCoverUrls.Length] : book.CoverImagePath!;
-            return (book.Title, "Continue where you left off. Edit chapters, format pages, and get ready to publish.", heroCover, book);
+                return ("Your Library", "Create your first book and start writing with AI.", "", null);
+            return (book.Title, "Continue where you left off. Edit chapters, format pages, and get ready to publish.", resolveCover(book), book);
         }
 
-        private static (string title, string progressLabel, int percent, string coverUrl, int? bookId) GetDemoCurrentRead(List<Books> books)
+        private static (string title, string progressLabel, int percent, string coverUrl, int? bookId) GetDemoCurrentRead(List<Books> books, Func<Books, string> resolveCover)
         {
-            var book = books.OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt).FirstOrDefault();
-            if (book == null) return ("Start reading", "0 / 0 pages", 0, DemoCoverUrls[0], null);
-            var cover = string.IsNullOrWhiteSpace(book.CoverImagePath) ? DemoCoverUrls[book.BookId % DemoCoverUrls.Length] : book.CoverImagePath!;
-            return (book.Title, "In progress", 51, cover, book.BookId);
+            var book = books
+                .OrderByDescending(b => b.isActive)
+                .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .FirstOrDefault();
+            if (book == null) return ("Start reading", "0 / 0 pages", 0, "", null);
+            return (book.Title, "In progress", 51, resolveCover(book), book.BookId);
         }
 
         private static string FormatLastEditedText(DateTime when)
@@ -472,7 +505,7 @@ namespace EBookDashboard.Controllers
             };
         }
 
-        private static BookViewModel CreateCurrentWorkingBook(List<Books> books, Dictionary<int, int> chaptersGeneratedByBookId)
+        private static BookViewModel CreateCurrentWorkingBook(List<Books> books, Dictionary<int, int> chaptersGeneratedByBookId, Func<Books, string>? resolveCover = null)
         {
             if (books == null || !books.Any())
                 return new BookViewModel();
@@ -482,7 +515,11 @@ namespace EBookDashboard.Controllers
                 return new BookViewModel();
             var totalChapters = chaptersGeneratedByBookId?.GetValueOrDefault(workingBook.BookId, 0) ?? 0;
             var progressPct = workingBook.Status == "Published" ? 100 : totalChapters > 0 ? 100 : 0;
-            var progressText = workingBook.Status == "Published" ? "Complete" : totalChapters > 0 ? $"Chapter {totalChapters} of {totalChapters}" : "No chapters yet";
+            var progressText = workingBook.Status == "Published"
+                ? "Complete"
+                : totalChapters > 0
+                    ? $"{totalChapters} chapter{(totalChapters == 1 ? "" : "s")}"
+                    : "No chapters yet";
             return new BookViewModel
             {
                 BookId = workingBook.BookId,
@@ -490,7 +527,7 @@ namespace EBookDashboard.Controllers
                 BookIdText = workingBook.BookId.ToString(),
                 ProgressPercentage = progressPct,
                 ProgressText = progressText,
-                CoverImagePath = workingBook.CoverImagePath
+                CoverImagePath = resolveCover != null ? resolveCover(workingBook) : workingBook.CoverImagePath
             };
         }
 
@@ -1635,11 +1672,16 @@ namespace EBookDashboard.Controllers
                     ViewBag.PublishBookDescription = pb.Description;
                     ViewBag.PublishBookGenre = pb.Genre;
                     var aiCoverKey = $"book:{bookId.Value}:aiCoverLastPreview";
-                    var aiCoverRow = await _context.Settings.AsNoTracking()
-                        .FirstOrDefaultAsync(s => s.Key == aiCoverKey);
-                    var aiCover = (aiCoverRow?.Value ?? "").Trim();
+                    var wrapKey = $"book:{bookId.Value}:printReadyCoverWrap";
+                    var coverRows = await _context.Settings.AsNoTracking()
+                        .Where(s => s.Key == aiCoverKey || s.Key == wrapKey)
+                        .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
+                    var aiCover = (coverRows.GetValueOrDefault(aiCoverKey) ?? "").Trim();
+                    var wrapCover = (coverRows.GetValueOrDefault(wrapKey) ?? "").Trim();
                     var pathCover = (pb.CoverImagePath ?? "").Trim();
+                    // Front preview: AI front cover; print-ready flow may also have full wrap saved separately
                     ViewBag.PublishBookCover = !string.IsNullOrEmpty(aiCover) ? aiCover : pathCover;
+                    ViewBag.PublishBookCoverWrap = !string.IsNullOrEmpty(wrapCover) ? wrapCover : "";
                     ViewBag.PublishBookStatus = pb.Status;
                     var ps = pb.Status ?? "";
                     ViewBag.PublishBookAlreadyListed = BookPublishReadinessService.IsListedBookStatus(ps);

@@ -2443,13 +2443,25 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                 var titleRaw = (ch.chapterTitle || '').trim();
                 var chNo = parseInt(ch.chapterNo, 10);
                 if (!Number.isFinite(chNo)) chNo = idx + 1;
+                var narrativeNum = (function(list, i) {
+                    var cn0 = parseInt(list[i].chapterNo, 10);
+                    if (!Number.isFinite(cn0) || cn0 <= 0) return null;
+                    var n = 0;
+                    for (var j = 0; j <= i; j++) {
+                        var cn = parseInt(list[j].chapterNo, 10);
+                        if (Number.isFinite(cn) && cn > 0) n++;
+                    }
+                    return n;
+                })(chapters, idx);
                 var phCtx = Object.assign({}, phBase, {
                     chapterTitle: titleRaw,
                     chapterNumber: chNo,
-                    displayChapterNumber: idx + 1
+                    displayChapterNumber: narrativeNum != null ? narrativeNum : ''
                 });
                 var title = typeof ap === 'function' ? ap(titleRaw, phCtx) : titleRaw;
-                var headText = 'Chapter ' + (idx + 1) + (title ? ' – ' + esc(title) : '');
+                var headText = narrativeNum != null
+                    ? ('Chapter ' + narrativeNum + (title ? ' – ' + esc(title) : ''))
+                    : esc(title || 'Front matter');
                 var bodyRaw = ch.content || '';
                 var body = typeof ap === 'function' ? ap(bodyRaw, phCtx) : bodyRaw;
                 body = typeof window.normalizeManuscriptEscapes === 'function' ? window.normalizeManuscriptEscapes(body) : body;

@@ -2504,19 +2504,17 @@ namespace EBookDashboard.Controllers
                     .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == sessionUserId.Value, cancellationToken);
                 exportOpt.MergeFromBookFormatting(fmtRow);
                 exportOpt.Format = "Paperback";
+                exportOpt.IncludeCoverPage = false;
 
                 var userRow = await _context.Users.AsNoTracking()
                     .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
                 var publisherLabel = userRow?.FullName;
                 if (string.IsNullOrWhiteSpace(publisherLabel)) publisherLabel = userRow?.UserEmail;
 
-                var coverKey = $"book:{req.BookId}:aiCoverLastPreview";
-                var coverRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == coverKey, cancellationToken);
-                var cover = (req.CoverImageDataUrl ?? coverRow?.Value ?? "").Trim();
-
+                // Interior PDF only — cover ships as separate full-wrap PNG in the ZIP
                 var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
                     details,
-                    cover,
+                    null,
                     (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
                     (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
                     (req.DisplayGenre ?? details.Genre ?? "").Trim(),
@@ -2532,6 +2530,18 @@ namespace EBookDashboard.Controllers
                 {
                     var ix = wrapVal.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
                     if (ix >= 0) wrapBytes = Convert.FromBase64String(wrapVal[(ix + 7)..]);
+                }
+                else if (wrapVal.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || wrapVal.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        using var client = _httpClientFactory.CreateClient();
+                        wrapBytes = await client.GetByteArrayAsync(wrapVal, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "ExportPrintReadyBundle wrap fetch failed for book {BookId}", req.BookId);
+                    }
                 }
                 else if (wrapVal.StartsWith("/"))
                 {
@@ -2552,6 +2562,10 @@ namespace EBookDashboard.Controllers
                         var coverEntry = zip.CreateEntry("cover-wrap-full.png");
                         await using (var es = coverEntry.Open())
                             await es.WriteAsync(wrapBytes, cancellationToken);
+                    }
+                    else
+                    {
+                        return BadRequest(new { success = false, message = "Print cover wrap not found. Generate and save your full wrap (front + spine + back) in Cover Design first." });
                     }
                 }
 

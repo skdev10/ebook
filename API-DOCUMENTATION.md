@@ -431,6 +431,67 @@ URLs are committed; **API key is not**. Example:
 
 ---
 
+## Upstream MySQL tables (book generation service)
+
+These tables live on the upstream Python service database (not the ASP.NET `ApplicationDbContext`). They store chapter pipeline, confirmations, audio, queue, and errors.
+
+### 1. `Temporary_database` — draft / in-progress chapters
+
+| Column | Type | Notes |
+|--------|------|--------|
+| `id` | INT AUTO_INCREMENT PRIMARY KEY | |
+| `user_id` | VARCHAR(255) | |
+| `book_id` | VARCHAR(255) | |
+| `chapter` | INT | |
+| `chapter_name` | VARCHAR(255) | |
+| `user_input` | TEXT | Original prompt |
+| `content` | LONGTEXT | Generated body |
+| `suggest_chapter_name` | TEXT | Up to 5 suggested names before user picks one |
+| `highlight_of_previous_chapter` | LONGTEXT | |
+| `date` | DATE | Default CURRENT_DATE |
+| `time` | TIME | Default CURRENT_TIME |
+
+### 2. `User_confirm` — approved chapters
+
+Same columns as temporary (without `suggest_chapter_name`). Written when `POST /api/approve` succeeds with `approve: true`.
+
+### 3. `audio_transcriptions`
+
+| Column | Type |
+|--------|------|
+| `id` | INT AUTO_INCREMENT PRIMARY KEY |
+| `date`, `time` | DATE, TIME |
+| `user_input` | TEXT |
+| `book_id` | VARCHAR(50) |
+| `chapter` | INT |
+| `user_id` | VARCHAR(50) |
+| `audio_file_path` | VARCHAR(255) |
+
+Supported audio extensions: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`.
+
+### 4. `queue_monitor`
+
+Tracks concurrent workers: `status_running`, `status_waiting`, `status_max_concurrent`, `status_total_requests`, `logs`, `user_id`, `book_id`, `chapter`, `log_date`, `log_time`.
+
+### 5. `error_logs`
+
+`line_number`, `error`, `filename`, `error_date`, `error_time`.
+
+---
+
+## ASP.NET `Settings` keys (cover workflow)
+
+| Key pattern | Purpose |
+|-------------|---------|
+| `book:{id}:aiCoverLastPreview` | Last generated front cover URL/path |
+| `book:{id}:printReadyCoverWrap` | Full print wrap (back + spine + front) |
+| `book:{id}:printReadyCoverFront` | Front panel |
+| `book:{id}:printReadyCoverBack` | Back panel |
+| `book:{id}:printReadyCoverSpine` | Spine panel |
+| `book:{id}:aiCoverPrompt` | Saved Image Direction prompt |
+
+---
+
 ## Troubleshooting
 
 | Symptom | Check |

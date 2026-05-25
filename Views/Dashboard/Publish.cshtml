@@ -13,11 +13,13 @@
 
     string CoverUrl(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop";
+        if (string.IsNullOrWhiteSpace(path)) return "";
         if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             return path;
         return path.StartsWith("/") ? path : "/" + path;
     }
+
+    var pbCoverWrap = ViewBag.PublishBookCoverWrap as string ?? "";
 
     var premiumDimClass = !paid ? "opacity-40 select-none blur-[1px] pointer-events-none" : "";
     var pbChapterCount = ViewBag.PublishBookChapterCount is int pcc ? pcc : 0;
@@ -971,13 +973,17 @@
         {
             <div class="book-card">
                 <div class="book-cover">
-                    @if (!string.IsNullOrEmpty(pbCover))
+                    @{
+                        var displayCover = isPrintReadyFlow && !string.IsNullOrEmpty(pbCoverWrap) ? pbCoverWrap : pbCover;
+                        var displayCoverUrl = CoverUrl(displayCover);
+                    }
+                    @if (!string.IsNullOrEmpty(displayCoverUrl))
                     {
-                        <img src="@CoverUrl(pbCover)" alt="" loading="eager" decoding="async" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&amp;w=600&amp;auto=format&amp;fit=crop';" />
+                        <img src="@displayCoverUrl" alt="" loading="eager" decoding="async" />
                     }
                     else
                     {
-                        <div class="book-cover-placeholder">Book cover</div>
+                        <div class="book-cover-placeholder">No cover yet — design in Cover Design</div>
                     }
                 </div>
                 <div class="book-info">
@@ -1298,7 +1304,7 @@
             })
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-print-ready-' + bookId + '.zip');
-                showTransientMessage('success', 'Print ZIP download started.');
+                showTransientMessage('success', 'ZIP downloaded: interior PDF (chapters only) + your saved full cover wrap.');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Export failed.');
@@ -1782,7 +1788,6 @@
     var prGenerateBtn = document.getElementById('btnGeneratePrintReadyCover');
     if (prGenerateBtn && isPrintReadyFlow && bookId > 0) {
         prGenerateBtn.addEventListener('click', function () { runPrintReadyAutoCover(prGenerateBtn); });
-        setTimeout(function () { runPrintReadyAutoCover(prGenerateBtn); }, 220);
     }
 
     initPrintReadyCalculator();
