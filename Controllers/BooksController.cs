@@ -1811,10 +1811,6 @@ namespace EBookDashboard.Controllers
                 .Include(b => b.BookPrice)
                 .FirstOrDefaultAsync(b => b.BookId == id);
             if (book == null) return NotFound();
-            if (!(book.Status ?? "").Equals("Paid", StringComparison.OrdinalIgnoreCase))
-            {
-                return RedirectToAction("BookPayment", "Checkout", new { bookId = id });
-            }
             var author = await _context.Users
                 .Where(u => u.UserId == book.UserId)
                 .Select(u => u.FullName)
@@ -1922,10 +1918,6 @@ namespace EBookDashboard.Controllers
             var book = await _context.Books.FindAsync(id);
             if (book != null)
             {
-                if (!(book.Status ?? "").Equals("Paid", StringComparison.OrdinalIgnoreCase))
-                {
-                    return RedirectToAction("BookPayment", "Checkout", new { bookId = id });
-                }
                 book.Status = "Published";
                 book.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
@@ -3421,7 +3413,12 @@ namespace EBookDashboard.Controllers
                 .ToListAsync();
 
             var bookIds = books.Select(b => b.BookId).ToList();
-            var promptKeys = bookIds.SelectMany(id => new[] { $"book:{id}:aiCoverPrompt", $"book:{id}:aiCoverLastPreview" }).ToList();
+            var promptKeys = bookIds.SelectMany(id => new[]
+            {
+                $"book:{id}:aiCoverPrompt",
+                $"book:{id}:aiCoverLastPreview",
+                $"book:{id}:printReadyCoverFront"
+            }).ToList();
             var promptRows = await _context.Settings
                 .Where(s => promptKeys.Contains(s.Key))
                 .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
@@ -3434,6 +3431,9 @@ namespace EBookDashboard.Controllers
             {
                 var pKey = $"book:{b.BookId}:aiCoverPrompt";
                 var lastKey = $"book:{b.BookId}:aiCoverLastPreview";
+                var frontKey = $"book:{b.BookId}:printReadyCoverFront";
+                var frontPreview = (promptRows.GetValueOrDefault(frontKey, "") ?? "").Trim();
+                var lastPreview = (promptRows.GetValueOrDefault(lastKey, "") ?? "").Trim();
                 return new
                 {
                     bookId = b.BookId,
@@ -3443,7 +3443,7 @@ namespace EBookDashboard.Controllers
                     description = b.Description ?? "",
                     genre = b.Genre ?? "",
                     aiCoverPrompt = promptRows.GetValueOrDefault(pKey, ""),
-                    aiCoverLastPreview = promptRows.GetValueOrDefault(lastKey, ""),
+                    aiCoverLastPreview = !string.IsNullOrEmpty(frontPreview) ? frontPreview : lastPreview,
                     authorName = authorDisplayName
                 };
             }).ToList();
@@ -3472,12 +3472,15 @@ namespace EBookDashboard.Controllers
 
             var pKey = $"book:{b.BookId}:aiCoverPrompt";
             var lastKey = $"book:{b.BookId}:aiCoverLastPreview";
+            var frontKey = $"book:{b.BookId}:printReadyCoverFront";
             var promptRows = await _context.Settings
-                .Where(s => s.Key == pKey || s.Key == lastKey)
+                .Where(s => s.Key == pKey || s.Key == lastKey || s.Key == frontKey)
                 .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
 
             var coverUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value);
             var authorDisplayName = (coverUser?.FullName ?? "").Trim();
+            var frontPreview = (promptRows.GetValueOrDefault(frontKey, "") ?? "").Trim();
+            var lastPreview = (promptRows.GetValueOrDefault(lastKey, "") ?? "").Trim();
 
             var book = new
             {
@@ -3488,7 +3491,7 @@ namespace EBookDashboard.Controllers
                 description = b.Description ?? "",
                 genre = b.Genre ?? "",
                 aiCoverPrompt = promptRows.GetValueOrDefault(pKey, ""),
-                aiCoverLastPreview = promptRows.GetValueOrDefault(lastKey, ""),
+                aiCoverLastPreview = !string.IsNullOrEmpty(frontPreview) ? frontPreview : lastPreview,
                 authorName = authorDisplayName
             };
 
@@ -3756,12 +3759,10 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null) return Unauthorized();
             var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value);
             if (book == null) return NotFound();
-            var st = book.Status ?? "";
-            var paid = st.Equals("Paid", StringComparison.OrdinalIgnoreCase) || st.Equals("Published", StringComparison.OrdinalIgnoreCase);
-            return Json(new { paid });
+            return Json(new { paid = true });
         }
 
-        /// <summary>Download hub for a book. Requires payment; redirects to BookPayment if not paid.</summary>
+        /// <summary>Download hub for a book.</summary>
         [HttpGet]
         public async Task<IActionResult> BookDownloads(int bookId)
         {
@@ -3769,9 +3770,6 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null) return RedirectToAction("UserLogin", "Account");
             var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value);
             if (book == null) return NotFound("Book not found.");
-            var bs = book.Status ?? "";
-            if (!bs.Equals("Paid", StringComparison.OrdinalIgnoreCase) && !bs.Equals("Published", StringComparison.OrdinalIgnoreCase))
-                return RedirectToAction("BookPayment", "Checkout", new { bookId });
             ViewBag.BookId = bookId;
             ViewBag.BookTitle = book.Title ?? "Your Book";
             return View();
@@ -3923,9 +3921,6 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null) return Unauthorized();
             var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value);
             if (book == null) return NotFound("Book not found.");
-            if (!(book.Status ?? "").Equals("Paid", StringComparison.OrdinalIgnoreCase))
-                return Json(new { success = false, message = "Complete payment to unlock downloads." });
-
             // Simulate generation
             var baseOut = $"/uploads/{sessionUserId}/books/{bookId}/output";
             var outRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", sessionUserId.Value.ToString(), "books", bookId.ToString(), "output");

@@ -129,11 +129,73 @@ namespace EBookDashboard.Middleware
                 }
 
                 await db.SaveChangesAsync(context.RequestAborted);
+
+                if (TryExtractBookIdFromPathAndQuery(path, qs, out var bookId) && bookId > 0)
+                    await TryPersistLastWorkedBookAsync(db, uid.Value, bookId, context.RequestAborted);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Could not persist resume URL for user {UserId}", uid.Value);
             }
+        }
+
+        private static bool TryExtractBookIdFromPathAndQuery(string path, string queryString, out int bookId)
+        {
+            bookId = 0;
+            if (!string.IsNullOrWhiteSpace(queryString))
+            {
+                var q = queryString.StartsWith('?') ? queryString[1..] : queryString;
+                foreach (var part in q.Split('&', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var kv = part.Split('=', 2);
+                    if (kv.Length == 2 && kv[0].Equals("bookId", StringComparison.OrdinalIgnoreCase)
+                        && int.TryParse(Uri.UnescapeDataString(kv[1]), out bookId) && bookId > 0)
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        private async Task TryPersistLastWorkedBookAsync(ApplicationDbContext db, int userId, int bookId, CancellationToken cancellationToken)
+        {
+            var owns = await db.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+            if (!owns) return;
+
+            var key = $"user:{userId}:lastBookId";
+            var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+            var idText = bookId.ToString();
+            if (row == null)
+            {
+                var nextId = await db.NextSettingIdAsync(cancellationToken);
+                db.Settings.Add(new Settings
+                {
+                    SettingId = nextId,
+                    Key = key,
+                    Value = idText,
+                    Category = "Resume",
+                    Description = "Last book the author worked on",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                row.Value = idText;
+                row.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await db.Books
+                .Where(b => b.UserId == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 0), cancellationToken);
+            await db.Books
+                .Where(b => b.UserId == userId && b.BookId == bookId)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 1), cancellationToken);
+            await db.Books
+                .Where(b => b.UserId == userId && b.BookId == bookId)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.UpdatedAt, DateTime.UtcNow), cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
         }
 
         private static bool ShouldTrackBookWorkPath(string path)

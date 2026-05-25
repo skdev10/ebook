@@ -1,7 +1,6 @@
 @{
     ViewData["Title"] = "Publish";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
-    var paid = ViewBag.PublishViaPlatformPaid as bool? ?? false;
     var bookId = ViewBag.SelectedBookId as int? ?? 0;
     var pbTitle = ViewBag.PublishBookTitle as string ?? "";
     var pbDesc = ViewBag.PublishBookDescription as string ?? "";
@@ -20,8 +19,8 @@
     }
 
     var pbCoverWrap = ViewBag.PublishBookCoverWrap as string ?? "";
+    var hasSavedCoverWrap = bookId > 0 && !string.IsNullOrEmpty(pbCoverWrap);
 
-    var premiumDimClass = !paid ? "opacity-40 select-none blur-[1px] pointer-events-none" : "";
     var pbChapterCount = ViewBag.PublishBookChapterCount is int pcc ? pcc : 0;
     var pbEstimatedPages = ViewBag.PublishBookEstimatedPages is int pep ? pep : 0;
     var pbWordCount = ViewBag.PublishBookWordCount is int pwc ? pwc : 0;
@@ -292,7 +291,9 @@
     #btnDownloadCoverWrap,
     #btnExportEpub,
     #btnExportDocx,
+    #btnExportPdf,
     #btnExportPrintBundle,
+    #btnExportCoverWrap,
     #btnPrintReadyPublishPrimary,
     #btnPrintReadyStripe,
     #btnGeneratePrintReadyCover {
@@ -974,8 +975,7 @@
             <div class="book-card">
                 <div class="book-cover">
                     @{
-                        var displayCover = isPrintReadyFlow && !string.IsNullOrEmpty(pbCoverWrap) ? pbCoverWrap : pbCover;
-                        var displayCoverUrl = CoverUrl(displayCover);
+                        var displayCoverUrl = CoverUrl(pbCover);
                     }
                     @if (!string.IsNullOrEmpty(displayCoverUrl))
                     {
@@ -1041,46 +1041,67 @@
     </div>
 
     <section class="publish-export-stores" id="publishExportStores" aria-labelledby="publishExportStoresTitle">
-        <h2 id="publishExportStoresTitle">Export for stores</h2>
-        @if (bookId > 0 && canExport)
+        <h2 id="publishExportStoresTitle">Export your book</h2>
+        @if (bookId > 0)
         {
-            @if (isPrintReadyFlow)
+            @if (canExport)
             {
-                <p class="publish-export-hint" id="publishExportHint">One click downloads a ZIP with interior PDF (6×9) and full wrap cover.</p>
+                @if (isPrintReadyFlow)
+                {
+                    <p class="publish-export-hint" id="publishExportHint">Download a print-ready ZIP (interior PDF + full wrap cover) or grab the cover wrap PNG alone.</p>
+                }
+                else
+                {
+                    <p class="publish-export-hint" id="publishExportHint">EPUB, Word, or PDF — ready for KDP, IngramSpark, or any store.</p>
+                }
+                <div class="publish-export-actions">
+                    @if (isPrintReadyFlow)
+                    {
+                        <button type="button" id="btnExportPrintBundle" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                            <i class="fas fa-file-archive" aria-hidden="true"></i> Export print pack (PDF + cover)
+                        </button>
+                        @if (hasSavedCoverWrap)
+                        {
+                            <button type="button" id="btnExportCoverWrap" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                                <i class="fas fa-image" aria-hidden="true"></i> Download cover wrap PNG
+                            </button>
+                        }
+                    }
+                    else
+                    {
+                        <button type="button" id="btnExportEpub" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                            <i class="fas fa-book" aria-hidden="true"></i> Download EPUB
+                        </button>
+                        <button type="button" id="btnExportDocx" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                            <i class="fas fa-file-word" aria-hidden="true"></i> Export Word
+                        </button>
+                        <button type="button" id="btnExportPdf" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                            <i class="fas fa-file-pdf" aria-hidden="true"></i> Download PDF
+                        </button>
+                    }
+                </div>
+                @if (!isPrintReadyFlow)
+                {
+                    <p class="publish-export-tip mt-3 mb-0">After download: open the <strong>.epub</strong> file with Apple Books, Google Play Books, Calibre, or send to your Kindle.</p>
+                }
             }
             else
             {
-                <p class="publish-export-hint" id="publishExportHint">EPUB opens with your cover first, then all chapters — ready for KDP / ebook stores.</p>
-            }
-            <div class="publish-export-actions">
-                <button type="button" id="btnExportEpub" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                    <i class="fas fa-book" aria-hidden="true"></i> Download EPUB
-                </button>
-                @if (!isPrintReadyFlow)
+                <p class="publish-export-hint">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, then export from here.</p>
+                @if (isPrintReadyFlow && hasSavedCoverWrap)
                 {
-                    <button type="button" id="btnExportDocx" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                        <i class="fas fa-file-word" aria-hidden="true"></i> Export Word
-                    </button>
+                    <div class="publish-export-actions mt-3">
+                        <button type="button" id="btnExportCoverWrap" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                            <i class="fas fa-image" aria-hidden="true"></i> Download cover wrap PNG
+                        </button>
+                    </div>
+                    <p class="publish-export-tip mt-2 mb-0">Cover wrap is ready. Add chapters to export the full print pack.</p>
                 }
-                @if (isPrintReadyFlow)
-                {
-                    <button type="button" id="btnExportPrintBundle" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                        <i class="fas fa-file-archive" aria-hidden="true"></i> Export print pack (PDF + cover)
-                    </button>
-                }
-            </div>
-            @if (!isPrintReadyFlow)
-            {
-                <p class="publish-export-tip mt-3 mb-0">After download: open the <strong>.epub</strong> file with Apple Books, Google Play Books, Calibre, or send to your Kindle.</p>
             }
-        }
-        else if (bookId > 0)
-        {
-            <p class="publish-export-hint">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, then export from here.</p>
         }
         else
         {
-            <p class="publish-export-hint">Choose a book above to download EPUB or a print-ready pack.</p>
+            <p class="publish-export-hint">Choose a book above to download EPUB, PDF, or a print-ready pack.</p>
         }
     </section>
 
@@ -1105,13 +1126,9 @@
     </div>
 </div>
 
-@if (!alreadyListed && bookId > 0 && publishReady)
-{
-    <script src="https://js.stripe.com/v3/"></script>
-}
 <script>
 (function () {
-    var paid = @((ViewBag.PublishViaPlatformPaid as bool? ?? false).ToString().ToLowerInvariant());
+    var paid = true;
     var bookId = @(bookId);
     var publishReady = @(publishReady.ToString().ToLowerInvariant());
     var alreadyListed = @(alreadyListed.ToString().ToLowerInvariant());
@@ -1483,7 +1500,7 @@
             }).join('');
         }
         return '<div class="pub-learn-wrap">' +
-            '<p class="pub-learn-lede">Curated YouTube walkthroughs for <strong>Amazon KDP</strong> and <strong>Lulu</strong> (uploads, formatting, covers). Third-party creators — always verify latest requirements on each platform. When you are ready, continue to Stripe.</p>' +
+            '<p class="pub-learn-lede">Curated YouTube walkthroughs for <strong>Amazon KDP</strong> and <strong>Lulu</strong> (uploads, formatting, covers). Third-party creators — always verify latest requirements on each platform. When you are ready, export from this page.</p>' +
             '<div class="pub-learn-tabs" role="tablist">' +
             '<button type="button" class="pub-learn-tab pub-learn-tab--active" data-pub-tab="kdp"><i class="fab fa-amazon"></i> Amazon KDP</button>' +
             '<button type="button" class="pub-learn-tab" data-pub-tab="lulu"><i class="fas fa-print"></i> Lulu</button></div>' +
@@ -1557,17 +1574,10 @@
 
     var sub = document.getElementById('btnSubmitFullService');
     if (sub) sub.addEventListener('click', function () {
-        if (!paid) {
-            if (typeof Swal !== 'undefined') Swal.fire({ icon: 'info', title: 'Premium', text: 'Upgrade your plan for full-service publishing.', confirmButtonColor: '#7c3aed' });
-            else alert('Premium feature');
-            return;
-        }
         if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Submitted (demo)', text: 'Our team would contact you within 1 business day.', confirmButtonColor: '#7c3aed' });
         else alert('Submitted (demo)');
     });
 
-    var stripeBtn = document.getElementById('btnStripePublish');
-    var errEl = document.getElementById('pub-stripe-err');
     var pubFormatOptions = document.getElementById('pubFormatOptions');
     var pubFormatInput = document.getElementById('pubFormat');
 
@@ -1644,7 +1654,7 @@
                 setImgOrLabel(document.getElementById('prFrontPreview'), document.getElementById('prFrontLabel'), data.cover && data.cover.front ? data.cover.front : '');
 
                 if (data.pageCount && prPageInput) prPageInput.value = String(data.pageCount);
-                if (statusEl) statusEl.textContent = 'Auto-cover generated from title/content. Ready for checkout + export.';
+                if (statusEl) statusEl.textContent = 'Auto-cover generated from title/content. Ready to export.';
             })
             .catch(function (err) {
                 if (statusEl) statusEl.textContent = (err && err.message) ? err.message : 'Auto cover generation failed.';
@@ -1652,50 +1662,6 @@
             })
             .finally(function () {
                 if (triggerBtn) triggerBtn.disabled = false;
-            });
-    }
-
-    function runStripePublishCheckout(opts) {
-        var activeBtn = (opts && opts.button) ? opts.button : stripeBtn;
-        if (!activeBtn) return;
-        activeBtn.disabled = true;
-        if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
-        var publishFormat = (document.getElementById('pubFormat') && document.getElementById('pubFormat').value) || 'Ebook';
-        var requestedPageCount = (opts && opts.pageCount) ? opts.pageCount : (pbEstimatedPages > 0 ? pbEstimatedPages : 0);
-        fetch('/Checkout/CreateBookCheckoutSession', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                bookId: bookId,
-                publishIntent: true,
-                format: publishFormat,
-                pageCount: requestedPageCount,
-                printReadyFlow: !!(opts && opts.printReadyFlow)
-            })
-        })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.alreadyPaid) {
-                    window.location.href = '/Dashboard/MyBooks';
-                    return;
-                }
-                if (data.url) {
-                    window.location.href = data.url;
-                    return;
-                }
-                if (data.sessionId && typeof Stripe !== 'undefined' && publishableKey) {
-                    var stripe = Stripe(publishableKey);
-                    return stripe.redirectToCheckout({ sessionId: data.sessionId }).then(function (result) {
-                        if (result.error && errEl) { errEl.textContent = result.error.message || 'Checkout failed.'; errEl.classList.remove('hidden'); }
-                        activeBtn.disabled = false;
-                    });
-                }
-                if (errEl) { errEl.textContent = data.message || 'Could not start checkout. Is Stripe configured?'; errEl.classList.remove('hidden'); }
-                activeBtn.disabled = false;
-            })
-            .catch(function () {
-                if (errEl) { errEl.textContent = 'Network error. Please try again.'; errEl.classList.remove('hidden'); }
-                activeBtn.disabled = false;
             });
     }
 
@@ -1727,62 +1693,23 @@
 
     var exportEpubBtn = document.getElementById('btnExportEpub');
     var exportDocxBtn = document.getElementById('btnExportDocx');
+    var exportPdfBtn = document.getElementById('btnExportPdf');
     var exportPrintBundleBtn = document.getElementById('btnExportPrintBundle');
+    var exportCoverWrapBtn = document.getElementById('btnExportCoverWrap');
     if (exportEpubBtn) {
         exportEpubBtn.addEventListener('click', function () { runEbookExport(exportEpubBtn, 'epub'); });
     }
     if (exportDocxBtn) {
         exportDocxBtn.addEventListener('click', function () { runEbookExport(exportDocxBtn, 'docx'); });
     }
+    if (exportPdfBtn) {
+        exportPdfBtn.addEventListener('click', function () { runPublishPdfDownload(exportPdfBtn); });
+    }
     if (exportPrintBundleBtn) {
         exportPrintBundleBtn.addEventListener('click', function () { runPrintBundleExport(exportPrintBundleBtn); });
     }
-
-    if (stripeBtn && !isPrintReadyFlow && !alreadyListed && bookId > 0 && publishReady) {
-        stripeBtn.addEventListener('click', function () {
-            var agree = document.getElementById('pubAgree');
-            if (agree && !agree.checked) {
-                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'warning', title: 'Confirmation required', text: 'Please confirm rights and terms before paying.', confirmButtonColor: '#7c3aed' });
-                else alert('Please confirm rights and terms.');
-                return;
-            }
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    title: '<span style="font-family:Georgia,\'Playfair Display\',serif;font-weight:600;font-size:1.35rem;color:#5b21b6">Publish hub</span>',
-                    html: buildPublishLearningModalHtml(),
-                    width: 920,
-                    showCancelButton: true,
-                    confirmButtonText: 'Continue to Stripe checkout',
-                    cancelButtonText: 'Not yet',
-                    confirmButtonColor: '#7c3aed',
-                    cancelButtonColor: '#94a3b8',
-                    focusConfirm: false,
-                    customClass: {
-                        popup: 'publish-learning-swal-popup',
-                        actions: 'publish-learning-swal-actions',
-                        confirmButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold shadow-md',
-                        cancelButton: 'rounded-xl px-5 py-2.5 text-sm font-semibold'
-                    },
-                    didOpen: function () {
-                        wirePublishLearningTabs(Swal.getHtmlContainer());
-                    }
-                }).then(function (res) {
-                    if (res.isConfirmed) runStripePublishCheckout();
-                });
-            } else {
-                runStripePublishCheckout();
-            }
-        });
-    }
-
-    if (printReadyPublishPrimaryBtn && isPrintReadyFlow && !alreadyListed && bookId > 0 && publishReady) {
-        printReadyPublishPrimaryBtn.addEventListener('click', function () {
-            runStripePublishCheckout({
-                button: printReadyPublishPrimaryBtn,
-                pageCount: (pbEstimatedPages > 0 ? pbEstimatedPages : 0),
-                printReadyFlow: true
-            });
-        });
+    if (exportCoverWrapBtn) {
+        exportCoverWrapBtn.addEventListener('click', function () { runCoverWrapDownload(exportCoverWrapBtn); });
     }
 
     var prGenerateBtn = document.getElementById('btnGeneratePrintReadyCover');

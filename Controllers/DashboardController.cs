@@ -230,16 +230,28 @@ namespace EBookDashboard.Controllers
             {
                 if (bookIds.Count > 0)
                 {
-                    var coverKeys = bookIds.Select(id => $"book:{id}:aiCoverLastPreview").ToList();
+                    var coverKeys = bookIds.SelectMany(id => new[]
+                    {
+                        $"book:{id}:printReadyCoverFront",
+                        $"book:{id}:aiCoverLastPreview"
+                    }).ToList();
                     var coverRows = await _context.Settings.AsNoTracking()
                         .Where(s => coverKeys.Contains(s.Key))
                         .ToListAsync();
+                    var frontCoverByBookId = new Dictionary<int, string>();
                     foreach (var row in coverRows)
                     {
                         var parts = row.Key.Split(':');
-                        if (parts.Length >= 2 && int.TryParse(parts[1], out var bid) && !string.IsNullOrWhiteSpace(row.Value))
-                            aiCoverByBookId[bid] = row.Value.Trim();
+                        if (parts.Length < 2 || !int.TryParse(parts[1], out var bid) || string.IsNullOrWhiteSpace(row.Value))
+                            continue;
+                        var val = row.Value.Trim();
+                        if (row.Key.EndsWith(":printReadyCoverFront", StringComparison.Ordinal))
+                            frontCoverByBookId[bid] = val;
+                        else
+                            aiCoverByBookId[bid] = val;
                     }
+                    foreach (var kv in frontCoverByBookId)
+                        aiCoverByBookId[kv.Key] = kv.Value;
                 }
             }
             catch (Exception ex)
@@ -255,10 +267,11 @@ namespace EBookDashboard.Controllers
             }
 
             // Dashboard display data (real user books, preserving approved visual style)
+            var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, books);
             var demoPublished = GetDemoPublishedBooks(books, ResolveBookCover);
             var demoDrafts = GetDemoDrafts(books, ResolveBookCover);
-            var demoHero = GetDemoHeroBook(books, ResolveBookCover);
-            var demoCurrentRead = GetDemoCurrentRead(books, ResolveBookCover);
+            var demoHero = BuildHeroFromBook(lastWorkedBook, ResolveBookCover);
+            var demoCurrentRead = BuildCurrentReadFromBook(lastWorkedBook, chaptersGeneratedByBookId, ResolveBookCover);
             var demoReaderFriends = GetDemoReaderFriends();
 
             var viewModel = new DashboardIndexViewModel
@@ -297,17 +310,7 @@ namespace EBookDashboard.Controllers
                     new ActivityViewModel { Title = "New review for \"AI in Everyday Life\"", Description = "Received 5-star rating with positive feedback", TimeAgo = "1 day ago", IconClass = "fas fa-comment" },
                     new ActivityViewModel { Title = "New manuscript uploaded for \"Creative Writing Techniques\"", Description = "File processed and ready for editing", TimeAgo = "2 days ago", IconClass = "fas fa-file-alt" }
                 },
-                CurrentWorkingBook = demoHero.book != null
-                    ? new BookViewModel
-                    {
-                        BookId = demoHero.book.BookId,
-                        Title = demoHero.book.Title,
-                        BookIdText = demoHero.book.BookId.ToString(),
-                        ProgressPercentage = 100,
-                        ProgressText = "Complete",
-                        CoverImagePath = demoHero.coverUrl
-                    }
-                    : CreateCurrentWorkingBook(books, chaptersGeneratedByBookId, ResolveBookCover),
+                CurrentWorkingBook = CreateCurrentWorkingBook(lastWorkedBook, chaptersGeneratedByBookId, ResolveBookCover),
                 TotalBooksGenerated = totalBooksGenerated,
                 BooksRead = 13,
                 HoursRead = userStats?.HoursRead ?? 45,
@@ -449,6 +452,90 @@ namespace EBookDashboard.Controllers
             }).ToList();
         }
 
+        private async Task<Books?> ResolveLastWorkedBookAsync(int userId, List<Books> books)
+        {
+            if (books == null || books.Count == 0)
+                return null;
+
+            var active = books.FirstOrDefault(b => b.isActive == 1);
+            if (active != null)
+                return active;
+
+            try
+            {
+                var lastBookKey = $"user:{userId}:lastBookId";
+                var lastUrlKey = $"user:{userId}:lastBookWorkUrl";
+                var rows = await _context.Settings.AsNoTracking()
+                    .Where(s => s.Key == lastBookKey || s.Key == lastUrlKey)
+                    .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
+
+                if (rows.TryGetValue(lastBookKey, out var idRaw) && int.TryParse(idRaw, out var savedId) && savedId > 0)
+                {
+                    var fromSaved = books.FirstOrDefault(b => b.BookId == savedId);
+                    if (fromSaved != null) return fromSaved;
+                }
+
+                if (rows.TryGetValue(lastUrlKey, out var urlRaw) && !string.IsNullOrWhiteSpace(urlRaw))
+                {
+                    var fromUrl = TryParseBookIdFromWorkUrl(urlRaw);
+                    if (fromUrl > 0)
+                    {
+                        var match = books.FirstOrDefault(b => b.BookId == fromUrl);
+                        if (match != null) return match;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Dashboard: could not resolve last worked book from Settings for user {UserId}", userId);
+            }
+
+            return books
+                .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .FirstOrDefault();
+        }
+
+        private static int TryParseBookIdFromWorkUrl(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return 0;
+            var qIndex = url.IndexOf('?');
+            if (qIndex < 0) return 0;
+            var query = url[(qIndex + 1)..];
+            foreach (var part in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var kv = part.Split('=', 2);
+                if (kv.Length == 2 && kv[0].Equals("bookId", StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(Uri.UnescapeDataString(kv[1]), out var bid) && bid > 0)
+                    return bid;
+            }
+            return 0;
+        }
+
+        private static (string title, string description, string coverUrl, Books? book) BuildHeroFromBook(Books? book, Func<Books, string> resolveCover)
+        {
+            if (book == null)
+                return ("Your Library", "Create your first book and start writing with AI.", "", null);
+            return (book.Title, "Continue where you left off. Edit chapters, format pages, and get ready to publish.", resolveCover(book), book);
+        }
+
+        private static (string title, string progressLabel, int percent, string coverUrl, int? bookId) BuildCurrentReadFromBook(
+            Books? book,
+            Dictionary<int, int> chaptersGeneratedByBookId,
+            Func<Books, string> resolveCover)
+        {
+            if (book == null) return ("Start reading", "0 / 0 pages", 0, "", null);
+            var totalChapters = chaptersGeneratedByBookId.GetValueOrDefault(book.BookId, 0);
+            var percent = book.Status is "Published" or "Finalized"
+                ? 100
+                : totalChapters > 0
+                    ? Math.Min(100, totalChapters * 12)
+                    : 0;
+            var progressLabel = totalChapters > 0
+                ? $"{totalChapters} chapter{(totalChapters == 1 ? "" : "s")}"
+                : "No chapters yet";
+            return (book.Title, progressLabel, percent, resolveCover(book), book.BookId);
+        }
+
         private static (string title, string description, string coverUrl, Books? book) GetDemoHeroBook(List<Books> books, Func<Books, string> resolveCover)
         {
             var book = books
@@ -505,17 +592,17 @@ namespace EBookDashboard.Controllers
             };
         }
 
-        private static BookViewModel CreateCurrentWorkingBook(List<Books> books, Dictionary<int, int> chaptersGeneratedByBookId, Func<Books, string>? resolveCover = null)
+        private static BookViewModel CreateCurrentWorkingBook(Books? workingBook, Dictionary<int, int> chaptersGeneratedByBookId, Func<Books, string>? resolveCover = null)
         {
-            if (books == null || !books.Any())
-                return new BookViewModel();
-            // "Currently Working On" = book with isActive == 1
-            var workingBook = books.FirstOrDefault(b => b.isActive == 1);
             if (workingBook == null)
                 return new BookViewModel();
             var totalChapters = chaptersGeneratedByBookId?.GetValueOrDefault(workingBook.BookId, 0) ?? 0;
-            var progressPct = workingBook.Status == "Published" ? 100 : totalChapters > 0 ? 100 : 0;
-            var progressText = workingBook.Status == "Published"
+            var progressPct = workingBook.Status is "Published" or "Finalized"
+                ? 100
+                : totalChapters > 0
+                    ? Math.Min(100, totalChapters * 12)
+                    : 0;
+            var progressText = workingBook.Status is "Published" or "Finalized"
                 ? "Complete"
                 : totalChapters > 0
                     ? $"{totalChapters} chapter{(totalChapters == 1 ? "" : "s")}"
@@ -1139,22 +1226,79 @@ namespace EBookDashboard.Controllers
                 $"book:{bookId}:printReadyCoverWrap",
                 $"book:{bookId}:printReadyCoverFront",
                 $"book:{bookId}:printReadyCoverBack",
-                $"book:{bookId}:printReadyCoverSpine"
+                $"book:{bookId}:printReadyCoverSpine",
+                $"book:{bookId}:printReadyPageCount",
+                $"book:{bookId}:printReadyTrimSize",
+                $"book:{bookId}:printReadySpineInches"
             };
             var rows = await _context.Settings.AsNoTracking()
                 .Where(s => keys.Contains(s.Key))
                 .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
 
+            var pageCount = 0;
+            var pageRaw = rows.GetValueOrDefault($"book:{bookId}:printReadyPageCount", "");
+            if (!int.TryParse(pageRaw, out pageCount) || pageCount <= 0)
+            {
+                try
+                {
+                    var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, bookId);
+                    if (details != null && details.Success)
+                    {
+                        var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, bookId, cancellationToken);
+                        pageCount = _bookPageMetricsService.Estimate(details, exportOpt).PageCount;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "GetPrintReadyCoverAssets: page metrics for book {BookId}", bookId);
+                }
+            }
+            pageCount = Math.Clamp(pageCount > 0 ? pageCount : 100, KdpPrintCoverCalculator.MinPages, KdpPrintCoverCalculator.MaxPagesPaperback);
+
+            var trimSize = rows.GetValueOrDefault($"book:{bookId}:printReadyTrimSize", "").Trim();
+            if (string.IsNullOrWhiteSpace(trimSize)) trimSize = "6 x 9 in";
+
+            var bookRow = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == bookId, cancellationToken);
+            var paperType = InferPaperTypeFromGenre(bookRow?.Genre);
+            var kdpDims = KdpPrintCoverCalculator.Calculate(pageCount, trimSize, paperType, "Black & white", "Paperback");
+
             return Json(new
             {
                 success = true,
                 bookId,
+                pageCount,
+                trimSize,
+                kdp = new
+                {
+                    spineInches = kdpDims.SpineInches,
+                    spineMm = kdpDims.SpineMm,
+                    wrapWidthInches = kdpDims.WrapWidthInches,
+                    wrapHeightInches = kdpDims.WrapHeightInches,
+                    paperType = kdpDims.PaperType,
+                    interiorType = kdpDims.InteriorType,
+                    bindingType = kdpDims.BindingType,
+                    outerMarginInches = kdpDims.OuterMarginInches,
+                    hingeGapInches = kdpDims.HingeGapInches,
+                    panelWidthInches = kdpDims.TrimWidthInches,
+                    panelHeightInches = kdpDims.TrimHeightInches,
+                    spineWidthInchesPerPage = kdpDims.SpineWidthInchesPerPage
+                },
+                layout = new
+                {
+                    backPanelXInches = kdpDims.BackPanelXInches,
+                    hingeLeftXInches = kdpDims.HingeLeftXInches,
+                    spineXInches = kdpDims.SpineXInches,
+                    hingeRightXInches = kdpDims.HingeRightXInches,
+                    frontPanelXInches = kdpDims.FrontPanelXInches,
+                    panelTopYInches = kdpDims.PanelTopYInches
+                },
                 cover = new
                 {
-                    wrap = rows.GetValueOrDefault(keys[0], ""),
-                    front = rows.GetValueOrDefault(keys[1], ""),
-                    back = rows.GetValueOrDefault(keys[2], ""),
-                    spine = rows.GetValueOrDefault(keys[3], "")
+                    wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", ""),
+                    front = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", ""),
+                    back = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverBack", ""),
+                    spine = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverSpine", "")
                 }
             });
         }
@@ -1381,8 +1525,9 @@ namespace EBookDashboard.Controllers
                     : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Spine, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Spine));
 
                 if (persistedWrap.Length <= Models.Settings.DbCompatMaxValueLength)
-                    await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverLastPreview", persistedWrap, "Book", cancellationToken);
-                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrap", persistedWrap, "Book", cancellationToken);
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrapApi", persistedWrap, "Book", cancellationToken);
+                if (!string.IsNullOrWhiteSpace(persistedFront))
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverLastPreview", persistedFront, "Book", cancellationToken);
                 if (!string.IsNullOrWhiteSpace(persistedFront))
                     await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverFront", persistedFront, "Book", cancellationToken);
                 if (!string.IsNullOrWhiteSpace(persistedBack))
@@ -1426,7 +1571,7 @@ namespace EBookDashboard.Controllers
                     },
                     cover = new
                     {
-                        wrap = persistedWrap,
+                        wrap = "",
                         front = persistedFront,
                         spine = persistedSpine,
                         back = persistedBack
@@ -1604,7 +1749,7 @@ namespace EBookDashboard.Controllers
             var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
             var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserEmail == userEmail);
             var roleId = user?.RoleId ?? 0;
-            ViewBag.PublishViaPlatformPaid = roleId == 1 || roleId == 2;
+            ViewBag.PublishViaPlatformPaid = true;
             ViewBag.PublishableKey = StripeKeys.Publishable(_configuration) ?? "";
             ViewBag.SelectedBookId = bookId;
             ViewBag.PublishBookTitle = (string?)null;
@@ -1671,16 +1816,20 @@ namespace EBookDashboard.Controllers
                     ViewBag.PublishBookTitle = pb.Title;
                     ViewBag.PublishBookDescription = pb.Description;
                     ViewBag.PublishBookGenre = pb.Genre;
+                    var frontCoverKey = $"book:{bookId.Value}:printReadyCoverFront";
                     var aiCoverKey = $"book:{bookId.Value}:aiCoverLastPreview";
                     var wrapKey = $"book:{bookId.Value}:printReadyCoverWrap";
                     var coverRows = await _context.Settings.AsNoTracking()
-                        .Where(s => s.Key == aiCoverKey || s.Key == wrapKey)
+                        .Where(s => s.Key == frontCoverKey || s.Key == aiCoverKey || s.Key == wrapKey)
                         .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
+                    var frontCover = (coverRows.GetValueOrDefault(frontCoverKey) ?? "").Trim();
                     var aiCover = (coverRows.GetValueOrDefault(aiCoverKey) ?? "").Trim();
                     var wrapCover = (coverRows.GetValueOrDefault(wrapKey) ?? "").Trim();
                     var pathCover = (pb.CoverImagePath ?? "").Trim();
-                    // Front preview: AI front cover; print-ready flow may also have full wrap saved separately
-                    ViewBag.PublishBookCover = !string.IsNullOrEmpty(aiCover) ? aiCover : pathCover;
+                    // Screen preview: front panel only. Full wrap is download-only (printReadyCoverWrap).
+                    ViewBag.PublishBookCover = !string.IsNullOrEmpty(frontCover)
+                        ? frontCover
+                        : (!string.IsNullOrEmpty(aiCover) ? aiCover : pathCover);
                     ViewBag.PublishBookCoverWrap = !string.IsNullOrEmpty(wrapCover) ? wrapCover : "";
                     ViewBag.PublishBookStatus = pb.Status;
                     var ps = pb.Status ?? "";

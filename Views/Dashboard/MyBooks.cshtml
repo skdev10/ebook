@@ -1037,5 +1037,20 @@
     }
 
     if (books && books.length > 0) fillAside(getBook(books[0]));
+
+    (function () {
+        var params = new URLSearchParams(window.location.search);
+        var bid = parseInt(params.get('bookId') || '0', 10);
+        var autoPreview = params.get('preview') === '1';
+        if (!bid) return;
+        var book = books && books.find(function (b) { return bookIdFrom(b) === bid; });
+        if (book) {
+            fillAside(book);
+            if (autoPreview) {
+                var viewBtn = document.getElementById('btn-view-book');
+                if (viewBtn) viewBtn.click();
+            }
+        }
+    })();
 })();
 </script>

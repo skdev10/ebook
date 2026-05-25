@@ -137,6 +137,26 @@
         ctx.drawImage(img, ox, oy, dw, dh);
     }
 
+    /** Crop-to-fill within exact panel bounds (print trim + bleed slot). */
+    function drawCoverFill(ctx, img, x, y, w, h) {
+        if (!img || !img.width || w < 1 || h < 1) return;
+        var ir = img.width / img.height;
+        var tr = w / h;
+        var sw, sh, sx, sy;
+        if (ir > tr) {
+            sh = img.height;
+            sw = sh * tr;
+            sx = (img.width - sw) / 2;
+            sy = 0;
+        } else {
+            sw = img.width;
+            sh = sw / tr;
+            sx = 0;
+            sy = (img.height - sh) / 2;
+        }
+        ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    }
+
     function resizeCoverForEbook(img, tw, th) {
         var c = document.createElement('canvas');
         c.width = tw;
@@ -1156,7 +1176,7 @@
      * Draw only a center vertical crop into the spine slot — never stretch a wide API spine/wrap asset.
      */
     function drawSpineCropCenter(ctx, img, x, y, w, h, layout) {
-        if (!img || !img.width || w < 1) return false;
+        if (!img || !img.width || w < 1 || h < 1) return false;
         var srcW = img.width;
         var srcH = img.height;
         var spineFrac = layout && layout.canvasWidthIn > 0
@@ -1165,7 +1185,16 @@
         var cropW = Math.max(2, Math.round(srcW * spineFrac));
         cropW = Math.min(cropW, Math.round(srcW * 0.2), srcW);
         var cropX = Math.max(0, Math.floor((srcW - cropW) / 2));
-        ctx.drawImage(img, cropX, 0, cropW, srcH, x, y, w, h);
+        var cropY = 0;
+        var cropH = srcH;
+        if (layout && layout.canvasHeightIn > 0 && layout.panelHeightIn > 0) {
+            var topFrac = (layout.panelTopYIn != null ? layout.panelTopYIn : layout.outerMarginIn || 0) / layout.canvasHeightIn;
+            var heightFrac = layout.panelHeightIn / layout.canvasHeightIn;
+            cropY = Math.max(0, Math.round(topFrac * srcH));
+            cropH = Math.max(1, Math.round(heightFrac * srcH));
+            cropH = Math.min(cropH, srcH - cropY);
+        }
+        ctx.drawImage(img, cropX, cropY, cropW, cropH, x, y, w, h);
         return true;
     }
 
@@ -1289,13 +1318,115 @@
         if (hingeW > 0) {
             drawHingeZone(ctx, hingeRightX, backY, hingeW, panelH, frontImg, 'right');
         }
-        drawCoverContain(ctx, frontImg, frontX, backY, frontW, panelH);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(frontX, backY, frontW, panelH);
+        ctx.clip();
+        drawCoverFill(ctx, frontImg, frontX, backY, frontW, panelH);
+        ctx.restore();
 
         c._kdpParts = {
-            backX: backX, backW: backW, spineX: spineX, spineW: spineW,
+            backX: backX, backY: backY, backW: backW, spineX: spineX, spineW: spineW,
             frontX: frontX, frontW: frontW, panelH: panelH, H: H, dpi: dpi, layout: layout
         };
         return c;
+    }
+
+    function formatLayoutDebug(layout, pageCount, dpi) {
+        if (!layout) return '';
+        dpi = dpi || 150;
+        var sw = layout.spineIn || 0;
+        var swPx = Math.max(1, Math.round(sw * dpi));
+        var tw = layout.canvasWidthIn || 0;
+        var th = layout.canvasHeightIn || 0;
+        var twPx = Math.max(1, Math.round(tw * dpi));
+        var thPx = Math.max(1, Math.round(th * dpi));
+        var ph = layout.panelHeightIn || 9;
+        var phPx = Math.max(1, Math.round(ph * dpi));
+        return 'pages=' + (pageCount || layout.pageCount || '?')
+            + ' | spine=' + sw.toFixed(4) + ' in (' + swPx + ' px @ ' + dpi + ' DPI)'
+            + ' | panel H=' + ph.toFixed(3) + ' in (' + phPx + ' px)'
+            + ' | total=' + tw.toFixed(3) + '×' + th.toFixed(3) + ' in (' + twPx + '×' + thPx + ' px)';
+    }
+
+    function extractPanelsFromCanvas(canvas) {
+        var p = canvas && canvas._kdpParts;
+        if (!p) return null;
+        var backY = p.backY || 0;
+        function slice(sx, sy, sw, sh) {
+            var c = document.createElement('canvas');
+            c.width = Math.max(1, sw);
+            c.height = Math.max(1, sh);
+            c.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+            return c.toDataURL('image/png');
+        }
+        return {
+            back: slice(p.backX, backY, p.backW, p.panelH),
+            spine: slice(p.spineX, backY, p.spineW, p.panelH),
+            front: slice(p.frontX, backY, p.frontW, p.panelH)
+        };
+    }
+
+    /**
+     * Crop back / spine / front from a full wrap PNG using server KDP layout (inches).
+     */
+    function extractPanelsFromWrap(wrapUrl, layout) {
+        if (!wrapUrl || !layout) return Promise.reject(new Error('wrap and layout required'));
+        return loadImageElement(wrapUrl).then(function (img) {
+            var layoutW = layout.canvasWidthIn;
+            var layoutH = layout.canvasHeightIn;
+            if (!layoutW || !layoutH) {
+                var margin = layout.outerMarginIn || 0.125;
+                var pw = layout.panelWidthIn || 6;
+                var ph = layout.panelHeightIn || 9;
+                layoutW = margin * 2 + pw * 2 + (layout.spineIn || 0.055);
+                layoutH = margin * 2 + ph;
+            }
+            var refW = img.width;
+            var refH = img.height;
+            function cropDataUrl(xIn, yIn, wIn, hIn) {
+                var x = Math.round((xIn / layoutW) * refW);
+                var y = Math.round((yIn / layoutH) * refH);
+                var w = Math.max(1, Math.round((wIn / layoutW) * refW));
+                var h = Math.max(1, Math.round((hIn / layoutH) * refH));
+                var c = document.createElement('canvas');
+                c.width = w;
+                c.height = h;
+                c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
+                return c.toDataURL('image/png');
+            }
+            var y = layout.panelTopYIn != null ? layout.panelTopYIn : (layout.outerMarginIn || 0.125);
+            var pw = layout.panelWidthIn || 6;
+            var ph = layout.panelHeightIn || 9;
+            var backX = layout.backPanelXIn != null ? layout.backPanelXIn : (layout.outerMarginIn || 0.125);
+            var spineX = layout.spineXIn != null ? layout.spineXIn : backX + pw;
+            var frontX = layout.frontPanelXIn != null ? layout.frontPanelXIn : spineX + (layout.spineIn || 0.055);
+            return {
+                back: cropDataUrl(backX, y, pw, ph),
+                spine: cropDataUrl(spineX, y, layout.spineIn, ph),
+                front: cropDataUrl(frontX, y, pw, ph),
+                wrap: wrapUrl
+            };
+        });
+    }
+
+    function applyWrapPartsGridLayout(layout, dpi) {
+        var el = document.querySelector('.cov-wrap-parts');
+        if (!el || !layout) return;
+        var pw = layout.panelWidthIn || 6;
+        var sw = Math.max(0.055, layout.spineIn || 0.055);
+        var ph = layout.panelHeightIn || 9;
+        el.style.gridTemplateColumns = pw + 'fr ' + sw + 'fr ' + pw + 'fr';
+        el.style.setProperty('--cov-panel-aspect', pw + ' / ' + ph);
+        el.style.setProperty('--cov-spine-aspect', sw + ' / ' + ph);
+        var wrapFull = document.querySelector('.cov-wrap-full');
+        if (wrapFull && layout.canvasWidthIn && layout.canvasHeightIn) {
+            wrapFull.style.setProperty('--cov-wrap-aspect', layout.canvasWidthIn + ' / ' + layout.canvasHeightIn);
+        }
+        var debugEl = document.getElementById('covWrapKdpDebug');
+        if (debugEl) {
+            debugEl.textContent = formatLayoutDebug(layout, layout.pageCount, dpi || 150);
+        }
     }
 
     /**
@@ -1321,8 +1452,13 @@
             paperType: paper,
             interiorType: interior
         });
-        applyPageCountToLayout(layout, pages, binding, paper, interior);
+        if (!options.layout) {
+            applyPageCountToLayout(layout, pages, binding, paper, interior);
+        } else {
+            layout.pageCount = pages;
+        }
 
+        var previewDpi = options.previewDpi || 150;
         var useApiSpine = options.useApiSpineArt !== false && !!spineUrl;
         var useApiBack = options.useApiBackArt !== false && !!backUrl;
 
@@ -1332,13 +1468,17 @@
             useApiBack ? loadImageElement(backUrl).catch(function () { return null; }) : Promise.resolve(null)
         ]).then(function (imgs) {
             var frontImg = imgs[0];
-            var canvas = buildWrapCanvasFromParts(frontImg, imgs[1], imgs[2], layout, meta, options.previewDpi || 120);
+            var canvas = buildWrapCanvasFromParts(frontImg, imgs[1], imgs[2], layout, meta, previewDpi);
+            var panels = extractPanelsFromCanvas(canvas);
             return {
                 dataUrl: canvas.toDataURL('image/png'),
                 layout: layout,
                 spineInches: layout.spineIn,
                 pageCount: pages,
-                canvas: canvas
+                previewDpi: previewDpi,
+                debugLabel: formatLayoutDebug(layout, pages, previewDpi),
+                canvas: canvas,
+                panels: panels
             };
         });
     }
@@ -1366,6 +1506,10 @@
         computeKdpDimensionsMm: computeKdpDimensionsMm,
         composePrintWrapFromParts: composePrintWrapFromParts,
         persistComposedWrap: persistComposedWrap,
+        extractPanelsFromWrap: extractPanelsFromWrap,
+        extractPanelsFromCanvas: extractPanelsFromCanvas,
+        applyWrapPartsGridLayout: applyWrapPartsGridLayout,
+        formatLayoutDebug: formatLayoutDebug,
         trimToMmString: trimToMmString,
         computeCoverLayout: computeCoverLayout,
         layoutFromServerKdp: layoutFromServerKdp,

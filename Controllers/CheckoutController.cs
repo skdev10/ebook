@@ -132,7 +132,7 @@ namespace EBookDashboard.Controllers
             return View();
         }
 
-        /// <summary>Book payment page: user must pay here to unlock downloads (after cover design or from My Books).</summary>
+        /// <summary>Legacy book payment URL — redirects to export/publish (no Stripe gate).</summary>
         [HttpGet]
         public async Task<IActionResult> BookPayment(int bookId)
         {
@@ -140,12 +140,7 @@ namespace EBookDashboard.Controllers
             if (userId == null) return RedirectToAction("UserLogin", "Account");
             var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId.Value);
             if (book == null) return NotFound("Book not found.");
-            ViewBag.BookId = bookId;
-            ViewBag.BookTitle = book.Title ?? "Your Book";
-            var bs = book.Status ?? "";
-            ViewBag.Paid = bs.Equals("Paid", StringComparison.OrdinalIgnoreCase) || bs.Equals("Published", StringComparison.OrdinalIgnoreCase);
-            ViewBag.PublishableKey = StripeKeys.Publishable(_config) ?? "";
-            return View();
+            return RedirectToAction("Publish", "Dashboard", new { bookId });
         }
 
         /// <summary>Create Stripe Checkout session for a book; success callback verifies payment before updating status.</summary>

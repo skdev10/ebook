@@ -1246,10 +1246,6 @@
 
             <section class="flex flex-col gap-5" data-guided-tour="ai-topic-generate">
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">Chapter Topic</h2>
-                <div id="chapterTopicSuggestRow" class="hidden flex flex-col gap-2" aria-live="polite">
-                    <p class="text-xs font-semibold text-violet-700 uppercase tracking-wide">Suggested prompts — tap to fill the topic box</p>
-                    <div id="chapterTopicSuggestChips" class="flex flex-wrap gap-2"></div>
-                </div>
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
                     <textarea id="UserInput" placeholder="If you want peace, work for justice" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-4 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]">If you want peace, work for justice</textarea>
                     <div class="bg-slate-50/80 p-2 mx-2 mb-2 rounded-xl flex items-center justify-between border border-slate-100">
@@ -1541,78 +1537,6 @@ window.EBOOK_FORMATTER_BOOK_KEY = 'ebook_formatter_book_id';
 window.persistFormatterBookId = function (bookId) {
     if (!bookId || bookId === '0') return;
     try { sessionStorage.setItem(window.EBOOK_FORMATTER_BOOK_KEY, String(bookId)); } catch (e) {}
-};
-
-/** After new book redirect or chapter generation — show tappable prompts above Chapter Topic. */
-window.EBOOK_TOPIC_SUGGEST_PENDING_KEY = 'ebook_topic_suggest_pending_v1';
-window.buildChapterTopicSuggestions = function (ctx) {
-    ctx = ctx || {};
-    var bt = (ctx.bookTitle || '').trim() || 'this book';
-    var gn = (ctx.genre || '').trim();
-    var chNo = ctx.chapterNo != null ? parseInt(String(ctx.chapterNo), 10) : 1;
-    if (!Number.isFinite(chNo) || chNo < 1) chNo = 1;
-    var next = chNo + 1;
-    var chTit = (ctx.chapterTitle || '').trim();
-    var tail = (ctx.contentTail || '').trim();
-    var gline = gn ? (' Genre: ' + gn + '.') : '';
-    var s = [];
-    s.push('Continue "' + bt + '" with Chapter ' + next + ': open in medias res with a clear scene goal, dialogue that moves plot, and one sensory detail per beat.' + gline);
-    s.push('Next chapter for "' + bt + '": pivot from the prior resolution — introduce a new obstacle tied to the same theme; keep POV and tense consistent with Chapter ' + chNo + '.');
-    if (tail) {
-        s.push('Pick up the narrative thread after this moment: "' + tail + '" Expand into Chapter ' + next + ' with rising stakes (avoid long recap).');
-    } else {
-        s.push('Write Chapter ' + next + ': the protagonist makes a choice that cannot be undone; end on a hook that sets up the following chapter.');
-    }
-    s.push('Chapter topic — emotional arc: ground the chapter in one relationship under pressure; echo the central question of "' + bt + '" without fully resolving it yet.');
-    s.push('Structural brief: three beats — setup (same story day as Ch.' + chNo + '), confrontation (shift time or place), consequence (revelation about ' + (chTit || 'the protagonist') + ').');
-    return s;
-};
-window.renderChapterTopicSuggestionChips = function (suggestions) {
-    var row = document.getElementById('chapterTopicSuggestRow');
-    var host = document.getElementById('chapterTopicSuggestChips');
-    var userInput = document.getElementById('UserInput');
-    if (!row || !host) return;
-    host.innerHTML = '';
-    var list = Array.isArray(suggestions) ? suggestions.filter(Boolean) : [];
-    if (!list.length) { row.classList.add('hidden'); return; }
-    row.classList.remove('hidden');
-    list.slice(0, 5).forEach(function (text) {
-        var full = String(text);
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'text-left px-3 py-2 rounded-xl text-xs font-medium border border-violet-200 bg-violet-50/90 text-violet-900 hover:bg-violet-100 hover:border-violet-300 max-w-full sm:max-w-[min(100%,20rem)] transition-colors leading-snug';
-        b.setAttribute('title', full.length > 200 ? full : 'Use this prompt in Chapter Topic');
-        b.textContent = full.length > 130 ? (full.slice(0, 127) + '…') : full;
-        b.addEventListener('click', function () {
-            if (!userInput) return;
-            userInput.value = full;
-            userInput.dispatchEvent(new Event('input', { bubbles: true }));
-            try { userInput.focus(); } catch (e) {}
-            if (typeof showNotification === 'function') showNotification('Topic prompt applied — edit if you like, then Generate.', 'success');
-        });
-        host.appendChild(b);
-    });
-};
-window.offerChapterTopicSuggestionsAfterGeneration = function (bookData) {
-    try {
-        var btEl = document.getElementById('BookTitle');
-        var chTitEl = document.getElementById('Title');
-        var chNoEl = document.getElementById('ChapterNo');
-        var bt = btEl ? btEl.value.trim() : '';
-        var ctx = (window._aiBookPreviewContext && typeof window._aiBookPreviewContext === 'object') ? window._aiBookPreviewContext : {};
-        if (!bt && ctx.bookTitle) bt = String(ctx.bookTitle).trim();
-        var genre = (ctx.genre && String(ctx.genre).trim()) || '';
-        var chNo = chNoEl ? parseInt(chNoEl.value, 10) : 1;
-        var chTit = chTitEl ? chTitEl.value.trim() : '';
-        var raw = '';
-        if (typeof window.extractChapterBodyFromGenerateResponse === 'function' && bookData) {
-            raw = window.extractChapterBodyFromGenerateResponse(bookData) || '';
-        }
-        var plain = raw ? String(raw).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
-        var tail = plain.length > 220 ? plain.slice(plain.length - 220) : plain;
-        var suggestions = window.buildChapterTopicSuggestions({ bookTitle: bt, genre: genre, chapterNo: chNo, chapterTitle: chTit, contentTail: tail });
-        window.renderChapterTopicSuggestionChips(suggestions);
-    } catch (e) { console.warn('offerChapterTopicSuggestionsAfterGeneration', e); }
 };
 
 /** Multi-chapter preview + paginated viewport: #preview-content is fixed size; overflow becomes next "page". */
@@ -3012,10 +2936,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     selectBook.addEventListener('change', function() {
-        var row = document.getElementById('chapterTopicSuggestRow');
-        var host = document.getElementById('chapterTopicSuggestChips');
-        if (row) row.classList.add('hidden');
-        if (host) host.innerHTML = '';
         var bookId = getBookId();
         if (bookId > 0) {
             inputBookTitle.value = selectBook.options[selectBook.selectedIndex].text;
@@ -4039,20 +3959,6 @@ document.addEventListener('DOMContentLoaded', function() {
                  var nb = parseInt(b.chapterNumber ?? b.ChapterNumber ?? b.chapterNo, 10);
                  return (Number.isFinite(na) ? na : 1e9) - (Number.isFinite(nb) ? nb : 1e9);
              });
-             if (showMode && (core.suggest_chapter_name || core.suggestChapterName) && chatContainer) {
-                 var rawOutline = core.suggest_chapter_name || core.suggestChapterName || '';
-                 var hasList = /<\s*ul[\s\S]*?>/i.test(rawOutline);
-                 var innerOutline = '';
-                 if (hasList && typeof sanitizeHtml === 'function') innerOutline = '<div class="outline-html">' + sanitizeHtml(rawOutline) + '</div>';
-                 else {
-                     var items = rawOutline.split('\n').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 12);
-                     innerOutline = items.map(function (x) { return '<span class="outline-pill">' + escapeHtml(x) + '</span>'; }).join('');
-                 }
-                 var outlineWrap = document.createElement('div');
-                 outlineWrap.className = 'message message-ai';
-                 outlineWrap.innerHTML = '<div class="outline-card"><div class="outline-header"><div class="outline-title"><i class="bi bi-list-stars"></i> Outline</div></div><div class="outline-body">' + innerOutline + '</div></div>';
-                 chatContainer.appendChild(outlineWrap);
-             }
              var bookForPreview = {
                  bookTitle: inferredTitle || rawTitle || bookData.bookTitle || (window._aiBookPreviewContext && window._aiBookPreviewContext.bookTitle) || '',
                  subtitle: String(core.subtitle != null ? core.subtitle : ''),
@@ -4540,9 +4446,6 @@ document.addEventListener('DOMContentLoaded', function() {
                              } else if (typeof showNotification === 'function') {
                                  showNotification('Chapter ready. Draft saved — finalize on Book formatting when you are ready.', 'success');
                              }
-                             if (typeof window.offerChapterTopicSuggestionsAfterGeneration === 'function') {
-                                 window.offerChapterTopicSuggestionsAfterGeneration(bookData);
-                             }
                          });
                      } else {
                          loadSavedBooksDropdown();
@@ -4564,9 +4467,6 @@ document.addEventListener('DOMContentLoaded', function() {
                              });
                          } else if (typeof showNotification === 'function') {
                              showNotification('Chapter ready.', 'success');
-                         }
-                         if (typeof window.offerChapterTopicSuggestionsAfterGeneration === 'function') {
-                             window.offerChapterTopicSuggestionsAfterGeneration(bookData);
                          }
                      }
                  } else {
