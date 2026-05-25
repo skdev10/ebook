@@ -1,3 +1,5 @@
+using EBookDashboard.Application.Kdp.DTOs;
+using EBookDashboard.Application.Kdp.Interfaces;
 using EBookDashboard.Models.Options;
 using EBookDashboard.Services.BookApi;
 using EBookDashboard.Interfaces;
@@ -41,6 +43,7 @@ namespace EBookDashboard.Controllers
         private readonly IBookPdfService _bookPdfService;
         private readonly IBookPageMetricsService _bookPageMetricsService;
         private readonly BookPublishReadinessService _publishReadiness;
+        private readonly IKdpCoverDimensionService _kdpCoverDimensions;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -54,7 +57,8 @@ namespace EBookDashboard.Controllers
             IBookService bookService,
             IBookPdfService bookPdfService,
             IBookPageMetricsService bookPageMetricsService,
-            BookPublishReadinessService publishReadiness)
+            BookPublishReadinessService publishReadiness,
+            IKdpCoverDimensionService kdpCoverDimensions)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -68,6 +72,7 @@ namespace EBookDashboard.Controllers
             _bookPdfService = bookPdfService;
             _bookPageMetricsService = bookPageMetricsService;
             _publishReadiness = publishReadiness;
+            _kdpCoverDimensions = kdpCoverDimensions;
         }
 
         [Route("")]
@@ -1253,15 +1258,14 @@ namespace EBookDashboard.Controllers
                     _logger.LogDebug(ex, "GetPrintReadyCoverAssets: page metrics for book {BookId}", bookId);
                 }
             }
-            pageCount = Math.Clamp(pageCount > 0 ? pageCount : 100, KdpPrintCoverCalculator.MinPages, KdpPrintCoverCalculator.MaxPagesPaperback);
+            pageCount = Math.Clamp(pageCount > 0 ? pageCount : 100,
+                Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount,
+                Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
 
             var trimSize = rows.GetValueOrDefault($"book:{bookId}:printReadyTrimSize", "").Trim();
             if (string.IsNullOrWhiteSpace(trimSize)) trimSize = "6 x 9 in";
 
-            var bookRow = await _context.Books.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.BookId == bookId, cancellationToken);
-            var paperType = InferPaperTypeFromGenre(bookRow?.Genre);
-            var kdpDims = KdpPrintCoverCalculator.Calculate(pageCount, trimSize, paperType, "Black & white", "Paperback");
+            var kdp = CalculatePrintReadyKdp(pageCount, trimSize);
 
             return Json(new
             {
@@ -1271,27 +1275,33 @@ namespace EBookDashboard.Controllers
                 trimSize,
                 kdp = new
                 {
-                    spineInches = kdpDims.SpineInches,
-                    spineMm = kdpDims.SpineMm,
-                    wrapWidthInches = kdpDims.WrapWidthInches,
-                    wrapHeightInches = kdpDims.WrapHeightInches,
-                    paperType = kdpDims.PaperType,
-                    interiorType = kdpDims.InteriorType,
-                    bindingType = kdpDims.BindingType,
-                    outerMarginInches = kdpDims.OuterMarginInches,
-                    hingeGapInches = kdpDims.HingeGapInches,
-                    panelWidthInches = kdpDims.TrimWidthInches,
-                    panelHeightInches = kdpDims.TrimHeightInches,
-                    spineWidthInchesPerPage = kdpDims.SpineWidthInchesPerPage
+                    spineInches = (double)kdp.SpineWidth,
+                    spineMm = (double)(kdp.SpineWidth * 25.4m),
+                    wrapWidthInches = (double)kdp.FullCoverWidth,
+                    wrapHeightInches = (double)kdp.FullCoverHeight,
+                    pixelWidth = kdp.PixelWidth,
+                    pixelHeight = kdp.PixelHeight,
+                    spinePixels = kdp.SpinePixels,
+                    paperType = kdp.PaperType,
+                    interiorType = kdp.InteriorType,
+                    bindingType = kdp.BindingType,
+                    outerMarginInches = (double)kdp.Bleed,
+                    bleedInches = (double)kdp.Bleed,
+                    safeAreaWidth = (double)kdp.SafeAreaWidth,
+                    safeAreaHeight = (double)kdp.SafeAreaHeight,
+                    spineMargin = (double)kdp.SpineMargin,
+                    barcodeMargin = (double)kdp.BarcodeMargin,
+                    panelWidthInches = (double)kdp.FrontCoverWidth,
+                    panelHeightInches = (double)(kdp.SafeAreaHeight + kdp.MarginHeight),
+                    spineWidthInchesPerPage = (double)kdp.SpineInchesPerPage,
+                    dpi = kdp.Dpi
                 },
                 layout = new
                 {
-                    backPanelXInches = kdpDims.BackPanelXInches,
-                    hingeLeftXInches = kdpDims.HingeLeftXInches,
-                    spineXInches = kdpDims.SpineXInches,
-                    hingeRightXInches = kdpDims.HingeRightXInches,
-                    frontPanelXInches = kdpDims.FrontPanelXInches,
-                    panelTopYInches = kdpDims.PanelTopYInches
+                    backPanelXInches = (double)kdp.BackPanelXInches,
+                    spineXInches = (double)kdp.SpineXInches,
+                    frontPanelXInches = (double)kdp.FrontPanelXInches,
+                    panelTopYInches = (double)kdp.PanelTopYInches
                 },
                 cover = new
                 {
@@ -1428,16 +1438,12 @@ namespace EBookDashboard.Controllers
 
             var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
-            var pageCountForCover = metrics.PageCount > 0 ? metrics.PageCount : Math.Max(24, req.PageCount ?? 24);
+            var pageCountForCover = Math.Clamp(
+                metrics.PageCount > 0 ? metrics.PageCount : Math.Max(24, req.PageCount ?? 24),
+                Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount,
+                Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
             var trimSize = NormalizeTrimSizeForApi(req.TrimSize, exportOpt);
-            var paperType = InferPaperTypeFromGenre(details.Genre ?? book.Genre);
-            var bindingType = string.IsNullOrWhiteSpace(req.BindingType) ? "Paperback" : req.BindingType.Trim();
-            var kdpDims = KdpPrintCoverCalculator.Calculate(
-                pageCountForCover,
-                trimSize,
-                paperType,
-                interiorType: "Black & white",
-                bindingType: bindingType);
+            var kdp = CalculatePrintReadyKdp(pageCountForCover, trimSize);
 
             var title = (details.BookTitle ?? book.Title ?? "My Book").Trim();
             if (string.IsNullOrWhiteSpace(title)) title = "My Book";
@@ -1455,7 +1461,7 @@ namespace EBookDashboard.Controllers
             {
                 coverStyleBase = "Deep navy blue background with subtle damask pattern, ornate gold baroque decorative frame on front cover, elegant gold serif typography, luxurious premium publishing style.";
             }
-            var coverStyle = KdpPrintCoverCalculator.BuildCohesiveCoverStyleDirective(coverStyleBase, kdpDims);
+            var coverStyle = BuildPrintReadyCoverStyleDirective(coverStyleBase, kdp);
             var quality = BookApiInputValidation.NormalizeQuality(
                 (req.Quality ?? _externalApiOptions.Value.PrintReadyCoverQuality ?? "medium").Trim(),
                 "medium");
@@ -1477,20 +1483,20 @@ namespace EBookDashboard.Controllers
                 ["quality"] = quality,
                 ["Interior_trim_size"] = trimSize,
                 ["page_count"] = pageCountForCover,
-                ["binding_type"] = kdpDims.BindingType,
-                ["paper_type"] = kdpDims.PaperType,
-                ["interior_type"] = kdpDims.InteriorType,
-                ["spine_width_inches"] = Math.Round(kdpDims.SpineInches, 4),
-                ["spine_width_mm"] = Math.Round(kdpDims.SpineMm, 2),
-                ["wrap_width_inches"] = Math.Round(kdpDims.WrapWidthInches, 4),
-                ["wrap_height_inches"] = Math.Round(kdpDims.WrapHeightInches, 4),
-                ["wrap_width_mm"] = Math.Round(kdpDims.WrapWidthMm, 2),
-                ["wrap_height_mm"] = Math.Round(kdpDims.WrapHeightMm, 2),
-                ["bleed_inches"] = kdpDims.OuterMarginInches,
-                ["wrap_margin_inches"] = kdpDims.OuterMarginInches,
-                ["hinge_gap_inches"] = kdpDims.HingeGapInches,
-                ["panel_width_inches"] = kdpDims.TrimWidthInches,
-                ["panel_height_inches"] = kdpDims.TrimHeightInches
+                ["binding_type"] = kdp.BindingType,
+                ["paper_type"] = kdp.PaperType,
+                ["interior_type"] = kdp.InteriorType,
+                ["spine_width_inches"] = (double)kdp.SpineWidth,
+                ["spine_width_mm"] = (double)(kdp.SpineWidth * 25.4m),
+                ["wrap_width_inches"] = (double)kdp.FullCoverWidth,
+                ["wrap_height_inches"] = (double)kdp.FullCoverHeight,
+                ["wrap_width_mm"] = (double)(kdp.FullCoverWidth * 25.4m),
+                ["wrap_height_mm"] = (double)(kdp.FullCoverHeight * 25.4m),
+                ["bleed_inches"] = (double)kdp.Bleed,
+                ["wrap_margin_inches"] = (double)kdp.Bleed,
+                ["hinge_gap_inches"] = 0,
+                ["panel_width_inches"] = (double)kdp.FrontCoverWidth,
+                ["panel_height_inches"] = (double)(kdp.SafeAreaHeight + kdp.MarginHeight)
             };
 
             try
@@ -1525,7 +1531,10 @@ namespace EBookDashboard.Controllers
                     : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Spine, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Spine));
 
                 if (persistedWrap.Length <= Models.Settings.DbCompatMaxValueLength)
+                {
                     await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrapApi", persistedWrap, "Book", cancellationToken);
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrap", persistedWrap, "Book", cancellationToken);
+                }
                 if (!string.IsNullOrWhiteSpace(persistedFront))
                     await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverLastPreview", persistedFront, "Book", cancellationToken);
                 if (!string.IsNullOrWhiteSpace(persistedFront))
@@ -1546,32 +1555,33 @@ namespace EBookDashboard.Controllers
                     trimSize,
                     kdp = new
                     {
-                        spineInches = kdpDims.SpineInches,
-                        spineMm = kdpDims.SpineMm,
-                        wrapWidthInches = kdpDims.WrapWidthInches,
-                        wrapHeightInches = kdpDims.WrapHeightInches,
-                        wrapWidthMm = kdpDims.WrapWidthMm,
-                        wrapHeightMm = kdpDims.WrapHeightMm,
-                        paperType = kdpDims.PaperType,
-                        interiorType = kdpDims.InteriorType,
-                        bindingType = kdpDims.BindingType,
-                        outerMarginInches = kdpDims.OuterMarginInches,
-                        hingeGapInches = kdpDims.HingeGapInches,
-                        panelWidthInches = kdpDims.TrimWidthInches,
-                        panelHeightInches = kdpDims.TrimHeightInches
+                        spineInches = (double)kdp.SpineWidth,
+                        spineMm = (double)(kdp.SpineWidth * 25.4m),
+                        wrapWidthInches = (double)kdp.FullCoverWidth,
+                        wrapHeightInches = (double)kdp.FullCoverHeight,
+                        wrapWidthMm = (double)(kdp.FullCoverWidth * 25.4m),
+                        wrapHeightMm = (double)(kdp.FullCoverHeight * 25.4m),
+                        pixelWidth = kdp.PixelWidth,
+                        pixelHeight = kdp.PixelHeight,
+                        spinePixels = kdp.SpinePixels,
+                        paperType = kdp.PaperType,
+                        interiorType = kdp.InteriorType,
+                        bindingType = kdp.BindingType,
+                        outerMarginInches = (double)kdp.Bleed,
+                        hingeGapInches = 0,
+                        panelWidthInches = (double)kdp.FrontCoverWidth,
+                        panelHeightInches = (double)(kdp.SafeAreaHeight + kdp.MarginHeight)
                     },
                     layout = new
                     {
-                        backPanelXInches = kdpDims.BackPanelXInches,
-                        hingeLeftXInches = kdpDims.HingeLeftXInches,
-                        spineXInches = kdpDims.SpineXInches,
-                        hingeRightXInches = kdpDims.HingeRightXInches,
-                        frontPanelXInches = kdpDims.FrontPanelXInches,
-                        panelTopYInches = kdpDims.PanelTopYInches
+                        backPanelXInches = (double)kdp.BackPanelXInches,
+                        spineXInches = (double)kdp.SpineXInches,
+                        frontPanelXInches = (double)kdp.FrontPanelXInches,
+                        panelTopYInches = (double)kdp.PanelTopYInches
                     },
                     cover = new
                     {
-                        wrap = "",
+                        wrap = persistedWrap,
                         front = persistedFront,
                         spine = persistedSpine,
                         back = persistedBack
@@ -1653,6 +1663,58 @@ namespace EBookDashboard.Controllers
             if (compact == "6x9" || compact == "6xin9in" || compact == "paperback" || compact == "print" || compact == "both")
                 return "6 x 9 in";
             return "6 x 9 in";
+        }
+
+        /// <summary>Print-ready flow: Standard Color + White Paper, bleed on, 150 DPI (KDP Cover Calculator defaults).</summary>
+        private KdpCalculateResponse CalculatePrintReadyKdp(int pageCount, string trimSizeLabel)
+        {
+            var trim = ParseTrimInches(trimSizeLabel);
+            return _kdpCoverDimensions.Calculate(new KdpCalculateRequest
+            {
+                PageCount = pageCount,
+                TrimWidth = trim.W,
+                TrimHeight = trim.H,
+                Dpi = Application.Kdp.Constants.KdpPaperbackConstants.DefaultDpi,
+                Bleed = true,
+                InteriorType = Application.Kdp.Constants.KdpPaperbackConstants.InteriorTypeStandardColor,
+                PaperType = Application.Kdp.Constants.KdpPaperbackConstants.PaperTypeWhite
+            });
+        }
+
+        private static (decimal W, decimal H) ParseTrimInches(string? trimSize)
+        {
+            var src = (trimSize ?? "").Trim().ToLowerInvariant().Replace(" ", "");
+            if (src.Contains("5.5") && src.Contains("8.5"))
+                return (5.5m, 8.5m);
+            if (src.Contains("8.5") && src.Contains("11"))
+                return (8.5m, 11m);
+            if (src.Contains("4.75") || src.Contains("4-3/4") || (src.Contains("5.25") && !src.Contains("8.5")))
+                return (4.75m, 5.25m);
+            return (6m, 9m);
+        }
+
+        private static string BuildPrintReadyCoverStyleDirective(string baseStyle, KdpCalculateResponse kdp)
+        {
+            var style = (baseStyle ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(style))
+                style = "Premium market-ready wrap cover with elegant typography and rich layered background.";
+
+            var layoutNote =
+                $"Paperback layout: {kdp.Bleed:F3} in bleed, spine {kdp.SpineWidth:F3} in for {kdp.PageCount} pages.";
+
+            var cohesion = string.Join(" ",
+                "MANDATORY PRINT WRAP RULES:",
+                "Create ONE continuous wraparound design (back + spine + front) with identical palette, textures, gradients, and ornamental language on all three panels.",
+                "The back cover MUST repeat the same background colors and decorative frame system as the front — never a different color scheme on the back.",
+                "The spine strip must visually continue the front/back background seamlessly across the exact spine width.",
+                layoutNote,
+                $"Full cover canvas: {kdp.FullCoverWidth:F3} in × {kdp.FullCoverHeight:F3} in.",
+                "Panel order left-to-right: back cover, spine, front cover.",
+                "No unrelated artwork on the back; back continues the front design with synopsis-safe space.");
+
+            return style.Contains("MANDATORY PRINT WRAP", StringComparison.OrdinalIgnoreCase)
+                ? style
+                : style + " " + cohesion;
         }
 
         /// <summary>Writes <see cref="Settings"/> rows. Values are clamped to <see cref="Settings.DbCompatMaxValueLength"/> until MySQL column is LONGTEXT.</summary>

@@ -79,3 +79,20 @@ Content-Type: application/json
 ### BFF health (after deploy)
 # @name bffhealth
 GET https://YOUR_APP_DOMAIN/health
+
+### KDP Cover Calculator — official 24-page example (local dev)
+@APP = http://localhost:5000
+
+POST {{APP}}/api/kdp/calculate
+Content-Type: application/json
+
+{
+  "pageCount": 24,
+  "trimWidth": 6,
+  "trimHeight": 9,
+  "dpi": 150,
+  "bleed": true
+}
+
+### KDP Cover Calculator — run built-in verification examples
+GET {{APP}}/api/kdp/verify

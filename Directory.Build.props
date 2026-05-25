@@ -8,6 +8,8 @@
   <PropertyGroup>
     <BaseIntermediateOutputPath>$(USERPROFILE)\.msbuild-out\EBookDashboard\obj\</BaseIntermediateOutputPath>
     <BaseOutputPath>$(USERPROFILE)\.msbuild-out\EBookDashboard\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'Tests'">$(USERPROFILE)\.msbuild-out\EBookDashboard.Tests\obj\</BaseIntermediateOutputPath>
+    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'Tests'">$(USERPROFILE)\.msbuild-out\EBookDashboard.Tests\bin\</BaseOutputPath>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\obj\**</DefaultItemExcludes>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\bin\**</DefaultItemExcludes>
   </PropertyGroup>

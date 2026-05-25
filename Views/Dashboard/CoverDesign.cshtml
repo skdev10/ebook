@@ -179,12 +179,14 @@
         border: 1px solid rgba(124, 58, 237, 0.12);
     }
     .cov-wrap-parts {
-        display: grid; grid-template-columns: 6fr 0.056fr 6fr; gap: 0.65rem; align-items: start;
+        display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; align-items: start;
         margin-bottom: 1rem;
     }
     @@media (max-width: 640px) {
         .cov-wrap-parts { grid-template-columns: 1fr; }
     }
+    .cov-wrap-part--spine,
+    .cov-wrap-full { display: none !important; }
     .cov-wrap-part {
         border-radius: 0.85rem; overflow: hidden; background: #f8fafc;
         border: 1px solid #e2e8f0; box-shadow: 0 4px 14px -8px rgba(15,23,42,0.15);
@@ -194,9 +196,7 @@
         color: #64748b; padding: 0.45rem 0.65rem; background: #fff; border-bottom: 1px solid #f1f5f9;
     }
     .cov-wrap-part img { width: 100%; height: auto; display: block; object-fit: fill; background: #fff; }
-    .cov-wrap-part--spine { max-width: none; margin: 0; }
     .cov-wrap-part--front img, .cov-wrap-part--back img { aspect-ratio: var(--cov-panel-aspect, 2 / 3); }
-    .cov-wrap-part--spine img { aspect-ratio: var(--cov-spine-aspect, 1 / 16); max-height: none; }
     .cov-wrap-full img {
         width: 100%; height: auto; aspect-ratio: var(--cov-wrap-aspect, auto);
         border-radius: 0.85rem; border: 1px solid #e2e8f0; background: #f8fafc;
@@ -312,44 +312,7 @@
                     </div>
             </div>
 
-            <div id="covPrintWrapModal" class="hidden fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-md">
-                <div class="cov-wrap-modal-panel">
-                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                        <div>
-                            <h3 class="text-lg font-semibold text-slate-900">Print-ready cover</h3>
-                            <p class="text-xs text-slate-500 mt-0.5">One-time preview — full wrap downloads from Publish</p>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span id="covWrapSavedBadge" class="cov-wrap-saved-badge hidden"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Saved</span>
-                            <button type="button" id="covPrintWrapClose" class="p-2 rounded-xl hover:bg-slate-100 text-slate-500 border border-slate-200/80" aria-label="Close"><i data-lucide="x" class="w-5 h-5"></i></button>
-                        </div>
-                    </div>
-                    <p id="covWrapKdpDebug" class="cov-wrap-kdp-debug" aria-live="polite"></p>
-                    <div class="cov-wrap-parts">
-                        <div class="cov-wrap-part cov-wrap-part--back">
-                            <div class="cov-wrap-part-label">Back</div>
-                            <img id="covPrintBackImg" alt="Back cover" />
-                        </div>
-                        <div class="cov-wrap-part cov-wrap-part--spine">
-                            <div class="cov-wrap-part-label">Spine</div>
-                            <img id="covPrintSpineImg" alt="Spine" />
-                        </div>
-                        <div class="cov-wrap-part cov-wrap-part--front">
-                            <div class="cov-wrap-part-label">Front</div>
-                            <img id="covPrintFrontImg" alt="Front cover" />
-                        </div>
-                    </div>
-                    <div class="cov-wrap-full mb-4">
-                        <p class="text-xs font-semibold text-slate-600 mb-2 uppercase tracking-wide">Full wrap spread</p>
-                        <img id="covPrintWrapImg" alt="Full wrap cover" />
-                    </div>
-                    <div class="flex flex-wrap gap-2 justify-end">
-                        <button type="button" id="covPrintWrapContinue" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 text-white px-5 py-2.5 text-sm font-semibold shadow-md shadow-violet-500/30 hover:bg-violet-700 transition-colors">
-                            Continue to Publish <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <!-- Print-ready wrap modal removed — download print-ready from Publish page only -->
 
             <input type="hidden" id="coverGeneratedPayload" value="" />
 
@@ -684,6 +647,9 @@
         );
     }
 
+    /** Wraparound from /api/generate-spine-book-cover — never slice/recompose on the client. */
+    var coverWraparoundRef = '';
+
     var printWrapSaved = false;
     var printWrapAssets = { front: '', spine: '', back: '', wrap: '' };
     var lastKdpLayout = null;
@@ -712,54 +678,31 @@
         try { sessionStorage.setItem('coverDesign_selectedUrl', selectedPath); } catch (_) {}
     }
 
-    async function showPrintWrapModal(assets, saved, layoutOrServer, openModal) {
+    function showPrintWrapModal(assets, saved, layoutOrServer, openModal) {
         assets = assets || {};
-        var shouldOpen = openModal !== false;
-        var wrap = assets.wrap || '';
-        var layout = layoutOrServer && layoutOrServer.spineIn ? layoutOrServer : lastKdpLayout;
-        if (!layout && layoutOrServer && window.CoverKdpExport && window.CoverKdpExport.layoutFromServerKdp) {
-            layout = window.CoverKdpExport.layoutFromServerKdp(layoutOrServer);
-        }
-        if (layout) lastKdpLayout = layout;
-
-        var previewDpi = assets.previewDpi || 150;
-        var pageCount = assets.pageCount || (layout && layout.pageCount) || (layoutOrServer && layoutOrServer.pageCount);
-
-        if (assets.panels) {
-            assets = Object.assign({}, assets, assets.panels);
-        } else if (wrap && layout && window.CoverKdpExport && window.CoverKdpExport.extractPanelsFromWrap) {
-            try {
-                var panels = await window.CoverKdpExport.extractPanelsFromWrap(wrap, layout);
-                assets = Object.assign({}, assets, panels);
-            } catch (cropErr) {
-                console.warn('[CoverDesign] wrap panel crop failed', cropErr);
-            }
-        }
-
-        if (layout && window.CoverKdpExport && window.CoverKdpExport.applyWrapPartsGridLayout) {
-            window.CoverKdpExport.applyWrapPartsGridLayout(layout, previewDpi);
-        }
+        var wrap = assets.wrap || coverWraparoundRef || '';
+        var pageCount = assets.pageCount || (layoutOrServer && layoutOrServer.pageCount) || 0;
 
         printWrapAssets = {
             front: assets.front || selectedPath || '',
-            spine: assets.spine || '',
             back: assets.back || '',
-            wrap: wrap || assets.wrap || '',
-            pageCount: pageCount,
-            previewDpi: previewDpi
+            wrap: wrap,
+            pageCount: pageCount
         };
+        if (wrap) coverWraparoundRef = wrap;
+
         setImgSrcOrHide(document.getElementById('covPrintFrontImg'), printWrapAssets.front);
-        setImgSrcOrHide(document.getElementById('covPrintSpineImg'), printWrapAssets.spine);
         setImgSrcOrHide(document.getElementById('covPrintBackImg'), printWrapAssets.back);
-        setImgSrcOrHide(document.getElementById('covPrintWrapImg'), printWrapAssets.wrap);
 
         var debugEl = document.getElementById('covWrapKdpDebug');
-        if (debugEl && window.CoverKdpExport && window.CoverKdpExport.formatLayoutDebug) {
-            debugEl.textContent = assets.debugLabel || window.CoverKdpExport.formatLayoutDebug(layout, pageCount, previewDpi);
+        if (debugEl) {
+            debugEl.textContent = pageCount
+                ? 'pages=' + pageCount + ' | wraparound stored — download print-ready from Publish'
+                : 'wraparound stored — download print-ready from Publish';
         }
 
         setPrintWrapSaved(saved);
-        if (shouldOpen) {
+        if (openModal !== false) {
             var modal = document.getElementById('covPrintWrapModal');
             if (modal) modal.classList.remove('hidden');
         }
@@ -770,60 +713,20 @@
         if (!bookId) return Promise.resolve();
         return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
             .then(function (r) { return r.json(); })
-            .then(async function (d) {
+            .then(function (d) {
                 if (!d || !d.success || !d.cover) return;
                 var c = d.cover;
                 if (!c.front && !c.wrap) return;
-                var layout = window.CoverKdpExport && window.CoverKdpExport.layoutFromServerKdp
-                    ? window.CoverKdpExport.layoutFromServerKdp(d) : null;
-                if (layout) lastKdpLayout = layout;
 
-                if (c.front && layout && window.CoverKdpExport && window.CoverKdpExport.composePrintWrapFromParts) {
-                    try {
-                        var composed = await window.CoverKdpExport.composePrintWrapFromParts(c.front, c.spine || '', c.back || '', {
-                            pageCount: d.pageCount || layout.pageCount || 100,
-                            trimKey: '6x9',
-                            paperType: (d.kdp && d.kdp.paperType) || 'White paper',
-                            interiorType: (d.kdp && d.kdp.interiorType) || 'Black & white',
-                            bindingType: (d.kdp && d.kdp.bindingType) || 'Paperback',
-                            layout: layout,
-                            previewDpi: 150,
-                            useApiSpineArt: false,
-                            useApiBackArt: false
-                        });
-                        if (composed && composed.dataUrl) {
-                            printWrapAssets = {
-                                front: (composed.panels && composed.panels.front) || c.front,
-                                spine: (composed.panels && composed.panels.spine) || '',
-                                back: (composed.panels && composed.panels.back) || '',
-                                wrap: composed.dataUrl,
-                                panels: composed.panels,
-                                pageCount: composed.pageCount,
-                                previewDpi: composed.previewDpi,
-                                debugLabel: composed.debugLabel
-                            };
-                            applyFrontOnlyPreview(c.front);
-                            setPrintWrapSaved(true);
-                            return;
-                        }
-                    } catch (recomposeErr) {
-                        console.warn('[CoverDesign] saved wrap recompose failed', recomposeErr);
-                    }
-                }
-
-                if (c.wrap || c.front) {
-                    printWrapAssets = { front: c.front || '', spine: c.spine || '', back: c.back || '', wrap: c.wrap || '', pageCount: d.pageCount };
-                    if (c.wrap && layout && window.CoverKdpExport && window.CoverKdpExport.extractPanelsFromWrap) {
-                        try {
-                            var panels = await window.CoverKdpExport.extractPanelsFromWrap(c.wrap, layout);
-                            printWrapAssets.spine = panels.spine || printWrapAssets.spine;
-                            printWrapAssets.back = panels.back || printWrapAssets.back;
-                            printWrapAssets.front = panels.front || printWrapAssets.front;
-                        } catch (_) { /* keep stored refs */ }
-                    }
-                    setPrintWrapSaved(!!c.wrap);
-                    if (c.front) applyFrontOnlyPreview(c.front);
-                }
+                if (c.wrap) coverWraparoundRef = c.wrap;
+                printWrapAssets = {
+                    front: c.front || '',
+                    back: c.back || '',
+                    wrap: c.wrap || '',
+                    pageCount: d.pageCount || 0
+                };
+                setPrintWrapSaved(!!c.wrap);
+                if (c.front) applyFrontOnlyPreview(c.front);
             })
             .catch(function () {});
     }
@@ -1002,7 +905,7 @@
             applyGenerationSuccess(d, 'generate');
 
             if (isPrintReadyPlatform() || coverFlowPrintReady) {
-                setBusy(true, 'Building full wrap (API: front + spine + back)…');
+                setBusy(true, 'Generating full wraparound cover (back + spine + front)…');
                 var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.estimatedPages || selectedBook.totalPages)) || 0;
                 if (!pageCount && selectedBook && selectedBook.bookId) {
                     try {
@@ -1012,9 +915,9 @@
                             pageCount = metricsData.pageCount;
                             selectedBook.pageCount = pageCount;
                         }
-                    } catch (_) { /* fallback below */ }
+                    } catch (_) {}
                 }
-                if (!pageCount) pageCount = 100;
+                if (!pageCount) pageCount = 200;
                 try {
                     var pr = await fetch('/Dashboard/GeneratePrintReadyCover', {
                         method: 'POST',
@@ -1029,69 +932,20 @@
                         })
                     });
                     var prData = await pr.json();
-                    var frontUrl = (prData && prData.cover && prData.cover.front) ? prData.cover.front : (d.coverUrl || selectedPath);
-                    var spineUrl = (prData && prData.cover && prData.cover.spine) ? prData.cover.spine : '';
-                    var backUrl = (prData && prData.cover && prData.cover.back) ? prData.cover.back : '';
-                    var wrapUrl = (prData && prData.cover && prData.cover.wrap) ? prData.cover.wrap : '';
-                    var pagesForWrap = (prData && prData.pageCount) ? prData.pageCount : pageCount;
-                    var serverLayout = (prData && window.CoverKdpExport && window.CoverKdpExport.layoutFromServerKdp)
-                        ? window.CoverKdpExport.layoutFromServerKdp(prData) : null;
-                    if (prData && prData.success && frontUrl && window.CoverKdpExport && typeof window.CoverKdpExport.composePrintWrapFromParts === 'function') {
-                        try {
-                            var composed = await window.CoverKdpExport.composePrintWrapFromParts(frontUrl, spineUrl, backUrl, {
-                                pageCount: pagesForWrap,
-                                trimKey: '6x9',
-                                paperType: 'White paper',
-                                title: (bookTitle.value || '').trim() || (selectedBook && selectedBook.title) || '',
-                                author: (authorName.value || '').trim() || (selectedBook && selectedBook.authorName) || '',
-                                synopsis: (imageDirection.value || '').trim(),
-                                previewDpi: 150,
-                                layout: serverLayout,
-                                useApiSpineArt: false,
-                                useApiBackArt: false
-                            });
-                            if (composed && composed.dataUrl) {
-                                wrapUrl = composed.dataUrl;
-                                if (composed.layout) lastKdpLayout = composed.layout;
-                                if (window.CoverKdpExport.persistComposedWrap) {
-                                    await window.CoverKdpExport.persistComposedWrap(selectedBook.bookId, composed.dataUrl, {
-                                        pageCount: composed.pageCount,
-                                        spineInches: composed.spineInches
-                                    });
-                                }
-                                printWrapAssets = {
-                                    front: (composed.panels && composed.panels.front) || frontUrl,
-                                    spine: (composed.panels && composed.panels.spine) || '',
-                                    back: (composed.panels && composed.panels.back) || '',
-                                    wrap: wrapUrl,
-                                    panels: composed.panels,
-                                    pageCount: composed.pageCount,
-                                    previewDpi: composed.previewDpi,
-                                    debugLabel: composed.debugLabel
-                                };
-                                applyFrontOnlyPreview(frontUrl);
-                                showPrintWrapModal(printWrapAssets, true, composed.layout || serverLayout, true);
-                                toast('success', 'Full wrap ready — spine ' + (composed.spineInches || 0).toFixed(3) + ' in for ' + pagesForWrap + ' pages. Download from Publish.');
-                                setBusy(false);
-                                return;
-                            }
-                        } catch (composeErr) {
-                            console.warn('[CoverDesign] KDP wrap compose failed', composeErr);
-                            wrapUrl = '';
-                        }
-                    } else if (prData && prData.success && frontUrl) {
-                        wrapUrl = '';
-                    }
-                    if (prData && prData.success && frontUrl && !wrapUrl) {
-                        toast('error', 'Could not build print wrap at correct spine width. Try again.');
-                    }
-                    if (prData && prData.success && wrapUrl) {
-                        applyFrontOnlyPreview(frontUrl);
-                        printWrapAssets = { front: frontUrl, spine: spineUrl, back: backUrl, wrap: wrapUrl };
-                        showPrintWrapModal(printWrapAssets, true, serverLayout || prData, true);
-                        toast('success', 'Full wrap ready — download from Publish when you are ready.');
+                    if (prData && prData.success) {
+                        var frontUrl = (prData.cover && prData.cover.front) || d.coverUrl || selectedPath;
+                        var wrapUrl = (prData.cover && prData.cover.wrap) || '';
+                        if (wrapUrl) coverWraparoundRef = wrapUrl;
+                        printWrapAssets = {
+                            front: frontUrl,
+                            back: (prData.cover && prData.cover.back) || '',
+                            wrap: wrapUrl,
+                            pageCount: prData.pageCount || pageCount
+                        };
+                        if (frontUrl) applyFrontOnlyPreview(frontUrl);
+                        toast('success', 'Wraparound cover ready (' + (prData.pageCount || pageCount) + ' pages). Download print-ready from Publish.');
                     } else {
-                        toast('error', (prData && prData.message) ? prData.message : 'Print wrap API did not return an image.');
+                        toast('error', (prData && prData.message) || 'Print-ready cover generation failed.');
                     }
                 } catch (e) {
                     toast('error', 'Print wrap generation failed.');
@@ -1252,20 +1106,6 @@
         refreshBookFromServer(this.value).then(function () { loadSavedPrintWrapAssets(this.value); }.bind(this));
     });
     btnGenerate.addEventListener('click', function () { generateCoverFromDashboard(); });
-    var covPrintWrapClose = document.getElementById('covPrintWrapClose');
-    if (covPrintWrapClose) covPrintWrapClose.addEventListener('click', function () {
-        var m = document.getElementById('covPrintWrapModal');
-        if (m) m.classList.add('hidden');
-    });
-    var covPrintWrapContinue = document.getElementById('covPrintWrapContinue');
-    if (covPrintWrapContinue) covPrintWrapContinue.addEventListener('click', function () {
-        if (!selectedBook || !selectedBook.bookId) {
-            toast('error', 'No book loaded.');
-            return;
-        }
-        try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(selectedBook.bookId)); } catch (_) {}
-        window.location.href = '/Dashboard/Publish?bookId=' + encodeURIComponent(selectedBook.bookId) + (coverFlowPrintReady || isPrintReadyPlatform() ? '&flow=printready' : '');
-    });
     if (btnRegenerate) btnRegenerate.addEventListener('click', function () {
         console.log('[CoverDesign] Regenerate clicked');
         generateCoverFromDashboard('/Dashboard/RegenerateCover');

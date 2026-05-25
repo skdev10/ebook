@@ -269,9 +269,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Audio to Text API",
+        Title = "EBookDashboard API",
         Version = "v1",
-        Description = "API for converting audio files to text using Azure Cognitive Services"
+        Description = "API for EBookDashboard including Amazon KDP paperback cover calculator (POST /api/kdp/calculate)."
     });
     c.OperationFilter<SwaggerFileOperationFilter>();
 });
@@ -284,6 +284,10 @@ builder.Services.AddHttpClient<IChatService, ChatService>();
 // Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IBookDesignService, BookDesignService>();
+builder.Services.AddSingleton<EBookDashboard.Application.Kdp.Interfaces.IKdpCoverDimensionService,
+    EBookDashboard.Application.Kdp.Services.KdpCoverDimensionService>();
+builder.Services.AddSingleton<EBookDashboard.Services.CoverCalculator>();
+builder.Services.AddSingleton<EBookDashboard.Services.CoverConformer>();
 
 // AJAX profile/password: allow antiforgery token in header (must match client: RequestVerificationToken)
 builder.Services.AddAntiforgery(options =>
@@ -363,6 +367,12 @@ if (!app.Environment.IsDevelopment())
 //}
 
 // HTTPS redirect only when Kestrel actually listens on HTTPS (avoids "Failed to determine the https port" on http-only profiles).
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "EBookDashboard API v1"));
+}
+
 if (httpsEndpointsConfigured)
 {
     app.UseWhen(
