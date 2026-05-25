@@ -70,5 +70,20 @@ namespace EBookDashboard.Models.DTO
         public string? CoverStyle { get; set; }
         public string? Size { get; set; }
         public string? Quality { get; set; }
+
+        /// <summary>Paperback (KDP) or Hardcover (case-bound: 1" wrap + 3/8" hinges).</summary>
+        public string? BindingType { get; set; }
+    }
+
+    /// <summary>POST /Dashboard/SavePrintReadyComposedWrap — persist client-side KDP-calibrated wrap PNG.</summary>
+    public class SavePrintReadyWrapRequest
+    {
+        [Required]
+        public int BookId { get; set; }
+
+        public string? WrapImageDataUrl { get; set; }
+        public string? WrapImageBase64 { get; set; }
+        public int? PageCount { get; set; }
+        public double? SpineInches { get; set; }
     }
 }

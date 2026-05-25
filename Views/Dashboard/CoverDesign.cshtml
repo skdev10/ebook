@@ -265,7 +265,7 @@
                         <button type="button" id="covPrintWrapClose" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Close"><i data-lucide="x" class="w-5 h-5"></i></button>
                     </div>
                     <img id="covPrintWrapImg" alt="Full wrap cover" class="w-full rounded-xl border border-slate-200 bg-slate-50" />
-                    <p class="text-xs text-slate-500 mt-3">Spine width computed from your page count. Continue to Publish when ready.</p>
+                    <p class="text-xs text-slate-500 mt-3">Spine width matches your page count (thin for fewer pages). Back and spine use the same colors as the front cover.</p>
                 </div>
             </div>
 
@@ -791,8 +791,46 @@
                         })
                     });
                     var prData = await pr.json();
-                    var wrapUrl = (prData && prData.cover && prData.cover.wrap) ? prData.cover.wrap : '';
                     var frontUrl = (prData && prData.cover && prData.cover.front) ? prData.cover.front : (d.coverUrl || selectedPath);
+                    var spineUrl = (prData && prData.cover && prData.cover.spine) ? prData.cover.spine : '';
+                    var backUrl = (prData && prData.cover && prData.cover.back) ? prData.cover.back : '';
+                    var wrapUrl = (prData && prData.cover && prData.cover.wrap) ? prData.cover.wrap : '';
+                    var pagesForWrap = (prData && prData.pageCount) ? prData.pageCount : pageCount;
+                    if (prData && prData.success && frontUrl && window.CoverKdpExport && typeof window.CoverKdpExport.composePrintWrapFromParts === 'function') {
+                        try {
+                            var serverLayout = window.CoverKdpExport.layoutFromServerKdp
+                                ? window.CoverKdpExport.layoutFromServerKdp(prData) : null;
+                            var composed = await window.CoverKdpExport.composePrintWrapFromParts(frontUrl, spineUrl, backUrl, {
+                                pageCount: pagesForWrap,
+                                trimKey: '6x9',
+                                paperType: 'White paper',
+                                title: (bookTitle.value || '').trim() || (selectedBook && selectedBook.title) || '',
+                                author: (authorName.value || '').trim() || (selectedBook && selectedBook.authorName) || '',
+                                synopsis: (imageDirection.value || '').trim(),
+                                previewDpi: 150,
+                                layout: serverLayout,
+                                useApiSpineArt: false,
+                                useApiBackArt: false
+                            });
+                            if (composed && composed.dataUrl) {
+                                wrapUrl = composed.dataUrl;
+                                if (window.CoverKdpExport.persistComposedWrap) {
+                                    await window.CoverKdpExport.persistComposedWrap(selectedBook.bookId, composed.dataUrl, {
+                                        pageCount: composed.pageCount,
+                                        spineInches: composed.spineInches
+                                    });
+                                }
+                            }
+                        } catch (composeErr) {
+                            console.warn('[CoverDesign] KDP wrap compose failed', composeErr);
+                            wrapUrl = '';
+                        }
+                    } else if (prData && prData.success && frontUrl) {
+                        wrapUrl = '';
+                    }
+                    if (prData && prData.success && frontUrl && !wrapUrl) {
+                        toast('error', 'Could not build print wrap at correct spine width. Try again.');
+                    }
                     if (prData && prData.success && wrapUrl) {
                         if (frontUrl) setCoverImageVisible(toUrl(frontUrl));
                         var modal = document.getElementById('covPrintWrapModal');
@@ -800,7 +838,7 @@
                         if (img) img.src = toUrl(wrapUrl);
                         if (modal) modal.classList.remove('hidden');
                         if (sequentialCoverWrap) sequentialCoverWrap.classList.add('hidden');
-                        toast('success', 'Full wrap ready — matching front, spine & back.');
+                        toast('success', 'Full wrap ready — spine sized to your page count, back matched to front.');
                     } else {
                         toast('error', (prData && prData.message) ? prData.message : 'Print wrap API did not return an image.');
                     }

@@ -1248,6 +1248,15 @@ namespace EBookDashboard.Controllers
             var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
             var pageCountForCover = metrics.PageCount > 0 ? metrics.PageCount : Math.Max(24, req.PageCount ?? 24);
+            var trimSize = NormalizeTrimSizeForApi(req.TrimSize, exportOpt);
+            var paperType = InferPaperTypeFromGenre(details.Genre ?? book.Genre);
+            var bindingType = string.IsNullOrWhiteSpace(req.BindingType) ? "Paperback" : req.BindingType.Trim();
+            var kdpDims = KdpPrintCoverCalculator.Calculate(
+                pageCountForCover,
+                trimSize,
+                paperType,
+                interiorType: "Black & white",
+                bindingType: bindingType);
 
             var title = (details.BookTitle ?? book.Title ?? "My Book").Trim();
             if (string.IsNullOrWhiteSpace(title)) title = "My Book";
@@ -1260,19 +1269,18 @@ namespace EBookDashboard.Controllers
             if (string.IsNullOrWhiteSpace(authorName))
                 authorName = sessionUserId.Value.ToString();
 
-            var coverStyle = (req.CoverStyle ?? _externalApiOptions.Value.PrintReadyCoverStyle ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(coverStyle))
+            var coverStyleBase = (req.CoverStyle ?? _externalApiOptions.Value.PrintReadyCoverStyle ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(coverStyleBase))
             {
-                coverStyle = "Deep navy blue background with subtle damask pattern, ornate gold baroque decorative frame on front cover, elegant gold serif typography, luxurious premium publishing style. Keep back cover and spine in the same palette, texture, and ornamental language as the front cover for one cohesive wraparound design.";
+                coverStyleBase = "Deep navy blue background with subtle damask pattern, ornate gold baroque decorative frame on front cover, elegant gold serif typography, luxurious premium publishing style.";
             }
+            var coverStyle = KdpPrintCoverCalculator.BuildCohesiveCoverStyleDirective(coverStyleBase, kdpDims);
             var quality = BookApiInputValidation.NormalizeQuality(
                 (req.Quality ?? _externalApiOptions.Value.PrintReadyCoverQuality ?? "medium").Trim(),
                 "medium");
             var size = BookApiInputValidation.NormalizeSize(
                 (req.Size ?? _externalApiOptions.Value.PrintReadyCoverSize ?? "1536x1024").Trim(),
                 "1536x1024");
-            var trimSize = NormalizeTrimSizeForApi(req.TrimSize, exportOpt);
-
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateSpineBookCoverUrl, "/api/generate-spine-book-cover").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
@@ -1287,7 +1295,21 @@ namespace EBookDashboard.Controllers
                 ["size"] = size,
                 ["quality"] = quality,
                 ["Interior_trim_size"] = trimSize,
-                ["page_count"] = pageCountForCover
+                ["page_count"] = pageCountForCover,
+                ["binding_type"] = kdpDims.BindingType,
+                ["paper_type"] = kdpDims.PaperType,
+                ["interior_type"] = kdpDims.InteriorType,
+                ["spine_width_inches"] = Math.Round(kdpDims.SpineInches, 4),
+                ["spine_width_mm"] = Math.Round(kdpDims.SpineMm, 2),
+                ["wrap_width_inches"] = Math.Round(kdpDims.WrapWidthInches, 4),
+                ["wrap_height_inches"] = Math.Round(kdpDims.WrapHeightInches, 4),
+                ["wrap_width_mm"] = Math.Round(kdpDims.WrapWidthMm, 2),
+                ["wrap_height_mm"] = Math.Round(kdpDims.WrapHeightMm, 2),
+                ["bleed_inches"] = kdpDims.OuterMarginInches,
+                ["wrap_margin_inches"] = kdpDims.OuterMarginInches,
+                ["hinge_gap_inches"] = kdpDims.HingeGapInches,
+                ["panel_width_inches"] = kdpDims.TrimWidthInches,
+                ["panel_height_inches"] = kdpDims.TrimHeightInches
             };
 
             try
@@ -1340,6 +1362,31 @@ namespace EBookDashboard.Controllers
                     bookId = req.BookId,
                     pageCount = pageCountForCover,
                     trimSize,
+                    kdp = new
+                    {
+                        spineInches = kdpDims.SpineInches,
+                        spineMm = kdpDims.SpineMm,
+                        wrapWidthInches = kdpDims.WrapWidthInches,
+                        wrapHeightInches = kdpDims.WrapHeightInches,
+                        wrapWidthMm = kdpDims.WrapWidthMm,
+                        wrapHeightMm = kdpDims.WrapHeightMm,
+                        paperType = kdpDims.PaperType,
+                        interiorType = kdpDims.InteriorType,
+                        bindingType = kdpDims.BindingType,
+                        outerMarginInches = kdpDims.OuterMarginInches,
+                        hingeGapInches = kdpDims.HingeGapInches,
+                        panelWidthInches = kdpDims.TrimWidthInches,
+                        panelHeightInches = kdpDims.TrimHeightInches
+                    },
+                    layout = new
+                    {
+                        backPanelXInches = kdpDims.BackPanelXInches,
+                        hingeLeftXInches = kdpDims.HingeLeftXInches,
+                        spineXInches = kdpDims.SpineXInches,
+                        hingeRightXInches = kdpDims.HingeRightXInches,
+                        frontPanelXInches = kdpDims.FrontPanelXInches,
+                        panelTopYInches = kdpDims.PanelTopYInches
+                    },
                     cover = new
                     {
                         wrap = persistedWrap,
@@ -1366,6 +1413,50 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
             exportOpt.MergeFromBookFormatting(fmtRow);
             return exportOpt;
+        }
+
+        private static string InferPaperTypeFromGenre(string? genre)
+        {
+            var g = (genre ?? "").Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(g)) return "White paper";
+            if (g.Contains("kids") || g.Contains("children") || g.Contains("child") || g.Contains("picture"))
+                return "White paper";
+            if (g.Contains("romance") || g.Contains("fantasy") || g.Contains("historical") || g.Contains("poetry") || g.Contains("drama"))
+                return "Cream paper";
+            return "White paper";
+        }
+
+        [HttpPost]
+        [Route("SavePrintReadyComposedWrap")]
+        public async Task<IActionResult> SavePrintReadyComposedWrap([FromBody] SavePrintReadyWrapRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+
+            var book = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (book == null)
+                return Json(new { success = false, message = "Book not found." });
+
+            var wrapRef = (req.WrapImageDataUrl ?? req.WrapImageBase64 ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(wrapRef))
+                return Json(new { success = false, message = "Wrap image is required." });
+
+            var persisted = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, wrapRef, cancellationToken);
+            if (string.IsNullOrWhiteSpace(persisted))
+                return Json(new { success = false, message = "Could not save wrap image." });
+
+            await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrap", persisted, "Book", cancellationToken);
+            if (req.SpineInches.HasValue)
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadySpineInches", req.SpineInches.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), "Book", cancellationToken);
+            if (req.PageCount.HasValue)
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", req.PageCount.Value.ToString(), "Book", cancellationToken);
+
+            return Json(new { success = true, wrap = persisted });
         }
 
         private static string NormalizeTrimSizeForApi(string? trimFromRequest, BookPdfExportOptions exportOptions)

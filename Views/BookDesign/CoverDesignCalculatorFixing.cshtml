@@ -7,6 +7,8 @@
     var displayTitle = (Model?.Title ?? "").Trim();
     if (string.IsNullOrEmpty(displayTitle) || displayTitle.Equals("No Book Selected", StringComparison.OrdinalIgnoreCase))
         displayTitle = bookId > 0 ? ("Book #" + bookId) : "";
+    var displayAuthor = (ViewBag.DisplayAuthorName as string ?? "").Trim();
+    var bylineText = string.IsNullOrWhiteSpace(displayAuthor) ? "" : ("by " + displayAuthor);
 }
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
@@ -216,6 +218,13 @@
         margin-top: 0.45rem;
     }
     .pr-metric strong { color: #0f172a; font-size: 0.8rem; }
+    .pr-spec-hidden { display: none !important; }
+    .pr-premium-note {
+        font-size: 0.75rem;
+        color: #64748b;
+        line-height: 1.45;
+        margin-top: 0.35rem;
+    }
     .pr-cover-wrap {
         border: 1px solid #e2e8f0;
         border-radius: 0.82rem;
@@ -803,16 +812,46 @@
         gap: 10px;
     }
     .reader-chrome-row label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
-    /* ----- Ebook-style preview column (AI Writer `#bookResult` pattern) ----- */
-    .fmt-preview-header {
+    /* ----- Ebook-style preview column: title, byline, and page preview share one left edge ----- */
+    .fmt-preview-stack {
+        --fmt-preview-pad-x: clamp(1.5rem, 4vw, 2.5rem);
         width: 100%;
         max-width: min(100%, 42rem);
+        margin-inline: 0;
+        margin-right: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .fmt-preview-header {
+        width: 100%;
+        max-width: 100%;
+        text-align: left;
+        padding-inline: var(--fmt-preview-pad-x);
+        box-sizing: border-box;
+    }
+    .fmt-preview-stack #fmt-book-result.fmt-book-result {
+        padding-inline: var(--fmt-preview-pad-x);
+    }
+    .fmt-preview-header #formatting-preview-title {
+        text-align: left;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    .fmt-preview-header #fmt-preview-byline {
+        text-align: left;
+        margin-left: 0;
+        padding-left: 0;
+        font-style: normal;
+        letter-spacing: 0.01em;
     }
     #fmt-studio-stage.fmt-studio-stage {
         width: 100%;
-        max-width: min(100%, 28rem);
+        max-width: 100%;
         min-height: 0;
-        margin: 0 auto;
+        margin: 0;
         display: flex;
         flex-direction: column;
         flex: 1 1 auto;
@@ -823,6 +862,20 @@
         box-shadow: none;
         border-radius: 0;
         padding: 0;
+    }
+    #fmt-studio-stage #fmt-book-result {
+        width: 100%;
+        max-width: 100%;
+        margin-inline: 0;
+    }
+    #fmt-studio-stage .reader-page-title {
+        text-align: left;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    #fmt-studio-stage .reader-content-wrap.interior-classic .classic-chapter-label,
+    #fmt-studio-stage .reader-content-wrap.interior-classic .classic-chapter-title {
+        text-align: left;
     }
     #fmt-studio-stage .reader-page-body p,
     #fmt-studio-stage .reader-page-body li {
@@ -1313,19 +1366,6 @@
                             </div>
                         </div>
 
-                        <div id="fmt-export-panel" class="hidden mt-3 rounded-xl border border-violet-200 bg-violet-50/80 p-4 space-y-2">
-                            <p class="text-xs font-semibold text-violet-900 uppercase tracking-wide">Export for stores</p>
-                            <p id="fmt-export-hint" class="text-xs text-violet-800/90 leading-snug">EPUB: cover first, then chapters. Print-ready: one click downloads interior PDF + full wrap cover.</p>
-                            <div class="flex flex-col gap-2">
-                                <button type="button" id="fmt-btn-export-epub" class="formatter-ui-radius w-full inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-4 py-2.5 text-sm hover:bg-violet-700 shadow-md">
-                                    <i class="fas fa-book"></i> Download EPUB
-                                </button>
-                                <button type="button" id="fmt-btn-export-print-pack" class="hidden formatter-ui-radius w-full inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-4 py-2.5 text-sm hover:bg-violet-50">
-                                    <i class="fas fa-file-archive"></i> Export print pack (PDF + cover)
-                                </button>
-                            </div>
-                        </div>
-
                     </div>
 
                     <div class="mt-4 flex flex-col gap-3" data-guided-tour="fmt-actions" id="fmt-actions-panel">
@@ -1338,14 +1378,15 @@
                 </div>
 
                 <!-- Right: studio preview — aligned with AI Book Writer preview column -->
-                <div id="fmt-right-preview-column" class="flex-1 flex flex-col min-w-[300px] min-h-0 overflow-y-auto overflow-x-hidden">
-                    <div class="mb-4 fmt-preview-header" id="fmt-preview-accent-host">
+                <div id="fmt-right-preview-column" class="flex-1 flex flex-col min-w-[300px] min-h-0 overflow-y-auto overflow-x-hidden items-stretch">
+                    <div class="fmt-preview-stack flex-1 flex flex-col min-h-0 w-full">
+                    <div class="mb-3 fmt-preview-header shrink-0" id="fmt-preview-accent-host">
                         <div class="flex items-center gap-2 mb-2">
                             <div class="w-3 h-[2px] bg-purple-600"></div>
                             <span class="text-purple-700 font-bold text-xs uppercase tracking-wide">Ebook preview</span>
                         </div>
-                        <h2 id="formatting-preview-title" class="font-serif text-2xl sm:text-3xl text-gray-900 mb-1 tracking-tight">@(bookId > 0 && !string.IsNullOrWhiteSpace(displayTitle) && !displayTitle.Equals("No Book Selected", StringComparison.OrdinalIgnoreCase) ? displayTitle : "Formatting studio")</h2>
-                        <p id="fmt-preview-byline" class="text-sm text-slate-500 mb-3 hidden" aria-hidden="true"></p>
+                        <h2 id="formatting-preview-title" class="font-serif text-2xl sm:text-3xl text-gray-900 mb-0.5 tracking-tight leading-tight">@(bookId > 0 && !string.IsNullOrWhiteSpace(displayTitle) && !displayTitle.Equals("No Book Selected", StringComparison.OrdinalIgnoreCase) ? displayTitle : "Formatting studio")</h2>
+                        <p id="fmt-preview-byline" class="text-sm text-slate-600 mb-0 @(string.IsNullOrWhiteSpace(bylineText) ? "hidden" : "")" @(string.IsNullOrWhiteSpace(bylineText) ? "aria-hidden=\"true\"" : "")>@bylineText</p>
                     </div>
 
                     <div id="fmt-studio-stage" class="fmt-studio-stage flex flex-col flex-1 min-h-0">
@@ -1372,7 +1413,7 @@
                                     </button>
                                 </div>
                                 <!-- Match AI Book Writer `#bookResult` lavender panel + chapter title + scroll host -->
-                                <div id="fmt-book-result" class="fmt-book-result relative rounded-2xl p-6 md:p-8 lg:p-10 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg" style="background-color:#f5f3ff;border-color:#ddd6fe;">
+                                <div id="fmt-book-result" class="fmt-book-result relative rounded-2xl py-6 md:py-8 lg:py-10 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg" style="background-color:#f5f3ff;border-color:#ddd6fe;">
                                     <h3 id="fmt-preview-chapter-header" class="text-xl sm:text-2xl font-medium text-slate-700 tracking-tight mb-2 shrink-0 hidden" aria-live="polite">Reading preview</h3>
                                     <div id="fmt-fullbook-read-bar" class="fmt-fullbook-read-bar" role="toolbar" aria-label="Read full book — previous and next page">
                                         <button type="button" id="fmt-btn-read-prev-page" class="fmt-read-page-btn" disabled title="Previous page" aria-label="Previous page">
@@ -1449,6 +1490,7 @@
                             </div>
                         </div>
                     </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1468,9 +1510,9 @@
         </div>
         <div class="pr-modal-body">
             <section class="pr-card">
-                <h4 class="text-sm font-semibold text-slate-900 mb-2">Auto-filled print inputs</h4>
-                <p class="text-xs text-slate-500">No manual typing required. Inputs are calculated from manuscript length and configuration.</p>
-                <div class="pr-auto-grid">
+                <h4 class="text-sm font-semibold text-slate-900 mb-2">Print-ready wrap</h4>
+                <p class="pr-premium-note">Wrap is built automatically: <strong>back panel → hinge → spine (from page count) → hinge → front panel</strong>, with outer margins — same structure as a case-bound cover diagram. Paperback uses KDP bleed; dimensions follow your manuscript page count.</p>
+                <div class="pr-auto-grid pr-spec-hidden" aria-hidden="true">
                     <div class="pr-auto-row"><span class="pr-auto-label">Paper type</span><strong class="pr-auto-value" id="prModalPaperTypeValue">White paper</strong></div>
                     <div class="pr-auto-row"><span class="pr-auto-label">Trim size</span><strong class="pr-auto-value" id="prModalTrimSizeValue">6 x 9 in</strong></div>
                     <div class="pr-auto-row"><span class="pr-auto-label">Page count (source-of-truth)</span><strong class="pr-auto-value" id="prModalPageCountValue">24</strong></div>
@@ -1478,7 +1520,7 @@
                     <div class="pr-auto-row"><span class="pr-auto-label">Author</span><strong class="pr-auto-value" id="prModalAuthorValue">—</strong></div>
                     <div class="pr-auto-row"><span class="pr-auto-label">Genre theme</span><strong class="pr-auto-value" id="prModalGenreValue">—</strong></div>
                 </div>
-                <div class="mt-2">
+                <div class="mt-2 pr-spec-hidden" aria-hidden="true">
                     <div class="pr-metric"><span>Spine width</span><strong id="prModalSpineIn">—</strong></div>
                     <div class="pr-metric"><span>Spine width (mm)</span><strong id="prModalSpineMm">—</strong></div>
                     <div class="pr-metric"><span>Full wrap size (in)</span><strong id="prModalWrapIn">—</strong></div>
@@ -1530,6 +1572,7 @@
 
 <div id="toast-formatter" class="toast-formatter">Notification</div>
 
+<script src="~/js/cover-kdp-export.js" asp-append-version="true"></script>
 <script>
 (function() {
     'use strict';
@@ -2728,11 +2771,48 @@
             if (!response.ok || !data || data.success === false) {
                 throw new Error((data && data.message) ? data.message : ('HTTP ' + response.status));
             }
-            var wrapUrl = data.cover && data.cover.wrap ? data.cover.wrap : '';
+            var frontUrl = (data.cover && data.cover.front) ? data.cover.front : '';
+            var spineUrl = (data.cover && data.cover.spine) ? data.cover.spine : '';
+            var backUrl = (data.cover && data.cover.back) ? data.cover.back : '';
+            var pagesForCompose = (data.pageCount || spec.pageCount || pages);
             var wrapImg = document.getElementById('prModalWrapImg');
             var wrapPlaceholder = document.getElementById('prModalWrapPlaceholder');
-            if (wrapImg && wrapUrl) {
-                wrapImg.src = wrapUrl;
+            setPartImage('prModalBackImg', 'prModalBackLabel', backUrl);
+            setPartImage('prModalSpineImg', 'prModalSpineLabel', spineUrl);
+            setPartImage('prModalFrontImg', 'prModalFrontLabel', frontUrl);
+
+            var displayWrapUrl = (data.cover && data.cover.wrap) ? data.cover.wrap : '';
+            var kdpExport = window.CoverKdpExport;
+            if (frontUrl && kdpExport && typeof kdpExport.composePrintWrapFromParts === 'function') {
+                setPrModalStatus('Calibrating spine to page count (KDP)…');
+                var serverLayout = kdpExport.layoutFromServerKdp ? kdpExport.layoutFromServerKdp(data) : null;
+                var composed = await kdpExport.composePrintWrapFromParts(frontUrl, spineUrl, backUrl, {
+                    pageCount: pagesForCompose,
+                    trimKey: trim,
+                    paperType: spec.paperType === 'cream' ? 'Cream paper' : 'White paper',
+                    title: bookPreviewContext.bookTitle || '',
+                    author: bookPreviewContext.authorName || '',
+                    synopsis: bookPreviewContext.description || '',
+                    previewDpi: 150,
+                    layout: serverLayout,
+                    useApiSpineArt: false,
+                    useApiBackArt: false
+                });
+                if (composed && composed.dataUrl) {
+                    displayWrapUrl = composed.dataUrl;
+                    if (kdpExport.persistComposedWrap) {
+                        await kdpExport.persistComposedWrap(printReadyPendingBookId, composed.dataUrl, {
+                            pageCount: composed.pageCount,
+                            spineInches: composed.spineInches
+                        });
+                    }
+                    if (data.kdp && composed.spineInches) {
+                        data.kdp.spineInches = composed.spineInches;
+                    }
+                }
+            }
+            if (wrapImg && displayWrapUrl) {
+                wrapImg.src = displayWrapUrl;
                 wrapImg.style.opacity = '0';
                 wrapImg.classList.remove('hidden');
                 if (wrapPlaceholder) wrapPlaceholder.classList.add('hidden');
@@ -2740,9 +2820,7 @@
             } else if (wrapPlaceholder) {
                 wrapPlaceholder.classList.remove('hidden');
             }
-            setPartImage('prModalBackImg', 'prModalBackLabel', (data.cover && data.cover.back) || '');
-            setPartImage('prModalSpineImg', 'prModalSpineLabel', (data.cover && data.cover.spine) || '');
-            setPartImage('prModalFrontImg', 'prModalFrontLabel', (data.cover && data.cover.front) || '');
+            if (data.cover) data.cover.wrap = displayWrapUrl || data.cover.wrap;
 
             if (data.pageCount) recalcPrintReadyModalMetrics({ pageCount: data.pageCount });
             printReadyGenerated = data;
@@ -2805,88 +2883,9 @@
         setNonPrintPlatformsDisabled(arr.indexOf(PRINT_READY_PLATFORM) >= 0);
     }
 
-    function syncFmtExportPanel() {
-        var panel = document.getElementById('fmt-export-panel');
-        var epubBtn = document.getElementById('fmt-btn-export-epub');
-        var printBtn = document.getElementById('fmt-btn-export-print-pack');
-        var hint = document.getElementById('fmt-export-hint');
-        if (!panel) return;
-        var sel = getSelectedPlatforms();
-        var isPrint = sel.indexOf(PRINT_READY_PLATFORM) >= 0;
-        var isStore = /kdp|amazon|ebook|ingram|barnes/i.test(sel) || (!isPrint && sel.length > 0);
-        var bid = parseInt((document.getElementById('selected-book-id') || {}).value || '0', 10);
-        var show = bid > 0 && bookChapters.length > 0 && (isPrint || isStore);
-        panel.classList.toggle('hidden', !show);
-        if (printBtn) printBtn.classList.toggle('hidden', !isPrint);
-        if (hint) {
-            hint.textContent = isPrint
-                ? 'One click downloads a ZIP with interior PDF (6×9) and full wrap cover.'
-                : 'EPUB opens with your cover first, then all chapters — ready for KDP / ebook stores.';
-        }
-    }
-
     function getFormatterAntiForgeryToken() {
         var t = document.querySelector('input[name="__RequestVerificationToken"]');
         return t ? t.value : '';
-    }
-
-    function downloadFormatterBlob(blob, filename) {
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = filename || 'export';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 400);
-    }
-
-    function runFormatterExportEpub(btn) {
-        var bid = parseInt((document.getElementById('selected-book-id') || {}).value || '0', 10);
-        if (!bid) { showToast('Select a book first.'); return; }
-        var token = getFormatterAntiForgeryToken();
-        if (btn) btn.disabled = true;
-        showToast('Building EPUB…');
-        fetch('/Books/ExportEpub', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-            credentials: 'same-origin',
-            body: JSON.stringify({ bookId: bid, displayTitle: bookPreviewContext.bookTitle || '', displayAuthor: bookPreviewContext.authorName || '', displayGenre: bookPreviewContext.genre || '', exportFormat: 'epub' })
-        }).then(function (res) {
-            if (!res.ok) return res.json().catch(function () { return {}; }).then(function (j) { throw new Error((j && j.message) || 'EPUB export failed.'); });
-            return res.blob();
-        }).then(function (blob) {
-            if (!blob || blob.size < 80) throw new Error('EPUB file is empty.');
-            downloadFormatterBlob(blob, 'book-' + bid + '.epub');
-            showToast('EPUB downloaded — open in Apple Books or Calibre.');
-        }).catch(function (err) { showToast((err && err.message) || 'Export failed.'); })
-        .finally(function () { if (btn) btn.disabled = false; });
-    }
-
-    function runFormatterExportPrintPack(btn) {
-        var bid = parseInt((document.getElementById('selected-book-id') || {}).value || '0', 10);
-        if (!bid) { showToast('Select a book first.'); return; }
-        var token = getFormatterAntiForgeryToken();
-        if (btn) btn.disabled = true;
-        showToast('Building print-ready ZIP (interior + cover)…');
-        fetch('/Books/ExportPrintReadyBundle', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                bookId: bid,
-                displayTitle: bookPreviewContext.bookTitle || '',
-                displayAuthor: bookPreviewContext.authorName || ''
-            })
-        }).then(function (res) {
-            if (!res.ok) return res.json().catch(function () { return {}; }).then(function (j) { throw new Error((j && j.message) || 'Print export failed.'); });
-            return res.blob();
-        }).then(function (blob) {
-            if (!blob || blob.size < 80) throw new Error('Print pack is empty.');
-            var safe = String(bookPreviewContext.bookTitle || 'book').replace(/[^\w\-\s]/g, '').replace(/\s+/g, '-').replace(/^-+|-+$/g, '') || 'book';
-            downloadFormatterBlob(blob, safe + '-print-ready-' + bid + '.zip');
-            showToast('Downloaded ZIP: interior PDF + full wrap cover.');
-        }).catch(function (err) { showToast((err && err.message) || 'Export failed.'); })
-        .finally(function () { if (btn) btn.disabled = false; });
     }
 
     function closeFmtChapterRenameModal() {
@@ -2963,7 +2962,6 @@
             syncPlatformBlockUi(changedCb);
             if (name === PRINT_READY_PLATFORM)
                 setNonPrintPlatformsDisabled(false);
-            syncFmtExportPanel();
             return;
         }
         if (name === PRINT_READY_PLATFORM) {
@@ -2984,7 +2982,6 @@
             setNonPrintPlatformsDisabled(false);
         }
         syncPlatformBlockUi(changedCb);
-        syncFmtExportPanel();
     }
 
     function escapeHtml(s) {
@@ -3646,6 +3643,21 @@
         if (t) titleEl.textContent = t;
     }
 
+    function syncFmtPreviewByline(authorName) {
+        var byline = document.getElementById('fmt-preview-byline');
+        if (!byline) return;
+        var authorLine = (authorName && String(authorName).trim()) ? String(authorName).trim() : '';
+        if (authorLine) {
+            byline.textContent = 'by ' + authorLine;
+            byline.classList.remove('hidden');
+            byline.removeAttribute('aria-hidden');
+        } else {
+            byline.textContent = '';
+            byline.classList.add('hidden');
+            byline.setAttribute('aria-hidden', 'true');
+        }
+    }
+
     function syncFormatterSwitchBookLink(bid) {
         var a = document.getElementById('fmt-link-switch-book');
         if (!a) return;
@@ -3831,7 +3843,6 @@
                 };
             });
             currentChapterIdx = 0;
-            syncFmtExportPanel();
 
             const titleEl = document.getElementById('formatting-preview-title');
             var displayBookTitle = applyTemplatePlaceholders(bookPreviewContext.bookTitle, Object.assign({}, bookPreviewContext, {
@@ -3846,19 +3857,7 @@
             var authEl = document.getElementById('formatter-display-author');
             if (authEl && bookPreviewContext.authorName)
                 authEl.textContent = bookPreviewContext.authorName;
-            var byline = document.getElementById('fmt-preview-byline');
-            if (byline) {
-                var authorLine = (bookPreviewContext.authorName && String(bookPreviewContext.authorName).trim()) ? String(bookPreviewContext.authorName).trim() : '';
-                if (authorLine) {
-                    byline.textContent = 'by ' + authorLine;
-                    byline.classList.remove('hidden');
-                    byline.removeAttribute('aria-hidden');
-                } else {
-                    byline.textContent = '';
-                    byline.classList.add('hidden');
-                    byline.setAttribute('aria-hidden', 'true');
-                }
-            }
+            syncFmtPreviewByline(bookPreviewContext.authorName);
 
             const hid = document.getElementById('selected-book-id');
             if (hid) hid.value = String(numId);
@@ -4132,8 +4131,6 @@
             });
         });
 
-        document.getElementById('fmt-btn-export-epub')?.addEventListener('click', function () { runFormatterExportEpub(this); });
-        document.getElementById('fmt-btn-export-print-pack')?.addEventListener('click', function () { runFormatterExportPrintPack(this); });
         document.getElementById('fmt-btn-rename-chapter')?.addEventListener('click', function () { saveFormatterChapterName(); });
 
         document.getElementById('prModalAutoGenerate')?.addEventListener('click', function() { runPrintReadyModalAutoGenerate(); });

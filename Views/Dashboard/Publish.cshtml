@@ -45,7 +45,12 @@
         margin: 0 auto;
         width: 100%;
         max-width: 100%;
-        min-height: calc(100dvh - 5rem);
+        box-sizing: border-box;
+    }
+    .publish-page-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
     }
     .publish-book-picker {
         background: #ffffff;
@@ -79,6 +84,42 @@
         color: #64748b;
         margin-top: 0.5rem;
         line-height: 1.5;
+    }
+    .publish-export-stores {
+        margin-top: 2rem;
+        margin-bottom: 2rem;
+        padding: 1.25rem 1.35rem;
+        border-radius: 1rem;
+        border: 1px solid #ddd6fe;
+        background: linear-gradient(180deg, #faf5ff 0%, #f5f3ff 100%);
+        box-shadow: 0 16px 32px -24px rgba(91, 33, 182, 0.45);
+    }
+    .publish-export-stores h2 {
+        margin: 0 0 0.35rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #5b21b6;
+    }
+    .publish-export-stores .publish-export-hint {
+        margin: 0 0 1rem;
+        font-size: 0.875rem;
+        color: #6d28d9;
+        line-height: 1.55;
+    }
+    .publish-export-stores .publish-export-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        max-width: 28rem;
+    }
+    @@media (min-width: 640px) {
+        .publish-export-stores .publish-export-actions {
+            flex-direction: row;
+            flex-wrap: wrap;
+            max-width: none;
+        }
     }
     .publish-hero-title { font-family: 'Playfair Display', serif; }
     .publish-hero {
@@ -852,10 +893,10 @@
     }
 </style>
 
-<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1 w-full">
-<main class="flex-1 overflow-y-auto overflow-x-hidden w-full min-h-0 min-h-[calc(100dvh-4rem)] p-4 sm:p-6 lg:p-8">
-
-<div class="publish-page text-slate-800 max-w-none mx-auto w-full px-0 py-6 sm:py-8 lg:py-10">
+<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
+<main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
+<div class="max-w-[1600px] mx-auto w-full flex flex-col min-h-0">
+<div class="publish-page publish-page-shell bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-6 md:p-10 lg:p-12 text-slate-800">
 @Html.AntiForgeryToken()
     <section class="publish-hero mb-6 sm:mb-8 lg:mb-10">
         <div>
@@ -960,38 +1001,7 @@
                             <span class="tag fiction" style="cursor:default;">@pbEstimatedPages pages</span>
                         }
                     </div>
-                    @if (canExport)
-                    {
-                    <div class="mt-4 flex flex-wrap items-center gap-2">
-                        <button type="button" id="btnExportEpub" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-4 py-2.5 text-sm hover:bg-violet-700 transition-colors shadow-md shadow-violet-500/25">
-                            <i class="fas fa-book"></i> Export EPUB
-                        </button>
-                        <button type="button" id="btnExportDocx" class="inline-flex items-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-4 py-2.5 text-sm hover:bg-violet-50 transition-colors">
-                            <i class="fas fa-file-word"></i> Export Word
-                        </button>
-                        @if (isPrintReadyFlow)
-                        {
-                            <button type="button" id="btnDownloadFullBookPdf" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors">
-                                <i class="fas fa-file-pdf"></i> PDF — full book
-                            </button>
-                            <button type="button" id="btnDownloadKdpCover" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors">
-                                <i class="fas fa-image"></i> KDP cover
-                            </button>
-                            <button type="button" id="btnExportPrintBundle" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors">
-                                <i class="fas fa-file-archive"></i> Print ZIP
-                            </button>
-                        }
-                        else
-                        {
-                            <button type="button" id="btnDownloadEbook" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors">
-                                <i class="fas fa-file-pdf"></i> PDF — full book
-                            </button>
-                        }
-                    </div>
-                    <p class="text-xs text-slate-500 mt-3 w-full">Download EPUB or Word for Amazon KDP, IngramSpark, Barnes &amp; Noble, or your own printer.</p>
-                    <p class="publish-export-tip">After download: open the <strong>.epub</strong> file with Apple Books, Google Play Books, Calibre, or send to your Kindle. If it does not open, hard-refresh this page and export again.</p>
-                    }
-                    else
+                    @if (!canExport)
                     {
                     <p class="text-sm text-slate-600 mb-4">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, then return here to export.</p>
                     }
@@ -1024,8 +1034,52 @@
         }
     </div>
 
-</div>
+    <section class="publish-export-stores" id="publishExportStores" aria-labelledby="publishExportStoresTitle">
+        <h2 id="publishExportStoresTitle">Export for stores</h2>
+        @if (bookId > 0 && canExport)
+        {
+            @if (isPrintReadyFlow)
+            {
+                <p class="publish-export-hint" id="publishExportHint">One click downloads a ZIP with interior PDF (6×9) and full wrap cover.</p>
+            }
+            else
+            {
+                <p class="publish-export-hint" id="publishExportHint">EPUB opens with your cover first, then all chapters — ready for KDP / ebook stores.</p>
+            }
+            <div class="publish-export-actions">
+                <button type="button" id="btnExportEpub" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                    <i class="fas fa-book" aria-hidden="true"></i> Download EPUB
+                </button>
+                @if (!isPrintReadyFlow)
+                {
+                    <button type="button" id="btnExportDocx" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                        <i class="fas fa-file-word" aria-hidden="true"></i> Export Word
+                    </button>
+                }
+                @if (isPrintReadyFlow)
+                {
+                    <button type="button" id="btnExportPrintBundle" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                        <i class="fas fa-file-archive" aria-hidden="true"></i> Export print pack (PDF + cover)
+                    </button>
+                }
+            </div>
+            @if (!isPrintReadyFlow)
+            {
+                <p class="publish-export-tip mt-3 mb-0">After download: open the <strong>.epub</strong> file with Apple Books, Google Play Books, Calibre, or send to your Kindle.</p>
+            }
+        }
+        else if (bookId > 0)
+        {
+            <p class="publish-export-hint">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, then export from here.</p>
+        }
+        else
+        {
+            <p class="publish-export-hint">Choose a book above to download EPUB or a print-ready pack.</p>
+        }
+    </section>
 
+</div>
+</div>
 </main>
 </div>
 

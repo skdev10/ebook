@@ -9,10 +9,17 @@
     var BLEED_IN = 0.125;
     var PRINT_DPI = 300;
     var KDP_DEFAULT_PAPER = 'White paper';
+    /** Case-bound diagram: 1" cloth wrap margin on all sides. */
+    var CASE_WRAP_MARGIN_IN = 1.0;
+    /** Hinge joint between spine board and front/back panels (3/8"). */
+    var CASE_HINGE_GAP_IN = 0.375;
+    /** 150 pages → 3/8" spine board in reference diagram. */
+    var CASE_SPINE_PER_PAGE_IN = 0.0025;
 
     var TRIM_SIZES = {
         '5x8': { w: 5, h: 8 },
         '5.25x8': { w: 5.25, h: 8 },
+        '4.75x5.25': { w: 4.75, h: 5.25 },
         '5.5x8.5': { w: 5.5, h: 8.5 },
         '6x9': { w: 6, h: 9 },
         '6.14x9.21': { w: 6.14, h: 9.21 },
@@ -998,12 +1005,371 @@
     }
 
 
+    function trimToMmString(trimKey) {
+        var t = TRIM_SIZES[trimKey] || TRIM_SIZES['6x9'];
+        return String(Math.round(t.w * 25.4 * 100) / 100) + 'x' + String(Math.round(t.h * 25.4 * 100) / 100);
+    }
+
+    /**
+     * Panel layout (inches): [wrap margin] back | hinge | spine | hinge | front [wrap margin].
+     * Matches case-bound cover diagram; paperback uses bleed margin and zero hinge gap.
+     */
+    function spineInchesPerPage(binding, paper, interior) {
+        if (binding === 'Hardcover') return CASE_SPINE_PER_PAGE_IN;
+        if (interior === 'Premium color' || interior === 'Standard color') return 0.002347;
+        if (paper && paper.indexOf('Cream') >= 0) return CASE_SPINE_PER_PAGE_IN;
+        return 0.002252;
+    }
+
+    function applyPageCountToLayout(layout, pages, binding, paper, interior) {
+        if (!layout) return layout;
+        var perPage = spineInchesPerPage(binding || layout.bindingType, paper, interior);
+        layout.spineIn = Math.max(0.055, pages * perPage);
+        layout.hingeRightXIn = layout.spineXIn + layout.spineIn;
+        layout.frontPanelXIn = layout.hingeRightXIn + layout.hingeGapIn;
+        layout.canvasWidthIn = layout.frontPanelXIn + layout.panelWidthIn + layout.outerMarginIn;
+        layout.pageCount = pages;
+        return layout;
+    }
+
+    function computeCoverLayout(options) {
+        options = options || {};
+        var binding = options.bindingType || 'Paperback';
+        var isHard = binding === 'Hardcover';
+        var trim = parseTrim(options.trimKey || '6x9');
+        var pages = Math.max(24, Math.min(828, parseInt(options.pageCount, 10) || 100));
+        var interior = options.interiorType || 'Black & white';
+        var paper = options.paperType || KDP_DEFAULT_PAPER;
+        var perPage = isHard
+            ? CASE_SPINE_PER_PAGE_IN
+            : (interior === 'Premium color' ? 0.002347 : (interior === 'Standard color' ? 0.002347 : (paper.indexOf('Cream') >= 0 ? CASE_SPINE_PER_PAGE_IN : 0.002252)));
+        var spineIn = Math.max(0.055, pages * perPage);
+        var outerMargin = isHard ? CASE_WRAP_MARGIN_IN : BLEED_IN;
+        var hingeGap = isHard ? CASE_HINGE_GAP_IN : 0;
+        var backX = outerMargin;
+        var hingeLeftX = backX + trim.w;
+        var spineX = hingeLeftX + hingeGap;
+        var hingeRightX = spineX + spineIn;
+        var frontX = hingeRightX + hingeGap;
+        return {
+            bindingType: binding,
+            pageCount: pages,
+            trimW: trim.w,
+            trimH: trim.h,
+            spineIn: spineIn,
+            outerMarginIn: outerMargin,
+            hingeGapIn: hingeGap,
+            canvasWidthIn: frontX + trim.w + outerMargin,
+            canvasHeightIn: outerMargin * 2 + trim.h,
+            backPanelXIn: backX,
+            hingeLeftXIn: hingeLeftX,
+            spineXIn: spineX,
+            hingeRightXIn: hingeRightX,
+            frontPanelXIn: frontX,
+            panelTopYIn: outerMargin,
+            panelWidthIn: trim.w,
+            panelHeightIn: trim.h
+        };
+    }
+
+    function layoutFromServerKdp(data) {
+        if (!data || !data.kdp) return null;
+        var k = data.kdp;
+        var L = data.layout || {};
+        var trimKey = '6x9';
+        var trimLabel = (data.trimSize || '').toLowerCase();
+        if (trimLabel.indexOf('5.5') >= 0) trimKey = '5.5x8.5';
+        else if (trimLabel.indexOf('8.5') >= 0 && trimLabel.indexOf('11') >= 0) trimKey = '8.5x11';
+        var pages = parseInt(data.pageCount, 10);
+        if (!Number.isFinite(pages) || pages <= 0) pages = 100;
+        var base = computeCoverLayout({
+            bindingType: k.bindingType || 'Paperback',
+            pageCount: pages,
+            trimKey: trimKey,
+            paperType: k.paperType,
+            interiorType: k.interiorType
+        });
+        if (typeof k.spineInches === 'number' && k.spineInches > 0) {
+            base.spineIn = k.spineInches;
+            base.hingeRightXIn = base.spineXIn + base.spineIn;
+            base.frontPanelXIn = base.hingeRightXIn + base.hingeGapIn;
+            base.canvasWidthIn = base.frontPanelXIn + base.panelWidthIn + base.outerMarginIn;
+        }
+        if (typeof L.backPanelXInches === 'number') base.backPanelXIn = L.backPanelXInches;
+        if (typeof L.spineXInches === 'number') base.spineXIn = L.spineXInches;
+        if (typeof L.frontPanelXInches === 'number') base.frontPanelXIn = L.frontPanelXInches;
+        if (typeof k.wrapWidthInches === 'number') base.canvasWidthIn = k.wrapWidthInches;
+        if (typeof k.wrapHeightInches === 'number') base.canvasHeightIn = k.wrapHeightInches;
+        return base;
+    }
+
+    function drawHingeZone(ctx, x, y, w, h, frontImg, side) {
+        if (w <= 0) return;
+        var colors = frontImg ? sampleEdgeGradient(ctx, frontImg, side === 'left' ? 'right' : 'left') : ['#4c4688', '#312e81'];
+        var g = ctx.createLinearGradient(x, 0, x + w, 0);
+        g.addColorStop(0, colors[1]);
+        g.addColorStop(1, colors[0]);
+        ctx.fillStyle = g;
+        ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = 'rgba(0,0,0,0.08)';
+        ctx.fillRect(x, y, w, h);
+    }
+
+    function sampleEdgeGradient(ctx2d, img, edge) {
+        var sw = Math.max(4, Math.min(32, Math.floor(img.width * 0.06)));
+        var sx = edge === 'right' ? img.width - sw : (edge === 'left' ? 0 : Math.floor((img.width - sw) / 2));
+        var tmp = document.createElement('canvas');
+        tmp.width = sw;
+        tmp.height = img.height;
+        var tctx = tmp.getContext('2d');
+        tctx.drawImage(img, sx, 0, sw, img.height, 0, 0, sw, img.height);
+        var data = tctx.getImageData(0, 0, sw, img.height).data;
+        var r = 0, g = 0, b = 0, n = 0;
+        for (var i = 0; i < data.length; i += 4) {
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            n++;
+        }
+        if (!n) return ['#312e81', '#1e1b4b'];
+        r = Math.round(r / n);
+        g = Math.round(g / n);
+        b = Math.round(b / n);
+        var c1 = 'rgb(' + r + ',' + g + ',' + b + ')';
+        var c2 = 'rgb(' + Math.max(0, r - 32) + ',' + Math.max(0, g - 32) + ',' + Math.max(0, b - 32) + ')';
+        return [c1, c2];
+    }
+
+    function fillPanelFromFrontPalette(ctx, x, y, w, h, frontImg, edge) {
+        var colors = frontImg && frontImg.width > 0
+            ? sampleEdgeGradient(ctx, frontImg, edge)
+            : ['#3730a3', '#1e1b4b'];
+        var g = ctx.createLinearGradient(x, y, x + w, y + h);
+        g.addColorStop(0, colors[0]);
+        g.addColorStop(0.55, colors[1]);
+        g.addColorStop(1, colors[0]);
+        ctx.fillStyle = g;
+        ctx.fillRect(x, y, w, h);
+    }
+
+    /**
+     * Draw only a center vertical crop into the spine slot — never stretch a wide API spine/wrap asset.
+     */
+    function drawSpineCropCenter(ctx, img, x, y, w, h, layout) {
+        if (!img || !img.width || w < 1) return false;
+        var srcW = img.width;
+        var srcH = img.height;
+        var spineFrac = layout && layout.canvasWidthIn > 0
+            ? Math.min(0.22, Math.max(0.02, layout.spineIn / layout.canvasWidthIn))
+            : 0.06;
+        var cropW = Math.max(2, Math.round(srcW * spineFrac));
+        cropW = Math.min(cropW, Math.round(srcW * 0.2), srcW);
+        var cropX = Math.max(0, Math.floor((srcW - cropW) / 2));
+        ctx.drawImage(img, cropX, 0, cropW, srcH, x, y, w, h);
+        return true;
+    }
+
+    function drawSpineTitle(ctx, x, y, w, h, title) {
+        if (w < 10) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.translate(x + w / 2, y + h / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillStyle = 'rgba(248,250,252,0.95)';
+        ctx.font = 'bold ' + Math.max(8, Math.min(w * 0.85, 13)) + 'px Inter, system-ui, sans-serif';
+        ctx.shadowColor = 'rgba(0,0,0,0.45)';
+        ctx.shadowBlur = 3;
+        var t = (title || 'Title').toUpperCase();
+        if (t.length > 48) t = t.slice(0, 45) + '…';
+        var tw = ctx.measureText(t).width;
+        ctx.fillText(t, -tw / 2, 4);
+        ctx.restore();
+    }
+
+    function drawSpinePanel(ctx, x, y, w, h, title, frontImg, apiSpineImg, layout) {
+        fillPanelFromFrontPalette(ctx, x, y, w, h, frontImg, 'right');
+        if (apiSpineImg && apiSpineImg.width > 0 && w >= 3) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+            ctx.globalAlpha = 0.82;
+            drawSpineCropCenter(ctx, apiSpineImg, x, y, w, h, layout);
+            ctx.restore();
+        }
+        drawSpineTitle(ctx, x, y, w, h, title);
+    }
+
+    function drawBackCropCenter(ctx, img, x, y, w, h, layout) {
+        if (!img || !img.width) return false;
+        var panelFrac = layout && layout.canvasWidthIn > 0
+            ? Math.min(0.48, layout.panelWidthIn / layout.canvasWidthIn)
+            : 0.4;
+        var cropW = Math.max(2, Math.round(img.width * panelFrac));
+        cropW = Math.min(cropW, Math.round(img.width * 0.5), img.width);
+        var cropX = img.width > cropW ? Math.floor((img.width - cropW) * 0.12) : 0;
+        ctx.drawImage(img, cropX, 0, cropW, img.height, x, y, w, h);
+        return true;
+    }
+
+    function drawBackPanelFromFront(ctx, x, y, w, h, frontImg, meta, apiBackImg, layout) {
+        fillPanelFromFrontPalette(ctx, x, y, w, h, frontImg, 'left');
+        if (frontImg && frontImg.width > 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.42;
+            drawCoverContain(ctx, frontImg, x, y, w, h);
+            ctx.restore();
+        }
+        if (apiBackImg && apiBackImg.width > 0) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+            ctx.globalAlpha = 0.55;
+            if (!drawBackCropCenter(ctx, apiBackImg, x, y, w, h, layout)) {
+                drawCoverContain(ctx, apiBackImg, x, y, w, h);
+            }
+            ctx.restore();
+        } else if (!frontImg || !frontImg.width) {
+            drawBackPanel(ctx, x, y, w, h, meta);
+            return;
+        }
+        var pad = Math.max(12, w * 0.06);
+        var title = meta.title || 'Title';
+        var author = meta.author || '';
+        var blurb = (meta.synopsis || '').trim() || 'Your story continues on the back cover with the same premium design language as the front.';
+        if (blurb.length > 520) blurb = blurb.slice(0, 517) + '…';
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = 'bold ' + Math.max(14, w * 0.045) + 'px Inter, Segoe UI, system-ui, sans-serif';
+        ctx.fillText(title.length > 42 ? title.slice(0, 39) + '…' : title, x + pad, y + pad + 18);
+        ctx.fillStyle = '#c4b5fd';
+        ctx.font = Math.max(11, w * 0.028) + 'px Inter, Segoe UI, system-ui, sans-serif';
+        if (author) ctx.fillText(author, x + pad, y + pad + 38);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = Math.max(10, w * 0.024) + 'px Georgia, Merriweather, serif';
+        wrapText(ctx, blurb, x + pad, y + pad + 68, w - pad * 2, Math.max(13, w * 0.032));
+    }
+
+    function buildWrapCanvasFromParts(frontImg, spineImg, backImg, layout, meta, previewDpi) {
+        var dpi = previewDpi || 120;
+        function inPx(v) { return Math.max(1, Math.round(v * dpi)); }
+
+        var W = inPx(layout.canvasWidthIn);
+        var H = inPx(layout.canvasHeightIn);
+        var backX = inPx(layout.backPanelXIn);
+        var backW = inPx(layout.panelWidthIn);
+        var backY = inPx(layout.panelTopYIn);
+        var panelH = inPx(layout.panelHeightIn);
+        var hingeW = inPx(layout.hingeGapIn);
+        var spineX = inPx(layout.spineXIn);
+        var spineW = inPx(layout.spineIn);
+        var hingeRightX = inPx(layout.hingeRightXIn);
+        var frontX = inPx(layout.frontPanelXIn);
+        var frontW = inPx(layout.panelWidthIn);
+
+        var c = document.createElement('canvas');
+        c.width = W;
+        c.height = H;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#1a1630';
+        ctx.fillRect(0, 0, W, H);
+
+        if (layout.outerMarginIn > 0) {
+            ctx.fillStyle = '#2d2852';
+            ctx.fillRect(0, 0, W, H);
+        }
+
+        drawBackPanelFromFront(ctx, backX, backY, backW, panelH, frontImg, meta, backImg, layout);
+        if (hingeW > 0) {
+            drawHingeZone(ctx, inPx(layout.hingeLeftXIn), backY, hingeW, panelH, frontImg, 'left');
+        }
+        drawSpinePanel(ctx, spineX, backY, spineW, panelH, meta.title, frontImg, spineImg, layout);
+        if (hingeW > 0) {
+            drawHingeZone(ctx, hingeRightX, backY, hingeW, panelH, frontImg, 'right');
+        }
+        drawCoverContain(ctx, frontImg, frontX, backY, frontW, panelH);
+
+        c._kdpParts = {
+            backX: backX, backW: backW, spineX: spineX, spineW: spineW,
+            frontX: frontX, frontW: frontW, panelH: panelH, H: H, dpi: dpi, layout: layout
+        };
+        return c;
+    }
+
+    /**
+     * Recompose API front/spine/back into a KDP-calibrated wrap (same math as Amazon cover calculator).
+     * Prefers front artwork for back color continuity when API back does not match.
+     */
+    function composePrintWrapFromParts(frontUrl, spineUrl, backUrl, options) {
+        options = options || {};
+        var pages = Math.max(24, parseInt(options.pageCount, 10) || 100);
+        var trimKey = options.trimKey || '6x9';
+        var interior = options.interiorType || 'Black & white';
+        var paper = options.paperType || KDP_DEFAULT_PAPER;
+        var binding = options.bindingType || 'Paperback';
+        var meta = {
+            title: options.title || 'Title',
+            author: options.author || '',
+            synopsis: options.synopsis || ''
+        };
+        var layout = options.layout || computeCoverLayout({
+            bindingType: binding,
+            pageCount: pages,
+            trimKey: trimKey,
+            paperType: paper,
+            interiorType: interior
+        });
+        applyPageCountToLayout(layout, pages, binding, paper, interior);
+
+        var useApiSpine = options.useApiSpineArt !== false && !!spineUrl;
+        var useApiBack = options.useApiBackArt !== false && !!backUrl;
+
+        return Promise.all([
+            loadImageElement(frontUrl),
+            useApiSpine ? loadImageElement(spineUrl).catch(function () { return null; }) : Promise.resolve(null),
+            useApiBack ? loadImageElement(backUrl).catch(function () { return null; }) : Promise.resolve(null)
+        ]).then(function (imgs) {
+            var frontImg = imgs[0];
+            var canvas = buildWrapCanvasFromParts(frontImg, imgs[1], imgs[2], layout, meta, options.previewDpi || 120);
+            return {
+                dataUrl: canvas.toDataURL('image/png'),
+                layout: layout,
+                spineInches: layout.spineIn,
+                pageCount: pages,
+                canvas: canvas
+            };
+        });
+    }
+
+    function persistComposedWrap(bookId, dataUrl, meta) {
+        if (!bookId || !dataUrl) return Promise.resolve(null);
+        return fetch('/Dashboard/SavePrintReadyComposedWrap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({
+                bookId: bookId,
+                wrapImageDataUrl: dataUrl,
+                pageCount: meta && meta.pageCount,
+                spineInches: meta && meta.spineInches
+            })
+        }).then(function (r) { return r.json(); });
+    }
+
     global.CoverKdpExport = {
         openModal: openModal,
         openCalculatorModal: openCalculatorModal,
         EBOOK_COVER: EBOOK_COVER,
         printLayoutInches: printLayoutInches,
         estimateSpineInches: estimateSpineInches,
-        computeKdpDimensionsMm: computeKdpDimensionsMm
+        computeKdpDimensionsMm: computeKdpDimensionsMm,
+        composePrintWrapFromParts: composePrintWrapFromParts,
+        persistComposedWrap: persistComposedWrap,
+        trimToMmString: trimToMmString,
+        computeCoverLayout: computeCoverLayout,
+        layoutFromServerKdp: layoutFromServerKdp,
+        CASE_WRAP_MARGIN_IN: CASE_WRAP_MARGIN_IN,
+        CASE_HINGE_GAP_IN: CASE_HINGE_GAP_IN
     };
 })(typeof window !== 'undefined' ? window : this);

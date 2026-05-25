@@ -207,12 +207,22 @@ No body. Returns metrics (shape depends on upstream), e.g. running / waiting / m
   "size": "1536x1024",
   "quality": "medium",
   "Interior_trim_size": "6 x 9 in",
-  "page_count": 250
+  "page_count": 250,
+  "binding_type": "Paperback",
+  "paper_type": "White paper",
+  "interior_type": "Black & white",
+  "spine_width_inches": 0.563,
+  "spine_width_mm": 14.3,
+  "wrap_width_inches": 12.813,
+  "wrap_height_inches": 9.25,
+  "wrap_width_mm": 325.45,
+  "wrap_height_mm": 234.95,
+  "bleed_inches": 0.125
 }
 ```
 
 **ASP.NET BFF:** `POST /Dashboard/GeneratePrintReadyCover`  
-Page count is sourced from the same shared estimator used by PDF export and Stripe pricing.
+Page count and spine/wrap dimensions use `KdpPrintCoverCalculator` (same rules as [KDP Cover Calculator](https://kdp.amazon.com/cover-calculator)). The UI recomposes the returned front/spine/back panels client-side to the exact spine width. Persist calibrated wrap via `POST /Dashboard/SavePrintReadyComposedWrap`.
 
 ---
 
