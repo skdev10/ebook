@@ -72,7 +72,7 @@ namespace EBookDashboard.Services
 
             try
             {
-                var extracted = ExtractContentFromResponse(dataToStore);
+                var extracted = UpstreamResponseParser.ExtractContent(dataToStore);
                 if (!string.IsNullOrWhiteSpace(extracted))
                 {
                     rawResponse.Content = extracted;
@@ -139,10 +139,12 @@ namespace EBookDashboard.Services
             Console.WriteLine("🔄 Starting chapter extraction (bounded payload)...");
             try
             {
-                chapterNames = ExtractChapterNames(dataToStore);
+                chapterNames = UpstreamResponseParser.ExtractSuggestedChapterNames(dataToStore);
+                if (chapterNames.Count == 0)
+                    chapterNames = ExtractChapterNames(dataToStore);
                 if (!string.IsNullOrEmpty(dataToStore))
                 {
-                    content1 = ExtractContentFromResponse(dataToStore);
+                    content1 = UpstreamResponseParser.ExtractContent(dataToStore);
                     content2 = ExtractChapterContent(dataToStore);
                     Console.WriteLine($"Extracted chapters count: {chapterNames.Count}; content2 length: {content2?.Length ?? 0}");
                 }
@@ -190,11 +192,7 @@ namespace EBookDashboard.Services
 
                 Console.WriteLine($"📥 Extracting content from JSON");
 
-                // Parse JSON
-                var jsonObject = JObject.Parse(json);
-
-                // Navigate to data.content
-                var content = jsonObject["data"]?["content"]?.ToString();
+                var content = UpstreamResponseParser.ExtractContent(json);
 
                 if (string.IsNullOrEmpty(content))
                 {
@@ -203,14 +201,11 @@ namespace EBookDashboard.Services
                 }
 
                 Console.WriteLine($"✅ Content extracted, length: {content.Length} chars");
-                Console.WriteLine($"📝 First 200 chars of content: {content.Substring(0, Math.Min(200, content.Length))}...");
-
                 return content;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"💥 Error extracting chapter content: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return string.Empty;
             }
         }
@@ -218,43 +213,7 @@ namespace EBookDashboard.Services
         // Extract content starting from "content" field
         //======================================
         public static string ExtractContentFromResponse(string jsonResponse)
-        {
-            if (string.IsNullOrEmpty(jsonResponse))
-                return string.Empty;
-
-            try
-            {
-                // Parse the JSON
-                var jsonObject = JObject.Parse(jsonResponse);
-
-                // Navigate to data.content
-                var content = jsonObject["data"]?["content"]?.ToString();
-
-                if (!string.IsNullOrEmpty(content))
-                {
-                    Console.WriteLine("✅ Successfully extracted content from data.content");
-                    return content;
-                }
-
-                // Fallback: try direct "content" property
-                content = jsonObject["content"]?.ToString();
-                if (!string.IsNullOrEmpty(content))
-                {
-                    Console.WriteLine("✅ Successfully extracted content from root content property");
-                    return content;
-                }
-
-                Console.WriteLine("❌ No content field found in JSON response");
-                return string.Empty;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"💥 Error extracting content from JSON: {ex.Message}");
-
-                // Fallback: try regex extraction
-                return ExtractContentWithRegex(jsonResponse);
-            }
-        }
+            => UpstreamResponseParser.ExtractContent(jsonResponse);
         //======================================
         // Fallback method using Regex
         //======================================

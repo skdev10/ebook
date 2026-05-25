@@ -13,6 +13,72 @@ This document covers:
 
 ---
 
+## Authentication
+
+All upstream requests use header:
+
+```http
+X-API-Key: YOUR_EXTERNAL_API_KEY
+```
+
+**Production (DigitalOcean `/root/latest/EbookAI`):**
+
+```bash
+# /etc/default/ebookai — never commit this file
+ExternalApi__ApiKey=YOUR_EXTERNAL_API_KEY
+ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=ebookpublications;...'
+```
+
+Load before every restart:
+
+```bash
+set -a && source /etc/default/ebookai && set +a
+export ASPNETCORE_ENVIRONMENT=Production
+```
+
+**Verify from the app (after login optional — endpoint is public for ops):**
+
+```bash
+curl -s http://127.0.0.1:5000/Books/ExternalApiStatus
+```
+
+Expect: `"keyConfigured": true`, `"queueProbe": "ok"`.
+
+---
+
+## Upstream response shapes (chapter generate / edit)
+
+The Python API may return any of these; the ASP.NET app normalizes to `data.content` for the UI:
+
+| Shape | Example |
+|-------|---------|
+| Standard | `{ "data": { "content": "...", "suggest_chapter_name": "..." } }` |
+| Heading only | `{ "data": { "heading": "The gravitational force is invented in 8790" } }` |
+| Root content | `{ "content": "..." }` |
+| String `data` | `{ "data": "error or plain text" }` |
+
+BFF routes **`POST /Books/AIGenerateBook`** and **`POST /Books/AIEditBook`** return normalized JSON when possible.
+
+---
+
+## ASP.NET BFF route map
+
+| Upstream | This app's route |
+|----------|------------------|
+| `POST /api/generate_chapter` | `POST /Books/AIGenerateBook` |
+| `POST /api/edit` | `POST /Books/AIEditBook`, `POST /Books/EditChapter` |
+| `POST /api/approve` | `POST /Books/FinalizeChapterAPI` |
+| `POST /api/audio` | `POST /api/AudioToText/convert`, `POST /Audio/Upload` |
+| `GET /api/queue-data` | `GET /Books/GetQueueData` |
+| `POST /api/generate-cover` | `POST /Books/GenerateAICoverPreview`, `POST /Dashboard/GenerateCover` |
+| `POST /api/edit-cover` | `POST /Books/EditAICoverPreview`, `POST /Dashboard/EditCover` |
+| `POST /api/book_chapters_name` | `POST /Books/SuggestChapterNames` |
+| `POST /api/refine_cover_prompt` | `POST /Books/RefineCoverPrompt` |
+| `POST /api/suggest-cover-prompt-from-highlights` | `POST /Books/SuggestCoverPromptFromHighlights` |
+| Diagnostics | `GET /Books/ExternalApiStatus` |
+
+---
+
 ## Quick reference (upstream)
 
 | # | Path | Method | Purpose |
@@ -496,7 +562,9 @@ Tracks concurrent workers: `status_running`, `status_waiting`, `status_max_concu
 
 | Symptom | Check |
 |---------|--------|
-| “ExternalApi:ApiKey is not set” | Env var / user secrets / `appsettings.Local.json` |
+| “ExternalApi:ApiKey is not set” | `source /etc/default/ebookai` before `nohup`; key must be `ExternalApi__ApiKey=...` (no spaces around `=`) |
+| `❌ No content field found in JSON` in logs | Upstream returned non-standard JSON — update app (UpstreamResponseParser) or check upstream response in `APIRawResponse` table |
+| `Address already in use` on deploy | Kill PID with `cut -d'/' -f1`: `kill -9 $(netstat -tpln \| awk '/:5000/ {print $7}' \| cut -d'/' -f1 \| head -1)` |
 | Generation stops after N minutes | `ChapterGeneration:BrowserFetchTimeoutMinutes`, reverse proxy timeouts, `web.config` |
 | 401/403 from upstream | Wrong or expired `X-API-Key`; rotate key |
 | Empty or HTML error from BFF | Upstream down or URL typo; check app logs for `BookApi` lines |

@@ -593,7 +593,7 @@ namespace EBookDashboard.Controllers
             try
             {
                 var client = _bookApiClient;
-                var apiPayload = GenerateChapterPayloadBuilder.CloneForExternalGenerateApi(model);
+                var apiPayload = GenerateChapterPayloadBuilder.BuildUpstreamGeneratePayload(model);
                 var json = JsonConvert.SerializeObject(apiPayload);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
@@ -671,7 +671,9 @@ namespace EBookDashboard.Controllers
 
                     if (rawResponseId.HasValue)
                         Response.Headers.Append("X-Saved-Response-Id", rawResponseId.Value.ToString(CultureInfo.InvariantCulture));
-                    return Content(responseData, "application/json");
+
+                    var normalized = UpstreamResponseParser.NormalizeChapterJson(responseData);
+                    return Content(normalized ?? responseData, "application/json");
             }
             catch (TaskCanceledException ex) when (!ex.CancellationToken.IsCancellationRequested)
             {
@@ -793,7 +795,10 @@ namespace EBookDashboard.Controllers
                     catch (Exception saveEx) { _logger.LogWarning(saveEx, "Raw response save failed"); }
 
                     if (response.IsSuccessStatusCode)
-                        return Content(responseData, "application/json");
+                    {
+                        var normalized = UpstreamResponseParser.NormalizeChapterJson(responseData);
+                        return Content(normalized ?? responseData, "application/json");
+                    }
 
                     if (attempt == 1 && (int)response.StatusCode >= 500) { await Task.Delay(1000); continue; }
                     return Json(new { error = true, message = $"API error: {response.StatusCode}", detail = responseData?.Length > 300 ? responseData.Substring(0, 300) + "..." : responseData });
@@ -3773,6 +3778,62 @@ namespace EBookDashboard.Controllers
             ViewBag.BookId = bookId;
             ViewBag.BookTitle = book.Title ?? "Your Book";
             return View();
+        }
+
+        /// <summary>Diagnostics: upstream base URL, key configured, queue probe (no secret returned).</summary>
+        [HttpGet]
+        [Route("Books/ExternalApiStatus")]
+        public async Task<IActionResult> ExternalApiStatus()
+        {
+            var key = ExternalApiKeyResolver.Resolve(_configuration);
+            var opt = _externalApiOptions.Value;
+            var queueUrl = _bookApiClient.ResolveUrl(opt.QueueDataUrl, "/api/queue-data");
+            string queueStatus = "not_tested";
+            int? queueHttp = null;
+
+            if (!string.IsNullOrEmpty(key))
+            {
+                try
+                {
+                    using var req = new HttpRequestMessage(HttpMethod.Get, queueUrl);
+                    using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
+                    queueHttp = (int)resp.StatusCode;
+                    queueStatus = resp.IsSuccessStatusCode ? "ok" : "http_" + queueHttp;
+                }
+                catch (Exception ex)
+                {
+                    queueStatus = "error";
+                    _logger.LogWarning(ex, "ExternalApiStatus queue probe failed");
+                }
+            }
+            else
+            {
+                queueStatus = "skipped_no_key";
+            }
+
+            return Json(new
+            {
+                success = true,
+                baseUrl = opt.BaseUrl,
+                keyConfigured = !string.IsNullOrEmpty(key),
+                keyLength = key?.Length ?? 0,
+                queueUrl,
+                queueProbe = queueStatus,
+                queueHttpStatus = queueHttp,
+                endpoints = new
+                {
+                    generateChapter = opt.GenerateUrl,
+                    edit = opt.EditUrl,
+                    approve = opt.ApproveUrl,
+                    audio = opt.AudioUrl,
+                    queueData = opt.QueueDataUrl,
+                    generateCover = opt.GenerateCoverUrl,
+                    editCover = opt.EditCoverUrl,
+                    bookChaptersName = opt.BookChaptersNameUrl,
+                    refineCoverPrompt = opt.RefineCoverPromptUrl,
+                    suggestCoverPrompt = opt.SuggestCoverPromptFromHighlightsUrl
+                }
+            });
         }
 
         /// <summary>GET queue status from external API (running, waiting, max concurrent, total).</summary>

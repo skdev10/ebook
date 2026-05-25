@@ -15,6 +15,19 @@ public static class GenerateChapterPayloadBuilder
 - Use natural paragraph breaks and dialogue where appropriate; avoid outline-style or robotic phrasing unless requested.
 """;
 
+    /// <summary>Upstream FastAPI expects only user_id, book_id, chapter, user_input (chapter as string in docs).</summary>
+    public static object BuildUpstreamGeneratePayload(AIBookRequest model)
+    {
+        var chapter = model.Chapter > 0 ? model.Chapter : 1;
+        return new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["user_id"] = (model.UserId ?? "").Trim(),
+            ["book_id"] = (model.BookId ?? "").Trim(),
+            ["chapter"] = chapter.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["user_input"] = string.Concat(model.UserInput ?? "", NarrativeHint)
+        };
+    }
+
     public static AIBookRequest CloneForExternalGenerateApi(AIBookRequest model)
     {
         return new AIBookRequest
