@@ -10,7 +10,12 @@ public static class ExternalApiKeyResolver
     public static string Resolve(IConfiguration? configuration)
     {
         if (configuration == null) return "";
-        return (configuration["ExternalApi:ApiKey"] ?? "").Trim();
+        var raw = (configuration["ExternalApi:ApiKey"] ?? "").Trim();
+        if (raw.Length >= 2 && raw[0] == '"' && raw[^1] == '"')
+            raw = raw[1..^1].Trim();
+        if (raw.Length >= 2 && raw[0] == '\'' && raw[^1] == '\'')
+            raw = raw[1..^1].Trim();
+        return raw;
     }
 
     public static string MissingKeyUserMessage { get; } =

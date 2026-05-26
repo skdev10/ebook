@@ -3781,6 +3781,7 @@ namespace EBookDashboard.Controllers
         }
 
         /// <summary>Diagnostics: upstream base URL, key configured, queue probe (no secret returned).</summary>
+        [AllowAnonymous]
         [HttpGet]
         [Route("Books/ExternalApiStatus")]
         public async Task<IActionResult> ExternalApiStatus()
