@@ -1,0 +1,303 @@
+:root {
+    --cover-bg: #1a3a5c;
+    --cover-text: #e8f4fd;
+    --cover-accent: #4fc3f7;
+    --cover-spine: #0d2137;
+    --cover-font-size: 13px;
+    --cover-line-height: 1.6;
+}
+
+.cover-preview-root {
+    width: 100%;
+    overflow-x: auto;
+    padding: 1rem 0;
+}
+
+.cover-preview-container {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 0;
+    min-height: 340px;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/* Shared panel styles */
+.cover-panel {
+    position: relative;
+    box-sizing: border-box;
+    transition: background 0.25s ease, color 0.25s ease, width 0.25s ease;
+    flex-shrink: 0;
+}
+
+.cover-panel-inner {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* Front & Back: fixed proportional width representing 6" */
+.cover-panel-front,
+.cover-panel-back {
+    width: 220px;
+    min-height: 330px;
+    background: var(--cover-bg);
+    color: var(--cover-text);
+    border: 1px solid #000;
+}
+
+.cover-bleed-zone {
+    position: absolute;
+    inset: 0;
+    border: 3px solid rgba(255, 150, 150, 0.5);
+    pointer-events: none;
+}
+
+.cover-safe-area {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 18px 14px;
+    box-sizing: border-box;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Front cover */
+.front-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    gap: 12px;
+}
+
+.front-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--cover-text);
+    margin: 0;
+    word-break: break-word;
+}
+
+.front-author {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--cover-accent);
+    margin: 0;
+    letter-spacing: 0.04em;
+}
+
+/* Back cover */
+.back-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.back-description {
+    font-size: var(--cover-font-size);
+    line-height: var(--cover-line-height);
+    color: var(--cover-text);
+    margin: 0;
+    word-break: break-word;
+    transition: font-size 0.2s ease, line-height 0.2s ease;
+}
+
+/* Barcode box — always visible */
+.barcode-box {
+    width: 90px;
+    height: 54px;
+    background: #ffff00;
+    border: 1.5px solid #000;
+    position: absolute;
+    bottom: 18px;
+    right: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3px;
+    box-sizing: border-box;
+}
+
+.barcode-lines {
+    width: 60%;
+    height: 18px;
+    background: repeating-linear-gradient(
+        90deg,
+        #000 0px, #000 1.5px,
+        transparent 1.5px, transparent 3px
+    );
+    margin-bottom: 2px;
+}
+
+.barcode-isbn {
+    font-size: 5px;
+    font-family: monospace;
+    color: #000;
+    line-height: 1;
+}
+
+.barcode-size {
+    font-size: 4px;
+    color: #333;
+    text-align: center;
+    line-height: 1.2;
+    margin-top: 1px;
+}
+
+/* Spine panel */
+.cover-panel-spine {
+    width: 40px;
+    min-width: 20px;
+    background: var(--cover-spine);
+    border-left: 1px dashed #6699cc;
+    border-right: 1px dashed #6699cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.25s ease, background 0.25s ease;
+}
+
+.spine-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--cover-text);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 90%;
+    opacity: 1;
+    transition: opacity 0.25s ease;
+}
+
+.spine-text.spine-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Labels below panels */
+.cover-labels {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin-top: 10px;
+}
+
+.cover-label {
+    text-align: center;
+    font-size: 0.7rem;
+    color: #64748b;
+    line-height: 1.35;
+    width: 220px;
+    flex-shrink: 0;
+}
+
+.cover-label-spine {
+    width: 40px;
+    min-width: 20px;
+    font-size: 0.6rem;
+    transition: width 0.25s ease;
+}
+
+.label-mm {
+    color: #94a3b8;
+    font-size: 0.6rem;
+}
+
+/* Color swatches */
+.swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    padding: 0;
+    outline: none;
+}
+
+.swatch:hover {
+    transform: scale(1.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+
+.swatch.active {
+    border-color: #000;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #000;
+}
+
+/* Summary */
+#sumSpineRow.spine-warn td {
+    background: #fff9c4;
+    border-radius: 4px;
+}
+
+/* Text size button active */
+#textSizeGroup .btn.active {
+    background: #6d28d9;
+    border-color: #6d28d9;
+    color: #fff;
+}
+
+/* Responsive: on mobile stack inputs above preview */
+@media (max-width: 991.98px) {
+    .cover-preview-container {
+        min-height: 260px;
+    }
+    .cover-panel-front,
+    .cover-panel-back {
+        width: 160px;
+        min-height: 240px;
+    }
+    .cover-label {
+        width: 160px;
+    }
+    .barcode-box {
+        width: 70px;
+        height: 42px;
+        bottom: 12px;
+        right: 10px;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .cover-panel-front,
+    .cover-panel-back {
+        width: 120px;
+        min-height: 180px;
+    }
+    .cover-label {
+        width: 120px;
+        font-size: 0.55rem;
+    }
+    .front-title {
+        font-size: 0.95rem;
+    }
+    .front-author {
+        font-size: 0.65rem;
+    }
+    .cover-safe-area {
+        padding: 10px 8px;
+    }
+    .barcode-box {
+        width: 56px;
+        height: 34px;
+        bottom: 8px;
+        right: 8px;
+    }
+    .barcode-isbn {
+        font-size: 3.5px;
+    }
+    .barcode-size {
+        font-size: 3px;
+    }
+}

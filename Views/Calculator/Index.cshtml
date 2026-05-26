@@ -1,0 +1,185 @@
+@model EBookDashboard.Models.BookCoverModel
+@{
+    ViewData["Title"] = "KDP Cover Calculator";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+<link rel="stylesheet" href="~/css/cover-preview.css" asp-append-version="true" />
+
+<div class="container-fluid px-3 px-lg-4 py-4" id="kdpCalcRoot">
+    <div class="row align-items-center mb-4">
+        <div class="col">
+            <h1 class="h4 fw-bold text-dark mb-1">
+                <i class="fas fa-ruler-combined text-violet-600 me-2"></i>KDP Cover Calculator
+            </h1>
+            <p class="text-muted mb-0 small">Enter your book details — see a live 3-panel cover preview matching KDP print templates.</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- LEFT: Inputs -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold text-uppercase text-muted small mb-3">Book Details</h6>
+
+                    <!-- Page Count -->
+                    <div class="mb-3">
+                        <label for="Pages" class="form-label fw-medium small">Page Count</label>
+                        <input type="number" class="form-control rounded-3" id="Pages" name="Pages"
+                               value="@Model.Pages" min="24" max="828" required>
+                        <div class="invalid-feedback" id="pagesError"></div>
+                        <div class="form-text text-muted">Min 24 — Max 828</div>
+                    </div>
+
+                    <!-- Paper Type -->
+                    <div class="mb-3">
+                        <label for="PaperType" class="form-label fw-medium small">Paper Type</label>
+                        <select class="form-select rounded-3" id="PaperType" name="PaperType">
+                            <option value="White paper" selected>White paper</option>
+                            <option value="Cream paper">Cream paper</option>
+                        </select>
+                    </div>
+
+                    <!-- Title -->
+                    <div class="mb-3">
+                        <label for="Title" class="form-label fw-medium small">Book Title</label>
+                        <input type="text" class="form-control rounded-3" id="Title" name="Title"
+                               value="@Model.Title" maxlength="80" required>
+                        <div class="invalid-feedback" id="titleError"></div>
+                    </div>
+
+                    <!-- Author -->
+                    <div class="mb-3">
+                        <label for="Author" class="form-label fw-medium small">Author Name</label>
+                        <input type="text" class="form-control rounded-3" id="Author" name="Author"
+                               value="@Model.Author" maxlength="60" required>
+                        <div class="invalid-feedback" id="authorError"></div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="mb-3">
+                        <label for="Description" class="form-label fw-medium small">Back Cover Description</label>
+                        <textarea class="form-control rounded-3" id="Description" name="Description"
+                                  rows="4" maxlength="500" placeholder="Your book blurb…">@Model.Description</textarea>
+                        <div class="d-flex justify-content-between mt-1">
+                            <div class="invalid-feedback d-block" id="descError"></div>
+                            <span class="text-muted small" id="descCounter">0/500</span>
+                        </div>
+                    </div>
+
+                    <hr class="my-3">
+
+                    <!-- Color Palette -->
+                    <div class="mb-3">
+                        <label class="form-label fw-medium small">Color Palette</label>
+                        <div class="d-flex flex-wrap gap-2" id="colorPalette">
+                            <button type="button" class="swatch active" title="Ocean"
+                                    data-bg="#1a3a5c" data-text="#e8f4fd" data-accent="#4fc3f7" data-spine="#0d2137"></button>
+                            <button type="button" class="swatch" title="Forest"
+                                    data-bg="#1b3a2d" data-text="#e8f5e9" data-accent="#66bb6a" data-spine="#0f2419"></button>
+                            <button type="button" class="swatch" title="Crimson"
+                                    data-bg="#5c1a1a" data-text="#fff5f5" data-accent="#ef9a9a" data-spine="#3b0f0f"></button>
+                            <button type="button" class="swatch" title="Dusk"
+                                    data-bg="#2d1b4e" data-text="#f3e8ff" data-accent="#ce93d8" data-spine="#1a0f2d"></button>
+                            <button type="button" class="swatch" title="Sand"
+                                    data-bg="#6b4f2a" data-text="#fff8f0" data-accent="#ffcc80" data-spine="#3e2c14"></button>
+                            <button type="button" class="swatch" title="Slate"
+                                    data-bg="#263238" data-text="#eceff1" data-accent="#80cbc4" data-spine="#102027"></button>
+                            <button type="button" class="swatch" title="Rose"
+                                    data-bg="#5c1a3a" data-text="#fce4ec" data-accent="#f48fb1" data-spine="#3b0f25"></button>
+                            <button type="button" class="swatch" title="Olive"
+                                    data-bg="#3a4a1a" data-text="#f9fbe7" data-accent="#cddc39" data-spine="#222d0f"></button>
+                        </div>
+                    </div>
+
+                    <!-- Text Size -->
+                    <div class="mb-3">
+                        <label class="form-label fw-medium small">Text Size</label>
+                        <div class="btn-group w-100" role="group" id="textSizeGroup">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-size="10">Small</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm active" data-size="13">Medium</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-size="16">Large</button>
+                        </div>
+                    </div>
+
+                    <!-- Line Spacing -->
+                    <div class="mb-3">
+                        <label class="form-label fw-medium small">Line Spacing: <span id="lineSpacingLabel" class="text-primary fw-semibold">Normal</span></label>
+                        <input type="range" class="form-range" id="lineSpacing" min="1.4" max="2.0" step="0.2" value="1.6">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Preview + Summary -->
+        <div class="col-lg-8">
+            <!-- 3-Panel Cover Preview -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold text-uppercase text-muted small mb-3">
+                        <i class="fas fa-eye me-1"></i>Live Cover Preview
+                    </h6>
+                    <partial name="_CoverPreview" />
+                </div>
+            </div>
+
+            <!-- Dimensions Summary -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <h6 class="fw-semibold text-uppercase text-muted small mb-3">
+                        <i class="fas fa-table me-1"></i>Dimensions Summary
+                    </h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-borderless mb-0" id="summaryTable">
+                            <tbody>
+                                <tr>
+                                    <td class="text-muted small fw-medium">Spine width</td>
+                                    <td class="small fw-semibold" id="sumSpine">—</td>
+                                </tr>
+                                <tr id="sumSpineRow">
+                                    <td class="text-muted small fw-medium">Total width</td>
+                                    <td class="small fw-semibold" id="sumTotalWidth">—</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small fw-medium">Cover height</td>
+                                    <td class="small fw-semibold" id="sumHeight">9.250" (234.95mm)</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small fw-medium">Barcode area</td>
+                                    <td class="small fw-semibold">2.000" × 1.200" (50.80mm × 30.48mm)</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small fw-medium">Pages</td>
+                                    <td class="small fw-semibold" id="sumPages">150</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small fw-medium">Paper</td>
+                                    <td class="small fw-semibold" id="sumPaper">White paper</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-muted small fw-medium">Spine text</td>
+                                    <td class="small fw-semibold" id="sumSpineText">—</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="spineWarning" class="alert alert-warning py-2 px-3 mt-3 small d-none" role="alert">
+                        <i class="fas fa-exclamation-triangle me-1"></i><span id="spineWarningText"></span>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="button" class="btn btn-sm btn-outline-primary rounded-3" id="btnCopyDims">
+                            <i class="fas fa-copy me-1"></i><span id="btnCopyLabel">Copy dimensions</span>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary rounded-3" id="btnSpecSheet">
+                            <i class="fas fa-download me-1"></i>Download spec sheet
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="~/js/cover-preview.js" asp-append-version="true"></script>
+<script src="~/js/calculator.js" asp-append-version="true"></script>

@@ -217,6 +217,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 // Add BookService
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<BookPublishReadinessService>();
+builder.Services.AddScoped<ISpineCalculatorService, SpineCalculatorService>();
 // Add PlanService
 builder.Services.AddScoped<IPlansService, PlansService>();
 // Add FeatureCartService
