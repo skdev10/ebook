@@ -1,10 +1,11 @@
 {
-  "title": "The Light Keeper",
-  "author_name": "Christina Wallace",
-  "category": "Fantasy / Adventure",
-  "cover_style": "Deep navy blue background with subtle damask pattern, ornate gold baroque decorative frame on front cover, elegant gold serif typography, luxurious premium publishing style",
+  "title": "Peter Pan",
+  "author_name": "J. M. Barrie",
+  "category": "Children's Fantasy",
+  "cover_style": "Victorian ornamental — deep navy background, ornate gold filigree frame, gold serif typography, premium KDP print wrap. Spine must be a thin solid strip with NO title or text on the spine (KDP paperback rule for narrow spines).",
   "size": "1536x1024",
-  "quality": "medium",
+  "quality": "high",
   "Interior_trim_size": "6 x 9 in",
-  "page_count": 250
+  "page_count": 40,
+  "paper_type": "white"
 }

@@ -1,137 +1,109 @@
-# Book platform API reference (upstream + ASP.NET BFF)
+# EBook AI Platform — Upstream API Reference
 
-This document covers:
+**Version:** 1.1 · **Last updated:** May 2026  
+**Live upstream base URL:** `http://162.229.248.26:8001`  
+**ASP.NET BFF (production):** `http://138.197.76.70:5000`
 
-1. **Upstream book service** (Python / FastAPI style) at base URL **`http://162.229.248.26:8001`**
-2. **This ASP.NET app** as a BFF (Backend for Frontend): same **`X-API-Key`**, JSON contracts, longer timeouts where configured
+This document is the **single source of truth** for integrators and senior developers working on the book-generation pipeline: chapters, audio, covers, print-ready wrap (back + spine + front), queue monitoring, and upstream MySQL tables.
 
-**Important — API keys**
+---
 
-- Authentication header: **`X-API-Key`**
-- Configure with environment variable **`ExternalApi__ApiKey`** (or `OpenAI__ApiKey` as fallback resolver), **user secrets**, or **`appsettings.Local.json`** (gitignored).
-- **Never commit real keys to git.** If a key was pasted in chat, email, or a ticket, **rotate it on the upstream server** and set the new value only in secure configuration.
+## Table of contents
+
+1. [Architecture](#architecture)
+2. [Authentication](#authentication)
+3. [Endpoint index](#endpoint-index)
+4. [Chapter workflow](#chapter-workflow)
+5. [Cover workflow](#cover-workflow)
+6. [Print wrap cover (spine + back + front)](#print-wrap-cover-spine--back--front)
+7. [Queue & diagnostics](#queue--diagnostics)
+8. [Upstream database schema](#upstream-database-schema)
+9. [ASP.NET BFF route map](#aspnet-bff-route-map)
+10. [Configuration & secrets](#configuration--secrets)
+11. [cURL cookbook](#curl-cookbook)
+12. [Troubleshooting](#troubleshooting)
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+  Browser[Browser / Dashboard UI]
+  BFF[ASP.NET BFF\n138.197.76.70:5000]
+  API[Python FastAPI\n162.229.248.26:8001]
+  DB[(Upstream MySQL)]
+
+  Browser --> BFF
+  BFF -->|X-API-Key| API
+  API --> DB
+```
+
+| Layer | Role |
+|-------|------|
+| **Upstream API** | AI generation, transcription, queue, persistence to `Temporary_database` / `User_confirm` |
+| **ASP.NET BFF** | Auth session, payload normalization, KDP spine math, cover asset persistence, PDF/EPUB export |
+| **Client export** | Optional client-side recalibration via `cover-kdp-export.js` for exact 300 DPI spine width from `page_count` |
 
 ---
 
 ## Authentication
 
-All upstream requests use header:
+Every upstream request **must** include:
 
 ```http
 X-API-Key: YOUR_EXTERNAL_API_KEY
+Content-Type: application/json
 ```
 
-**Production (DigitalOcean `/root/latest/EbookAI`):**
+| Setting | Where to set |
+|---------|----------------|
+| `ExternalApi__ApiKey` | Linux: `/etc/default/ebookai`, DigitalOcean env, or `dotnet user-secrets` |
+| Header name | **`X-API-Key`** (not `Authorization: Bearer`) |
 
-```bash
-# /etc/default/ebookai — never commit this file
-ExternalApi__ApiKey=YOUR_EXTERNAL_API_KEY
-ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=ebookpublications;...'
-```
+> **Security:** Never commit API keys to git, chat, or screenshots. Configure only via environment variables or gitignored `appsettings.Local.json`. If a key was exposed, **revoke and rotate** it on GitHub / upstream immediately.
 
-Load before every restart:
-
-```bash
-set -a && source /etc/default/ebookai && set +a
-export ASPNETCORE_ENVIRONMENT=Production
-```
-
-**Verify from the app (after login optional — endpoint is public for ops):**
+**Verify BFF key is loaded (after deploy):**
 
 ```bash
 curl -s http://127.0.0.1:5000/Books/ExternalApiStatus
+# Expect: "keyConfigured": true
 ```
 
-Expect: `"keyConfigured": true`, `"queueProbe": "ok"`.
+---
+
+## Endpoint index
+
+| # | Method | Path | Purpose |
+|---|--------|------|---------|
+| 1 | POST | `/api/generate_chapter` | Generate chapter from user prompt |
+| 2 | POST | `/api/edit` | Edit chapter via natural-language `changes` |
+| 3 | POST | `/api/audio` | Transcribe audio → text |
+| 4 | POST | `/api/approve` | Confirm chapter → `User_confirm` table |
+| 5 | GET | `/api/queue-data` | Queue: running / waiting / max concurrent |
+| 6 | POST | `/api/generate-cover` | Single front cover (eBook / preview) |
+| 7 | POST | `/api/generate-spine-book-cover` | **Full print wrap:** back + spine + front |
+| 8 | POST | `/api/edit-cover` | Edit cover from base64 + prompt |
+| 9 | POST | `/api/book_chapters_name` | Suggest chapter names from highlights |
+| 10 | POST | `/api/refine_cover_prompt` | Refine user cover prompt text |
+| 11 | POST | `/api/suggest-cover-prompt-from-highlights` | Suggest cover prompt from book highlights |
+
+**Cover constants (upstream validation):**
+
+| Constant | Allowed values |
+|----------|----------------|
+| `VALID_SIZES` | `1024x1024`, `1536x1024`, `1024x1536`, `auto` |
+| `VALID_QUALITIES` | `low`, `medium`, `high`, `auto` |
 
 ---
 
-## Upstream response shapes (chapter generate / edit)
+## Chapter workflow
 
-The Python API may return any of these; the ASP.NET app normalizes to `data.content` for the UI:
-
-| Shape | Example |
-|-------|---------|
-| Standard | `{ "data": { "content": "...", "suggest_chapter_name": "..." } }` |
-| Heading only | `{ "data": { "heading": "The gravitational force is invented in 8790" } }` |
-| Root content | `{ "content": "..." }` |
-| String `data` | `{ "data": "error or plain text" }` |
-
-BFF routes **`POST /Books/AIGenerateBook`** and **`POST /Books/AIEditBook`** return normalized JSON when possible.
-
----
-
-## ASP.NET BFF route map
-
-| Upstream | This app's route |
-|----------|------------------|
-| `POST /api/generate_chapter` | `POST /Books/AIGenerateBook` |
-| `POST /api/edit` | `POST /Books/AIEditBook`, `POST /Books/EditChapter` |
-| `POST /api/approve` | `POST /Books/FinalizeChapterAPI` |
-| `POST /api/audio` | `POST /api/AudioToText/convert`, `POST /Audio/Upload` |
-| `GET /api/queue-data` | `GET /Books/GetQueueData` |
-| `POST /api/generate-cover` | `POST /Books/GenerateAICoverPreview`, `POST /Dashboard/GenerateCover` |
-| `POST /api/edit-cover` | `POST /Books/EditAICoverPreview`, `POST /Dashboard/EditCover` |
-| `POST /api/book_chapters_name` | `POST /Books/SuggestChapterNames` |
-| `POST /api/refine_cover_prompt` | `POST /Books/RefineCoverPrompt` |
-| `POST /api/suggest-cover-prompt-from-highlights` | `POST /Books/SuggestCoverPromptFromHighlights` |
-| Diagnostics | `GET /Books/ExternalApiStatus` |
-
----
-
-## Quick reference (upstream)
-
-| # | Path | Method | Purpose |
-|---|------|--------|---------|
-| 1 | `/api/generate_chapter` | POST | Generate chapter from `user_input` |
-| 2 | `/api/edit` | POST | Edit chapter via natural-language `changes` |
-| 3 | `/api/audio` | POST | Transcribe audio (multipart file or optional `audio_file_path`) |
-| 4 | `/api/approve` | POST | Confirm chapter → upstream **`User_confirm`** |
-| 5 | `/api/queue-data` | GET | Queue: running / waiting / max concurrent / totals |
-| 6 | `/api/generate-cover` | POST | Generate cover options |
-| 7 | `/api/generate-spine-book-cover` | POST | Generate full print-ready wrap (back+spine+front) |
-| 8 | `/api/edit-cover` | POST | Edit cover from base64 + prompt |
-| 9 | `/api/book_chapters_name` | POST | Suggest chapter names from `highlights` |
-| 10 | `/api/refine_cover_prompt` | POST | Refine a user’s cover prompt text |
-| 11 | `/api/suggest-cover-prompt-from-highlights` | POST | Suggest cover prompt from book highlights |
-
-### Task 1 — inventory vs code audit
-
-Validated against app route usage in `Controllers/BooksController.cs`, `Controllers/DashboardController.cs`, `Controllers/AudioController.cs`, `Controllers/AudioToTextController.cs`, and `Health/UpstreamBookApiHealthCheck.cs`.
-
-| Endpoint | In your inventory | Found in code usage | Notes |
-|---|---|---|---|
-| `/api/generate_chapter` | Yes | Yes | Used by `POST /Books/AIGenerateBook` and chapter pipeline service. |
-| `/api/edit` | Yes | Yes | Used by `AIEditBook` and edit chapter actions. |
-| `/api/audio` | Yes | Yes | Used by multipart upload + JSON/path fallback helper. |
-| `/api/approve` | Yes | Yes | Uses strict `chapter` key (no trailing-space key). |
-| `/api/queue-data` | Yes | Yes | Used by queue endpoint + health check probe. |
-| `/api/generate-cover` | Yes | Yes | Used by cover generation actions. |
-| `/api/generate-spine-book-cover` | Yes | Yes | Used by `POST /Dashboard/GeneratePrintReadyCover`. |
-| `/api/edit-cover` | Yes | Yes | Used by cover edit actions. |
-| `/api/book_chapters_name` | Yes | Yes | Used by chapter-name suggestion endpoint. |
-| `/api/refine_cover_prompt` | No | Yes | Extra endpoint in codebase (documented below). |
-| `/api/suggest-cover-prompt-from-highlights` | No | Yes | Extra endpoint in codebase (documented below). |
-
-**Live connectivity sanity-check (without secret):**
-
-- `GET /api/queue-data` reachable from current environment and returns `401` when `X-API-Key` is missing/invalid.
-- This confirms host/port reachability and auth enforcement.
-
-**Cover-only constants** (not used by `/api/edit` chapter text):
-
-- **`VALID_SIZES`**: `1024x1024`, `1536x1024`, `1024x1536`, `auto`
-- **`VALID_QUALITIES`** (`generate-cover`): `low`, `medium`, `high`, `auto`
-
----
-
-## 1. Generate chapter
+### 1. Generate chapter
 
 **`POST /api/generate_chapter`**
 
-**Headers:** `Content-Type: application/json`, **`X-API-Key: <secret>`**
-
-**Example body (upstream-friendly):**
+**Request**
 
 ```json
 {
@@ -142,17 +114,31 @@ Validated against app route usage in `Controllers/BooksController.cs`, `Controll
 }
 ```
 
-`chapter` may be a **string** or **number** depending on worker; both are common.
+| Field | Type | Notes |
+|-------|------|-------|
+| `user_id` | string | User identifier |
+| `book_id` | string | Book identifier |
+| `chapter` | string \| int | Chapter index |
+| `user_input` | string | Generation prompt |
 
-**ASP.NET BFF:** `POST /Books/AIGenerateBook` (JSON body from `AIGenerateBook` page).
+**Example result (heading-only shape):**
 
-The server forwards a payload built from **`AIBookRequest`**: it includes `user_id`, `book_id`, `chapter` (integer in app model), `user_input`, `title`, **`preview_only`** (dashboard uses `true` for drafts), and appends an internal **author / generation rules** suffix to `user_input` via `GenerateChapterPayloadBuilder` before calling upstream.
+```json
+{
+  "data": {
+    "heading": "The gravitational force is invented in 8790"
+  }
+}
+```
 
-**Typical upstream table:** `Temporary_database`
+The ASP.NET BFF normalizes multiple upstream shapes to `data.content` for the UI (`UpstreamResponseParser`).
+
+**Persists to:** `Temporary_database`  
+**BFF route:** `POST /Books/AIGenerateBook`
 
 ---
 
-## 2. Edit chapter
+### 2. Edit chapter
 
 **`POST /api/edit`**
 
@@ -165,20 +151,19 @@ The server forwards a payload built from **`AIBookRequest`**: it includes `user_
 }
 ```
 
-**ASP.NET BFF:** `POST /Books/AIEditBook` (JSON: `user_id`, `book_id`, `title`, `chapter`, `changes`).  
-Also: `POST /Books/EditChapter` (JSON `APIEditChapterRequest`), legacy **`POST /Books/EditChapterFromQuery`** for query-style forwards.
+Use clear, natural-language `changes`. Example: user generated heading *"The gravitational force is invented in 8790"* and wants year **6789** instead.
 
-**Note:** `VALID_SIZES` / `VALID_QUALITIES` apply only to **cover** endpoints, not chapter edit.
+**BFF routes:** `POST /Books/AIEditBook`, `POST /Books/EditChapter`
 
 ---
 
-## 3. Audio transcription
+### 3. Audio transcription
 
 **`POST /api/audio`**
 
-**Supported extensions:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
+**Supported formats:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
 
-### A) JSON + server-local file path (same machine as API only)
+**JSON + server-local path** (path must exist on the **upstream worker** machine):
 
 ```json
 {
@@ -189,28 +174,21 @@ Also: `POST /Books/EditChapter` (JSON `APIEditChapterRequest`), legacy **`POST /
 }
 ```
 
-### B) Multipart (recommended for browsers and this app)
+**Multipart (recommended for browser / ASP.NET):**
 
-Form fields:
+- Form fields: `user_id`, `book_id`, `chapter`
+- File field: `audio`, `audio_file`, or `file`
 
-- `user_id`, `book_id`, `chapter`
-- File part: try field names in order **`audio`**, **`audio_file`**, **`file`** (override with `ExternalApi:AudioMultipartFieldNames`)
-- Optional: `audio_file_path` when `ExternalApi:AudioSendLocalFilePath` is `true`
-
-**ASP.NET BFF:**
-
-- `POST /api/AudioToText/convert` — multipart from browser; server may call upstream with multipart or Whisper fallback
-- `POST /Audio/Upload` — MVC upload path
-
-**Typical upstream table:** `audio_transcriptions`
+**Persists to:** `audio_transcriptions`  
+**BFF routes:** `POST /api/AudioToText/convert`, `POST /Audio/Upload`
 
 ---
 
-## 4. Approve (confirm) chapter
+### 4. Approve (confirm) chapter
 
 **`POST /api/approve`**
 
-Use strict JSON (no stray spaces in property names):
+Use **strict JSON** — no trailing spaces in property names:
 
 ```json
 {
@@ -221,27 +199,19 @@ Use strict JSON (no stray spaces in property names):
 }
 ```
 
-Invalid examples to avoid: `"chapter "` (trailing space), Python-style `approve: True` without JSON quoting.
+| Invalid | Why |
+|---------|-----|
+| `"chapter "` (trailing space) | Upstream may ignore unknown keys |
+| `approve: True` (Python syntax) | Must be JSON `true` |
 
-**ASP.NET BFF:** `POST /Books/FinalizeChapterAPI` — body maps to **`APIFinalizeChapterRequest`** (`user_id`, `book_id`, `chapter`, `approve`).
-
-**Typical upstream table:** `User_confirm`
-
----
-
-## 5. Queue status
-
-**`GET /api/queue-data`**
-
-No body. Returns metrics (shape depends on upstream), e.g. running / waiting / max concurrent / total.
-
-**ASP.NET BFF:** `GET /Books/GetQueueData`
-
-**Typical upstream table:** `queue_monitor`
+**Persists to:** `User_confirm`  
+**BFF route:** `POST /Books/FinalizeChapterAPI`
 
 ---
 
-## 6. Generate cover
+## Cover workflow
+
+### 5. Generate front cover (eBook)
 
 **`POST /api/generate-cover`**
 
@@ -256,218 +226,303 @@ No body. Returns metrics (shape depends on upstream), e.g. running / waiting / m
 }
 ```
 
-**ASP.NET:** `BooksController` / `DashboardController` cover actions; defaults from `ExternalApi:CoverGenerateSize` and `ExternalApi:CoverGenerateQuality`.
+**BFF routes:** `POST /Books/GenerateAICoverPreview`, `POST /Dashboard/GenerateCover`
 
 ---
 
-## 7. Generate print-ready wrap cover
-
-**`POST /api/generate-spine-book-cover`**
-
-```json
-{
-  "title": "The Light Keeper",
-  "author_name": "Christina Wallace",
-  "category": "Fantasy / Adventure",
-  "cover_style": "Deep navy blue background with ornate gold frame and serif typography",
-  "size": "1536x1024",
-  "quality": "medium",
-  "Interior_trim_size": "6 x 9 in",
-  "page_count": 250,
-  "binding_type": "Paperback",
-  "paper_type": "White paper",
-  "interior_type": "Black & white",
-  "spine_width_inches": 0.563,
-  "spine_width_mm": 14.3,
-  "wrap_width_inches": 12.813,
-  "wrap_height_inches": 9.25,
-  "wrap_width_mm": 325.45,
-  "wrap_height_mm": 234.95,
-  "bleed_inches": 0.125
-}
-```
-
-**ASP.NET BFF:** `POST /Dashboard/GeneratePrintReadyCover`  
-Page count and spine/wrap dimensions use `KdpPrintCoverCalculator` (same rules as [KDP Cover Calculator](https://kdp.amazon.com/cover-calculator)). The UI recomposes the returned front/spine/back panels client-side to the exact spine width. Persist calibrated wrap via `POST /Dashboard/SavePrintReadyComposedWrap`.
-
----
-
-## 8. Edit cover
+### 6. Edit cover
 
 **`POST /api/edit-cover`**
 
 ```json
 {
   "encoded_image": "iVBORw0KGgoAAAANSUhEUgAA...",
-  "image_direction": "image direction in prompt",
+  "image_direction": "Make the sky brighter and add subtle stars",
   "size": "1024x1536"
 }
 ```
 
-- `encoded_image`: raw base64 unless upstream documents a `data:` prefix
-- `image_direction`: edit instructions
+| Field | Description |
+|-------|-------------|
+| `encoded_image` | Raw base64 PNG/JPEG (no `data:` prefix unless upstream documents otherwise) |
+| `image_direction` | Natural-language edit instructions |
+| `size` | One of `VALID_SIZES` |
+
+**BFF routes:** `POST /Books/EditAICoverPreview`, `POST /Dashboard/EditCover`
 
 ---
 
-## 9. Chapter name suggestions
+### 7. Chapter name suggestions
 
 **`POST /api/book_chapters_name`**
 
-The worker’s `HighlightItem` schema may vary. Examples:
-
-**Shape A (numeric chapter + summary):**
-
 ```json
 {
-  "user_id": "42",
-  "book_id": "59",
-  "highlights": [
-    { "chapter": 1, "summary": "Hook: protagonist discovers anomaly." }
-  ]
-}
-```
-
-**Shape B (chapter_name + detailed_bullet_summary):**
-
-```json
-{
-  "user_id": "u1",
-  "book_id": "b1",
+  "user_id": "u123",
+  "book_id": "b456",
   "highlights": [
     {
-      "chapter_name": "Chapter 1",
-      "detailed_bullet_summary": "..."
+      "chapter": 1,
+      "summary": "Hook: protagonist discovers anomaly."
     }
   ]
 }
 ```
 
-**ASP.NET BFF:** `POST /Books/BookChaptersName` — forwards JSON **as received** to upstream.
-
-**Upstream note:** `Temporary_database.suggest_chapter_name` may hold ~5 suggestions; user-selected name can go into `chapter_name`.
-
----
-
-## 9. Refine cover prompt
-
-**`POST /api/refine_cover_prompt`**
-
-Use **`http://`** unless TLS is correctly configured on the host (avoid mixed `https://` on an HTTP-only port).
+Alternative highlight shape:
 
 ```json
 {
-  "user_prompt": "here is the prompt"
-}
-```
-
-**ASP.NET BFF:** `POST /Books/RefineCoverPrompt` — requires signed-in user session. URL from `ExternalApi:RefineCoverPromptUrl` or default path above.
-
----
-
-## 10. Suggest cover prompt from highlights
-
-**`POST /api/suggest-cover-prompt-from-highlights`**
-
-```json
-{
-  "user_id": "u1",
-  "book_id": "b1",
   "highlights": [
     {
       "chapter_name": "Chapter 1",
-      "detailed_bullet_summary": "..."
+      "detailed_bullet_summary": "Opening scene establishes the world."
     }
   ]
 }
 ```
 
-**ASP.NET BFF:** `POST /Books/SuggestCoverPromptFromHighlights` — requires session.
+Upstream may return ~5 names in `Temporary_database.suggest_chapter_name`; user picks one → stored as `chapter_name`.
+
+**BFF route:** `POST /Books/SuggestChapterNames`
 
 ---
 
-## Upstream database tables (reference)
+## Print wrap cover (spine + back + front)
 
-Maintained by the upstream service; typical columns:
+### `POST /api/generate-spine-book-cover`
 
-### 1. `Temporary_database`
+Generates a **full KDP paperback spread**: `[ back cover | spine | front cover ]` with bleed.
 
-Draft rows: `user_id`, `book_id`, `chapter`, `chapter_name`, `user_input`, `content`, **`suggest_chapter_name`**, `highlight_of_previous_chapter`, `date`, `time`, etc.
+This is the endpoint used for **Peter Pan**-style Victorian ornamental wraps where the spine is a **thin vertical strip with no text** (see reference output below).
 
-### 2. `User_confirm`
+#### Minimal request (direct upstream)
 
-Confirmed chapters after **`/api/approve`**.
+```json
+{
+  "title": "Peter Pan",
+  "author_name": "J. M. Barrie",
+  "category": "Children's Fantasy",
+  "cover_style": "Victorian ornamental",
+  "size": "1536x1024",
+  "quality": "high",
+  "Interior_trim_size": "6 x 9 in",
+  "page_count": 40,
+  "paper_type": "white"
+}
+```
+
+#### Full request (ASP.NET BFF — recommended)
+
+When calling via `POST /Dashboard/GeneratePrintReadyCover`, the BFF adds KDP-calculated dimensions:
+
+```json
+{
+  "title": "Peter Pan",
+  "author_name": "J. M. Barrie",
+  "category": "Children's Fantasy",
+  "cover_style": "Victorian ornamental — deep navy, gold filigree, no spine text",
+  "size": "1536x1024",
+  "quality": "high",
+  "Interior_trim_size": "6 x 9 in",
+  "page_count": 40,
+  "binding_type": "Paperback",
+  "paper_type": "White paper",
+  "interior_type": "Black & white",
+  "spine_width_inches": 0.090,
+  "spine_width_mm": 2.29,
+  "wrap_width_inches": 12.340,
+  "wrap_height_inches": 9.250,
+  "wrap_width_mm": 313.44,
+  "wrap_height_mm": 234.95,
+  "bleed_inches": 0.125,
+  "wrap_margin_inches": 0.125,
+  "hinge_gap_inches": 0,
+  "panel_width_inches": 6.0,
+  "panel_height_inches": 9.0
+}
+```
+
+#### Request fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `title` | Yes | Book title (front cover) |
+| `author_name` | Yes | Author on front cover |
+| `category` | Yes | Genre / category for art direction |
+| `cover_style` | Yes | Art direction prompt (style, palette, ornaments) |
+| `size` | Yes | Image size — use `1536x1024` for landscape wrap |
+| `quality` | Yes | `low` \| `medium` \| `high` \| `auto` |
+| `Interior_trim_size` | Yes | e.g. `"6 x 9 in"` |
+| `page_count` | Yes | **Drives spine width** — must match formatted manuscript |
+| `paper_type` | Recommended | `"white"`, `"White paper"`, `"cream"`, etc. |
+| `spine_width_inches` | BFF adds | Pre-calculated spine (see formula below) |
+| `binding_type` | BFF adds | Usually `"Paperback"` |
+
+#### KDP spine width formula (white paper)
+
+```
+spine_inches = page_count × 0.002252
+```
+
+| Pages | Spine (white) | Notes |
+|-------|---------------|-------|
+| 40 | **0.090"** (2.29 mm) | Reference KDP template |
+| 79+ | wider | KDP allows spine text; **this product exports spine without text** |
+| 250 | 0.563" | Longer books |
+
+Full wrap width (paperback, bleed on):
+
+```
+wrap_width = 2 × trim_width + spine + 2 × 0.125"
+wrap_height = trim_height + 2 × 0.125"
+```
+
+For **6×9**, 40 pages, white: **12.340" × 9.250"** (313.44 × 234.95 mm).
+
+#### Expected visual output
+
+| Panel | Content |
+|-------|---------|
+| **Back (left)** | Matching ornamental frame; barcode-safe lower area; no required text |
+| **Spine (center)** | **Thin solid strip — NO title, NO author, NO text** |
+| **Front (right)** | Title, author, full cover art inside gold frame |
+
+Reference: *Peter Pan* — Victorian ornamental, navy + gold, narrow spine, zero spine typography.
+
+#### Response
+
+Upstream returns image URL(s) and/or base64. The BFF extracts:
+
+| Asset | Setting key |
+|-------|-------------|
+| Full wrap | `book:{id}:printReadyCoverWrap` |
+| Front | `book:{id}:printReadyCoverFront` |
+| Back | `book:{id}:printReadyCoverBack` |
+| Spine | `book:{id}:printReadyCoverSpine` |
+| Page count | `book:{id}:printReadyPageCount` |
+
+**Client-side export (300 DPI PNG):**  
+`POST /Dashboard/GetPrintReadyCoverAssets` → `CoverKdpExport.composePrintWrapFromParts()` recalibrates spine to exact `page_count`, solid spine color, **no spine text**.
+
+**BFF route:** `POST /Dashboard/GeneratePrintReadyCover`
+
+---
+
+## Queue & diagnostics
+
+### `GET /api/queue-data`
+
+No body. Returns queue metrics, e.g.:
+
+```json
+{
+  "status_running": 2,
+  "status_waiting": 5,
+  "status_max_concurrent": 4,
+  "status_total_requests": 128
+}
+```
+
+**BFF route:** `GET /Books/GetQueueData`  
+**Table:** `queue_monitor`
+
+---
+
+## Upstream database schema
+
+Maintained by the Python service (not ASP.NET `ApplicationDbContext`).
+
+### 1. `Temporary_database` — drafts
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | INT AUTO_INCREMENT PK | |
+| `user_id` | VARCHAR(255) | |
+| `book_id` | VARCHAR(255) | |
+| `chapter` | INT | |
+| `chapter_name` | VARCHAR(255) | User-selected name after suggestions |
+| `user_input` | TEXT | Original prompt |
+| `content` | LONGTEXT | Generated HTML/text |
+| `suggest_chapter_name` | TEXT | ~5 AI-suggested names |
+| `highlight_of_previous_chapter` | LONGTEXT | Continuity for next chapter |
+| `date` | DATE | DEFAULT CURRENT_DATE |
+| `time` | TIME | DEFAULT CURRENT_TIME |
+
+### 2. `User_confirm` — approved chapters
+
+Same as temporary **without** `suggest_chapter_name`. Written when `POST /api/approve` succeeds with `"approve": true`.
 
 ### 3. `audio_transcriptions`
 
-Audio / transcription metadata (`user_input`, `book_id`, `chapter`, `user_id`, `audio_file_path`, timestamps).
+| Column | Type |
+|--------|------|
+| `id` | INT AUTO_INCREMENT PK |
+| `date`, `time` | DATE, TIME |
+| `user_input` | TEXT — transcribed text |
+| `book_id` | VARCHAR(50) |
+| `chapter` | INT |
+| `user_id` | VARCHAR(50) |
+| `audio_file_path` | VARCHAR(255) |
 
 ### 4. `queue_monitor`
 
-`status_running`, `status_waiting`, `status_max_concurrent`, `status_total_requests`, `logs`, optional `user_id` / `book_id` / `chapter`, timestamps.
+| Column | Type |
+|--------|------|
+| `status_running` | INT |
+| `status_waiting` | INT |
+| `status_max_concurrent` | INT |
+| `status_total_requests` | INT |
+| `logs` | TEXT |
+| `user_id`, `book_id`, `chapter` | VARCHAR / INT |
+| `log_date`, `log_time` | DATE, TIME |
 
 ### 5. `error_logs`
 
-`line_number`, `error`, `filename`, timestamps.
+| Column | Type |
+|--------|------|
+| `line_number` | INT |
+| `error` | TEXT |
+| `filename` | VARCHAR(255) |
+| `error_date`, `error_time` | DATE, TIME |
 
 ---
 
-## ASP.NET → upstream mapping (BFF)
+## ASP.NET BFF route map
 
-All outbound calls that use **`IBookApiClient`** add **`X-API-Key`** from `ExternalApiKeyResolver` (same key source as `ExternalApi:ApiKey` / `OpenAI:ApiKey` fallback).
-
-| Upstream | ASP.NET entry point (examples) |
-|----------|----------------------------------|
+| Upstream | ASP.NET entry point |
+|----------|---------------------|
 | `POST /api/generate_chapter` | `POST /Books/AIGenerateBook` |
-| `POST /api/edit` | `POST /Books/AIEditBook`, `POST /Books/EditChapter`, `POST /Books/EditChapterFromQuery` |
+| `POST /api/edit` | `POST /Books/AIEditBook`, `POST /Books/EditChapter` |
 | `POST /api/approve` | `POST /Books/FinalizeChapterAPI` |
-| `GET /api/queue-data` | `GET /Books/GetQueueData` |
-| `POST /api/book_chapters_name` | `POST /Books/BookChaptersName` |
-| `POST /api/generate-cover` | Books / Dashboard cover generate actions |
-| `POST /api/generate-spine-book-cover` | `POST /Dashboard/GeneratePrintReadyCover` |
-| `POST /api/edit-cover` | Books / Dashboard edit-cover actions |
 | `POST /api/audio` | `POST /api/AudioToText/convert`, `POST /Audio/Upload` |
+| `GET /api/queue-data` | `GET /Books/GetQueueData` |
+| `POST /api/generate-cover` | `POST /Books/GenerateAICoverPreview`, `POST /Dashboard/GenerateCover` |
+| `POST /api/generate-spine-book-cover` | `POST /Dashboard/GeneratePrintReadyCover` |
+| `POST /api/edit-cover` | `POST /Books/EditAICoverPreview`, `POST /Dashboard/EditCover` |
+| `POST /api/book_chapters_name` | `POST /Books/SuggestChapterNames` |
 | `POST /api/refine_cover_prompt` | `POST /Books/RefineCoverPrompt` |
 | `POST /api/suggest-cover-prompt-from-highlights` | `POST /Books/SuggestCoverPromptFromHighlights` |
 
-Additional publish/download BFF endpoints:
-- `GET /Dashboard/BookPageMetrics?bookId=<id>` — shared manuscript page-count source-of-truth.
-- `POST /Dashboard/DownloadBookPdf` — full print-ready PDF (cover + interior).
-- `POST /Dashboard/DownloadBookInteriorPdf` — interior-only PDF.
-- `GET /Dashboard/DownloadPrintReadyCoverAsset?bookId=<id>&part=wrap|front|back|spine` — download saved print-ready cover assets.
+**Publish / download BFF (no upstream call):**
 
-**Pipeline:** `BookApiShort` (standard) vs **`BookApiLong`** (chapter generate). Resilience timeouts are configured in `Infrastructure/BookUpstreamHttpClientExtensions.cs`. Browser wait: `ChapterGeneration:BrowserFetchTimeoutMinutes`. IIS: see **`web.config`** `requestTimeout` when hosting in-process.
+| Route | Purpose |
+|-------|---------|
+| `GET /Dashboard/BookPageMetrics?bookId=` | Page count from manuscript + formatter |
+| `GET /Dashboard/GetPrintReadyCoverAssets?bookId=` | Saved wrap assets + `pageCount` |
+| `POST /Dashboard/SavePrintReadyComposedWrap` | Persist client-composed 300 DPI wrap |
+| `POST /Dashboard/DownloadBookPdf` | Full print-ready PDF |
+| `GET /api/kdp/calculate` | KDP dimension calculator (local) |
 
----
-
-## cURL (upstream direct)
-
-Replace `YOUR_KEY` and URLs if your deployment differs.
-
-```bash
-curl -sS -X POST "http://162.229.248.26:8001/api/generate_chapter" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_KEY" \
-  -d "{\"user_id\":\"u123\",\"book_id\":\"b456\",\"chapter\":\"18\",\"user_input\":\"how gravity descover\"}"
-
-curl -sS -X POST "http://162.229.248.26:8001/api/edit" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_KEY" \
-  -d "{\"user_id\":\"u123\",\"book_id\":\"b456\",\"chapter\":\"18\",\"changes\":\"Replace in heading 8790 with 6789\"}"
-
-curl -sS "http://162.229.248.26:8001/api/queue-data" \
-  -H "X-API-Key: YOUR_KEY"
-
-curl -sS -X POST "http://162.229.248.26:8001/api/approve" \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: YOUR_KEY" \
-  -d "{\"user_id\":\"u123\",\"book_id\":\"b456\",\"chapter\":\"18\",\"approve\":true}"
-```
+All outbound upstream calls attach **`X-API-Key`** via `IBookApiClient` / `ExternalApiKeyResolver`.
 
 ---
 
-## `appsettings.json` — `ExternalApi` block
+## Configuration & secrets
 
-URLs are committed; **API key is not**. Example:
+### `appsettings.json` — `ExternalApi` block
+
+URLs are committed; **API key is never committed.**
 
 ```json
 "ExternalApi": {
@@ -481,127 +536,100 @@ URLs are committed; **API key is not**. Example:
   "AudioUrl": "http://162.229.248.26:8001/api/audio",
   "QueueDataUrl": "http://162.229.248.26:8001/api/queue-data",
   "BookChaptersNameUrl": "http://162.229.248.26:8001/api/book_chapters_name",
-  "RefineCoverPromptUrl": "http://162.229.248.26:8001/api/refine_cover_prompt",
-  "SuggestCoverPromptFromHighlightsUrl": "http://162.229.248.26:8001/api/suggest-cover-prompt-from-highlights",
-  "ApiKey": "",
-  "PrintReadyCoverSize": "1536x1024",
-  "PrintReadyCoverQuality": "medium",
-  "PrintReadyCoverStyle": ""
+  "ApiKey": ""
 }
 ```
 
-**Set key (Linux/macOS):** `export ExternalApi__ApiKey='your-key'`  
-**Windows PowerShell:** `$env:ExternalApi__ApiKey = 'your-key'`
+### Production (Ubuntu `/opt/EbookAI`)
 
-**Development:** `dotnet user-secrets set "ExternalApi:ApiKey" "your-key" --project newEbook.csproj`
+```bash
+# /etc/default/ebookai — mode 600, never commit
+ExternalApi__ApiKey=YOUR_EXTERNAL_API_KEY
+ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=ebookpublications;...'
 
----
+set -a && source /etc/default/ebookai && set +a
+export ASPNETCORE_ENVIRONMENT=Production
+nohup dotnet publish/EBookDashboard.dll --urls http://0.0.0.0:5000 > nohup.out 2>&1 &
+```
 
-## Upstream MySQL tables (book generation service)
+### Development
 
-These tables live on the upstream Python service database (not the ASP.NET `ApplicationDbContext`). They store chapter pipeline, confirmations, audio, queue, and errors.
-
-### 1. `Temporary_database` — draft / in-progress chapters
-
-| Column | Type | Notes |
-|--------|------|--------|
-| `id` | INT AUTO_INCREMENT PRIMARY KEY | |
-| `user_id` | VARCHAR(255) | |
-| `book_id` | VARCHAR(255) | |
-| `chapter` | INT | |
-| `chapter_name` | VARCHAR(255) | |
-| `user_input` | TEXT | Original prompt |
-| `content` | LONGTEXT | Generated body |
-| `suggest_chapter_name` | TEXT | Up to 5 suggested names before user picks one |
-| `highlight_of_previous_chapter` | LONGTEXT | |
-| `date` | DATE | Default CURRENT_DATE |
-| `time` | TIME | Default CURRENT_TIME |
-
-### 2. `User_confirm` — approved chapters
-
-Same columns as temporary (without `suggest_chapter_name`). Written when `POST /api/approve` succeeds with `approve: true`.
-
-### 3. `audio_transcriptions`
-
-| Column | Type |
-|--------|------|
-| `id` | INT AUTO_INCREMENT PRIMARY KEY |
-| `date`, `time` | DATE, TIME |
-| `user_input` | TEXT |
-| `book_id` | VARCHAR(50) |
-| `chapter` | INT |
-| `user_id` | VARCHAR(50) |
-| `audio_file_path` | VARCHAR(255) |
-
-Supported audio extensions: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`.
-
-### 4. `queue_monitor`
-
-Tracks concurrent workers: `status_running`, `status_waiting`, `status_max_concurrent`, `status_total_requests`, `logs`, `user_id`, `book_id`, `chapter`, `log_date`, `log_time`.
-
-### 5. `error_logs`
-
-`line_number`, `error`, `filename`, `error_date`, `error_time`.
+```bash
+dotnet user-secrets set "ExternalApi:ApiKey" "YOUR_EXTERNAL_API_KEY" --project newEbook.csproj
+```
 
 ---
 
-## ASP.NET `Settings` keys (cover workflow)
+## cURL cookbook
 
-| Key pattern | Purpose |
-|-------------|---------|
-| `book:{id}:aiCoverLastPreview` | Last generated front cover URL/path |
-| `book:{id}:printReadyCoverWrap` | Full print wrap (back + spine + front) |
-| `book:{id}:printReadyCoverFront` | Front panel |
-| `book:{id}:printReadyCoverBack` | Back panel |
-| `book:{id}:printReadyCoverSpine` | Spine panel |
-| `book:{id}:aiCoverPrompt` | Saved Image Direction prompt |
+Replace `YOUR_KEY` with the value from `ExternalApi__ApiKey`.
+
+```bash
+# Queue status
+curl -sS "http://162.229.248.26:8001/api/queue-data" \
+  -H "X-API-Key: YOUR_KEY"
+
+# Generate chapter
+curl -sS -X POST "http://162.229.248.26:8001/api/generate_chapter" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"user_id":"u123","book_id":"b456","chapter":"18","user_input":"how gravity descover"}'
+
+# Edit chapter
+curl -sS -X POST "http://162.229.248.26:8001/api/edit" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"user_id":"u123","book_id":"b456","chapter":"18","changes":"Replace in heading 8790 with 6789"}'
+
+# Approve chapter
+curl -sS -X POST "http://162.229.248.26:8001/api/approve" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d '{"user_id":"u123","book_id":"b456","chapter":"18","approve":true}'
+
+# Print wrap — Peter Pan 40 pages (no spine text in export pipeline)
+curl -sS -X POST "http://162.229.248.26:8001/api/generate-spine-book-cover" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_KEY" \
+  -d @tests/payloads/generate_spine_book_cover.json
+```
+
+**REST Client:** use `smoke-tests.http` with `@BASE` and `@KEY`.
+
+**Automated smoke:**
+
+```bash
+export API_BASE_URL=http://162.229.248.26:8001
+export API_KEY=YOUR_KEY
+python Scripts/smoke_test.py --json-output smoke-results.json
+```
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Check |
+| Symptom | Action |
 |---------|--------|
-| “ExternalApi:ApiKey is not set” | `source /etc/default/ebookai` before `nohup`; key must be `ExternalApi__ApiKey=...` (no spaces around `=`) |
-| `❌ No content field found in JSON` in logs | Upstream returned non-standard JSON — update app (UpstreamResponseParser) or check upstream response in `APIRawResponse` table |
-| `Address already in use` on deploy | Kill PID with `cut -d'/' -f1`: `kill -9 $(netstat -tpln \| awk '/:5000/ {print $7}' \| cut -d'/' -f1 \| head -1)` |
-| Generation stops after N minutes | `ChapterGeneration:BrowserFetchTimeoutMinutes`, reverse proxy timeouts, `web.config` |
-| 401/403 from upstream | Wrong or expired `X-API-Key`; rotate key |
-| Empty or HTML error from BFF | Upstream down or URL typo; check app logs for `BookApi` lines |
-| Refine / suggest cover 404 | `RefineCoverPromptUrl` / `SuggestCoverPromptFromHighlightsUrl` must be absolute `http(s)://...` paths |
+| `401 Unauthorized` | Wrong/missing `X-API-Key`; rotate key if exposed |
+| Spine too wide / narrow | Fix `page_count`; must match Book Formatting preview |
+| Spine shows title text | Use latest `Clean_Code` + hard refresh; export strips spine text |
+| SweetAlert shows wrong pages | Open Book Formatting first; saves `printReadyPageCount` |
+| `ExternalApi:ApiKey is not set` | `source /etc/default/ebookai` before `nohup` |
+| Upstream timeout on wrap | Long-running job; increase BFF long-timeout; check queue |
+| Port 5000 in use | `kill -9 $(ss -tlnp \| grep 5000 \| grep -oP 'pid=\K[0-9]+')` |
 
 ---
 
-## Automated smoke tests (recommended before every deploy)
+## Related files
 
-### Python smoke script
-
-```bash
-pip install -r requirements.txt
-set API_BASE_URL=http://162.229.248.26:8001
-set API_KEY=YOUR_EXTERNAL_API_KEY
-python Scripts/smoke_test.py --json-output smoke-results.json
-```
-
-### Pytest suite
-
-```bash
-pip install -r requirements.txt
-set API_BASE_URL=http://162.229.248.26:8001
-set API_KEY=YOUR_EXTERNAL_API_KEY
-pytest tests/test_api.py -q
-```
-
-### REST Client script
-
-Use `smoke-tests.http` with `@BASE` + `@KEY`, including `POST /api/generate-spine-book-cover`.
-
-Reusable JSON payload samples are provided in `tests/payloads/`.
-
-### Latest live audit snapshot
-
-See `API-LIVE-AUDIT.md` for the latest direct-live probe results and timeout findings.
+| File | Purpose |
+|------|---------|
+| `smoke-tests.http` | Manual REST Client tests |
+| `tests/payloads/*.json` | Reusable JSON bodies |
+| `docs/EXTERNAL_BOOK_API.md` | Shorter BFF-focused summary |
+| `Scripts/smoke_test.py` | CI / pre-deploy smoke script |
+| `API-LIVE-AUDIT.md` | Last live probe results |
 
 ---
 
-*Aligned with `Controllers/BooksController.cs`, `Services/ExternalBookApiAudio.cs`, `Services/BookApi/*`, `Infrastructure/BookUpstreamHttpClientExtensions.cs`, and `appsettings.json`.*
+*Maintained with `Controllers/BooksController.cs`, `Controllers/DashboardController.cs`, `Services/BookApi/*`, `wwwroot/js/cover-kdp-export.js`, and `Application/Kdp/`.*

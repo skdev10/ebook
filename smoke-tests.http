@@ -41,12 +41,23 @@ Content-Type: application/json
 
 {"title":"The Power of Gravity","author_name":"Hasan Rahim","category":"Science","cover_style":"Modern Illustration","size":"1024x1536","quality":"medium"}
 
-### POST generate print-ready wrap (back + spine + front)
+### POST generate print-ready wrap (back + spine + front) — 40-page KDP example (Peter Pan)
+### Expected: [back | thin spine, NO text | front] — spine ~0.090" for 40 pages white paper
 POST {{BASE}}/api/generate-spine-book-cover
 X-API-Key: {{KEY}}
 Content-Type: application/json
 
-{"title":"The Light Keeper","author_name":"Christina Wallace","category":"Fantasy / Adventure","cover_style":"Deep navy blue background with subtle damask pattern, ornate gold baroque decorative frame on front cover, elegant gold serif typography, luxurious premium publishing style","size":"1536x1024","quality":"medium","Interior_trim_size":"6 x 9 in","page_count":250}
+{
+  "title": "Peter Pan",
+  "author_name": "J. M. Barrie",
+  "category": "Children's Fantasy",
+  "cover_style": "Victorian ornamental",
+  "size": "1536x1024",
+  "quality": "high",
+  "Interior_trim_size": "6 x 9 in",
+  "page_count": 40,
+  "paper_type": "white"
+}
 
 ### POST edit cover (trim base64 in real runs)
 POST {{BASE}}/api/edit-cover

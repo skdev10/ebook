@@ -184,23 +184,28 @@ Defaults in config: `ExternalApi:CoverGenerateSize`, `ExternalApi:CoverGenerateQ
 | `Interior_trim_size` | string | Trim label such as `6 x 9 in`. |
 | `page_count` | number | Manuscript page count (single source-of-truth in app). |
 
-**Example**
+**Example (40-page KDP reference — Peter Pan, spine without text)**
 
 ```json
 {
-  "title": "The Light Keeper",
-  "author_name": "Christina Wallace",
-  "category": "Fantasy / Adventure",
-  "cover_style": "Deep navy blue background with subtle damask pattern, ornate gold frame, premium serif typography",
+  "title": "Peter Pan",
+  "author_name": "J. M. Barrie",
+  "category": "Children's Fantasy",
+  "cover_style": "Victorian ornamental",
   "size": "1536x1024",
-  "quality": "medium",
+  "quality": "high",
   "Interior_trim_size": "6 x 9 in",
-  "page_count": 250
+  "page_count": 40,
+  "paper_type": "white"
 }
 ```
 
+Spine width for 40 pages (white): `40 × 0.002252 = 0.090"` (2.29 mm). Export pipeline renders spine as a **solid strip with no title text**.
+
 **EBookDashboard BFF:** `POST /Dashboard/GeneratePrintReadyCover`  
-The BFF computes page count from the same manuscript metrics used by PDF + Stripe, then calls upstream `generate-spine-book-cover`.
+The BFF computes KDP dimensions from manuscript page count, calls upstream, then optionally recalibrates wrap at 300 DPI via `cover-kdp-export.js`.
+
+See **`API-DOCUMENTATION.md`** for full field list, database tables, and cURL examples.
 
 ---
 
