@@ -101,19 +101,13 @@
     function loadImageElement(src) {
         return new Promise(function (resolve, reject) {
             if (!src) {
-                reject(new Error('No image'));
+                resolve(null);
                 return;
             }
             var img = new Image();
+            img.crossOrigin = 'anonymous';
             img.onload = function () { resolve(img); };
-            img.onerror = function () { reject(new Error('Image failed to load')); };
-            if (src.indexOf('data:') !== 0 && src.indexOf('blob:') !== 0) {
-                try {
-                    if (src.indexOf('/') === 0 || src.indexOf(window.location.origin) === 0) {
-                        img.crossOrigin = 'anonymous';
-                    }
-                } catch (e) { /* ignore */ }
-            }
+            img.onerror = function () { reject(new Error('Image load failed: ' + src)); };
             img.src = src;
         });
     }
@@ -1429,56 +1423,110 @@
         }
     }
 
+    function sampleEdgeColorRect(ctx, x, y, w, h) {
+        try {
+            var d = ctx.getImageData(x, y, Math.max(1, w), Math.max(1, h)).data;
+            var r = 0, g = 0, b = 0, n = 0;
+            for (var i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+            return 'rgb(' + Math.round(r / n) + ',' + Math.round(g / n) + ',' + Math.round(b / n) + ')';
+        } catch (e) { return '#141414'; }
+    }
+
+    function drawSpineTextVertical(ctx, x, w, h, text, color) {
+        ctx.save();
+        ctx.translate(x + w / 2, h / 2);
+        ctx.rotate(Math.PI / 2);
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '600 ' + Math.max(10, Math.floor(w * 0.5)) + 'px Georgia, serif';
+        ctx.fillText(String(text), 0, 0);
+        ctx.restore();
+    }
+
     /**
-     * Recompose API front/spine/back into a KDP-calibrated wrap (same math as Amazon cover calculator).
-     * Prefers front artwork for back color continuity when API back does not match.
+     * KDP-exact wraparound composer. Each part drawn ONCE into its own rectangle.
+     * Spine width always computed from real page count × paper multiplier.
+     * Layout: [back | spine | front] at specified DPI (default 300 for print).
      */
-    function composePrintWrapFromParts(frontUrl, spineUrl, backUrl, options) {
-        options = options || {};
-        var pages = Math.max(24, parseInt(options.pageCount, 10) || 100);
-        var trimKey = options.trimKey || '6x9';
-        var interior = options.interiorType || 'Black & white';
-        var paper = options.paperType || KDP_DEFAULT_PAPER;
-        var binding = options.bindingType || 'Paperback';
-        var meta = {
-            title: options.title || 'Title',
-            author: options.author || '',
-            synopsis: options.synopsis || ''
-        };
-        var layout = options.layout || computeCoverLayout({
-            bindingType: binding,
-            pageCount: pages,
-            trimKey: trimKey,
-            paperType: paper,
-            interiorType: interior
-        });
-        if (!options.layout) {
-            applyPageCountToLayout(layout, pages, binding, paper, interior);
-        } else {
-            layout.pageCount = pages;
+    function composePrintWrapFromParts(frontUrl, spineUrl, backUrl, opts) {
+        opts = opts || {};
+
+        var pages = parseInt(opts.pageCount, 10);
+        if (!Number.isFinite(pages) || pages <= 0) {
+            return Promise.reject(new Error('composePrintWrapFromParts: real pageCount is required (got ' + opts.pageCount + ').'));
         }
 
-        var previewDpi = options.previewDpi || 150;
-        var useApiSpine = options.useApiSpineArt !== false && !!spineUrl;
-        var useApiBack = options.useApiBackArt !== false && !!backUrl;
+        var MULT = { 'White paper': 0.002252, 'Cream paper': 0.0025, 'Color paper': 0.002347, 'Standard color': 0.002347 };
+        var mult = MULT[opts.paperType] || 0.002252;
+        var TRIM = { '6x9': { w: 6, h: 9 }, '5.5x8.5': { w: 5.5, h: 8.5 }, '5x8': { w: 5, h: 8 }, '7x10': { w: 7, h: 10 }, '8.5x11': { w: 8.5, h: 11 } };
+        var trim = TRIM[String(opts.trimKey || '6x9').toLowerCase().replace(/\s/g, '')] || { w: 6, h: 9 };
+        var bleed = 0.125;
+
+        var spineIn = pages * mult;
+        var fullW = trim.w * 2 + spineIn + bleed * 2;
+        var fullH = trim.h + bleed * 2;
+
+        var dpi = opts.dpi || 300;
+        var px = function (inch) { return Math.round(inch * dpi); };
+
+        var canvas = document.createElement('canvas');
+        canvas.width = px(fullW);
+        canvas.height = px(fullH);
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        var sidePanel = px(bleed + trim.w);
+        var spinePx = px(spineIn);
+        var H = canvas.height;
+        var leftRect = { x: 0, w: sidePanel };
+        var spineRect = { x: sidePanel, w: spinePx };
+        var rightRect = { x: sidePanel + spinePx, w: canvas.width - sidePanel - spinePx };
+        var rtl = (opts.readingDirection === 'RightToLeft');
+        var backRect = rtl ? rightRect : leftRect;
+        var frontRect = rtl ? leftRect : rightRect;
 
         return Promise.all([
-            loadImageElement(frontUrl),
-            useApiSpine ? loadImageElement(spineUrl).catch(function () { return null; }) : Promise.resolve(null),
-            useApiBack ? loadImageElement(backUrl).catch(function () { return null; }) : Promise.resolve(null)
+            loadImageElement(frontUrl).catch(function () { return null; }),
+            loadImageElement(backUrl).catch(function () { return null; }),
+            loadImageElement(spineUrl).catch(function () { return null; })
         ]).then(function (imgs) {
             var frontImg = imgs[0];
-            var canvas = buildWrapCanvasFromParts(frontImg, imgs[1], imgs[2], layout, meta, previewDpi);
-            var panels = extractPanelsFromCanvas(canvas);
+            var backImg = imgs[1];
+            var spineImg = imgs[2];
+            if (!frontImg) throw new Error('composePrintWrapFromParts: front cover image failed to load.');
+
+            drawCoverFill(ctx, frontImg, frontRect.x, 0, frontRect.w, H);
+            var frontColor = sampleEdgeColorRect(ctx, frontRect.x + 2, Math.round(H / 3), 4, Math.round(H / 3));
+
+            if (backImg) {
+                drawCoverFill(ctx, backImg, backRect.x, 0, backRect.w, H);
+            } else {
+                ctx.fillStyle = frontColor;
+                ctx.fillRect(backRect.x, 0, backRect.w, H);
+            }
+
+            if (spineImg) {
+                drawCoverFill(ctx, spineImg, spineRect.x, 0, spineRect.w, H);
+            } else {
+                ctx.fillStyle = frontColor;
+                ctx.fillRect(spineRect.x, 0, spineRect.w, H);
+                if (pages >= 79 && opts.title) {
+                    drawSpineTextVertical(ctx, spineRect.x, spineRect.w, H, opts.title, opts.spineTextColor || '#ffffff');
+                }
+            }
+
             return {
                 dataUrl: canvas.toDataURL('image/png'),
-                layout: layout,
-                spineInches: layout.spineIn,
                 pageCount: pages,
-                previewDpi: previewDpi,
-                debugLabel: formatLayoutDebug(layout, pages, previewDpi),
-                canvas: canvas,
-                panels: panels
+                spineInches: spineIn,
+                widthPx: canvas.width,
+                heightPx: canvas.height,
+                fullWidthIn: fullW,
+                fullHeightIn: fullH,
+                previewDpi: dpi,
+                debugLabel: 'pages=' + pages + ' | spine=' + spineIn.toFixed(4) + ' in (' + px(spineIn) + ' px @ ' + dpi + ' DPI) | total=' + fullW.toFixed(3) + '×' + fullH.toFixed(3) + ' in (' + px(fullW) + '×' + px(fullH) + ' px)'
             };
         });
     }

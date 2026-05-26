@@ -1258,7 +1258,9 @@ namespace EBookDashboard.Controllers
                     _logger.LogDebug(ex, "GetPrintReadyCoverAssets: page metrics for book {BookId}", bookId);
                 }
             }
-            pageCount = Math.Clamp(pageCount > 0 ? pageCount : 100,
+            if (pageCount <= 0)
+                return Json(new { success = false, message = "Page count is unknown. Open Book Formatting first so the page count is calculated." });
+            pageCount = Math.Clamp(pageCount,
                 Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount,
                 Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
 

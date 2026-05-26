@@ -1126,6 +1126,7 @@
     </div>
 </div>
 
+<script src="~/js/cover-kdp-export.js" asp-append-version="true"></script>
 <script>
 (function () {
     var paid = true;
@@ -1414,38 +1415,48 @@
         fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
             .then(function (r) { return r.json(); })
             .then(function (assets) {
-                if (!assets || !assets.success || !assets.cover || !assets.cover.wrap) {
-                    throw new Error('Cover wrap not available yet. Generate print-ready cover first.');
+                if (!assets || !assets.success || !assets.cover) {
+                    throw new Error('Cover not available yet. Generate print-ready cover first.');
                 }
-                return imageRefToBase64(assets.cover.wrap).then(function (b64) {
-                    return { b64: b64, assets: assets };
+                var c = assets.cover;
+                var frontUrl = c.front || '';
+                var backUrl = c.back || '';
+                var spineUrl = c.spine || '';
+
+                if (!frontUrl && c.wrap) frontUrl = c.wrap;
+                if (!frontUrl) throw new Error('No front cover image found. Generate a cover first.');
+
+                var realPages = parseInt(assets.pageCount, 10);
+                if (!realPages || realPages <= 0) realPages = parseInt(pbEstimatedPages, 10);
+                if (!realPages || realPages <= 0) {
+                    throw new Error('Page count is unknown. Open Book Formatting first so the page count is calculated.');
+                }
+
+                if (!window.CoverKdpExport || typeof window.CoverKdpExport.composePrintWrapFromParts !== 'function') {
+                    throw new Error('Cover export module not loaded.');
+                }
+
+                showTransientMessage('info', 'Building print-ready cover at 300 DPI for ' + realPages + ' pages…');
+
+                return window.CoverKdpExport.composePrintWrapFromParts(frontUrl, spineUrl, backUrl, {
+                    pageCount: realPages,
+                    dpi: 300,
+                    trimKey: '6x9',
+                    paperType: 'White paper',
+                    title: safeBookSlug() || 'My Book'
                 });
             })
-            .then(function (ctx) {
-                var form = new FormData();
-                var trim = parseTrimSize(ctx.assets.trimSize || '6 x 9 in');
-                form.append('Binding', 'Paperback');
-                form.append('Paper', 'White');
-                form.append('TrimWidth', String(trim.w));
-                form.append('TrimHeight', String(trim.h));
-                form.append('PageCount', String(ctx.assets.pageCount || pbEstimatedPages || 200));
-                form.append('Units', 'Inches');
-                form.append('Direction', 'LeftToRight');
-                form.append('encodedImage', ctx.b64);
-                return fetch('/api/cover/publish', { method: 'POST', body: form });
-            })
-            .then(function (res) {
-                if (!res.ok) return res.text().then(function (t) { throw new Error(t || 'Publish failed.'); });
-                return Promise.all([res.blob(), res.headers.get('X-Cover-Width-Px'), res.headers.get('X-Cover-Height-Px')]);
-            })
-            .then(function (parts) {
-                var blob = parts[0];
-                var w = parts[1];
-                var h = parts[2];
+            .then(function (result) {
+                var dataUrl = result.dataUrl;
+                var byteString = atob(dataUrl.split(',')[1]);
+                var ab = new ArrayBuffer(byteString.length);
+                var ia = new Uint8Array(ab);
+                for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+                var blob = new Blob([ab], { type: 'image/png' });
                 downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-cover-print-ready.png');
-                var msg = 'Print-ready cover download started.';
-                if (w && h) msg = 'Print-ready cover (' + w + ' × ' + h + ' px at 300 DPI) download started.';
-                showTransientMessage('success', msg);
+                showTransientMessage('success',
+                    'Print-ready cover (' + result.widthPx + ' \u00d7 ' + result.heightPx + ' px \u0040 300 DPI, spine ' +
+                    result.spineInches.toFixed(3) + '" for ' + result.pageCount + ' pages) downloaded.');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
