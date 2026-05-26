@@ -1425,6 +1425,7 @@
                                         </button>
                                     </div>
                                     <p id="fmt-total-page-count" class="text-sm font-medium text-slate-600 text-center mt-2 mb-1 shrink-0" aria-live="polite">Total pages: —</p>
+                                    <p id="fmt-spine-page-note" class="text-xs text-slate-500 text-center mb-2 shrink-0 hidden">Cover spine uses this page count when you export.</p>
                                     <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview">
                                         <div id="preview-single" class="preview-panel-single flex flex-1 flex-col min-h-0 w-full" tabindex="0">
                                             <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell reader-content-wrap relative w-full flex-1 min-h-0 flex flex-col">
@@ -1659,6 +1660,29 @@
         return FORMATTER_DRAFT_PREFIX + String(bid || 0);
     }
 
+    /** Page count shown in preview — source of truth for KDP spine on export. */
+    function getFormatterPreviewPageCount() {
+        var total = Array.isArray(readerPages) ? readerPages.length : 0;
+        if (!Number.isFinite(total) || total <= 0) return 0;
+        return Math.max(24, Math.min(828, total));
+    }
+
+    function syncFormatterPageCountUi() {
+        var pages = getFormatterPreviewPageCount();
+        var totalEl = document.getElementById('fmt-total-page-count');
+        var noteEl = document.getElementById('fmt-spine-page-note');
+        if (totalEl) {
+            totalEl.textContent = pages > 0 ? ('Total pages: ' + pages) : 'Total pages: —';
+        }
+        if (noteEl) {
+            if (pages > 0) noteEl.classList.remove('hidden');
+            else noteEl.classList.add('hidden');
+        }
+        if (pages > 0) {
+            recalcPrintReadyModalMetrics({ pageCount: pages });
+        }
+    }
+
     function getFormatterStateFromUi() {
         var platStr = getSelectedPlatforms();
         var primaryPlat = platStr ? platStr.split(',')[0].trim() : '';
@@ -1671,6 +1695,7 @@
             publishingPlatforms: platStr,
             publishingPlatform: primaryPlat,
             previewAccent: (accentEl && accentEl.value) ? accentEl.value : '#5b21b6',
+            previewPageCount: getFormatterPreviewPageCount(),
             savedAtUtc: new Date().toISOString()
         };
     }
@@ -2360,7 +2385,7 @@
     let printReadyOpenAfterSave = false;
     let printReadyGenerationIteration = 0;
     let printReadyComputed = {
-        pageCount: 24,
+        pageCount: 0,
         paperType: 'white',
         trimValue: '6x9',
         spineIn: 0.055,
@@ -2534,6 +2559,9 @@
             printReadyComputed = Object.assign({}, printReadyComputed, overrides);
         }
         var pages = parseInt(printReadyComputed.pageCount || '0', 10);
+        if (!Number.isFinite(pages) || pages <= 0) {
+            pages = getFormatterPreviewPageCount();
+        }
         if (!Number.isFinite(pages) || pages <= 0) pages = 24;
         pages = Math.max(24, Math.min(828, pages));
         var paper = normalizePaperType(printReadyComputed.paperType || inferPaperTypeFromGenre(bookPreviewContext.genre));
@@ -2724,9 +2752,10 @@
         printReadyGenerationIteration = 0;
         syncPrIdentityRows();
         resetPrintReadyModalPreview();
-        setPrModalStatus('Loading page metrics…');
+        var previewPages = getFormatterPreviewPageCount();
+        setPrModalStatus(previewPages > 0 ? 'Using ' + previewPages + ' pages from your preview.' : 'Loading page metrics…');
         recalcPrintReadyModalMetrics({
-            pageCount: 24,
+            pageCount: previewPages > 0 ? previewPages : undefined,
             paperType: inferPaperTypeFromGenre(bookPreviewContext.genre),
             trimValue: inferTrimValueFromConfig()
         });
@@ -2734,20 +2763,37 @@
         try {
             var metricsRes = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid));
             var metrics = await metricsRes.json();
-            var pages = (metrics && metrics.success && metrics.pageCount) ? parseInt(metrics.pageCount, 10) : 24;
-            if (!Number.isFinite(pages) || pages <= 0) pages = 24;
+            var pages = previewPages > 0
+                ? previewPages
+                : ((metrics && metrics.success && metrics.pageCount) ? parseInt(metrics.pageCount, 10) : 0);
+            if (!Number.isFinite(pages) || pages <= 0) pages = getFormatterPreviewPageCount();
+            if (!Number.isFinite(pages) || pages <= 0) {
+                setPrModalStatus('Page count unknown. Open preview and wait for pages to load.', true);
+                return;
+            }
             recalcPrintReadyModalMetrics({ pageCount: pages });
-            setPrModalStatus('Page count synced. Click Auto-generate cover set.');
+            setPrModalStatus('Page count synced (' + pages + ' pages). Click Auto-generate cover set.');
         } catch (err) {
-            recalcPrintReadyModalMetrics();
-            setPrModalStatus((err && err.message) ? err.message : 'Could not load page metrics.', true);
+            if (previewPages > 0) {
+                recalcPrintReadyModalMetrics({ pageCount: previewPages });
+                setPrModalStatus('Using preview page count (' + previewPages + ' pages).');
+            } else {
+                setPrModalStatus((err && err.message) ? err.message : 'Could not load page metrics.', true);
+            }
         }
     }
 
     async function runPrintReadyModalAutoGenerate() {
         if (!printReadyPendingBookId) return;
         var spec = recalcPrintReadyModalMetrics();
-        var pages = parseInt(spec.pageCount || '24', 10);
+        var pages = getFormatterPreviewPageCount() || parseInt(spec.pageCount || '0', 10);
+        if (!Number.isFinite(pages) || pages <= 0) {
+            setPrModalStatus('Page count unknown. Load the book preview first.', true);
+            return;
+        }
+        pages = Math.max(24, Math.min(828, pages));
+        recalcPrintReadyModalMetrics({ pageCount: pages });
+        spec = recalcPrintReadyModalMetrics();
         var trim = spec.trimValue || '6x9';
         printReadyGenerationIteration += 1;
         var selectedStyle = selectDesignDirection(printReadyPendingBookId, bookPreviewContext.genre || '', printReadyGenerationIteration);
@@ -2774,7 +2820,8 @@
             var frontUrl = (data.cover && data.cover.front) ? data.cover.front : '';
             var spineUrl = (data.cover && data.cover.spine) ? data.cover.spine : '';
             var backUrl = (data.cover && data.cover.back) ? data.cover.back : '';
-            var pagesForCompose = (data.pageCount || spec.pageCount || pages);
+            var pagesForCompose = getFormatterPreviewPageCount() || pages;
+            if (data.pageCount && getFormatterPreviewPageCount() <= 0) pagesForCompose = data.pageCount;
             var wrapImg = document.getElementById('prModalWrapImg');
             var wrapPlaceholder = document.getElementById('prModalWrapPlaceholder');
             setPartImage('prModalBackImg', 'prModalBackLabel', backUrl);
@@ -2784,8 +2831,7 @@
             var displayWrapUrl = (data.cover && data.cover.wrap) ? data.cover.wrap : '';
             var kdpExport = window.CoverKdpExport;
             if (frontUrl && kdpExport && typeof kdpExport.composePrintWrapFromParts === 'function') {
-                setPrModalStatus('Calibrating spine to page count (KDP)…');
-                var serverLayout = kdpExport.layoutFromServerKdp ? kdpExport.layoutFromServerKdp(data) : null;
+                setPrModalStatus('Calibrating spine to ' + pagesForCompose + ' pages (KDP)…');
                 var composed = await kdpExport.composePrintWrapFromParts(frontUrl, spineUrl, backUrl, {
                     pageCount: pagesForCompose,
                     trimKey: trim,
@@ -2793,8 +2839,7 @@
                     title: bookPreviewContext.bookTitle || '',
                     author: bookPreviewContext.authorName || '',
                     synopsis: bookPreviewContext.description || '',
-                    previewDpi: 150,
-                    layout: serverLayout,
+                    dpi: 300,
                     useApiSpineArt: false,
                     useApiBackArt: false
                 });
@@ -2822,7 +2867,7 @@
             }
             if (data.cover) data.cover.wrap = displayWrapUrl || data.cover.wrap;
 
-            if (data.pageCount) recalcPrintReadyModalMetrics({ pageCount: data.pageCount });
+            if (data.pageCount) recalcPrintReadyModalMetrics({ pageCount: pagesForCompose });
             printReadyGenerated = data;
             if (prModalConfirmBtn) prModalConfirmBtn.disabled = false;
             setPrModalStatus('Cover set ready in ' + selectedStyle.tone + ' direction. Confirm to continue.');
@@ -3637,8 +3682,7 @@
         }
         prev.disabled = currentPageIdx <= 0;
         next.disabled = currentPageIdx >= total - 1;
-        var totalEl = document.getElementById('fmt-total-page-count');
-        if (totalEl) totalEl.textContent = 'Total pages: ' + total;
+        syncFormatterPageCountUi();
     }
 
     function resolveFormatterBookId() {
@@ -3903,6 +3947,8 @@
                 restoreReaderPosition(numId);
                 togglePreviewMode();
                 fmtScheduleRepaginateAfterLayout();
+                syncFormatterPageCountUi();
+                queueAutosave(400);
                 showToast('Book loaded');
             }
         } catch (err) {
@@ -3938,6 +3984,7 @@
                 lineSpacing: state.lineSpacing,
                 publishingPlatforms: state.publishingPlatforms,
                 publishingPlatform: state.publishingPlatform || (state.publishingPlatforms ? state.publishingPlatforms.split(',')[0].trim() : ''),
+                previewPageCount: getFormatterPreviewPageCount() || null,
                 draftStateJson: JSON.stringify(state)
             })
         })

@@ -1419,12 +1419,10 @@
                     throw new Error('Cover not available yet. Generate print-ready cover first.');
                 }
                 var c = assets.cover;
-                var frontUrl = c.front || '';
-                var backUrl = c.back || '';
-                var spineUrl = c.spine || '';
-
-                if (!frontUrl && c.wrap) frontUrl = c.wrap;
-                if (!frontUrl) throw new Error('No front cover image found. Generate a cover first.');
+                var frontUrl = (c.front || '').trim();
+                var wrapUrl = (c.wrap || '').trim();
+                var sourceUrl = frontUrl || wrapUrl;
+                if (!sourceUrl) throw new Error('No cover image found. Generate a cover first.');
 
                 var realPages = parseInt(assets.pageCount, 10);
                 if (!realPages || realPages <= 0) realPages = parseInt(pbEstimatedPages, 10);
@@ -1438,12 +1436,14 @@
 
                 showTransientMessage('info', 'Building print-ready cover at 300 DPI for ' + realPages + ' pages…');
 
-                return window.CoverKdpExport.composePrintWrapFromParts(frontUrl, spineUrl, backUrl, {
+                return window.CoverKdpExport.composePrintWrapFromParts(sourceUrl, '', '', {
                     pageCount: realPages,
                     dpi: 300,
                     trimKey: '6x9',
                     paperType: 'White paper',
-                    title: safeBookSlug() || 'My Book'
+                    title: safeBookSlug() || 'My Book',
+                    useApiSpineArt: false,
+                    useApiBackArt: false
                 });
             })
             .then(function (result) {

@@ -158,6 +158,164 @@ document.addEventListener('DOMContentLoaded', () => {
         CoverPreview.generateApiCover();
     });
 
+    const btnDownloadWrap = document.getElementById('btnDownloadWrap');
+    const wrapStatus = document.getElementById('wrapStatus');
+    const btnDownloadWrapLabel = document.getElementById('btnDownloadWrapLabel');
+
+    btnDownloadWrap?.addEventListener('click', async () => {
+        const st = CoverPreview.getState();
+        const pages = parseInt(elPages?.value) || st.pages;
+        const paper = elPaper?.value || st.paper;
+        const title = elTitle?.value || st.title;
+        const author = elAuthor?.value || st.author;
+
+        if (pages < 24 || pages > 828) {
+            if (wrapStatus) wrapStatus.textContent = 'Page count must be 24–828.';
+            return;
+        }
+
+        btnDownloadWrap.disabled = true;
+        if (btnDownloadWrapLabel) btnDownloadWrapLabel.textContent = 'Building cover…';
+        if (wrapStatus) wrapStatus.textContent = '';
+
+        try {
+            const overlayImg = document.querySelector('#panelFront .cover-image-overlay img');
+            const frontUrl = overlayImg?.src || null;
+
+            const PAPER_MULT = { 'White paper': 0.002252, 'Cream paper': 0.0025, 'Color paper': 0.002347 };
+            const mult = PAPER_MULT[paper] || 0.002252;
+            const TRIM_W = 6.0, TRIM_H = 9.0, BLEED = 0.125, DPI = 300;
+            const spineIn = pages * mult;
+            const fullW = TRIM_W * 2 + spineIn + BLEED * 2;
+            const fullH = TRIM_H + BLEED * 2;
+            const px = (inch) => Math.round(inch * DPI);
+
+            const canvasW = px(fullW);
+            const canvasH = px(fullH);
+            const sidePanel = px(BLEED + TRIM_W);
+            const spinePx = px(spineIn);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+            const ctx = canvas.getContext('2d');
+
+            const bgColor = st.bg || '#1a3a5c';
+            const textColor = st.text || '#e8f4fd';
+            const accentColor = st.accent || '#4fc3f7';
+            const spineColor = st.spine || '#0d2137';
+
+            if (frontUrl) {
+                const result = await window.CoverKdpExport.composePrintWrapFromParts(frontUrl, null, null, {
+                    pageCount: pages,
+                    dpi: DPI,
+                    trimKey: '6x9',
+                    paperType: paper,
+                    title: title
+                });
+                const link = document.createElement('a');
+                link.download = `${(title || 'book').replace(/[^\w\s-]/g, '').replace(/\s+/g, '-')}-full-wraparound-${pages}p.png`;
+                link.href = result.dataUrl;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                if (wrapStatus) wrapStatus.textContent =
+                    `Downloaded: ${result.widthPx} × ${result.heightPx} px @ 300 DPI — spine ${result.spineInches.toFixed(3)}" for ${result.pageCount} pages`;
+            } else {
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, sidePanel, canvasH);
+
+                const descText = elDesc?.value || 'Your book description will appear here.';
+                const pad = Math.max(40, sidePanel * 0.06);
+                ctx.fillStyle = textColor;
+                ctx.font = `bold ${Math.max(28, sidePanel * 0.04)}px Georgia, serif`;
+                ctx.fillText(title.length > 42 ? title.slice(0, 39) + '…' : title, pad, pad + 50);
+                ctx.fillStyle = accentColor;
+                ctx.font = `${Math.max(20, sidePanel * 0.028)}px Georgia, serif`;
+                ctx.fillText(author, pad, pad + 90);
+                ctx.fillStyle = textColor;
+                ctx.font = `${Math.max(16, sidePanel * 0.022)}px Georgia, serif`;
+                wrapTextOnCanvas(ctx, descText, pad, pad + 140, sidePanel - pad * 2, Math.max(22, sidePanel * 0.03));
+
+                const bw = 150, bh = 60;
+                const bx = sidePanel / 2 - bw / 2;
+                const by = canvasH - pad - bh - 20;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(bx, by, bw, bh);
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(bx, by, bw, bh);
+                ctx.fillStyle = '#666';
+                ctx.font = '14px monospace';
+                ctx.fillText('ISBN / barcode', bx + 14, by + bh / 2 + 5);
+
+                ctx.fillStyle = spineColor;
+                ctx.fillRect(sidePanel, 0, spinePx, canvasH);
+                if (pages >= 79) {
+                    ctx.save();
+                    ctx.translate(sidePanel + spinePx / 2, canvasH / 2);
+                    ctx.rotate(Math.PI / 2);
+                    ctx.fillStyle = textColor;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = `600 ${Math.max(10, Math.floor(spinePx * 0.5))}px Georgia, serif`;
+                    ctx.fillText(title.toUpperCase(), 0, 0);
+                    ctx.restore();
+                }
+
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(sidePanel + spinePx, 0, canvasW - sidePanel - spinePx, canvasH);
+                const frontX = sidePanel + spinePx;
+                const frontW = canvasW - frontX;
+                ctx.fillStyle = textColor;
+                ctx.font = `bold ${Math.max(48, frontW * 0.05)}px Georgia, serif`;
+                const titleLines = wrapTextOnCanvas(ctx, title, frontX + pad, canvasH * 0.35, frontW - pad * 2, Math.max(56, frontW * 0.06));
+                ctx.fillStyle = accentColor;
+                ctx.font = `${Math.max(30, frontW * 0.032)}px Georgia, serif`;
+                ctx.fillText(author, frontX + pad, canvasH * 0.35 + titleLines * Math.max(56, frontW * 0.06) + 30);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) return;
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.download = `${(title || 'book').replace(/[^\w\s-]/g, '').replace(/\s+/g, '-')}-full-wraparound-${pages}p.png`;
+                    link.href = url;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    URL.revokeObjectURL(url);
+                }, 'image/png');
+
+                if (wrapStatus) wrapStatus.textContent =
+                    `Downloaded: ${canvasW} × ${canvasH} px @ 300 DPI — spine ${spineIn.toFixed(3)}" (${(spineIn * 25.4).toFixed(2)}mm) for ${pages} pages`;
+            }
+        } catch (err) {
+            if (wrapStatus) wrapStatus.textContent = 'Error: ' + (err.message || 'Download failed');
+        } finally {
+            btnDownloadWrap.disabled = false;
+            if (btnDownloadWrapLabel) btnDownloadWrapLabel.textContent = 'Download Full Wraparound (300 DPI)';
+        }
+    });
+
+    function wrapTextOnCanvas(ctx, text, x, y, maxWidth, lineHeight) {
+        const words = text.split(/\s+/);
+        let line = '', cy = y, count = 0;
+        for (let n = 0; n < words.length; n++) {
+            const test = line ? line + ' ' + words[n] : words[n];
+            if (ctx.measureText(test).width > maxWidth && line) {
+                ctx.fillText(line, x, cy);
+                line = words[n];
+                cy += lineHeight;
+                count++;
+                if (count > 15) return count;
+            } else {
+                line = test;
+            }
+        }
+        if (line) { ctx.fillText(line, x, cy); count++; }
+        return count;
+    }
+
     syncState();
     CoverPreview.renderCover();
     if (elDesc && elDescCounter) elDescCounter.textContent = `${elDesc.value.length}/500`;

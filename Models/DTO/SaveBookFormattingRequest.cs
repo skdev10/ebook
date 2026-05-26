@@ -11,5 +11,7 @@ namespace EBookDashboard.Models.DTO
         public string? PublishingPlatform { get; set; }
         public string? PublishingPlatforms { get; set; } // Comma-separated
         public string? DraftStateJson { get; set; } // Full client state snapshot
+        /// <summary>Preview pagination page count from Book Formatting UI (source of truth for KDP spine).</summary>
+        public int? PreviewPageCount { get; set; }
     }
 }

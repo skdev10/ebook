@@ -2,8 +2,7 @@
 
 const KDP = {
     WHITE_THICK:     0.002252,
-    CREAM_THICK:     0.002347,
-    COVER_BOARDS:    0.06,
+    CREAM_THICK:     0.0025,
     TRIM_W:          6.0,
     BLEED:           0.125,
     FULL_H_INCHES:   9.25,
@@ -23,7 +22,7 @@ function calcDimensions(pages, paper) {
     const p = Math.min(828, Math.max(24, parseInt(pages) || 24));
     const thick = (paper === 'cream' || paper === 'Cream paper')
         ? KDP.CREAM_THICK : KDP.WHITE_THICK;
-    const spineInches     = (p * thick) + KDP.COVER_BOARDS;
+    const spineInches     = p * thick;
     const spineMm         = spineInches * 25.4;
     const fullWInches     = KDP.TRIM_W + spineInches + KDP.TRIM_W + (KDP.BLEED * 2);
     const fullWMm         = fullWInches * 25.4;

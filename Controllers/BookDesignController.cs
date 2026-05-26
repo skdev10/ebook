@@ -331,12 +331,43 @@ namespace EBookDashboard.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+
+                var previewPages = ResolvePreviewPageCount(req, statePayload);
+                if (previewPages is >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
+                    and <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+                {
+                    var pageKey = $"book:{req.BookId}:printReadyPageCount";
+                    var pageSetting = await _context.Settings.FirstOrDefaultAsync(s => s.Key == pageKey);
+                    var pageValue = previewPages.Value.ToString();
+                    if (pageSetting == null)
+                    {
+                        var nextId = await _context.NextSettingIdAsync();
+                        _context.Settings.Add(new Settings
+                        {
+                            SettingId = nextId,
+                            Key = pageKey,
+                            Value = pageValue,
+                            Category = "Book",
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        pageSetting.Value = pageValue;
+                        pageSetting.Category = "Book";
+                        pageSetting.UpdatedAt = DateTime.UtcNow;
+                        _context.Settings.Update(pageSetting);
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
                 HttpContext.Session.SetString("FormattingDone", "1");
                 var fmt = existing.Format ?? "Ebook";
                 HttpContext.Session.SetString("LastSelectedFormat", fmt);
                 HttpContext.Session.SetString("BookFormatPremiumBoth",
                     string.Equals(fmt, "Both", StringComparison.OrdinalIgnoreCase) ? "1" : "0");
-                return Json(new { success = true, message = "Formatting saved." });
+                return Json(new { success = true, message = "Formatting saved.", previewPageCount = previewPages });
             }
             catch (Exception ex)
             {
@@ -895,5 +926,28 @@ namespace EBookDashboard.Controllers
 
         //    return Json(new { success = true });
         //}
+
+        private static int? ResolvePreviewPageCount(SaveBookFormattingRequest req, string statePayload)
+        {
+            if (req.PreviewPageCount is >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
+                and <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+                return req.PreviewPageCount;
+
+            if (!string.IsNullOrWhiteSpace(statePayload))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(statePayload);
+                    if (doc.RootElement.TryGetProperty("previewPageCount", out var pp)
+                        && pp.TryGetInt32(out var fromDraft)
+                        && fromDraft >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
+                        && fromDraft <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+                        return fromDraft;
+                }
+                catch (JsonException) { /* ignore malformed draft */ }
+            }
+
+            return null;
+        }
     }
 }

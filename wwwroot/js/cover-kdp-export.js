@@ -1445,9 +1445,54 @@
     }
 
     /**
-     * KDP-exact wraparound composer. Each part drawn ONCE into its own rectangle.
-     * Spine width always computed from real page count × paper multiplier.
-     * Layout: [back | spine | front] at specified DPI (default 300 for print).
+     * True when image aspect ratio matches a full KDP wrap (back + spine + front).
+     */
+    function isLikelyFullWrapImage(img, fullWIn, fullHIn) {
+        if (!img || !img.width || !img.height || fullHIn <= 0) return false;
+        var wrapAr = fullWIn / fullHIn;
+        var imgAr = img.width / img.height;
+        return imgAr > 1.15 && Math.abs(imgAr - wrapAr) / wrapAr < 0.14;
+    }
+
+    /**
+     * Solid panel filled from front cover edge colors — no image copy, no mirror (avoids overlap/duplicate text).
+     */
+    function drawSolidPanelFromFrontEdge(ctx, img, x, y, w, h, edge) {
+        fillPanelFromFrontPalette(ctx, x, y, w, h, img, edge || 'left');
+    }
+
+    /**
+     * Re-slice an existing wrap PNG into exact KDP panel widths for the real page count.
+     * Keeps back art from the left and front art from the right; rebuilds spine in the middle.
+     */
+    function drawReslicedWrapToCanvas(ctx, wrapImg, backW, spineW, frontW, H) {
+        var srcW = wrapImg.width;
+        var srcH = wrapImg.height;
+        var totalW = backW + spineW + frontW;
+        if (totalW < 1 || srcW < 1) return;
+
+        var srcBackW = Math.max(1, Math.round(srcW * (backW / totalW)));
+        var srcFrontW = Math.max(1, Math.round(srcW * (frontW / totalW)));
+        if (srcBackW + srcFrontW > srcW) srcFrontW = Math.max(1, srcW - srcBackW);
+
+        ctx.drawImage(wrapImg, 0, 0, srcBackW, srcH, 0, 0, backW, H);
+
+        var spineColors = sampleEdgeGradient(ctx, wrapImg, 'left');
+        var spineG = ctx.createLinearGradient(backW, 0, backW + spineW, 0);
+        spineG.addColorStop(0, spineColors[1]);
+        spineG.addColorStop(0.5, spineColors[0]);
+        spineG.addColorStop(1, spineColors[0]);
+        ctx.fillStyle = spineG;
+        ctx.fillRect(backW, 0, spineW, H);
+
+        var seamX = srcW - srcFrontW;
+        ctx.drawImage(wrapImg, seamX, 0, srcFrontW, srcH, backW + spineW, 0, frontW, H);
+    }
+
+    /**
+     * KDP paperback layout: [back | spine | front] with bleed on outer edges.
+     * Front-only source → solid back + solid spine (same palette) + front panel (clipped).
+     * Full-wrap source → re-sliced to exact spine width for page count.
      */
     function composePrintWrapFromParts(frontUrl, spineUrl, backUrl, opts) {
         opts = opts || {};
@@ -1477,44 +1522,73 @@
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        var sidePanel = px(bleed + trim.w);
-        var spinePx = px(spineIn);
+        var backW = px(bleed + trim.w);
+        var spineW = Math.max(1, px(spineIn));
+        var frontW = Math.max(1, canvas.width - backW - spineW);
         var H = canvas.height;
-        var leftRect = { x: 0, w: sidePanel };
-        var spineRect = { x: sidePanel, w: spinePx };
-        var rightRect = { x: sidePanel + spinePx, w: canvas.width - sidePanel - spinePx };
-        var rtl = (opts.readingDirection === 'RightToLeft');
-        var backRect = rtl ? rightRect : leftRect;
-        var frontRect = rtl ? leftRect : rightRect;
+
+        var rtl = opts.readingDirection === 'RightToLeft';
+        var backX, spineX, frontX;
+        if (rtl) {
+            frontX = 0;
+            spineX = frontW;
+            backX = frontW + spineW;
+        } else {
+            backX = 0;
+            spineX = backW;
+            frontX = backW + spineW;
+        }
+
+        var useSpineArt = opts.useApiSpineArt === true && spineUrl;
+        var useBackArt = opts.useApiBackArt === true && backUrl;
 
         return Promise.all([
             loadImageElement(frontUrl).catch(function () { return null; }),
-            loadImageElement(backUrl).catch(function () { return null; }),
-            loadImageElement(spineUrl).catch(function () { return null; })
+            useBackArt ? loadImageElement(backUrl).catch(function () { return null; }) : Promise.resolve(null),
+            useSpineArt ? loadImageElement(spineUrl).catch(function () { return null; }) : Promise.resolve(null)
         ]).then(function (imgs) {
-            var frontImg = imgs[0];
+            var sourceImg = imgs[0];
             var backImg = imgs[1];
             var spineImg = imgs[2];
-            if (!frontImg) throw new Error('composePrintWrapFromParts: front cover image failed to load.');
+            if (!sourceImg) throw new Error('composePrintWrapFromParts: cover image failed to load.');
 
-            drawCoverFill(ctx, frontImg, frontRect.x, 0, frontRect.w, H);
-            var frontColor = sampleEdgeColorRect(ctx, frontRect.x + 2, Math.round(H / 3), 4, Math.round(H / 3));
-
-            if (backImg) {
-                drawCoverFill(ctx, backImg, backRect.x, 0, backRect.w, H);
-            } else {
-                ctx.fillStyle = frontColor;
-                ctx.fillRect(backRect.x, 0, backRect.w, H);
-            }
-
-            if (spineImg) {
-                drawCoverFill(ctx, spineImg, spineRect.x, 0, spineRect.w, H);
-            } else {
-                ctx.fillStyle = frontColor;
-                ctx.fillRect(spineRect.x, 0, spineRect.w, H);
-                if (pages >= 79 && opts.title) {
-                    drawSpineTextVertical(ctx, spineRect.x, spineRect.w, H, opts.title, opts.spineTextColor || '#ffffff');
+            if (isLikelyFullWrapImage(sourceImg, fullW, fullH)) {
+                drawReslicedWrapToCanvas(ctx, sourceImg, backW, spineW, frontW, H);
+                if (pages >= 79 && opts.title && spineW >= 10) {
+                    drawSpineTitle(ctx, spineX, 0, spineW, H, opts.title);
                 }
+            } else {
+                if (useBackArt && backImg && backImg.width > 0) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(backX, 0, backW, H);
+                    ctx.clip();
+                    drawCoverFill(ctx, backImg, backX, 0, backW, H);
+                    ctx.restore();
+                } else {
+                    drawSolidPanelFromFrontEdge(ctx, sourceImg, backX, 0, backW, H, 'left');
+                }
+
+                if (useSpineArt && spineImg && spineImg.width > 0) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(spineX, 0, spineW, H);
+                    ctx.clip();
+                    drawCoverFill(ctx, spineImg, spineX, 0, spineW, H);
+                    ctx.restore();
+                } else {
+                    drawSolidPanelFromFrontEdge(ctx, sourceImg, spineX, 0, spineW, H, 'left');
+                }
+                if (pages >= 79 && opts.title && spineW >= 10) {
+                    drawSpineTitle(ctx, spineX, 0, spineW, H, opts.title);
+                }
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(frontX, 0, frontW, H);
+                ctx.clip();
+                drawCoverFill(ctx, sourceImg, frontX, 0, frontW, H);
+                ctx.restore();
             }
 
             return {
@@ -1526,7 +1600,7 @@
                 fullWidthIn: fullW,
                 fullHeightIn: fullH,
                 previewDpi: dpi,
-                debugLabel: 'pages=' + pages + ' | spine=' + spineIn.toFixed(4) + ' in (' + px(spineIn) + ' px @ ' + dpi + ' DPI) | total=' + fullW.toFixed(3) + '×' + fullH.toFixed(3) + ' in (' + px(fullW) + '×' + px(fullH) + ' px)'
+                debugLabel: 'pages=' + pages + ' | spine=' + spineIn.toFixed(4) + ' in (' + spineW + ' px @ ' + dpi + ' DPI) | total=' + fullW.toFixed(3) + '×' + fullH.toFixed(3) + ' in (' + canvas.width + '×' + canvas.height + ' px)'
             };
         });
     }

@@ -905,7 +905,7 @@
             applyGenerationSuccess(d, 'generate');
 
             if (isPrintReadyPlatform() || coverFlowPrintReady) {
-                setBusy(true, 'Generating full wraparound cover (back + spine + front)…');
+                setBusy(true, 'Generating…');
                 var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.estimatedPages || selectedBook.totalPages)) || 0;
                 if (!pageCount && selectedBook && selectedBook.bookId) {
                     try {

@@ -1305,14 +1305,29 @@ namespace EBookDashboard.Controllers
                     frontPanelXInches = (double)kdp.FrontPanelXInches,
                     panelTopYInches = (double)kdp.PanelTopYInches
                 },
-                cover = new
-                {
-                    wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", ""),
-                    front = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", ""),
-                    back = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverBack", ""),
-                    spine = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverSpine", "")
-                }
+                cover = await BuildCoverUrls(bookId, sessionUserId.Value, rows, cancellationToken)
             });
+        }
+
+        private async Task<object> BuildCoverUrls(int bookId, int userId, Dictionary<string, string> rows, CancellationToken ct)
+        {
+            var wrap  = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", "");
+            var front = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", "");
+            var back  = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverBack", "");
+            var spine = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverSpine", "");
+
+            if (string.IsNullOrWhiteSpace(front))
+            {
+                var book = await _context.Books.AsNoTracking()
+                    .Where(b => b.BookId == bookId && b.UserId == userId)
+                    .Select(b => new { b.CoverImagePath })
+                    .FirstOrDefaultAsync(ct);
+                var path = (book?.CoverImagePath ?? "").Trim();
+                if (!string.IsNullOrEmpty(path))
+                    front = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? path : ("/" + path.TrimStart('/'));
+            }
+
+            return new { wrap, front, back, spine };
         }
 
         [HttpGet]
@@ -1441,7 +1456,8 @@ namespace EBookDashboard.Controllers
             var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
             var pageCountForCover = Math.Clamp(
-                metrics.PageCount > 0 ? metrics.PageCount : Math.Max(24, req.PageCount ?? 24),
+                req.PageCount is > 0 ? req.PageCount.Value
+                    : (metrics.PageCount > 0 ? metrics.PageCount : Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount),
                 Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount,
                 Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
             var trimSize = NormalizeTrimSizeForApi(req.TrimSize, exportOpt);
@@ -1913,7 +1929,19 @@ namespace EBookDashboard.Controllers
 
                             var exportOpt = await LoadExportOptionsAsync(user.UserId, bid, HttpContext.RequestAborted);
                             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
-                            ViewBag.PublishBookEstimatedPages = metrics.PageCount;
+
+                            var savedPageKey = $"book:{bid}:printReadyPageCount";
+                            var savedPageRaw = await _context.Settings.AsNoTracking()
+                                .Where(s => s.Key == savedPageKey)
+                                .Select(s => s.Value)
+                                .FirstOrDefaultAsync(HttpContext.RequestAborted);
+                            var estimatedPages = metrics.PageCount;
+                            if (int.TryParse(savedPageRaw, out var savedPages)
+                                && savedPages >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
+                                && savedPages <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+                                estimatedPages = savedPages;
+
+                            ViewBag.PublishBookEstimatedPages = estimatedPages;
                             ViewBag.PublishBookWordCount = metrics.WordCount;
                         }
                     }
