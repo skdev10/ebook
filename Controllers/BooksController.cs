@@ -661,7 +661,8 @@ namespace EBookDashboard.Controllers
                     {
                         try
                         {
-                            await _chapterIterationService.RecordSuccessfulGenerationAsync(rawResponseId.Value, HttpContext.RequestAborted);
+                            // Do not tie to RequestAborted — browser/proxy disconnect (504) must not cancel draft bookkeeping.
+                            await _chapterIterationService.RecordSuccessfulGenerationAsync(rawResponseId.Value, CancellationToken.None);
                         }
                         catch (Exception itEx)
                         {
