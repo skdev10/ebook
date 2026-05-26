@@ -21,6 +21,7 @@ using System.Net.Http;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using System.Dynamic;
 using System.Linq;
 using Microsoft.AspNetCore.Authentication;
@@ -1240,9 +1241,8 @@ namespace EBookDashboard.Controllers
                 .Where(s => keys.Contains(s.Key))
                 .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
 
-            var pageCount = 0;
-            var pageRaw = rows.GetValueOrDefault($"book:{bookId}:printReadyPageCount", "");
-            if (!int.TryParse(pageRaw, out pageCount) || pageCount <= 0)
+            var pageCount = await ResolvePrintReadyPageCountAsync(bookId, cancellationToken);
+            if (pageCount <= 0)
             {
                 try
                 {
@@ -1260,9 +1260,7 @@ namespace EBookDashboard.Controllers
             }
             if (pageCount <= 0)
                 return Json(new { success = false, message = "Page count is unknown. Open Book Formatting first so the page count is calculated." });
-            pageCount = Math.Clamp(pageCount,
-                Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount,
-                Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
+            pageCount = Math.Clamp(pageCount, 1, Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
 
             var trimSize = rows.GetValueOrDefault($"book:{bookId}:printReadyTrimSize", "").Trim();
             if (string.IsNullOrWhiteSpace(trimSize)) trimSize = "6 x 9 in";
@@ -1455,11 +1453,11 @@ namespace EBookDashboard.Controllers
 
             var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
-            var pageCountForCover = Math.Clamp(
-                req.PageCount is > 0 ? req.PageCount.Value
-                    : (metrics.PageCount > 0 ? metrics.PageCount : Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount),
-                Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount,
-                Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
+            var savedPageCount = await ResolvePrintReadyPageCountAsync(req.BookId, cancellationToken);
+            var pageCountForCover = req.PageCount is > 0 ? req.PageCount.Value
+                : (savedPageCount > 0 ? savedPageCount
+                    : (metrics.PageCount > 0 ? metrics.PageCount : Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount));
+            pageCountForCover = Math.Clamp(pageCountForCover, 1, Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
             var trimSize = NormalizeTrimSizeForApi(req.TrimSize, exportOpt);
             var kdp = CalculatePrintReadyKdp(pageCountForCover, trimSize);
 
@@ -1681,6 +1679,42 @@ namespace EBookDashboard.Controllers
             if (compact == "6x9" || compact == "6xin9in" || compact == "paperback" || compact == "print" || compact == "both")
                 return "6 x 9 in";
             return "6 x 9 in";
+        }
+
+        /// <summary>Preview page count saved from Book Formatting (printReadyPageCount or formattingDraft).</summary>
+        private async Task<int> ResolvePrintReadyPageCountAsync(int bookId, CancellationToken cancellationToken = default)
+        {
+            const int max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+
+            var pageKey = $"book:{bookId}:printReadyPageCount";
+            var saved = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == pageKey)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (int.TryParse(saved, out var fromSaved) && fromSaved > 0 && fromSaved <= max)
+                return fromSaved;
+
+            var draftKey = $"book:{bookId}:formattingDraft";
+            var draft = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == draftKey)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+            return TryParsePreviewPageCountFromDraft(draft);
+        }
+
+        private static int TryParsePreviewPageCountFromDraft(string? draftJson)
+        {
+            const int max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+            if (string.IsNullOrWhiteSpace(draftJson)) return 0;
+            try
+            {
+                using var doc = JsonDocument.Parse(draftJson);
+                if (doc.RootElement.TryGetProperty("previewPageCount", out var pp)
+                    && pp.TryGetInt32(out var n) && n >= 1 && n <= max)
+                    return n;
+            }
+            catch (JsonException) { /* ignore malformed draft */ }
+            return 0;
         }
 
         /// <summary>Print-ready flow: Standard Color + White Paper, bleed on, 150 DPI (KDP Cover Calculator defaults).</summary>
@@ -1937,9 +1971,19 @@ namespace EBookDashboard.Controllers
                                 .FirstOrDefaultAsync(HttpContext.RequestAborted);
                             var estimatedPages = metrics.PageCount;
                             if (int.TryParse(savedPageRaw, out var savedPages)
-                                && savedPages >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
+                                && savedPages >= 1
                                 && savedPages <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
                                 estimatedPages = savedPages;
+                            else
+                            {
+                                var draftKey = $"book:{bid}:formattingDraft";
+                                var draftRaw = await _context.Settings.AsNoTracking()
+                                    .Where(s => s.Key == draftKey)
+                                    .Select(s => s.Value)
+                                    .FirstOrDefaultAsync(HttpContext.RequestAborted);
+                                var draftPages = TryParsePreviewPageCountFromDraft(draftRaw);
+                                if (draftPages > 0) estimatedPages = draftPages;
+                            }
 
                             ViewBag.PublishBookEstimatedPages = estimatedPages;
                             ViewBag.PublishBookWordCount = metrics.WordCount;

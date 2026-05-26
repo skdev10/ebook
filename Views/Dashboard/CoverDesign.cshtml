@@ -431,16 +431,6 @@
         g.addColorStop(1, '#1e1b4b');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, w, h);
-        ctx.save();
-        ctx.translate(w / 2, h / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = '700 34px Inter, system-ui, sans-serif';
-        var t = (title || 'Untitled').toUpperCase();
-        if (t.length > 40) t = t.slice(0, 37) + '…';
-        var tw = ctx.measureText(t).width;
-        ctx.fillText(t, -tw / 2, 10);
-        ctx.restore();
         return c.toDataURL('image/png');
     }
 

@@ -1516,7 +1516,7 @@
                 <div class="pr-auto-grid pr-spec-hidden" aria-hidden="true">
                     <div class="pr-auto-row"><span class="pr-auto-label">Paper type</span><strong class="pr-auto-value" id="prModalPaperTypeValue">White paper</strong></div>
                     <div class="pr-auto-row"><span class="pr-auto-label">Trim size</span><strong class="pr-auto-value" id="prModalTrimSizeValue">6 x 9 in</strong></div>
-                    <div class="pr-auto-row"><span class="pr-auto-label">Page count (source-of-truth)</span><strong class="pr-auto-value" id="prModalPageCountValue">24</strong></div>
+                    <div class="pr-auto-row"><span class="pr-auto-label">Page count (source-of-truth)</span><strong class="pr-auto-value" id="prModalPageCountValue">—</strong></div>
                     <div class="pr-auto-row"><span class="pr-auto-label">Book title</span><strong class="pr-auto-value" id="prModalTitleValue">—</strong></div>
                     <div class="pr-auto-row"><span class="pr-auto-label">Author</span><strong class="pr-auto-value" id="prModalAuthorValue">—</strong></div>
                     <div class="pr-auto-row"><span class="pr-auto-label">Genre theme</span><strong class="pr-auto-value" id="prModalGenreValue">—</strong></div>
@@ -1655,6 +1655,7 @@
     let autosaveTimer = null;
     let autosaveInFlight = false;
     let autosaveQueued = false;
+    let lastSyncedPreviewPageCount = 0;
 
     function formatterDraftKey(bid) {
         return FORMATTER_DRAFT_PREFIX + String(bid || 0);
@@ -1664,7 +1665,7 @@
     function getFormatterPreviewPageCount() {
         var total = Array.isArray(readerPages) ? readerPages.length : 0;
         if (!Number.isFinite(total) || total <= 0) return 0;
-        return Math.max(24, Math.min(828, total));
+        return Math.min(828, total);
     }
 
     function syncFormatterPageCountUi() {
@@ -1680,6 +1681,10 @@
         }
         if (pages > 0) {
             recalcPrintReadyModalMetrics({ pageCount: pages });
+            if (pages !== lastSyncedPreviewPageCount) {
+                lastSyncedPreviewPageCount = pages;
+                queueAutosave(800);
+            }
         }
     }
 
@@ -2562,15 +2567,18 @@
         if (!Number.isFinite(pages) || pages <= 0) {
             pages = getFormatterPreviewPageCount();
         }
-        if (!Number.isFinite(pages) || pages <= 0) pages = 24;
-        pages = Math.max(24, Math.min(828, pages));
+        if (!Number.isFinite(pages) || pages <= 0) {
+            if (prModalPageValue) prModalPageValue.textContent = '—';
+            return printReadyComputed;
+        }
+        pages = Math.min(828, pages);
         var paper = normalizePaperType(printReadyComputed.paperType || inferPaperTypeFromGenre(bookPreviewContext.genre));
         var trimValue = normalizeTrimValue(printReadyComputed.trimValue || inferTrimValueFromConfig());
 
         var trim = trimValueToDims(trimValue);
         var mul = paperMultiplier(paper);
         var bleed = printReadyConfig.bleedInches;
-        var spineIn = Math.max(0.055, pages * mul);
+        var spineIn = pages * mul;
         var wrapWIn = (trim.w * 2) + spineIn + (bleed * 2);
         var wrapHIn = trim.h + (bleed * 2);
         var toMm = function(v) { return v * 25.4; };
@@ -2709,7 +2717,7 @@
             'Color guidance: ' + profile.palette + '.',
             'Composition guidance: ' + profile.composition + '.',
             'Typography guidance: ' + profile.typography + '.',
-            'Trim size: ' + trim + '. Paper: ' + paper + '. Page count: ' + String(spec.pageCount || 24) + '.',
+            'Trim size: ' + trim + '. Paper: ' + paper + '. Page count: ' + String(spec.pageCount || getFormatterPreviewPageCount() || 0) + '.',
             'Spine width: ' + fmtNumber(spec.spineIn || 0.055, 3) + ' in.',
             'Full wrap size: ' + fmtNumber(spec.wrapWIn || 12.305, 3) + ' x ' + fmtNumber(spec.wrapHIn || 9.25, 3) + ' in.',
             (description ? ('Story/theme context: ' + description + '.') : ''),
@@ -2791,7 +2799,7 @@
             setPrModalStatus('Page count unknown. Load the book preview first.', true);
             return;
         }
-        pages = Math.max(24, Math.min(828, pages));
+        pages = Math.min(828, pages);
         recalcPrintReadyModalMetrics({ pageCount: pages });
         spec = recalcPrintReadyModalMetrics();
         var trim = spec.trimValue || '6x9';

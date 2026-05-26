@@ -251,17 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 ctx.fillStyle = spineColor;
                 ctx.fillRect(sidePanel, 0, spinePx, canvasH);
-                if (pages >= 79) {
-                    ctx.save();
-                    ctx.translate(sidePanel + spinePx / 2, canvasH / 2);
-                    ctx.rotate(Math.PI / 2);
-                    ctx.fillStyle = textColor;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.font = `600 ${Math.max(10, Math.floor(spinePx * 0.5))}px Georgia, serif`;
-                    ctx.fillText(title.toUpperCase(), 0, 0);
-                    ctx.restore();
-                }
 
                 ctx.fillStyle = bgColor;
                 ctx.fillRect(sidePanel + spinePx, 0, canvasW - sidePanel - spinePx, canvasH);

@@ -1140,6 +1140,27 @@
     var pbDesc = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbDesc));
     var pbEstimatedPages = @(pbEstimatedPages);
 
+    function getLocalFormatterPageCount(bid) {
+        if (!bid || bid <= 0) return 0;
+        try {
+            var raw = localStorage.getItem('formatter_draft_v2_' + bid);
+            if (!raw) return 0;
+            var st = JSON.parse(raw);
+            var n = parseInt(st.previewPageCount, 10);
+            return (Number.isFinite(n) && n > 0) ? Math.min(828, n) : 0;
+        } catch (e) { return 0; }
+    }
+
+    function resolvePublishPageCount(assetsPageCount) {
+        var pages = parseInt(assetsPageCount, 10);
+        if (Number.isFinite(pages) && pages > 0) return Math.min(828, pages);
+        pages = parseInt(pbEstimatedPages, 10);
+        if (Number.isFinite(pages) && pages > 0) return Math.min(828, pages);
+        pages = getLocalFormatterPageCount(bookId);
+        if (Number.isFinite(pages) && pages > 0) return pages;
+        return 0;
+    }
+
     function initPrintReadyCalculator() {
         if (!isPrintReadyFlow) return;
         var trimMap = {
@@ -1157,18 +1178,25 @@
         var syncedPageEl = document.getElementById('prSyncedPageCount');
         if (!pageInput || !trimSelect || !interiorSelect || !spineInEl || !spineMmEl || !wrapInEl || !wrapMmEl) return;
 
+        if (pbEstimatedPages > 0) pageInput.value = String(pbEstimatedPages);
+        else {
+            var localPages = getLocalFormatterPageCount(bookId);
+            if (localPages > 0) pageInput.value = String(localPages);
+        }
+
         function toMm(vIn) { return vIn * 25.4; }
         function fmtNum(v, d) { return Number(v || 0).toFixed(d); }
         function recalc() {
-            var pages = parseInt(pageInput.value || '200', 10);
-            if (!Number.isFinite(pages)) pages = 200;
-            pages = Math.max(24, Math.min(828, pages));
+            var pages = parseInt(pageInput.value || '0', 10);
+            if (!Number.isFinite(pages) || pages <= 0) pages = pbEstimatedPages > 0 ? pbEstimatedPages : getLocalFormatterPageCount(bookId);
+            if (!Number.isFinite(pages) || pages <= 0) pages = 24;
+            pages = Math.min(828, pages);
             pageInput.value = String(pages);
             if (syncedPageEl && pbEstimatedPages > 0) syncedPageEl.textContent = String(pbEstimatedPages);
             var trim = trimMap[trimSelect.value] || trimMap['6x9'];
             var mult = interiorSelect.value === 'color' ? 0.002347 : 0.002252;
             var bleed = 0.125;
-            var spineIn = Math.max(0.055, pages * mult);
+            var spineIn = pages * mult;
             var wrapWIn = (trim.w * 2) + spineIn + (bleed * 2);
             var wrapHIn = trim.h + (bleed * 2);
             spineInEl.textContent = fmtNum(spineIn, 3) + ' in';
@@ -1185,8 +1213,9 @@
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 icon: kind,
+                title: kind === 'success' ? 'Done' : (kind === 'error' ? 'Error' : ''),
                 text: text,
-                timer: 2600,
+                timer: kind === 'success' ? 4200 : 2600,
                 showConfirmButton: false
             });
         } else {
@@ -1424,10 +1453,9 @@
                 var sourceUrl = frontUrl || wrapUrl;
                 if (!sourceUrl) throw new Error('No cover image found. Generate a cover first.');
 
-                var realPages = parseInt(assets.pageCount, 10);
-                if (!realPages || realPages <= 0) realPages = parseInt(pbEstimatedPages, 10);
+                var realPages = resolvePublishPageCount(assets.pageCount);
                 if (!realPages || realPages <= 0) {
-                    throw new Error('Page count is unknown. Open Book Formatting first so the page count is calculated.');
+                    throw new Error('Page count is unknown. Open Book Formatting and wait for Total pages to load, then try again.');
                 }
 
                 if (!window.CoverKdpExport || typeof window.CoverKdpExport.composePrintWrapFromParts !== 'function') {
@@ -1454,9 +1482,10 @@
                 for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
                 var blob = new Blob([ab], { type: 'image/png' });
                 downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-cover-print-ready.png');
+                var exportedPages = result.pageCount || 0;
                 showTransientMessage('success',
-                    'Print-ready cover (' + result.widthPx + ' \u00d7 ' + result.heightPx + ' px \u0040 300 DPI, spine ' +
-                    result.spineInches.toFixed(3) + '" for ' + result.pageCount + ' pages) downloaded.');
+                    'Print-ready cover downloaded for ' + exportedPages + ' pages (spine ' +
+                    result.spineInches.toFixed(3) + ' in, ' + result.widthPx + ' \u00d7 ' + result.heightPx + ' px \u0040 300 DPI).');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
@@ -1682,7 +1711,8 @@
         var statusEl = document.getElementById('pr-cover-status');
         var trimEl = document.getElementById('prTrimSize');
         var prPageInput = document.getElementById('prPageCount');
-        var pageCount = pbEstimatedPages > 0 ? pbEstimatedPages : parseInt((prPageInput && prPageInput.value) || '0', 10);
+        var pageCount = resolvePublishPageCount(pbEstimatedPages > 0 ? pbEstimatedPages : ((prPageInput && prPageInput.value) || 0));
+        if (!pageCount || pageCount <= 0) pageCount = getLocalFormatterPageCount(bookId);
 
         if (triggerBtn) triggerBtn.disabled = true;
         if (statusEl) statusEl.textContent = 'Generating back + spine + front cover set...';

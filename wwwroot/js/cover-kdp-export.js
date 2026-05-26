@@ -231,23 +231,12 @@
         if (line) ctx.fillText(line, x, cy);
     }
 
-    function drawSpine(ctx, x, y, w, h, title) {
+    function drawSpine(ctx, x, y, w, h) {
         var g = ctx.createLinearGradient(x, 0, x + w, 0);
         g.addColorStop(0, '#3730a3');
         g.addColorStop(1, '#1e1b4b');
         ctx.fillStyle = g;
         ctx.fillRect(x, y, w, h);
-
-        ctx.save();
-        ctx.translate(x + w / 2, y + h / 2);
-        ctx.rotate(-Math.PI / 2);
-        ctx.fillStyle = '#f1f5f9';
-        ctx.font = 'bold ' + Math.max(10, Math.min(w * 1.2, 14)) + 'px Inter, system-ui, sans-serif';
-        var t = (title || 'Title').toUpperCase();
-        if (t.length > 48) t = t.slice(0, 45) + '…';
-        var tw = ctx.measureText(t).width;
-        ctx.fillText(t, -tw / 2, 4);
-        ctx.restore();
     }
 
     function buildPrintCanvas(frontImg, layoutInches, meta) {
@@ -700,7 +689,7 @@
                 drawCoverContain(ctx, state.sequential.front, backW + spineW, 0, frontW, H);
             } else if (state.frontImg) {
                 drawBackPanel(ctx, 0, 0, backW, H, meta);
-                drawSpine(ctx, backW, 0, spineW, H, meta.title);
+                drawSpine(ctx, backW, 0, spineW, H);
                 drawCoverContain(ctx, state.frontImg, backW + spineW, 0, frontW, H);
             } else {
                 return null;
@@ -1222,7 +1211,6 @@
             drawSpineCropCenter(ctx, apiSpineImg, x, y, w, h, layout);
             ctx.restore();
         }
-        drawSpineTitle(ctx, x, y, w, h, title);
     }
 
     function drawBackCropCenter(ctx, img, x, y, w, h, layout) {
@@ -1554,9 +1542,6 @@
 
             if (isLikelyFullWrapImage(sourceImg, fullW, fullH)) {
                 drawReslicedWrapToCanvas(ctx, sourceImg, backW, spineW, frontW, H);
-                if (pages >= 79 && opts.title && spineW >= 10) {
-                    drawSpineTitle(ctx, spineX, 0, spineW, H, opts.title);
-                }
             } else {
                 if (useBackArt && backImg && backImg.width > 0) {
                     ctx.save();
@@ -1578,9 +1563,6 @@
                     ctx.restore();
                 } else {
                     drawSolidPanelFromFrontEdge(ctx, sourceImg, spineX, 0, spineW, H, 'left');
-                }
-                if (pages >= 79 && opts.title && spineW >= 10) {
-                    drawSpineTitle(ctx, spineX, 0, spineW, H, opts.title);
                 }
 
                 ctx.save();

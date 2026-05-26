@@ -333,8 +333,7 @@ namespace EBookDashboard.Controllers
                 await _context.SaveChangesAsync();
 
                 var previewPages = ResolvePreviewPageCount(req, statePayload);
-                if (previewPages is >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
-                    and <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+                if (previewPages is >= 1 and <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
                 {
                     var pageKey = $"book:{req.BookId}:printReadyPageCount";
                     var pageSetting = await _context.Settings.FirstOrDefaultAsync(s => s.Key == pageKey);
@@ -929,8 +928,9 @@ namespace EBookDashboard.Controllers
 
         private static int? ResolvePreviewPageCount(SaveBookFormattingRequest req, string statePayload)
         {
-            if (req.PreviewPageCount is >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
-                and <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+            const int maxPages = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+
+            if (req.PreviewPageCount is >= 1 and <= maxPages)
                 return req.PreviewPageCount;
 
             if (!string.IsNullOrWhiteSpace(statePayload))
@@ -940,8 +940,8 @@ namespace EBookDashboard.Controllers
                     using var doc = JsonDocument.Parse(statePayload);
                     if (doc.RootElement.TryGetProperty("previewPageCount", out var pp)
                         && pp.TryGetInt32(out var fromDraft)
-                        && fromDraft >= Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount
-                        && fromDraft <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+                        && fromDraft >= 1
+                        && fromDraft <= maxPages)
                         return fromDraft;
                 }
                 catch (JsonException) { /* ignore malformed draft */ }
