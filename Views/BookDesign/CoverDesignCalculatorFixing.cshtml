@@ -3240,6 +3240,7 @@
         const lineSp = lineEl ? lineEl.value : '1.6';
         const interior = styleEl ? styleEl.value : 'Novel';
         el.style.lineHeight = String(lineSp);
+        el.style.fontSize = '';
         el.classList.remove('text-xs', 'text-[15px]', 'text-lg');
         if (interior === 'Classic' || interior === 'ElegantTrade') {
             el.style.textAlign = 'justify';
@@ -3248,9 +3249,9 @@
             else el.style.fontSize = interior === 'ElegantTrade' ? '17px' : '18px';
         } else {
             el.style.textAlign = '';
-            if (size === 'Small') el.classList.add('text-xs');
-            else if (size === 'Large') el.classList.add('text-lg');
-            else el.style.fontSize = '15px';
+            if (size === 'Small') el.style.fontSize = '14px';
+            else if (size === 'Large') el.style.fontSize = '20px';
+            else el.style.fontSize = '16px';
         }
 
         var interiorMap = { 'Novel': 'interior-novel', 'Modern': 'interior-modern', 'Classic': 'interior-classic', 'Minimalist': 'interior-minimalist', 'ElegantTrade': 'interior-elegant-trade' };
@@ -4193,26 +4194,20 @@
                 readerPages = buildReaderPages();
                 currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
             }
-            renderPreviewContent();
-            renderBothPreviews();
-            showToast('Text size updated');
+            var fmtV = (document.getElementById('format-select') || {}).value || 'Ebook';
+            if (fmtV === 'Both') renderBothPreviews(); else renderPreviewContent();
+            showToast('Text size: ' + (this.value || 'Medium'));
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
         });
         document.getElementById('line-spacing-select')?.addEventListener('change', function() {
-            const v = this.value;
-            const inner = document.getElementById('preview-content');
-            const ebook = document.getElementById('preview-content-ebook');
-            const paperback = document.getElementById('preview-content-paperback');
-            if (inner) inner.style.lineHeight = v;
-            if (ebook) ebook.style.lineHeight = v;
-            if (paperback) paperback.style.lineHeight = v;
             if (bookChapters.length) {
                 readerPages = buildReaderPages();
                 currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
             }
-            if (readerPages.length > 0) { renderPreviewContent(); renderBothPreviews(); }
-            showToast('Line spacing updated');
+            var fmtV = (document.getElementById('format-select') || {}).value || 'Ebook';
+            if (fmtV === 'Both') renderBothPreviews(); else renderPreviewContent();
+            showToast('Line spacing: ' + (this.value || '1.6'));
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
         });
