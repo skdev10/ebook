@@ -3239,20 +3239,36 @@
         const size = sizeEl ? sizeEl.value : 'Medium';
         const lineSp = lineEl ? lineEl.value : '1.6';
         const interior = styleEl ? styleEl.value : 'Novel';
-        el.style.lineHeight = String(lineSp);
-        el.style.fontSize = '';
-        el.classList.remove('text-xs', 'text-[15px]', 'text-lg');
+
+        var fontSize;
         if (interior === 'Classic' || interior === 'ElegantTrade') {
-            el.style.textAlign = 'justify';
-            if (size === 'Small') el.style.fontSize = '15px';
-            else if (size === 'Large') el.style.fontSize = '20px';
-            else el.style.fontSize = interior === 'ElegantTrade' ? '17px' : '18px';
+            if (size === 'Small') fontSize = '15px';
+            else if (size === 'Large') fontSize = '20px';
+            else fontSize = interior === 'ElegantTrade' ? '17px' : '18px';
         } else {
-            el.style.textAlign = '';
-            if (size === 'Small') el.style.fontSize = '14px';
-            else if (size === 'Large') el.style.fontSize = '20px';
-            else el.style.fontSize = '16px';
+            if (size === 'Small') fontSize = '14px';
+            else if (size === 'Large') fontSize = '20px';
+            else fontSize = '16px';
         }
+        var textAlign = (interior === 'Classic' || interior === 'ElegantTrade') ? 'justify' : '';
+
+        el.style.fontSize = fontSize;
+        el.style.lineHeight = String(lineSp);
+        el.style.textAlign = textAlign;
+
+        var bodies = el.querySelectorAll('.reader-page-body');
+        bodies.forEach(function(body) {
+            body.style.fontSize = fontSize;
+            body.style.lineHeight = String(lineSp);
+            if (textAlign) body.style.textAlign = textAlign;
+            else body.style.textAlign = '';
+        });
+
+        var paragraphs = el.querySelectorAll('.reader-page-body p');
+        paragraphs.forEach(function(p) {
+            p.style.fontSize = fontSize;
+            p.style.lineHeight = String(lineSp);
+        });
 
         var interiorMap = { 'Novel': 'interior-novel', 'Modern': 'interior-modern', 'Classic': 'interior-classic', 'Minimalist': 'interior-minimalist', 'ElegantTrade': 'interior-elegant-trade' };
         var interiorCls = interiorMap[interior] || 'interior-novel';
