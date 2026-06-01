@@ -1224,7 +1224,7 @@
         #guidedTourPopover .gt-skip:hover { background: #e2e8f0; }
         #guidedTourPopover .gt-next { background: #7c3aed; color: #fff; }
         #guidedTourPopover .gt-next:hover { background: #6d28d9; }
-        #guidedTourPopover .gt-stepcount { font-size: 12px; color: #e2e8f0; margin-right: auto; align-self: center; }
+        #guidedTourPopover .gt-stepcount { font-size: 12px; color: #ffffff; margin-right: auto; align-self: center; }
         #guidedTourFab {
             position: fixed;
             right: 22px;
@@ -3327,11 +3327,6 @@
                         </a>
                     }
                 </li>
-                 <li>
-                    <a href="/Dashboard/CoverDesign" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
-                        <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
-                    </a>
-                </li>
                 <li>
                     @if (publishUnlocked) {
                         <a href="/Dashboard/MyBooks" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "MyBooks" ? "active" : "")">
@@ -3342,6 +3337,11 @@
                             <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     }
+                </li>
+                <li>
+                    <a href="/Dashboard/CoverDesign" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
+                        <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                    </a>
                 </li>
                 <li>
                     @if (hasGeneratedBook) {
@@ -3355,10 +3355,6 @@
                     }
                 </li>
                 <li>
-                    <a href="/Dashboard/Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "active" : "")">
-                        <i data-lucide="user" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Profile</span>
-                    </a>
-                </li>
                 @* <li>
                     @if (hasGeneratedBook) {
                         <a href="/Dashboard/Support" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Support" ? "active" : "")">
@@ -3387,6 +3383,11 @@
                 <li>
                     <a href="/Books/EBookHub" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Books" && ViewContext.RouteData.Values["Action"]?.ToString() == "EBookHub" ? "active" : "")">
                         <i data-lucide="users-round" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Ebook Hub</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/Dashboard/Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "active" : "")">
+                        <i data-lucide="user" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Profile Settings</span>
                     </a>
                 </li>
             </ul>

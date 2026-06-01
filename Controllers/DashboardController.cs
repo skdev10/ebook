@@ -2041,6 +2041,14 @@ namespace EBookDashboard.Controllers
 
                     var fmt = await _context.BookFormatting.AsNoTracking()
                         .FirstOrDefaultAsync(f => f.BookId == bookId.Value && f.UserId == user.UserId);
+                    var publishFormat = (fmt?.Format ?? "").Trim();
+                    if (publishFormat.Equals("Print", StringComparison.OrdinalIgnoreCase))
+                        publishFormat = "Paperback";
+                    if (!publishFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
+                        && !publishFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                        && !publishFormat.Equals("Both", StringComparison.OrdinalIgnoreCase))
+                        publishFormat = "Ebook";
+                    ViewBag.PublishBookFormat = publishFormat;
                     var primaryPlatform = (fmt?.PublishingPlatform ?? "").Trim();
                     var platformCsv = (fmt?.PublishingPlatforms ?? "").Trim();
                     var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -2050,7 +2058,10 @@ namespace EBookDashboard.Controllers
                         || selectedPlatforms.Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase))
                         || hasAnyPlatformSelected;
 
-                    var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform;
+                    var hasFormatPrintSurface =
+                        publishFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                        || publishFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
+                    var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform || hasFormatPrintSurface;
                     ViewBag.PublishPrintReadyMode = isPrintReadyFlow;
                     var canExport = hasChapterContent;
                     ViewBag.PublishCanExport = canExport;

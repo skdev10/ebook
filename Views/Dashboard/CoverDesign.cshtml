@@ -390,6 +390,14 @@
         else alert(text);
     }
 
+    function setPublishButtonBusy(isBusy) {
+        if (!btnGoToPublish) return;
+        var busy = !!isBusy;
+        btnGoToPublish.setAttribute('aria-disabled', busy ? 'true' : 'false');
+        btnGoToPublish.style.pointerEvents = busy ? 'none' : '';
+        btnGoToPublish.style.opacity = busy ? '0.6' : '';
+    }
+
     function showSpinePagesCreatedAlert(pageCount) {
         var pages = parseInt(String(pageCount || '0'), 10);
         if (!Number.isFinite(pages) || pages <= 0) return;
@@ -903,6 +911,7 @@
         btnGenerate.disabled = busy;
         if (btnRegenerate) btnRegenerate.disabled = busy;
         if (btnEditCover) btnEditCover.disabled = busy;
+        setPublishButtonBusy(busy);
         if (busy) {
             btnGenerate.innerHTML = '<span class="inline-flex items-center gap-2"><span class="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin"></span> Generating…</span>';
         } else {
@@ -1405,6 +1414,10 @@
     }
 
     if (btnGoToPublish) btnGoToPublish.addEventListener('click', function (e) {
+        if (btnGoToPublish.getAttribute('aria-disabled') === 'true') {
+            e.preventDefault();
+            return;
+        }
         e.preventDefault();
         if (!selectedBook || !selectedBook.bookId) {
             toast('error', 'No book loaded. Create or select a book first.');

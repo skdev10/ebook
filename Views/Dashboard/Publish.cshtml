@@ -30,6 +30,14 @@
         ? (publishReady && (ViewBag.PublishBookStatus as string ?? "").Equals("Finalized", StringComparison.OrdinalIgnoreCase) ? "Finalized — ready to export" : "Ready to export")
         : (bookId > 0 ? "Add chapters in AI Writer" : "No book selected");
     var isPrintReadyFlow = ViewBag.PublishPrintReadyMode as bool? ?? false;
+    var publishBookFormat = (ViewBag.PublishBookFormat as string ?? "Ebook").Trim();
+    if (!publishBookFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
+        && !publishBookFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+        && !publishBookFormat.Equals("Both", StringComparison.OrdinalIgnoreCase))
+    {
+        publishBookFormat = "Ebook";
+    }
+    var isBothFormat = publishBookFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
     var publishBooks = ViewBag.PublishBooks as IList<EBookDashboard.Models.PublishBookPickerItem>
         ?? new List<EBookDashboard.Models.PublishBookPickerItem>();
 }
@@ -289,9 +297,11 @@
     #btnDownloadInteriorPdf,
     #btnDownloadKdpCover,
     #btnDownloadCoverWrap,
+    #btnExportFrontCover,
     #btnExportEpub,
     #btnExportDocx,
     #btnExportPdf,
+    #btnExportPrintPdf,
     #btnExportPrintBundle,
     #btnExportCoverWrap,
     #btnPrintReadyPublishPrimary,
@@ -1049,16 +1059,35 @@
         {
             @if (canExport)
             {
-                @if (isPrintReadyFlow)
+                @if (isBothFormat)
+                {
+                    <p class="publish-export-hint" id="publishExportHint">Both format selected: export all 4 files (front cover + EPUB + full wrap cover + print-ready PDF).</p>
+                }
+                else if (isPrintReadyFlow)
                 {
                     <p class="publish-export-hint" id="publishExportHint">Download a print-ready ZIP (interior PDF + full wrap cover) or grab the cover wrap PNG alone.</p>
                 }
                 else
                 {
-                    <p class="publish-export-hint" id="publishExportHint">EPUB, Word, or PDF — ready for KDP, IngramSpark, or any store.</p>
+                    <p class="publish-export-hint" id="publishExportHint">Ebook format selected: export exactly 2 files (front cover image + EPUB).</p>
                 }
                 <div class="publish-export-actions">
-                    @if (isPrintReadyFlow)
+                    @if (isBothFormat)
+                    {
+                        <button type="button" id="btnExportFrontCover" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                            <i class="fas fa-image" aria-hidden="true"></i> Download front cover
+                        </button>
+                        <button type="button" id="btnExportEpub" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                            <i class="fas fa-book" aria-hidden="true"></i> Download EPUB
+                        </button>
+                        <button type="button" id="btnExportCoverWrap" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                            <i class="fas fa-panorama" aria-hidden="true"></i> Download full wrap cover
+                        </button>
+                        <button type="button" id="btnExportPrintPdf" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                            <i class="fas fa-file-pdf" aria-hidden="true"></i> Download print-ready PDF
+                        </button>
+                    }
+                    else if (isPrintReadyFlow)
                     {
                         <button type="button" id="btnExportPrintBundle" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                             <i class="fas fa-file-archive" aria-hidden="true"></i> Export print pack (PDF + cover)
@@ -1072,14 +1101,11 @@
                     }
                     else
                     {
+                        <button type="button" id="btnExportFrontCover" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                            <i class="fas fa-image" aria-hidden="true"></i> Download front cover
+                        </button>
                         <button type="button" id="btnExportEpub" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                             <i class="fas fa-book" aria-hidden="true"></i> Download EPUB
-                        </button>
-                        <button type="button" id="btnExportDocx" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                            <i class="fas fa-file-word" aria-hidden="true"></i> Export Word
-                        </button>
-                        <button type="button" id="btnExportPdf" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                            <i class="fas fa-file-pdf" aria-hidden="true"></i> Download PDF
                         </button>
                     }
                 </div>
@@ -1141,7 +1167,9 @@
     var pbTitle = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbTitle));
     var pbGenre = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbGenre));
     var pbDesc = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbDesc));
+    var pbCoverRef = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(CoverUrl(pbCover)));
     var pbEstimatedPages = @(pbEstimatedPages);
+    var publishBookFormat = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishBookFormat));
 
     function getLocalFormatterPageCount(bid) {
         if (!bid || bid <= 0) return 0;
@@ -1436,6 +1464,55 @@
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Interior PDF download failed.');
+            })
+            .finally(function () {
+                if (triggerBtn) triggerBtn.disabled = false;
+            });
+    }
+
+    function runFrontCoverDownload(triggerBtn) {
+        if (!bookId || bookId <= 0) {
+            showTransientMessage('warning', 'Select a book first.');
+            return;
+        }
+        if (triggerBtn) triggerBtn.disabled = true;
+        var candidate = '';
+
+        function imageRefToBlob(ref) {
+            var src = String(ref || '').trim();
+            if (!src) return Promise.reject(new Error('Front cover not available.'));
+            if (src.indexOf('data:image') === 0) {
+                var parts = src.split(',');
+                if (parts.length < 2) return Promise.reject(new Error('Invalid cover data.'));
+                var mimeMatch = /^data:(image\/[a-zA-Z0-9.+-]+);base64/.exec(parts[0] || '');
+                var mime = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : 'image/png';
+                var byteString = atob(parts[1]);
+                var ab = new ArrayBuffer(byteString.length);
+                var ia = new Uint8Array(ab);
+                for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+                return Promise.resolve(new Blob([ab], { type: mime }));
+            }
+            var url = src.indexOf('http') === 0 || src.indexOf('/') === 0 ? src : ('/' + src);
+            return fetch(url).then(function (r) {
+                if (!r.ok) throw new Error('Could not load front cover image.');
+                return r.blob();
+            });
+        }
+
+        fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
+            .then(function (r) { return r.json(); })
+            .then(function (assets) {
+                var c = assets && assets.cover ? assets.cover : null;
+                candidate = (c && c.front ? c.front : '').trim();
+                if (!candidate) candidate = String(pbCoverRef || '');
+                return imageRefToBlob(candidate);
+            })
+            .then(function (blob) {
+                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-front-cover.png');
+                showTransientMessage('success', 'Front cover downloaded.');
+            })
+            .catch(function (err) {
+                showTransientMessage('error', err && err.message ? err.message : 'Front cover download failed.');
             })
             .finally(function () {
                 if (triggerBtn) triggerBtn.disabled = false;
@@ -1826,8 +1903,13 @@
     var exportEpubBtn = document.getElementById('btnExportEpub');
     var exportDocxBtn = document.getElementById('btnExportDocx');
     var exportPdfBtn = document.getElementById('btnExportPdf');
+    var exportFrontCoverBtn = document.getElementById('btnExportFrontCover');
+    var exportPrintPdfBtn = document.getElementById('btnExportPrintPdf');
     var exportPrintBundleBtn = document.getElementById('btnExportPrintBundle');
     var exportCoverWrapBtn = document.getElementById('btnExportCoverWrap');
+    if (exportFrontCoverBtn) {
+        exportFrontCoverBtn.addEventListener('click', function () { runFrontCoverDownload(exportFrontCoverBtn); });
+    }
     if (exportEpubBtn) {
         exportEpubBtn.addEventListener('click', function () { runEbookExport(exportEpubBtn, 'epub'); });
     }
@@ -1836,6 +1918,9 @@
     }
     if (exportPdfBtn) {
         exportPdfBtn.addEventListener('click', function () { runPublishPdfDownload(exportPdfBtn); });
+    }
+    if (exportPrintPdfBtn) {
+        exportPrintPdfBtn.addEventListener('click', function () { runPublishPdfDownload(exportPrintPdfBtn); });
     }
     if (exportPrintBundleBtn) {
         exportPrintBundleBtn.addEventListener('click', function () { runPrintBundleExport(exportPrintBundleBtn); });

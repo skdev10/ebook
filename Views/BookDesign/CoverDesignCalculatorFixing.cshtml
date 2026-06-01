@@ -385,12 +385,31 @@
         line-height: 1.92;
         color: #1f2937;
         font-size: 16px;
+        flex: 1 1 auto;
+        min-height: 0;
     }
     .reader-page-body p {
-        margin: 0 0 0.85rem 0;
+        margin: 0 0 0.62rem 0;
         text-indent: 1.2rem;
     }
+    .reader-page-footer {
+        text-align: center;
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: #6b7280;
+        margin-top: auto;
+        padding-top: 0.38rem;
+        letter-spacing: 0.08em;
+        line-height: 1.2;
+    }
     .reader-page-body > :first-child { margin-top: 0 !important; }
+    .reader-chapter-block {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+        height: 100%;
+    }
     .reader-page-body .manuscript-heading {
         font-weight: 700;
         margin: 1rem 0 0.5rem 0;
@@ -977,10 +996,15 @@
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
+        padding: 0 !important;
         border-radius: 14px;
         border: 1px solid rgba(196, 181, 253, 0.65);
         background: #fff;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 20px -8px rgba(91, 33, 182, 0.15);
+    }
+    .paginated-reader-shell.reader-content-wrap {
+        padding: 0 !important;
+        min-height: 0;
     }
     #preview-both .paginated-reader-shell {
         max-width: 100%;
@@ -1430,7 +1454,7 @@
                                     <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview">
                                         <div id="preview-single" class="preview-panel-single flex flex-1 flex-col min-h-0 w-full" tabindex="0">
                                             <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell reader-content-wrap relative w-full flex-1 min-h-0 flex flex-col">
-                                                <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col flex-1 min-h-0 overflow-hidden text-base text-slate-700 leading-relaxed">
+                                                <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden text-base text-slate-700 leading-relaxed">
                                                     <p class="preview-state-message">Select a book in AI Writer, then open Book Formatting (or use Next Step) to load your manuscript here.</p>
                                                 </div>
                                                 <button type="button" id="fmt-preview-side-prev" class="ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page" disabled><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
@@ -1443,7 +1467,7 @@
                                                 <div class="preview-half flex flex-col flex-1 min-h-0 min-w-0">
                                                     <p class="text-xs font-semibold text-purple-600 mb-2 flex-shrink-0">Ebook</p>
                                                     <div id="paginatedReaderShellEbook" class="paginated-reader-shell book-page-preview-shell reader-content-wrap relative flex-1 min-h-0 flex flex-col w-full">
-                                                        <div id="preview-content-ebook" class="chapter-preview-viewport book-page-preview-content flex flex-col flex-1 min-h-0 overflow-hidden text-base text-slate-700 leading-relaxed"></div>
+                                                        <div id="preview-content-ebook" class="chapter-preview-viewport book-page-preview-content flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden text-base text-slate-700 leading-relaxed"></div>
                                                     </div>
                                                     <div class="reader-nav-bar reader-nav-bar-inline fmt-reader-nav-dock flex-shrink-0 mt-2">
                                                         <button type="button" id="btn-prev-ebook" class="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
@@ -1454,7 +1478,7 @@
                                                 <div class="preview-half flex flex-col flex-1 min-h-0 min-w-0">
                                                     <p class="text-xs font-semibold text-amber-600 mb-2 flex-shrink-0">Paperback</p>
                                                     <div id="paginatedReaderShellPaperback" class="paginated-reader-shell book-page-preview-shell reader-content-wrap relative flex-1 min-h-0 flex flex-col w-full">
-                                                        <div id="preview-content-paperback" class="chapter-preview-viewport book-page-preview-content flex flex-col flex-1 min-h-0 overflow-hidden text-base text-slate-700 leading-relaxed"></div>
+                                                        <div id="preview-content-paperback" class="chapter-preview-viewport book-page-preview-content flex flex-col flex-1 min-h-0 overflow-y-auto overflow-x-hidden text-base text-slate-700 leading-relaxed"></div>
                                                     </div>
                                                     <div class="reader-nav-bar reader-nav-bar-inline fmt-reader-nav-dock flex-shrink-0 mt-2">
                                                         <button type="button" id="btn-prev-paperback" class="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
@@ -1653,13 +1677,21 @@
     /** 6×9 trim pagination: chars per preview page (not PARAS count). */
     const CONTENT_CHARS_SOFT_LIMIT = 5500;
     const FORMATTER_DRAFT_PREFIX = 'formatter_draft_v2_';
+    const FORMATTER_BOOK_PAYLOAD_PREFIX = 'formatter_book_payload_v1_';
+    const FORMATTER_BOOK_PAYLOAD_MAX_AGE_MS = 3 * 60 * 1000;
     let autosaveTimer = null;
     let autosaveInFlight = false;
     let autosaveQueued = false;
     let lastSyncedPreviewPageCount = 0;
+    let lastReaderBuildKey = '';
+    let lastLoadedBookPayloadSignature = '';
 
     function formatterDraftKey(bid) {
         return FORMATTER_DRAFT_PREFIX + String(bid || 0);
+    }
+
+    function formatterBookPayloadKey(bid) {
+        return FORMATTER_BOOK_PAYLOAD_PREFIX + String(bid || 0);
     }
 
     /** Page count shown in preview — source of truth for KDP spine on export. */
@@ -2053,7 +2085,7 @@
         // Keep a tiny safety edge and allow a small fill bonus in classic mode to avoid under-filled pages.
         var styleEl = document.getElementById('style-select');
         var interior = styleEl ? String(styleEl.value || '') : '';
-        var fillBonus = (interior === 'Classic') ? 22 : 6;
+        var fillBonus = (interior === 'Classic') ? 14 : 8;
         return Math.max(140, h - 2 + fillBonus);
     }
 
@@ -2071,13 +2103,12 @@
 
     function getFmtMeasureInteriorClass() {
         var shell = document.getElementById('paginatedReaderShell');
-        if (!shell) return 'reader-content-wrap interior-novel';
-        var parts = ['reader-content-wrap'];
+        if (!shell) return 'paginated-reader-shell reader-content-wrap interior-novel';
+        var interiorCls = 'interior-novel';
         shell.classList.forEach(function(c) {
-            if (c.indexOf('interior-') === 0) parts.push(c);
+            if (c.indexOf('interior-') === 0) interiorCls = c;
         });
-        if (parts.length === 1) parts.push('interior-novel');
-        return parts.join(' ');
+        return 'paginated-reader-shell reader-content-wrap ' + interiorCls;
     }
 
     function syncFmtMeasureTypography(viewportEl) {
@@ -2212,13 +2243,31 @@
         return formatChapterContent(block);
     }
 
+    function estimateBodyLeadLines(bodyHtml) {
+        var html = String(bodyHtml || '');
+        if (!html) return 0;
+        var paraCount = (html.match(/<(p|li)\b/gi) || []).length;
+        if (paraCount > 0) return paraCount;
+        var text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!text) return 0;
+        var sentenceCount = text.split(/[.!?]+/).map(function(s) { return s.trim(); }).filter(Boolean).length;
+        if (sentenceCount > 0) return sentenceCount;
+        return Math.max(1, Math.ceil(text.split(/\s+/).filter(Boolean).length / 14));
+    }
+
+    function formatBookPageNumber(pageNum) {
+        var n = parseInt(String(pageNum || '0'), 10);
+        if (!Number.isFinite(n) || n <= 0) n = 1;
+        return '&mdash; ' + n + ' &mdash;';
+    }
+
     function fmtScheduleRepaginate() {
         if (fmtRepaginateTimer) clearTimeout(fmtRepaginateTimer);
         fmtRepaginateTimer = setTimeout(function() {
             fmtRepaginateTimer = null;
             if (!bookChapters.length) return;
             var keep = currentPageIdx;
-            readerPages = buildReaderPages();
+            ensureReaderPages(true);
             currentPageIdx = Math.min(keep, Math.max(0, readerPages.length - 1));
             var fmtEl = document.getElementById('format-select');
             var fmt = (fmtEl && fmtEl.value) || 'Ebook';
@@ -2300,7 +2349,7 @@
                 const chapterLine = '<div class="classic-chapter-label">' + chapterOrdinalLabel(ci) + '</div>';
                 const titleBlock = '<h1 class="classic-chapter-title">' + escapeHtml(title) + '</h1>';
                 const body = '<section class="reader-page-body classic-body"><p class="text-gray-500">No content.</p></section>';
-                const footer = '<footer class="classic-page-num">' + pageNum + '</footer>';
+                const footer = '<footer class="classic-page-num">' + formatBookPageNumber(pageNum) + '</footer>';
                 pages.push('<div class="reader-chapter-block">' + head + chapterLine + titleBlock + body + footer + '</div>');
                 readerPageChapterIdx.push(ci);
                 pageNum++;
@@ -2332,6 +2381,11 @@
                         var seg = segments[segIdx];
                         var trial = acc ? (acc + seg) : seg;
                         if (measureFn(trial) > getFmtPageMaxHeightPx() && acc) {
+                            if (isFirstChapterPage && estimateBodyLeadLines(acc) < 3) {
+                                acc = trial;
+                                segIdx++;
+                                continue;
+                            }
                             bodyPages.push({ bodyInner: acc, isFirst: isFirstChapterPage });
                             acc = '';
                             break;
@@ -2387,7 +2441,7 @@
                     middle += '<h1 class="classic-chapter-title">' + escapeHtml(title) + '</h1>';
                 }
                 const body = '<section class="reader-page-body classic-body">' + bp.bodyInner + '</section>';
-                const footer = '<footer class="classic-page-num">' + pageNum + '</footer>';
+                const footer = '<footer class="classic-page-num">' + formatBookPageNumber(pageNum) + '</footer>';
                 pages.push('<div class="reader-chapter-block">' + head + middle + body + footer + '</div>');
                 readerPageChapterIdx.push(ci);
                 pageNum++;
@@ -3034,7 +3088,7 @@
                 if (!data || !data.success) throw new Error((data && data.message) || 'Could not save.');
                 if (ch) ch.chapterTitle = data.title || nextTitle;
                 if (readerPages.length) {
-                    readerPages = buildReaderPages();
+                    ensureReaderPages(true);
                     currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
                 }
                 renderPreviewContent(currentPageIdx);
@@ -3254,6 +3308,7 @@
             return buildClassicReaderPages();
         }
         const pages = [];
+        let pageNum = 1;
         readerPageChapterIdx = [];
         const useMeasure = fmtCanMeasurePages();
         for (let ci = 0; ci < bookChapters.length; ci++) {
@@ -3264,8 +3319,9 @@
             const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
             const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
             if (paras.length === 0) {
-                pages.push('<div class="reader-chapter-block"><article class="reader-page-title">' + escapeHtml(title) + '</article><section class="reader-page-body"><p class="text-gray-500">No content.</p></section></div>');
+                pages.push('<div class="reader-chapter-block"><article class="reader-page-title">' + escapeHtml(title) + '</article><section class="reader-page-body"><p class="text-gray-500">No content.</p></section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
                 readerPageChapterIdx.push(ci);
+                pageNum++;
             } else if (useMeasure) {
                 var segments = paras.map(function(p) { return novelParaToBodySegment(p); }).filter(Boolean);
                 var segIdxN = 0;
@@ -3280,9 +3336,15 @@
                         var segN = segments[segIdxN];
                         var trialN = accN ? (accN + segN) : segN;
                         if (measureFnN(trialN) > getFmtPageMaxHeightPx() && accN) {
+                            if (withTitle && estimateBodyLeadLines(accN) < 3) {
+                                accN = trialN;
+                                segIdxN++;
+                                continue;
+                            }
                             var titleBlockN = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                            pages.push('<div class="reader-chapter-block">' + titleBlockN + '<section class="reader-page-body">' + accN + '</section></div>');
+                            pages.push('<div class="reader-chapter-block">' + titleBlockN + '<section class="reader-page-body">' + accN + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
                             readerPageChapterIdx.push(ci);
+                            pageNum++;
                             accN = '';
                             break;
                         }
@@ -3290,8 +3352,9 @@
                             var subsN = splitOversizedFmtBodyHtml(segN, measureFnN);
                             for (var sn = 0; sn < subsN.length; sn++) {
                                 var tb = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                                pages.push('<div class="reader-chapter-block">' + tb + '<section class="reader-page-body">' + subsN[sn] + '</section></div>');
+                                pages.push('<div class="reader-chapter-block">' + tb + '<section class="reader-page-body">' + subsN[sn] + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
                                 readerPageChapterIdx.push(ci);
+                                pageNum++;
                                 withTitle = false;
                             }
                             segIdxN++;
@@ -3303,8 +3366,9 @@
                     }
                     if (accN) {
                         var titleBlockEnd = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                        pages.push('<div class="reader-chapter-block">' + titleBlockEnd + '<section class="reader-page-body">' + accN + '</section></div>');
+                        pages.push('<div class="reader-chapter-block">' + titleBlockEnd + '<section class="reader-page-body">' + accN + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
                         readerPageChapterIdx.push(ci);
+                        pageNum++;
                     }
                 }
             } else {
@@ -3313,12 +3377,45 @@
                     const chunk = pageChunks[pi];
                     const titleBlock = (pi === 0 && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
                     const body = formatChapterContent(chunk.join('\n\n'));
-                    pages.push('<div class="reader-chapter-block">' + titleBlock + '<section class="reader-page-body">' + body + '</section></div>');
+                    pages.push('<div class="reader-chapter-block">' + titleBlock + '<section class="reader-page-body">' + body + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
                     readerPageChapterIdx.push(ci);
+                    pageNum++;
                 }
             }
         }
         return pages;
+    }
+
+    function computeBookContentSignature(chapters) {
+        if (!Array.isArray(chapters) || !chapters.length) return 'empty';
+        var totalLen = 0;
+        var sig = chapters.map(function(ch, idx) {
+            var title = (ch && ch.chapterTitle) ? String(ch.chapterTitle) : '';
+            var body = (ch && ch.content) ? String(ch.content) : '';
+            totalLen += body.length;
+            return (ch && ch.chapterNo != null ? ch.chapterNo : (idx + 1)) + ':' + title.length + ':' + body.length;
+        }).join('|');
+        return chapters.length + '::' + totalLen + '::' + sig;
+    }
+
+    function computeReaderBuildKey() {
+        var st = (document.getElementById('style-select') || {}).value || 'Novel';
+        var sz = (document.getElementById('text-size-select') || {}).value || 'Medium';
+        var ln = (document.getElementById('line-spacing-select') || {}).value || '1.6';
+        return [st, sz, ln, computeBookContentSignature(bookChapters)].join('||');
+    }
+
+    function ensureReaderPages(force) {
+        if (!Array.isArray(bookChapters) || !bookChapters.length) {
+            readerPages = [];
+            readerPageChapterIdx = [];
+            lastReaderBuildKey = '';
+            return;
+        }
+        var key = computeReaderBuildKey();
+        if (!force && readerPages.length && key === lastReaderBuildKey) return;
+        readerPages = buildReaderPages();
+        lastReaderBuildKey = key;
     }
 
     function getChapterHtml(ch) {
@@ -3337,6 +3434,9 @@
         const styleEl = document.getElementById('style-select');
         const size = sizeEl ? sizeEl.value : 'Medium';
         const lineSp = lineEl ? lineEl.value : '1.6';
+        var previewLineSp = String(lineSp);
+        var lineNum = parseFloat(String(lineSp || '1.6'));
+        if (Number.isFinite(lineNum) && lineNum >= 1.95) previewLineSp = '1.8';
         const interior = styleEl ? styleEl.value : 'Novel';
 
         var fontSize;
@@ -3352,13 +3452,13 @@
         var textAlign = (interior === 'Classic' || interior === 'ElegantTrade') ? 'justify' : '';
 
         el.style.fontSize = fontSize;
-        el.style.lineHeight = String(lineSp);
+        el.style.lineHeight = previewLineSp;
         el.style.textAlign = textAlign;
 
         var bodies = el.querySelectorAll('.reader-page-body');
         bodies.forEach(function(body) {
             body.style.fontSize = fontSize;
-            body.style.lineHeight = String(lineSp);
+            body.style.lineHeight = previewLineSp;
             if (textAlign) body.style.textAlign = textAlign;
             else body.style.textAlign = '';
         });
@@ -3366,7 +3466,7 @@
         var paragraphs = el.querySelectorAll('.reader-page-body p');
         paragraphs.forEach(function(p) {
             p.style.fontSize = fontSize;
-            p.style.lineHeight = String(lineSp);
+            p.style.lineHeight = previewLineSp;
         });
 
         var interiorMap = { 'Novel': 'interior-novel', 'Modern': 'interior-modern', 'Classic': 'interior-classic', 'Minimalist': 'interior-minimalist', 'ElegantTrade': 'interior-elegant-trade' };
@@ -3610,7 +3710,7 @@
             setPageIndicatorsToZero();
             return;
         }
-        if (readerPages.length === 0) readerPages = buildReaderPages();
+        if (readerPages.length === 0) ensureReaderPages(false);
         currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
         const pageHtml = readerPages[currentPageIdx] || '';
         setTimeout(function() {
@@ -3630,7 +3730,7 @@
             setPageIndicatorsToZero();
             return;
         }
-        if (readerPages.length === 0) readerPages = buildReaderPages();
+        if (readerPages.length === 0) ensureReaderPages(false);
         currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
         const pageHtml = readerPages[currentPageIdx] || '';
         [ebook, paperback].forEach(function(el) {
@@ -3836,16 +3936,10 @@
                 syncFmtInteriorCardsFromSelect();
                 syncFmtTypographyPillsFromSelects();
                 applyFmtStudioAccent();
-                readerPages = [];
-                readerPageChapterIdx = [];
-                if (bookChapters.length) {
-                    readerPages = buildReaderPages();
-                    currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
-                }
+                ensureReaderPages(true);
+                currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
                 togglePreviewMode();
                 syncFormatPickerButton();
-                renderPreviewContent(0);
-                renderBothPreviews(0);
             })
             .catch(function(e) { console.warn('[Book Formatter] GetBookFormatting failed:', e); });
     }
@@ -3869,6 +3963,116 @@
         await refreshFormattingPrefsForBook(bid);
     }
 
+    function readCachedBookPayload(bookId) {
+        try {
+            var raw = sessionStorage.getItem(formatterBookPayloadKey(bookId));
+            if (!raw) return null;
+            var parsed = JSON.parse(raw);
+            if (!parsed || !parsed.fetchedAt || !parsed.data) return null;
+            var age = Date.now() - Number(parsed.fetchedAt);
+            if (!Number.isFinite(age) || age < 0 || age > FORMATTER_BOOK_PAYLOAD_MAX_AGE_MS) return null;
+            return parsed.data;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function writeCachedBookPayload(bookId, data) {
+        try {
+            sessionStorage.setItem(formatterBookPayloadKey(bookId), JSON.stringify({
+                fetchedAt: Date.now(),
+                data: data
+            }));
+        } catch (_) { /* ignore quota */ }
+    }
+
+    function hydrateBookFromPayload(data, numId, options) {
+        var opts = options || {};
+        if (!data || !data.success) return false;
+        var nextSignature = JSON.stringify({
+            id: numId,
+            t: data.bookTitle || '',
+            a: data.authorName || '',
+            chapters: (data.chapters || []).map(function(c) {
+                return [c.chapterNo, c.chapterTitle || '', (c.content || '').length].join(':');
+            })
+        });
+        if (!opts.force && nextSignature === lastLoadedBookPayloadSignature) return true;
+
+        bookPreviewContext = {
+            bookTitle: (data.bookTitle && String(data.bookTitle)) || '',
+            subtitle: (data.subtitle && String(data.subtitle)) || '',
+            description: (data.description && String(data.description)) || '',
+            genre: (data.genre && String(data.genre)) || '',
+            authorName: (data.authorName && String(data.authorName)) || ''
+        };
+        var sortedChapters = Array.isArray(data.chapters) ? data.chapters.slice().sort(function(a, b) {
+            return (parseInt(a.chapterNo, 10) || 0) - (parseInt(b.chapterNo, 10) || 0);
+        }) : [];
+        function narrativeDisplayNum(list, idx) {
+            var chNo = parseInt(list[idx].chapterNo, 10);
+            if (!Number.isFinite(chNo) || chNo <= 0) return null;
+            var n = 0;
+            for (var i = 0; i <= idx; i++) {
+                var cn = parseInt(list[i].chapterNo, 10);
+                if (Number.isFinite(cn) && cn > 0) n++;
+            }
+            return n;
+        }
+        bookChapters = sortedChapters.map(function(c, idx) {
+            var titleRaw = (c && (c.chapterTitle || c.title || c.Title)) || '';
+            var contentRaw = getContentFromPossibleJson((c && (c.content || c.Content || c.chapterContent || c.chapterHtml || c.previewHtml || c.formattedContent || c.text)) || '');
+            var chapterNoDb = parseInt(c.chapterNo, 10);
+            if (!Number.isFinite(chapterNoDb)) chapterNoDb = idx + 1;
+            var narrativeNum = narrativeDisplayNum(sortedChapters, idx);
+            var phCtx = Object.assign({}, bookPreviewContext, {
+                chapterTitle: titleRaw,
+                chapterNumber: chapterNoDb,
+                displayChapterNumber: narrativeNum != null ? narrativeNum : ''
+            });
+            return {
+                chapterNo: chapterNoDb,
+                chapterTitle: applyTemplatePlaceholders(titleRaw, phCtx),
+                content: normalizeManuscriptEscapes(applyTemplatePlaceholders(contentRaw, phCtx))
+            };
+        });
+        currentChapterIdx = 0;
+
+        const titleEl = document.getElementById('formatting-preview-title');
+        var displayBookTitle = applyTemplatePlaceholders(bookPreviewContext.bookTitle, Object.assign({}, bookPreviewContext, {
+            chapterTitle: '',
+            chapterNumber: '',
+            displayChapterNumber: ''
+        }));
+        if (displayBookTitle && titleEl) titleEl.textContent = displayBookTitle;
+        formatterBookTitle = (displayBookTitle && String(displayBookTitle).trim()) ? String(displayBookTitle).trim() : '';
+        syncFmtSelectedBookLabel(formatterBookTitle);
+
+        var authEl = document.getElementById('formatter-display-author');
+        if (authEl && bookPreviewContext.authorName) authEl.textContent = bookPreviewContext.authorName;
+        syncFmtPreviewByline(bookPreviewContext.authorName);
+
+        const hid = document.getElementById('selected-book-id');
+        if (hid) hid.value = String(numId);
+        try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(numId)); } catch (e) {}
+        if (root) root.setAttribute('data-book-id', String(numId));
+        syncFormatterSwitchBookLink(numId);
+
+        if (bookChapters.length === 0) {
+            showNoDataState();
+        } else {
+            if (opts.resetPage !== false) currentPageIdx = 0;
+            ensureReaderPages(true);
+            populateChapterJump();
+            if (!opts.skipRestorePosition) restoreReaderPosition(numId);
+            togglePreviewMode();
+            if (!opts.skipRepaginateAfterLayout) fmtScheduleRepaginateAfterLayout();
+            syncFormatterPageCountUi();
+        }
+        lastLoadedBookPayloadSignature = nextSignature;
+        return true;
+    }
+
     async function loadBookContent(bid) {
         const numId = parseInt(bid, 10);
         if (isNaN(numId) || numId <= 0) {
@@ -3884,7 +4088,16 @@
 
         console.log('[Book Formatter] Selected Book ID:', numId);
 
-        showLoadingState(true);
+        var hadWarmCache = false;
+        var cached = readCachedBookPayload(numId);
+        if (cached && cached.success) {
+            hadWarmCache = hydrateBookFromPayload(cached, numId, {
+                force: false,
+                resetPage: false,
+                skipRepaginateAfterLayout: true
+            });
+        }
+        if (!hadWarmCache) showLoadingState(true);
 
         try {
             const url = '/Books/GetFullBookContent?bookId=' + encodeURIComponent(numId);
@@ -3930,88 +4143,31 @@
                 showToast(msg);
                 return;
             }
-
-            bookPreviewContext = {
-                bookTitle: (data.bookTitle && String(data.bookTitle)) || '',
-                subtitle: (data.subtitle && String(data.subtitle)) || '',
-                description: (data.description && String(data.description)) || '',
-                genre: (data.genre && String(data.genre)) || '',
-                authorName: (data.authorName && String(data.authorName)) || ''
-            };
-            var sortedChapters = Array.isArray(data.chapters) ? data.chapters.slice().sort(function(a, b) {
-                return (parseInt(a.chapterNo, 10) || 0) - (parseInt(b.chapterNo, 10) || 0);
-            }) : [];
-            function narrativeDisplayNum(list, idx) {
-                var chNo = parseInt(list[idx].chapterNo, 10);
-                if (!Number.isFinite(chNo) || chNo <= 0) return null;
-                var n = 0;
-                for (var i = 0; i <= idx; i++) {
-                    var cn = parseInt(list[i].chapterNo, 10);
-                    if (Number.isFinite(cn) && cn > 0) n++;
-                }
-                return n;
-            }
-            bookChapters = sortedChapters.map(function(c, idx) {
-                var titleRaw = (c && (c.chapterTitle || c.title || c.Title)) || '';
-                var contentRaw = getContentFromPossibleJson((c && (c.content || c.Content || c.chapterContent || c.chapterHtml || c.previewHtml || c.formattedContent || c.text)) || '');
-                var chapterNoDb = parseInt(c.chapterNo, 10);
-                if (!Number.isFinite(chapterNoDb)) chapterNoDb = idx + 1;
-                var narrativeNum = narrativeDisplayNum(sortedChapters, idx);
-                var phCtx = Object.assign({}, bookPreviewContext, {
-                    chapterTitle: titleRaw,
-                    chapterNumber: chapterNoDb,
-                    displayChapterNumber: narrativeNum != null ? narrativeNum : ''
-                });
-                return {
-                    chapterNo: chapterNoDb,
-                    chapterTitle: applyTemplatePlaceholders(titleRaw, phCtx),
-                    content: normalizeManuscriptEscapes(applyTemplatePlaceholders(contentRaw, phCtx))
-                };
+            writeCachedBookPayload(numId, data);
+            var hydrated = hydrateBookFromPayload(data, numId, {
+                force: !hadWarmCache,
+                resetPage: !hadWarmCache
             });
-            currentChapterIdx = 0;
-
-            const titleEl = document.getElementById('formatting-preview-title');
-            var displayBookTitle = applyTemplatePlaceholders(bookPreviewContext.bookTitle, Object.assign({}, bookPreviewContext, {
-                chapterTitle: '',
-                chapterNumber: '',
-                displayChapterNumber: ''
-            }));
-            if (displayBookTitle && titleEl) titleEl.textContent = displayBookTitle;
-            formatterBookTitle = (displayBookTitle && String(displayBookTitle).trim()) ? String(displayBookTitle).trim() : '';
-            syncFmtSelectedBookLabel(formatterBookTitle);
-
-            var authEl = document.getElementById('formatter-display-author');
-            if (authEl && bookPreviewContext.authorName)
-                authEl.textContent = bookPreviewContext.authorName;
-            syncFmtPreviewByline(bookPreviewContext.authorName);
-
-            const hid = document.getElementById('selected-book-id');
-            if (hid) hid.value = String(numId);
-            try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(numId)); } catch (e) {}
-            if (root) root.setAttribute('data-book-id', String(numId));
-            syncFormatterSwitchBookLink(numId);
-
-            if (bookChapters.length === 0) {
-                showNoDataState();
+            if (!hydrated && !hadWarmCache) {
+                showErrorState(null, PREVIEW_ERROR_MSG);
+                showToast('Could not prepare preview.');
+                return;
+            }
+            if (!bookChapters.length) {
                 showToast('No chapters yet.');
-            } else {
-                currentPageIdx = 0;
-                readerPages = buildReaderPages();
-                populateChapterJump();
-                restoreReaderPosition(numId);
-                togglePreviewMode();
-                fmtScheduleRepaginateAfterLayout();
-                syncFormatterPageCountUi();
+            } else if (!hadWarmCache) {
                 queueAutosave(400);
                 showToast('Book loaded');
             }
         } catch (err) {
             console.error('[Book Formatter] loadBookContent error:', err);
             const bid = parseInt(document.getElementById('selected-book-id')?.value || '0', 10);
-            showErrorState(null, PREVIEW_ERROR_MSG, bid > 0 ? bid : null);
-            showToast('Could not load book.');
+            if (!hadWarmCache) {
+                showErrorState(null, PREVIEW_ERROR_MSG, bid > 0 ? bid : null);
+                showToast('Could not load book.');
+            }
         } finally {
-            showLoadingState(false);
+            if (!hadWarmCache) showLoadingState(false);
         }
     }
 
@@ -4171,12 +4327,11 @@
             readerPages = [];
             readerPageChapterIdx = [];
             if (bookChapters.length) {
-                readerPages = buildReaderPages();
+                ensureReaderPages(true);
                 populateChapterJump();
                 currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
             }
-            renderPreviewContent(0);
-            renderBothPreviews(0);
+            togglePreviewMode();
             showToast('Interior style updated');
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
@@ -4251,7 +4406,10 @@
             const hid = document.getElementById('selected-book-id');
             const bid = parseInt((hid && hid.value) || '0', 10);
             if (!bid) { showToast('Select a book in AI Writer first.'); return; }
-            var isPrint = getSelectedPlatforms().indexOf(PRINT_READY_PLATFORM) >= 0;
+            var fmtEl = document.getElementById('format-select');
+            var fmt = (fmtEl && fmtEl.value) || 'Ebook';
+            var isPrint = (fmt === 'Paperback' || fmt === 'Both')
+                || getSelectedPlatforms().indexOf(PRINT_READY_PLATFORM) >= 0;
             saveFormatting(function(ok) {
                 if (!ok) return;
                 var url = '/Dashboard/CoverDesign?bookId=' + bid;
@@ -4286,7 +4444,7 @@
             var hid = document.getElementById('selected-book-id');
             var bid = parseInt((hid && hid.value) || '0', 10);
             if (bookChapters.length) {
-                readerPages = buildReaderPages();
+                ensureReaderPages(true);
                 currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
             }
             var fmtEl = document.getElementById('format-select');
@@ -4308,7 +4466,7 @@
 
         document.getElementById('text-size-select')?.addEventListener('change', function() {
             if (bookChapters.length) {
-                readerPages = buildReaderPages();
+                ensureReaderPages(true);
                 currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
             }
             var fmtV = (document.getElementById('format-select') || {}).value || 'Ebook';
@@ -4319,7 +4477,7 @@
         });
         document.getElementById('line-spacing-select')?.addEventListener('change', function() {
             if (bookChapters.length) {
-                readerPages = buildReaderPages();
+                ensureReaderPages(true);
                 currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
             }
             var fmtV = (document.getElementById('format-select') || {}).value || 'Ebook';
