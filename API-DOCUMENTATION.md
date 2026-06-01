@@ -341,6 +341,7 @@ This is the endpoint used for **Peter Pan**-style Victorian ornamental wraps whe
 Notes:
 
 - `page_count` must be the final manuscript page count (same one used in formatter/export).
+- For production stability, use `quality: "low"` for print-wrap generation when upstream is under load.
 - Export UI now reports the resolved total page count in success toasts and print-wrap actions.
 - Publish screen forces front-panel preview when a wrap/back+spine+front image is detected.
 
@@ -657,6 +658,7 @@ python Scripts/smoke_test.py --json-output smoke-results.json
 | SweetAlert shows wrong pages | Open Book Formatting first; saves `printReadyPageCount` |
 | `ExternalApi:ApiKey is not set` | `source /etc/default/ebookai` before `nohup` |
 | Upstream timeout on wrap | Long-running job; increase BFF long-timeout; check queue |
+| `504 (Gateway Time-out)` on `/Dashboard/GeneratePrintReadyCover` | Upstream cover generation exceeded gateway budget; retry with `quality=low`, check `/api/queue-data`, and ensure reverse proxy timeout is >= upstream cover generation window |
 | Port 5000 in use | `kill -9 $(ss -tlnp \| grep 5000 \| grep -oP 'pid=\K[0-9]+')` |
 
 ---

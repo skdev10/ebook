@@ -986,10 +986,15 @@
                             trimSize: '6 x 9 in',
                             coverStyle: (imageDirection.value || '').trim() || (coverStyle.value || 'modern').trim(),
                             size: '1536x1024',
-                            quality: 'medium'
+                            quality: 'low'
                         })
                     });
-                    var prData = await pr.json();
+                    var prText = await pr.text();
+                    var prData = {};
+                    try { prData = prText ? JSON.parse(prText) : {}; } catch (jsonErr) {
+                        prData = { success: false, message: prText || ('HTTP ' + pr.status) };
+                    }
+                    if (!pr.ok && !prData.message) prData.message = 'Print-ready service returned HTTP ' + pr.status + '.';
                     if (prData && prData.success) {
                         var frontUrl = (prData.cover && prData.cover.front) || d.coverUrl || selectedPath;
                         var wrapUrl = (prData.cover && prData.cover.wrap) || '';
@@ -1006,7 +1011,8 @@
                         toast('error', (prData && prData.message) || 'Print-ready cover generation failed.');
                     }
                 } catch (e) {
-                    toast('error', 'Print wrap generation failed.');
+                    var msg = (e && e.message) ? e.message : 'Print wrap generation failed.';
+                    toast('error', msg);
                 }
             } else {
                 toast('success', 'Front cover ready.');

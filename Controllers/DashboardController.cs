@@ -1488,8 +1488,8 @@ namespace EBookDashboard.Controllers
             }
             var coverStyle = BuildPrintReadyCoverStyleDirective(coverStyleBase, kdp);
             var quality = BookApiInputValidation.NormalizeQuality(
-                (req.Quality ?? _externalApiOptions.Value.PrintReadyCoverQuality ?? "medium").Trim(),
-                "medium");
+                (req.Quality ?? _externalApiOptions.Value.PrintReadyCoverQuality ?? "low").Trim(),
+                "low");
             var size = BookApiInputValidation.NormalizeSize(
                 (req.Size ?? _externalApiOptions.Value.PrintReadyCoverSize ?? "1536x1024").Trim(),
                 "1536x1024");
@@ -1612,6 +1612,16 @@ namespace EBookDashboard.Controllers
                         back = persistedBack
                     },
                     options = urls.ToArray()
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogWarning("GeneratePrintReadyCover timed out for book {BookId}", req.BookId);
+                return Json(new
+                {
+                    success = false,
+                    status = "error",
+                    message = "Print wrap generation timed out. Please retry with a shorter prompt or try again in a moment."
                 });
             }
             catch (Exception ex)
