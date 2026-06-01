@@ -1070,7 +1070,27 @@
         pointer-events: none;
         overflow: visible;
         box-sizing: border-box;
-        padding: 1.5rem;
+        padding: 0;
+    }
+    /* Measurement must be content-driven: drop the 6/9 box + fixed height so a short
+       page is not pinned to the full box height (which caused ~1 paragraph per page). */
+    #fmt-preview-measure-host .paginated-reader-shell {
+        aspect-ratio: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        max-width: none !important;
+        width: 100% !important;
+        display: block !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+    }
+    #fmt-preview-measure-host .chapter-preview-viewport.book-page-preview-content {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
     }
     .fmt-chapter-nav-below {
         border-top: 1px solid rgba(196, 181, 253, 0.35);
@@ -2083,10 +2103,11 @@
             var shell = document.getElementById('paginatedReaderShell');
             if (shell && shell.clientWidth > 48) h = Math.floor(shell.clientWidth * (9 / 6));
         }
-        // Keep a tiny safety edge and allow a small fill bonus in classic mode to avoid under-filled pages.
+        // Pack pages close to the real viewport height so each page reads "full" (AI Writer parity).
+        // A modest fill bonus absorbs measurement overhead and prevents one-paragraph-per-page breaks.
         var styleEl = document.getElementById('style-select');
         var interior = styleEl ? String(styleEl.value || '') : '';
-        var fillBonus = (interior === 'Classic') ? 14 : 8;
+        var fillBonus = (interior === 'Classic') ? 26 : 22;
         return Math.max(140, h - 2 + fillBonus);
     }
 
