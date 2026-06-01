@@ -1,6 +1,6 @@
 # EBook AI Platform — Upstream API Reference
 
-**Version:** 1.1 · **Last updated:** May 2026  
+**Version:** 1.2 · **Last updated:** Jun 2026  
 **Live upstream base URL:** `http://162.229.248.26:8001`  
 **ASP.NET BFF (production):** `http://138.197.76.70:5000`
 
@@ -131,7 +131,12 @@ curl -s http://127.0.0.1:5000/Books/ExternalApiStatus
 }
 ```
 
-The ASP.NET BFF normalizes multiple upstream shapes to `data.content` for the UI (`UpstreamResponseParser`).
+The ASP.NET BFF normalizes multiple upstream shapes to `data.content` for the UI (`UpstreamResponseParser`), including:
+
+- `data.content`
+- `data.heading`
+- root `heading`
+- `data.suggest_chapter_name` (chapter-name suggestion list)
 
 **Persists to:** `Temporary_database`  
 **BFF route:** `POST /Books/AIGenerateBook`

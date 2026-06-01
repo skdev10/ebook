@@ -571,7 +571,14 @@ namespace EBookDashboard.Controllers
             if (diff.TotalHours < 1) return $"Edited {(int)Math.Max(1, diff.TotalMinutes)} min ago";
             if (diff.TotalDays < 1) return $"Edited {(int)Math.Max(1, diff.TotalHours)}h ago";
             if (diff.TotalDays < 7) return $"Edited {(int)Math.Max(1, diff.TotalDays)}d ago";
-            return "Edited " + utc.ToLocalTime().ToString("MMM d, yyyy");
+            if (diff.TotalDays < 30) return $"Edited {(int)Math.Max(7, diff.TotalDays)}d ago";
+            var months = (int)Math.Max(1, Math.Floor(diff.TotalDays / 30d));
+            return months == 1 ? "Edited 1 month ago" : $"Edited {months} months ago";
+        }
+
+        private static string NormalizePublishingPlatformForExport(string? platform)
+        {
+            return string.IsNullOrWhiteSpace(platform) ? "" : "Just Print Ready File";
         }
 
         private static List<DemoReaderFriendViewModel> GetDemoReaderFriends()
@@ -1110,7 +1117,8 @@ namespace EBookDashboard.Controllers
                 if (!string.IsNullOrWhiteSpace(req.TextSize)) exportOpt.TextSize = req.TextSize!;
                 if (!string.IsNullOrWhiteSpace(req.LineSpacing)) exportOpt.LineSpacing = req.LineSpacing!;
                 if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
-                if (!string.IsNullOrWhiteSpace(req.PublishingPlatform)) exportOpt.PublishingPlatform = req.PublishingPlatform!;
+                if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
+                    exportOpt.PublishingPlatform = NormalizePublishingPlatformForExport(req.PublishingPlatform);
 
                 var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
 
@@ -1178,7 +1186,8 @@ namespace EBookDashboard.Controllers
                 if (!string.IsNullOrWhiteSpace(req.TextSize)) exportOpt.TextSize = req.TextSize!;
                 if (!string.IsNullOrWhiteSpace(req.LineSpacing)) exportOpt.LineSpacing = req.LineSpacing!;
                 if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
-                if (!string.IsNullOrWhiteSpace(req.PublishingPlatform)) exportOpt.PublishingPlatform = req.PublishingPlatform!;
+                if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
+                    exportOpt.PublishingPlatform = NormalizePublishingPlatformForExport(req.PublishingPlatform);
 
                 var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
                 var userRow = await _context.Users.AsNoTracking()
@@ -2001,10 +2010,12 @@ namespace EBookDashboard.Controllers
                         .FirstOrDefaultAsync(f => f.BookId == bookId.Value && f.UserId == user.UserId);
                     var primaryPlatform = (fmt?.PublishingPlatform ?? "").Trim();
                     var platformCsv = (fmt?.PublishingPlatforms ?? "").Trim();
+                    var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var hasAnyPlatformSelected = !string.IsNullOrWhiteSpace(primaryPlatform) || selectedPlatforms.Length > 0;
                     var hasPrintReadyPlatform =
                         primaryPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
-                        || platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                            .Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase));
+                        || selectedPlatforms.Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase))
+                        || hasAnyPlatformSelected;
 
                     var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform;
                     ViewBag.PublishPrintReadyMode = isPrintReadyFlow;

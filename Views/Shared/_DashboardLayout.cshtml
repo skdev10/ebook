@@ -3328,15 +3328,9 @@
                     }
                 </li>
                  <li>
-                    @if (coverUnlocked) {
-                        <a href="/Dashboard/CoverDesign" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
-                            <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
-                        </a>
-                    } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="AI Cover Design" data-unlock-step="@(hasGeneratedBook ? "2" : "1")" data-goto="@(hasGeneratedBook ? "/BookDesign/CoverDesignCalculatorFixing" : "/Books/AIGenerateBook")" title="@(hasGeneratedBook ? "Complete Book Formatting first" : "Generate a book first")">
-                            <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
-                        </a>
-                    }
+                    <a href="/Dashboard/CoverDesign" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
+                        <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                    </a>
                 </li>
                 <li>
                     @if (publishUnlocked) {

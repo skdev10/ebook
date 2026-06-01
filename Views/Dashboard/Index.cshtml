@@ -45,6 +45,7 @@
     .book-item.is-selected .aspect-\[2\/3\],
     .book-item.is-selected .w-12 { outline: 2px solid rgba(124, 58, 237, 0.45); outline-offset: 3px; border-radius: 0.75rem; }
     .book-item { transition: outline-color 0.2s ease, transform 0.15s ease; }
+    .dashboard-cover-img.is-wrap-cover { object-position: right center; }
 </style>
 @functions {
     string DashCoverSrc(string? path)
@@ -90,12 +91,12 @@
                         <div class="w-48 h-64 bg-[#f8f5f0] border border-gray-200/80 rounded-l-md shadow-sm p-4 flex flex-col justify-between transform translate-x-4 scale-95 z-0"></div>
                         @if (!string.IsNullOrEmpty(heroCoverSrc))
                         {
-                            <img id="dash-hero-cover-img" src="@heroCoverSrc" alt="@heroTitle" class="w-52 h-[18rem] object-cover rounded-r-md rounded-l-sm shadow-2xl z-10 border-l border-gray-900/10 transition-transform group-hover:-translate-y-2" />
+                            <img id="dash-hero-cover-img" src="@heroCoverSrc" alt="@heroTitle" class="dashboard-cover-img w-52 h-[18rem] object-cover rounded-r-md rounded-l-sm shadow-2xl z-10 border-l border-gray-900/10 transition-transform group-hover:-translate-y-2" />
                         }
                         else
                         {
                             <div id="dash-hero-cover-empty" class="dash-empty-cover w-52 h-[18rem] rounded-r-md rounded-l-sm shadow-xl z-10"><i class="fas fa-book-open"></i><span>No cover yet</span></div>
-                            <img id="dash-hero-cover-img" src="" alt="" class="hidden w-52 h-[18rem] object-cover rounded-r-md rounded-l-sm shadow-2xl z-10 border-l border-gray-900/10 transition-transform group-hover:-translate-y-2" />
+                            <img id="dash-hero-cover-img" src="" alt="" class="dashboard-cover-img hidden w-52 h-[18rem] object-cover rounded-r-md rounded-l-sm shadow-2xl z-10 border-l border-gray-900/10 transition-transform group-hover:-translate-y-2" />
                         }
                     </div>
                 </div>
@@ -119,7 +120,7 @@
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden shadow-md mb-3 relative">
                                     @if (!string.IsNullOrEmpty(coverUrl))
                                     {
-                                        <img src="@coverUrl" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="@book.Title" />
+                                        <img src="@coverUrl" class="dashboard-cover-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="@book.Title" />
                                     }
                                     else
                                     {
@@ -149,7 +150,7 @@
                                 <div class="aspect-[2/3] rounded-xl overflow-hidden shadow-md mb-3 relative">
                                     @if (!string.IsNullOrEmpty(coverUrl))
                                     {
-                                        <img src="@coverUrl" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="@book.Title" />
+                                        <img src="@coverUrl" class="dashboard-cover-img w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="@book.Title" />
                                     }
                                     else
                                     {
@@ -196,7 +197,7 @@
                                 <div class="flex items-center gap-4">
                                     @if (!string.IsNullOrEmpty(draftCover))
                                     {
-                                        <img src="@draftCover" alt="@draft.Title" class="w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform" />
+                                        <img src="@draftCover" alt="@draft.Title" class="dashboard-cover-img w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform" />
                                     }
                                     else
                                     {
@@ -229,7 +230,7 @@
                                 <div class="flex items-center gap-4">
                                     @if (!string.IsNullOrEmpty(draftCover))
                                     {
-                                        <img src="@draftCover" alt="@draft.Title" class="w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0" />
+                                        <img src="@draftCover" alt="@draft.Title" class="dashboard-cover-img w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0" />
                                     }
                                     else
                                     {
@@ -299,12 +300,12 @@
                 <div id="dash-sidebar-cover-wrap" class="relative w-full aspect-[16/9] mb-4 rounded-xl overflow-hidden group cursor-pointer border border-purple-100/60 shadow-sm" data-book-id="@sidebarBookId" onclick="window.location.href='@(sidebarBookId > 0 ? Url.Action("MyBooks", "Dashboard", new { bookId = sidebarBookId, preview = 1 }) : Url.Action("EBookHub", "Books"))'">
                     @if (!string.IsNullOrEmpty(rightCoverImg))
                     {
-                        <img id="dash-sidebar-cover-img" src="@rightCoverImg" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Selected book cover" />
+                        <img id="dash-sidebar-cover-img" src="@rightCoverImg" class="dashboard-cover-img w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Selected book cover" />
                     }
                     else
                     {
                         <div id="dash-sidebar-cover-empty" class="dash-empty-cover w-full h-full min-h-[9rem]"><i class="fas fa-book-open"></i><span>No cover yet</span></div>
-                        <img id="dash-sidebar-cover-img" src="" class="hidden w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
+                        <img id="dash-sidebar-cover-img" src="" class="dashboard-cover-img hidden w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
                     }
                     <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none"></div>
                 </div>
@@ -328,10 +329,7 @@
             <div class="mb-10">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="font-serif text-lg font-bold text-gray-900">Reading Stats</h3>
-                    <div class="flex gap-1">
-                        <button type="button" class="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-white hover:text-purple-600 transition-colors" aria-label="Previous"><i class="fas fa-chevron-left w-3 h-3"></i></button>
-                        <button type="button" class="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-white hover:text-purple-600 transition-colors" aria-label="Next"><i class="fas fa-chevron-right w-3 h-3"></i></button>
-                    </div>
+                    <span class="text-xs font-medium text-gray-400">Live</span>
                 </div>
                 <div class="flex justify-between items-start text-center">
                     <div class="flex flex-col items-center gap-2 cursor-pointer hover:scale-110 transition-transform">
@@ -405,7 +403,7 @@
                     <div class="absolute inset-0 bg-cover bg-center opacity-40" style="background-image: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=2070'); mix-blend-mode: overlay;"></div>
                     <div class="absolute top-0 right-0 w-64 h-64 bg-purple-500 blur-3xl opacity-20 rounded-full"></div>
                     <div class="relative z-10 text-center">
-                        <img id="modal-cover-img" src="@(DashCoverSrc(Model.CurrentWorkingBook?.CoverImagePath) ?? "")" alt="@(Model.CurrentWorkingBook?.Title ?? "Book")" class="w-40 rounded shadow-2xl mx-auto mb-6 border-2 border-white/20 rotate-2 @(string.IsNullOrEmpty(DashCoverSrc(Model.CurrentWorkingBook?.CoverImagePath)) ? "hidden" : "")">
+                        <img id="modal-cover-img" src="@(DashCoverSrc(Model.CurrentWorkingBook?.CoverImagePath) ?? "")" alt="@(Model.CurrentWorkingBook?.Title ?? "Book")" class="dashboard-cover-img w-40 rounded shadow-2xl mx-auto mb-6 border-2 border-white/20 rotate-2 @(string.IsNullOrEmpty(DashCoverSrc(Model.CurrentWorkingBook?.CoverImagePath)) ? "hidden" : "")">
                         <div id="modal-cover-empty" class="dash-empty-cover w-40 h-56 rounded mx-auto mb-6 border-2 border-white/20 rotate-2 text-white/80 @(string.IsNullOrEmpty(DashCoverSrc(Model.CurrentWorkingBook?.CoverImagePath)) ? "" : "hidden")"><i class="fas fa-book-open"></i><span>No cover</span></div>
                         <h3 class="font-serif text-3xl text-white font-bold mb-2">@(Model.CurrentWorkingBook?.Title ?? "Your Book")</h3>
                         <p class="text-purple-200 font-medium">Resume reading</p>
@@ -465,6 +463,19 @@
     (function () {
         var DASH_BOOK_KEY = 'ebook_dashboard_selected_book';
         var serverHeroBookId = '@(Model.DemoHeroBookId ?? Model.CurrentWorkingBook?.BookId ?? 0)';
+        function markWrapCoverImage(img) {
+            if (!img) return;
+            function applyWrapClass() {
+                if (!img.naturalWidth || !img.naturalHeight) return;
+                var ratio = img.naturalWidth / img.naturalHeight;
+                if (ratio >= 1.15) img.classList.add('is-wrap-cover');
+                else img.classList.remove('is-wrap-cover');
+            }
+            if (img.complete) applyWrapClass();
+            img.addEventListener('load', applyWrapClass);
+            img.addEventListener('error', function () { img.classList.remove('is-wrap-cover'); });
+        }
+        document.querySelectorAll('img.dashboard-cover-img').forEach(markWrapCoverImage);
         function setCoverInSlot(imgEl, emptyEl, url) {
             if (!imgEl) return;
             var has = !!(url && url.trim());

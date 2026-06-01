@@ -435,8 +435,8 @@
                     </a>
                     @if (books.Any())
                     {
-                        <a id="btn-top-publish" href="/Dashboard/Publish?bookId=@books.First().BookId" class="bg-emerald-600 text-white hover:bg-emerald-700 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
-                            <i class="fas fa-download"></i> Export
+                        <a id="btn-top-publish" href="/Dashboard/Publish?bookId=@books.First().BookId" class="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);">
+                            <i class="fas fa-download"></i> Export Pack
                         </a>
                     }
                     else
@@ -486,10 +486,6 @@
                             @if (chCount > 0)
                             {
                                 <p class="text-[11px] text-violet-700 font-semibold mt-1.5 truncate" title="Chapters with exportable content"><i class="fas fa-book-open" aria-hidden="true"></i> @chCount chapter@(chCount == 1 ? "" : "s") ready</p>
-                                <div class="flex gap-1.5 mt-2 pt-2 border-t border-slate-100" onclick="event.stopPropagation();">
-                                    <button type="button" class="mybooks-export-epub flex-1 rounded-lg bg-violet-600 text-white text-[11px] font-semibold py-1.5 hover:bg-violet-700" data-book-id="@book.BookId" data-title="@title" data-genre="@genre">EPUB</button>
-                                    <button type="button" class="mybooks-export-docx flex-1 rounded-lg border border-violet-300 text-violet-800 text-[11px] font-semibold py-1.5 hover:bg-violet-50" data-book-id="@book.BookId" data-title="@title" data-genre="@genre">Word</button>
-                                </div>
                             }
                         </div>
                     }
@@ -538,10 +534,6 @@
                                 @if (book.ChapterCount > 0)
                                 {
                                     <p class="text-[10px] text-violet-600 font-semibold text-center mt-1 truncate">@book.ChapterCount AI save(s)</p>
-                                    <div class="flex gap-1 mt-1.5" onclick="event.stopPropagation();">
-                                        <button type="button" class="mybooks-export-epub flex-1 rounded-md bg-violet-600 text-white text-[10px] font-semibold py-1 hover:bg-violet-700" data-book-id="@book.BookId" data-title="@title" data-genre="@(book.Genre ?? "")">EPUB</button>
-                                        <button type="button" class="mybooks-export-docx flex-1 rounded-md border border-violet-300 text-violet-800 text-[10px] font-semibold py-1 hover:bg-violet-50" data-book-id="@book.BookId" data-title="@title" data-genre="@(book.Genre ?? "")">Word</button>
-                                    </div>
                                 }
                             </div>
                         }
@@ -597,12 +589,6 @@
                         <i class="fas fa-book-open" aria-hidden="true"></i> Preview full book
                     </button>
                     <p class="text-[11px] text-center leading-snug px-1" style="color:#c4b5fd;">Opens a print-style chapter preview (same data as your PDF export).</p>
-                    <button type="button" id="btn-export-epub-aside" class="hidden w-full py-3 px-6 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer border-2 min-h-[44px]" style="background-color:#ffffff;color:#4c1d95;border-color:#e9d5ff;">
-                        <i class="fas fa-book"></i> Export EPUB
-                    </button>
-                    <button type="button" id="btn-export-docx-aside" class="hidden w-full py-3 px-6 rounded-xl text-sm font-semibold flex justify-center items-center gap-2 cursor-pointer min-h-[44px]" style="background-color:#5b21b6;color:#ede9fe;border:1px solid #7c3aed;">
-                        <i class="fas fa-file-word"></i> Export Word
-                    </button>
                     <a id="btn-download-publish" href="#" class="w-full py-2.5 px-6 rounded-xl text-xs font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:transparent;color:#c4b5fd;border:1px solid rgba(255,255,255,0.2);">
                         <i class="fas fa-external-link-alt"></i> <span id="btn-download-label">Open export page</span>
                     </a>
@@ -750,23 +736,13 @@
         document.getElementById('btn-edit-book').classList.remove('hidden');
         document.getElementById('btn-delete-book').classList.remove('hidden');
         var hasChapters = (book.chapterCount || 0) > 0;
-        var epubAside = document.getElementById('btn-export-epub-aside');
-        var docxAside = document.getElementById('btn-export-docx-aside');
-        if (epubAside) {
-            if (hasChapters) epubAside.classList.remove('hidden');
-            else epubAside.classList.add('hidden');
-        }
-        if (docxAside) {
-            if (hasChapters) docxAside.classList.remove('hidden');
-            else docxAside.classList.add('hidden');
-        }
         var dlBtn = document.getElementById('btn-download-publish');
         var dlLabel = document.getElementById('btn-download-label');
         if (dlBtn && dlLabel) {
             dlBtn.classList.remove('hidden');
             dlBtn.href = '/Dashboard/Publish?bookId=' + book.bookId;
-            dlBtn.title = 'Export EPUB or Word';
-            dlLabel.textContent = 'Open export page';
+            dlBtn.title = 'Open professional export page';
+            dlLabel.textContent = hasChapters ? 'Open export page' : 'Add chapters to export';
         }
         var publishBtn = document.getElementById('btn-top-publish');
         if (publishBtn && !publishBtn.disabled) {
@@ -1002,38 +978,6 @@
             .finally(function () {
                 if (triggerBtn) triggerBtn.disabled = false;
             });
-    }
-
-    document.querySelectorAll('.mybooks-export-epub').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            runMyBooksExport(parseInt(btn.getAttribute('data-book-id'), 10), btn.getAttribute('data-title'), btn.getAttribute('data-genre'), 'epub', btn);
-        });
-    });
-    document.querySelectorAll('.mybooks-export-docx').forEach(function (btn) {
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            runMyBooksExport(parseInt(btn.getAttribute('data-book-id'), 10), btn.getAttribute('data-title'), btn.getAttribute('data-genre'), 'docx', btn);
-        });
-    });
-
-    var epubAsideBtn = document.getElementById('btn-export-epub-aside');
-    var docxAsideBtn = document.getElementById('btn-export-docx-aside');
-    if (epubAsideBtn) {
-        epubAsideBtn.addEventListener('click', function () {
-            if (!selectedBookId) return;
-            var b = books && books.find(function (x) { return bookIdFrom(x) === selectedBookId; });
-            var bk = b ? getBook(b) : null;
-            if (bk) runMyBooksExport(bk.bookId, bk.title, bk.genre, 'epub', epubAsideBtn);
-        });
-    }
-    if (docxAsideBtn) {
-        docxAsideBtn.addEventListener('click', function () {
-            if (!selectedBookId) return;
-            var b = books && books.find(function (x) { return bookIdFrom(x) === selectedBookId; });
-            var bk = b ? getBook(b) : null;
-            if (bk) runMyBooksExport(bk.bookId, bk.title, bk.genre, 'docx', docxAsideBtn);
-        });
     }
 
     if (books && books.length > 0) fillAside(getBook(books[0]));

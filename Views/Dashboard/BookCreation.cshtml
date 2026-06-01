@@ -142,11 +142,11 @@
                         var isSelected = ViewBag.SelectedBookId != null && ViewBag.SelectedBookId == book.BookId;
                         if (isSelected)
                         {
-                            <option value="@book.BookId" selected>@book.Title (Created: @book.CreatedAt.ToString("MMM dd, yyyy"))</option>
+                            <option value="@book.BookId" selected>@book.Title</option>
                         }
                         else
                         {
-                            <option value="@book.BookId">@book.Title (Created: @book.CreatedAt.ToString("MMM dd, yyyy"))</option>
+                            <option value="@book.BookId">@book.Title</option>
                         }
                     }
                 }

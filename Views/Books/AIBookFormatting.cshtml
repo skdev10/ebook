@@ -274,7 +274,7 @@
                  books.forEach(book => {
                      const option = document.createElement("option");
                      option.value = book.bookId;
-                     option.textContent = `${book.bookTitle} (${book.createdDate || 'No date'})`;
+                     option.textContent = `${book.bookTitle}`;
                      dropdown.appendChild(option);
                  });
                  console.log(`✅ SUCCESS: Loaded ${books.length} books into dropdown`);

@@ -151,8 +151,7 @@ namespace EBookDashboard.Controllers
                     {
                         userId = b.UserId,
                         bookId = b.BookId,
-                        bookTitle = b.Title ?? "Untitled",
-                        createdDate = b.CreatedAt.ToString("MMM dd, yyyy")
+                        bookTitle = b.Title ?? "Untitled"
                     })
                     .ToListAsync();
                 return Json(books);

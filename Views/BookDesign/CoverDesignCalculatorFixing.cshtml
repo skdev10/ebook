@@ -1933,7 +1933,36 @@
                 paras = paras[0].split(/\n+/).filter(Boolean);
             }
         }
+        // Keep headings attached to following text block so preview never shows heading-only pages.
+        paras = mergeHeadingOnlyBlocks(paras);
         return paras;
+    }
+
+    function mergeHeadingOnlyBlocks(paras) {
+        var list = Array.isArray(paras) ? paras.slice() : [];
+        if (!list.length) return list;
+        var out = [];
+        for (var i = 0; i < list.length; i++) {
+            var block = String(list[i] || '').trim();
+            if (!block) continue;
+            if (!out.length) {
+                out.push(block);
+                continue;
+            }
+            var isMarkdownHeading = /^#{1,6}\s+/.test(block);
+            var isHtmlHeading = /^<h[1-6]\b[^>]*>[\s\S]*<\/h[1-6]>$/i.test(block);
+            var isHeadingOnly = isMarkdownHeading || isHtmlHeading;
+            if (isHeadingOnly && i < list.length - 1) {
+                var next = String(list[i + 1] || '').trim();
+                if (next) {
+                    out.push(block + '\n\n' + next);
+                    i++;
+                    continue;
+                }
+            }
+            out.push(block);
+        }
+        return out;
     }
 
     function getFmtTrimLabel() {
@@ -2903,7 +2932,8 @@
             const p = cb.getAttribute('data-platform');
             if (p) sel.push(p);
         });
-        return sel.join(',');
+        if (!sel.length) return '';
+        return PRINT_READY_PLATFORM;
     }
 
     var PRINT_READY_PLATFORM = 'Just Print Ready File';
@@ -3017,23 +3047,12 @@
                 setNonPrintPlatformsDisabled(false);
             return;
         }
-        if (name === PRINT_READY_PLATFORM) {
-            document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
-                if (cb !== changedCb) {
-                    cb.checked = false;
-                    syncPlatformBlockUi(cb);
-                }
-            });
-            setNonPrintPlatformsDisabled(true);
-        } else {
-            document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
-                if (cb.getAttribute('data-platform') === PRINT_READY_PLATFORM) {
-                    cb.checked = false;
-                    syncPlatformBlockUi(cb);
-                }
-            });
-            setNonPrintPlatformsDisabled(false);
-        }
+        document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
+            var cbName = cb.getAttribute('data-platform');
+            cb.checked = cbName === PRINT_READY_PLATFORM;
+            syncPlatformBlockUi(cb);
+        });
+        setNonPrintPlatformsDisabled(true);
         syncPlatformBlockUi(changedCb);
     }
 

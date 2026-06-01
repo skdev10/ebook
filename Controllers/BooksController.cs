@@ -1390,8 +1390,7 @@ namespace EBookDashboard.Controllers
                 {
                     userId = b.UserId,
                     bookId = b.BookId,
-                    bookTitle = b.BookTitle,
-                    createdDate = b.CreatedDate.ToString("MMM dd, yyyy")
+                    bookTitle = b.BookTitle
                 }).ToList();
 
                 Console.WriteLine($"🔍 GetSavedResponses: Found {result.Count} books for user {userId}");
