@@ -986,7 +986,7 @@
     #fmt-book-result .paginated-reader-shell {
         position: relative;
         width: 100%;
-        max-width: min(100%, 42rem);
+        max-width: min(100%, 36rem);
         margin-left: auto;
         margin-right: auto;
         flex: 1 1 0%;
@@ -1017,7 +1017,8 @@
         width: 100%;
         flex: 1 1 auto;
         min-height: 0;
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
         box-sizing: border-box;
         padding: 1.5rem;
         margin: 0;
@@ -2225,6 +2226,66 @@
         return pages.length ? pages : [''];
     }
 
+    function getFmtPageFillRatio(bodyHtml, measureFn) {
+        var maxH = getFmtPageMaxHeightPx();
+        if (maxH <= 0) return 0;
+        return Math.max(0, Math.min(1, measureFn(bodyHtml) / maxH));
+    }
+
+    function pullTrailingHeadingBlock(bodyHtml) {
+        var html = String(bodyHtml || '').trim();
+        if (!html) return null;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        var children = Array.prototype.slice.call(tmp.children || []);
+        if (!children.length) return null;
+        var last = children[children.length - 1];
+        if (!last || !/^h[1-6]$/i.test(last.tagName || '')) return null;
+        if (children.length <= 1) return null;
+        var moved = last.outerHTML;
+        children.pop();
+        var remain = children.map(function(n) { return n.outerHTML; }).join('');
+        if (!remain.trim()) return null;
+        return { bodyWithoutHeading: remain, headingHtml: moved };
+    }
+
+    function splitSegmentForRemainingSpace(segmentHtml, currentBodyHtml, measureFn) {
+        var seg = String(segmentHtml || '').trim();
+        if (!seg) return null;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = seg;
+        if (!tmp.firstElementChild || tmp.children.length !== 1) return null;
+        var el = tmp.firstElementChild;
+        var tag = (el.tagName || '').toLowerCase();
+        if (!/^p$/.test(tag)) return null;
+        var words = (el.textContent || '').split(/\s+/).filter(Boolean);
+        if (words.length < 2) return null;
+
+        var attrs = '';
+        if (el.className) attrs += ' class="' + escapeHtml(el.className) + '"';
+        var openTag = '<' + tag + attrs + '>';
+        var closeTag = '</' + tag + '>';
+        var base = String(currentBodyHtml || '');
+        var lo = 1;
+        var hi = words.length - 1;
+        var best = 0;
+        while (lo <= hi) {
+            var mid = (lo + hi) >> 1;
+            var candidate = openTag + escapeHtml(words.slice(0, mid).join(' ')) + closeTag;
+            if (measureFn(base + candidate) <= getFmtPageMaxHeightPx()) {
+                best = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        if (best <= 0) return null;
+        var fit = openTag + escapeHtml(words.slice(0, best).join(' ')) + closeTag;
+        var restWords = words.slice(best);
+        var rest = restWords.length ? (openTag + escapeHtml(restWords.join(' ')) + closeTag) : '';
+        return { fitHtml: fit, restHtml: rest };
+    }
+
     function classicParaToBodySegment(para, dropCap) {
         var block = (para || '').trim();
         if (!block) return '';
@@ -2381,6 +2442,26 @@
                         var seg = segments[segIdx];
                         var trial = acc ? (acc + seg) : seg;
                         if (measureFn(trial) > getFmtPageMaxHeightPx() && acc) {
+                            var headingMove = pullTrailingHeadingBlock(acc);
+                            if (headingMove && getFmtPageFillRatio(acc, measureFn) >= 0.8) {
+                                bodyPages.push({ bodyInner: headingMove.bodyWithoutHeading, isFirst: isFirstChapterPage });
+                                acc = headingMove.headingHtml;
+                                isFirstChapterPage = false;
+                                continue;
+                            }
+                            var topUp = splitSegmentForRemainingSpace(seg, acc, measureFn);
+                            if (topUp && topUp.fitHtml) {
+                                acc += topUp.fitHtml;
+                                if (isFirstChapterPage && estimateBodyLeadLines(acc) < 3 && topUp.restHtml) {
+                                    acc += topUp.restHtml;
+                                    segIdx++;
+                                    continue;
+                                }
+                                bodyPages.push({ bodyInner: acc, isFirst: isFirstChapterPage });
+                                acc = topUp.restHtml || '';
+                                if (!topUp.restHtml) segIdx++;
+                                break;
+                            }
                             if (isFirstChapterPage && estimateBodyLeadLines(acc) < 3) {
                                 acc = trial;
                                 segIdx++;
@@ -3336,6 +3417,33 @@
                         var segN = segments[segIdxN];
                         var trialN = accN ? (accN + segN) : segN;
                         if (measureFnN(trialN) > getFmtPageMaxHeightPx() && accN) {
+                            var headingMoveN = pullTrailingHeadingBlock(accN);
+                            if (headingMoveN && getFmtPageFillRatio(accN, measureFnN) >= 0.8) {
+                                var titleBlockMoved = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                                pages.push('<div class="reader-chapter-block">' + titleBlockMoved + '<section class="reader-page-body">' + headingMoveN.bodyWithoutHeading + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
+                                readerPageChapterIdx.push(ci);
+                                pageNum++;
+                                accN = headingMoveN.headingHtml;
+                                withTitle = false;
+                                continue;
+                            }
+                            var topUpN = splitSegmentForRemainingSpace(segN, accN, measureFnN);
+                            if (topUpN && topUpN.fitHtml) {
+                                accN += topUpN.fitHtml;
+                                if (withTitle && estimateBodyLeadLines(accN) < 3 && topUpN.restHtml) {
+                                    accN += topUpN.restHtml;
+                                    segIdxN++;
+                                    continue;
+                                }
+                                var titleBlockTop = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                                pages.push('<div class="reader-chapter-block">' + titleBlockTop + '<section class="reader-page-body">' + accN + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
+                                readerPageChapterIdx.push(ci);
+                                pageNum++;
+                                accN = topUpN.restHtml || '';
+                                withTitle = false;
+                                if (!topUpN.restHtml) segIdxN++;
+                                break;
+                            }
                             if (withTitle && estimateBodyLeadLines(accN) < 3) {
                                 accN = trialN;
                                 segIdxN++;

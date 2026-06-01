@@ -317,3 +317,40 @@ Additional shared page endpoint:
 - `GET /Dashboard/DownloadPrintReadyCoverAsset?bookId=<id>&part=wrap|front|back|spine` — download saved print-ready cover assets.
 
 All of the above send **`X-API-Key`** when `ExternalApi:ApiKey` is configured.
+
+---
+
+## Cover troubleshooting (practical)
+
+If `POST /Dashboard/GeneratePrintReadyCover` returns `504 Gateway Timeout` or the generated wrap looks inconsistent:
+
+- Verify server env key first: `ExternalApi__ApiKey` is present in the process environment.
+- Confirm upstream health with `GET /api/queue-data` before cover generation.
+- Prefer `size: "1536x1024"` and `quality: "high"` for `generate-spine-book-cover`.
+- Send accurate `page_count` from formatter preview (not hardcoded fallback values).
+- Keep `Interior_trim_size` consistent with formatter trim (`6 x 9 in`, `5.5 x 8.5 in`, etc.).
+- Retry only after checking queue saturation (`status_running`, `status_waiting`).
+
+### Quick cURL checks
+
+```bash
+curl -X GET "http://162.229.248.26:8001/api/queue-data" \
+  -H "X-API-Key: ${EXTERNAL_API_KEY}"
+```
+
+```bash
+curl -X POST "http://162.229.248.26:8001/api/generate-spine-book-cover" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: ${EXTERNAL_API_KEY}" \
+  -d '{
+    "title":"Peter Pan",
+    "author_name":"J. M. Barrie",
+    "category":"Children'\''s Fantasy",
+    "cover_style":"Victorian ornamental",
+    "size":"1536x1024",
+    "quality":"high",
+    "Interior_trim_size":"6 x 9 in",
+    "page_count":40,
+    "paper_type":"white"
+  }'
+```
