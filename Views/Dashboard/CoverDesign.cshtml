@@ -595,8 +595,10 @@
                     .catch(function () {});
                 var path = (b.aiCoverLastPreview || b.coverImagePath || '').trim();
                 if (path) {
-                    selectedPath = path;
-                    setCoverImageVisible(toUrl(path));
+                    applyBestFrontPreview(path).catch(function () {
+                        selectedPath = path;
+                        setCoverImageVisible(toUrl(path));
+                    });
                     if (coverHistory.indexOf(path) < 0) pushCoverHistory(path);
                 }
                 applyCoverStyleClass();
@@ -661,11 +663,58 @@
         if (badge) badge.classList.toggle('hidden', !printWrapSaved);
     }
 
+    function isLikelyWrapCoverPath(path) {
+        var p = String(path || '').toLowerCase();
+        return p.indexOf('printreadycoverwrap') >= 0
+            || p.indexOf('coverwrap') >= 0
+            || p.indexOf('spine-book-cover') >= 0
+            || p.indexOf('generate-spine-book-cover') >= 0;
+    }
+
+    async function createFrontPanelDataUrlFromWrap(pathOrUrl) {
+        var src = toUrl(pathOrUrl);
+        if (!src) return '';
+        var img = await loadImage(src);
+        if (!img || !img.naturalWidth || !img.naturalHeight) return src;
+        var ratio = img.naturalWidth / img.naturalHeight;
+        if (ratio < 1.2) return src;
+        var panelWidth = Math.max(24, Math.round(img.naturalWidth * 0.48));
+        var sx = Math.max(0, img.naturalWidth - panelWidth);
+        var canvas = document.createElement('canvas');
+        canvas.width = panelWidth;
+        canvas.height = img.naturalHeight;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return src;
+        ctx.drawImage(img, sx, 0, panelWidth, img.naturalHeight, 0, 0, panelWidth, img.naturalHeight);
+        return canvas.toDataURL('image/png');
+    }
+
+    async function applyBestFrontPreview(path) {
+        if (!path) return '';
+        var resolved = toUrl(path);
+        if (!resolved) return '';
+        try {
+            if (isLikelyWrapCoverPath(path)) {
+                resolved = await createFrontPanelDataUrlFromWrap(path);
+            } else {
+                var probe = await loadImage(resolved);
+                if (probe && probe.naturalWidth > 0 && probe.naturalHeight > 0) {
+                    var ratio = probe.naturalWidth / probe.naturalHeight;
+                    if (ratio >= 1.2) resolved = await createFrontPanelDataUrlFromWrap(resolved);
+                }
+            }
+        } catch (_) {
+            resolved = toUrl(path);
+        }
+        selectedPath = resolved;
+        setCoverImageVisible(resolved);
+        try { sessionStorage.setItem('coverDesign_selectedUrl', selectedPath); } catch (_) {}
+        return resolved;
+    }
+
     function applyFrontOnlyPreview(frontUrl) {
         if (!frontUrl) return;
-        selectedPath = frontUrl;
-        setCoverImageVisible(toUrl(frontUrl));
-        try { sessionStorage.setItem('coverDesign_selectedUrl', selectedPath); } catch (_) {}
+        applyBestFrontPreview(frontUrl).catch(function () {});
     }
 
     function showPrintWrapModal(assets, saved, layoutOrServer, openModal) {
@@ -1031,7 +1080,9 @@
         optionsGrid.innerHTML = '';
         updateLivePreview();
         if (selectedPath) {
-            setCoverImageVisible(toUrl(selectedPath));
+            applyBestFrontPreview(selectedPath).catch(function () {
+                setCoverImageVisible(toUrl(selectedPath));
+            });
             pushCoverHistory(selectedPath);
         } else {
             setCoverImageVisible('');
@@ -1341,12 +1392,10 @@
 
     function boot() {
         if (initialBookId <= 0) {
-            var s = 0;
-            try { s = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10); } catch (_) { s = 0; }
-            if (s > 0) {
-                window.location.replace('/Dashboard/CoverDesign?bookId=' + s);
-                return;
-            }
+            try {
+                var rememberedId = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10);
+                if (rememberedId > 0) initialBookId = rememberedId;
+            } catch (_) { /* no-op */ }
         }
         loadBooks();
         refreshLucide();

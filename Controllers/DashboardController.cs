@@ -3068,19 +3068,23 @@ namespace EBookDashboard.Controllers
             var userBooks = bookEntities.Select(b => new { b.BookId, b.Title, b.Status, b.CreatedAt, b.UpdatedAt, b.CoverImagePath, b.Description, b.Genre, b.WordCount }).ToList();
 
             var bookIds = userBooks.Select(b => b.BookId).ToList();
-            var exportableChaptersByBookId = new Dictionary<int, int>();
-            foreach (var bid in bookIds)
+            var exportableChaptersByBookId = bookIds.ToDictionary(id => id, _ => 0);
+            if (bookIds.Count > 0)
             {
                 try
                 {
-                    var details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, bid);
-                    if (details != null && details.Success)
-                        exportableChaptersByBookId[bid] = details.Chapters?.Count(c => !string.IsNullOrWhiteSpace(c.Content)) ?? 0;
+                    var chapterCounts = await _context.Chapters.AsNoTracking()
+                        .Where(c => bookIds.Contains(c.BookId) && c.Content != null && c.Content != "")
+                        .GroupBy(c => c.BookId)
+                        .Select(g => new { BookId = g.Key, Count = g.Count() })
+                        .ToListAsync();
+
+                    foreach (var row in chapterCounts)
+                        exportableChaptersByBookId[row.BookId] = row.Count;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "MyBooks: exportable chapter count for book {BookId}", bid);
-                    exportableChaptersByBookId[bid] = 0;
+                    _logger.LogDebug(ex, "MyBooks: exportable chapter counts query failed for user {UserId}", user.UserId);
                 }
             }
 

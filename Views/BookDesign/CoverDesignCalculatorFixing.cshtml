@@ -369,7 +369,7 @@
         font-size: 1.55rem;
         font-weight: 700;
         color: #111827;
-        margin-bottom: 1rem;
+        margin-bottom: 0.45rem;
         text-align: center;
         letter-spacing: 0.01em;
         max-width: 100%;
@@ -387,9 +387,10 @@
         font-size: 16px;
     }
     .reader-page-body p {
-        margin-bottom: 1.2rem;
+        margin: 0 0 0.85rem 0;
         text-indent: 1.2rem;
     }
+    .reader-page-body > :first-child { margin-top: 0 !important; }
     .reader-page-body .manuscript-heading {
         font-weight: 700;
         margin: 1rem 0 0.5rem 0;
@@ -421,7 +422,7 @@
             0 1px 0 rgba(255, 255, 255, 0.85) inset,
             0 14px 40px -22px rgba(17, 24, 39, 0.22),
             0 4px 16px -8px rgba(91, 33, 182, 0.08);
-        padding: 2.35rem;
+        padding: 1.6rem;
         aspect-ratio: auto;
         min-height: 100%;
         height: auto;
@@ -502,7 +503,7 @@
         background: #fdfcfa;
         border: 1px solid #e5e0d8;
         box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
-        padding: 2.35rem;
+        padding: 1.75rem;
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
@@ -2049,7 +2050,8 @@
             var shell = document.getElementById('paginatedReaderShell');
             if (shell && shell.clientWidth > 48) h = Math.floor(shell.clientWidth * (9 / 6));
         }
-        return Math.max(120, h - 8);
+        // Keep a small safety edge only, so manuscript fills the page better.
+        return Math.max(140, h - 2);
     }
 
     function fmtCanMeasurePages() {
