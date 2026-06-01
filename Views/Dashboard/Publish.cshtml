@@ -803,6 +803,9 @@
         position: relative;
     }
     .book-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .book-cover img.is-wrap-cover,
+    .pr-cover-preview img.is-wrap-cover,
+    .pr-cover-tile img.is-wrap-cover { object-position: right center; }
     .book-cover-placeholder {
         width: 100%;
         height: 100%;
@@ -979,7 +982,7 @@
                     }
                     @if (!string.IsNullOrEmpty(displayCoverUrl))
                     {
-                        <img src="@displayCoverUrl" alt="" loading="eager" decoding="async" />
+                        <img src="@displayCoverUrl" alt="" class="publish-cover-img" loading="eager" decoding="async" />
                     }
                     else
                     {
@@ -1323,6 +1326,7 @@
             showTransientMessage('warning', 'Select a book first.');
             return;
         }
+        var realPages = resolvePublishPageCount(pbEstimatedPages > 0 ? pbEstimatedPages : getLocalFormatterPageCount(bookId));
         var token = getPublishAntiForgeryToken();
         if (triggerBtn) triggerBtn.disabled = true;
         showTransientMessage('info', 'Preparing print-ready ZIP…');
@@ -1351,7 +1355,11 @@
             })
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-print-ready-' + bookId + '.zip');
-                showTransientMessage('success', 'ZIP downloaded: interior PDF (chapters only) + your saved full cover wrap.');
+                if (realPages > 0) {
+                    showTransientMessage('success', 'ZIP downloaded for ' + realPages + ' pages: interior PDF (chapters only) + your saved full cover wrap.');
+                } else {
+                    showTransientMessage('success', 'ZIP downloaded: interior PDF (chapters only) + your saved full cover wrap.');
+                }
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Export failed.');
@@ -1440,6 +1448,7 @@
             return;
         }
         if (triggerBtn) triggerBtn.disabled = true;
+        var resolvedPagesForExport = 0;
 
         fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
             .then(function (r) { return r.json(); })
@@ -1457,6 +1466,7 @@
                 if (!realPages || realPages <= 0) {
                     throw new Error('Page count is unknown. Open Book Formatting and wait for Total pages to load, then try again.');
                 }
+                resolvedPagesForExport = realPages;
 
                 if (!window.CoverKdpExport || typeof window.CoverKdpExport.composePrintWrapFromParts !== 'function') {
                     throw new Error('Cover export module not loaded.');
@@ -1482,7 +1492,7 @@
                 for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
                 var blob = new Blob([ab], { type: 'image/png' });
                 downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-cover-print-ready.png');
-                var exportedPages = result.pageCount || 0;
+                var exportedPages = resolvePublishPageCount((result && result.pageCount) || resolvedPagesForExport);
                 showTransientMessage('success',
                     'Print-ready cover downloaded for ' + exportedPages + ' pages (spine ' +
                     result.spineInches.toFixed(3) + ' in, ' + result.widthPx + ' \u00d7 ' + result.heightPx + ' px \u0040 300 DPI).');
@@ -1699,11 +1709,35 @@
             imgEl.src = value;
             imgEl.classList.remove('hidden');
             labelEl.classList.add('hidden');
+            markPublishCoverImage(imgEl);
         } else {
             imgEl.src = '';
             imgEl.classList.add('hidden');
             labelEl.classList.remove('hidden');
+            imgEl.classList.remove('is-wrap-cover');
         }
+    }
+
+    function shouldForceFrontPanel(src, ratio) {
+        var ref = String(src || '').toLowerCase();
+        if (/wrap|print-ready|cover-wrap|kdp-cover|full-cover|spine-book-cover|spine/.test(ref)) return true;
+        return Number.isFinite(ratio) && ratio >= 1.02;
+    }
+
+    function markPublishCoverImage(img) {
+        if (!img) return;
+        var apply = function () {
+            var w = img.naturalWidth || 0;
+            var h = img.naturalHeight || 0;
+            if (!w || !h) return;
+            var ratio = w / h;
+            var src = img.currentSrc || img.src || '';
+            if (shouldForceFrontPanel(src, ratio)) img.classList.add('is-wrap-cover');
+            else img.classList.remove('is-wrap-cover');
+        };
+        if (img.complete) apply();
+        img.addEventListener('load', apply);
+        img.addEventListener('error', function () { img.classList.remove('is-wrap-cover'); });
     }
 
     function runPrintReadyAutoCover(triggerBtn) {
@@ -1827,5 +1861,13 @@
             window.location.href = url;
         });
     }
+
+    document.querySelectorAll('img.publish-cover-img').forEach(markPublishCoverImage);
+    [
+        document.getElementById('prWrapPreview'),
+        document.getElementById('prFrontPreview'),
+        document.getElementById('prBackPreview'),
+        document.getElementById('prSpinePreview')
+    ].forEach(markPublishCoverImage);
 })();
 </script>

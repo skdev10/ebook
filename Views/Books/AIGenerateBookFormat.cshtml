@@ -1897,7 +1897,7 @@ To see actual generated content, connect this feature to your AI backend service
             const data = await res.json();
             const ddl = document.getElementById('savedResponsesDropdown');
             ddl.innerHTML = '<option value="">📚 Load a previously generated book...</option>' +
-                (data || []).map(x => `<option value="${x.responseId}">#${x.responseId} — ${x.createdAt}</option>`).join('');
+                (data || []).map(x => `<option value="${x.responseId}">#${x.responseId}</option>`).join('');
         } catch {}
     }
 

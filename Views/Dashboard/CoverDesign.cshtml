@@ -390,6 +390,22 @@
         else alert(text);
     }
 
+    function showSpinePagesCreatedAlert(pageCount) {
+        var pages = parseInt(String(pageCount || '0'), 10);
+        if (!Number.isFinite(pages) || pages <= 0) return;
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: pages + ' spine pages created',
+                text: 'Wraparound cover is ready. Download print-ready from Publish.',
+                timer: 2800,
+                showConfirmButton: false
+            });
+            return;
+        }
+        alert(pages + ' spine pages created');
+    }
+
     function toUrl(path) {
         if (!path) return '';
         if (path.indexOf('http') === 0 || path.indexOf('data:') === 0) return path;
@@ -956,7 +972,10 @@
                         }
                     } catch (_) {}
                 }
-                if (!pageCount) pageCount = 200;
+                if (!pageCount) {
+                    toast('error', 'Could not determine actual page count for spine generation.');
+                    return;
+                }
                 try {
                     var pr = await fetch('/Dashboard/GeneratePrintReadyCover', {
                         method: 'POST',
@@ -982,7 +1001,7 @@
                             pageCount: prData.pageCount || pageCount
                         };
                         if (frontUrl) applyFrontOnlyPreview(frontUrl);
-                        toast('success', 'Wraparound cover ready (' + (prData.pageCount || pageCount) + ' pages). Download print-ready from Publish.');
+                        showSpinePagesCreatedAlert(prData.pageCount || pageCount);
                     } else {
                         toast('error', (prData && prData.message) || 'Print-ready cover generation failed.');
                     }

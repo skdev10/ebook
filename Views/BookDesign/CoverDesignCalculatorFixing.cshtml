@@ -503,7 +503,7 @@
         background: #fdfcfa;
         border: 1px solid #e5e0d8;
         box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
-        padding: 1.75rem;
+        padding: 1.35rem 1.45rem 1.1rem;
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
@@ -519,7 +519,7 @@
         text-transform: uppercase;
         color: #6b6b6b;
         text-align: center;
-        margin: 0 0 1.75rem;
+        margin: 0 0 0.45rem;
         line-height: 1.45;
     }
     .reader-content-wrap.interior-classic .classic-running-head.classic-running-chapter {
@@ -544,7 +544,7 @@
         text-align: center;
         line-height: 1.2;
         color: #141414;
-        margin: 0 0 1.6rem;
+        margin: 0 0 0.85rem;
         padding: 0 0.25rem;
         border: none;
     }
@@ -561,7 +561,7 @@
     }
     .reader-content-wrap.interior-classic .reader-page-body.classic-body p {
         text-indent: 0;
-        margin: 0 0 0.85em;
+        margin: 0 0 0.62em;
     }
     .reader-content-wrap.interior-classic .reader-page-body.classic-body p.classic-first-para::first-letter {
         float: left;
@@ -580,7 +580,7 @@
         font-weight: 500;
         color: #7a7a7a;
         margin-top: auto;
-        padding-top: 1.5rem;
+        padding-top: 0.32rem;
         letter-spacing: 0.12em;
     }
     /* Fallback when classic uses generic title block (should be rare) */
@@ -2050,8 +2050,11 @@
             var shell = document.getElementById('paginatedReaderShell');
             if (shell && shell.clientWidth > 48) h = Math.floor(shell.clientWidth * (9 / 6));
         }
-        // Keep a small safety edge only, so manuscript fills the page better.
-        return Math.max(140, h - 2);
+        // Keep a tiny safety edge and allow a small fill bonus in classic mode to avoid under-filled pages.
+        var styleEl = document.getElementById('style-select');
+        var interior = styleEl ? String(styleEl.value || '') : '';
+        var fillBonus = (interior === 'Classic') ? 22 : 6;
+        return Math.max(140, h - 2 + fillBonus);
     }
 
     function fmtCanMeasurePages() {
@@ -2289,14 +2292,16 @@
             const ch = bookChapters[ci];
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
             const content = (ch && ch.content && String(ch.content).trim()) || '';
-            const paras = expandParasForPaging(splitChapterIntoParas(content));
+            const normalizedContent = stripDuplicateLeadingHeading(title, content);
+            const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
+            const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
             if (paras.length === 0) {
                 const head = headBook;
                 const chapterLine = '<div class="classic-chapter-label">' + chapterOrdinalLabel(ci) + '</div>';
                 const titleBlock = '<h1 class="classic-chapter-title">' + escapeHtml(title) + '</h1>';
                 const body = '<section class="reader-page-body classic-body"><p class="text-gray-500">No content.</p></section>';
                 const footer = '<footer class="classic-page-num">' + pageNum + '</footer>';
-                pages.push(head + chapterLine + titleBlock + body + footer);
+                pages.push('<div class="reader-chapter-block">' + head + chapterLine + titleBlock + body + footer + '</div>');
                 readerPageChapterIdx.push(ci);
                 pageNum++;
                 continue;
@@ -2315,7 +2320,7 @@
                             ? headBook
                             : '<div class="classic-running-head classic-running-chapter">' + escapeHtml(title) + '</div>';
                         var mid = '';
-                        if (isFirst) {
+                        if (isFirst && !hasBodyLeadingHeading) {
                             mid = '<div class="classic-chapter-label">' + chapterOrdinalLabel(ci) + '</div>';
                             mid += '<h1 class="classic-chapter-title">' + escapeHtml(title) + '</h1>';
                         }
@@ -2377,13 +2382,13 @@
                     ? headBook
                     : '<div class="classic-running-head classic-running-chapter">' + escapeHtml(title) + '</div>';
                 let middle = '';
-                if (isFirstOfChapter) {
+                if (isFirstOfChapter && !hasBodyLeadingHeading) {
                     middle = '<div class="classic-chapter-label">' + chapterOrdinalLabel(ci) + '</div>';
                     middle += '<h1 class="classic-chapter-title">' + escapeHtml(title) + '</h1>';
                 }
                 const body = '<section class="reader-page-body classic-body">' + bp.bodyInner + '</section>';
                 const footer = '<footer class="classic-page-num">' + pageNum + '</footer>';
-                pages.push(head + middle + body + footer);
+                pages.push('<div class="reader-chapter-block">' + head + middle + body + footer + '</div>');
                 readerPageChapterIdx.push(ci);
                 pageNum++;
             }
@@ -3150,6 +3155,24 @@
         } catch (e) { return s; }
     }
 
+    function stripDuplicateLeadingHeading(title, contentHtml) {
+        var titleText = String(title || '').trim().toLowerCase();
+        var html = String(contentHtml || '').trim();
+        if (!titleText || !html) return html;
+        try {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var first = doc.body && doc.body.firstElementChild ? doc.body.firstElementChild : null;
+            if (!first || !/^h[1-6]$/i.test(first.tagName || '')) return html;
+            var headText = String(first.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            var titleCompact = titleText.replace(/\s+/g, ' ');
+            if (headText && (headText === titleCompact || (/^chapter\s+\d+\b/.test(headText) && /^chapter\s+\d+\b/.test(titleCompact) && headText === titleCompact))) {
+                first.remove();
+                return (doc.body.innerHTML || '').trim();
+            }
+        } catch (e) { /* ignore */ }
+        return html;
+    }
+
     function sanitizeManuscriptHtml(unsafeHtml) {
         try {
             var allowedTags = new Set(['p', 'br', 'hr', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'span', 'div']);
@@ -3237,9 +3260,11 @@
             const ch = bookChapters[ci];
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
             const content = (ch && ch.content && String(ch.content).trim()) || '';
-            const paras = expandParasForPaging(splitChapterIntoParas(content));
+            const normalizedContent = stripDuplicateLeadingHeading(title, content);
+            const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
+            const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
             if (paras.length === 0) {
-                pages.push('<article class="reader-page-title">' + escapeHtml(title) + '</article><section class="reader-page-body"><p class="text-gray-500">No content.</p></section>');
+                pages.push('<div class="reader-chapter-block"><article class="reader-page-title">' + escapeHtml(title) + '</article><section class="reader-page-body"><p class="text-gray-500">No content.</p></section></div>');
                 readerPageChapterIdx.push(ci);
             } else if (useMeasure) {
                 var segments = paras.map(function(p) { return novelParaToBodySegment(p); }).filter(Boolean);
@@ -3247,7 +3272,7 @@
                 while (segIdxN < segments.length) {
                     var withTitle = (segIdxN === 0);
                     var measureFnN = function(bodyAcc) {
-                        var t = withTitle ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                        var t = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
                         return measureFmtArticleInner(t + '<section class="reader-page-body">' + bodyAcc + '</section>');
                     };
                     var accN = '';
@@ -3255,8 +3280,8 @@
                         var segN = segments[segIdxN];
                         var trialN = accN ? (accN + segN) : segN;
                         if (measureFnN(trialN) > getFmtPageMaxHeightPx() && accN) {
-                            var titleBlockN = withTitle ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                            pages.push(titleBlockN + '<section class="reader-page-body">' + accN + '</section>');
+                            var titleBlockN = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                            pages.push('<div class="reader-chapter-block">' + titleBlockN + '<section class="reader-page-body">' + accN + '</section></div>');
                             readerPageChapterIdx.push(ci);
                             accN = '';
                             break;
@@ -3264,8 +3289,8 @@
                         if (measureFnN(trialN) > getFmtPageMaxHeightPx() && !accN) {
                             var subsN = splitOversizedFmtBodyHtml(segN, measureFnN);
                             for (var sn = 0; sn < subsN.length; sn++) {
-                                var tb = withTitle ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                                pages.push(tb + '<section class="reader-page-body">' + subsN[sn] + '</section>');
+                                var tb = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                                pages.push('<div class="reader-chapter-block">' + tb + '<section class="reader-page-body">' + subsN[sn] + '</section></div>');
                                 readerPageChapterIdx.push(ci);
                                 withTitle = false;
                             }
@@ -3277,8 +3302,8 @@
                         segIdxN++;
                     }
                     if (accN) {
-                        var titleBlockEnd = withTitle ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                        pages.push(titleBlockEnd + '<section class="reader-page-body">' + accN + '</section>');
+                        var titleBlockEnd = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                        pages.push('<div class="reader-chapter-block">' + titleBlockEnd + '<section class="reader-page-body">' + accN + '</section></div>');
                         readerPageChapterIdx.push(ci);
                     }
                 }
@@ -3286,9 +3311,9 @@
                 var pageChunks = chunkParasIntoPages(paras);
                 for (let pi = 0; pi < pageChunks.length; pi++) {
                     const chunk = pageChunks[pi];
-                    const titleBlock = (pi === 0) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
+                    const titleBlock = (pi === 0 && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
                     const body = formatChapterContent(chunk.join('\n\n'));
-                    pages.push(titleBlock + '<section class="reader-page-body">' + body + '</section>');
+                    pages.push('<div class="reader-chapter-block">' + titleBlock + '<section class="reader-page-body">' + body + '</section></div>');
                     readerPageChapterIdx.push(ci);
                 }
             }
@@ -3316,9 +3341,9 @@
 
         var fontSize;
         if (interior === 'Classic' || interior === 'ElegantTrade') {
-            if (size === 'Small') fontSize = '15px';
-            else if (size === 'Large') fontSize = '20px';
-            else fontSize = interior === 'ElegantTrade' ? '17px' : '18px';
+            if (size === 'Small') fontSize = '14px';
+            else if (size === 'Large') fontSize = '19px';
+            else fontSize = interior === 'ElegantTrade' ? '16px' : '17px';
         } else {
             if (size === 'Small') fontSize = '14px';
             else if (size === 'Large') fontSize = '20px';
@@ -3928,7 +3953,7 @@
             }
             bookChapters = sortedChapters.map(function(c, idx) {
                 var titleRaw = (c && (c.chapterTitle || c.title || c.Title)) || '';
-                var contentRaw = getContentFromPossibleJson((c && (c.content || c.Content || c.chapterContent || c.text)) || '');
+                var contentRaw = getContentFromPossibleJson((c && (c.content || c.Content || c.chapterContent || c.chapterHtml || c.previewHtml || c.formattedContent || c.text)) || '');
                 var chapterNoDb = parseInt(c.chapterNo, 10);
                 if (!Number.isFinite(chapterNoDb)) chapterNoDb = idx + 1;
                 var narrativeNum = narrativeDisplayNum(sortedChapters, idx);

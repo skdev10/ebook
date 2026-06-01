@@ -137,17 +137,6 @@
                                 <span class="stat-label">Chapters:</span>
                                 <span class="stat-value">@Model.Chapters.Count</span>
                             </div>
-                            <div class="stat-item">
-                                <span class="stat-label">Created:</span>
-                                <span class="stat-value">@Model.CreatedAt.ToString("MMM dd, yyyy")</span>
-                            </div>
-                            @if (Model.UpdatedAt.HasValue)
-                            {
-                                <div class="stat-item">
-                                    <span class="stat-label">Last Updated:</span>
-                                    <span class="stat-value">@Model.UpdatedAt.Value.ToString("MMM dd, yyyy")</span>
-                                </div>
-                            }
                         </div>
                     </div>
                 </div>
