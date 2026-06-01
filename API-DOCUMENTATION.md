@@ -663,6 +663,106 @@ python Scripts/smoke_test.py --json-output smoke-results.json
 
 ---
 
+## Current integration status (code-side)
+
+The ASP.NET app is currently wired to the upstream API correctly at the code/config level:
+
+- **API key resolution:** `Services/ExternalApiKeyResolver.cs`
+  - Reads `ExternalApi:ApiKey`
+  - Production expects env var `ExternalApi__ApiKey`
+  - Trims accidental wrapping quotes (`'...'` or `"..."`)
+
+- **Startup validation:** `Models/Options/ExternalApiOptionsValidator.cs`
+  - In **Production**, app startup fails if `ExternalApi__ApiKey` is missing
+  - This prevents silent deploys where chapter/cover APIs would fail later
+
+- **Cover response parsing:** `Services/CoverExternalApiHelper.cs`
+  - Accepts multiple upstream response shapes:
+    - `front`, `back`, `spine`, `wrap`
+    - `front_cover`, `back_cover`, `spine_cover`
+    - `cover_url`, `image_url`, `url`
+    - base64 image forms
+  - Falls back to first image URL if named assets are absent
+
+- **Chapter response parsing:** `Services/UpstreamResponseParser.cs`
+  - Handles:
+    - `data.content`
+    - `data.heading`
+    - root `heading`
+    - `suggest_chapter_name`
+  - This matches your described example where generate result may come back as a heading string
+
+### What this means
+
+From the **application code** side, the integration is in place for:
+
+- `generate_chapter`
+- `edit`
+- `audio`
+- `approve`
+- `queue-data`
+- `generate-cover`
+- `generate-spine-book-cover`
+- `edit-cover`
+- `book_chapters_name`
+
+If the generated **cover image quality / composition** is still poor, the likely issue is no longer the header name or endpoint wiring. It is more likely one of these:
+
+1. **Upstream model output quality**
+   - The upstream returned a technically valid image, but composition/art quality is weak.
+
+2. **Prompt / style direction quality**
+   - `cover_style`, `category`, and visual direction may be too generic or inconsistent.
+
+3. **Wrong asset shape from upstream**
+   - Upstream may return only one generic image instead of distinct `front` / `back` / `spine` / `wrap` parts.
+
+4. **Gateway timeout / queue pressure**
+   - Long-running cover generations can return `504`, partial responses, or degraded outputs when upstream is overloaded.
+
+5. **Page count mismatch**
+   - Incorrect `page_count` leads to bad spine width and a visually wrong paperback wrap.
+
+### Cover quality verification checklist
+
+When cover output does not look correct, verify in this order:
+
+1. `GET /api/queue-data` → ensure queue is not overloaded
+2. `X-API-Key` is present on the request
+3. `size` is correct:
+   - front cover: `1024x1536`
+   - wrap cover: `1536x1024`
+4. `quality` is appropriate:
+   - use `high` for quality checks
+   - use `low` only when debugging timeout/load
+5. `page_count` matches Book Formatting preview
+6. Upstream response actually contains:
+   - `front`
+   - `back`
+   - `spine`
+   - `wrap`
+   or at least one valid `image_url`
+7. Check saved BFF assets:
+   - `book:{id}:printReadyCoverWrap`
+   - `book:{id}:printReadyCoverFront`
+   - `book:{id}:printReadyCoverBack`
+   - `book:{id}:printReadyCoverSpine`
+
+### Important security note
+
+You shared a live API key in chat. That key should be treated as **exposed**.
+
+- Do **not** paste it into git-tracked docs
+- Do **not** store it in `appsettings.json`
+- Prefer only:
+  - `ExternalApi__ApiKey` on server
+  - `dotnet user-secrets` locally
+  - a gitignored local settings file
+
+If this is truly a production key, the safest next step is to **rotate it**.
+
+---
+
 ## Related files
 
 | File | Purpose |

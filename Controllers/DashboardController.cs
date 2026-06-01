@@ -704,8 +704,15 @@ namespace EBookDashboard.Controllers
         }
 
         [Route("CoverDesign")]
-        public async Task<IActionResult> CoverDesign(int? bookId = null)
+        public async Task<IActionResult> CoverDesign(int? bookId = null, string? flow = null, string? coverType = null, bool skipPrintReadyAuto = false)
         {
+            var requestedFlow = (flow ?? string.Empty).Trim();
+            var requestedCoverType = (coverType ?? string.Empty).Trim();
+            if (requestedFlow.Equals("printready", StringComparison.OrdinalIgnoreCase)
+                && !requestedCoverType.Equals("both", StringComparison.OrdinalIgnoreCase))
+            {
+                return Redirect($"/Dashboard/Publish?bookId={bookId.GetValueOrDefault()}&flow=printready");
+            }
             var formattingDone = HttpContext.Session.GetString("FormattingDone") == "1";
             var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
             if (!hasGeneratedBook || !formattingDone)
@@ -716,6 +723,9 @@ namespace EBookDashboard.Controllers
             }
             ViewBag.UserName = User.Identity?.Name ?? "User";
             ViewBag.BookId = bookId ?? 0;
+            ViewBag.CoverFlow = requestedFlow;
+            ViewBag.CoverType = requestedCoverType;
+            ViewBag.SkipPrintReadyAuto = skipPrintReadyAuto;
             var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
             var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserEmail == userEmail);
             var roleId = user?.RoleId ?? 0;
@@ -1986,6 +1996,8 @@ namespace EBookDashboard.Controllers
                         ? frontCover
                         : (!string.IsNullOrEmpty(aiCover) ? aiCover : pathCover);
                     ViewBag.PublishBookCoverWrap = !string.IsNullOrEmpty(wrapCover) ? wrapCover : "";
+                    ViewBag.PublishHasFrontCover = !string.IsNullOrEmpty(frontCover) || !string.IsNullOrEmpty(aiCover) || !string.IsNullOrEmpty(pathCover);
+                    ViewBag.PublishHasCoverWrap = !string.IsNullOrEmpty(wrapCover);
                     ViewBag.PublishBookStatus = pb.Status;
                     var ps = pb.Status ?? "";
                     ViewBag.PublishBookAlreadyListed = BookPublishReadinessService.IsListedBookStatus(ps);
@@ -2052,16 +2064,11 @@ namespace EBookDashboard.Controllers
                     var primaryPlatform = (fmt?.PublishingPlatform ?? "").Trim();
                     var platformCsv = (fmt?.PublishingPlatforms ?? "").Trim();
                     var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    var hasAnyPlatformSelected = !string.IsNullOrWhiteSpace(primaryPlatform) || selectedPlatforms.Length > 0;
                     var hasPrintReadyPlatform =
                         primaryPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
-                        || selectedPlatforms.Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase))
-                        || hasAnyPlatformSelected;
-
-                    var hasFormatPrintSurface =
-                        publishFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
-                        || publishFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
-                    var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform || hasFormatPrintSurface;
+                        || selectedPlatforms.Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase));
+                    var isPaperbackFormat = publishFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase);
+                    var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform || isPaperbackFormat;
                     ViewBag.PublishPrintReadyMode = isPrintReadyFlow;
                     var canExport = hasChapterContent;
                     ViewBag.PublishCanExport = canExport;

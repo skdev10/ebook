@@ -3327,17 +3327,7 @@
                         </a>
                     }
                 </li>
-                <li>
-                    @if (publishUnlocked) {
-                        <a href="/Dashboard/MyBooks" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "MyBooks" ? "active" : "")">
-                            <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
-                        </a>
-                    } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="@(coverUnlocked ? "/Dashboard/CoverDesign" : (formattingUnlocked ? "/BookDesign/CoverDesignCalculatorFixing" : "/Books/AIGenerateBook"))" title="Complete previous steps first">
-                            <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
-                        </a>
-                    }
-                </li>
+                
                 <li>
                     <a href="/Dashboard/CoverDesign" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
                         <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
@@ -3351,6 +3341,17 @@
                     } else {
                         <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Generate a book first from AI Writer" data-goto="/Books/AIGenerateBook">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
+                        </a>
+                    }
+                </li>
+                <li>
+                    @if (publishUnlocked) {
+                        <a href="/Dashboard/MyBooks" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "MyBooks" ? "active" : "")">
+                            <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
+                        </a>
+                    } else {
+                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="@(coverUnlocked ? "/Dashboard/CoverDesign" : (formattingUnlocked ? "/BookDesign/CoverDesignCalculatorFixing" : "/Books/AIGenerateBook"))" title="Complete previous steps first">
+                            <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     }
                 </li>

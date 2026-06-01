@@ -334,8 +334,13 @@
 
     var initialBookId = @(initialBookId);
     var coverFlowPrintReady = false;
+    var coverType = '';
+    var skipPrintReadyAuto = false;
     try {
-        coverFlowPrintReady = (new URLSearchParams(window.location.search).get('flow') || '').toLowerCase() === 'printready';
+        var coverParams = new URLSearchParams(window.location.search);
+        coverFlowPrintReady = (coverParams.get('flow') || '').toLowerCase() === 'printready';
+        coverType = (coverParams.get('coverType') || '').toLowerCase();
+        skipPrintReadyAuto = (coverParams.get('skipPrintReadyAuto') || '').toLowerCase() === '1';
     } catch (e) { coverFlowPrintReady = false; }
     var books = [];
     var selectedBook = null;
@@ -968,7 +973,7 @@
             if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
             applyGenerationSuccess(d, 'generate');
 
-            if (isPrintReadyPlatform() || coverFlowPrintReady) {
+            if ((isPrintReadyPlatform() || coverFlowPrintReady) && !skipPrintReadyAuto) {
                 setBusy(true, 'Generating…');
                 var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.estimatedPages || selectedBook.totalPages)) || 0;
                 if (!pageCount && selectedBook && selectedBook.bookId) {
@@ -1425,7 +1430,9 @@
         }
         var bid = selectedBook.bookId;
         try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (_) {}
-        window.location.href = '/Dashboard/Publish?bookId=' + encodeURIComponent(bid) + (coverFlowPrintReady || isPrintReadyPlatform() ? '&flow=printready' : '');
+        var publishUrl = '/Dashboard/Publish?bookId=' + encodeURIComponent(bid);
+        if (coverFlowPrintReady || isPrintReadyPlatform() || coverType === 'both') publishUrl += '&flow=printready';
+        window.location.href = publishUrl;
     });
 
     function boot() {
@@ -1436,6 +1443,9 @@
             } catch (_) { /* no-op */ }
         }
         loadBooks();
+        if (coverType === 'both') {
+            if (btnGoToPublish) btnGoToPublish.innerHTML = '<i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i> Continue to Publish with both files';
+        }
         refreshLucide();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
