@@ -1,6 +1,6 @@
 # EBook AI Platform — Upstream API Reference
 
-**Version:** 1.2 · **Last updated:** Jun 2026  
+**Version:** 1.3 · **Last updated:** Jun 2026  
 **Live upstream base URL:** `http://162.229.248.26:8001`  
 **ASP.NET BFF (production):** `http://138.197.76.70:5000`
 
@@ -54,6 +54,19 @@ Every upstream request **must** include:
 ```http
 X-API-Key: YOUR_EXTERNAL_API_KEY
 Content-Type: application/json
+```
+
+### Live auth contract (ops note)
+
+- Header key name: `X-API-Key`
+- Value source: environment variable `ExternalApi__ApiKey`
+- Do not hardcode API key in git-tracked files, Markdown, or screenshots.
+- If a key is shared in chat/ticket, treat it as exposed and rotate immediately.
+
+Recommended local/server convention:
+
+```bash
+export ExternalApi__ApiKey='REDACTED_LIVE_KEY'
 ```
 
 | Setting | Where to set |
@@ -179,6 +192,12 @@ Use clear, natural-language `changes`. Example: user generated heading *"The gra
 }
 ```
 
+Equivalent Python-style intent (for parity with upstream examples):
+
+```text
+user_id="u123", book_id="b456", chapter=14, audio_file_path=".../file.mp3"
+```
+
 **Multipart (recommended for browser / ASP.NET):**
 
 - Form fields: `user_id`, `book_id`, `chapter`
@@ -203,6 +222,8 @@ Use **strict JSON** — no trailing spaces in property names:
   "approve": true
 }
 ```
+
+Upstream examples sometimes show `approve:True` or `"chapter "` (trailing space); those forms are invalid JSON for strict clients and should not be used from ASP.NET.
 
 | Invalid | Why |
 |---------|-----|
@@ -316,6 +337,12 @@ This is the endpoint used for **Peter Pan**-style Victorian ornamental wraps whe
   "paper_type": "white"
 }
 ```
+
+Notes:
+
+- `page_count` must be the final manuscript page count (same one used in formatter/export).
+- Export UI now reports the resolved total page count in success toasts and print-wrap actions.
+- Publish screen forces front-panel preview when a wrap/back+spine+front image is detected.
 
 #### Full request (ASP.NET BFF — recommended)
 
@@ -431,6 +458,15 @@ No body. Returns queue metrics, e.g.:
 
 **BFF route:** `GET /Books/GetQueueData`  
 **Table:** `queue_monitor`
+
+---
+
+## Extra upstream endpoints (prompt-assist)
+
+These are present in the current BFF mapping and useful for UX improvements:
+
+- `POST /api/refine_cover_prompt`
+- `POST /api/suggest-cover-prompt-from-highlights`
 
 ---
 
