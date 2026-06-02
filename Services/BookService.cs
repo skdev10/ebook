@@ -707,6 +707,51 @@ namespace EBookDashboard.Services
             }
         }
 
+        /// <inheritdoc />
+        public async Task<BookManuscriptStats.ManuscriptSummary> GetManuscriptSummaryAsync(int userId, int bookId)
+        {
+            var book = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
+            if (book == null)
+                return new BookManuscriptStats.ManuscriptSummary(0, "");
+
+            var details = await GetBookDetailsForPreviewAsync(userId, bookId);
+            return BookManuscriptStats.Resolve(book, details);
+        }
+
+        /// <inheritdoc />
+        public async Task SyncBookMetadataFromManuscriptAsync(int userId, int bookId)
+        {
+            var book = await _context.Books
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
+            if (book == null) return;
+
+            var needsWords = book.WordCount <= 0;
+            var needsDesc = string.IsNullOrWhiteSpace(book.Description);
+            if (!needsWords && !needsDesc) return;
+
+            var summary = await GetManuscriptSummaryAsync(userId, bookId);
+            var changed = false;
+
+            if (needsWords && summary.WordCount > 0)
+            {
+                book.WordCount = summary.WordCount;
+                changed = true;
+            }
+
+            if (needsDesc && !string.IsNullOrWhiteSpace(summary.Description))
+            {
+                book.Description = summary.Description.Length > 2000
+                    ? summary.Description.Substring(0, 1997) + "…"
+                    : summary.Description;
+                changed = true;
+            }
+
+            if (!changed) return;
+            book.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
         /// <summary>
         /// Formatter / cover-flow preview: use official <c>chapters</c> rows when finalized (ReadOnly/Final);
         /// otherwise latest <c>apirawresponse</c> per chapter (drafts from AI Writer).

@@ -60,6 +60,19 @@ public sealed class BookPublishReadinessService
     /// <summary>Returns true if the book row was promoted to Finalized.</summary>
     public async Task<bool> TryPromoteBookToFinalizedAsync(int userId, int bookId, CancellationToken cancellationToken = default)
     {
+        return await TryPromoteBookToFinalizedAsync(userId, bookId, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// Promote a promotable book to Finalized when all non-empty chapters are finalized.
+    /// When <paramref name="previewChapters"/> is supplied, avoids reloading preview chapters.
+    /// </summary>
+    public async Task<bool> TryPromoteBookToFinalizedAsync(
+        int userId,
+        int bookId,
+        IReadOnlyCollection<ChapterDto>? previewChapters,
+        CancellationToken cancellationToken = default)
+    {
         if (userId <= 0 || bookId <= 0) return false;
 
         var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
@@ -70,12 +83,21 @@ public sealed class BookPublishReadinessService
         if (!PromotableBookStatuses.Any(s => status.Equals(s, StringComparison.OrdinalIgnoreCase)))
             return false;
 
-        var details = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
-        if (details == null || !details.Success) return false;
+        IReadOnlyCollection<ChapterDto> chaptersToEvaluate;
+        if (previewChapters != null)
+        {
+            chaptersToEvaluate = previewChapters;
+        }
+        else
+        {
+            var details = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
+            if (details == null || !details.Success) return false;
+            chaptersToEvaluate = details.Chapters ?? new List<ChapterDto>();
+        }
 
-        var withContent = details.Chapters?
+        var withContent = chaptersToEvaluate
             .Where(c => !string.IsNullOrWhiteSpace(c.Content))
-            .ToList() ?? new List<ChapterDto>();
+            .ToList();
 
         if (withContent.Count == 0) return false;
 

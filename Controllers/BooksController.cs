@@ -1730,6 +1730,7 @@ namespace EBookDashboard.Controllers
                               select new
                               {
                                   b.BookId,
+                                  b.UserId,
                                   b.Title,
                                   b.Description,
                                   b.WordCount,
@@ -1742,6 +1743,28 @@ namespace EBookDashboard.Controllers
             var list = new List<EBookHubItemViewModel>(rows.Count);
             foreach (var r in rows)
             {
+                var wordCount = r.WordCount;
+                var description = (r.Description ?? "").Trim();
+
+                if (wordCount <= 0 || string.IsNullOrWhiteSpace(description))
+                {
+                    try
+                    {
+                        var summary = await _bookService.GetManuscriptSummaryAsync(r.UserId, r.BookId);
+                        if (wordCount <= 0 && summary.WordCount > 0)
+                            wordCount = summary.WordCount;
+                        if (string.IsNullOrWhiteSpace(description) && !string.IsNullOrWhiteSpace(summary.Description))
+                            description = summary.Description;
+
+                        if ((r.WordCount <= 0 && wordCount > 0) || (string.IsNullOrWhiteSpace(r.Description) && !string.IsNullOrWhiteSpace(description)))
+                            await _bookService.SyncBookMetadataFromManuscriptAsync(r.UserId, r.BookId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "EBookHub: manuscript summary for book {BookId}", r.BookId);
+                    }
+                }
+
                 var resolvedCover = await ResolveBookCoverAsync(
                     r.CoverImagePath,
                     r.Title,
@@ -1751,14 +1774,68 @@ namespace EBookDashboard.Controllers
                 {
                     BookId = r.BookId,
                     Title = r.Title,
-                    Description = r.Description ?? "",
-                    WordCount = r.WordCount,
+                    Description = description,
+                    WordCount = wordCount,
                     FullName = r.AuthorName,
                     CoverImagePath = resolvedCover,
                     Genre = r.Genre ?? ""
                 });
             }
             return View(list);
+        }
+
+        /// <summary>Discovery modal: live description and word count from manuscript when DB fields are empty.</summary>
+        [HttpGet]
+        [Route("Books/BookHubDetails")]
+        public async Task<IActionResult> BookHubDetails(int bookId, CancellationToken cancellationToken = default)
+        {
+            if (bookId <= 0)
+                return Json(new { success = false, message = "Invalid book." });
+
+            var book = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == bookId, cancellationToken);
+            if (book == null)
+                return Json(new { success = false, message = "Book not found." });
+
+            var author = await _context.Users.AsNoTracking()
+                .Where(u => u.UserId == book.UserId)
+                .Select(u => u.FullName)
+                .FirstOrDefaultAsync(cancellationToken) ?? "";
+
+            var summary = await _bookService.GetManuscriptSummaryAsync(book.UserId, bookId);
+            var description = summary.Description;
+            var wordCount = summary.WordCount;
+
+            if ((book.WordCount <= 0 && wordCount > 0) || (string.IsNullOrWhiteSpace(book.Description) && !string.IsNullOrWhiteSpace(description)))
+                await _bookService.SyncBookMetadataFromManuscriptAsync(book.UserId, bookId);
+
+            var cover = await ResolveBookCoverAsync(
+                book.CoverImagePath,
+                book.Title,
+                "/images/books/the-bird.png");
+
+            return Json(new
+            {
+                success = true,
+                bookId,
+                title = book.Title ?? "",
+                author,
+                description,
+                wordCount,
+                genre = book.Genre ?? "",
+                cover
+            });
+        }
+
+        private async Task<BookPdfExportOptions> LoadExportOptionsForBookAsync(int userId, int bookId, CancellationToken cancellationToken)
+        {
+            var draftRow = await _context.Settings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:formattingDraft", cancellationToken);
+            var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
+            var fmtRow = await _context.BookFormatting.AsNoTracking()
+                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
+            exportOpt.MergeFromBookFormatting(fmtRow);
+            return exportOpt;
         }
 
         private async Task<string> ResolveBookCoverAsync(string? existingCoverPath, string? title, string fallbackUrl)
@@ -2398,17 +2475,61 @@ namespace EBookDashboard.Controllers
             if (details == null || !details.Success || details.Chapters == null || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
                 return BadRequest(new { success = false, message = "No chapter content to export." });
 
+            await _bookService.SyncBookMetadataFromManuscriptAsync(sessionUserId.Value, req.BookId);
+            var exportSummary = await _bookService.GetManuscriptSummaryAsync(sessionUserId.Value, req.BookId);
+            if (!string.IsNullOrWhiteSpace(exportSummary.Description))
+                details.Description = exportSummary.Description;
+
             try
             {
-                var coverKey = $"book:{req.BookId}:aiCoverLastPreview";
-                var coverRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == coverKey, cancellationToken);
-                var cover = (req.CoverImageDataUrl ?? coverRow?.Value ?? details.CoverImagePath ?? "").Trim();
+                var coverKeys = new[]
+                {
+                    $"book:{req.BookId}:printReadyCoverFront",
+                    $"book:{req.BookId}:aiCoverLastPreview",
+                    $"book:{req.BookId}:printReadyCoverWrap",
+                    $"book:{req.BookId}:printReadyPageCount",
+                    $"book:{req.BookId}:printReadyTrimSize"
+                };
+                var coverRows = await _context.Settings.AsNoTracking()
+                    .Where(s => coverKeys.Contains(s.Key))
+                    .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+                var bookRow = await _context.Books.AsNoTracking()
+                    .Where(b => b.BookId == req.BookId)
+                    .Select(b => new { b.CoverImagePath })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                var wrapRef = coverRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverWrap", "").Trim();
+                var frontRef = BookCoverRefResolver.ResolveEbookFrontCoverRef(
+                    coverRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverFront"),
+                    coverRows.GetValueOrDefault($"book:{req.BookId}:aiCoverLastPreview"),
+                    bookRow?.CoverImagePath,
+                    wrapRef);
+                var cover = !string.IsNullOrEmpty(frontRef)
+                    ? BookCoverRefResolver.NormalizeCoverUrlRef(frontRef)
+                    : (!string.IsNullOrEmpty(wrapRef)
+                        ? BookCoverRefResolver.NormalizeCoverUrlRef(wrapRef)
+                        : BookCoverRefResolver.NormalizeCoverUrlRef(req.CoverImageDataUrl ?? details.CoverImagePath));
+
+                var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, req.BookId, cancellationToken);
+
+                var pageCountForCover = 0;
+                if (int.TryParse(coverRows.GetValueOrDefault($"book:{req.BookId}:printReadyPageCount"), out var savedPages)
+                    && savedPages > 0)
+                    pageCountForCover = savedPages;
+                else
+                    pageCountForCover = _bookPageMetricsService.Estimate(details, exportOpt).PageCount;
+
+                var trimSizeForCover = coverRows.GetValueOrDefault($"book:{req.BookId}:printReadyTrimSize", "").Trim();
+                if (string.IsNullOrWhiteSpace(trimSizeForCover)) trimSizeForCover = "6 x 9 in";
 
                 var bytes = await _epubExportService.BuildEpubAsync(
                     details,
                     cover,
                     (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
                     (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
+                    exportOpt,
+                    pageCountForCover,
+                    trimSizeForCover,
                     cancellationToken);
 
                 var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
@@ -2520,9 +2641,14 @@ namespace EBookDashboard.Controllers
                     cancellationToken);
 
                 var wrapKey = $"book:{req.BookId}:printReadyCoverWrap";
-                var wrapRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == wrapKey, cancellationToken);
+                var wrapApiKey = $"book:{req.BookId}:printReadyCoverWrapApi";
+                var wrapRows = await _context.Settings.AsNoTracking()
+                    .Where(s => s.Key == wrapKey || s.Key == wrapApiKey)
+                    .ToListAsync(cancellationToken);
                 byte[]? wrapBytes = null;
-                var wrapVal = (wrapRow?.Value ?? "").Trim();
+                var wrapVal = (wrapRows.FirstOrDefault(s => s.Key == wrapKey)?.Value
+                    ?? wrapRows.FirstOrDefault(s => s.Key == wrapApiKey)?.Value
+                    ?? "").Trim();
                 if (wrapVal.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
                 {
                     var ix = wrapVal.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
@@ -3422,7 +3548,8 @@ namespace EBookDashboard.Controllers
             {
                 $"book:{id}:aiCoverPrompt",
                 $"book:{id}:aiCoverLastPreview",
-                $"book:{id}:printReadyCoverFront"
+                $"book:{id}:printReadyCoverFront",
+                $"book:{id}:printReadyCoverWrap"
             }).ToList();
             var promptRows = await _context.Settings
                 .Where(s => promptKeys.Contains(s.Key))
@@ -3437,8 +3564,12 @@ namespace EBookDashboard.Controllers
                 var pKey = $"book:{b.BookId}:aiCoverPrompt";
                 var lastKey = $"book:{b.BookId}:aiCoverLastPreview";
                 var frontKey = $"book:{b.BookId}:printReadyCoverFront";
+                var wrapKey = $"book:{b.BookId}:printReadyCoverWrap";
                 var frontPreview = (promptRows.GetValueOrDefault(frontKey, "") ?? "").Trim();
                 var lastPreview = (promptRows.GetValueOrDefault(lastKey, "") ?? "").Trim();
+                var wrapPreview = (promptRows.GetValueOrDefault(wrapKey, "") ?? "").Trim();
+                var resolvedPreview = BookCoverRefResolver.NormalizeCoverUrlRef(
+                    BookCoverRefResolver.ResolveEbookFrontCoverRef(frontPreview, lastPreview, b.CoverImagePath, wrapPreview));
                 return new
                 {
                     bookId = b.BookId,
@@ -3448,7 +3579,7 @@ namespace EBookDashboard.Controllers
                     description = b.Description ?? "",
                     genre = b.Genre ?? "",
                     aiCoverPrompt = promptRows.GetValueOrDefault(pKey, ""),
-                    aiCoverLastPreview = !string.IsNullOrEmpty(frontPreview) ? frontPreview : lastPreview,
+                    aiCoverLastPreview = resolvedPreview,
                     authorName = authorDisplayName
                 };
             }).ToList();
@@ -3478,14 +3609,18 @@ namespace EBookDashboard.Controllers
             var pKey = $"book:{b.BookId}:aiCoverPrompt";
             var lastKey = $"book:{b.BookId}:aiCoverLastPreview";
             var frontKey = $"book:{b.BookId}:printReadyCoverFront";
+            var wrapKey = $"book:{b.BookId}:printReadyCoverWrap";
             var promptRows = await _context.Settings
-                .Where(s => s.Key == pKey || s.Key == lastKey || s.Key == frontKey)
+                .Where(s => s.Key == pKey || s.Key == lastKey || s.Key == frontKey || s.Key == wrapKey)
                 .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
 
             var coverUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value);
             var authorDisplayName = (coverUser?.FullName ?? "").Trim();
             var frontPreview = (promptRows.GetValueOrDefault(frontKey, "") ?? "").Trim();
             var lastPreview = (promptRows.GetValueOrDefault(lastKey, "") ?? "").Trim();
+            var wrapPreview = (promptRows.GetValueOrDefault(wrapKey, "") ?? "").Trim();
+            var resolvedPreview = BookCoverRefResolver.NormalizeCoverUrlRef(
+                BookCoverRefResolver.ResolveEbookFrontCoverRef(frontPreview, lastPreview, b.CoverImagePath, wrapPreview));
 
             var book = new
             {
@@ -3496,7 +3631,7 @@ namespace EBookDashboard.Controllers
                 description = b.Description ?? "",
                 genre = b.Genre ?? "",
                 aiCoverPrompt = promptRows.GetValueOrDefault(pKey, ""),
-                aiCoverLastPreview = !string.IsNullOrEmpty(frontPreview) ? frontPreview : lastPreview,
+                aiCoverLastPreview = resolvedPreview,
                 authorName = authorDisplayName
             };
 

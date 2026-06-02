@@ -753,6 +753,8 @@ namespace EBookDashboard.Controllers
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
+            await ClearStoredCoverAssetsAsync(req.BookId, cancellationToken);
+
             var description = (req.Description ?? "").Trim();
             // Stored prompt must fit legacy VARCHAR(1000); full description still drives MapCoverStyleForExternalApi below.
             await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverPrompt",
@@ -836,17 +838,7 @@ namespace EBookDashboard.Controllers
                     var persisted = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, first, cancellationToken);
                     if (!string.IsNullOrEmpty(persisted))
                     {
-                        if (persisted.Length <= Models.Settings.DbCompatMaxValueLength)
-                        {
-                            await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverLastPreview", persisted, "Book", cancellationToken);
-                        }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "Cover preview URL/path length {Len} exceeds DbCompatMaxValueLength; skipping Settings save. Run: ALTER TABLE `Settings` MODIFY COLUMN `Value` LONGTEXT NULL;",
-                                persisted.Length);
-                        }
-
+                        await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, persisted, cancellationToken);
                         if (persisted.StartsWith("/", StringComparison.Ordinal) || persisted.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                             coverUrlForClient = persisted;
                     }
@@ -969,8 +961,7 @@ namespace EBookDashboard.Controllers
                             var persisted = await TryPersistCoverReferenceAsync(sessionUserId.Value, bookIdEdit, first, cancellationToken);
                             if (!string.IsNullOrEmpty(persisted))
                             {
-                                if (persisted.Length <= Models.Settings.DbCompatMaxValueLength)
-                                    await UpsertDashboardSettingAsync($"book:{bookIdEdit}:aiCoverLastPreview", persisted, "Book", cancellationToken);
+                                await SaveFrontCoverPreviewAsync(sessionUserId.Value, bookIdEdit, persisted, cancellationToken);
                                 if (persisted.StartsWith("/", StringComparison.Ordinal) || persisted.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                                     coverUrlForClient = persisted;
                             }
@@ -1129,6 +1120,9 @@ namespace EBookDashboard.Controllers
                 if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
                 if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
                     exportOpt.PublishingPlatform = NormalizePublishingPlatformForExport(req.PublishingPlatform);
+                if (exportOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
+                    || exportOpt.Format.Equals("Paperback", StringComparison.OrdinalIgnoreCase))
+                    exportOpt.IncludeCoverPage = false;
 
                 var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
 
@@ -1249,9 +1243,11 @@ namespace EBookDashboard.Controllers
             var keys = new[]
             {
                 $"book:{bookId}:printReadyCoverWrap",
+                $"book:{bookId}:printReadyCoverWrapApi",
                 $"book:{bookId}:printReadyCoverFront",
                 $"book:{bookId}:printReadyCoverBack",
                 $"book:{bookId}:printReadyCoverSpine",
+                $"book:{bookId}:aiCoverLastPreview",
                 $"book:{bookId}:printReadyPageCount",
                 $"book:{bookId}:printReadyTrimSize",
                 $"book:{bookId}:printReadySpineInches"
@@ -1277,14 +1273,14 @@ namespace EBookDashboard.Controllers
                     _logger.LogDebug(ex, "GetPrintReadyCoverAssets: page metrics for book {BookId}", bookId);
                 }
             }
-            if (pageCount <= 0)
-                return Json(new { success = false, message = "Page count is unknown. Open Book Formatting first so the page count is calculated." });
-            pageCount = Math.Clamp(pageCount, 1, Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
+            var hasKnownPageCount = pageCount > 0;
+            if (hasKnownPageCount)
+                pageCount = Math.Clamp(pageCount, 1, Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount);
 
             var trimSize = rows.GetValueOrDefault($"book:{bookId}:printReadyTrimSize", "").Trim();
             if (string.IsNullOrWhiteSpace(trimSize)) trimSize = "6 x 9 in";
 
-            var kdp = CalculatePrintReadyKdp(pageCount, trimSize);
+            var kdp = hasKnownPageCount ? CalculatePrintReadyKdp(pageCount, trimSize) : null;
 
             return Json(new
             {
@@ -1292,7 +1288,7 @@ namespace EBookDashboard.Controllers
                 bookId,
                 pageCount,
                 trimSize,
-                kdp = new
+                kdp = kdp == null ? null : new
                 {
                     spineInches = (double)kdp.SpineWidth,
                     spineMm = (double)(kdp.SpineWidth * 25.4m),
@@ -1315,7 +1311,7 @@ namespace EBookDashboard.Controllers
                     spineWidthInchesPerPage = (double)kdp.SpineInchesPerPage,
                     dpi = kdp.Dpi
                 },
-                layout = new
+                layout = kdp == null ? null : new
                 {
                     backPanelXInches = (double)kdp.BackPanelXInches,
                     spineXInches = (double)kdp.SpineXInches,
@@ -1328,21 +1324,22 @@ namespace EBookDashboard.Controllers
 
         private async Task<object> BuildCoverUrls(int bookId, int userId, Dictionary<string, string> rows, CancellationToken ct)
         {
-            var wrap  = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", "");
-            var front = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", "");
-            var back  = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverBack", "");
-            var spine = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverSpine", "");
+            var wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", "").Trim();
+            if (string.IsNullOrEmpty(wrap))
+                wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi", "").Trim();
+            var frontStored = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", "").Trim();
+            var aiCover = rows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview", "").Trim();
+            var back = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverBack", "").Trim();
+            var spine = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverSpine", "").Trim();
 
-            if (string.IsNullOrWhiteSpace(front))
-            {
-                var book = await _context.Books.AsNoTracking()
-                    .Where(b => b.BookId == bookId && b.UserId == userId)
-                    .Select(b => new { b.CoverImagePath })
-                    .FirstOrDefaultAsync(ct);
-                var path = (book?.CoverImagePath ?? "").Trim();
-                if (!string.IsNullOrEmpty(path))
-                    front = path.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? path : ("/" + path.TrimStart('/'));
-            }
+            var book = await _context.Books.AsNoTracking()
+                .Where(b => b.BookId == bookId && b.UserId == userId)
+                .Select(b => new { b.CoverImagePath })
+                .FirstOrDefaultAsync(ct);
+            var bookPath = (book?.CoverImagePath ?? "").Trim();
+
+            var front = BookCoverRefResolver.NormalizeCoverUrlRef(
+                BookCoverRefResolver.ResolveEbookFrontCoverRef(frontStored, aiCover, bookPath, wrap));
 
             return new { wrap, front, back, spine };
         }
@@ -1359,7 +1356,8 @@ namespace EBookDashboard.Controllers
                 .AnyAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns) return NotFound("Book not found.");
 
-            var keySuffix = (part ?? "wrap").Trim().ToLowerInvariant() switch
+            var partNorm = (part ?? "wrap").Trim().ToLowerInvariant();
+            var keySuffix = partNorm switch
             {
                 "front" => "printReadyCoverFront",
                 "back" => "printReadyCoverBack",
@@ -1367,9 +1365,36 @@ namespace EBookDashboard.Controllers
                 _ => "printReadyCoverWrap"
             };
             var settingKey = $"book:{bookId}:{keySuffix}";
-            var row = await _context.Settings.AsNoTracking()
-                .FirstOrDefaultAsync(s => s.Key == settingKey, cancellationToken);
-            var refValue = (row?.Value ?? "").Trim();
+
+            string refValue;
+            if (partNorm == "front")
+            {
+                var coverKeys = new[]
+                {
+                    $"book:{bookId}:printReadyCoverFront",
+                    $"book:{bookId}:aiCoverLastPreview",
+                    $"book:{bookId}:printReadyCoverWrap"
+                };
+                var rows = await _context.Settings.AsNoTracking()
+                    .Where(s => coverKeys.Contains(s.Key))
+                    .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+                var bookRow = await _context.Books.AsNoTracking()
+                    .Where(b => b.BookId == bookId && b.UserId == sessionUserId.Value)
+                    .Select(b => new { b.CoverImagePath })
+                    .FirstOrDefaultAsync(cancellationToken);
+                refValue = BookCoverRefResolver.ResolveEbookFrontCoverRef(
+                    rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront"),
+                    rows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview"),
+                    bookRow?.CoverImagePath,
+                    rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap"));
+            }
+            else
+            {
+                var row = await _context.Settings.AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Key == settingKey, cancellationToken);
+                refValue = (row?.Value ?? "").Trim();
+            }
+
             if (string.IsNullOrWhiteSpace(refValue))
                 return NotFound("Cover asset not found.");
 
@@ -1466,6 +1491,8 @@ namespace EBookDashboard.Controllers
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
+            await ClearStoredCoverAssetsAsync(req.BookId, cancellationToken);
+
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
                 return Json(new { success = false, status = "error", message = details?.Message ?? "Could not load book details." });
@@ -1480,26 +1507,35 @@ namespace EBookDashboard.Controllers
             var trimSize = NormalizeTrimSizeForApi(req.TrimSize, exportOpt);
             var kdp = CalculatePrintReadyKdp(pageCountForCover, trimSize);
 
-            var title = (details.BookTitle ?? book.Title ?? "My Book").Trim();
+            var title = string.IsNullOrWhiteSpace(req.Title) ? (details.BookTitle ?? book.Title ?? "My Book").Trim() : req.Title!.Trim();
             if (string.IsNullOrWhiteSpace(title)) title = "My Book";
 
             var user = await _context.Users.AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
-            var authorName = (user?.FullName ?? "").Trim();
+            var authorName = (req.Author ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(authorName))
+                authorName = (user?.FullName ?? "").Trim();
             if (string.IsNullOrWhiteSpace(authorName))
                 authorName = (user?.UserEmail ?? "").Trim();
             if (string.IsNullOrWhiteSpace(authorName))
                 authorName = sessionUserId.Value.ToString();
 
-            var coverStyleBase = (req.CoverStyle ?? _externalApiOptions.Value.PrintReadyCoverStyle ?? "").Trim();
+            var category = string.IsNullOrWhiteSpace(req.Genre)
+                ? (details.Genre ?? book.Genre ?? "General").Trim()
+                : req.Genre!.Trim();
+            var styleKey = string.IsNullOrWhiteSpace(req.Style) ? "modern" : req.Style.Trim();
+            var imageDirection = (req.Description ?? req.CoverStyle ?? "").Trim();
+            var coverStyleBase = string.IsNullOrWhiteSpace(imageDirection)
+                ? (_externalApiOptions.Value.PrintReadyCoverStyle ?? "").Trim()
+                : CoverExternalApiHelper.MapCoverStyleForExternalApi(styleKey, imageDirection);
             if (string.IsNullOrWhiteSpace(coverStyleBase))
             {
                 coverStyleBase = "Deep navy blue background with subtle damask pattern, ornate gold baroque decorative frame on front cover, elegant gold serif typography, luxurious premium publishing style.";
             }
             var coverStyle = BuildPrintReadyCoverStyleDirective(coverStyleBase, kdp);
             var quality = BookApiInputValidation.NormalizeQuality(
-                (req.Quality ?? _externalApiOptions.Value.PrintReadyCoverQuality ?? "low").Trim(),
-                "low");
+                (req.Quality ?? _externalApiOptions.Value.PrintReadyCoverQuality ?? "high").Trim(),
+                "high");
             var size = BookApiInputValidation.NormalizeSize(
                 (req.Size ?? _externalApiOptions.Value.PrintReadyCoverSize ?? "1536x1024").Trim(),
                 "1536x1024");
@@ -1512,26 +1548,13 @@ namespace EBookDashboard.Controllers
             {
                 ["title"] = title,
                 ["author_name"] = authorName,
-                ["category"] = (details.Genre ?? book.Genre ?? "General").Trim(),
+                ["category"] = category,
                 ["cover_style"] = coverStyle,
                 ["size"] = size,
                 ["quality"] = quality,
                 ["Interior_trim_size"] = trimSize,
                 ["page_count"] = pageCountForCover,
-                ["binding_type"] = kdp.BindingType,
-                ["paper_type"] = kdp.PaperType,
-                ["interior_type"] = kdp.InteriorType,
-                ["spine_width_inches"] = (double)kdp.SpineWidth,
-                ["spine_width_mm"] = (double)(kdp.SpineWidth * 25.4m),
-                ["wrap_width_inches"] = (double)kdp.FullCoverWidth,
-                ["wrap_height_inches"] = (double)kdp.FullCoverHeight,
-                ["wrap_width_mm"] = (double)(kdp.FullCoverWidth * 25.4m),
-                ["wrap_height_mm"] = (double)(kdp.FullCoverHeight * 25.4m),
-                ["bleed_inches"] = (double)kdp.Bleed,
-                ["wrap_margin_inches"] = (double)kdp.Bleed,
-                ["hinge_gap_inches"] = 0,
-                ["panel_width_inches"] = (double)kdp.FrontCoverWidth,
-                ["panel_height_inches"] = (double)(kdp.SafeAreaHeight + kdp.MarginHeight)
+                ["paper_type"] = NormalizePaperTypeForExternalApi(kdp.PaperType)
             };
 
             try
@@ -1571,9 +1594,7 @@ namespace EBookDashboard.Controllers
                     await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrap", persistedWrap, "Book", cancellationToken);
                 }
                 if (!string.IsNullOrWhiteSpace(persistedFront))
-                    await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverLastPreview", persistedFront, "Book", cancellationToken);
-                if (!string.IsNullOrWhiteSpace(persistedFront))
-                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverFront", persistedFront, "Book", cancellationToken);
+                    await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, persistedFront, cancellationToken);
                 if (!string.IsNullOrWhiteSpace(persistedBack))
                     await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverBack", persistedBack, "Book", cancellationToken);
                 if (!string.IsNullOrWhiteSpace(persistedSpine))
@@ -1678,6 +1699,8 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (book == null)
                 return Json(new { success = false, message = "Book not found." });
+
+            await ClearStoredCoverAssetsAsync(req.BookId, cancellationToken);
 
             var wrapRef = (req.WrapImageDataUrl ?? req.WrapImageBase64 ?? "").Trim();
             if (string.IsNullOrWhiteSpace(wrapRef))
@@ -1820,6 +1843,33 @@ namespace EBookDashboard.Controllers
                 : style + " " + cohesion;
         }
 
+        private static string NormalizePaperTypeForExternalApi(string? paperType)
+        {
+            if ((paperType ?? "").Contains("cream", StringComparison.OrdinalIgnoreCase))
+                return "cream";
+            return "white";
+        }
+
+        /// <summary>Removes prior cover Settings so the latest generation replaces old assets (no stale wrap/front).</summary>
+        private async Task ClearStoredCoverAssetsAsync(int bookId, CancellationToken cancellationToken)
+        {
+            var suffixes = new[]
+            {
+                "aiCoverLastPreview",
+                "printReadyCoverFront",
+                "printReadyCoverWrap",
+                "printReadyCoverWrapApi",
+                "printReadyCoverBack",
+                "printReadyCoverSpine",
+                "printReadySpineInches"
+            };
+            var keys = suffixes.Select(s => $"book:{bookId}:{s}").ToList();
+            var rows = await _context.Settings.Where(s => keys.Contains(s.Key)).ToListAsync(cancellationToken);
+            if (rows.Count == 0) return;
+            _context.Settings.RemoveRange(rows);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         /// <summary>Writes <see cref="Settings"/> rows. Values are clamped to <see cref="Settings.DbCompatMaxValueLength"/> until MySQL column is LONGTEXT.</summary>
         private async Task UpsertDashboardSettingAsync(string key, string value, string category, CancellationToken cancellationToken = default)
         {
@@ -1862,7 +1912,7 @@ namespace EBookDashboard.Controllers
             await _context.SaveChangesAsync(cancellationToken);
         }
 
-        /// <summary>Data URLs are written under wwwroot/uploads; http(s) URLs are returned as-is for storage.</summary>
+        /// <summary>Data URLs and remote http(s) URLs are saved under wwwroot/uploads; local paths are returned as-is.</summary>
         private async Task<string?> TryPersistCoverReferenceAsync(int userId, int bookId, string imageRef, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(imageRef)) return null;
@@ -1870,10 +1920,51 @@ namespace EBookDashboard.Controllers
             if (t.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
                 return await SaveDataUrlCoverToUploadsAsync(userId, bookId, t, cancellationToken);
             if (t.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || t.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                return t;
+            {
+                try
+                {
+                    return await DownloadRemoteCoverToUploadsAsync(userId, bookId, t, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not download remote cover for book {BookId}; storing URL reference", bookId);
+                    return t;
+                }
+            }
             if (t.StartsWith("/", StringComparison.Ordinal))
                 return t;
             return null;
+        }
+
+        /// <summary>Persists front-cover preview keys and updates <see cref="Book.CoverImagePath"/> when stored locally.</summary>
+        private async Task SaveFrontCoverPreviewAsync(int userId, int bookId, string persisted, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(persisted)) return;
+            if (persisted.Length <= Models.Settings.DbCompatMaxValueLength)
+            {
+                await UpsertDashboardSettingAsync($"book:{bookId}:aiCoverLastPreview", persisted, "Book", cancellationToken);
+                await UpsertDashboardSettingAsync($"book:{bookId}:printReadyCoverFront", persisted, "Book", cancellationToken);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Cover preview URL/path length {Len} exceeds DbCompatMaxValueLength; skipping Settings save. Run: ALTER TABLE `Settings` MODIFY COLUMN `Value` LONGTEXT NULL;",
+                    persisted.Length);
+            }
+
+            await UpdateBookCoverImagePathIfLocalAsync(userId, bookId, persisted, cancellationToken);
+        }
+
+        private async Task UpdateBookCoverImagePathIfLocalAsync(int userId, int bookId, string persisted, CancellationToken cancellationToken)
+        {
+            var p = persisted.Trim();
+            if (!p.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)) return;
+
+            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+            if (book == null) return;
+            book.CoverImagePath = p;
+            book.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         private static async Task<string> SaveDataUrlCoverToUploadsAsync(int userId, int bookId, string dataUrl, CancellationToken cancellationToken)
@@ -1889,9 +1980,45 @@ namespace EBookDashboard.Controllers
                 ext = ".webp";
 
             var bytes = Convert.FromBase64String(b64);
+            return await SaveCoverBytesToUploadsAsync(userId, bookId, bytes, ext, "cover_ai", cancellationToken);
+        }
+
+        private async Task<string> DownloadRemoteCoverToUploadsAsync(int userId, int bookId, string url, CancellationToken cancellationToken)
+        {
+            var client = _httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromMinutes(2);
+            using var response = await client.GetAsync(url, cancellationToken);
+            response.EnsureSuccessStatusCode();
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            if (bytes.Length == 0) throw new InvalidOperationException("Remote cover image was empty.");
+
+            var ext = ".png";
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+            if (contentType.Contains("jpeg", StringComparison.OrdinalIgnoreCase) || contentType.Contains("jpg", StringComparison.OrdinalIgnoreCase))
+                ext = ".jpg";
+            else if (contentType.Contains("webp", StringComparison.OrdinalIgnoreCase))
+                ext = ".webp";
+            else
+            {
+                var pathExt = Path.GetExtension(new Uri(url).AbsolutePath).ToLowerInvariant();
+                if (pathExt is ".jpg" or ".jpeg" or ".png" or ".webp")
+                    ext = pathExt == ".jpeg" ? ".jpg" : pathExt;
+            }
+
+            return await SaveCoverBytesToUploadsAsync(userId, bookId, bytes, ext, "cover_ai", cancellationToken);
+        }
+
+        private static async Task<string> SaveCoverBytesToUploadsAsync(
+            int userId,
+            int bookId,
+            byte[] bytes,
+            string ext,
+            string namePrefix,
+            CancellationToken cancellationToken)
+        {
             var uploadsRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", userId.ToString(), "books", bookId.ToString());
             Directory.CreateDirectory(uploadsRoot);
-            var fileName = $"cover_ai_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
+            var fileName = $"{namePrefix}_{DateTime.UtcNow:yyyyMMddHHmmssfff}{ext}";
             var fullPath = Path.Combine(uploadsRoot, fileName);
             await System.IO.File.WriteAllBytesAsync(fullPath, bytes, cancellationToken);
             return $"/uploads/{userId}/books/{bookId}/{fileName}";
@@ -1903,6 +2030,51 @@ namespace EBookDashboard.Controllers
             // Feature not available yet — sidebar entry is commented out; block direct URL access.
             TempData["InfoMessage"] = "Audio book tools are not available yet. Check back later.";
             return RedirectToAction("Index", "Dashboard");
+        }
+
+        private async Task<Dictionary<int, int>> BuildExportableChapterCountsAsync(
+            int userId,
+            IReadOnlyCollection<int> bookIds,
+            CancellationToken cancellationToken)
+        {
+            var result = new Dictionary<int, int>();
+            if (userId <= 0 || bookIds.Count == 0)
+                return result;
+
+            var ids = bookIds.Distinct().ToList();
+
+            var chapterPairs = await _context.Chapters.AsNoTracking()
+                .Where(c => ids.Contains(c.BookId) && c.Content != null && c.Content.Trim().Length > 0)
+                .Select(c => new { c.BookId, c.ChapterNumber })
+                .ToListAsync(cancellationToken);
+
+            var rawPairs = await _context.APIRawResponse.AsNoTracking()
+                .Where(r => r.UserId == userId
+                    && r.BookId != null
+                    && ids.Contains(r.BookId.Value)
+                    && r.Content != null
+                    && r.Content.Trim().Length > 0)
+                .Select(r => new { BookId = r.BookId!.Value, ChapterNumber = r.Chapter })
+                .ToListAsync(cancellationToken);
+
+            var iterationPairs = await _context.ChapterIterations.AsNoTracking()
+                .Where(i => i.UserId == userId
+                    && ids.Contains(i.BookId)
+                    && i.Content != null
+                    && i.Content.Trim().Length > 0)
+                .Select(i => new { i.BookId, i.ChapterNumber })
+                .ToListAsync(cancellationToken);
+
+            foreach (var g in chapterPairs
+                .Concat(rawPairs)
+                .Concat(iterationPairs)
+                .Distinct()
+                .GroupBy(x => x.BookId))
+            {
+                result[g.Key] = g.Count();
+            }
+
+            return result;
         }
 
         /// <summary>Publishing hub: external platform guides + full-service option (demo gating by role/plan).</summary>
@@ -1940,20 +2112,12 @@ namespace EBookDashboard.Controllers
                     .Select(b => new { b.BookId, Title = string.IsNullOrWhiteSpace(b.Title) ? "Untitled" : b.Title! })
                     .ToListAsync();
 
+                var publishBookIds = publishBookRows.Select(x => x.BookId).ToList();
+                var exportableCounts = await BuildExportableChapterCountsAsync(user.UserId, publishBookIds, HttpContext.RequestAborted);
                 var publishPicker = new List<PublishBookPickerItem>();
                 foreach (var row in publishBookRows)
                 {
-                    var exportable = 0;
-                    try
-                    {
-                        var details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, row.BookId);
-                        if (details != null && details.Success)
-                            exportable = details.Chapters?.Count(c => !string.IsNullOrWhiteSpace(c.Content)) ?? 0;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex, "Publish picker: chapter count for book {BookId}", row.BookId);
-                    }
+                    var exportable = exportableCounts.GetValueOrDefault(row.BookId, 0);
 
                     publishPicker.Add(new PublishBookPickerItem
                     {
@@ -1973,8 +2137,6 @@ namespace EBookDashboard.Controllers
 
             if (user != null && bookId.HasValue && bookId.Value > 0)
             {
-                await _publishReadiness.TryPromoteBookToFinalizedAsync(user.UserId, bookId.Value);
-
                 var pb = await _context.Books.AsNoTracking().FirstOrDefaultAsync(b => b.BookId == bookId.Value && b.UserId == user.UserId);
                 if (pb != null)
                 {
@@ -1984,16 +2146,20 @@ namespace EBookDashboard.Controllers
                     var frontCoverKey = $"book:{bookId.Value}:printReadyCoverFront";
                     var aiCoverKey = $"book:{bookId.Value}:aiCoverLastPreview";
                     var wrapKey = $"book:{bookId.Value}:printReadyCoverWrap";
+                    var wrapApiKey = $"book:{bookId.Value}:printReadyCoverWrapApi";
                     var coverRows = await _context.Settings.AsNoTracking()
-                        .Where(s => s.Key == frontCoverKey || s.Key == aiCoverKey || s.Key == wrapKey)
+                        .Where(s => s.Key == frontCoverKey || s.Key == aiCoverKey || s.Key == wrapKey || s.Key == wrapApiKey)
                         .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
                     var frontCover = (coverRows.GetValueOrDefault(frontCoverKey) ?? "").Trim();
                     var aiCover = (coverRows.GetValueOrDefault(aiCoverKey) ?? "").Trim();
                     var wrapCover = (coverRows.GetValueOrDefault(wrapKey) ?? "").Trim();
+                    if (string.IsNullOrEmpty(wrapCover))
+                        wrapCover = (coverRows.GetValueOrDefault(wrapApiKey) ?? "").Trim();
                     var pathCover = (pb.CoverImagePath ?? "").Trim();
                     // Screen preview: front panel only. Full wrap is download-only (printReadyCoverWrap).
-                    ViewBag.PublishBookCover = !string.IsNullOrEmpty(frontCover)
-                        ? frontCover
+                    var resolvedFront = BookCoverRefResolver.ResolveEbookFrontCoverRef(frontCover, aiCover, pathCover, wrapCover);
+                    ViewBag.PublishBookCover = !string.IsNullOrEmpty(resolvedFront)
+                        ? resolvedFront
                         : (!string.IsNullOrEmpty(aiCover) ? aiCover : pathCover);
                     ViewBag.PublishBookCoverWrap = !string.IsNullOrEmpty(wrapCover) ? wrapCover : "";
                     ViewBag.PublishHasFrontCover = !string.IsNullOrEmpty(frontCover) || !string.IsNullOrEmpty(aiCover) || !string.IsNullOrEmpty(pathCover);
@@ -2005,9 +2171,10 @@ namespace EBookDashboard.Controllers
                     var bid = bookId.Value;
                     var uid = user.UserId;
                     var exportableChapterCount = 0;
+                    BookDetailsResponseDto? details = null;
                     try
                     {
-                        var details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, bid);
+                        details = await _bookService.GetBookDetailsForPreviewAsync(user.UserId, bid);
                         if (details != null && details.Success)
                         {
                             exportableChapterCount = details.Chapters?
@@ -2049,11 +2216,20 @@ namespace EBookDashboard.Controllers
                     }
 
                     var hasChapterContent = exportableChapterCount > 0;
+                    if (details != null && details.Success)
+                    {
+                        await _publishReadiness.TryPromoteBookToFinalizedAsync(
+                            user.UserId,
+                            bid,
+                            details.Chapters ?? new List<ChapterDto>(),
+                            HttpContext.RequestAborted);
+                    }
                     var statusReady = BookPublishReadinessService.IsPublishReadyBookStatus(ps) || hasChapterContent;
 
                     var fmt = await _context.BookFormatting.AsNoTracking()
                         .FirstOrDefaultAsync(f => f.BookId == bookId.Value && f.UserId == user.UserId);
-                    var publishFormat = (fmt?.Format ?? "").Trim();
+                    var exportOptForMode = await LoadExportOptionsAsync(user.UserId, bid, HttpContext.RequestAborted);
+                    var publishFormat = (exportOptForMode.Format ?? fmt?.Format ?? "").Trim();
                     if (publishFormat.Equals("Print", StringComparison.OrdinalIgnoreCase))
                         publishFormat = "Paperback";
                     if (!publishFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
@@ -2061,15 +2237,20 @@ namespace EBookDashboard.Controllers
                         && !publishFormat.Equals("Both", StringComparison.OrdinalIgnoreCase))
                         publishFormat = "Ebook";
                     ViewBag.PublishBookFormat = publishFormat;
-                    var primaryPlatform = (fmt?.PublishingPlatform ?? "").Trim();
-                    var platformCsv = (fmt?.PublishingPlatforms ?? "").Trim();
+                    var primaryPlatform = exportOptForMode.PrimaryPlatformToken();
+                    if (string.IsNullOrWhiteSpace(primaryPlatform))
+                        primaryPlatform = (fmt?.PublishingPlatform ?? "").Trim();
+                    var platformCsv = (exportOptForMode.PublishingPlatforms ?? fmt?.PublishingPlatforms ?? "").Trim();
                     var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     var hasPrintReadyPlatform =
                         primaryPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
                         || selectedPlatforms.Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase));
                     var isPaperbackFormat = publishFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase);
+                    var isBothFormatFlag = publishFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
+                    // Print-ready platform or ?flow=printready must win even when format dropdown still says Ebook.
                     var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform || isPaperbackFormat;
                     ViewBag.PublishPrintReadyMode = isPrintReadyFlow;
+                    ViewBag.PublishBothFormat = isBothFormatFlag;
                     var canExport = hasChapterContent;
                     ViewBag.PublishCanExport = canExport;
                     ViewBag.PublishBookReady = canExport;

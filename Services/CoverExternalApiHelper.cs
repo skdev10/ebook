@@ -128,6 +128,35 @@ namespace EBookDashboard.Services
 
             foreach (var obj in all)
             {
+                if (obj["panels"] is JObject panels)
+                {
+                    bundle.Front = FirstNonEmpty(bundle.Front,
+                        NormalizeImageRef(panels["front"]?.ToString()),
+                        NormalizeImageRef(panels["front_cover"]?.ToString()));
+                    bundle.Back = FirstNonEmpty(bundle.Back,
+                        NormalizeImageRef(panels["back"]?.ToString()),
+                        NormalizeImageRef(panels["back_cover"]?.ToString()));
+                    bundle.Spine = FirstNonEmpty(bundle.Spine,
+                        NormalizeImageRef(panels["spine"]?.ToString()),
+                        NormalizeImageRef(panels["spine_cover"]?.ToString()));
+                }
+
+                if (obj["cover"] is JObject coverObj)
+                {
+                    bundle.Front = FirstNonEmpty(bundle.Front,
+                        NormalizeImageRef(coverObj["front"]?.ToString()),
+                        NormalizeImageRef(coverObj["front_cover"]?.ToString()));
+                    bundle.Back = FirstNonEmpty(bundle.Back,
+                        NormalizeImageRef(coverObj["back"]?.ToString()),
+                        NormalizeImageRef(coverObj["back_cover"]?.ToString()));
+                    bundle.Spine = FirstNonEmpty(bundle.Spine,
+                        NormalizeImageRef(coverObj["spine"]?.ToString()),
+                        NormalizeImageRef(coverObj["spine_cover"]?.ToString()));
+                    bundle.Wrap = FirstNonEmpty(bundle.Wrap,
+                        NormalizeImageRef(coverObj["wrap"]?.ToString()),
+                        NormalizeImageRef(coverObj["full_wrap"]?.ToString()));
+                }
+
                 bundle.Front = FirstNonEmpty(bundle.Front,
                     NormalizeImageRef(obj["front"]?.ToString()),
                     NormalizeImageRef(obj["front_cover"]?.ToString()),

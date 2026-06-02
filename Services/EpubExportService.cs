@@ -14,6 +14,9 @@ public interface IEpubExportService
         string? coverImageUrlOrData,
         string? displayTitle,
         string? displayAuthor,
+        BookPdfExportOptions? exportOptions = null,
+        int pageCountForCover = 0,
+        string? trimSizeForCover = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -26,12 +29,30 @@ public class EpubExportService : IEpubExportService
         string? coverImageUrlOrData,
         string? displayTitle,
         string? displayAuthor,
+        BookPdfExportOptions? exportOptions = null,
+        int pageCountForCover = 0,
+        string? trimSizeForCover = null,
         CancellationToken cancellationToken = default)
     {
         var title = WebUtility.HtmlEncode((displayTitle ?? details.BookTitle ?? "Untitled").Trim());
         if (string.IsNullOrEmpty(title)) title = "Untitled";
         var author = WebUtility.HtmlEncode((displayAuthor ?? details.AuthorName ?? "Author").Trim());
         if (string.IsNullOrEmpty(author)) author = "Author";
+
+        var descriptionPlain = (details.Description ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(descriptionPlain) && details.Chapters != null)
+        {
+            var firstBody = details.Chapters
+                .Where(c => !string.IsNullOrWhiteSpace(c.Content))
+                .OrderBy(c => c.ChapterNumber)
+                .Select(c => c.Content!)
+                .FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(firstBody))
+                descriptionPlain = BookManuscriptStats.Truncate(BookManuscriptStats.StripToPlain(firstBody), 500);
+        }
+        var descriptionMeta = string.IsNullOrWhiteSpace(descriptionPlain)
+            ? ""
+            : $"    <dc:description>{WebUtility.HtmlEncode(descriptionPlain)}</dc:description>\n";
 
         var baseCtx = BookManuscriptHtmlFormatter.CreateBaseContext(
             displayTitle ?? details.BookTitle ?? "Untitled",
@@ -64,34 +85,16 @@ public class EpubExportService : IEpubExportService
             var navItems = new StringBuilder();
             var itemIndex = 0;
 
-            const string epubCss = """
-                body {
-                  font-family: Georgia, "Times New Roman", serif;
-                  font-size: 1.05em;
-                  line-height: 1.65;
-                  margin: 1.2em 1em;
-                  color: #1e293b;
-                }
-                h1, h2, h3, h4, h5, h6 {
-                  font-weight: 600;
-                  margin: 1.2em 0 0.6em;
-                  line-height: 1.25;
-                  color: #0f172a;
-                  page-break-after: avoid;
-                }
-                h1 { font-size: 1.55em; }
-                p {
-                  margin: 0 0 0.95em;
-                  text-align: justify;
-                }
-                img { max-width: 100%; height: auto; }
-                """;
+            var exportOpt = exportOptions ?? new BookPdfExportOptions();
+            var epubCss = InteriorExportTheme.BuildEpubStylesheet(exportOpt);
 
             WriteEntry(zip, "OEBPS/styles.css", epubCss);
             manifest.AppendLine("    <item id=\"styles\" href=\"styles.css\" media-type=\"text/css\"/>");
 
             string? coverImageId = null;
             byte[]? coverBytes = await ResolveCoverBytesAsync(coverImageUrlOrData, details.CoverImagePath, cancellationToken);
+            if (coverBytes != null && coverBytes.Length > 0)
+                coverBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(coverBytes, pageCountForCover, trimSizeForCover);
             if (coverBytes != null && coverBytes.Length > 0)
             {
                 var (coverHref, coverMedia) = DetectCoverAsset(coverBytes);
@@ -165,7 +168,7 @@ public class EpubExportService : IEpubExportService
                     <dc:title>{title}</dc:title>
                     <dc:creator>{author}</dc:creator>
                     <dc:language>en</dc:language>
-                    <meta property="dcterms:modified">{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}</meta>
+                {descriptionMeta}    <meta property="dcterms:modified">{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}</meta>
                 {coverMeta}
                   </metadata>
                   <manifest>

@@ -349,7 +349,7 @@ public class BookPdfService : IBookPdfService
             ".manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; } ",
             ".manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; } ",
             ".manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; } ",
-            ".manuscript-p { margin: 0 0 3mm; orphans: 2; widows: 2; } ",
+            ".manuscript-p { margin: 0 0 3mm; orphans: 3; widows: 3; page-break-inside: avoid; } ",
             ".manuscript-hr { border: none; border-top: 1px solid #cbd5e1; margin: 6mm 0; } ",
             "blockquote { margin: 3mm 0 3mm 6mm; padding-left: 4mm; border-left: 3px solid #c4b5fd; color: #334155; } ",
             /* In-chapter headings (h1–h6) must not start a new page — only a new <section class=\"chapter\"> does (KDP-style). */

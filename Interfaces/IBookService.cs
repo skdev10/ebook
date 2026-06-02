@@ -1,6 +1,7 @@
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Models.ViewModels;
+using EBookDashboard.Services;
 
 namespace EBookDashboard.Interfaces
 {
@@ -50,6 +51,12 @@ namespace EBookDashboard.Interfaces
         Task<BookDetailsResponseDto?> GetBookDetailsAsync(int userId, int bookId);
         /// <summary>Lightweight load for formatter/preview: no isActive updates, faster.</summary>
         Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId);
+
+        /// <summary>Word count and description from DB + live chapter manuscript.</summary>
+        Task<BookManuscriptStats.ManuscriptSummary> GetManuscriptSummaryAsync(int userId, int bookId);
+
+        /// <summary>Persist computed word count / description onto Books when DB fields are empty.</summary>
+        Task SyncBookMetadataFromManuscriptAsync(int userId, int bookId);
         Task<BookDetailsResponseDto?> GetBookDetailsAsync2(int userId, int bookId, int chapterNo, int? responseId = null);
         Task<bool> SetRecordReadOnlyAsync(FinalizeChapters finalize);
         Task<int> GetLastChapterAsync(int userId, int bookId);

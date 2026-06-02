@@ -555,7 +555,8 @@ namespace EBookDashboard.Controllers
                 {
                     return RedirectToAction("UserLogin", "Account");
                 }
-                var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1" || _context.Books.Any(b => b.UserId == userId);
+                var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1"
+                    || await _context.Books.AnyAsync(b => b.UserId == userId);
                 if (!hasGeneratedBook)
                 {
                     ViewBag.LockMessage = "Please generate your AI book first before accessing this section.";

@@ -349,11 +349,63 @@
     var selectedOptionEl = null;
     var booksCacheKey = 'cover_design_books_cache_v1';
     var FORMATTER_BOOK_KEY = typeof window.EBOOK_FORMATTER_BOOK_KEY === 'string' ? window.EBOOK_FORMATTER_BOOK_KEY : 'ebook_formatter_book_id';
+
+    function coverUrlSessionKey(bookId) {
+        return 'coverDesign_selectedUrl_' + bookId;
+    }
+
+    function persistCoverSelection(bookId, url) {
+        if (!bookId || !url) return;
+        try {
+            sessionStorage.setItem(coverUrlSessionKey(bookId), url);
+            sessionStorage.setItem('coverDesign_selectedUrl', url);
+            sessionStorage.setItem('coverDesign_hasGenerated', '1');
+            sessionStorage.setItem('coverDesign_lastBookId', String(bookId));
+        } catch (_) {}
+    }
+
+    function readPersistedCoverUrl(bookId) {
+        if (!bookId) return '';
+        try {
+            var scoped = sessionStorage.getItem(coverUrlSessionKey(bookId));
+            if (scoped) return scoped.trim();
+            var lastId = parseInt(sessionStorage.getItem('coverDesign_lastBookId') || '0', 10);
+            if (lastId === bookId) {
+                var legacy = sessionStorage.getItem('coverDesign_selectedUrl');
+                if (legacy) return legacy.trim();
+            }
+        } catch (_) {}
+        return '';
+    }
+
+    function patchBooksCache(bookId, patch) {
+        if (!bookId || !patch) return;
+        var ix = books.findIndex(function (b) { return b.bookId === bookId; });
+        if (ix >= 0) books[ix] = Object.assign({}, books[ix], patch);
+        try {
+            var cached = JSON.parse(sessionStorage.getItem(booksCacheKey) || 'null');
+            if (cached && cached.success && cached.books) {
+                var j = cached.books.findIndex(function (b) { return b.bookId === bookId; });
+                if (j >= 0) {
+                    cached.books[j] = Object.assign({}, cached.books[j], patch);
+                    sessionStorage.setItem(booksCacheKey, JSON.stringify(cached));
+                }
+            }
+        } catch (_) {}
+    }
+
+    function resolveCoverPathForBook(book) {
+        if (!book) return '';
+        var path = (book.aiCoverLastPreview || book.coverImagePath || '').trim();
+        if (!path) path = readPersistedCoverUrl(book.bookId);
+        return path;
+    }
     /** Last 3 generated / edited cover URLs for quick recall */
     var coverHistory = [];
     var MAX_HISTORY = 3;
     var hasAiCoverThisSession = false;
     var bookPublishingPlatform = '';
+    var bookPublishFormat = '';
 
     function isPrintReadyPlatform() {
         var p = (bookPublishingPlatform || '').toLowerCase();
@@ -619,16 +671,21 @@
                     .then(function (fd) {
                         if (fd && fd.success && fd.data) {
                             bookPublishingPlatform = (fd.data.publishingPlatform || fd.data.publishingPlatforms || '').trim();
+                            var fmt = (fd.data.format || '').trim();
+                            if (fmt === 'Print') fmt = 'Paperback';
+                            bookPublishFormat = fmt;
                         }
                     })
                     .catch(function () {});
                 var path = (b.aiCoverLastPreview || b.coverImagePath || '').trim();
+                if (!path) path = readPersistedCoverUrl(b.bookId);
                 if (path) {
+                    coverHistory = [];
                     applyBestFrontPreview(path).catch(function () {
                         selectedPath = path;
                         setCoverImageVisible(toUrl(path));
                     });
-                    if (coverHistory.indexOf(path) < 0) pushCoverHistory(path);
+                    pushCoverHistory(path);
                 }
                 applyCoverStyleClass();
                 syncCoverStyleCards();
@@ -737,7 +794,7 @@
         }
         selectedPath = resolved;
         setCoverImageVisible(resolved);
-        try { sessionStorage.setItem('coverDesign_selectedUrl', selectedPath); } catch (_) {}
+        if (selectedBook && selectedBook.bookId) persistCoverSelection(selectedBook.bookId, selectedPath);
         return resolved;
     }
 
@@ -790,11 +847,29 @@
                 printWrapAssets = {
                     front: c.front || '',
                     back: c.back || '',
+                    spine: c.spine || '',
                     wrap: c.wrap || '',
                     pageCount: d.pageCount || 0
                 };
                 setPrintWrapSaved(!!c.wrap);
-                if (c.front) applyFrontOnlyPreview(c.front);
+                coverHistory = [];
+                var latest = c.front || c.wrap;
+                if (latest) {
+                    applyBestFrontPreview(latest).catch(function () {
+                        selectedPath = latest;
+                        setCoverImageVisible(toUrl(latest));
+                    });
+                    pushCoverHistory(latest);
+                    if (selectedBook && selectedBook.bookId) {
+                        selectedBook.aiCoverLastPreview = latest;
+                        if (latest.indexOf('data:') !== 0) selectedBook.coverImagePath = c.front || latest;
+                        persistCoverSelection(selectedBook.bookId, latest);
+                        patchBooksCache(selectedBook.bookId, {
+                            aiCoverLastPreview: latest,
+                            coverImagePath: c.front || selectedBook.coverImagePath
+                        });
+                    }
+                }
             })
             .catch(function () {});
     }
@@ -851,12 +926,9 @@
                 btn.classList.add('border-violet-600', 'ring-2', 'ring-violet-300');
                 btn.classList.remove('border-slate-200');
                 selectedPath = btn.getAttribute('data-path') || '';
-                console.log('[CoverDesign] Thumbnail selected, path length:', selectedPath.length);
                 setCoverImageVisible(toUrl(selectedPath));
-                try {
-                    sessionStorage.setItem('coverDesign_selectedUrl', selectedPath);
-                    if (coverGeneratedPayload) coverGeneratedPayload.value = selectedPath.indexOf('data:') === 0 ? selectedPath.substring(0, 120) + '…' : selectedPath;
-                } catch (e) { console.warn('[CoverDesign] sessionStorage', e); }
+                if (selectedBook && selectedBook.bookId) persistCoverSelection(selectedBook.bookId, selectedPath);
+                if (coverGeneratedPayload) coverGeneratedPayload.value = selectedPath.indexOf('data:') === 0 ? selectedPath.substring(0, 120) + '…' : selectedPath;
                 renderHistoryThumbnails();
             });
         });
@@ -868,6 +940,12 @@
         var urls = [];
         if (!d) return urls;
         if (d.coverUrl) urls.push(d.coverUrl);
+        if (d.cover) {
+            if (d.cover.wrap) urls.push(d.cover.wrap);
+            if (d.cover.front) urls.push(d.cover.front);
+            if (d.cover.back) urls.push(d.cover.back);
+            if (d.cover.spine) urls.push(d.cover.spine);
+        }
         if (d.status === 'success' && d.image_base64) {
             urls.push('data:image/png;base64,' + d.image_base64);
         }
@@ -884,21 +962,27 @@
     }
 
     function applyGenerationSuccess(d, label) {
-        console.log('[CoverDesign] ' + (label || 'generate') + ' response:', d && d.status, d && d.success, (d && d.options && d.options.length) || 0);
         var urls = pickPreviewUrls(d);
         if (!urls.length) {
             toast('error', (d && d.message) ? d.message : 'No image returned.');
             return;
         }
         hasAiCoverThisSession = true;
+        coverHistory = [];
         var primary = urls[0];
         selectedPath = primary;
         pushCoverHistory(primary);
         urls.slice(1).forEach(function (u) { pushCoverHistory(u); });
         setCoverImageVisible(toUrl(primary));
+        if (selectedBook && selectedBook.bookId) {
+            selectedBook.aiCoverLastPreview = primary;
+            if (primary.indexOf('data:') !== 0) selectedBook.coverImagePath = primary;
+            persistCoverSelection(selectedBook.bookId, primary);
+            var cachePatch = { aiCoverLastPreview: primary };
+            if (primary.indexOf('data:') !== 0) cachePatch.coverImagePath = primary;
+            patchBooksCache(selectedBook.bookId, cachePatch);
+        }
         try {
-            sessionStorage.setItem('coverDesign_selectedUrl', selectedPath);
-            sessionStorage.setItem('coverDesign_hasGenerated', '1');
             if (coverGeneratedPayload) {
                 coverGeneratedPayload.value = (primary.indexOf('data:') === 0)
                     ? ('data-url-chars:' + String(primary.length))
@@ -925,6 +1009,114 @@
         }
     }
 
+    async function generatePrintReadyCoverFromApi() {
+        if (!selectedBook) {
+            toast('error', 'No book loaded.');
+            return;
+        }
+        var userPrompt = (imageDirection.value || '').trim();
+        if (!userPrompt) {
+            toast('info', 'Write your Image Direction prompt first, then click Generate Cover.');
+            if (imageDirection) imageDirection.focus();
+            return;
+        }
+        var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.estimatedPages || selectedBook.totalPages)) || 0;
+        if (!pageCount && selectedBook && selectedBook.bookId) {
+            try {
+                var metricsResp = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(selectedBook.bookId));
+                var metricsData = await metricsResp.json();
+                if (metricsData && metricsData.success && metricsData.pageCount > 0) {
+                    pageCount = metricsData.pageCount;
+                    selectedBook.pageCount = pageCount;
+                }
+            } catch (_) {}
+        }
+        if (!pageCount) {
+            toast('error', 'Could not determine page count for spine width. Open Book Formatting first.');
+            return;
+        }
+        var body = {
+            bookId: selectedBook.bookId,
+            pageCount: pageCount,
+            title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
+            author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
+            genre: (bookCategory.value || '').trim(),
+            style: (coverStyle.value || '').trim() || 'modern',
+            description: userPrompt,
+            coverStyle: buildStructuredPrompt(),
+            size: '1536x1024',
+            quality: 'high'
+        };
+        setBusy(true, 'Generating full wrap (back + spine + front)…');
+        try {
+            var r = await fetch('/Dashboard/GeneratePrintReadyCover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            var text = await r.text();
+            var d = {};
+            try { d = text ? JSON.parse(text) : {}; } catch (e) {
+                console.error('[CoverDesign] GeneratePrintReadyCover JSON parse error', e, text);
+                d = { success: false, message: text || 'Invalid JSON' };
+            }
+            if (!r.ok && !d.message) d.message = 'HTTP ' + r.status;
+            if (d.status === 'error' || d.success === false) {
+                toast('error', d.message || 'Print wrap generation failed.');
+                return;
+            }
+            if (!(d.status === 'success' || d.success === true)) {
+                toast('error', d.message || 'Unexpected response.');
+                return;
+            }
+            var c = d.cover || {};
+            if (c.wrap) coverWraparoundRef = c.wrap;
+            printWrapAssets = {
+                front: c.front || '',
+                back: c.back || '',
+                spine: c.spine || '',
+                wrap: c.wrap || '',
+                pageCount: d.pageCount || pageCount
+            };
+            setPrintWrapSaved(!!c.wrap);
+            lastKdpLayout = d.kdp || null;
+            var previewPath = c.front || c.wrap || (d.options && d.options[0]) || '';
+            if (!previewPath) {
+                toast('error', 'No cover image returned from print wrap API.');
+                return;
+            }
+            coverHistory = [];
+            await applyBestFrontPreview(previewPath);
+            pushCoverHistory(selectedPath || previewPath);
+            if (selectedBook && selectedBook.bookId) {
+                selectedBook.aiCoverLastPreview = previewPath;
+                if (c.front && c.front.indexOf('data:') !== 0) selectedBook.coverImagePath = c.front;
+                persistCoverSelection(selectedBook.bookId, selectedPath || previewPath);
+                patchBooksCache(selectedBook.bookId, {
+                    aiCoverLastPreview: previewPath,
+                    coverImagePath: c.front || selectedBook.coverImagePath
+                });
+            }
+            try {
+                if (coverGeneratedPayload) {
+                    coverGeneratedPayload.value = (previewPath.indexOf('data:') === 0)
+                        ? ('data-url-chars:' + String(previewPath.length))
+                        : (c.wrap || previewPath);
+                }
+            } catch (e) { /* ignore */ }
+            showSpinePagesCreatedAlert(d.pageCount || pageCount);
+            showPrintWrapModal(printWrapAssets, !!c.wrap, d, true);
+            toast('success', 'Full print wrap saved — ready to export on Publish.');
+            updateLivePreview();
+            setTimeout(function () { renderHistoryThumbnails(); }, 0);
+        } catch (err) {
+            console.error('[CoverDesign] GeneratePrintReadyCover fetch error', err);
+            toast('error', err.message || 'Network error.');
+        } finally {
+            setBusy(false);
+        }
+    }
+
     async function generateCoverFromDashboard(endpointUrl) {
         if (!selectedBook) {
             toast('error', 'No book loaded.');
@@ -934,6 +1126,11 @@
         if (!userPrompt) {
             toast('info', 'Write your Image Direction prompt first, then click Generate Cover.');
             if (imageDirection) imageDirection.focus();
+            return;
+        }
+        var isPrintFlow = (isPrintReadyPlatform() || coverFlowPrintReady || bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both') && !skipPrintReadyAuto;
+        if (isPrintFlow) {
+            await generatePrintReadyCoverFromApi();
             return;
         }
         var url = endpointUrl || '/Dashboard/GenerateCover';
@@ -947,7 +1144,6 @@
             style: (coverStyle.value || '').trim() || 'modern',
             description: (imageDirection.value || '').trim()
         };
-        console.log('[CoverDesign] POST ' + url, { bookId: body.bookId, style: body.style, genre: body.genre });
         setBusy(true, 'Generating front cover…');
         try {
             var r = await fetch(url, {
@@ -972,65 +1168,7 @@
             }
             if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
             applyGenerationSuccess(d, 'generate');
-
-            if ((isPrintReadyPlatform() || coverFlowPrintReady) && !skipPrintReadyAuto) {
-                setBusy(true, 'Generating…');
-                var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.estimatedPages || selectedBook.totalPages)) || 0;
-                if (!pageCount && selectedBook && selectedBook.bookId) {
-                    try {
-                        var metricsResp = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(selectedBook.bookId));
-                        var metricsData = await metricsResp.json();
-                        if (metricsData && metricsData.success && metricsData.pageCount > 0) {
-                            pageCount = metricsData.pageCount;
-                            selectedBook.pageCount = pageCount;
-                        }
-                    } catch (_) {}
-                }
-                if (!pageCount) {
-                    toast('error', 'Could not determine actual page count for spine generation.');
-                    return;
-                }
-                try {
-                    var pr = await fetch('/Dashboard/GeneratePrintReadyCover', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({
-                            bookId: selectedBook.bookId,
-                            pageCount: pageCount,
-                            trimSize: '6 x 9 in',
-                            coverStyle: (imageDirection.value || '').trim() || (coverStyle.value || 'modern').trim(),
-                            size: '1536x1024',
-                            quality: 'low'
-                        })
-                    });
-                    var prText = await pr.text();
-                    var prData = {};
-                    try { prData = prText ? JSON.parse(prText) : {}; } catch (jsonErr) {
-                        prData = { success: false, message: prText || ('HTTP ' + pr.status) };
-                    }
-                    if (!pr.ok && !prData.message) prData.message = 'Print-ready service returned HTTP ' + pr.status + '.';
-                    if (prData && prData.success) {
-                        var frontUrl = (prData.cover && prData.cover.front) || d.coverUrl || selectedPath;
-                        var wrapUrl = (prData.cover && prData.cover.wrap) || '';
-                        if (wrapUrl) coverWraparoundRef = wrapUrl;
-                        printWrapAssets = {
-                            front: frontUrl,
-                            back: (prData.cover && prData.cover.back) || '',
-                            wrap: wrapUrl,
-                            pageCount: prData.pageCount || pageCount
-                        };
-                        if (frontUrl) applyFrontOnlyPreview(frontUrl);
-                        showSpinePagesCreatedAlert(prData.pageCount || pageCount);
-                    } else {
-                        toast('error', (prData && prData.message) || 'Print-ready cover generation failed.');
-                    }
-                } catch (e) {
-                    var msg = (e && e.message) ? e.message : 'Print wrap generation failed.';
-                    toast('error', msg);
-                }
-            } else {
-                toast('success', 'Front cover ready.');
-            }
+            toast('success', 'Front cover ready.');
         } catch (err) {
             console.error('[CoverDesign] GenerateCover fetch error', err);
             toast('error', err.message || 'Network error.');
@@ -1069,7 +1207,6 @@
 
     async function editCoverWithApi() {
         var direction = (imageDirection.value || '').trim();
-        console.log('[CoverDesign] POST /Dashboard/EditCover, direction length:', direction.length);
         setBusy(true);
         try {
             var b64 = await getPreviewImageAsBase64Async();
@@ -1111,7 +1248,7 @@
         authorName.value = selectedBook.authorName || '';
         setGenreFromApi((selectedBook.genre || '').trim());
         imageDirection.value = selectedBook.aiCoverPrompt || selectedBook.description || '';
-        selectedPath = (selectedBook.aiCoverLastPreview || selectedBook.coverImagePath || '').trim();
+        selectedPath = resolveCoverPathForBook(selectedBook);
         coverHistory = [];
         hasAiCoverThisSession = false;
         selectedOptionEl = null;
@@ -1165,7 +1302,16 @@
     function loadBooks() {
         var cached = null;
         try { cached = JSON.parse(sessionStorage.getItem(booksCacheKey) || 'null'); } catch (_) { cached = null; }
-        if (cached && cached.success && cached.books && cached.books.length) renderBooks(cached);
+        if (cached && cached.success && cached.books && cached.books.length) {
+            cached.books.forEach(function (b) {
+                if (!b || !b.bookId) return;
+                if (!(b.aiCoverLastPreview || b.coverImagePath)) {
+                    var sess = readPersistedCoverUrl(b.bookId);
+                    if (sess) b.aiCoverLastPreview = sess;
+                }
+            });
+            renderBooks(cached);
+        }
         fetch('/Books/GetUserBooksForCoverDesign')
             .then(function (r) { return r.json(); })
             .then(function (d) {
@@ -1187,11 +1333,9 @@
     });
     btnGenerate.addEventListener('click', function () { generateCoverFromDashboard(); });
     if (btnRegenerate) btnRegenerate.addEventListener('click', function () {
-        console.log('[CoverDesign] Regenerate clicked');
         generateCoverFromDashboard('/Dashboard/RegenerateCover');
     });
     if (btnEditCover) btnEditCover.addEventListener('click', function () {
-        console.log('[CoverDesign] Edit cover clicked');
         editCoverWithApi();
     });
 
@@ -1431,7 +1575,8 @@
         var bid = selectedBook.bookId;
         try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (_) {}
         var publishUrl = '/Dashboard/Publish?bookId=' + encodeURIComponent(bid);
-        if (coverFlowPrintReady || isPrintReadyPlatform() || coverType === 'both') publishUrl += '&flow=printready';
+        var isPrintFmt = bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both';
+        if (coverFlowPrintReady || isPrintReadyPlatform() || isPrintFmt) publishUrl += '&flow=printready';
         window.location.href = publishUrl;
     });
 

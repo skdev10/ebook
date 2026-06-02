@@ -345,9 +345,9 @@ Notes:
 - Export UI now reports the resolved total page count in success toasts and print-wrap actions.
 - Publish screen forces front-panel preview when a wrap/back+spine+front image is detected.
 
-#### Full request (ASP.NET BFF — recommended)
+#### ASP.NET BFF request (Cover Design → Publish)
 
-When calling via `POST /Dashboard/GeneratePrintReadyCover`, the BFF adds KDP-calculated dimensions:
+`POST /Dashboard/GeneratePrintReadyCover` forwards the **same minimal upstream contract** as above. The BFF computes KDP spine math locally for layout/export only; it sends:
 
 ```json
 {
@@ -359,22 +359,11 @@ When calling via `POST /Dashboard/GeneratePrintReadyCover`, the BFF adds KDP-cal
   "quality": "high",
   "Interior_trim_size": "6 x 9 in",
   "page_count": 40,
-  "binding_type": "Paperback",
-  "paper_type": "White paper",
-  "interior_type": "Black & white",
-  "spine_width_inches": 0.090,
-  "spine_width_mm": 2.29,
-  "wrap_width_inches": 12.340,
-  "wrap_height_inches": 9.250,
-  "wrap_width_mm": 313.44,
-  "wrap_height_mm": 234.95,
-  "bleed_inches": 0.125,
-  "wrap_margin_inches": 0.125,
-  "hinge_gap_inches": 0,
-  "panel_width_inches": 6.0,
-  "panel_height_inches": 9.0
+  "paper_type": "white"
 }
 ```
+
+**Cover persistence:** Each new generation **replaces** prior cover Settings (`printReadyCoverWrap`, `printReadyCoverFront`, `printReadyCoverBack`, `printReadyCoverSpine`, `aiCoverLastPreview`) and updates `Book.CoverImagePath`. Old thumbnails are not kept in Cover Design history.
 
 #### Request fields
 
@@ -388,9 +377,7 @@ When calling via `POST /Dashboard/GeneratePrintReadyCover`, the BFF adds KDP-cal
 | `quality` | Yes | `low` \| `medium` \| `high` \| `auto` |
 | `Interior_trim_size` | Yes | e.g. `"6 x 9 in"` |
 | `page_count` | Yes | **Drives spine width** — must match formatted manuscript |
-| `paper_type` | Recommended | `"white"`, `"White paper"`, `"cream"`, etc. |
-| `spine_width_inches` | BFF adds | Pre-calculated spine (see formula below) |
-| `binding_type` | BFF adds | Usually `"Paperback"` |
+| `paper_type` | Recommended | `"white"` or `"cream"` (lowercase, upstream contract) |
 
 #### KDP spine width formula (white paper)
 
@@ -436,9 +423,10 @@ Upstream returns image URL(s) and/or base64. The BFF extracts:
 | Page count | `book:{id}:printReadyPageCount` |
 
 **Client-side export (300 DPI PNG):**  
-`POST /Dashboard/GetPrintReadyCoverAssets` → `CoverKdpExport.composePrintWrapFromParts()` recalibrates spine to exact `page_count`, solid spine color, **no spine text**.
+Publish downloads the saved wrap from `GET /Dashboard/GetPrintReadyCoverAssets`. Client-side `CoverKdpExport.composePrintWrapFromParts()` is a **fallback only** when upstream returns front-only art.
 
-**BFF route:** `POST /Dashboard/GeneratePrintReadyCover`
+**BFF route:** `POST /Dashboard/GeneratePrintReadyCover`  
+**Cover Design UI:** Print Ready / Paperback / Both flows call this endpoint directly (not client-side compose).
 
 ---
 

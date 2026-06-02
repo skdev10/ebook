@@ -70,6 +70,11 @@ namespace EBookDashboard.Models.DTO
         public string? CoverStyle { get; set; }
         public string? Size { get; set; }
         public string? Quality { get; set; }
+        public string? Title { get; set; }
+        public string? Author { get; set; }
+        public string? Genre { get; set; }
+        public string? Style { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>Paperback (KDP) or Hardcover (case-bound: 1" wrap + 3/8" hinges).</summary>
         public string? BindingType { get; set; }

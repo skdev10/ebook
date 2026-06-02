@@ -56,7 +56,7 @@
                     var coverSrc = CoverUrl(item.CoverImagePath ?? "");
                     <div tabindex="0" role="button" data-ebookhub-preview="1"
                          data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc"
-                         data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount"
+                         data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount" data-bookid="@item.BookId"
                          class="flex-none w-[220px] sm:w-[240px] md:w-[260px] h-[320px] rounded-2xl overflow-hidden shadow-lg ring-1 ring-black/5 relative group cursor-pointer snap-center snap-always block shrink-0">
                         @if (!string.IsNullOrEmpty(coverSrc))
                         {
@@ -132,7 +132,7 @@
             var genreSlug = (item.Genre ?? "").Trim().ToLowerInvariant().Replace(" ", "");
             if (string.IsNullOrEmpty(genreSlug)) { genreSlug = "other"; }
             <div class="ebookhub-book-card bg-white rounded-2xl p-5 sm:p-6 flex gap-6 ring-0 hover:shadow-xl hover:shadow-violet-900/[0.07] hover:ring-1 hover:ring-violet-100/90 transition-all duration-300 ease-out group border border-slate-200/80 hover:border-violet-200/55 hover:-translate-y-0.5 relative overflow-hidden" data-genre="@genreSlug" data-search="@searchText" data-title="@item.Title" data-author="@item.FullName" data-words="@item.WordCount" data-bookid="@item.BookId" data-cover="@coverSrc" data-description="@((item.Description ?? "").Replace("\"", "&quot;"))">
-                <button type="button" data-ebookhub-preview="1" data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc" data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount"
+                <button type="button" data-ebookhub-preview="1" data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc" data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount" data-bookid="@item.BookId"
                         class="w-[130px] sm:w-[142px] flex-shrink-0 overflow-hidden rounded-xl shadow-md ring-1 ring-black/5 cursor-pointer block h-[190px] text-left p-0 border-0 bg-transparent group-hover:ring-violet-200/50 transition-shadow">
                     @if (!string.IsNullOrEmpty(coverSrc))
                     {
@@ -157,12 +157,12 @@
                             <iconify-icon icon="solar:star-bold" width="14" height="14"></iconify-icon>
                             <iconify-icon icon="solar:star-linear" width="14" height="14" class="text-gray-300"></iconify-icon>
                         </div>
-                        <span class="text-xs text-gray-400 font-medium">@item.WordCount.ToString("N0") words</span>
+                        <span class="text-xs text-gray-400 font-medium">@(item.WordCount > 0 ? item.WordCount.ToString("N0") + " words" : "Draft")</span>
                     </div>
-                    <p class="text-sm text-gray-500 line-clamp-3 mb-4 leading-relaxed">@(string.IsNullOrEmpty(item.Description) ? "No description." : (item.Description.Length > 150 ? item.Description.Substring(0, 147) + "..." : item.Description))</p>
+                    <p class="text-sm text-gray-500 line-clamp-3 mb-4 leading-relaxed">@(string.IsNullOrWhiteSpace(item.Description) ? "Open Details for a synopsis from the manuscript." : (item.Description.Length > 150 ? item.Description.Substring(0, 147) + "..." : item.Description))</p>
                     <div class="mt-auto pt-3 border-t border-gray-50 flex items-center gap-3">
                         <button type="button" class="ebookhub-btn-primary px-5 py-2 rounded-xl text-sm font-semibold inline-flex items-center gap-2 border-0 cursor-pointer ebookhub-open-preview"
-                                data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc" data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount">
+                                data-title="@item.Title" data-author="@item.FullName" data-cover="@coverSrc" data-desc="@((item.Description ?? "").Replace("\"", "&quot;"))" data-words="@item.WordCount" data-bookid="@item.BookId">
                             <iconify-icon icon="solar:book-linear" width="16" height="16"></iconify-icon>
                             Details
                         </button>
@@ -205,6 +205,14 @@
             </div>
             <p id="ebookhub-preview-desc" class="text-sm text-gray-600 leading-relaxed mb-3"></p>
             <p id="ebookhub-preview-words" class="text-xs text-gray-400 mb-4"></p>
+            <div class="flex flex-wrap gap-2 mb-4">
+                <a id="ebookhub-open-formatter" href="/BookDesign/CoverDesignCalculatorFixing" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-violet-200 text-violet-700 text-xs font-semibold hover:bg-violet-50">
+                    <i class="fas fa-pencil-ruler" aria-hidden="true"></i> Open formatting
+                </a>
+                <a id="ebookhub-open-publish" href="/Dashboard/Publish" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-violet-200 text-violet-700 text-xs font-semibold hover:bg-violet-50">
+                    <i class="fas fa-rocket" aria-hidden="true"></i> Open publish
+                </a>
+            </div>
             <p class="text-xs text-gray-500 border-t border-gray-100 pt-4">Reading and editing are available in <a href="/Dashboard/MyBooks" class="text-[#7c3aed] font-semibold hover:underline">My Books</a> for your own titles.</p>
         </div>
     </div>
@@ -284,14 +292,40 @@ document.addEventListener('DOMContentLoaded', function() {
         var cover = el.getAttribute('data-cover') || '';
         var desc = el.getAttribute('data-desc') || '';
         var words = el.getAttribute('data-words') || '';
+        var bookId = parseInt(el.getAttribute('data-bookid') || '0', 10);
         document.getElementById('ebookhub-preview-title').textContent = title;
         document.getElementById('ebookhub-preview-author').textContent = author ? ('by ' + author) : '';
         var img = document.getElementById('ebookhub-preview-cover');
         if (img) { img.src = cover; img.alt = title; img.onerror = function() { this.onerror = null; this.src = 'https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop'; }; }
-        document.getElementById('ebookhub-preview-desc').textContent = desc || 'No description.';
-        document.getElementById('ebookhub-preview-words').textContent = words ? (parseInt(words, 10).toLocaleString() + ' words') : '';
+        document.getElementById('ebookhub-preview-desc').textContent = desc || 'Loading synopsis…';
+        document.getElementById('ebookhub-preview-words').textContent = (words && parseInt(words, 10) > 0) ? (parseInt(words, 10).toLocaleString() + ' words') : '';
+        var formatterLink = document.getElementById('ebookhub-open-formatter');
+        var publishLink = document.getElementById('ebookhub-open-publish');
+        if (formatterLink) formatterLink.setAttribute('href', '/BookDesign/CoverDesignCalculatorFixing?bookId=' + (bookId > 0 ? bookId : ''));
+        if (publishLink) publishLink.setAttribute('href', '/Dashboard/Publish?bookId=' + (bookId > 0 ? bookId : ''));
         hubOverlay.classList.remove('hidden');
         hubOverlay.classList.add('flex');
+        if (bookId > 0) {
+            fetch('/Books/BookHubDetails?bookId=' + encodeURIComponent(bookId))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data || !data.success) return;
+                    if (data.title) document.getElementById('ebookhub-preview-title').textContent = data.title;
+                    if (data.author) document.getElementById('ebookhub-preview-author').textContent = 'by ' + data.author;
+                    if (data.description) document.getElementById('ebookhub-preview-desc').textContent = data.description;
+                    if (data.wordCount != null && data.wordCount > 0) {
+                        document.getElementById('ebookhub-preview-words').textContent = Number(data.wordCount).toLocaleString() + ' words';
+                    } else {
+                        document.getElementById('ebookhub-preview-words').textContent = '';
+                    }
+                    if (data.cover && img) { img.src = data.cover; }
+                })
+                .catch(function() {
+                    if (!desc) document.getElementById('ebookhub-preview-desc').textContent = 'Synopsis not available yet.';
+                });
+        } else if (!desc) {
+            document.getElementById('ebookhub-preview-desc').textContent = 'Synopsis not available yet.';
+        }
     }
     function closeHubPreview() {
         if (!hubOverlay) return;

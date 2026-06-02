@@ -87,9 +87,9 @@ public class BookPdfExportOptions
 
     public string BodyFontSizePt()
     {
-        if (string.Equals(TextSize, "Small", StringComparison.OrdinalIgnoreCase)) return "10";
-        if (string.Equals(TextSize, "Large", StringComparison.OrdinalIgnoreCase)) return "12.5";
-        return "11";
+        if (string.Equals(TextSize, "Small", StringComparison.OrdinalIgnoreCase)) return "10.5";
+        if (string.Equals(TextSize, "Large", StringComparison.OrdinalIgnoreCase)) return "15";
+        return "12";
     }
 
     public string BodyLineHeight()

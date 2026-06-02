@@ -11,7 +11,8 @@
     var bylineText = string.IsNullOrWhiteSpace(displayAuthor) ? "" : ("by " + displayAuthor);
 }
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lato:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="~/css/book-page-preview.css" asp-append-version="true" />
 <style>
 
@@ -458,71 +459,84 @@
 
     /* ----- Interior themes: full color + typography (Novel default) ----- */
     .reader-content-wrap.interior-novel {
-        background: #f5ebe0;
-        border-color: #dfc6a8;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+        background: linear-gradient(180deg, #f7eee2 0%, #f3e4d3 100%);
+        border-color: #d7bf9f;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
     }
     .reader-content-wrap.interior-novel .book-preview-sheet {
-        background: #fffef9;
-        border-color: #d4b896;
-        box-shadow: 0 14px 40px -24px rgba(120, 72, 32, 0.35);
+        background: #fffdf8;
+        border-color: #d4b08a;
+        box-shadow: 0 18px 44px -24px rgba(120, 72, 32, 0.36);
+        padding: 1.9rem 2rem;
     }
     .reader-content-wrap.interior-novel .reader-page-title {
         font-family: 'Playfair Display', serif;
-        color: #7c2d12;
+        color: #6f2f10;
         font-weight: 700;
+        font-size: clamp(1.2rem, 1.15rem + 0.5vw, 1.6rem);
+        letter-spacing: 0.015em;
+        text-align: center;
+        margin-bottom: 0.8rem;
+        padding-bottom: 0.55rem;
+        border-bottom: 1px solid rgba(111, 47, 16, 0.18);
     }
     .reader-content-wrap.interior-novel .reader-page-body {
         font-family: 'Merriweather', serif;
-        color: #292524;
+        color: #2c2118;
+        font-size: 1.03rem;
+        line-height: 1.88;
     }
     .reader-content-wrap.interior-novel .reader-page-body p {
-        text-indent: 1.35rem;
+        text-indent: 1.5rem;
         border-left: 3px solid transparent;
+        margin-bottom: 0.95rem;
     }
 
     .reader-content-wrap.interior-modern {
-        background: #e8e8ef;
-        border-color: #cbd5e1;
+        background: linear-gradient(180deg, #eceff5 0%, #e2e8f0 100%);
+        border-color: #c6d2e2;
     }
     .reader-content-wrap.interior-modern .book-preview-sheet {
         background: #ffffff;
-        border-color: #94a3b8;
-        box-shadow: 0 16px 48px -28px rgba(51, 65, 85, 0.45);
+        border-color: #9fb1c9;
+        box-shadow: 0 20px 50px -30px rgba(51, 65, 85, 0.42);
+        padding: 1.7rem 1.8rem 1.5rem;
     }
     .reader-content-wrap.interior-modern .reader-page-title {
         font-family: 'Inter', sans-serif;
         text-transform: uppercase;
-        letter-spacing: 0.12em;
-        font-size: 1.05rem;
+        letter-spacing: 0.18em;
+        font-size: 0.96rem;
         font-weight: 800;
-        color: #4f46e5;
+        color: #334155;
         text-align: left;
+        margin-bottom: 0.9rem;
+        padding-left: 0.15rem;
     }
     .reader-content-wrap.interior-modern .reader-page-body {
         font-family: 'Inter', sans-serif;
         color: #334155;
-        font-size: 15px;
-        letter-spacing: 0.02em;
-        line-height: 1.82;
+        font-size: 0.97rem;
+        letter-spacing: 0.01em;
+        line-height: 1.74;
     }
     .reader-content-wrap.interior-modern .reader-page-body p {
         text-indent: 0;
-        border-left: 4px solid #6366f1;
-        padding-left: 1rem;
-        margin-bottom: 1.1rem;
+        border-left: 3px solid #6366f1;
+        padding-left: 0.9rem;
+        margin-bottom: 0.85rem;
     }
 
     /* Classic interior — professional spread-style page (single-page preview): running head, chapter opening, drop cap, justified text, page # */
     .reader-content-wrap.interior-classic {
-        background: #cfcfcf;
-        border-color: #b0b0b0;
+        background: #d8d1c6;
+        border-color: #bcae99;
     }
     .reader-content-wrap.interior-classic .book-preview-sheet {
         background: #fdfcfa;
-        border: 1px solid #e5e0d8;
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
-        padding: 1.35rem 1.45rem 1.1rem;
+        border: 1px solid #ddd2c4;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.11), 0 0 0 1px rgba(255, 255, 255, 0.9) inset;
+        padding: 1.55rem 1.65rem 1.25rem;
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
@@ -532,11 +546,11 @@
     }
     .reader-content-wrap.interior-classic .classic-running-head {
         font-family: 'Inter', system-ui, sans-serif;
-        font-size: 0.5625rem;
+        font-size: 0.55rem;
         font-weight: 600;
         letter-spacing: 0.24em;
         text-transform: uppercase;
-        color: #6b6b6b;
+        color: #5f5243;
         text-align: center;
         margin: 0 0 0.45rem;
         line-height: 1.45;
@@ -558,12 +572,12 @@
     }
     .reader-content-wrap.interior-classic .classic-chapter-title {
         font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif;
-        font-size: clamp(1.35rem, 3vw, 1.9rem);
+        font-size: clamp(1.45rem, 3vw, 2.05rem);
         font-weight: 600;
         text-align: center;
         line-height: 1.2;
         color: #141414;
-        margin: 0 0 0.85rem;
+        margin: 0 0 1rem;
         padding: 0 0.25rem;
         border: none;
     }
@@ -573,9 +587,9 @@
         text-justify: inter-word;
         -webkit-hyphens: auto;
         hyphens: auto;
-        font-size: 1.125rem;
-        line-height: 1.72;
-        color: #252525;
+        font-size: 1.16rem;
+        line-height: 1.78;
+        color: #231f1a;
         flex: 1;
     }
     .reader-content-wrap.interior-classic .reader-page-body.classic-body p {
@@ -621,71 +635,74 @@
     }
 
     .reader-content-wrap.interior-minimalist {
-        background: #ffffff;
-        border-color: #e5e5e5;
+        background: #f7f7f7;
+        border-color: #e4e4e7;
     }
     .reader-content-wrap.interior-minimalist .book-preview-sheet {
-        background: #fafafa;
-        border: 1px solid #e5e5e5;
+        background: #ffffff;
+        border: 1px solid #e4e4e7;
         box-shadow: none;
-        padding: 2.35rem;
+        padding: 2.4rem 2.45rem;
     }
     .reader-content-wrap.interior-minimalist .reader-page-title {
         font-family: 'Inter', sans-serif;
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 600;
-        color: #0a0a0a;
-        letter-spacing: -0.02em;
+        color: #111827;
+        letter-spacing: -0.01em;
         text-align: left;
+        margin-bottom: 1.1rem;
+        border-bottom: 1px solid #ececec;
+        padding-bottom: 0.55rem;
     }
     .reader-content-wrap.interior-minimalist .reader-page-body {
         font-family: 'Inter', sans-serif;
-        font-size: 15px;
-        line-height: 1.85;
-        color: #525252;
+        font-size: 0.96rem;
+        line-height: 1.86;
+        color: #3f3f46;
         font-weight: 400;
     }
     .reader-content-wrap.interior-minimalist .reader-page-body p {
         text-indent: 0;
-        margin-bottom: 1.35rem;
-        max-width: 42em;
+        margin-bottom: 1.1rem;
+        max-width: 40em;
     }
 
     /* Elegant trade / POD-style interior — warm page, Lora titles, EB Garamond body (inspired by pro print layouts) */
     .reader-content-wrap.interior-elegant-trade {
-        background: #e8e2d8;
-        border-color: #c9bfb0;
+        background: linear-gradient(180deg, #ece4d8 0%, #e0d4c4 100%);
+        border-color: #c9b79f;
     }
     .reader-content-wrap.interior-elegant-trade .book-preview-sheet {
-        background: #fdfbf7;
-        border: 1px solid #d4c9b8;
-        box-shadow: 0 10px 36px -18px rgba(62, 47, 32, 0.35);
-        padding: 2.35rem;
+        background: #fcf9f3;
+        border: 1px solid #cfbea5;
+        box-shadow: 0 14px 42px -20px rgba(62, 47, 32, 0.34);
+        padding: 2.2rem 2.3rem;
     }
     .reader-content-wrap.interior-elegant-trade .reader-page-title {
         font-family: 'Lora', 'Times New Roman', serif;
         font-weight: 600;
         font-size: 1.35rem;
-        letter-spacing: 0.04em;
+        letter-spacing: 0.06em;
         color: #3d2914;
         text-align: center;
-        margin-bottom: 0.35rem;
-        padding-bottom: 0.85rem;
-        border-bottom: 1px solid #c9b8a0;
+        margin-bottom: 0.45rem;
+        padding-bottom: 0.95rem;
+        border-bottom: 1px solid #c8b08e;
     }
     .reader-content-wrap.interior-elegant-trade .reader-page-body {
         font-family: 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif;
-        font-size: 1.125rem;
-        line-height: 1.82;
-        color: #1c1917;
+        font-size: 1.13rem;
+        line-height: 1.84;
+        color: #29211b;
         text-align: justify;
         text-justify: inter-word;
         -webkit-hyphens: auto;
         hyphens: auto;
     }
     .reader-content-wrap.interior-elegant-trade .reader-page-body p {
-        text-indent: 1.25rem;
-        margin: 0 0 0.9em;
+        text-indent: 1.35rem;
+        margin: 0 0 0.95em;
     }
     .reader-content-wrap.interior-elegant-trade .reader-page-body .manuscript-heading {
         text-indent: 0;
@@ -936,9 +953,20 @@
     }
     .fmt-int-card {
         border-radius: 12px; border: 2px solid #e5e7eb; background: #fff; padding: 0.65rem 0.5rem;
-        text-align: center; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+        text-align: center; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s, background 0.2s;
         min-height: 4.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem;
+        position: relative; overflow: hidden;
     }
+    .fmt-int-card[data-style="Novel"] { background: linear-gradient(180deg, #fffef9 0%, #fff 100%); }
+    .fmt-int-card[data-style="Modern"] { background: linear-gradient(180deg, #f8fafc 0%, #fff 100%); }
+    .fmt-int-card[data-style="Classic"] { background: linear-gradient(180deg, #fdfcf8 0%, #f5f0e8 100%); }
+    .fmt-int-card[data-style="Minimalist"] { background: #fff; }
+    .fmt-int-card[data-style="ElegantTrade"] { background: linear-gradient(180deg, #fafafa 0%, #fff 100%); }
+    .fmt-int-card[data-style="Novel"] .fmt-int-card__name { font-family: 'EB Garamond', Georgia, serif; }
+    .fmt-int-card[data-style="Modern"] .fmt-int-card__name { font-family: 'Source Serif 4', Georgia, serif; color: #334155; }
+    .fmt-int-card[data-style="Classic"] .fmt-int-card__name { font-family: 'Playfair Display', Georgia, serif; font-style: italic; }
+    .fmt-int-card[data-style="Minimalist"] .fmt-int-card__name { font-family: 'Lato', sans-serif; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
+    .fmt-int-card[data-style="ElegantTrade"] .fmt-int-card__name { font-family: 'Merriweather', Georgia, serif; }
     .fmt-int-card:hover { border-color: #c4b5fd; box-shadow: 0 6px 16px -8px rgba(91, 33, 182, 0.35); }
     .fmt-int-card.is-selected { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2); }
     .fmt-int-card:active { transform: scale(0.98); }
@@ -960,6 +988,68 @@
         margin: 0 !important; padding: 0 !important; height: 0 !important; min-height: 0 !important;
         overflow: hidden !important; visibility: hidden !important;
     }
+    /* Text selection — literary highlight scoped to reader preview */
+    #preview-single .book-page-content ::selection,
+    #preview-single .reader-page-body ::selection,
+    #preview-single .reader-chapter-block ::selection,
+    #preview-single .reader-page-body p ::selection {
+        background: #F5C842;
+        color: #1a1200;
+    }
+    #preview-single .book-page-content ::-moz-selection,
+    #preview-single .reader-page-body ::-moz-selection,
+    #preview-single .reader-chapter-block ::-moz-selection,
+    #preview-single .reader-page-body p ::-moz-selection {
+        background: #F5C842;
+        color: #1a1200;
+    }
+    #preview-single .reader-page-title ::selection { background: #E8B84A; color: #1a1200; }
+    #preview-single .reader-page-footer ::selection,
+    #preview-single .book-page-footer ::selection { background: #D4E8F5; color: #0f172a; }
+    #preview-single section ::selection { background: #F0D878; color: #1a1200; }
+    /* Interior shell tints — visible page color per style */
+    #book-formatter-root #paginatedReaderShell.interior-preview-novel .book-page-background { background: #fffef9; }
+    #book-formatter-root #paginatedReaderShell.interior-preview-modern .book-page-background { background: #ffffff; }
+    #book-formatter-root #paginatedReaderShell.interior-preview-classic .book-page-background { background: #fdfcf8; }
+    #book-formatter-root #paginatedReaderShell.interior-preview-minimalist .book-page-background { background: #ffffff; }
+    #book-formatter-root #paginatedReaderShell.interior-preview-elegant .book-page-background { background: #ffffff; }
+    #book-formatter-root #paginatedReaderShell.interior-preview-novel .book-container { box-shadow: 0 6px 24px rgba(91, 33, 182, 0.08), 0 0 0 1px rgba(120, 53, 15, 0.06); }
+    #book-formatter-root #paginatedReaderShell.interior-preview-modern .book-container { box-shadow: 0 6px 24px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(148, 163, 184, 0.25); }
+    #book-formatter-root #paginatedReaderShell.interior-preview-classic .book-container { box-shadow: 0 6px 24px rgba(120, 53, 15, 0.1), 0 0 0 1px rgba(214, 196, 168, 0.5); }
+    #book-formatter-root #paginatedReaderShell.interior-preview-minimalist .book-container { box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06), 0 0 0 1px #e5e7eb; }
+    #book-formatter-root #paginatedReaderShell.interior-preview-elegant .book-container { box-shadow: 0 6px 22px rgba(61, 41, 20, 0.08), 0 0 0 1px rgba(201, 184, 160, 0.35); }
+    #book-formatter-root #btnAiWriterPrevSide,
+    #book-formatter-root #btnAiWriterNextSide { display: none !important; }
+    #book-formatter-root .fmt-float-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 12;
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: 999px;
+        border: none;
+        background: rgba(15, 23, 42, 0.18);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+        padding: 0;
+        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+    }
+    #book-formatter-root .fmt-float-nav:hover:not(:disabled) {
+        background: rgba(15, 23, 42, 0.32);
+        transform: translateY(-50%) scale(1.08);
+    }
+    #book-formatter-root .fmt-float-nav:disabled {
+        opacity: 0.28;
+        cursor: default;
+        pointer-events: none;
+    }
+    #book-formatter-root .fmt-float-nav-prev { left: 6px; }
+    #book-formatter-root .fmt-float-nav-next { right: 6px; }
     /* ----- AI Book Writer paginated preview: scroll host → 6×9 shell → viewport (flat DOM) ----- */
     #fmt-book-result .chapter-preview-scroll-host {
         flex: 1 1 0%;
@@ -983,6 +1073,16 @@
         flex: 1 1 0%;
         min-height: 0;
     }
+    #book-formatter-root .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
+        margin-top: 0.35rem;
+        padding-top: 0.65rem;
+        border-top: 1px solid rgba(139, 92, 246, 0.2);
+    }
+    #book-formatter-root .reader-chapter-block[data-chapter-start="1"]:first-child .reader-page-title {
+        border-top: 0;
+        padding-top: 0;
+        margin-top: 0;
+    }
     #fmt-book-result .paginated-reader-shell {
         position: relative;
         width: 100%;
@@ -1000,7 +1100,10 @@
         border-radius: 14px;
         border: 1px solid rgba(196, 181, 253, 0.65);
         background: #fff;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 20px -8px rgba(91, 33, 182, 0.15);
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.95),
+            0 8px 32px -10px rgba(91, 33, 182, 0.28),
+            0 0 0 1px rgba(196, 181, 253, 0.55);
     }
     .paginated-reader-shell.reader-content-wrap {
         padding: 0 !important;
@@ -1029,39 +1132,66 @@
     .paginated-reader-shell.interior-minimalist .chapter-preview-viewport { background: #fff; }
     .paginated-reader-shell.interior-elegant-trade .chapter-preview-viewport { background: #fffef8; }
     #fmt-book-result .ai-writer-preview-side-nav {
-        position: absolute;
-        top: 50%;
-        z-index: 24;
-        pointer-events: auto;
-        width: 2.5rem;
-        height: 3.5rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
+        display: none !important;
+    }
+    #book-formatter-root .book-page-footer-classic {
+        font-family: 'Libre Baskerville', Georgia, serif;
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        color: #78716c;
+    }
+    #book-formatter-root .book-page-footer-modern {
+        font-family: 'Source Sans 3', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
         color: #64748b;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-        padding: 0;
     }
-    #fmt-book-result .ai-writer-preview-side-nav:hover:not(:disabled) {
-        transform: translateY(-50%) scale(1.04);
-        border-color: #c4b5fd;
-        color: #5b21b6;
-        box-shadow: 0 8px 22px rgba(91, 33, 182, 0.18);
+    #book-formatter-root .book-page-footer-minimalist {
+        font-family: 'Lato', sans-serif;
+        font-size: 0.7rem;
+        letter-spacing: 0.14em;
+        color: #94a3b8;
     }
-    #fmt-book-result .ai-writer-preview-side-nav:disabled {
-        opacity: 0.32;
-        cursor: not-allowed;
-        box-shadow: none;
+    #book-formatter-root .book-page-footer-elegant {
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 0.78rem;
+        font-style: italic;
+        color: #6b5b4f;
     }
-    #fmt-book-result .ai-writer-preview-side-prev { left: 0; transform: translate(-42%, -50%); }
-    #fmt-book-result .ai-writer-preview-side-prev:hover:not(:disabled) { transform: translate(-42%, -50%) scale(1.04); }
-    #fmt-book-result .ai-writer-preview-side-next { right: 0; transform: translate(42%, -50%); }
-    #fmt-book-result .ai-writer-preview-side-next:hover:not(:disabled) { transform: translate(42%, -50%) scale(1.04); }
+    #book-formatter-root .book-page-footer-novel {
+        font-family: 'EB Garamond', Georgia, serif;
+        font-size: 0.78rem;
+        color: #78716c;
+    }
+    #book-formatter-root .book-page-background.interior-traditional-novel {
+        background: linear-gradient(180deg, #fffef9 0%, #faf8f2 100%);
+    }
+    #book-formatter-root .book-page-background.interior-contemporary-modern {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border-left: 3px solid #e2e8f0;
+    }
+    #book-formatter-root .book-page-background.interior-finebook-classic {
+        background: #fdfcf8 url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0' stroke='%23ebe6dc' stroke-width='0.5' fill='none'/%3E%3C/svg%3E");
+    }
+    #book-formatter-root .book-page-background.interior-minimalist-clean {
+        background: #ffffff;
+        box-shadow: inset 0 0 0 1px #f1f5f9;
+    }
+    #book-formatter-root .book-page-background.interior-pod-elegant {
+        background: linear-gradient(165deg, #fffef8 0%, #f9f5ee 55%, #fffef8 100%);
+        box-shadow: inset 0 0 0 1px rgba(201, 184, 160, 0.25);
+    }
+    @@media (max-width: 640px) {
+        #book-formatter-root .book-page-content-wrap {
+            padding: 6px 12px 10px;
+        }
+        #book-formatter-root .fmt-float-nav {
+            width: 36px;
+            height: 36px;
+        }
+    }
     #fmt-preview-measure-host.preview-measure-host {
         position: absolute;
         left: -9999px;
@@ -1260,11 +1390,11 @@
     #reader-bookmark-btn:hover { background: #f5f3ff; transform: translateY(-1px); }
     .reader-page-inner.reader-anim-out { opacity: 0; transform: translateX(12px); }
     .reader-page-inner.reader-anim-in { opacity: 1; transform: translateX(0); transition: opacity 0.28s ease, transform 0.32s ease; }
-    /* Hide below-preview chapter switch controls as requested */
-    #fmt-btn-chapter-prev,
-    #fmt-chapter-nav-label,
-    #fmt-btn-chapter-next {
-        display: none !important;
+    .chapter-preview-nav {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
     }
     /* ===== Match AI Book Writer preview exactly ===== */
     #fmt-right-preview-column .fmt-preview-stack {
@@ -1358,6 +1488,7 @@
                                     </button>
                                 </div>
                             </div>
+                            <input type="hidden" id="hiddenCoverFormat" name="CoverFormat" value="@(string.Equals(Model?.Format, "Paperback", StringComparison.OrdinalIgnoreCase) ? "printready" : string.Equals(Model?.Format, "Both", StringComparison.OrdinalIgnoreCase) ? "ebook_paperback" : "ebook")" />
                             <div class="format-premium-banner premium-format-ui-only" id="format-premium-banner" role="status">
                                 <span class="premium-crown" aria-hidden="true">&#x1F451;</span>
                                 <span><strong>Premium format selected.</strong> Dual ebook + print workspace is active. Your preview below stays a normal reader view (no premium badges there). This is saved with your book.</span>
@@ -1521,10 +1652,20 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <button type="button" id="bookNavPrev" class="book-nav-zone book-nav-prev" aria-label="Previous page" title="Previous page"></button>
-                                                    <button type="button" id="bookNavNext" class="book-nav-zone book-nav-next" aria-label="Next page" title="Next page"></button>
+                                                    <button type="button" id="bookNavPrev" class="fmt-float-nav fmt-float-nav-prev" aria-label="Previous page" title="Previous page">
+                                                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                                    </button>
+                                                    <button type="button" id="bookNavNext" class="fmt-float-nav fmt-float-nav-next" aria-label="Next page" title="Next page">
+                                                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                                    </button>
                                                     <div id="bookPageIndicator" class="book-page-indicator" aria-live="polite">1 / 1</div>
                                                 </div>
+                                                <button type="button" id="btnAiWriterPrevSide" class="ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page">
+                                                    <i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i>
+                                                </button>
+                                                <button type="button" id="btnAiWriterNextSide" class="ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page">
+                                                    <i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i>
+                                                </button>
                                                 <div id="preview-content" class="chapter-preview-viewport book-page-preview-content hidden"></div>
                                                 <div id="fmt-preview-measure-host" class="preview-measure-host book-page-preview-measure" aria-hidden="true"></div>
                                             </div>
@@ -1534,16 +1675,16 @@
                                         </div>
                                     </div>
                                 <!-- Below lavender preview: chapter + library (AI Writer pattern, does not cover the reader) -->
-                                <div id="fmt-chapter-nav-below" class="fmt-chapter-nav-below mt-3 shrink-0 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-3 px-1 pb-3">
-                                    <div class="flex flex-wrap items-center justify-center gap-2 flex-1 min-w-0">
-                                        <button type="button" id="fmt-btn-chapter-prev" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Previous page">
-                                            <i class="fas fa-chevron-left" aria-hidden="true"></i> <span>Previous</span>
-                                        </button>
-                                        <span id="fmt-chapter-nav-label" class="text-xs sm:text-sm font-medium text-slate-600 text-center max-w-[min(100%,18rem)] leading-snug px-2">Page 0 / 0</span>
-                                        <button type="button" id="fmt-btn-chapter-next" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Next page">
-                                            <span>Next</span> <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                                        </button>
-                                    </div>
+                                <div id="fmt-chapter-nav-below" class="chapter-preview-nav fmt-chapter-nav-below mt-4 shrink-0 flex items-center justify-between gap-2 px-2 pb-3">
+                                    <button type="button" id="calcBtnPrev" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Previous page">
+                                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                        <span class="hidden sm:inline">Previous</span>
+                                    </button>
+                                    <span id="calcPageLabel" class="text-sm font-medium text-slate-600 text-center px-2">Page 1 / 1</span>
+                                    <button type="button" id="calcBtnNext" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Next page">
+                                        <span class="hidden sm:inline">Next</span>
+                                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1729,6 +1870,24 @@
     /** Parallel to readerPages: source chapter index (0-based) for each page. */
     let readerPageChapterIdx = [];
     let currentPageIdx = 0;
+
+    var interiorStyleClassMap = {
+        'Minimalist': 'interior-minimalist-clean',
+        'Novel': 'interior-traditional-novel',
+        'Modern': 'interior-contemporary-modern',
+        'Classic': 'interior-finebook-classic',
+        'ElegantTrade': 'interior-pod-elegant'
+    };
+    var interiorPreviewShellMap = {
+        'Minimalist': 'interior-preview-minimalist',
+        'Novel': 'interior-preview-novel',
+        'Modern': 'interior-preview-modern',
+        'Classic': 'interior-preview-classic',
+        'ElegantTrade': 'interior-preview-elegant'
+    };
+    var allInteriorStyleClasses = Object.values(interiorStyleClassMap);
+    var allInteriorShellClasses = Object.values(interiorPreviewShellMap);
+
     /** 6×9 trim pagination: chars per preview page (not PARAS count). */
     const CONTENT_CHARS_SOFT_LIMIT = 5500;
     const FORMATTER_DRAFT_PREFIX = 'formatter_draft_v2_';
@@ -2131,23 +2290,30 @@
         return (shell && shell.clientWidth > 48) ? shell.clientWidth : 0;
     }
 
-    function getFmtPageMaxHeightPx() {
-        var vp = document.getElementById('preview-content');
-        if (!vp || vp.clientHeight < 48) vp = document.getElementById('preview-content-ebook');
-        var h = (vp && vp.clientHeight > 48) ? vp.clientHeight : 0;
-        if (h < 48) {
-            var shell = document.getElementById('paginatedReaderShell');
-            if (shell && shell.clientWidth > 48) h = Math.floor(shell.clientWidth * (9 / 6));
+    /** Available scroll height inside the live `.book-page-content` slot (matches on-screen reader). */
+    function getFmtContentAreaHeightPx() {
+        var contentEl = document.getElementById('bookPageContentA');
+        if (contentEl && contentEl.clientHeight >= 80) return contentEl.clientHeight;
+        var shell = document.getElementById('paginatedReaderShell');
+        if (shell && shell.clientHeight >= 80) {
+            var wrapPad = 20;
+            var footerReserve = 34;
+            return Math.max(160, shell.clientHeight - wrapPad - footerReserve);
         }
-        // Push packing closer to the real viewport so the preview reads like a dense real book.
-        var styleEl = document.getElementById('style-select');
-        var interior = styleEl ? String(styleEl.value || '') : '';
-        var fillBonus = (interior === 'Classic') ? 64 : 42;
-        return Math.max(140, h - 2 + fillBonus);
+        var w = getFmtMeasureShellWidth();
+        if (w >= 48) {
+            var shellH = Math.floor(w * (9 / 6));
+            return Math.max(160, Math.floor(shellH * 0.88) - 20);
+        }
+        return 520;
+    }
+
+    function getFmtPageMaxHeightPx() {
+        return getFmtContentAreaHeightPx();
     }
 
     function fmtCanMeasurePages() {
-        return getFmtMeasureShellWidth() > 48 && getFmtPageMaxHeightPx() > 48;
+        return getFmtMeasureShellWidth() > 48 && getFmtPageMaxHeightPx() > 80;
     }
 
     function getFmtPaginatedShells() {
@@ -2180,17 +2346,62 @@
         viewportEl.style.fontFamily = rs.fontFamily;
     }
 
-    function measureFmtArticleInner(articleInnerHtml) {
+    /** Measure block height using the same DOM/CSS as the paginated book stage (not the legacy viewport). */
+    function renderFmtMeasureSandbox(blockInnerHtml) {
         var mh = document.getElementById('fmt-preview-measure-host');
-        if (!mh) return 999999;
+        if (!mh) return null;
         var w = getFmtMeasureShellWidth();
-        if (w < 48) return 999999;
+        if (w < 48) return null;
+
+        var styleEl = document.getElementById('style-select');
+        var interior = styleEl ? String(styleEl.value || 'Novel') : 'Novel';
+        var contentCls = interiorStyleClassMap[interior] || interiorStyleClassMap['Novel'];
+        var shellCls = interiorPreviewShellMap[interior] || interiorPreviewShellMap['Novel'];
+        var stage = document.getElementById('bookStage');
+        var maxH = getFmtPageMaxHeightPx();
+        var footerH = 28;
+        var wrapH = maxH + footerH + 20;
+
         mh.style.width = w + 'px';
+        mh.style.padding = '0';
         mh.style.boxSizing = 'border-box';
-        mh.innerHTML = '<div class="' + getFmtMeasureInteriorClass() + '"><div class="chapter-preview-viewport book-page-preview-content">' + articleInnerHtml + '</div></div>';
-        var vp = mh.querySelector('.chapter-preview-viewport');
-        if (vp) syncFmtMeasureTypography(vp);
-        return vp ? vp.scrollHeight : mh.scrollHeight;
+        mh.innerHTML =
+            '<div class="paginated-reader-shell reader-content-wrap ' + shellCls + '" style="width:' + w + 'px;padding:0;border:0;box-shadow:none;aspect-ratio:auto;height:' + wrapH + 'px;min-height:0;display:flex;flex-direction:column">' +
+            '<div class="book-container" style="width:100%;height:100%;display:flex;flex-direction:column">' +
+            '<div class="book-page-content-wrap" style="padding:8px 18px 12px;box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column">' +
+            '<div class="book-page-content ' + contentCls + '" style="overflow:hidden;flex:1;min-height:0">' +
+            (blockInnerHtml || '') +
+            '</div><div class="book-page-footer" style="flex-shrink:0;height:' + footerH + 'px"></div></div></div></div>';
+
+        var contentEl = mh.querySelector('.book-page-content');
+        if (!contentEl) return null;
+        if (stage) {
+            var fs = stage.style.getPropertyValue('--fmt-font-size') || window.getComputedStyle(stage).getPropertyValue('--fmt-font-size');
+            var lh = stage.style.getPropertyValue('--fmt-line-height') || window.getComputedStyle(stage).getPropertyValue('--fmt-line-height');
+            if (fs && fs.trim()) contentEl.style.setProperty('--fmt-font-size', fs.trim());
+            if (lh && lh.trim()) contentEl.style.setProperty('--fmt-line-height', lh.trim());
+        }
+        applyPreviewStyles(contentEl);
+        return contentEl;
+    }
+
+    function measureFmtPageBlock(blockInnerHtml) {
+        var contentEl = renderFmtMeasureSandbox(blockInnerHtml);
+        return contentEl ? contentEl.scrollHeight : 999999;
+    }
+
+    function fmtPageContentFits(blockInnerHtml) {
+        var contentEl = renderFmtMeasureSandbox(blockInnerHtml);
+        if (!contentEl) return false;
+        return contentEl.scrollHeight <= contentEl.clientHeight + 2;
+    }
+
+    function measureFmtArticleInner(articleInnerHtml) {
+        return measureFmtPageBlock('<div class="reader-chapter-block">' + articleInnerHtml + '</div>');
+    }
+
+    function stripEmbeddedPageFooters(pageHtml) {
+        return String(pageHtml || '').replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
     }
 
     function splitOversizedFmtBodyHtml(bodyHtml, measureFn) {
@@ -2360,6 +2571,191 @@
         return formatChapterContent(block);
     }
 
+    function flattenToFlowSegments(htmlSegments) {
+        var out = [];
+        (htmlSegments || []).forEach(function(seg) {
+            var s = String(seg || '').trim();
+            if (!s) return;
+            var tmp = document.createElement('div');
+            tmp.innerHTML = s;
+            if (!tmp.children.length) {
+                out.push(s);
+                return;
+            }
+            for (var i = 0; i < tmp.children.length; i++) {
+                out.push(tmp.children[i].outerHTML);
+            }
+        });
+        return out;
+    }
+
+    function buildReaderPageBlockHtml(bodyHtml, opts) {
+        opts = opts || {};
+        var titleBlock = (opts.includeTitle && !opts.hasBodyLeadingHeading)
+            ? ('<article class="reader-page-title">' + escapeHtml(opts.title || '') + '</article>')
+            : '';
+        var bodyClass = opts.isClassic ? 'reader-page-body classic-body' : 'reader-page-body';
+        var chapterAttr = opts.chapterStart ? ' data-chapter-start="1"' : '';
+        return '<div class="reader-chapter-block"' + chapterAttr + '>' + titleBlock +
+            '<section class="' + bodyClass + '">' + bodyHtml + '</section></div>';
+    }
+
+    function splitFlowSegmentByWords(segHtml, opts, prefixBody) {
+        var seg = String(segHtml || '').trim();
+        if (!seg) return [];
+        var tmp = document.createElement('div');
+        tmp.innerHTML = seg;
+        var el = tmp.firstElementChild;
+        if (!el) return [seg];
+        var tag = (el.tagName || 'p').toLowerCase();
+        if (!/^p$/.test(tag)) return [seg];
+        var words = (el.textContent || '').split(/\s+/).filter(Boolean);
+        if (words.length < 2) return [seg];
+        var cls = el.className ? (' class="' + escapeHtml(el.className) + '"') : '';
+        var openTag = '<' + tag + cls + '>';
+        var closeTag = '</' + tag + '>';
+        var parts = [];
+        var start = 0;
+        var base = String(prefixBody || '');
+        while (start < words.length) {
+            var lo = start + 1;
+            var hi = words.length;
+            var best = start;
+            while (lo <= hi) {
+                var mid = (lo + hi) >> 1;
+                var chunk = openTag + escapeHtml(words.slice(start, mid).join(' ')) + closeTag;
+                var block = buildReaderPageBlockHtml(base + chunk, opts);
+                if (fmtPageContentFits(block)) {
+                    best = mid;
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+            if (best <= start) best = start + 1;
+            parts.push(openTag + escapeHtml(words.slice(start, best).join(' ')) + closeTag);
+            start = best;
+            base = '';
+            opts = Object.assign({}, opts, { includeTitle: false, chapterStart: false });
+        }
+        return parts.length ? parts : [seg];
+    }
+
+    /** Greedy height-based pagination — packs flow segments until the page is full. */
+    function paginateChapterFlow(rawSegments, opts) {
+        opts = opts || {};
+        var flat = flattenToFlowSegments(rawSegments);
+        var pages = [];
+        if (!flat.length) return pages;
+
+        var acc = '';
+        var includeTitle = true;
+        var chapterStart = !!opts.chapterStart;
+
+        function pageOpts() {
+            return {
+                includeTitle: includeTitle,
+                hasBodyLeadingHeading: opts.hasBodyLeadingHeading,
+                title: opts.title,
+                isClassic: opts.isClassic,
+                chapterStart: chapterStart
+            };
+        }
+
+        function pushPage(bodyHtml, po) {
+            pages.push(buildReaderPageBlockHtml(bodyHtml, po));
+            includeTitle = false;
+            chapterStart = false;
+        }
+
+        for (var i = 0; i < flat.length; i++) {
+            var seg = flat[i];
+            var trial = acc ? (acc + seg) : seg;
+            if (fmtPageContentFits(buildReaderPageBlockHtml(trial, pageOpts()))) {
+                acc = trial;
+                continue;
+            }
+            if (acc) {
+                pushPage(acc, pageOpts());
+                acc = '';
+                i--;
+                continue;
+            }
+            var wordParts = splitFlowSegmentByWords(seg, pageOpts(), '');
+            for (var wi = 0; wi < wordParts.length; wi++) {
+                var part = wordParts[wi];
+                var po = pageOpts();
+                if (fmtPageContentFits(buildReaderPageBlockHtml(part, po))) {
+                    pushPage(part, po);
+                } else {
+                    pushPage(part, po);
+                }
+            }
+        }
+        if (acc) pushPage(acc, pageOpts());
+        return pages;
+    }
+
+    function finalizeReaderPages(pages, chapterIdxs) {
+        if (!pages.length) return { pages: pages, chapterIdxs: chapterIdxs };
+        var merged = mergeUnderfilledReaderPages(pages, chapterIdxs);
+        merged = pullOrphansToFillPages(merged.pages, merged.chapterIdxs);
+        return merged;
+    }
+
+    function pullOrphansToFillPages(pages, chapterIdxs) {
+        if (!Array.isArray(pages) || pages.length < 2 || !fmtCanMeasurePages()) {
+            return { pages: pages, chapterIdxs: chapterIdxs };
+        }
+        var maxH = getFmtPageMaxHeightPx();
+        var outP = pages.slice();
+        var outC = chapterIdxs.slice();
+
+        for (var pass = 0; pass < 4; pass++) {
+            var moved = false;
+            for (var i = 0; i < outP.length - 1; i++) {
+                if (outC[i] !== outC[i + 1]) continue;
+                if (outP[i + 1].indexOf('data-chapter-start') >= 0) continue;
+                var h = measureFmtPageBlock(stripEmbeddedPageFooters(outP[i]));
+                if (h / maxH >= 0.72) continue;
+
+                var nextBody = outP[i + 1].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
+                if (!nextBody || !nextBody[2].trim()) continue;
+                var firstBlockMatch = nextBody[2].match(/^(\s*<(?:p|h[1-6]|li|blockquote)[^>]*>[\s\S]*?<\/(?:p|h[1-6]|li|blockquote)>)/i);
+                if (!firstBlockMatch) continue;
+                var block = firstBlockMatch[1];
+                if (wordCountInHtml(block) > 12) continue;
+
+                var curBody = outP[i].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
+                if (!curBody) continue;
+                var mergedBody = curBody[2] + block;
+                var mergedPage = outP[i].replace(curBody[0], curBody[1] + mergedBody + curBody[3]);
+                if (!fmtPageContentFits(stripEmbeddedPageFooters(mergedPage))) continue;
+
+                outP[i] = mergedPage;
+                var remain = nextBody[2].slice(block.length).trim();
+                if (!remain && outP[i + 1].indexOf('reader-page-title') < 0) {
+                    outP.splice(i + 1, 1);
+                    outC.splice(i + 1, 1);
+                } else {
+                    outP[i + 1] = outP[i + 1].replace(nextBody[0], nextBody[1] + remain + nextBody[3]);
+                }
+                moved = true;
+            }
+            if (!moved) break;
+        }
+
+        var filtered = [];
+        var filteredC = [];
+        for (var j = 0; j < outP.length; j++) {
+            var bm = outP[j].match(/<section class="reader-page-body[^"]*">([\s\S]*?)<\/section>/);
+            if (bm && !stripHtmlTags(bm[1]).length && outP[j].indexOf('reader-page-title') < 0) continue;
+            filtered.push(outP[j]);
+            filteredC.push(outC[j]);
+        }
+        return { pages: filtered.length ? filtered : outP, chapterIdxs: filtered.length ? filteredC : outC };
+    }
+
     function estimateBodyLeadLines(bodyHtml) {
         var html = String(bodyHtml || '');
         if (!html) return 0;
@@ -2391,7 +2787,7 @@
             if (fmt === 'Both') renderBothPreviews(0);
             else renderPreviewContent(0);
             updatePageIndicator();
-        }, 60);
+        }, 120);
     }
 
     function fmtScheduleRepaginateAfterLayout() {
@@ -2416,6 +2812,16 @@
         lbl.textContent = map[v] || v;
     }
 
+    function syncHiddenCoverFormat() {
+        var hid = document.getElementById('hiddenCoverFormat');
+        var fmtEl = document.getElementById('format-select');
+        if (!hid || !fmtEl) return;
+        var fmt = fmtEl.value || 'Ebook';
+        if (fmt === 'Paperback') hid.value = 'printready';
+        else if (fmt === 'Both') hid.value = 'ebook_paperback';
+        else hid.value = 'ebook';
+    }
+
     function updatePremiumFormatUi() {
         var fmtEl = document.getElementById('format-select');
         var fmt = (fmtEl && fmtEl.value) || 'Ebook';
@@ -2425,6 +2831,7 @@
         if (banner) banner.classList.toggle('show', both);
         if (wrap) wrap.classList.toggle('format-both-active', both);
         syncFormatPickerButton();
+        syncHiddenCoverFormat();
     }
 
     function chapterOrdinalLabel(chapterIndex) {
@@ -2442,132 +2849,6 @@
             html += '<p' + (dc ? ' class="classic-first-para"' : '') + '>' + escapeHtml(para).replace(/\n/g, '<br>') + '</p>';
         });
         return html;
-    }
-
-    function buildClassicReaderPages() {
-        const pages = [];
-        readerPageChapterIdx = [];
-        let pageNum = 1;
-        const useMeasure = fmtCanMeasurePages();
-        for (let ci = 0; ci < bookChapters.length; ci++) {
-            const ch = bookChapters[ci];
-            const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
-            const content = (ch && ch.content && String(ch.content).trim()) || '';
-            const normalizedContent = stripDuplicateLeadingHeading(title, content);
-            const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
-            const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
-            if (paras.length === 0) {
-                const titleBlock = '<article class="reader-page-title">' + escapeHtml(title) + '</article>';
-                const body = '<section class="reader-page-body classic-body"><p class="text-gray-500">No content.</p></section>';
-                const footer = '<footer class="classic-page-num">' + formatBookPageNumber(pageNum) + '</footer>';
-                pages.push('<div class="reader-chapter-block">' + titleBlock + body + footer + '</div>');
-                readerPageChapterIdx.push(ci);
-                pageNum++;
-                continue;
-            }
-            var bodyPages = [];
-            if (useMeasure) {
-                var segments = [];
-                for (var si = 0; si < paras.length; si++) {
-                    segments.push(classicParaToBodySegment(paras[si], si === 0));
-                }
-                var segIdx = 0;
-                while (segIdx < segments.length) {
-                    var isFirstChapterPage = bodyPages.length === 0;
-                    function classicMeasure(bodyAcc, isFirst) {
-                        var titleBlock = (isFirst && !hasBodyLeadingHeading)
-                            ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>')
-                            : '';
-                        return measureFmtArticleInner(titleBlock + '<section class="reader-page-body classic-body">' + bodyAcc + '</section><footer class="classic-page-num">1</footer>');
-                    }
-                    var measureFn = function(bodyAcc) { return classicMeasure(bodyAcc, isFirstChapterPage); };
-                    var acc = '';
-                    while (segIdx < segments.length) {
-                        var seg = segments[segIdx];
-                        var trial = acc ? (acc + seg) : seg;
-                        if (measureFn(trial) > getFmtPageMaxHeightPx() && acc) {
-                            var headingMove = pullTrailingHeadingBlock(acc);
-                            if (headingMove && getFmtPageFillRatio(acc, measureFn) >= 0.8) {
-                                bodyPages.push({ bodyInner: headingMove.bodyWithoutHeading, isFirst: isFirstChapterPage });
-                                acc = headingMove.headingHtml;
-                                isFirstChapterPage = false;
-                                continue;
-                            }
-                            var topUp = splitSegmentForRemainingSpace(seg, acc, measureFn);
-                            if (topUp && topUp.fitHtml) {
-                                acc += topUp.fitHtml;
-                                if (isFirstChapterPage && estimateBodyLeadLines(acc) < 3 && topUp.restHtml) {
-                                    acc += topUp.restHtml;
-                                    segIdx++;
-                                    continue;
-                                }
-                                bodyPages.push({ bodyInner: acc, isFirst: isFirstChapterPage });
-                                acc = topUp.restHtml || '';
-                                if (!topUp.restHtml) segIdx++;
-                                break;
-                            }
-                            if (isFirstChapterPage && estimateBodyLeadLines(acc) < 3) {
-                                acc = trial;
-                                segIdx++;
-                                continue;
-                            }
-                            bodyPages.push({ bodyInner: acc, isFirst: isFirstChapterPage });
-                            acc = '';
-                            break;
-                        }
-                        if (measureFn(trial) > getFmtPageMaxHeightPx() && !acc) {
-                            var subs = splitOversizedFmtBodyHtml(seg, measureFn);
-                            for (var sx = 0; sx < subs.length; sx++) {
-                                bodyPages.push({ bodyInner: subs[sx], isFirst: bodyPages.length === 0 });
-                            }
-                            segIdx++;
-                            acc = '';
-                            break;
-                        }
-                        acc = trial;
-                        segIdx++;
-                    }
-                    if (acc) {
-                        bodyPages.push({ bodyInner: acc, isFirst: isFirstChapterPage });
-                    }
-                }
-            } else {
-                var pageChunks = chunkParasIntoPages(paras);
-                for (let pi = 0; pi < pageChunks.length; pi++) {
-                    const chunk = pageChunks[pi];
-                    const isFirstOfChapter = (pi === 0);
-                    const chunkText = chunk.join('\n\n');
-                    const looksLikeHtml = /<\s*(p|h1|h2|h3|h4|blockquote|ul|ol|li|br)\b/i.test(chunkText);
-                    let bodyInner;
-                    if (looksLikeHtml) {
-                        bodyInner = formatChapterContent(chunkText);
-                    } else if (chunkNeedsManuscriptRender(chunkText)) {
-                        bodyInner = formatChapterContent(chunkText);
-                        if (isFirstOfChapter) {
-                            bodyInner = bodyInner.replace('<p class="manuscript-p">', '<p class="manuscript-p classic-first-para">');
-                        }
-                    } else if (isFirstOfChapter) {
-                        bodyInner = formatClassicParas(chunk, true);
-                    } else {
-                        bodyInner = formatClassicParas(chunk, false);
-                    }
-                    bodyPages.push({ bodyInner: bodyInner, isFirst: isFirstOfChapter });
-                }
-            }
-            for (var bpi = 0; bpi < bodyPages.length; bpi++) {
-                var bp = bodyPages[bpi];
-                const isFirstOfChapter = bp.isFirst;
-                const titleBlock = (isFirstOfChapter && !hasBodyLeadingHeading)
-                    ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>')
-                    : '';
-                const body = '<section class="reader-page-body classic-body">' + bp.bodyInner + '</section>';
-                const footer = '<footer class="classic-page-num">' + formatBookPageNumber(pageNum) + '</footer>';
-                pages.push('<div class="reader-chapter-block">' + titleBlock + body + footer + '</div>');
-                readerPageChapterIdx.push(ci);
-                pageNum++;
-            }
-        }
-        return pages;
     }
 
     const toastEl = document.getElementById('toast-formatter');
@@ -3522,13 +3803,11 @@
     function buildReaderPages() {
         const styleEl = document.getElementById('style-select');
         const interior = styleEl ? styleEl.value : 'Novel';
-        if (interior === 'Classic') {
-            return buildClassicReaderPages();
-        }
+        const isClassic = interior === 'Classic';
         const pages = [];
-        let pageNum = 1;
         readerPageChapterIdx = [];
         const useMeasure = fmtCanMeasurePages();
+
         for (let ci = 0; ci < bookChapters.length; ci++) {
             const ch = bookChapters[ci];
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
@@ -3536,99 +3815,63 @@
             const normalizedContent = stripDuplicateLeadingHeading(title, content);
             const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
             const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
+
             if (paras.length === 0) {
-                pages.push('<div class="reader-chapter-block"><article class="reader-page-title">' + escapeHtml(title) + '</article><section class="reader-page-body"><p class="text-gray-500">No content.</p></section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
+                var emptyBody = isClassic
+                    ? '<section class="reader-page-body classic-body"><p class="text-gray-500">No content.</p></section>'
+                    : '<section class="reader-page-body"><p class="text-gray-500">No content.</p></section>';
+                pages.push('<div class="reader-chapter-block" data-chapter-start="1"><article class="reader-page-title">' +
+                    escapeHtml(title) + '</article>' + emptyBody + '</div>');
                 readerPageChapterIdx.push(ci);
-                pageNum++;
-            } else if (useMeasure) {
-                var segments = paras.map(function(p) { return novelParaToBodySegment(p); }).filter(Boolean);
-                var segIdxN = 0;
-                while (segIdxN < segments.length) {
-                    var withTitle = (segIdxN === 0);
-                    var measureFnN = function(bodyAcc) {
-                        var t = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                        return measureFmtArticleInner(t + '<section class="reader-page-body">' + bodyAcc + '</section>');
-                    };
-                    var accN = '';
-                    while (segIdxN < segments.length) {
-                        var segN = segments[segIdxN];
-                        var trialN = accN ? (accN + segN) : segN;
-                        if (measureFnN(trialN) > getFmtPageMaxHeightPx() && accN) {
-                            var headingMoveN = pullTrailingHeadingBlock(accN);
-                            if (headingMoveN && getFmtPageFillRatio(accN, measureFnN) >= 0.8) {
-                                var titleBlockMoved = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                                pages.push('<div class="reader-chapter-block">' + titleBlockMoved + '<section class="reader-page-body">' + headingMoveN.bodyWithoutHeading + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
-                                readerPageChapterIdx.push(ci);
-                                pageNum++;
-                                accN = headingMoveN.headingHtml;
-                                withTitle = false;
-                                continue;
-                            }
-                            var topUpN = splitSegmentForRemainingSpace(segN, accN, measureFnN);
-                            if (topUpN && topUpN.fitHtml) {
-                                accN += topUpN.fitHtml;
-                                if (withTitle && estimateBodyLeadLines(accN) < 3 && topUpN.restHtml) {
-                                    accN += topUpN.restHtml;
-                                    segIdxN++;
-                                    continue;
-                                }
-                                var titleBlockTop = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                                pages.push('<div class="reader-chapter-block">' + titleBlockTop + '<section class="reader-page-body">' + accN + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
-                                readerPageChapterIdx.push(ci);
-                                pageNum++;
-                                accN = topUpN.restHtml || '';
-                                withTitle = false;
-                                if (!topUpN.restHtml) segIdxN++;
-                                break;
-                            }
-                            if (withTitle && estimateBodyLeadLines(accN) < 3) {
-                                accN = trialN;
-                                segIdxN++;
-                                continue;
-                            }
-                            var titleBlockN = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                            pages.push('<div class="reader-chapter-block">' + titleBlockN + '<section class="reader-page-body">' + accN + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
-                            readerPageChapterIdx.push(ci);
-                            pageNum++;
-                            accN = '';
-                            break;
-                        }
-                        if (measureFnN(trialN) > getFmtPageMaxHeightPx() && !accN) {
-                            var subsN = splitOversizedFmtBodyHtml(segN, measureFnN);
-                            for (var sn = 0; sn < subsN.length; sn++) {
-                                var tb = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                                pages.push('<div class="reader-chapter-block">' + tb + '<section class="reader-page-body">' + subsN[sn] + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
-                                readerPageChapterIdx.push(ci);
-                                pageNum++;
-                                withTitle = false;
-                            }
-                            segIdxN++;
-                            accN = '';
-                            break;
-                        }
-                        accN = trialN;
-                        segIdxN++;
-                    }
-                    if (accN) {
-                        var titleBlockEnd = (withTitle && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                        pages.push('<div class="reader-chapter-block">' + titleBlockEnd + '<section class="reader-page-body">' + accN + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
-                        readerPageChapterIdx.push(ci);
-                        pageNum++;
-                    }
+                continue;
+            }
+
+            if (useMeasure) {
+                var segments = [];
+                for (var si = 0; si < paras.length; si++) {
+                    segments.push(isClassic
+                        ? classicParaToBodySegment(paras[si], si === 0)
+                        : novelParaToBodySegment(paras[si]));
                 }
+                var chapterPages = paginateChapterFlow(segments, {
+                    title: title,
+                    hasBodyLeadingHeading: hasBodyLeadingHeading,
+                    isClassic: isClassic,
+                    chapterStart: true
+                });
+                chapterPages.forEach(function(p) {
+                    pages.push(p);
+                    readerPageChapterIdx.push(ci);
+                });
             } else {
                 var pageChunks = chunkParasIntoPages(paras);
                 for (let pi = 0; pi < pageChunks.length; pi++) {
                     const chunk = pageChunks[pi];
-                    const titleBlock = (pi === 0 && !hasBodyLeadingHeading) ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>') : '';
-                    const body = formatChapterContent(chunk.join('\n\n'));
-                    pages.push('<div class="reader-chapter-block">' + titleBlock + '<section class="reader-page-body">' + body + '</section><footer class="reader-page-footer">' + formatBookPageNumber(pageNum) + '</footer></div>');
+                    const titleBlock = (pi === 0 && !hasBodyLeadingHeading)
+                        ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>')
+                        : '';
+                    const chunkText = chunk.join('\n\n');
+                    const body = isClassic
+                        ? (pi === 0 && !chunkNeedsManuscriptRender(chunkText) && !/<\s*p/i.test(chunkText)
+                            ? formatClassicParas(chunk, true)
+                            : formatChapterContent(chunkText))
+                        : formatChapterContent(chunkText);
+                    const bodyClass = isClassic ? 'reader-page-body classic-body' : 'reader-page-body';
+                    var chAttr = (pi === 0) ? ' data-chapter-start="1"' : '';
+                    pages.push('<div class="reader-chapter-block"' + chAttr + '>' + titleBlock +
+                        '<section class="' + bodyClass + '">' + body + '</section></div>');
                     readerPageChapterIdx.push(ci);
-                    pageNum++;
                 }
             }
         }
-        return pages;
+
+        var finalized = finalizeReaderPages(pages, readerPageChapterIdx);
+        readerPageChapterIdx = finalized.chapterIdxs;
+        return finalized.pages;
+    }
+
+    function buildClassicReaderPages() {
+        return buildReaderPages();
     }
 
     function computeBookContentSignature(chapters) {
@@ -3647,7 +3890,9 @@
         var st = (document.getElementById('style-select') || {}).value || 'Novel';
         var sz = (document.getElementById('text-size-select') || {}).value || 'Medium';
         var ln = (document.getElementById('line-spacing-select') || {}).value || '1.6';
-        return [st, sz, ln, computeBookContentSignature(bookChapters)].join('||');
+        var mw = getFmtMeasureShellWidth();
+        var mh = getFmtContentAreaHeightPx();
+        return [st, sz, ln, mw, mh, computeBookContentSignature(bookChapters)].join('||');
     }
 
     function ensureReaderPages(force) {
@@ -3656,6 +3901,10 @@
             readerPageChapterIdx = [];
             lastReaderBuildKey = '';
             return;
+        }
+        if (typeof FmtBookStageReader !== 'undefined') {
+            FmtBookStageReader.ensureDom();
+            FmtBookStageReader.show();
         }
         var key = computeReaderBuildKey();
         if (!force && readerPages.length && key === lastReaderBuildKey) return;
@@ -3670,6 +3919,128 @@
         html += formatChapterContent(content);
         html += '</section>';
         return html;
+    }
+
+    function stripHtmlTags(html) {
+        if (!html) return '';
+        var d = document.createElement('div');
+        d.innerHTML = html;
+        return (d.textContent || d.innerText || '').trim();
+    }
+
+    function wordCountInHtml(html) {
+        var t = stripHtmlTags(html);
+        if (!t) return 0;
+        return t.split(/\s+/).filter(Boolean).length;
+    }
+
+    function trailingParagraphWordCount(bodyHtml) {
+        if (!bodyHtml) return 999;
+        var matches = bodyHtml.match(/<p[^>]*>[\s\S]*?<\/p>/gi);
+        if (!matches || !matches.length) return 999;
+        return wordCountInHtml(matches[matches.length - 1]);
+    }
+
+    function fixOrphanWidowPages(pages) {
+        if (!Array.isArray(pages) || pages.length < 2) return pages;
+        var out = pages.slice();
+        for (var pass = 0; pass < 3; pass++) {
+            var moved = false;
+            for (var i = 0; i < out.length - 1; i++) {
+                var page = out[i];
+                var bodyMatch = page.match(/(<section class="reader-page-body">)([\s\S]*?)(<\/section>)/);
+                if (!bodyMatch) continue;
+                var bodyInner = bodyMatch[2];
+                if (trailingParagraphWordCount(bodyInner) >= 3) continue;
+                var lastParaMatch = bodyInner.match(/([\s\S]*)(<p[^>]*>[\s\S]*?<\/p>)\s*$/);
+                if (!lastParaMatch) continue;
+                var bodyWithoutLast = lastParaMatch[1];
+                var lastPara = lastParaMatch[2];
+                if (!stripHtmlTags(bodyWithoutLast) && !page.match(/reader-page-title/)) continue;
+                out[i] = page.replace(bodyMatch[0], bodyMatch[1] + bodyWithoutLast + bodyMatch[3]);
+                var nextBody = out[i + 1].match(/(<section class="reader-page-body">)([\s\S]*?)(<\/section>)/);
+                if (!nextBody) continue;
+                out[i + 1] = out[i + 1].replace(nextBody[0], nextBody[1] + lastPara + nextBody[2] + nextBody[3]);
+                moved = true;
+            }
+            if (!moved) break;
+        }
+        return out.filter(function(p) {
+            var bm = p.match(/<section class="reader-page-body">([\s\S]*?)<\/section>/);
+            if (!bm) return true;
+            return stripHtmlTags(bm[1]).length > 0 || p.indexOf('reader-page-title') >= 0;
+        });
+    }
+
+    /** Merge consecutive pages when under-filled — never across chapter boundaries. */
+    function mergeUnderfilledReaderPages(pages, chapterIdxs) {
+        if (!Array.isArray(pages) || pages.length < 2 || !fmtCanMeasurePages()) {
+            return { pages: pages, chapterIdxs: chapterIdxs || [] };
+        }
+        var outP = pages.slice();
+        var outC = (chapterIdxs && chapterIdxs.length === pages.length) ? chapterIdxs.slice() : pages.map(function() { return 0; });
+        var changed = true;
+        var passes = 0;
+
+        while (changed && passes < 6) {
+            changed = false;
+            passes++;
+            var nextP = [];
+            var nextC = [];
+            var maxH = getFmtPageMaxHeightPx();
+            for (var i = 0; i < outP.length; i++) {
+                if (i < outP.length - 1
+                    && outC[i] === outC[i + 1]
+                    && outP[i + 1].indexOf('data-chapter-start') < 0
+                    && outP[i].indexOf('reader-page-title') < 0) {
+                    var hCur = measureFmtPageBlock(stripEmbeddedPageFooters(outP[i]));
+                    if (hCur / maxH < 0.72) {
+                        var merged = mergeReaderPageBodies(outP[i], outP[i + 1]);
+                        if (merged && fmtPageContentFits(stripEmbeddedPageFooters(merged))) {
+                            nextP.push(merged);
+                            nextC.push(outC[i]);
+                            i++;
+                            changed = true;
+                            continue;
+                        }
+                    }
+                }
+                nextP.push(outP[i]);
+                nextC.push(outC[i]);
+            }
+            outP = nextP;
+            outC = nextC;
+        }
+        return { pages: outP.length ? outP : pages, chapterIdxs: outC.length ? outC : chapterIdxs };
+    }
+
+    function mergeReaderPageBodies(a, b) {
+        var ma = String(a || '').match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
+        var mb = String(b || '').match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
+        if (!ma || !mb) return null;
+        var titleA = (a.indexOf('reader-page-title') >= 0) ? (a.match(/<article class="reader-page-title">[\s\S]*?<\/article>/) || [''])[0] : '';
+        var chAttr = a.indexOf('data-chapter-start') >= 0 ? ' data-chapter-start="1"' : '';
+        return '<div class="reader-chapter-block"' + chAttr + '>' + titleA +
+            ma[1] + ma[2] + mb[2] + ma[3] + '</div>';
+    }
+
+    function applyInteriorStyleClasses(interior) {
+        var cls = interiorStyleClassMap[interior] || interiorStyleClassMap['Novel'];
+        var shellCls = interiorPreviewShellMap[interior] || interiorPreviewShellMap['Novel'];
+        [document.getElementById('bookPageContentA'), document.getElementById('bookPageContentB')].filter(Boolean).forEach(function(el) {
+            el.classList.remove(...allInteriorStyleClasses);
+            if (cls) el.classList.add(cls);
+        });
+        var shell = document.getElementById('paginatedReaderShell');
+        var stage = document.getElementById('bookStage');
+        [shell, stage].filter(Boolean).forEach(function(el) {
+            el.classList.remove(...allInteriorShellClasses);
+            if (shellCls) el.classList.add(shellCls);
+        });
+        document.querySelectorAll('#bookStage .book-page-background').forEach(function(bg) {
+            bg.classList.remove(...allInteriorStyleClasses);
+            if (cls) bg.classList.add(cls);
+        });
     }
 
     function applyPreviewStyles(el) {
@@ -3696,26 +4067,14 @@
         }
         var textAlign = (interior === 'Classic' || interior === 'ElegantTrade') ? 'justify' : '';
 
-        el.style.fontSize = fontSize;
-        el.style.lineHeight = previewLineSp;
-        el.style.textAlign = textAlign;
-
-        var bodies = el.querySelectorAll('.reader-page-body');
-        bodies.forEach(function(body) {
-            body.style.fontSize = fontSize;
-            body.style.lineHeight = previewLineSp;
-            if (textAlign) body.style.textAlign = textAlign;
-            else body.style.textAlign = '';
-        });
-
-        var paragraphs = el.querySelectorAll('.reader-page-body p');
-        paragraphs.forEach(function(p) {
-            p.style.fontSize = fontSize;
-            p.style.lineHeight = previewLineSp;
-        });
+        el.style.fontSize = '';
+        el.style.lineHeight = '';
+        el.style.textAlign = textAlign || '';
 
         var stage = document.getElementById('bookStage');
         if (stage) {
+            stage.style.setProperty('--fmt-font-size', fontSize);
+            stage.style.setProperty('--fmt-line-height', previewLineSp);
             stage.classList.remove('fmt-style-traditional', 'fmt-style-modern', 'fmt-style-classic', 'fmt-style-clean-minimalist', 'fmt-style-minimalist', 'fmt-style-elegant-trade');
             var stageClass = 'fmt-style-traditional';
             if (interior === 'Modern') stageClass = 'fmt-style-modern';
@@ -3724,6 +4083,21 @@
             else if (interior === 'ElegantTrade') stageClass = 'fmt-style-elegant-trade';
             stage.classList.add(stageClass);
         }
+
+        var bodies = el.querySelectorAll('.reader-page-body');
+        bodies.forEach(function(body) {
+            body.style.fontSize = '';
+            body.style.lineHeight = '';
+            body.style.textAlign = textAlign || '';
+        });
+
+        var paragraphs = el.querySelectorAll('.reader-page-body p');
+        paragraphs.forEach(function(p) {
+            p.style.fontSize = '';
+            p.style.lineHeight = '';
+        });
+
+        applyInteriorStyleClasses(interior);
     }
 
     function showLoadingState(show) {
@@ -3771,7 +4145,7 @@
     /** Match AI Book Writer: hide side chevrons when there is nothing to paginate. */
     function syncFormatterSideNavVisibility() {
         var hide = readerPages.length === 0;
-        ['fmt-preview-side-prev', 'fmt-preview-side-next', 'fmt-preview-both-side-prev', 'fmt-preview-both-side-next'].forEach(function(id) {
+        ['btnAiWriterPrevSide', 'btnAiWriterNextSide'].forEach(function(id) {
             var el = document.getElementById(id);
             if (!el) return;
             el.style.visibility = hide ? 'hidden' : '';
@@ -3779,24 +4153,14 @@
     }
 
     function setReaderNavDisabled(prevDisabled, nextDisabled) {
-        const prevBar = document.getElementById('btn-prev-format-bar');
-        const nextBar = document.getElementById('btn-next-format-bar');
-        const prevBoth = document.getElementById('btn-prev-both');
-        const nextBoth = document.getElementById('btn-next-both');
-        const prevE = document.getElementById('btn-prev-ebook');
-        const nextE = document.getElementById('btn-next-ebook');
-        const prevPb = document.getElementById('btn-prev-paperback');
-        const nextPb = document.getElementById('btn-next-paperback');
-        const prevSide = document.getElementById('fmt-preview-side-prev');
-        const nextSide = document.getElementById('fmt-preview-side-next');
-        const prevBothSide = document.getElementById('fmt-preview-both-side-prev');
-        const nextBothSide = document.getElementById('fmt-preview-both-side-next');
+        const prevSide = document.getElementById('btnAiWriterPrevSide');
+        const nextSide = document.getElementById('btnAiWriterNextSide');
         var prevRead = document.getElementById('fmt-btn-read-prev-page');
         var nextRead = document.getElementById('fmt-btn-read-next-page');
         var prevStage = document.getElementById('bookNavPrev');
         var nextStage = document.getElementById('bookNavNext');
-        [prevBar, prevBoth, prevE, prevPb, prevSide, prevBothSide, prevRead, prevStage].forEach(function(btn) { if (btn) btn.disabled = prevDisabled; });
-        [nextBar, nextBoth, nextE, nextPb, nextSide, nextBothSide, nextRead, nextStage].forEach(function(btn) { if (btn) btn.disabled = nextDisabled; });
+        [prevSide, prevRead, prevStage].forEach(function(btn) { if (btn) btn.disabled = prevDisabled; });
+        [nextSide, nextRead, nextStage].forEach(function(btn) { if (btn) btn.disabled = nextDisabled; });
     }
 
     function showErrorState(msg, userFriendly, retryBookId) {
@@ -3863,10 +4227,25 @@
         var contentA = null, footerA = null, contentB = null, footerB = null;
         var layerA = null, layerB = null;
         var stage = null;
+        function syncPageFooterStyle(footerEl) {
+            if (!footerEl) return;
+            var styleEl = document.getElementById('style-select');
+            var interior = styleEl ? styleEl.value : 'Novel';
+            footerEl.className = 'book-page-footer';
+            if (interior === 'Classic') footerEl.classList.add('book-page-footer-classic');
+            else if (interior === 'Modern') footerEl.classList.add('book-page-footer-modern');
+            else if (interior === 'Minimalist') footerEl.classList.add('book-page-footer-minimalist');
+            else if (interior === 'ElegantTrade') footerEl.classList.add('book-page-footer-elegant');
+            else footerEl.classList.add('book-page-footer-novel');
+        }
         function fillLayer(contentEl, footerEl, pageIdx) {
             if (!contentEl) return;
-            contentEl.innerHTML = pages[pageIdx] || '<div class="reader-chapter-block"><p class="preview-state-message">No content.</p></div>';
-            if (footerEl) footerEl.innerHTML = formatBookPageNumber(pageIdx + 1);
+            var html = pages[pageIdx] || '<div class="reader-chapter-block"><p class="preview-state-message">No content.</p></div>';
+            contentEl.innerHTML = stripEmbeddedPageFooters(html);
+            if (footerEl) {
+                footerEl.innerHTML = formatBookPageNumber(pageIdx + 1);
+                syncPageFooterStyle(footerEl);
+            }
             applyPreviewStyles(contentEl);
             contentEl.scrollTop = 0;
         }
@@ -3878,7 +4257,7 @@
             footerB = document.getElementById('bookPageFooterB');
             layerA = document.getElementById('pageLayerA');
             layerB = document.getElementById('pageLayerB');
-            if (layerB) { layerB.classList.add('book-page-layer-off'); layerB.style.transform = 'translateX(100%)'; }
+            if (layerB) { layerB.classList.add('book-page-layer-off'); }
         }
         function show() {
             if (!stage) ensureDom();
@@ -3900,42 +4279,10 @@
             if (!stage) ensureDom();
             if (!pages.length) return;
             nextIndex = Math.max(0, Math.min(nextIndex, pages.length - 1));
-            if (nextIndex === currentIndex || isAnimating || !layerA || !layerB) {
-                currentIndex = nextIndex;
-                fillLayer(contentA, footerA, currentIndex);
-                return;
-            }
-            var forward = nextIndex > currentIndex;
-            isAnimating = true;
-            fillLayer(contentB, footerB, nextIndex);
-            layerB.classList.remove('book-page-layer-off');
-            if (forward) {
-                layerB.style.transform = 'translateX(100%)';
-                layerB.offsetHeight;
-                layerB.classList.add('book-page-enter-from-right');
-                layerB.style.transform = 'translateX(0)';
-                layerA.classList.add('book-page-leave-left');
-                layerA.style.transform = 'translateX(-100%)';
-            } else {
-                layerB.style.transform = 'translateX(-100%)';
-                layerB.offsetHeight;
-                layerB.classList.add('book-page-enter-from-left');
-                layerB.style.transform = 'translateX(0)';
-                layerA.classList.add('book-page-leave-right');
-                layerA.style.transform = 'translateX(100%)';
-            }
-            layerB.classList.add('book-page-layer-active');
-            setTimeout(function() {
-                currentIndex = nextIndex;
-                fillLayer(contentA, footerA, currentIndex);
-                layerA.classList.remove('book-page-leave-left', 'book-page-leave-right');
-                layerA.style.transform = '';
-                layerB.classList.remove('book-page-enter-from-right', 'book-page-enter-from-left', 'book-page-layer-active');
-                layerB.style.transform = '';
-                layerB.classList.add('book-page-layer-off');
-                layerB.style.transform = 'translateX(100%)';
-                isAnimating = false;
-            }, SLIDE_DURATION);
+            currentIndex = nextIndex;
+            fillLayer(contentA, footerA, currentIndex);
+            var ind = document.getElementById('bookPageIndicator');
+            if (ind) ind.textContent = (currentIndex + 1) + ' / ' + pages.length;
         }
         return {
             ensureDom: ensureDom,
@@ -4122,17 +4469,15 @@
 
     function updateFmtChapterNavBelow() {
         var row = document.getElementById('fmt-chapter-nav-below');
-        var prevB = document.getElementById('fmt-btn-chapter-prev');
-        var nextB = document.getElementById('fmt-btn-chapter-next');
-        var lab = document.getElementById('fmt-chapter-nav-label');
+        var prevB = document.getElementById('calcBtnPrev');
+        var nextB = document.getElementById('calcBtnNext');
+        var lab = document.getElementById('calcPageLabel');
         if (!row || !prevB || !nextB) return;
         if (!readerPages.length) {
             row.classList.add('hidden');
-            row.classList.remove('flex');
             return;
         }
         row.classList.remove('hidden');
-        row.classList.add('flex');
         var total = readerPages.length;
         prevB.disabled = currentPageIdx <= 0;
         nextB.disabled = currentPageIdx >= total - 1;
@@ -4600,6 +4945,14 @@
 
         if (formatSelect) formatSelect.addEventListener('change', function() {
             selectedFormat = formatSelect.value || 'Ebook';
+            if (selectedFormat === 'Ebook') {
+                var printReadyCb = document.querySelector('#platforms-container .platform-check[data-platform="' + PRINT_READY_PLATFORM + '"]');
+                if (printReadyCb && printReadyCb.checked) {
+                    printReadyCb.checked = false;
+                    syncPlatformBlockUi(printReadyCb);
+                    setNonPrintPlatformsDisabled(false);
+                }
+            }
             updatePremiumFormatUi();
             var f = formatSelect.value;
             if (f === 'Both') {
@@ -4648,31 +5001,14 @@
         syncFormatterNextActionUi();
 
         document.getElementById('style-select')?.addEventListener('change', function() {
-            readerPages = [];
-            readerPageChapterIdx = [];
-            if (bookChapters.length) {
-                ensureReaderPages(true);
-                populateChapterJump();
-                currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
-            }
-            togglePreviewMode();
-            showToast('Interior style updated');
+            applyInteriorStyleClasses(this.value || 'Novel');
+            if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
         });
 
-        document.getElementById('btn-prev-format-bar')?.addEventListener('click', goToPrevPage);
-        document.getElementById('btn-next-format-bar')?.addEventListener('click', goToNextPage);
-        document.getElementById('fmt-preview-side-prev')?.addEventListener('click', goToPrevPage);
-        document.getElementById('fmt-preview-side-next')?.addEventListener('click', goToNextPage);
-        document.getElementById('fmt-preview-both-side-prev')?.addEventListener('click', goToPrevPage);
-        document.getElementById('fmt-preview-both-side-next')?.addEventListener('click', goToNextPage);
-        document.getElementById('btn-prev-both')?.addEventListener('click', goToPrevPage);
-        document.getElementById('btn-next-both')?.addEventListener('click', goToNextPage);
-        document.getElementById('btn-prev-ebook')?.addEventListener('click', goToPrevPage);
-        document.getElementById('btn-next-ebook')?.addEventListener('click', goToNextPage);
-        document.getElementById('btn-prev-paperback')?.addEventListener('click', goToPrevPage);
-        document.getElementById('btn-next-paperback')?.addEventListener('click', goToNextPage);
+        document.getElementById('btnAiWriterPrevSide')?.addEventListener('click', goToPrevPage);
+        document.getElementById('btnAiWriterNextSide')?.addEventListener('click', goToNextPage);
 
         document.getElementById('preview-single')?.addEventListener('keydown', function(e) {
             if (e.key === 'ArrowLeft') { e.preventDefault(); goToPrevPage(); }
@@ -4790,32 +5126,18 @@
         document.getElementById('fmt-btn-studio-next')?.addEventListener('click', function() {
             document.getElementById('btn-next-cover')?.click();
         });
-        document.getElementById('fmt-btn-chapter-prev')?.addEventListener('click', function() { goToPrevPage(); });
-        document.getElementById('fmt-btn-chapter-next')?.addEventListener('click', function() { goToNextPage(); });
-        document.getElementById('fmt-btn-read-prev-page')?.addEventListener('click', function() { goToPrevPage(); });
-        document.getElementById('fmt-btn-read-next-page')?.addEventListener('click', function() { goToNextPage(); });
+        document.getElementById('calcBtnPrev')?.addEventListener('click', function() { goToPrevPage(); });
+        document.getElementById('calcBtnNext')?.addEventListener('click', function() { goToNextPage(); });
         document.getElementById('bookNavPrev')?.addEventListener('click', function() { goToPrevPage(); });
         document.getElementById('bookNavNext')?.addEventListener('click', function() { goToNextPage(); });
 
         document.getElementById('text-size-select')?.addEventListener('change', function() {
-            if (bookChapters.length) {
-                ensureReaderPages(true);
-                currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
-            }
-            var fmtV = (document.getElementById('format-select') || {}).value || 'Ebook';
-            if (fmtV === 'Both') renderBothPreviews(); else renderPreviewContent();
-            showToast('Text size: ' + (this.value || 'Medium'));
+            if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
         });
         document.getElementById('line-spacing-select')?.addEventListener('change', function() {
-            if (bookChapters.length) {
-                ensureReaderPages(true);
-                currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
-            }
-            var fmtV = (document.getElementById('format-select') || {}).value || 'Ebook';
-            if (fmtV === 'Both') renderBothPreviews(); else renderPreviewContent();
-            showToast('Line spacing: ' + (this.value || '1.6'));
+            if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
         });
@@ -4871,6 +5193,7 @@
             syncFmtInteriorCardsFromSelect();
             syncFmtTypographyPillsFromSelects();
             applyFmtStudioAccent();
+            applyInteriorStyleClasses((styleSel && styleSel.value) || 'Novel');
         })();
 
         var fmtResizeTimer = null;
@@ -4883,7 +5206,10 @@
         });
 
         FmtBookStageReader.ensureDom();
-        initFormatterBook();
+        window.addEventListener('load', function onFormatterBoot() {
+            window.removeEventListener('load', onFormatterBoot);
+            requestAnimationFrame(function() { initFormatterBook(); });
+        });
     });
 })();
 </script>
@@ -4916,16 +5242,22 @@
         align-items: stretch;
         justify-content: center;
         position: relative;
-        padding: 20px 16px;
+        padding: 6px 8px;
         box-sizing: border-box;
+        --fmt-font-size: 16px;
+        --fmt-line-height: 1.6;
     }
     #book-formatter-root #bookContainer {
         position: relative;
         width: 100%;
         height: 100%;
         overflow: hidden;
-        border-radius: 3px;
-        box-shadow: 0 6px 24px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.05);
+        border-radius: 4px;
+        box-shadow:
+            0 2px 0 rgba(255, 255, 255, 0.85) inset,
+            0 14px 40px -12px rgba(91, 33, 182, 0.22),
+            0 4px 16px rgba(15, 23, 42, 0.12),
+            0 0 0 1px rgba(120, 53, 15, 0.08);
         background: #fafaf9;
     }
     #book-formatter-root .book-page-layer {
@@ -4936,16 +5268,11 @@
         height: 100%;
         display: flex;
         flex-direction: column;
-        transition: transform 0.35s ease-out;
-        will-change: transform;
+        transition: none;
         z-index: 1;
     }
     #book-formatter-root .book-page-layer.book-page-layer-active { z-index: 2; }
-    #book-formatter-root .book-page-layer-off { transform: translateX(100%); pointer-events: none; }
-    #book-formatter-root .book-page-layer.book-page-leave-left { transform: translateX(-100%); }
-    #book-formatter-root .book-page-layer.book-page-leave-right { transform: translateX(100%); }
-    #book-formatter-root .book-page-layer.book-page-enter-from-right { transform: translateX(0); }
-    #book-formatter-root .book-page-layer.book-page-enter-from-left { transform: translateX(0); }
+    #book-formatter-root .book-page-layer-off { pointer-events: none; visibility: hidden; }
     #book-formatter-root .book-page-background {
         position: absolute;
         inset: 0;
@@ -4958,20 +5285,28 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
-        padding: 2.5rem;
+        padding: 8px 18px 12px;
         box-sizing: border-box;
     }
     #book-formatter-root .book-page-content {
         flex: 1;
         min-height: 0;
-        overflow-y: auto;
+        overflow: hidden;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         color: #1c1917;
-        font-family: Georgia, 'Times New Roman', serif !important;
-        font-size: 1rem;
-        line-height: 1.72;
+        font-size: var(--fmt-font-size, 16px);
+        line-height: var(--fmt-line-height, 1.6);
         text-align: justify;
+        padding: 0;
+        margin: 0;
+    }
+    #book-formatter-root .book-page-content .reader-page-body,
+    #book-formatter-root .book-page-content .reader-page-body p {
+        font-size: var(--fmt-font-size, 16px);
+        line-height: var(--fmt-line-height, 1.6);
+        orphans: 3;
+        widows: 3;
     }
     #book-formatter-root .book-page-content p { margin: 0 0 1em 0; text-indent: 1.1rem; }
     #book-formatter-root .book-page-content p:last-child { margin-bottom: 0; }
@@ -5044,43 +5379,190 @@
         color: #1e293b;
         background: #fff;
     }
-    #book-formatter-root #bookStage.fmt-style-minimalist .book-page-content,
-    #book-formatter-root #bookStage.fmt-style-clean-minimalist .book-page-content {
-        font-family: 'Lato', 'Inter', sans-serif !important;
+    #book-formatter-root .book-page-content.interior-minimalist-clean {
+        font-family: 'Lato', sans-serif !important;
         font-size: 11pt;
         line-height: 1.6;
+        color: #1a1a1a;
+        background: #ffffff;
+    }
+    #book-formatter-root .book-page-content.interior-minimalist-clean .reader-page-title,
+    #book-formatter-root .book-page-content.interior-minimalist-clean h1,
+    #book-formatter-root .book-page-content.interior-minimalist-clean h2,
+    #book-formatter-root .book-page-content.interior-minimalist-clean h3,
+    #book-formatter-root .book-page-content.interior-minimalist-clean h4 {
+        font-family: 'Lato', sans-serif !important;
+        font-weight: 700;
+        font-size: 1.4em;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-top: 2em;
+        margin-bottom: 1em;
+        color: #111111;
+        text-align: left;
+    }
+    #book-formatter-root .book-page-content.interior-minimalist-clean .reader-page-body p {
+        margin-top: 0;
+        margin-bottom: 0.8em;
+        text-indent: 0;
+    }
+    #book-formatter-root .book-page-content.interior-traditional-novel {
+        font-family: 'EB Garamond', serif !important;
+        font-size: 11.5pt;
+        line-height: 1.55;
+        color: #1a1a1a;
+        background: #fffef9;
+    }
+    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-title,
+    #book-formatter-root .book-page-content.interior-traditional-novel h1,
+    #book-formatter-root .book-page-content.interior-traditional-novel h2,
+    #book-formatter-root .book-page-content.interior-traditional-novel h3,
+    #book-formatter-root .book-page-content.interior-traditional-novel h4 {
+        font-family: 'EB Garamond', serif !important;
+        font-weight: 700;
+        font-size: 1.5em;
+        text-align: center;
+        letter-spacing: 0.02em;
+        margin-top: 2.5em;
+        margin-bottom: 1.5em;
+        color: #111111;
+    }
+    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-body p {
+        text-indent: 2em;
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-body p:first-of-type,
+    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-title + .reader-page-body p:first-of-type {
+        text-indent: 0;
+    }
+    #book-formatter-root .book-page-content.interior-contemporary-modern {
+        font-family: 'Source Serif 4', serif !important;
+        font-size: 11pt;
+        line-height: 1.55;
+        color: #1a1a1a;
+        background: #ffffff;
+    }
+    #book-formatter-root .book-page-content.interior-contemporary-modern .reader-page-title,
+    #book-formatter-root .book-page-content.interior-contemporary-modern h1,
+    #book-formatter-root .book-page-content.interior-contemporary-modern h2,
+    #book-formatter-root .book-page-content.interior-contemporary-modern h3,
+    #book-formatter-root .book-page-content.interior-contemporary-modern h4 {
+        font-family: 'Source Serif 4', serif !important;
+        font-weight: 700;
+        font-size: 1.35em;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 0.4em;
+        margin-top: 2em;
+        margin-bottom: 1.2em;
+        color: #111111;
+        text-align: left;
+    }
+    #book-formatter-root .book-page-content.interior-contemporary-modern .reader-page-body p {
+        margin-bottom: 0.9em;
+        text-indent: 0;
+    }
+    #book-formatter-root .book-page-content.interior-finebook-classic {
+        font-family: 'EB Garamond', serif !important;
+        font-size: 10.5pt;
+        line-height: 1.65;
+        color: #111111;
+        background: #fdfcf8;
+    }
+    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-title,
+    #book-formatter-root .book-page-content.interior-finebook-classic h1,
+    #book-formatter-root .book-page-content.interior-finebook-classic h2,
+    #book-formatter-root .book-page-content.interior-finebook-classic h3,
+    #book-formatter-root .book-page-content.interior-finebook-classic h4 {
+        font-family: 'Playfair Display', serif !important;
+        font-weight: 400;
+        font-size: 1.5em;
+        text-align: center;
+        font-style: italic;
+        letter-spacing: 0.03em;
+        margin-top: 3em;
+        margin-bottom: 2em;
+        color: #111111;
+    }
+    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-body p {
+        text-indent: 2em;
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-body p:first-of-type,
+    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-title + .reader-page-body p:first-of-type {
+        text-indent: 0;
+    }
+    #book-formatter-root .book-page-content.interior-pod-elegant {
+        font-family: 'Merriweather', serif !important;
+        font-size: 10.5pt;
+        line-height: 1.5;
+        color: #1a1a1a;
+        background: #ffffff;
+    }
+    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-title,
+    #book-formatter-root .book-page-content.interior-pod-elegant h1,
+    #book-formatter-root .book-page-content.interior-pod-elegant h2,
+    #book-formatter-root .book-page-content.interior-pod-elegant h3,
+    #book-formatter-root .book-page-content.interior-pod-elegant h4 {
+        font-family: 'Merriweather', serif !important;
+        font-weight: 700;
+        font-size: 1.3em;
+        letter-spacing: 0.04em;
+        margin-top: 2em;
+        margin-bottom: 1.2em;
+        color: #111111;
+        text-align: left;
+    }
+    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-body p {
+        text-indent: 1.5em;
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-body p:first-of-type,
+    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-title + .reader-page-body p:first-of-type {
+        text-indent: 0;
+    }
+    #book-formatter-root #bookStage.fmt-style-minimalist .book-page-content,
+    #book-formatter-root #bookStage.fmt-style-clean-minimalist .book-page-content {
+        font-family: 'Inter', 'Lato', sans-serif !important;
+        font-size: 10.5pt;
+        line-height: 1.75;
         text-align: left;
     }
     #book-formatter-root #bookStage.fmt-style-traditional .book-page-content {
-        font-family: 'EB Garamond', Garamond, 'Times New Roman', serif !important;
-        font-size: 11pt;
-        line-height: 1.5;
+        font-family: 'Merriweather', 'EB Garamond', Garamond, 'Times New Roman', serif !important;
+        font-size: 11.2pt;
+        line-height: 1.82;
         text-align: justify;
     }
     #book-formatter-root #bookStage.fmt-style-modern .book-page-content {
-        font-family: 'Source Serif Pro', Georgia, serif !important;
-        font-size: 11pt;
-        line-height: 1.55;
+        font-family: 'Inter', 'Source Sans Pro', Arial, sans-serif !important;
+        font-size: 10.6pt;
+        line-height: 1.68;
+        letter-spacing: 0.01em;
         text-align: left;
     }
     #book-formatter-root #bookStage.fmt-style-classic .book-page-content {
         font-family: 'Palatino Linotype', Palatino, Georgia, serif !important;
-        font-size: 10.5pt;
-        line-height: 1.65;
+        font-size: 10.8pt;
+        line-height: 1.76;
         text-align: justify;
     }
     #book-formatter-root #bookStage.fmt-style-elegant-trade .book-page-content {
-        font-family: 'Merriweather', Georgia, serif !important;
-        font-size: 11pt;
-        line-height: 1.5;
+        font-family: 'EB Garamond', 'Merriweather', Georgia, serif !important;
+        font-size: 11.1pt;
+        line-height: 1.8;
         text-align: justify;
     }
     #book-formatter-root #bookStage.fmt-style-minimalist .book-page-content-wrap,
-    #book-formatter-root #bookStage.fmt-style-clean-minimalist .book-page-content-wrap { padding: 1in; }
-    #book-formatter-root #bookStage.fmt-style-traditional .book-page-content-wrap { padding: 0.75in 1in; }
-    #book-formatter-root #bookStage.fmt-style-modern .book-page-content-wrap { padding: 0.875in; }
-    #book-formatter-root #bookStage.fmt-style-classic .book-page-content-wrap { padding: 1in 1.25in; }
-    #book-formatter-root #bookStage.fmt-style-elegant-trade .book-page-content-wrap { padding: 0.75in; }
+    #book-formatter-root #bookStage.fmt-style-clean-minimalist .book-page-content-wrap,
+    #book-formatter-root #bookStage.fmt-style-traditional .book-page-content-wrap,
+    #book-formatter-root #bookStage.fmt-style-modern .book-page-content-wrap,
+    #book-formatter-root #bookStage.fmt-style-classic .book-page-content-wrap,
+    #book-formatter-root #bookStage.fmt-style-elegant-trade .book-page-content-wrap {
+        padding: 8px 18px 12px;
+    }
     #book-formatter-root #bookStage .reader-page-title,
     #book-formatter-root #bookStage .manuscript-chapter-heading {
         font-size: 1.4em;
