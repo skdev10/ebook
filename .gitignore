@@ -19,6 +19,7 @@ msbuild*.log
 
 ## Publish and internal check outputs (regenerate with dotnet publish)
 publish/
+app-out/
 artifacts/
 **/artifacts/publish-release/
 _build_out/
@@ -44,3 +45,7 @@ wwwroot/uploads/audio/
 appsettings.Local.json
 appsettings.*.local.json
 secrets.json
+
+## Runtime-generated (do not commit)
+DataProtection-Keys/
+persistent/

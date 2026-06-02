@@ -758,8 +758,8 @@ If this is truly a production key, the safest next step is to **rotate it**.
 | `smoke-tests.http` | Manual REST Client tests |
 | `tests/payloads/*.json` | Reusable JSON bodies |
 | `docs/EXTERNAL_BOOK_API.md` | Shorter BFF-focused summary |
+| `DEPLOYMENT.md` | Server deploy guide |
 | `Scripts/smoke_test.py` | CI / pre-deploy smoke script |
-| `API-LIVE-AUDIT.md` | Last live probe results |
 
 ---
 
