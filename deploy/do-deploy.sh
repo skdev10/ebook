@@ -19,7 +19,7 @@ echo "    HEAD: $(git log -1 --oneline)"
 
 echo "==> Publish"
 chmod +x deploy/vm-deploy.sh
-BRANCH="$BRANCH" OUT_DIR="$OUT_DIR" ./deploy/vm-deploy.sh
+DEPLOY_SKIP_GIT=1 BRANCH="$BRANCH" OUT_DIR="$OUT_DIR" ./deploy/vm-deploy.sh
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a

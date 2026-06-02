@@ -19,7 +19,7 @@ if [[ -n "${SECRETS_JSON:-}" && -f "$SECRETS_JSON" ]]; then
   cp -f "$SECRETS_JSON" "$REPO_ROOT/appsettings.Local.json"
 fi
 
-command -v git >/dev/null 2>&1 && if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+command -v git >/dev/null 2>&1 && if [[ "${DEPLOY_SKIP_GIT:-}" != "1" ]] && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   git -C "$REPO_ROOT" fetch origin 2>/dev/null || true
   git -C "$REPO_ROOT" checkout "$BRANCH" 2>/dev/null || true
   git -C "$REPO_ROOT" pull origin "$BRANCH" 2>/dev/null || true
