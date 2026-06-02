@@ -1,3 +1,4 @@
+using EBookDashboard.Infrastructure;
 using EBookDashboard.Models.Options;
 using EBookDashboard.Services.BookApi;
 using EBookDashboard.Interfaces;
@@ -7,6 +8,7 @@ using EBookDashboard.Models.ViewModels;
 using EBookDashboard.Services;
 using static EBookDashboard.Services.CoverExternalApiHelper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -59,6 +61,7 @@ namespace EBookDashboard.Controllers
         private readonly IDocxExportService _docxExportService;
         private readonly IBookPageMetricsService _bookPageMetricsService;
         private readonly BookPublishReadinessService _publishReadiness;
+        private readonly IWebHostEnvironment _hostEnvironment;
 
         public BooksController(
             IBookService bookService,
@@ -74,7 +77,8 @@ namespace EBookDashboard.Controllers
             IEpubExportService epubExportService,
             IDocxExportService docxExportService,
             IBookPageMetricsService bookPageMetricsService,
-            BookPublishReadinessService publishReadiness)
+            BookPublishReadinessService publishReadiness,
+            IWebHostEnvironment hostEnvironment)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -91,6 +95,7 @@ namespace EBookDashboard.Controllers
             _docxExportService = docxExportService;
             _bookPageMetricsService = bookPageMetricsService;
             _publishReadiness = publishReadiness;
+            _hostEnvironment = hostEnvironment;
         }
         //===========================================
         //           On Page Load 
@@ -3968,6 +3973,80 @@ namespace EBookDashboard.Controllers
                     bookChaptersName = opt.BookChaptersNameUrl,
                     refineCoverPrompt = opt.RefineCoverPromptUrl,
                     suggestCoverPrompt = opt.SuggestCoverPromptFromHighlightsUrl
+                }
+            });
+        }
+
+        /// <summary>Live vs local parity: DB, uploads dir, OAuth, public URL, content root (no secrets).</summary>
+        [AllowAnonymous]
+        [HttpGet]
+        [Route("Books/DeploymentStatus")]
+        public async Task<IActionResult> DeploymentStatus()
+        {
+            var env = _hostEnvironment.EnvironmentName;
+            var contentRoot = _hostEnvironment.ContentRootPath;
+            var uploadsPath = Path.Combine(contentRoot, "wwwroot", "uploads");
+
+            var uploadsWritable = false;
+            var uploadsFileCount = 0;
+            try
+            {
+                Directory.CreateDirectory(uploadsPath);
+                var probe = Path.Combine(uploadsPath, ".write_probe");
+                await System.IO.File.WriteAllTextAsync(probe, "ok", HttpContext.RequestAborted);
+                System.IO.File.Delete(probe);
+                uploadsWritable = true;
+                uploadsFileCount = Directory.Exists(uploadsPath)
+                    ? Directory.EnumerateFiles(uploadsPath, "*", SearchOption.AllDirectories).Count()
+                    : 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "DeploymentStatus uploads probe failed");
+            }
+
+            var dbOk = false;
+            string? dbError = null;
+            int bookCount = 0;
+            try
+            {
+                dbOk = await _context.Database.CanConnectAsync(HttpContext.RequestAborted);
+                if (dbOk)
+                    bookCount = await _context.Books.CountAsync(HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                dbError = ex.Message;
+            }
+
+            var googleOk = !string.IsNullOrWhiteSpace(OAuthCredentialResolver.GoogleClientId(_configuration))
+                           && !string.IsNullOrWhiteSpace(OAuthCredentialResolver.GoogleClientSecret(_configuration));
+            var facebookOk = !string.IsNullOrWhiteSpace(OAuthCredentialResolver.FacebookAppId(_configuration))
+                             && !string.IsNullOrWhiteSpace(OAuthCredentialResolver.FacebookAppSecret(_configuration));
+            var apiKeyOk = !string.IsNullOrEmpty(ExternalApiKeyResolver.Resolve(_configuration));
+            var publicBase = (_configuration["App:PublicBaseUrl"] ?? "").Trim();
+
+            return Json(new
+            {
+                success = true,
+                environment = env,
+                contentRoot,
+                publicBaseUrl = string.IsNullOrEmpty(publicBase) ? null : publicBase,
+                database = new { connected = dbOk, bookCount, error = dbError },
+                externalApi = new { keyConfigured = apiKeyOk },
+                oauth = new { google = googleOk, facebook = facebookOk },
+                uploads = new
+                {
+                    path = uploadsPath,
+                    writable = uploadsWritable,
+                    fileCount = uploadsFileCount,
+                    note = "Cover images must live here; redeploy without persistent/uploads symlink breaks saved covers."
+                },
+                hints = new[]
+                {
+                    "Local and live use different MySQL unless you import the same database dump.",
+                    "Set ConnectionStrings__DefaultConnection and App__PublicBaseUrl in /etc/default/ebookai.",
+                    "Run: bash deploy/fix-live-parity.sh then bash deploy/do-deploy.sh on the server."
                 }
             });
         }

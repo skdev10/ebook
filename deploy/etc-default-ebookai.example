@@ -4,14 +4,20 @@
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://0.0.0.0:5000
 
+# Public URL (Stripe redirects, absolute links) — must match how users open the site
+App__PublicBaseUrl=http://138.197.76.70:5000
+
 # Required — Python upstream X-API-Key
 ExternalApi__ApiKey=PASTE_YOUR_KEY_HERE
 
-# MySQL on this VM (fixed password Root@1234) — MUST quote; semicolons break unquoted bash source
+# MySQL on this VM — MUST quote; semicolons break unquoted bash source
 ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=ebookpublications;User=root;Password=Root@1234;SslMode=None;AllowPublicKeyRetrieval=True;'
 
-# Optional: force Unix socket on Linux (auto-detected if file exists)
-# Database__UnixSocket=/var/run/mysqld/mysqld.sock
+# OAuth (optional — copy from appsettings.json or Google/Meta console)
+# Authentication__Google__ClientId=
+# Authentication__Google__ClientSecret=
+# Authentication__Facebook__AppId=
+# Authentication__Facebook__AppSecret=
 
-# Allow login over plain HTTP during testing
+# Allow login over plain HTTP (IP:5000 testing)
 Authentication__CookieSecurePolicy=SameAsRequest
