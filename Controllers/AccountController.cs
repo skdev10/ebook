@@ -282,8 +282,10 @@ namespace EBookDashboard.Controllers
                 .Include(u => u.Role)
                 .FirstOrDefaultAsync(u => u.UserEmail == email);
 
+            var isNewOAuthUser = false;
             if (user == null)
             {
+                isNewOAuthUser = true;
                 user = new Users
                 {
                     UserEmail = email,
@@ -309,8 +311,14 @@ namespace EBookDashboard.Controllers
             _context.Users.Update(user);
             await _context.SaveChangesAsync();
 
-            HttpContext.Session.SetInt32("UserId", user.UserId);
-            HttpContext.Session.SetString("FullName", user.FullName ?? "");
+            if (isNewOAuthUser)
+            {
+                EstablishUserSession(user.UserId, user.FullName);
+                HttpContext.Session.SetString("OnboardingPending", "1");
+                return RedirectToAction("OnboardingProfile", "Account");
+            }
+
+            EstablishUserSession(user.UserId, user.FullName);
 
             var role = user.Role?.RoleName ?? "Reader";
             var claims = new List<Claim>
@@ -331,9 +339,8 @@ namespace EBookDashboard.Controllers
             await HttpContext.SignOutAsync(schemeUsed!);
             await HttpContext.SignInAsync("UserCookie", new ClaimsPrincipal(claimsIdentity), authProperties);
 
-            var resumeExt = TryRedirectToSavedResume(user.UserId);
-            if (resumeExt != null) return resumeExt;
-            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)
+                && returnUrl.StartsWith("/Dashboard", StringComparison.OrdinalIgnoreCase))
                 return Redirect(returnUrl);
             return RedirectToAction("Index", "Dashboard");
         }
@@ -452,11 +459,7 @@ namespace EBookDashboard.Controllers
 
                     if (role == "Admin")
                         return RedirectToAction("Dashboard", "Admin");
-                    var resumeOtp = TryRedirectToSavedResume(user.UserId);
-                    if (resumeOtp != null) return resumeOtp;
-                    if (role == "User" || role == "Author" || role == "Reader")
-                        return RedirectToAction("AIGenerateBook", "Books");
-                    return RedirectToAction("AIGenerateBook", "Books");
+                    return RedirectToAction("Index", "Dashboard");
                 }
                 else
                 {
@@ -584,8 +587,7 @@ namespace EBookDashboard.Controllers
 
             if (user != null)
             {
-                HttpContext.Session.SetInt32("UserId", user.UserId);
-                HttpContext.Session.SetString("FullName", user.FullName ?? "");
+                EstablishUserSession(user.UserId, user.FullName);
                 userId = user.UserId;
 
                 // ✅ Login success → redirect to main layout (Dashboard, Home, etc.)
@@ -618,13 +620,7 @@ namespace EBookDashboard.Controllers
                 if (role == "Admin")
                     return RedirectToAction("Dashboard", "Admin");
 
-                var resumeLogin = TryRedirectToSavedResume(user.UserId);
-                if (resumeLogin != null) return resumeLogin;
-
-                if (role == "User" || role == "Author" || role == "Reader")
-                    return RedirectToAction("AIGenerateBook", "Books");
-
-                return RedirectToAction("Index", "Dashboard"); // Default redirect to Dashboard
+                return RedirectToAction("Index", "Dashboard");
             }
             else
             {
@@ -675,7 +671,8 @@ namespace EBookDashboard.Controllers
             _context.Users.Add(model);
             await _context.SaveChangesAsync();
 
-            HttpContext.Session.SetInt32("UserId", model.UserId);
+            await HttpContext.SignOutAsync("UserCookie");
+            EstablishUserSession(model.UserId, model.FullName);
             HttpContext.Session.SetString("OnboardingPending", "1");
             return RedirectToAction("OnboardingProfile", "Account");
         }
@@ -706,6 +703,7 @@ namespace EBookDashboard.Controllers
 
             var roleName = user.Role?.RoleName ?? "Reader";
             var scheme = roleName == "Admin" ? "AdminCookie" : "UserCookie";
+            EstablishUserSession(user.UserId, user.FullName);
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
@@ -720,8 +718,7 @@ namespace EBookDashboard.Controllers
                 ExpiresUtc = DateTime.UtcNow.AddHours(8)
             });
 
-            var resumeOnboard = TryRedirectToSavedResume(user.UserId);
-            if (resumeOnboard != null) return resumeOnboard;
+            TempData["WelcomeMessage"] = "Welcome! Create your first book below to start the AI Writer flow.";
             return RedirectToAction("Index", "Dashboard");
         }
         //--------------------------------------------------------------------------
@@ -1151,9 +1148,27 @@ namespace EBookDashboard.Controllers
             }
         }
 
+        private void EstablishUserSession(int userId, string? fullName = null)
+        {
+            try
+            {
+                HttpContext.Session.Clear();
+            }
+            catch
+            {
+                // Session store may be unavailable.
+            }
+
+            HttpContext.Session.SetInt32("UserId", userId);
+            if (!string.IsNullOrWhiteSpace(fullName))
+                HttpContext.Session.SetString("FullName", fullName);
+        }
+
         // ... [Your existing other methods] ...
         private async Task CreateUserSession(Users user)
         {
+            EstablishUserSession(user.UserId, user.FullName);
+            await Task.CompletedTask;
         }
     }
 }

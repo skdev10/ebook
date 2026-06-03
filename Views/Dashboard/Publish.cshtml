@@ -880,6 +880,13 @@
 <div class="max-w-[1600px] mx-auto w-full flex flex-col min-h-0">
 <div class="publish-page publish-page-shell bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-6 md:p-10 lg:p-12 text-slate-800">
     <section class="publish-hero mb-6 sm:mb-8 lg:mb-10">
+        <div class="flex flex-col gap-4">
+            @if (bookId > 0)
+            {
+                <div>
+                    <button type="button" data-flow-back="@(ViewBag.FlowBackUrl ?? $"/Dashboard/CoverDesign?bookId={bookId}")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Back to Cover Design</button>
+                </div>
+            }
         <div>
             <p class="publish-kicker">Distribution Console</p>
             <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Export your book</h1>
@@ -911,6 +918,7 @@
             {
                 <span class="publish-chip publish-chip-neutral"><i class="fas fa-list-ol" aria-hidden="true"></i> @pbChapterCount chapter@(pbChapterCount == 1 ? "" : "s")</span>
             }
+        </div>
         </div>
     </section>
 
@@ -993,7 +1001,7 @@
                     </p>
                     <div class="mt-4 flex flex-wrap gap-3">
                         <a href="/Dashboard/MyBooks" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700">Go to My Books</a>
-                        <a href="/Books/AIGenerateBook" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">Create in AI Writer</a>
+                        <a href="@(bookId > 0 ? $"/Books/AIGenerateBook?bookId={bookId}" : "/Dashboard")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">Continue in AI Writer</a>
                     </div>
                 </div>
             </div>

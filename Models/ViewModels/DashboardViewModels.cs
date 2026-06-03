@@ -23,6 +23,7 @@ namespace EBookDashboard.Models
         public string? DemoHeroDescription { get; set; }
         public string? DemoHeroCoverUrl { get; set; }
         public int? DemoHeroBookId { get; set; }
+        public string? DemoHeroResumeUrl { get; set; }
         /// <summary>Demo data: current read in sidebar (e.g. The Cambers of Secrets, 154/300).</summary>
         public string? DemoCurrentReadTitle { get; set; }
         public string? DemoCurrentReadProgressLabel { get; set; }
@@ -35,6 +36,10 @@ namespace EBookDashboard.Models
         public List<DemoDraftViewModel> DemoDrafts { get; set; } = new List<DemoDraftViewModel>();
         /// <summary>Demo reader friends in sidebar.</summary>
         public List<DemoReaderFriendViewModel> DemoReaderFriends { get; set; } = new List<DemoReaderFriendViewModel>();
+        /// <summary>True when the signed-in user has at least one book row (any status).</summary>
+        public bool HasAnyBooks { get; set; }
+        /// <summary>URL to create a draft book and open AI Writer (empty-state primary CTA).</summary>
+        public string StartNewBookUrl { get; set; } = "/Dashboard/StartNewBook";
     }
 
     public class DashboardProfileViewModel
@@ -66,6 +71,8 @@ namespace EBookDashboard.Models
         public string Status { get; set; } = string.Empty;
         public int ProgressPercentage { get; set; }
         public string ProgressText { get; set; } = string.Empty;
+        public string FlowStepLabel { get; set; } = string.Empty;
+        public string ResumeUrl { get; set; } = string.Empty;
         public string? CoverImagePath { get; set; }
         public DateTime? LastEditedAt { get; set; }
         public string LastEditedText { get; set; } = string.Empty;
@@ -268,6 +275,9 @@ namespace EBookDashboard.Models
         public int BookId { get; set; }
         public string Status { get; set; } = string.Empty;
         public string LastEditedText { get; set; } = string.Empty;
+        public int FlowStepPercent { get; set; }
+        public string FlowStepLabel { get; set; } = string.Empty;
+        public string ResumeUrl { get; set; } = string.Empty;
     }
 
     /// <summary>Demo display for Reader Friends in sidebar.</summary>
@@ -279,5 +289,12 @@ namespace EBookDashboard.Models
         public string TimeAgo { get; set; } = string.Empty;
         public string Comment { get; set; } = string.Empty;
         public string? Tag { get; set; }
+    }
+
+    /// <summary>Request body for hard-resetting a book flow step on back navigation.</summary>
+    public class ResetFlowStepRequest
+    {
+        public int BookId { get; set; }
+        public string? Step { get; set; }
     }
 }

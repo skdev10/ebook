@@ -23,13 +23,15 @@ namespace EBookDashboard.Controllers
         private readonly IBookDesignService _bookDesignService;
         private readonly IWebHostEnvironment _env;
         private readonly IConfiguration _configuration;
+        private readonly BookFlowStateService _bookFlow;
 
-        public BookDesignController(ApplicationDbContext context, IBookDesignService bookDesignService, IWebHostEnvironment env, IConfiguration configuration)
+        public BookDesignController(ApplicationDbContext context, IBookDesignService bookDesignService, IWebHostEnvironment env, IConfiguration configuration, BookFlowStateService bookFlow)
         {
             _context = context;
             _bookDesignService = bookDesignService ?? throw new ArgumentNullException(nameof(bookDesignService));
             _env = env;
             _configuration = configuration;
+            _bookFlow = bookFlow;
         }
         // GET: /BookDesign/CoverDesignCalculator
         public IActionResult Index(int bookId = 0)
@@ -365,6 +367,8 @@ namespace EBookDashboard.Controllers
                 HttpContext.Session.SetString("LastSelectedFormat", fmt);
                 HttpContext.Session.SetString("BookFormatPremiumBoth",
                     string.Equals(fmt, "Both", StringComparison.OrdinalIgnoreCase) ? "1" : "0");
+                var formatPath = ResolveFormatPath(fmt, existing.PublishingPlatform, existing.PublishingPlatforms);
+                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepFormat, formatPath);
                 return Json(new { success = true, message = "Formatting saved.", previewPageCount = previewPages });
             }
             catch (Exception ex)
@@ -559,8 +563,8 @@ namespace EBookDashboard.Controllers
                     || await _context.Books.AnyAsync(b => b.UserId == userId);
                 if (!hasGeneratedBook)
                 {
-                    ViewBag.LockMessage = "Please generate your AI book first before accessing this section.";
-                    ViewBag.LockGoto = "/Books/AIGenerateBook";
+                    ViewBag.LockMessage = "Select a book from the Dashboard to start formatting.";
+                    ViewBag.LockGoto = "/Dashboard";
                     ViewBag.LockButtonText = "Go to AI Writer";
                 }
                 // Get bookId from TempData, query param, or last selected from session
@@ -574,6 +578,11 @@ namespace EBookDashboard.Controllers
                 }
                 if (bookId == 0)
                     bookId = HttpContext.Session.GetInt32("LastSelectedBookId") ?? 0;
+                if (bookId <= 0)
+                {
+                    TempData["InfoMessage"] = "Select a book from the Dashboard to continue formatting.";
+                    return RedirectToAction("Index", "Dashboard");
+                }
                 // Persist selected book for dropdown/state
                 if (bookId > 0)
                     HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
@@ -704,6 +713,13 @@ namespace EBookDashboard.Controllers
                 ViewBag.PrintReadyDefaultTrimWidthInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimWidthInches", 6.0);
                 ViewBag.PrintReadyDefaultTrimHeightInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimHeightInches", 9.0);
 
+                var formatPath = ResolveFormatPath(preferredFormat, viewModel.PublishingPlatform, viewModel.PublishingPlatforms);
+                await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, formatPath);
+                ViewBag.FlowBookId = bookId;
+                ViewBag.FlowStep = BookFlowStateService.StepFormat;
+                ViewBag.FlowPath = formatPath;
+                ViewBag.FlowBackUrl = $"/Books/AIGenerateBook?bookId={bookId}";
+
                 return View("CoverDesignCalculatorFixing", viewModel);
             }
             catch (Exception ex)
@@ -728,6 +744,20 @@ namespace EBookDashboard.Controllers
             if (double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var value))
                 return value;
             return fallback;
+        }
+
+        private static string ResolveFormatPath(string? format, string? publishingPlatform, string? publishingPlatforms)
+        {
+            var fmt = (format ?? "").Trim();
+            if (fmt.Contains("paper", StringComparison.OrdinalIgnoreCase)
+                || fmt.Contains("print", StringComparison.OrdinalIgnoreCase)
+                || fmt.Equals("Both", StringComparison.OrdinalIgnoreCase))
+                return "print";
+            var platforms = $"{publishingPlatform},{publishingPlatforms}";
+            if (platforms.Contains("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
+                || platforms.Contains("Publishable Book", StringComparison.OrdinalIgnoreCase))
+                return "print";
+            return "ebook";
         }
 
         /// <summary>

@@ -45,6 +45,8 @@ namespace EBookDashboard.Controllers
         private readonly IBookPageMetricsService _bookPageMetricsService;
         private readonly BookPublishReadinessService _publishReadiness;
         private readonly IKdpCoverDimensionService _kdpCoverDimensions;
+        private readonly BookFlowStateService _bookFlow;
+        private readonly ICurrentUserAccessor _currentUser;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -59,7 +61,9 @@ namespace EBookDashboard.Controllers
             IBookPdfService bookPdfService,
             IBookPageMetricsService bookPageMetricsService,
             BookPublishReadinessService publishReadiness,
-            IKdpCoverDimensionService kdpCoverDimensions)
+            IKdpCoverDimensionService kdpCoverDimensions,
+            BookFlowStateService bookFlow,
+            ICurrentUserAccessor currentUser)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -74,6 +78,8 @@ namespace EBookDashboard.Controllers
             _bookPageMetricsService = bookPageMetricsService;
             _publishReadiness = publishReadiness;
             _kdpCoverDimensions = kdpCoverDimensions;
+            _bookFlow = bookFlow;
+            _currentUser = currentUser;
         }
 
         [Route("")]
@@ -102,6 +108,121 @@ namespace EBookDashboard.Controllers
             }
         }
 
+        /// <summary>Empty-dashboard / My Books entry: create a draft and open AI Writer (Step 1).</summary>
+        [HttpGet]
+        [Route("StartNewBook")]
+        public async Task<IActionResult> StartNewBook(string? title, int create = 0)
+        {
+            var userId = _currentUser.GetUserId();
+            if (!userId.HasValue || userId.Value <= 0)
+                return RedirectToAction("UserLogin", "Account");
+
+            var user = await _currentUser.GetUserAsync();
+            if (user == null)
+                return RedirectToAction("UserLogin", "Account");
+
+            // Existing authors: resume latest draft unless explicitly creating another book (?create=1).
+            if (create != 1)
+            {
+                var inProgress = await _context.Books.AsNoTracking()
+                    .Where(b => b.UserId == user.UserId
+                        && b.Status != "Published"
+                        && b.Status != "Finalized")
+                    .OrderByDescending(b => b.isActive)
+                    .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                    .FirstOrDefaultAsync();
+                if (inProgress != null)
+                {
+                    HttpContext.Session.SetInt32("LastSelectedBookId", inProgress.BookId);
+                    var flow = await _bookFlow.GetStepAsync(inProgress.BookId);
+                    var resumeUrl = _bookFlow.BuildResumeUrl(inProgress.BookId, flow.Step, flow.Path);
+                    if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
+                        return Redirect(resumeUrl);
+                    return RedirectToAction("AIGenerateBook", "Books", new { bookId = inProgress.BookId });
+                }
+            }
+
+            var trimmedTitle = string.IsNullOrWhiteSpace(title) ? "Untitled Book" : title.Trim();
+            try
+            {
+                var (authorId, categoryId, languageId) = await EnsureAuthorAndDefaultsForUserAsync(user);
+                var request = new CreateBookRequest
+                {
+                    UserId = userId.Value,
+                    AuthorId = authorId,
+                    CategoryId = categoryId,
+                    LanguageId = languageId,
+                    Title = trimmedTitle,
+                    Description = "",
+                    Dedication = "",
+                    Ghostwriting = "",
+                    Epigraph = "",
+                    Genre = "General",
+                    WordCount = 0,
+                    CoverImagePath = "",
+                    ManuscriptPath = "",
+                    Subtitle = "",
+                    AuthorCode = user.UserId.ToString(),
+                    BookCode = Guid.NewGuid().ToString("N")[..12]
+                };
+                var book = await _bookService.CreateBookFromRequestAsync(request);
+                await _bookFlow.SaveStepAsync(book.BookId, BookFlowStateService.StepGenerate);
+                HttpContext.Session.SetInt32("LastSelectedBookId", book.BookId);
+                return RedirectToAction("AIGenerateBook", "Books", new { bookId = book.BookId });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "StartNewBook failed for user {UserId}", userId);
+                TempData["InfoMessage"] = "We couldn't create your book just now. Please try again.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
+        /// <summary>Every book needs a valid Authors row (AuthorId ≠ UserId). Creates author on first book for new users.</summary>
+        private async Task<(int AuthorId, int CategoryId, int LanguageId)> EnsureAuthorAndDefaultsForUserAsync(Users user)
+        {
+            var author = await _context.Authors
+                .FirstOrDefaultAsync(a => a.AuthorCode == user.UserId.ToString());
+            if (author == null)
+            {
+                author = new Authors
+                {
+                    AuthorCode = user.UserId.ToString(),
+                    FullName = string.IsNullOrWhiteSpace(user.FullName) ? "Author" : user.FullName,
+                    AuthorEmail = user.UserEmail ?? "",
+                    CategoryId = 1,
+                    Country = "",
+                    City = "",
+                    Region = "",
+                    PostalCode = "",
+                    CountryCode = "",
+                    Phone = "",
+                    Address = "",
+                    Status = "Active",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.Authors.Add(author);
+                await _context.SaveChangesAsync();
+            }
+
+            var categoryId = 1;
+            var languageId = 1;
+            try
+            {
+                var cat = await _context.Categories.AsNoTracking().FirstOrDefaultAsync();
+                if (cat != null) categoryId = cat.CategoryId;
+                var lang = await _context.Languages.AsNoTracking().FirstOrDefaultAsync();
+                if (lang != null) languageId = lang.LanguageId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "EnsureAuthorAndDefaults: category/language lookup skipped for user {UserId}", user.UserId);
+            }
+
+            return (author.AuthorId, categoryId, languageId);
+        }
+
         private async Task<IActionResult> IndexCoreAsync()
         {
             // Temporarily bypass the feature check to allow login
@@ -119,33 +240,34 @@ namespace EBookDashboard.Controllers
             }
             */
 
-            // Get user information
-            var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
+            // Get user information (claims NameIdentifier is authoritative; session is synced)
             Users? user = null;
             try
             {
-                user = await _context.Users
-                    .AsNoTracking()
-                    .Include(u => u.Role)
-                    .FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                user = await _currentUser.GetUserAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Dashboard: could not load user row for {Email}.", userEmail);
+                _logger.LogWarning(ex, "Dashboard: could not load user for current principal.");
             }
 
             if (user == null)
             {
                 ViewBag.UserName = User.Identity?.Name ?? "User";
-                ViewBag.UserEmail = userEmail;
+                ViewBag.UserEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
                 ViewBag.AuthorName = User.FindFirst("AuthorName")?.Value ?? "";
                 ViewBag.Genre = User.FindFirst("Genre")?.Value ?? "";
-                return View(new DashboardIndexViewModel { UserName = ViewBag.UserName as string ?? "User" });
+                return View(new DashboardIndexViewModel
+                {
+                    UserName = ViewBag.UserName as string ?? "User",
+                    HasAnyBooks = false,
+                    StartNewBookUrl = Url.Action(nameof(StartNewBook), "Dashboard") ?? "/Dashboard/StartNewBook"
+                });
             }
 
             // Get author information
-            int? userId = HttpContext.Session.GetInt32("UserId");
-            ViewBag.UserId = userId; // ✅ send to Razor view
+            int? userId = user.UserId;
+            ViewBag.UserId = userId;
             var author = await _context.Authors
                 .FirstOrDefaultAsync(a => a.AuthorCode == user.UserId.ToString());
 
@@ -274,29 +396,41 @@ namespace EBookDashboard.Controllers
 
             // Dashboard display data (real user books, preserving approved visual style)
             var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, books);
-            var demoPublished = GetDemoPublishedBooks(books, ResolveBookCover);
-            var demoDrafts = GetDemoDrafts(books, ResolveBookCover);
+            var pendingBooks = books.Where(b => !BookFlowStateService.IsPublishedStatus(b.Status)).ToList();
+            var flowMap = await LoadBookFlowMapAsync(pendingBooks.Select(b => b.BookId).ToList());
+            var demoPublished = new List<DemoPublishedBookViewModel>();
+            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(books, ResolveBookCover), flowMap, _bookFlow);
             var demoHero = BuildHeroFromBook(lastWorkedBook, ResolveBookCover);
             var demoCurrentRead = BuildCurrentReadFromBook(lastWorkedBook, chaptersGeneratedByBookId, ResolveBookCover);
-            var demoReaderFriends = GetDemoReaderFriends();
+            var hasAnyBooks = books.Count > 0;
+            var demoReaderFriends = hasAnyBooks ? GetDemoReaderFriends() : new List<DemoReaderFriendViewModel>();
+
+            string? heroResumeUrl = null;
+            if (lastWorkedBook != null && !BookFlowStateService.IsPublishedStatus(lastWorkedBook.Status))
+            {
+                var heroFlow = flowMap.GetValueOrDefault(lastWorkedBook.BookId, (Step: BookFlowStateService.StepGenerate, Path: "ebook"));
+                heroResumeUrl = _bookFlow.BuildResumeUrl(lastWorkedBook.BookId, heroFlow.Step, heroFlow.Path);
+            }
 
             var viewModel = new DashboardIndexViewModel
             {
                 UserName = user.FullName,
                 UserEmail = user.UserEmail,
+                HasAnyBooks = hasAnyBooks,
+                StartNewBookUrl = Url.Action(nameof(StartNewBook), "Dashboard") ?? "/Dashboard/StartNewBook",
                 TotalBooksPublished = totalBooksPublished,
                 MonthlyRevenue = monthlyRevenue,
                 TotalDownloads = totalDownloads,
                 AverageRating = averageRating,
-                CurrentProjects = books.Select(b =>
+                CurrentProjects = pendingBooks.Select(b =>
                 {
+                    var flow = flowMap.GetValueOrDefault(b.BookId, (Step: BookFlowStateService.StepGenerate, Path: "ebook"));
+                    var stepLabel = BookFlowStateService.StepToLabel(flow.Step);
+                    var progressPct = BookFlowStateService.StepToPercent(flow.Step);
                     var totalChapters = chaptersGeneratedByBookId.GetValueOrDefault(b.BookId, 0);
-                    var progressPct = b.Status == "Published" || b.Status == "Finalized" ? 100 : totalChapters > 0 ? 100 : 0;
-                    var progressText = b.Status == "Published" || b.Status == "Finalized"
-                        ? "Complete"
-                        : totalChapters > 0
-                            ? $"{totalChapters} chapter{(totalChapters == 1 ? "" : "s")}"
-                            : "No chapters yet";
+                    var progressText = $"{stepLabel} · {progressPct}%";
+                    if (flow.Step == BookFlowStateService.StepGenerate && totalChapters > 0)
+                        progressText = $"{stepLabel} · {totalChapters} chapter{(totalChapters == 1 ? "" : "s")}";
                     return new ProjectViewModel
                     {
                         BookId = b.BookId,
@@ -304,28 +438,33 @@ namespace EBookDashboard.Controllers
                         Status = b.Status,
                         ProgressPercentage = progressPct,
                         ProgressText = progressText,
+                        FlowStepLabel = stepLabel,
+                        ResumeUrl = _bookFlow.BuildResumeUrl(b.BookId, flow.Step, flow.Path),
                         CoverImagePath = ResolveBookCover(b),
                         LastEditedAt = b.UpdatedAt ?? b.CreatedAt,
                         LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
                     };
                 }).ToList(),
-                RecentActivities = new List<ActivityViewModel>
-                {
-                    new ActivityViewModel { Title = "Chapter 5 of \"The Art of Digital Publishing\" was updated", Description = "Your latest changes have been saved successfully", TimeAgo = "2 hours ago", IconClass = "fas fa-book" },
-                    new ActivityViewModel { Title = "New order for \"Modern Web Development\" received", Description = "Customer purchased 3 copies of your book", TimeAgo = "5 hours ago", IconClass = "fas fa-shopping-cart" },
-                    new ActivityViewModel { Title = "New review for \"AI in Everyday Life\"", Description = "Received 5-star rating with positive feedback", TimeAgo = "1 day ago", IconClass = "fas fa-comment" },
-                    new ActivityViewModel { Title = "New manuscript uploaded for \"Creative Writing Techniques\"", Description = "File processed and ready for editing", TimeAgo = "2 days ago", IconClass = "fas fa-file-alt" }
-                },
+                RecentActivities = hasAnyBooks
+                    ? new List<ActivityViewModel>
+                    {
+                        new ActivityViewModel { Title = "Chapter 5 of \"The Art of Digital Publishing\" was updated", Description = "Your latest changes have been saved successfully", TimeAgo = "2 hours ago", IconClass = "fas fa-book" },
+                        new ActivityViewModel { Title = "New order for \"Modern Web Development\" received", Description = "Customer purchased 3 copies of your book", TimeAgo = "5 hours ago", IconClass = "fas fa-shopping-cart" },
+                        new ActivityViewModel { Title = "New review for \"AI in Everyday Life\"", Description = "Received 5-star rating with positive feedback", TimeAgo = "1 day ago", IconClass = "fas fa-comment" },
+                        new ActivityViewModel { Title = "New manuscript uploaded for \"Creative Writing Techniques\"", Description = "File processed and ready for editing", TimeAgo = "2 days ago", IconClass = "fas fa-file-alt" }
+                    }
+                    : new List<ActivityViewModel>(),
                 CurrentWorkingBook = CreateCurrentWorkingBook(lastWorkedBook, chaptersGeneratedByBookId, ResolveBookCover),
                 TotalBooksGenerated = totalBooksGenerated,
-                BooksRead = 13,
-                HoursRead = userStats?.HoursRead ?? 45,
-                PagesRead = userStats?.PagesRead ?? 115,
-                DayStreak = userStats?.DayStreak ?? 26,
+                BooksRead = hasAnyBooks ? totalBooksPublished : 0,
+                HoursRead = hasAnyBooks ? (userStats?.HoursRead ?? 0) : 0,
+                PagesRead = hasAnyBooks ? (userStats?.PagesRead ?? 0) : 0,
+                DayStreak = hasAnyBooks ? (userStats?.DayStreak ?? 0) : 0,
                 DemoHeroTitle = demoHero.title,
                 DemoHeroDescription = demoHero.description,
                 DemoHeroCoverUrl = demoHero.coverUrl,
                 DemoHeroBookId = demoHero.book?.BookId,
+                DemoHeroResumeUrl = heroResumeUrl,
                 DemoCurrentReadTitle = demoCurrentRead.title,
                 DemoCurrentReadProgressLabel = demoCurrentRead.progressLabel,
                 DemoCurrentReadPercent = demoCurrentRead.percent,
@@ -420,6 +559,41 @@ namespace EBookDashboard.Controllers
             }
             await _context.SaveChangesAsync();
             return await _context.Books.Where(b => b.UserId == user.UserId).ToListAsync();
+        }
+
+        private static List<DemoDraftViewModel> EnrichDraftsWithFlow(
+            List<DemoDraftViewModel> drafts,
+            Dictionary<int, (string Step, string Path)> flowMap,
+            BookFlowStateService bookFlow)
+        {
+            foreach (var d in drafts)
+            {
+                var flow = flowMap.GetValueOrDefault(d.BookId, (Step: BookFlowStateService.StepGenerate, Path: "ebook"));
+                d.FlowStepLabel = BookFlowStateService.StepToLabel(flow.Step);
+                d.FlowStepPercent = BookFlowStateService.StepToPercent(flow.Step);
+                d.Subtitle = $"Continue at {d.FlowStepLabel} ({d.FlowStepPercent}% complete)";
+                d.ResumeUrl = bookFlow.BuildResumeUrl(d.BookId, flow.Step, flow.Path);
+            }
+            return drafts;
+        }
+
+        private async Task<Dictionary<int, (string Step, string Path)>> LoadBookFlowMapAsync(List<int> bookIds)
+        {
+            var map = new Dictionary<int, (string Step, string Path)>();
+            if (bookIds.Count == 0) return map;
+            var keys = bookIds.SelectMany(id => new[] { $"book:{id}:flowStep", $"book:{id}:flowPath" }).ToList();
+            var rows = await _context.Settings.AsNoTracking()
+                .Where(s => keys.Contains(s.Key))
+                .ToListAsync();
+            foreach (var id in bookIds)
+            {
+                var step = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowStep")?.Value?.Trim() ?? "";
+                var path = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowPath")?.Value?.Trim() ?? "";
+                if (string.IsNullOrEmpty(step)) step = BookFlowStateService.StepGenerate;
+                if (string.IsNullOrEmpty(path)) path = "ebook";
+                map[id] = (step, path);
+            }
+            return map;
         }
 
         private static List<DemoPublishedBookViewModel> GetDemoPublishedBooks(List<Books> books, Func<Books, string> resolveCover)
@@ -520,7 +694,7 @@ namespace EBookDashboard.Controllers
         private static (string title, string description, string coverUrl, Books? book) BuildHeroFromBook(Books? book, Func<Books, string> resolveCover)
         {
             if (book == null)
-                return ("Your Library", "Create your first book and start writing with AI.", "", null);
+                return ("Welcome to your studio", "Create your first book in one click, then write with AI Writer — Format → Cover → Publish.", "", null);
             return (book.Title, "Continue where you left off. Edit chapters, format pages, and get ready to publish.", resolveCover(book), book);
         }
 
@@ -717,9 +891,12 @@ namespace EBookDashboard.Controllers
             var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
             if (!hasGeneratedBook || !formattingDone)
             {
-                ViewBag.LockMessage = !hasGeneratedBook ? "Please generate your AI book first." : "Complete Book Formatting first, then AI Cover Design will unlock.";
-                ViewBag.LockGoto = !hasGeneratedBook ? "/Books/AIGenerateBook" : "/BookDesign/CoverDesignCalculatorFixing";
-                ViewBag.LockButtonText = !hasGeneratedBook ? "Go to AI Writer" : "Go to Formatting";
+                var lockBookQ = bookId.HasValue && bookId.Value > 0 ? $"?bookId={bookId.Value}" : "";
+                ViewBag.LockMessage = !hasGeneratedBook ? "Select a book from the Dashboard first." : "Complete Book Formatting first, then AI Cover Design will unlock.";
+                ViewBag.LockGoto = !hasGeneratedBook
+                    ? "/Dashboard"
+                    : $"/BookDesign/CoverDesignCalculatorFixing{lockBookQ}";
+                ViewBag.LockButtonText = !hasGeneratedBook ? "Go to Dashboard" : "Go to Formatting";
             }
             ViewBag.UserName = User.Identity?.Name ?? "User";
             ViewBag.BookId = bookId ?? 0;
@@ -731,6 +908,31 @@ namespace EBookDashboard.Controllers
             var roleId = user?.RoleId ?? 0;
             // RoleId 1 or 2: page stays open, no Upgrade Required popup
             ViewBag.ShowUpgradePrompt = (roleId != 1 && roleId != 2);
+
+            if (!bookId.HasValue || bookId.Value <= 0)
+            {
+                TempData["InfoMessage"] = "Select a book from the Dashboard to continue cover design.";
+                return RedirectToAction("Index");
+            }
+            if (user != null)
+            {
+                var owns = await _context.Books.AsNoTracking()
+                    .AnyAsync(b => b.BookId == bookId.Value && b.UserId == user.UserId);
+                if (!owns)
+                {
+                    TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
+                    return RedirectToAction("Index");
+                }
+            }
+            var (_, coverPath) = await _bookFlow.GetStepAsync(bookId.Value);
+            await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepCover, coverPath);
+            ViewBag.FlowBookId = bookId.Value;
+            ViewBag.FlowStep = BookFlowStateService.StepCover;
+            ViewBag.FlowPath = coverPath;
+            ViewBag.FlowBackUrl = coverPath.Equals("print", StringComparison.OrdinalIgnoreCase)
+                ? $"/BookDesign/CoverDesignCalculatorFixing?bookId={bookId.Value}&format=Paperback"
+                : $"/BookDesign/CoverDesignCalculatorFixing?bookId={bookId.Value}&format=Ebook";
+
             return View();
         }
 
@@ -2244,7 +2446,9 @@ namespace EBookDashboard.Controllers
                     var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     var hasPrintReadyPlatform =
                         primaryPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
-                        || selectedPlatforms.Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase));
+                        || primaryPlatform.Equals("Publishable Book", StringComparison.OrdinalIgnoreCase)
+                        || selectedPlatforms.Any(p => p.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
+                            || p.Equals("Publishable Book", StringComparison.OrdinalIgnoreCase));
                     var isPaperbackFormat = publishFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase);
                     var isBothFormatFlag = publishFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
                     // Print-ready platform or ?flow=printready must win even when format dropdown still says Ebook.
@@ -2255,9 +2459,49 @@ namespace EBookDashboard.Controllers
                     ViewBag.PublishCanExport = canExport;
                     ViewBag.PublishBookReady = canExport;
                 }
+
+                var (_, publishPath) = await _bookFlow.GetStepAsync(bookId.Value);
+                if (forcedPrintReadyFlow || (ViewBag.PublishPrintReadyMode is bool prm && prm))
+                    publishPath = "print";
+                await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepPublish, publishPath);
+                ViewBag.FlowBookId = bookId.Value;
+                ViewBag.FlowStep = BookFlowStateService.StepPublish;
+                ViewBag.FlowPath = publishPath;
+                ViewBag.FlowBackUrl = $"/Dashboard/CoverDesign?bookId={bookId.Value}";
             }
 
             return View();
+        }
+
+        /// <summary>Hard-reset the current flow step when user confirms back navigation.</summary>
+        [HttpPost]
+        [Route("Dashboard/ResetFlowStep")]
+        public async Task<IActionResult> ResetFlowStep([FromBody] ResetFlowStepRequest req)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Json(new { success = false, message = "Please sign in." });
+            if (req == null || req.BookId <= 0 || string.IsNullOrWhiteSpace(req.Step))
+                return Json(new { success = false, message = "Invalid request." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == userId.Value);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var step = req.Step.Trim().ToLowerInvariant();
+            await _bookFlow.RegressAndResetAsync(req.BookId, step);
+            var (newStep, path) = await _bookFlow.GetStepAsync(req.BookId);
+            if (newStep == BookFlowStateService.StepFormat || newStep == BookFlowStateService.StepGenerate)
+                HttpContext.Session.SetString("FormattingDone", "0");
+            if (newStep == BookFlowStateService.StepGenerate)
+                HttpContext.Session.Remove("CoverFinalized");
+            return Json(new
+            {
+                success = true,
+                step = newStep,
+                resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, newStep, path)
+            });
         }
 
         [Route("EditingFormatting")]
@@ -3263,8 +3507,7 @@ namespace EBookDashboard.Controllers
         [Route("MyBooks")]
         public async Task<IActionResult> MyBooks()
         {
-            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            var user = await _currentUser.GetUserAsync();
             
             if (user == null)
             {

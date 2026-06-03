@@ -33,20 +33,27 @@
     bool hasAnyBooks = false;
     bool formattingDone = false;
     bool coverFinalized = false;
+    int? resolvedUserId = null;
     try
     {
         var session = HttpContextAccessor.HttpContext?.Session;
-        if (session != null)
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (int.TryParse(idClaim, out var claimUserId) && claimUserId > 0)
+            resolvedUserId = claimUserId;
+        else if (session != null)
+            resolvedUserId = session.GetInt32("UserId");
+
+        if (session != null && resolvedUserId.HasValue)
         {
-            int? resolvedUserId = session.GetInt32("UserId");
-            if (!resolvedUserId.HasValue && !string.IsNullOrEmpty(userEmail))
+            try
             {
-                resolvedUserId = DbContext.Users.Where(u => u.UserEmail == userEmail).Select(u => (int?)u.UserId).FirstOrDefault();
+                var sessionUserId = session.GetInt32("UserId");
+                if (!sessionUserId.HasValue || sessionUserId.Value != resolvedUserId.Value)
+                    session.SetInt32("UserId", resolvedUserId.Value);
             }
-            if (resolvedUserId.HasValue)
-            {
-                hasAnyBooks = DbContext.Books.Any(b => b.UserId == resolvedUserId.Value);
-            }
+            catch { }
+
+            hasAnyBooks = DbContext.Books.Any(b => b.UserId == resolvedUserId.Value);
 
             if (session.GetString("HasGeneratedBook") == "1")
                 hasGeneratedBook = true;
@@ -67,6 +74,49 @@
     bool formattingUnlocked = hasGeneratedBook;
     bool coverUnlocked = hasGeneratedBook && formattingDone;
     bool publishUnlocked = hasAnyBooks || hasGeneratedBook || coverFinalized;
+
+    int flowBookId = 0;
+    string flowStep = "";
+    string flowBackUrl = "";
+    if (ViewBag.FlowBookId is int flowBid) { flowBookId = flowBid; }
+    else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
+    if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
+    if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
+
+    int sidebarActiveBookId = flowBookId;
+    if (sidebarActiveBookId <= 0 && ViewBag.SelectedBookId != null)
+        int.TryParse(ViewBag.SelectedBookId.ToString(), out sidebarActiveBookId);
+    if (sidebarActiveBookId <= 0 && ViewBag.BookId != null)
+        int.TryParse(ViewBag.BookId.ToString(), out sidebarActiveBookId);
+    try
+    {
+        var flowSess = HttpContextAccessor.HttpContext?.Session;
+        if (sidebarActiveBookId <= 0 && flowSess != null)
+            sidebarActiveBookId = flowSess.GetInt32("LastSelectedBookId") ?? 0;
+        if (sidebarActiveBookId <= 0 && resolvedUserId is > 0)
+        {
+            var latestDraftId = DbContext.Books
+                .Where(b => b.UserId == resolvedUserId.Value
+                    && b.Status != "Published"
+                    && b.Status != "Finalized")
+                .OrderByDescending(b => b.isActive)
+                .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .Select(b => (int?)b.BookId)
+                .FirstOrDefault();
+            if (latestDraftId is > 0)
+            {
+                sidebarActiveBookId = latestDraftId.Value;
+                try { flowSess?.SetInt32("LastSelectedBookId", sidebarActiveBookId); } catch { }
+            }
+        }
+    }
+    catch { }
+    var sidebarAiWriterUrl = sidebarActiveBookId > 0
+        ? $"/Books/AIGenerateBook?bookId={sidebarActiveBookId}"
+        : "/Dashboard/StartNewBook";
+    var sidebarFormatUrl = sidebarActiveBookId > 0 ? $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}" : "/Dashboard";
+    var sidebarCoverUrl = sidebarActiveBookId > 0 ? $"/Dashboard/CoverDesign?bookId={sidebarActiveBookId}" : "/Dashboard";
+    var sidebarPublishUrl = sidebarActiveBookId > 0 ? $"/Dashboard/Publish?bookId={sidebarActiveBookId}" : "/Dashboard";
 }
 
 <!DOCTYPE html>
@@ -3305,13 +3355,13 @@
                     </a>
                 </li>
                 <li>
-                    <a href="/Books/AIGenerateBook" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" ? "active" : "")">
+                    <a href="@sidebarAiWriterUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" ? "active" : "")">
                         <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Writer</span>
                     </a>
                 </li>
                 <li>
                     @if (formattingUnlocked) {
-                        <a href="/BookDesign/CoverDesignCalculatorFixing" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" ? "active" : "")">
+                        <a href="@sidebarFormatUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" ? "active" : "")">
                             <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
                         </a>
                         @if (ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" && (ViewBag.SelectedBookName != null || ViewBag.SelectedFormat != null))
@@ -3322,24 +3372,24 @@
                             </div>
                         }
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="Book Formatting" data-unlock-step="1" data-goto="/Books/AIGenerateBook" title="Generate a book first from AI Writer">
+                        <a href="#" class="sidebar-locked-feature" data-locked="Book Formatting" data-unlock-step="1" data-goto="@sidebarAiWriterUrl" title="Select a book from the Dashboard first">
                             <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
                         </a>
                     }
                 </li>
                 
                 <li>
-                    <a href="/Dashboard/CoverDesign" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
+                    <a href="@sidebarCoverUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
                         <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
                     </a>
                 </li>
                 <li>
                     @if (hasGeneratedBook) {
-                        <a href="/publish" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "active" : "")">
+                        <a href="@sidebarPublishUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "active" : "")">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Generate a book first from AI Writer" data-goto="/Books/AIGenerateBook">
+                        <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Select a book from the Dashboard first" data-goto="@sidebarAiWriterUrl">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     }
@@ -3350,7 +3400,7 @@
                             <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="@(coverUnlocked ? "/Dashboard/CoverDesign" : (formattingUnlocked ? "/BookDesign/CoverDesignCalculatorFixing" : "/Books/AIGenerateBook"))" title="Complete previous steps first">
+                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="@(coverUnlocked ? sidebarCoverUrl : (formattingUnlocked ? sidebarFormatUrl : sidebarAiWriterUrl))" title="Complete previous steps first">
                             <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     }
@@ -3408,7 +3458,7 @@
                         link.addEventListener("click", function (e) {
                             e.preventDefault();
                             const name = this.getAttribute("data-locked") || "This feature";
-                            const goto = this.getAttribute("data-goto") || "/Books/AIGenerateBook";
+                            const goto = this.getAttribute("data-goto") || "/Dashboard";
                             const step = this.getAttribute("data-unlock-step") || "1";
                             let msg = "Please complete the previous step before accessing this section.<br><br><b>" + name + "</b> will unlock when you finish the required step.";
                             let btn = "Go to AI Writer";
@@ -3596,7 +3646,7 @@
                     <div class="locked-modal">
                         <h3>Complete Previous Step</h3>
                         <p>@ViewBag.LockMessage</p>
-                        <a href="@(ViewBag.LockGoto ?? "/Books/AIGenerateBook")" class="btn-goto">@(ViewBag.LockButtonText ?? "Go to AI Writer")</a>
+                        <a href="@(ViewBag.LockGoto ?? "/Dashboard")" class="btn-goto">@(ViewBag.LockButtonText ?? "Go to Dashboard")</a>
                     </div>
                 </div>
             }
@@ -5155,6 +5205,109 @@
     </script>
 
     <!-- Render any additional scripts from individual pages -->
+    @if (flowBookId > 0 && !string.IsNullOrWhiteSpace(flowStep))
+    {
+        <script>
+            (function () {
+                var flowBookId = @flowBookId;
+                var flowStep = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(flowStep));
+                var flowBackUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(string.IsNullOrWhiteSpace(flowBackUrl) ? "/Dashboard" : flowBackUrl));
+                var profilePaths = ['/Dashboard/Profile', '/Account/Profile'];
+                var currentPath = (window.location.pathname || '').toLowerCase();
+
+                function isAllowedHref(href) {
+                    if (!href || href === '#' || href.indexOf('javascript:') === 0) return true;
+                    var path = href.split('?')[0].toLowerCase();
+                    if (profilePaths.some(function (p) { return path.indexOf(p.toLowerCase()) >= 0; })) return true;
+                    if (path === currentPath) return true;
+                    return false;
+                }
+
+                function clearStepLocalState(step) {
+                    try {
+                        if (step === 'format') localStorage.removeItem('formatter_draft_v2_' + flowBookId);
+                        if (step === 'cover') sessionStorage.removeItem('cover_design_draft_' + flowBookId);
+                        if (step === 'generate') localStorage.removeItem('ebook_ai_reader_state_v2_' + flowBookId);
+                    } catch (_) {}
+                }
+
+                window.confirmFlowBack = function (targetUrl) {
+                    if (typeof Swal === 'undefined') {
+                        if (window.confirm('Going back will reset your progress on this step. Continue?')) {
+                            return fetch('/Dashboard/ResetFlowStep', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ bookId: flowBookId, step: flowStep })
+                            }).then(function () {
+                                clearStepLocalState(flowStep);
+                                window.location.href = targetUrl || flowBackUrl;
+                            });
+                        }
+                        return Promise.resolve(false);
+                    }
+                    return Swal.fire({
+                        title: 'Leave this step?',
+                        html: 'Going back will <strong>discard the work</strong> you have done on this step and you will need to redo it. Your earlier steps stay saved.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, go back',
+                        cancelButtonText: 'Stay here',
+                        confirmButtonColor: '#7c3aed',
+                        cancelButtonColor: '#64748b'
+                    }).then(function (result) {
+                        if (!result.isConfirmed) return false;
+                        return fetch('/Dashboard/ResetFlowStep', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ bookId: flowBookId, step: flowStep })
+                        }).then(function (r) { return r.json(); }).then(function () {
+                            clearStepLocalState(flowStep);
+                            window.location.href = targetUrl || flowBackUrl;
+                            return true;
+                        }).catch(function () {
+                            clearStepLocalState(flowStep);
+                            window.location.href = targetUrl || flowBackUrl;
+                            return true;
+                        });
+                    });
+                };
+
+                document.addEventListener('DOMContentLoaded', function () {
+                    document.querySelectorAll('.sidebar-menu a[href], .sidebar-footer a[href]').forEach(function (a) {
+                        if (a.classList.contains('sidebar-locked-feature')) return;
+                        a.addEventListener('click', function (e) {
+                            var href = a.getAttribute('href') || '';
+                            if (isAllowedHref(href)) return;
+                            e.preventDefault();
+                            Swal.fire({
+                                title: 'Follow the step-by-step flow',
+                                html: 'Please complete each step in order for this book. You can open <strong>Profile Settings</strong> anytime, or return to the <strong>Dashboard</strong> to switch projects after finishing this step.',
+                                icon: 'info',
+                                confirmButtonText: 'Got it',
+                                confirmButtonColor: '#7c3aed'
+                            });
+                        });
+                    });
+
+                    document.querySelectorAll('[data-flow-back]').forEach(function (btn) {
+                        btn.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            var target = btn.getAttribute('data-flow-back') || flowBackUrl;
+                            window.confirmFlowBack(target);
+                        });
+                    });
+
+                    if (window.history && window.history.pushState) {
+                        history.pushState({ flowGuard: true }, '');
+                        window.addEventListener('popstate', function () {
+                            history.pushState({ flowGuard: true }, '');
+                            window.confirmFlowBack(flowBackUrl);
+                        });
+                    }
+                });
+            })();
+        </script>
+    }
     @RenderSection("Scripts", required: false)
 </body>
 </html>

@@ -62,6 +62,7 @@ namespace EBookDashboard.Controllers
         private readonly IBookPageMetricsService _bookPageMetricsService;
         private readonly BookPublishReadinessService _publishReadiness;
         private readonly IWebHostEnvironment _hostEnvironment;
+        private readonly BookFlowStateService _bookFlow;
 
         public BooksController(
             IBookService bookService,
@@ -78,7 +79,8 @@ namespace EBookDashboard.Controllers
             IDocxExportService docxExportService,
             IBookPageMetricsService bookPageMetricsService,
             BookPublishReadinessService publishReadiness,
-            IWebHostEnvironment hostEnvironment)
+            IWebHostEnvironment hostEnvironment,
+            BookFlowStateService bookFlow)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -96,6 +98,7 @@ namespace EBookDashboard.Controllers
             _bookPageMetricsService = bookPageMetricsService;
             _publishReadiness = publishReadiness;
             _hostEnvironment = hostEnvironment;
+            _bookFlow = bookFlow;
         }
         //===========================================
         //           On Page Load 
@@ -110,19 +113,37 @@ namespace EBookDashboard.Controllers
                 // not logged in → redirect to login
                 return RedirectToAction("UserLogin", "Account");
             }
-            if (bookId.HasValue && bookId.Value > 0)
+            if (!bookId.HasValue || bookId.Value <= 0)
             {
-                try
-                {
-                    await SetActiveBookAsync(userId.Value, bookId.Value);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "AIGenerateBook: SetActiveBookAsync failed for user {UserId}, book {BookId}. Page will still load.", userId.Value, bookId.Value);
-                }
+                TempData["InfoMessage"] = "Select a book from the Dashboard to continue your project.";
+                return RedirectToAction("Index", "Dashboard");
             }
+            var ownsBook = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId.Value && b.UserId == userId.Value);
+            if (!ownsBook)
+            {
+                TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
+                return RedirectToAction("Index", "Dashboard");
+            }
+            try
+            {
+                await SetActiveBookAsync(userId.Value, bookId.Value);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AIGenerateBook: SetActiveBookAsync failed for user {UserId}, book {BookId}. Page will still load.", userId.Value, bookId.Value);
+            }
+            await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepGenerate);
+            var bookTitle = await _context.Books.AsNoTracking()
+                .Where(b => b.BookId == bookId.Value)
+                .Select(b => b.Title)
+                .FirstOrDefaultAsync();
             ViewBag.UserId = userId;
             ViewBag.SelectedBookId = bookId;
+            ViewBag.SelectedBookTitle = string.IsNullOrWhiteSpace(bookTitle) ? "Untitled" : bookTitle;
+            ViewBag.FlowBookId = bookId.Value;
+            ViewBag.FlowStep = BookFlowStateService.StepGenerate;
+            ViewBag.FlowBackUrl = "/Dashboard";
 
             List<BookDropdownItem> userBooks = new();
             try
@@ -952,26 +973,21 @@ namespace EBookDashboard.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Convert UserId from string to int safely
-                if (!int.TryParse(request.UserId, out int userId))
-                {
-                    userId = 1; // Default fallback
-                }
-                // === ADD THESE DEBUG LINES ===
-                Console.WriteLine($"🔍 DEBUG: Raw UserId from request: '{request.UserId}'");
+                // Convert UserId from string to int safely — session/claim is authoritative (never default to user 1).
                 var sessionUserId = HttpContext.Session.GetInt32("UserId");
-                Console.WriteLine($"🔍 DEBUG: Session UserId: {sessionUserId}");
-                // =============================
+                if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
+                {
+                    Console.WriteLine("❌ SaveBookToDatabase: no session user id");
+                    return false;
+                }
 
-                    // === ADD THIS COMPARISON ===
-                    if (sessionUserId.HasValue && userId != sessionUserId.Value)
-                    {
-                        Console.WriteLine($"⚠️ DEBUG: USER ID MISMATCH! Session: {sessionUserId.Value}, Using: {userId}");
-                    }
-                    // ===========================
+                int userId = sessionUserId.Value;
+                if (int.TryParse(request.UserId, out var parsedUserId) && parsedUserId > 0 && parsedUserId != userId)
+                {
+                    Console.WriteLine($"⚠️ DEBUG: USER ID MISMATCH! Session: {userId}, Request: {parsedUserId}; using session.");
+                }
 
-                    Console.WriteLine($"💾 Saving book to database - UserId: {userId} (converted from: {request.UserId})");
-                    Console.WriteLine($"💾 Saving book to database - UserId: {userId} (converted from: {request.UserId})");
+                Console.WriteLine($"💾 Saving book to database - UserId: {userId}");
 
                 // Create new Book
                 var book = new Books
@@ -1038,25 +1054,20 @@ namespace EBookDashboard.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
-                // Convert UserId from string to int safely
-                if (!int.TryParse(request.UserId, out int userId))
-                {
-                    userId = 1; // Default fallback
-                }
-                // === ADD THESE DEBUG LINES ===
-                Console.WriteLine($"🔍 DEBUG: Raw UserId from request: '{request.UserId}'");
                 var sessionUserId = HttpContext.Session.GetInt32("UserId");
-                Console.WriteLine($"🔍 DEBUG: Session UserId: {sessionUserId}");
-                // =============================
-
-                // === ADD THIS COMPARISON ===
-                if (sessionUserId.HasValue && userId != sessionUserId.Value)
+                if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
                 {
-                    Console.WriteLine($"⚠️ DEBUG: USER ID MISMATCH! Session: {sessionUserId.Value}, Using: {userId}");
+                    Console.WriteLine("❌ SaveEditBookToDatabase: no session user id");
+                    return false;
                 }
-                // ===========================
 
-                Console.WriteLine($"💾 Saving book to database - UserId: {userId} (converted from: {request.UserId})");
+                int userId = sessionUserId.Value;
+                if (int.TryParse(request.UserId, out var parsedUserId) && parsedUserId > 0 && parsedUserId != userId)
+                {
+                    Console.WriteLine($"⚠️ DEBUG: USER ID MISMATCH! Session: {userId}, Request: {parsedUserId}; using session.");
+                }
+
+                Console.WriteLine($"💾 Saving book to database - UserId: {userId}");
                 Console.WriteLine($"💾 Saving book to database - UserId: {userId} (converted from: {request.UserId})");
 
                 // Create new Book
