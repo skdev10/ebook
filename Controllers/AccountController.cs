@@ -187,7 +187,7 @@ namespace EBookDashboard.Controllers
             {
                 _logger.LogError(ex, "UserLogin failed for {Email}", UserEmail);
                 var msg = ex is MySqlConnector.MySqlException or InvalidOperationException
-                    ? "Database connection failed. Check MySQL is running and ConnectionStrings__DefaultConnection on the server."
+                    ? "Database connection failed. Check MySQL is running and set ConnectionStrings__DefaultConnection (or DATABASE_URL / MYSQL_URL) on the server."
                     : "Sign-in failed due to a server error. Please try again or contact support.";
                 ViewBag.Error = msg;
                 await SetOAuthLoginAvailabilityAsync();

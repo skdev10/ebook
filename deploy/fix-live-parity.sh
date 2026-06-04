@@ -19,10 +19,13 @@ fi
 grep -q '^App__PublicBaseUrl=' "$ENV_FILE" 2>/dev/null || echo "App__PublicBaseUrl=http://138.197.76.70:5000" >> "$ENV_FILE"
 grep -q '^Authentication__CookieSecurePolicy=' "$ENV_FILE" 2>/dev/null || echo 'Authentication__CookieSecurePolicy=SameAsRequest' >> "$ENV_FILE"
 
-if ! grep -q '^ConnectionStrings__DefaultConnection=' "$ENV_FILE" 2>/dev/null; then
-  echo "WARNING: ConnectionStrings__DefaultConnection missing in $ENV_FILE"
-  echo "  Add (with your MySQL password in single quotes):"
+if ! grep -q '^ConnectionStrings__DefaultConnection=' "$ENV_FILE" 2>/dev/null \
+  && ! grep -q '^DATABASE_URL=' "$ENV_FILE" 2>/dev/null \
+  && ! grep -q '^MYSQL_URL=' "$ENV_FILE" 2>/dev/null; then
+  echo "WARNING: DB connection env missing in $ENV_FILE"
+  echo "  Add one of these:"
   echo "  ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=ebookpublications;User=root;Password=YOUR_PASSWORD;SslMode=None;AllowPublicKeyRetrieval=True;'"
+  echo "  DATABASE_URL='mysql://root:YOUR_PASSWORD@localhost:3306/ebookpublications?sslmode=None'"
 fi
 
 echo "==> Persistent uploads + session keys"

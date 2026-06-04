@@ -12,6 +12,8 @@ ExternalApi__ApiKey=PASTE_YOUR_KEY_HERE
 
 # MySQL on this VM — MUST quote; semicolons break unquoted bash source
 ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=ebookpublications;User=root;Password=Root@1234;SslMode=None;AllowPublicKeyRetrieval=True;'
+# Alternative URL style supported as well:
+# DATABASE_URL='mysql://root:Root@1234@localhost:3306/ebookpublications?sslmode=None'
 
 # OAuth (optional — copy from appsettings.json or Google/Meta console)
 # Authentication__Google__ClientId=

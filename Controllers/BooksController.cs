@@ -3654,7 +3654,7 @@ namespace EBookDashboard.Controllers
             return Json(new { success = true, book });
         }
 
-        /// <summary>Generate AI cover preview via external POST /api/generate-cover. Returns { success, options[] }. See docs/EXTERNAL_BOOK_API.md</summary>
+        /// <summary>Generate AI cover preview via external POST /api/generate-cover. Returns { success, options[] }.</summary>
         [HttpPost]
         public async Task<IActionResult> GenerateAICoverPreview(int bookId, [FromBody] IDictionary<string, string> body)
         {
@@ -4056,7 +4056,7 @@ namespace EBookDashboard.Controllers
                 hints = new[]
                 {
                     "Local and live use different MySQL unless you import the same database dump.",
-                    "Set ConnectionStrings__DefaultConnection and App__PublicBaseUrl in /etc/default/ebookai.",
+                    "Set ConnectionStrings__DefaultConnection (or DATABASE_URL / MYSQL_URL) and App__PublicBaseUrl in /etc/default/ebookai.",
                     "Run: bash deploy/fix-live-parity.sh then bash deploy/do-deploy.sh on the server."
                 }
             });

@@ -17,9 +17,19 @@ if [[ -f "$ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
-  if [[ -z "${ConnectionStrings__DefaultConnection:-}" || "${ConnectionStrings__DefaultConnection}" != *"Database="* ]]; then
-    echo "ERROR: ConnectionStrings__DefaultConnection is missing or truncated."
-    echo "Wrap the value in single quotes in $ENV_FILE (semicolons break unquoted bash source)."
+  HAS_DOTNET_CS=0
+  if [[ -n "${ConnectionStrings__DefaultConnection:-}" && "${ConnectionStrings__DefaultConnection}" == *"Database="* ]]; then
+    HAS_DOTNET_CS=1
+  fi
+  HAS_DATABASE_URL=0
+  if [[ -n "${DATABASE_URL:-}" || -n "${MYSQL_URL:-}" || -n "${CLEARDB_DATABASE_URL:-}" ]]; then
+    HAS_DATABASE_URL=1
+  fi
+  if [[ "$HAS_DOTNET_CS" -eq 0 && "$HAS_DATABASE_URL" -eq 0 ]]; then
+    echo "ERROR: No usable DB connection env found."
+    echo "Set ConnectionStrings__DefaultConnection='Server=...;Database=...;'"
+    echo "or set DATABASE_URL / MYSQL_URL in mysql://user:pass@host:3306/db format."
+    echo "If using ConnectionStrings__DefaultConnection, wrap in single quotes (semicolons break unquoted bash source)."
     exit 1
   fi
 else

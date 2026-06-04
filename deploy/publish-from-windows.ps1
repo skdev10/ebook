@@ -16,6 +16,7 @@ Write-Host "[publish] Output: $OutDir (linux-x64, self-contained)"
 
 dotnet publish $csproj -c Release -r linux-x64 --self-contained true -o (Join-Path $RepoRoot $OutDir)
 
-$exe = Join-Path $RepoRoot $OutDir "EBookDashboard"
+$outPath = Join-Path $RepoRoot $OutDir
+$exe = Join-Path $outPath "EBookDashboard"
 if (Test-Path $exe) { Write-Host "[publish] OK: $exe" } else { Write-Host "[publish] Check DLL: $(Join-Path $RepoRoot $OutDir 'EBookDashboard.dll')" }
 Write-Host "[publish] Upload $OutDir to server, or run deploy/vm-deploy.sh on Ubuntu."
