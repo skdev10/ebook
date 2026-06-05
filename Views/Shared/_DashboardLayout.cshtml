@@ -5232,11 +5232,16 @@
                     return path.indexOf('/books/aigeneratebook') >= 0;
                 }
 
+                function isLogoutPath(path) {
+                    return path === '/account/logout';
+                }
+
                 function isAllowedHref(href) {
                     if (!href || href === '#' || href.indexOf('javascript:') === 0) return true;
                     var path = normalizePath(href);
                     if (!path) return true;
                     if (isDashboardPath(path)) return true;
+                    if (isLogoutPath(path)) return true;
                     if (profilePaths.some(function (p) { return path.indexOf(p.toLowerCase()) >= 0; })) return true;
                     if (path === currentPath.replace(/\/$/, '')) return true;
                     return false;
@@ -5335,7 +5340,8 @@
 
                 window.confirmFlowBack = function (targetUrl) {
                     var target = targetUrl || flowBackUrl || '/Dashboard';
-                    hardNavigate(target);
+                    clearStepLocalState(flowStep);
+                    if (flowStep === 'cover') clearCoverClientState(flowBookId);
                     try {
                         fetch('/Dashboard/ResetFlowStep', {
                             method: 'POST',
@@ -5344,12 +5350,14 @@
                             body: JSON.stringify({ bookId: flowBookId, step: flowStep })
                         }).catch(function () { /* non-blocking */ });
                     } catch (_) { /* ignore */ }
+                    hardNavigate(target);
                     return Promise.resolve(true);
                 };
 
                 document.addEventListener('DOMContentLoaded', function () {
                     document.querySelectorAll('.sidebar-menu a[href], .sidebar-footer a[href]').forEach(function (a) {
                         if (a.classList.contains('sidebar-locked-feature')) return;
+                        if (a.classList.contains('logout-btn')) return;
                         a.addEventListener('click', function (e) {
                             var href = a.getAttribute('href') || '';
                             if (isAllowedHref(href)) return;

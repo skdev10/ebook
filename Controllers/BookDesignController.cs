@@ -515,7 +515,6 @@ namespace EBookDashboard.Controllers
                     existingRecord.CreatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
-                HttpContext.Session.SetString("FormattingDone", "1");
                 return Json(new { success = true, message = "Cover design saved successfully." });
             }
             catch (Exception ex)

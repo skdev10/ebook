@@ -913,11 +913,7 @@ namespace EBookDashboard.Controllers
         {
             var requestedFlow = (flow ?? string.Empty).Trim();
             var requestedCoverType = (coverType ?? string.Empty).Trim();
-            if (requestedFlow.Equals("printready", StringComparison.OrdinalIgnoreCase)
-                && !requestedCoverType.Equals("both", StringComparison.OrdinalIgnoreCase))
-            {
-                return Redirect($"/Dashboard/Publish?bookId={bookId.GetValueOrDefault()}&flow=printready");
-            }
+            // flow=printready selects print-ready cover mode on this page (do not skip Cover Design).
             var formattingDone = HttpContext.Session.GetString("FormattingDone") == "1";
             var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
             if (!hasGeneratedBook || !formattingDone)

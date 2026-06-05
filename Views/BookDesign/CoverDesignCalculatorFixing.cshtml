@@ -3863,13 +3863,24 @@
         });
     }
 
+    function cancelAutoNavigateToCoverDesign() {
+        if (coverDesignAutoNavTimer) {
+            clearTimeout(coverDesignAutoNavTimer);
+            coverDesignAutoNavTimer = null;
+        }
+    }
+
     function queueAutoNavigateToCoverDesign() {
-        if (!shouldAutoNavigateToCoverDesign()) return;
-        if (coverDesignAutoNavTimer) clearTimeout(coverDesignAutoNavTimer);
+        if (!shouldAutoNavigateToCoverDesign()) {
+            cancelAutoNavigateToCoverDesign();
+            return;
+        }
+        cancelAutoNavigateToCoverDesign();
         coverDesignAutoNavTimer = setTimeout(function () {
             coverDesignAutoNavTimer = null;
-            navigateToCoverDesignFromFormatter({ silent: true, force: true, allowOnSaveFail: true });
-        }, 450);
+            if (!shouldAutoNavigateToCoverDesign()) return;
+            navigateToCoverDesignFromFormatter({ silent: true, force: true, allowOnSaveFail: false });
+        }, 800);
     }
 
     function syncFormatterNextActionUi() {
@@ -4022,6 +4033,7 @@
             syncPlatformBlockUi(changedCb);
             if (name === PRINT_READY_PLATFORM) {
                 setNonPrintPlatformsDisabled(false);
+                cancelAutoNavigateToCoverDesign();
             }
             return;
         }
@@ -5409,6 +5421,7 @@
 
         if (formatSelect) formatSelect.addEventListener('change', function() {
             selectedFormat = formatSelect.value || 'Ebook';
+            if (selectedFormat !== 'Paperback') cancelAutoNavigateToCoverDesign();
             if (selectedFormat === 'Ebook') {
                 var printReadyCb = document.querySelector('#platforms-container .platform-check[data-platform="' + PRINT_READY_PLATFORM + '"]');
                 if (printReadyCb && printReadyCb.checked) {
