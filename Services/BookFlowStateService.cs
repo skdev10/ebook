@@ -1,4 +1,5 @@
 using EBookDashboard.Models;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace EBookDashboard.Services;
@@ -10,6 +11,8 @@ public sealed class BookFlowStateService
     public const string StepFormat = "format";
     public const string StepCover = "cover";
     public const string StepPublish = "publish";
+    /// <summary>Session key: user selected this book from Dashboard before entering the flow.</summary>
+    public const string SessionEntryBookIdKey = "BookFlowEntryBookId";
 
     private readonly ApplicationDbContext _context;
 
@@ -38,6 +41,26 @@ public sealed class BookFlowStateService
         StepPublish => "Publish",
         _ => "AI Writer"
     };
+
+    public static int StepRank(string? step) => (step ?? "").Trim().ToLowerInvariant() switch
+    {
+        StepPublish => 4,
+        StepCover => 3,
+        StepFormat => 2,
+        StepGenerate => 1,
+        _ => 0
+    };
+
+    public static bool IsStepAtLeast(string? current, string requiredStep) =>
+        StepRank(current) >= StepRank(requiredStep);
+
+    /// <summary>True when the user picked this book from the Dashboard before entering the flow.</summary>
+    public static bool SessionEntryMatches(HttpContext context, int bookId)
+    {
+        if (bookId <= 0) return false;
+        var entry = context.Session.GetInt32(SessionEntryBookIdKey);
+        return entry.HasValue && entry.Value == bookId;
+    }
 
     public async Task SaveStepAsync(int bookId, string step, string? formatPath = null, CancellationToken ct = default)
     {
@@ -111,6 +134,9 @@ public sealed class BookFlowStateService
                 $"book:{bookId}:printReadyCoverFront",
                 $"book:{bookId}:printReadyCoverWrap",
                 $"book:{bookId}:printReadyCoverWrapApi",
+                $"book:{bookId}:printReadyCoverBack",
+                $"book:{bookId}:printReadyCoverSpine",
+                $"book:{bookId}:printReadySpineInches",
                 $"book:{bookId}:printReadyPageCount",
                 $"book:{bookId}:printReadyTrimSize"
             },

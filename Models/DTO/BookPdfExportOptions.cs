@@ -100,4 +100,16 @@ public class BookPdfExportOptions
         if (lh > 2.4) lh = 2.4;
         return lh.ToString("0.###", CultureInfo.InvariantCulture);
     }
+
+    /// <summary>Apply client-sent formatter snapshot (Publish localStorage) over DB-loaded options.</summary>
+    public void ApplyRequestOverrides(ExportBookPdfRequest? req)
+    {
+        if (req == null) return;
+        if (!string.IsNullOrWhiteSpace(req.InteriorStyle)) InteriorStyle = req.InteriorStyle.Trim();
+        if (!string.IsNullOrWhiteSpace(req.TextSize)) TextSize = req.TextSize.Trim();
+        if (!string.IsNullOrWhiteSpace(req.LineSpacing)) LineSpacing = req.LineSpacing.Trim();
+        if (!string.IsNullOrWhiteSpace(req.BookFormat)) Format = NormalizeFormatToken(req.BookFormat);
+        if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
+            PublishingPlatform = req.PublishingPlatform.Trim();
+    }
 }

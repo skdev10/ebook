@@ -131,9 +131,23 @@ public class BookPdfService : IBookPdfService
             Args = new[] { "--no-sandbox", "--disable-setuid-sandbox", "--font-render-hinting=none" }
         });
         await using var page = await browser.NewPageAsync();
-        await page.SetContentAsync(html, new NavigationOptions { WaitUntil = new[] { WaitUntilNavigation.Load } });
+        await page.SetContentAsync(html, new NavigationOptions
+        {
+            WaitUntil = new[] { WaitUntilNavigation.Load, WaitUntilNavigation.Networkidle0 },
+            Timeout = 90_000
+        });
 
-        return await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
+        var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
+        EnsureValidPdf(pdfBytes);
+        return pdfBytes;
+    }
+
+    private static void EnsureValidPdf(byte[]? pdfBytes)
+    {
+        if (pdfBytes == null || pdfBytes.Length < 128)
+            throw new InvalidOperationException("PDF generation produced an empty document.");
+        if (pdfBytes[0] != (byte)'%' || pdfBytes[1] != (byte)'P' || pdfBytes[2] != (byte)'D' || pdfBytes[3] != (byte)'F')
+            throw new InvalidOperationException("PDF generation produced invalid output.");
     }
 
     private static PdfOptions BuildPdfOptions(BookPdfPlatformLayout.PdfLayoutSpec layout, string headerTemplate, string footerTemplate)

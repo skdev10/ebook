@@ -50,6 +50,11 @@ builder.WebHost.ConfigureKestrel(options =>
     options.Limits.RequestHeadersTimeout = TimeSpan.FromMinutes(30);
 });
 
+builder.Services.AddRequestTimeouts(options =>
+{
+    options.AddPolicy("CoverGeneration", TimeSpan.FromMinutes(60));
+});
+
 // ✅ Add services to the container.
 var mvcBuilder = builder.Services.AddControllersWithViews(options =>
 {
@@ -385,6 +390,8 @@ if (httpsEndpointsConfigured)
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseRequestTimeouts();
 
 app.UseSession(); // ✅ must be after UseRouting and before UseEndpoints
 

@@ -32,6 +32,7 @@
         : (bookId > 0 ? "Add chapters in AI Writer" : "No book selected");
     var isPrintReadyFlow = ViewBag.PublishPrintReadyMode as bool? ?? false;
     var publishBookFormat = (ViewBag.PublishBookFormat as string ?? "Ebook").Trim();
+    var publishFormatterSnapshotJson = ViewBag.PublishFormatterSnapshot as string ?? "{}";
     if (!publishBookFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
         && !publishBookFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
         && !publishBookFormat.Equals("Both", StringComparison.OrdinalIgnoreCase))
@@ -786,7 +787,7 @@
     .book-cover-placeholder {
         width: 100%;
         height: 100%;
-        background: #5b21b6;
+        background: #475569;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -977,10 +978,10 @@
                     </div>
                     @if (!canExport)
                     {
-                    <p class="text-sm text-slate-600 mb-4">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, then return here to export.</p>
+                    <p class="text-sm text-slate-600 mb-4">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a>, then return here to export.</p>
                     }
                     <p class="text-xs text-slate-500 mt-4">
-                        Edit manuscript in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a> ·
+                        Edit manuscript in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a> ·
                         <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">Formatting</a> ·
                         <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover</a>
                     </p>
@@ -1001,7 +1002,7 @@
                     </p>
                     <div class="mt-4 flex flex-wrap gap-3">
                         <a href="/Dashboard/MyBooks" class="inline-flex items-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700">Go to My Books</a>
-                        <a href="@(bookId > 0 ? $"/Books/AIGenerateBook?bookId={bookId}" : "/Dashboard")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">Continue in AI Writer</a>
+                        <a href="@(bookId > 0 ? $"/Books/AIGenerateBook?bookId={bookId}" : "/Dashboard")" class="publish-leave-to-writer inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white text-slate-800 font-semibold px-5 py-2.5 text-sm hover:bg-slate-50">Continue in AI Writer</a>
                     </div>
                 </div>
             </div>
@@ -1055,7 +1056,7 @@
                     <button type="button" data-export-kind="print" id="btnPrintReadyPublishPrimary" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
                         <i class="fas fa-file-pdf" aria-hidden="true"></i> Download print-ready interior PDF
                     </button>
-                    <button type="button" data-export-kind="print" id="btnExportPrintBundle" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                    <button type="button" data-export-kind="print" id="btnExportPrintBundle" class="@((showPrintExports && (isBothFormat || !isPrintReadyFlow)) ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
                         <i class="fas fa-file-archive" aria-hidden="true"></i> Download print pack (ZIP)
                     </button>
                     @if (hasSavedFrontCover)
@@ -1073,7 +1074,7 @@
             }
             else
             {
-                <p class="publish-export-hint">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="text-violet-700 font-semibold underline">AI Writer</a>, then export from here.</p>
+                <p class="publish-export-hint">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a>, then export from here.</p>
                 @if (isPrintReadyFlow && hasSavedCoverWrap)
                 {
                     <div class="publish-export-actions mt-3">
@@ -1131,6 +1132,47 @@
     var pbCoverRef = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(CoverUrl(pbCover)));
     var pbEstimatedPages = @(pbEstimatedPages);
     var publishBookFormat = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishBookFormat));
+    var publishFormatterSnapshot = @Html.Raw(publishFormatterSnapshotJson);
+
+    function parseExportErrorResponse(res, fallbackMsg) {
+        var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+        if (ct.indexOf('application/json') >= 0) {
+            return res.json().then(function (j) {
+                throw new Error((j && j.message) ? j.message : fallbackMsg);
+            });
+        }
+        return res.text().then(function (t) {
+            throw new Error(t || fallbackMsg);
+        });
+    }
+
+    function validatePdfBlob(blob) {
+        if (!blob || blob.size < 128) {
+            return Promise.reject(new Error('PDF file is empty. Add chapter text and try again.'));
+        }
+        return blob.arrayBuffer().then(function (ab) {
+            var u8 = new Uint8Array(ab);
+            var hdr = String.fromCharCode(u8[0] || 0, u8[1] || 0, u8[2] || 0, u8[3] || 0);
+            if (hdr !== '%PDF') {
+                return Promise.reject(new Error('Download is not a valid PDF. PDF generation failed on the server — check that Chromium/Puppeteer is available.'));
+            }
+            return new Blob([ab], { type: 'application/pdf' });
+        });
+    }
+
+    function fetchPdfExport(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/pdf, application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(body)
+        }).then(function (res) {
+            var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+            if (!res.ok) return parseExportErrorResponse(res, 'Could not generate PDF.');
+            if (ct.indexOf('application/pdf') < 0) return parseExportErrorResponse(res, 'Server did not return a PDF file.');
+            return res.blob().then(validatePdfBlob);
+        });
+    }
 
     function draftIndicatesPrintReady() {
         var draft = getFormatterDraftSnapshot();
@@ -1138,6 +1180,13 @@
         var fmt = (draft.bookFormat || publishBookFormat || '').trim();
         if (fmt === 'Print') fmt = 'Paperback';
         return plats.indexOf('print ready') >= 0 || fmt === 'Paperback';
+    }
+
+    function redirectToDashboardAfterExport(message) {
+        showTransientMessage('success', message || 'Download complete — returning to Dashboard…');
+        setTimeout(function () {
+            window.location.href = '/Dashboard';
+        }, 1600);
     }
 
     function applyPublishExportModeUi() {
@@ -1151,6 +1200,7 @@
         section.querySelectorAll('[data-export-kind]').forEach(function (el) {
             var kind = el.getAttribute('data-export-kind');
             var show = kind === 'print' ? showPrintExports : showEbookExports;
+            if (printOnly && el.id === 'btnExportPrintBundle') show = false;
             el.classList.toggle('hidden', !show);
         });
         if (title) title.textContent = printOnly ? 'Export print-ready files' : 'Export your book';
@@ -1278,23 +1328,36 @@
     }
 
     function getFormatterDraftSnapshot() {
-        if (!bookId || bookId <= 0) return {};
+        var base = {};
+        try {
+            if (publishFormatterSnapshot && typeof publishFormatterSnapshot === 'object') {
+                base = {
+                    interiorStyle: publishFormatterSnapshot.interiorStyle || null,
+                    textSize: publishFormatterSnapshot.textSize || null,
+                    lineSpacing: publishFormatterSnapshot.lineSpacing || null,
+                    bookFormat: publishFormatterSnapshot.bookFormat || null,
+                    publishingPlatform: publishFormatterSnapshot.publishingPlatform || null,
+                    publishingPlatforms: publishFormatterSnapshot.publishingPlatforms || null
+                };
+            }
+        } catch (e) { /* ignore */ }
+        if (!bookId || bookId <= 0) return base;
         try {
             var raw = localStorage.getItem('formatter_draft_v2_' + bookId);
-            if (!raw) return {};
+            if (!raw) return base;
             var s = JSON.parse(raw);
-            if (!s || typeof s !== 'object') return {};
-            return {
-                interiorStyle: s.interiorStyle || null,
-                textSize: s.textSize || null,
-                lineSpacing: s.lineSpacing || null,
-                bookFormat: s.format || null,
-                publishingPlatform: s.publishingPlatform || null,
-                publishingPlatforms: s.publishingPlatforms || null,
+            if (!s || typeof s !== 'object') return base;
+            return Object.assign({}, base, {
+                interiorStyle: s.interiorStyle || base.interiorStyle || null,
+                textSize: s.textSize || base.textSize || null,
+                lineSpacing: s.lineSpacing || base.lineSpacing || null,
+                bookFormat: s.format || base.bookFormat || null,
+                publishingPlatform: s.publishingPlatform || base.publishingPlatform || null,
+                publishingPlatforms: s.publishingPlatforms || base.publishingPlatforms || null,
                 previewPageCount: s.previewPageCount || null
-            };
+            });
         } catch (e) {
-            return {};
+            return base;
         }
     }
 
@@ -1342,9 +1405,9 @@
                     var typed = blob.type ? blob : new Blob([blob], { type: mime });
                     var fname = serverName || (safeBookSlug() + '-' + bookId + '.' + ext);
                     downloadBlobAsFile(typed, fname);
-                    showTransientMessage('success', fmt === 'epub'
-                        ? 'EPUB downloaded — open it in Apple Books, Play Books, or Calibre.'
-                        : 'Word file downloaded.');
+                    redirectToDashboardAfterExport(fmt === 'epub'
+                        ? 'EPUB downloaded — returning to Dashboard…'
+                        : 'Word file downloaded — returning to Dashboard…');
                 });
             })
             .catch(function (err) {
@@ -1411,26 +1474,14 @@
         }
         if (triggerBtn) triggerBtn.disabled = true;
 
-        fetch('/Dashboard/DownloadBookPdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(Object.assign({
-                bookId: bookId,
-                displayTitle: pbTitle || '',
-                displayAuthor: '',
-                displayGenre: pbGenre || '',
-                bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
-                publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
-            }, getFormatterDraftSnapshot()))
-        })
-            .then(function (res) {
-                if (!res.ok) {
-                    return res.text().then(function (t) {
-                        throw new Error(t || 'Could not generate PDF.');
-                    });
-                }
-                return res.blob();
-            })
+        fetchPdfExport('/Dashboard/DownloadBookPdf', Object.assign({
+            bookId: bookId,
+            displayTitle: pbTitle || '',
+            displayAuthor: '',
+            displayGenre: pbGenre || '',
+            bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
+            publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
+        }, getFormatterDraftSnapshot()))
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-interior.pdf');
                 showTransientMessage('success', 'Print-ready interior PDF download started.');
@@ -1449,27 +1500,17 @@
             return;
         }
         if (triggerBtn) triggerBtn.disabled = true;
-        fetch('/Dashboard/DownloadBookInteriorPdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(Object.assign({
-                bookId: bookId,
-                displayTitle: pbTitle || '',
-                displayAuthor: '',
-                displayGenre: pbGenre || '',
-                bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
-                publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
-            }, getFormatterDraftSnapshot()))
-        })
-            .then(function (res) {
-                if (!res.ok) {
-                    return res.text().then(function (t) { throw new Error(t || 'Could not generate interior PDF.'); });
-                }
-                return res.blob();
-            })
+        fetchPdfExport('/Dashboard/DownloadBookInteriorPdf', Object.assign({
+            bookId: bookId,
+            displayTitle: pbTitle || '',
+            displayAuthor: '',
+            displayGenre: pbGenre || '',
+            bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
+            publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
+        }, getFormatterDraftSnapshot()))
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-interior.pdf');
-                showTransientMessage('success', 'Print-ready interior PDF downloaded — upload this to KDP as your manuscript.');
+                redirectToDashboardAfterExport('Print-ready interior PDF downloaded — returning to Dashboard…');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Interior PDF download failed.');
@@ -1515,7 +1556,7 @@
                     return r.blob().then(function (blob) {
                         var ext = (r.headers.get('content-disposition') || '').indexOf('.jpg') >= 0 ? 'jpg' : 'png';
                         downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-front-cover.' + ext);
-                        showTransientMessage('success', 'Front cover downloaded.');
+                        redirectToDashboardAfterExport('Front cover downloaded — returning to Dashboard…');
                     });
                 }
                 return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
@@ -1538,7 +1579,7 @@
                     })
                     .then(function (blob) {
                         downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-front-cover.png');
-                        showTransientMessage('success', 'Front cover downloaded.');
+                        redirectToDashboardAfterExport('Front cover downloaded — returning to Dashboard…');
                     });
             })
             .catch(function (err) {
@@ -1628,13 +1669,7 @@
             .then(function (assets) { return buildPrintWrapFromAssets(assets); })
             .then(function (out) {
                 downloadBlobAsFile(out.blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.png');
-                if (out.composed && out.composed.spineInches) {
-                    showTransientMessage('success',
-                        'Full wrap downloaded (' + out.composed.widthPx + ' × ' + out.composed.heightPx + ' px @@ 300 DPI, spine ' +
-                        out.composed.spineInches.toFixed(3) + ' in).');
-                } else {
-                    showTransientMessage('success', 'Full wrap cover downloaded.');
-                }
+                redirectToDashboardAfterExport('Full wrap cover downloaded — returning to Dashboard…');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
@@ -1952,6 +1987,21 @@
     }
 
     document.querySelectorAll('img.publish-cover-img:not(.publish-cover-img--wrap)').forEach(markPublishCoverImage);
+
+    document.querySelectorAll('a.publish-leave-to-writer[href]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            var href = link.getAttribute('href') || '';
+            if (!href || href.indexOf('/Books/AIGenerateBook') < 0) return;
+            e.preventDefault();
+            if (typeof window.confirmLeaveToAiWriter === 'function') {
+                window.confirmLeaveToAiWriter(href);
+            } else if (typeof window.confirmFlowBack === 'function') {
+                window.confirmFlowBack(href);
+            } else if (window.confirm('If you leave, your saved work on this step will be lost. Continue?')) {
+                window.location.replace(href + (href.indexOf('?') >= 0 ? '&' : '?') + '_r=' + Date.now());
+            }
+        });
+    });
 
     syncPublishModeFromContext();
 

@@ -1,6 +1,7 @@
 @using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Http
+@using EBookDashboard.Services
 @inject EBookDashboard.Models.ApplicationDbContext DbContext
 @inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
 @{
@@ -82,6 +83,7 @@
     else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
     if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
     if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
+    bool flowGenerateLock = string.Equals(flowStep, "generate", StringComparison.OrdinalIgnoreCase);
 
     int sidebarActiveBookId = flowBookId;
     if (sidebarActiveBookId <= 0 && ViewBag.SelectedBookId != null)
@@ -111,12 +113,30 @@
         }
     }
     catch { }
-    var sidebarAiWriterUrl = sidebarActiveBookId > 0
-        ? $"/Books/AIGenerateBook?bookId={sidebarActiveBookId}"
-        : "/Dashboard/StartNewBook";
-    var sidebarFormatUrl = sidebarActiveBookId > 0 ? $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}" : "/Dashboard";
-    var sidebarCoverUrl = sidebarActiveBookId > 0 ? $"/Dashboard/CoverDesign?bookId={sidebarActiveBookId}" : "/Dashboard";
-    var sidebarPublishUrl = sidebarActiveBookId > 0 ? $"/Dashboard/Publish?bookId={sidebarActiveBookId}" : "/Dashboard";
+    var sidebarFlowEntryUrl = "/Dashboard";
+    var sidebarAiWriterUrl = sidebarFlowEntryUrl;
+    var sidebarFormatUrl = sidebarFlowEntryUrl;
+    var sidebarCoverUrl = sidebarFlowEntryUrl;
+    var sidebarPublishUrl = sidebarFlowEntryUrl;
+
+    bool coverNavUnlocked = false;
+    if (sidebarActiveBookId > 0 && coverUnlocked)
+    {
+        try
+        {
+            var flowStepKey = $"book:{sidebarActiveBookId}:flowStep";
+            var persistedStep = DbContext.Settings.AsNoTracking()
+                .Where(s => s.Key == flowStepKey)
+                .Select(s => s.Value)
+                .FirstOrDefault() ?? "";
+            var rank = BookFlowStateService.StepRank(persistedStep);
+            if (BookFlowStateService.IsStepAtLeast(persistedStep, BookFlowStateService.StepCover))
+                coverNavUnlocked = true;
+            else if (rank == BookFlowStateService.StepRank(BookFlowStateService.StepFormat) && formattingDone)
+                coverNavUnlocked = true;
+        }
+        catch { coverNavUnlocked = coverUnlocked; }
+    }
 }
 
 <!DOCTYPE html>
@@ -3354,6 +3374,8 @@
                         <i data-lucide="layout-grid" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Dashboard</span>
                     </a>
                 </li>
+                @if (!flowGenerateLock)
+                {
                 <li>
                     <a href="@sidebarAiWriterUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" ? "active" : "")">
                         <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Writer</span>
@@ -3379,9 +3401,15 @@
                 </li>
                 
                 <li>
-                    <a href="@sidebarCoverUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
-                        <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
-                    </a>
+                    @if (coverNavUnlocked) {
+                        <a href="@sidebarFlowEntryUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
+                            <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                        </a>
+                    } else {
+                        <a href="#" class="sidebar-locked-feature" data-locked="AI Cover Design" data-unlock-step="2" data-goto="/Dashboard" title="Select a book from the Dashboard and complete formatting first">
+                            <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                        </a>
+                    }
                 </li>
                 <li>
                     @if (hasGeneratedBook) {
@@ -3405,8 +3433,8 @@
                         </a>
                     }
                 </li>
+                @* Support nav — temporarily disabled
                 <li>
-                @* <li>
                     @if (hasGeneratedBook) {
                         <a href="/Dashboard/Support" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Support" ? "active" : "")">
                             <i data-lucide="headphones" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Support</span>
@@ -3416,7 +3444,8 @@
                             <i data-lucide="headphones" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Support</span>
                         </a>
                     }
-                </li> *@
+                </li>
+                *@
                 <li style="margin-top: 8px;"><div style="height: 1px; background: #e5e7eb; margin: 0 16px;"></div></li>
                 @* AUDIOBOOK — Temporarily disabled (preserve for re-enable)
                 <li>
@@ -3436,6 +3465,7 @@
                         <i data-lucide="users-round" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Ebook Hub</span>
                     </a>
                 </li>
+                }
                 <li>
                     <a href="/Dashboard/Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "active" : "")">
                         <i data-lucide="user" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Profile Settings</span>
@@ -5215,39 +5245,142 @@
                 var profilePaths = ['/Dashboard/Profile', '/Account/Profile'];
                 var currentPath = (window.location.pathname || '').toLowerCase();
 
+                function normalizePath(href) {
+                    if (!href || href === '#' || href.indexOf('javascript:') === 0) return '';
+                    return href.split('?')[0].toLowerCase().replace(/\/$/, '');
+                }
+
+                function isDashboardPath(path) {
+                    return path === '/dashboard' || path === '/dashboard/index';
+                }
+
+                function isAiWriterPath(path) {
+                    return path.indexOf('/books/aigeneratebook') >= 0;
+                }
+
                 function isAllowedHref(href) {
                     if (!href || href === '#' || href.indexOf('javascript:') === 0) return true;
-                    var path = href.split('?')[0].toLowerCase();
+                    var path = normalizePath(href);
+                    if (!path) return true;
+                    if (isDashboardPath(path)) return true;
                     if (profilePaths.some(function (p) { return path.indexOf(p.toLowerCase()) >= 0; })) return true;
-                    if (path === currentPath) return true;
+                    if (path === currentPath.replace(/\/$/, '')) return true;
                     return false;
+                }
+
+                function hardNavigate(url) {
+                    var target = url || flowBackUrl || '/Dashboard';
+                    try {
+                        if ('caches' in window) caches.keys().then(function (keys) { keys.forEach(function (k) { caches.delete(k); }); });
+                    } catch (_) {}
+                    window.location.replace(target + (target.indexOf('?') >= 0 ? '&' : '?') + '_r=' + Date.now());
                 }
 
                 function clearStepLocalState(step) {
                     try {
                         if (step === 'format') localStorage.removeItem('formatter_draft_v2_' + flowBookId);
                         if (step === 'cover') sessionStorage.removeItem('cover_design_draft_' + flowBookId);
+                        if (step === 'publish') {
+                            sessionStorage.removeItem('cover_design_draft_' + flowBookId);
+                            localStorage.removeItem('formatter_draft_v2_' + flowBookId);
+                        }
                         if (step === 'generate') localStorage.removeItem('ebook_ai_reader_state_v2_' + flowBookId);
                     } catch (_) {}
                 }
 
+                function clearCoverClientState(bookId) {
+                    var bid = bookId || flowBookId;
+                    if (!bid) return;
+                    try {
+                        sessionStorage.removeItem('coverDesign_selectedUrl_' + bid);
+                        sessionStorage.removeItem('coverDesign_selectedUrl');
+                        sessionStorage.removeItem('coverDesign_hasGenerated');
+                        sessionStorage.removeItem('coverDesign_lastBookId');
+                        sessionStorage.removeItem('cover_design_draft_' + bid);
+                        var cacheRaw = sessionStorage.getItem('cover_design_books_cache_v1');
+                        if (cacheRaw) {
+                            var cache = JSON.parse(cacheRaw);
+                            if (cache && Array.isArray(cache.books)) {
+                                cache.books = cache.books.map(function (b) {
+                                    if (b && (b.bookId === bid || b.BookId === bid)) {
+                                        b.coverImagePath = '';
+                                        b.aiCoverLastPreview = '';
+                                    }
+                                    return b;
+                                });
+                                sessionStorage.setItem('cover_design_books_cache_v1', JSON.stringify(cache));
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                function showFlowBlockedAlert() {
+                    return Swal.fire({
+                        title: 'Follow the step-by-step flow',
+                        html: 'Please complete each step in order for this book. You can open <strong>Profile Settings</strong> anytime, or return to the <strong>Dashboard</strong> to switch projects after finishing this step.',
+                        icon: 'info',
+                        confirmButtonText: 'Got it',
+                        confirmButtonColor: '#7c3aed'
+                    });
+                }
+
+                function confirmLeaveToAiWriter(targetUrl) {
+                    return Swal.fire({
+                        title: 'Leave and lose all saved work?',
+                        html: 'If you go back to <strong>AI Writer</strong> now, your formatting, cover design, and progress on this step will be <strong>permanently deleted</strong>. You will need to redo everything.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, delete and leave',
+                        cancelButtonText: 'Stay here',
+                        confirmButtonColor: '#dc2626',
+                        cancelButtonColor: '#64748b'
+                    }).then(function (result) {
+                        if (!result.isConfirmed) return false;
+                        return fetch('/Dashboard/ResetFlowStep', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ bookId: flowBookId, step: flowStep, wipeAllWork: true })
+                        }).then(function () {
+                            clearStepLocalState(flowStep);
+                            clearStepLocalState('format');
+                            clearStepLocalState('cover');
+                            clearStepLocalState('publish');
+                            clearStepLocalState('generate');
+                            clearCoverClientState(flowBookId);
+                            hardNavigate(targetUrl);
+                            return true;
+                        }).catch(function () {
+                            clearStepLocalState(flowStep);
+                            clearCoverClientState(flowBookId);
+                            hardNavigate(targetUrl);
+                            return true;
+                        });
+                    });
+                }
+                window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
+
                 window.confirmFlowBack = function (targetUrl) {
+                    var leaveMsg = flowStep === 'format'
+                        ? 'Going back to <strong>AI Writer</strong> will discard your formatting work on this step. Your earlier chapters stay saved.'
+                        : (flowStep === 'publish'
+                            ? 'Going back will discard unsaved work on this step. Continue?'
+                            : 'Going back will <strong>discard the work</strong> you have done on this step and you will need to redo it. Your earlier steps stay saved.');
                     if (typeof Swal === 'undefined') {
-                        if (window.confirm('Going back will reset your progress on this step. Continue?')) {
+                        if (window.confirm('Leave this step? Your work on this step may be lost.')) {
                             return fetch('/Dashboard/ResetFlowStep', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ bookId: flowBookId, step: flowStep })
                             }).then(function () {
                                 clearStepLocalState(flowStep);
-                                window.location.href = targetUrl || flowBackUrl;
+                                hardNavigate(targetUrl);
                             });
                         }
                         return Promise.resolve(false);
                     }
                     return Swal.fire({
                         title: 'Leave this step?',
-                        html: 'Going back will <strong>discard the work</strong> you have done on this step and you will need to redo it. Your earlier steps stay saved.',
+                        html: leaveMsg,
                         icon: 'warning',
                         showCancelButton: true,
                         confirmButtonText: 'Yes, go back',
@@ -5262,11 +5395,13 @@
                             body: JSON.stringify({ bookId: flowBookId, step: flowStep })
                         }).then(function (r) { return r.json(); }).then(function () {
                             clearStepLocalState(flowStep);
-                            window.location.href = targetUrl || flowBackUrl;
+                            if (flowStep === 'cover') clearCoverClientState(flowBookId);
+                            hardNavigate(targetUrl);
                             return true;
                         }).catch(function () {
                             clearStepLocalState(flowStep);
-                            window.location.href = targetUrl || flowBackUrl;
+                            if (flowStep === 'cover') clearCoverClientState(flowBookId);
+                            hardNavigate(targetUrl);
                             return true;
                         });
                     });
@@ -5279,13 +5414,12 @@
                             var href = a.getAttribute('href') || '';
                             if (isAllowedHref(href)) return;
                             e.preventDefault();
-                            Swal.fire({
-                                title: 'Follow the step-by-step flow',
-                                html: 'Please complete each step in order for this book. You can open <strong>Profile Settings</strong> anytime, or return to the <strong>Dashboard</strong> to switch projects after finishing this step.',
-                                icon: 'info',
-                                confirmButtonText: 'Got it',
-                                confirmButtonColor: '#7c3aed'
-                            });
+                            var path = normalizePath(href);
+                            if ((flowStep === 'publish' || flowStep === 'format') && isAiWriterPath(path)) {
+                                confirmLeaveToAiWriter(href);
+                                return;
+                            }
+                            showFlowBlockedAlert();
                         });
                     });
 
@@ -5293,6 +5427,10 @@
                         btn.addEventListener('click', function (e) {
                             e.preventDefault();
                             var target = btn.getAttribute('data-flow-back') || flowBackUrl;
+                            if (flowStep === 'publish' && isAiWriterPath(normalizePath(target))) {
+                                confirmLeaveToAiWriter(target);
+                                return;
+                            }
                             window.confirmFlowBack(target);
                         });
                     });
@@ -5301,6 +5439,10 @@
                         history.pushState({ flowGuard: true }, '');
                         window.addEventListener('popstate', function () {
                             history.pushState({ flowGuard: true }, '');
+                            if (flowStep === 'generate') {
+                                showFlowBlockedAlert();
+                                return;
+                            }
                             window.confirmFlowBack(flowBackUrl);
                         });
                     }

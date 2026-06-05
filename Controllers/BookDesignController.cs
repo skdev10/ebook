@@ -363,6 +363,8 @@ namespace EBookDashboard.Controllers
                 }
 
                 HttpContext.Session.SetString("FormattingDone", "1");
+                HttpContext.Session.SetString("HasGeneratedBook", "1");
+                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, req.BookId);
                 var fmt = existing.Format ?? "Ebook";
                 HttpContext.Session.SetString("LastSelectedFormat", fmt);
                 HttpContext.Session.SetString("BookFormatPremiumBoth",
@@ -583,7 +585,21 @@ namespace EBookDashboard.Controllers
                     TempData["InfoMessage"] = "Select a book from the Dashboard to continue formatting.";
                     return RedirectToAction("Index", "Dashboard");
                 }
-                // Persist selected book for dropdown/state
+
+                if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId))
+                {
+                    TempData["InfoMessage"] = "Select a book from the Dashboard first, then continue your project.";
+                    return RedirectToAction("Index", "Dashboard");
+                }
+
+                var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId);
+                if (BookFlowStateService.StepRank(savedFlowStep) > BookFlowStateService.StepRank(BookFlowStateService.StepFormat))
+                {
+                    TempData["InfoMessage"] = "Continue your project from the Dashboard.";
+                    return Redirect(_bookFlow.BuildResumeUrl(bookId, savedFlowStep, savedFlowPath));
+                }
+
+                HttpContext.Session.SetString("HasGeneratedBook", "1");
                 if (bookId > 0)
                     HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
                 // Get format from query (PDF/EPUB/MOBI from AIGenerateBook format buttons)

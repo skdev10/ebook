@@ -118,6 +118,12 @@ namespace EBookDashboard.Controllers
                 TempData["InfoMessage"] = "Select a book from the Dashboard to continue your project.";
                 return RedirectToAction("Index", "Dashboard");
             }
+            var entryBookId = HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
+            if (!entryBookId.HasValue || entryBookId.Value != bookId.Value)
+            {
+                TempData["InfoMessage"] = "Select a book from the Dashboard first, then continue your project.";
+                return RedirectToAction("Index", "Dashboard");
+            }
             var ownsBook = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == bookId.Value && b.UserId == userId.Value);
             if (!ownsBook)
@@ -1595,38 +1601,29 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> DownloadFinalizedChaptersPdf([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
         {
             if (req == null || req.BookId <= 0)
-                return Json(new { success = false, message = "BookId is required." });
+                return BadRequest(new { success = false, message = "BookId is required." });
 
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (sessionUserId == null)
-                return Json(new { success = false, message = "Please sign in." });
+                return Unauthorized(new { success = false, message = "Please sign in." });
 
             var owns = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns)
-                return Json(new { success = false, message = "Book not found." });
+                return NotFound(new { success = false, message = "Book not found." });
 
             var details = await _chapterIterationService.BuildPdfReadyFromFinalizedAsync(sessionUserId.Value, req.BookId, cancellationToken);
             if (details == null || !details.Success)
-                return Json(new { success = false, message = "No finalized chapters yet. On Book formatting, pick a draft version per chapter and use Finalize, then try again." });
+                return BadRequest(new { success = false, message = "No finalized chapters yet. On Book formatting, pick a draft version per chapter and use Finalize, then try again." });
 
             var orderedChapters = details.Chapters.OrderBy(c => c.ChapterNumber).ToList();
             if (orderedChapters.Count == 0 || !orderedChapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
-                return Json(new { success = false, message = "Finalized chapters have no exportable body text." });
+                return BadRequest(new { success = false, message = "Finalized chapters have no exportable body text." });
 
             try
             {
-                var draftRow = await _context.Settings.AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Key == $"book:{req.BookId}:formattingDraft", cancellationToken);
-                var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
-                var fmtRow = await _context.BookFormatting.AsNoTracking()
-                    .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == sessionUserId.Value, cancellationToken);
-                exportOpt.MergeFromBookFormatting(fmtRow);
-                if (!string.IsNullOrWhiteSpace(req.InteriorStyle)) exportOpt.InteriorStyle = req.InteriorStyle!;
-                if (!string.IsNullOrWhiteSpace(req.TextSize)) exportOpt.TextSize = req.TextSize!;
-                if (!string.IsNullOrWhiteSpace(req.LineSpacing)) exportOpt.LineSpacing = req.LineSpacing!;
-                if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
-                if (!string.IsNullOrWhiteSpace(req.PublishingPlatform)) exportOpt.PublishingPlatform = req.PublishingPlatform!;
+                var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, req.BookId, cancellationToken);
+                exportOpt.ApplyRequestOverrides(req);
 
                 var userRow = await _context.Users.AsNoTracking()
                     .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
@@ -1654,7 +1651,7 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "DownloadFinalizedChaptersPdf failed for book {BookId}", req.BookId);
-                return Json(new { success = false, message = "PDF generation failed." });
+                return StatusCode(500, new { success = false, message = "PDF generation failed." });
             }
         }
 
@@ -1949,6 +1946,7 @@ namespace EBookDashboard.Controllers
             if (userId.HasValue)
             {
                 await SetActiveBookAsync(userId.Value, id);
+                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, id);
             }
             return RedirectToAction("AIGenerateBook", "Books", new { bookId = id });
         }
@@ -2527,6 +2525,10 @@ namespace EBookDashboard.Controllers
                         : BookCoverRefResolver.NormalizeCoverUrlRef(req.CoverImageDataUrl ?? details.CoverImagePath));
 
                 var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, req.BookId, cancellationToken);
+                exportOpt.ApplyRequestOverrides(req);
+                if (exportOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
+                    || exportOpt.Format.Equals("Paperback", StringComparison.OrdinalIgnoreCase))
+                    exportOpt.IncludeCoverPage = false;
 
                 var pageCountForCover = 0;
                 if (int.TryParse(coverRows.GetValueOrDefault($"book:{req.BookId}:printReadyPageCount"), out var savedPages)
@@ -2637,6 +2639,7 @@ namespace EBookDashboard.Controllers
                 var fmtRow = await _context.BookFormatting.AsNoTracking()
                     .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == sessionUserId.Value, cancellationToken);
                 exportOpt.MergeFromBookFormatting(fmtRow);
+                exportOpt.ApplyRequestOverrides(req);
                 exportOpt.Format = "Paperback";
                 exportOpt.IncludeCoverPage = false;
 

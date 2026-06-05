@@ -3,11 +3,14 @@
     ViewData["Title"] = "Dashboard";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var draftBooks = Model.CurrentProjects?.Where(p => p.Status != "Published" && p.Status != "Finalized").ToList() ?? new List<EBookDashboard.Models.ProjectViewModel>();
-    var draftBooksShow = draftBooks.Take(6).ToList();
-    var hasMoreDrafts = draftBooks.Count > 6;
-    var heroResumeUrl = !string.IsNullOrWhiteSpace(Model.DemoHeroResumeUrl)
-        ? Model.DemoHeroResumeUrl
-        : (Model.DemoHeroBookId is > 0 ? Url.Action("AIGenerateBook", "Books", new { bookId = Model.DemoHeroBookId }) : Model.StartNewBookUrl);
+    var draftBooksShow = draftBooks.Take(8).ToList();
+    var hasMoreDrafts = draftBooks.Count > 8;
+    var demoDraftsShow = (Model.DemoDrafts ?? new List<EBookDashboard.Models.DemoDraftViewModel>()).Take(8).ToList();
+    var hasMoreDemoDrafts = (Model.DemoDrafts?.Count ?? 0) > 8;
+    var heroBookIdVal = Model.DemoHeroBookId ?? Model.CurrentWorkingBook?.BookId ?? 0;
+    var heroResumeUrl = heroBookIdVal > 0
+        ? Url.Action("SelectBook", "Dashboard", new { bookId = heroBookIdVal })
+        : Model.StartNewBookUrl;
     var heroCtaText = Model.HasAnyBooks ? "Continue editing" : "Create your first book";
     var startBookUrl = Model.StartNewBookUrl;
     var bookCoverFallbacks = new[] {
@@ -48,7 +51,11 @@
     .dash-empty-cover span { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
     .book-item.is-selected .aspect-\[2\/3\],
     .book-item.is-selected .w-12 { outline: 2px solid rgba(124, 58, 237, 0.45); outline-offset: 3px; border-radius: 0.75rem; }
-    .book-item { transition: outline-color 0.2s ease, transform 0.15s ease; }
+    .book-item { transition: outline-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease; }
+    .book-item.dash-book-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px -14px rgba(91, 33, 182, 0.35); border-color: rgba(124, 58, 237, 0.25); }
+    .dash-book-card .dash-progress-track { height: 6px; border-radius: 999px; background: #f1f5f9; overflow: hidden; }
+    .dash-book-card .dash-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); }
+    .dash-book-card .dash-progress-pct { font-size: 0.7rem; font-weight: 700; color: #7c3aed; letter-spacing: 0.02em; }
     .dashboard-cover-img.is-wrap-cover { object-position: right center; }
 </style>
 @functions {
@@ -145,87 +152,85 @@
                         <i class="fas fa-ellipsis-h w-4 h-4"></i>
                     </a>
                 </div>
-                <div id="drafts-list" class="space-y-4">
-                    @if (Model.DemoDrafts != null && Model.DemoDrafts.Any())
+                <div id="drafts-list" class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                    @if (demoDraftsShow.Any())
                     {
-                        foreach (var draft in Model.DemoDrafts)
+                        foreach (var draft in demoDraftsShow)
                         {
                             var draftCover = DashCoverSrc(draft.CoverUrl);
-                            var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl) ? draft.ResumeUrl : Url.Action("AIGenerateBook", "Books", new { bookId = draft.BookId });
-                            <a href="@draftResume" class="book-item border border-gray-100 rounded-2xl p-4 flex items-center justify-between hover:shadow-md hover:border-purple-100 transition-all bg-white cursor-pointer group block" data-title="@draft.Title" data-book-id="@draft.BookId" data-cover-url="@draftCover" data-resume-url="@draftResume">
-                                <div class="flex items-center gap-4 min-w-0 flex-1">
+                            var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId });
+                            var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
+                            var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled" : draft.Title;
+                            <a href="@draftResume" class="book-item dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-title="@draft.Title" data-book-id="@draft.BookId" data-cover-url="@draftCover" data-resume-url="@draftResume">
+                                <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     @if (!string.IsNullOrEmpty(draftCover))
                                     {
-                                        <img src="@draftCover" alt="@draft.Title" class="dashboard-cover-img w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0 group-hover:scale-105 transition-transform" />
+                                        <img src="@draftCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" loading="lazy" />
                                     }
                                     else
                                     {
-                                        <div class="dash-empty-cover w-12 h-16 rounded-md flex-shrink-0 text-[0.55rem]"><i class="fas fa-book-open text-sm"></i></div>
+                                        <div class="dash-empty-cover absolute inset-0 text-[0.55rem]"><i class="fas fa-book-open text-2xl"></i><span>Draft</span></div>
                                     }
-                                    <div class="min-w-0 flex-1">
-                                        <h3 class="font-semibold text-gray-900 text-base group-hover:text-purple-700 transition-colors truncate">@draft.Title</h3>
-                                        <p class="text-gray-500 text-sm mt-0.5">@draft.Subtitle</p>
-                                        <div class="mt-2 h-1.5 w-full max-w-xs rounded-full bg-gray-100 overflow-hidden">
-                                            <div class="h-full rounded-full bg-gradient-to-r from-purple-600 to-violet-400" style="width:@(Math.Clamp(draft.FlowStepPercent, 5, 100))%"></div>
-                                        </div>
-                                        <p class="text-gray-400 text-xs mt-1">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
-                                    </div>
+                                    <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
                                 </div>
-                                <div class="flex items-center gap-4">
-                                    <span class="text-gray-400 text-sm font-medium">@(string.IsNullOrWhiteSpace(draft.Status) ? draft.Volumes : draft.Status)</span>
-                                    <span class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-purple-50 text-gray-300 group-hover:text-purple-600 transition-colors">
-                                        <i class="fas fa-edit w-4 h-4"></i>
-                                    </span>
+                                <div class="p-3.5 flex flex-col flex-1 min-w-0">
+                                    <h3 class="font-semibold text-gray-900 text-sm group-hover:text-purple-700 transition-colors truncate" title="@title">@title</h3>
+                                    <p class="text-gray-500 text-xs mt-0.5 truncate">@(string.IsNullOrWhiteSpace(draft.Subtitle) ? draft.Status : draft.Subtitle)</p>
+                                    <div class="dash-progress-track mt-3 w-full">
+                                        <div class="dash-progress-fill" style="width:@(Math.Clamp(pct, 5, 100))%"></div>
+                                    </div>
+                                    <p class="text-gray-400 text-[11px] mt-2 truncate">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                 </div>
                             </a>
                         }
-                        <div class="pt-2">
+                        <div class="col-span-2 md:col-span-4 pt-1">
                             <a href="@Url.Action("MyBooks", "Dashboard")" class="inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 font-medium text-sm">More drafts <i class="fas fa-arrow-right text-xs"></i></a>
                         </div>
+                        @if (hasMoreDemoDrafts)
+                        {
+                            <div class="col-span-2 md:col-span-4 pt-0 text-xs text-gray-400">Showing 8 of @(Model.DemoDrafts!.Count) drafts</div>
+                        }
                     }
                     else if (draftBooksShow.Any())
                     {
                         foreach (var draft in draftBooksShow)
                         {
                             var draftCover = DashCoverSrc(draft.CoverImagePath);
-                            var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl) ? draft.ResumeUrl : Url.Action("AIGenerateBook", "Books", new { bookId = draft.BookId });
-                            <a href="@draftResume" class="book-item border border-gray-100 rounded-2xl p-4 flex items-center justify-between hover:shadow-md hover:border-purple-100 transition-all bg-white cursor-pointer group block" data-title="@draft.Title" data-book-id="@draft.BookId" data-cover-url="@draftCover" data-resume-url="@draftResume">
-                                <div class="flex items-center gap-4 min-w-0 flex-1">
+                            var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId });
+                            var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
+                            var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled" : draft.Title;
+                            <a href="@draftResume" class="book-item dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-title="@draft.Title" data-book-id="@draft.BookId" data-cover-url="@draftCover" data-resume-url="@draftResume">
+                                <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     @if (!string.IsNullOrEmpty(draftCover))
                                     {
-                                        <img src="@draftCover" alt="@draft.Title" class="dashboard-cover-img w-12 h-16 rounded-md object-cover shadow-sm flex-shrink-0" />
+                                        <img src="@draftCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300" loading="lazy" />
                                     }
                                     else
                                     {
-                                        <div class="dash-empty-cover w-12 h-16 rounded-md flex-shrink-0 text-[0.55rem]"><i class="fas fa-book-open text-sm"></i></div>
+                                        <div class="dash-empty-cover absolute inset-0 text-[0.55rem]"><i class="fas fa-book-open text-2xl"></i><span>Draft</span></div>
                                     }
-                                    <div class="min-w-0 flex-1">
-                                        <h3 class="font-semibold text-gray-900 text-base group-hover:text-purple-700 transition-colors truncate">@draft.Title</h3>
-                                        <p class="text-gray-500 text-sm mt-0.5">@draft.ProgressText</p>
-                                        <div class="mt-2 h-1.5 w-full max-w-xs rounded-full bg-gray-100 overflow-hidden">
-                                            <div class="h-full rounded-full bg-gradient-to-r from-purple-600 to-violet-400" style="width:@(Math.Clamp(draft.ProgressPercentage, 5, 100))%"></div>
-                                        </div>
-                                        <p class="text-gray-400 text-xs mt-1">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
-                                    </div>
+                                    <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
                                 </div>
-                                <div class="flex items-center gap-4">
-                                    <span class="text-gray-400 text-sm font-medium">@draft.Status</span>
-                                    <span class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-purple-50 text-gray-300 group-hover:text-purple-600 transition-colors">
-                                        <i class="fas fa-edit w-4 h-4"></i>
-                                    </span>
+                                <div class="p-3.5 flex flex-col flex-1 min-w-0">
+                                    <h3 class="font-semibold text-gray-900 text-sm group-hover:text-purple-700 transition-colors truncate" title="@title">@title</h3>
+                                    <p class="text-gray-500 text-xs mt-0.5 truncate">@draft.ProgressText</p>
+                                    <div class="dash-progress-track mt-3 w-full">
+                                        <div class="dash-progress-fill" style="width:@(Math.Clamp(pct, 5, 100))%"></div>
+                                    </div>
+                                    <p class="text-gray-400 text-[11px] mt-2 truncate">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                 </div>
                             </a>
                         }
                         if (hasMoreDrafts)
                         {
-                            <div class="pt-2">
+                            <div class="col-span-2 md:col-span-4 pt-1">
                                 <a href="@Url.Action("MyBooks", "Dashboard")" class="inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 font-medium text-sm">More drafts <i class="fas fa-arrow-right text-xs"></i></a>
                             </div>
                         }
                     }
                     else
                     {
-                        <div class="border border-dashed border-violet-200 rounded-2xl p-8 text-center bg-violet-50/40">
+                        <div class="col-span-2 md:col-span-4 border border-dashed border-violet-200 rounded-2xl p-8 text-center bg-violet-50/40">
                             <div class="dash-empty-cover w-16 h-20 rounded-lg mx-auto mb-4 text-[0.55rem]"><i class="fas fa-book-open"></i><span>Draft</span></div>
                             <p class="text-gray-700 font-medium mb-2">No books in progress yet</p>
                             <p class="text-gray-500 text-sm mb-5 max-w-md mx-auto">Your drafts will appear here with progress through Writer → Format → Cover → Publish.</p>

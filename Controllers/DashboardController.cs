@@ -134,6 +134,7 @@ namespace EBookDashboard.Controllers
                 if (inProgress != null)
                 {
                     HttpContext.Session.SetInt32("LastSelectedBookId", inProgress.BookId);
+                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, inProgress.BookId);
                     var flow = await _bookFlow.GetStepAsync(inProgress.BookId);
                     var resumeUrl = _bookFlow.BuildResumeUrl(inProgress.BookId, flow.Step, flow.Path);
                     if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
@@ -168,6 +169,7 @@ namespace EBookDashboard.Controllers
                 var book = await _bookService.CreateBookFromRequestAsync(request);
                 await _bookFlow.SaveStepAsync(book.BookId, BookFlowStateService.StepGenerate);
                 HttpContext.Session.SetInt32("LastSelectedBookId", book.BookId);
+                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, book.BookId);
                 return RedirectToAction("AIGenerateBook", "Books", new { bookId = book.BookId });
             }
             catch (Exception ex)
@@ -176,6 +178,38 @@ namespace EBookDashboard.Controllers
                 TempData["InfoMessage"] = "We couldn't create your book just now. Please try again.";
                 return RedirectToAction(nameof(Index));
             }
+        }
+
+        /// <summary>Dashboard book pick — marks flow entry and resumes at the saved step.</summary>
+        [HttpGet]
+        [Route("SelectBook")]
+        public async Task<IActionResult> SelectBook(int bookId)
+        {
+            var userId = _currentUser.GetUserId();
+            if (!userId.HasValue || userId.Value <= 0)
+                return RedirectToAction("UserLogin", "Account");
+            if (bookId <= 0)
+            {
+                TempData["InfoMessage"] = "Select a book from the Dashboard to continue.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var ownsBook = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == userId.Value);
+            if (!ownsBook)
+            {
+                TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+            HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
+
+            var flow = await _bookFlow.GetStepAsync(bookId);
+            var resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
+            if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
+                return Redirect(resumeUrl);
+            return RedirectToAction("AIGenerateBook", "Books", new { bookId });
         }
 
         /// <summary>Every book needs a valid Authors row (AuthorId ≠ UserId). Creates author on first book for new users.</summary>
@@ -407,10 +441,7 @@ namespace EBookDashboard.Controllers
 
             string? heroResumeUrl = null;
             if (lastWorkedBook != null && !BookFlowStateService.IsPublishedStatus(lastWorkedBook.Status))
-            {
-                var heroFlow = flowMap.GetValueOrDefault(lastWorkedBook.BookId, (Step: BookFlowStateService.StepGenerate, Path: "ebook"));
-                heroResumeUrl = _bookFlow.BuildResumeUrl(lastWorkedBook.BookId, heroFlow.Step, heroFlow.Path);
-            }
+                heroResumeUrl = Url.Action(nameof(SelectBook), "Dashboard", new { bookId = lastWorkedBook.BookId });
 
             var viewModel = new DashboardIndexViewModel
             {
@@ -924,6 +955,31 @@ namespace EBookDashboard.Controllers
                     return RedirectToAction("Index");
                 }
             }
+
+            if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId.Value))
+            {
+                if (!formattingDone)
+                {
+                    TempData["InfoMessage"] = "Select a book from the Dashboard first, then continue your project.";
+                    return RedirectToAction(nameof(Index));
+                }
+                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
+            }
+
+            var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId.Value);
+            var savedRank = BookFlowStateService.StepRank(savedFlowStep);
+            var formatRank = BookFlowStateService.StepRank(BookFlowStateService.StepFormat);
+            var canOpenCover = formattingDone
+                && (BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepCover)
+                    || savedRank == formatRank);
+            if (!canOpenCover)
+            {
+                TempData["InfoMessage"] = savedRank < formatRank
+                    ? "Complete Book Formatting first, then continue from the Dashboard."
+                    : "Continue your project from the Dashboard.";
+                return Redirect(_bookFlow.BuildResumeUrl(bookId.Value, savedFlowStep, savedFlowPath));
+            }
+
             var (_, coverPath) = await _bookFlow.GetStepAsync(bookId.Value);
             await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepCover, coverPath);
             ViewBag.FlowBookId = bookId.Value;
@@ -1292,34 +1348,31 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> DownloadBookPdf([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
         {
             if (req == null || req.BookId <= 0)
-                return Json(new { success = false, message = "BookId is required." });
+                return BadRequest(new { success = false, message = "BookId is required." });
 
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (sessionUserId == null)
-                return Json(new { success = false, message = "Please sign in." });
+                return Unauthorized(new { success = false, message = "Please sign in." });
 
             var owns = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns)
-                return Json(new { success = false, message = "Book not found." });
+                return NotFound(new { success = false, message = "Book not found." });
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
-                return Json(new { success = false, message = details?.Message ?? "Could not load book." });
+                return BadRequest(new { success = false, message = details?.Message ?? "Could not load book." });
 
             var orderedChapters = details.Chapters.OrderBy(c => c.ChapterNumber).ToList();
             if (orderedChapters.Count == 0)
-                return Json(new { success = false, message = "Add at least one chapter in AI Writer before exporting the PDF." });
+                return BadRequest(new { success = false, message = "Add at least one chapter in AI Writer before exporting the PDF." });
             if (!orderedChapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
-                return Json(new { success = false, message = "Your chapters need body text. Add content in AI Writer, save, then download again." });
+                return BadRequest(new { success = false, message = "Your chapters need body text. Add content in AI Writer, save, then download again." });
 
             try
             {
                 var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
-                if (!string.IsNullOrWhiteSpace(req.InteriorStyle)) exportOpt.InteriorStyle = req.InteriorStyle!;
-                if (!string.IsNullOrWhiteSpace(req.TextSize)) exportOpt.TextSize = req.TextSize!;
-                if (!string.IsNullOrWhiteSpace(req.LineSpacing)) exportOpt.LineSpacing = req.LineSpacing!;
-                if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
+                exportOpt.ApplyRequestOverrides(req);
                 if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
                     exportOpt.PublishingPlatform = NormalizePublishingPlatformForExport(req.PublishingPlatform);
                 if (exportOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
@@ -1343,6 +1396,9 @@ namespace EBookDashboard.Controllers
                     publisherLabel,
                     cancellationToken);
 
+                if (pdfBytes == null || pdfBytes.Length < 128)
+                    return StatusCode(500, new { success = false, message = "PDF generation produced an empty file." });
+
                 var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
                 if (string.IsNullOrEmpty(rawName)) rawName = "book";
                 var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
@@ -1356,7 +1412,7 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "DownloadBookPdf failed for book {BookId}", req.BookId);
-                return Json(new { success = false, message = "PDF generation failed. If this persists, verify Chromium (Puppeteer) can run on this machine." });
+                return StatusCode(500, new { success = false, message = "PDF generation failed. If this persists, verify Chromium (Puppeteer) can run on this server." });
             }
         }
 
@@ -1365,33 +1421,30 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> DownloadBookInteriorPdf([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
         {
             if (req == null || req.BookId <= 0)
-                return Json(new { success = false, message = "BookId is required." });
+                return BadRequest(new { success = false, message = "BookId is required." });
 
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (sessionUserId == null)
-                return Json(new { success = false, message = "Please sign in." });
+                return Unauthorized(new { success = false, message = "Please sign in." });
 
             var owns = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns)
-                return Json(new { success = false, message = "Book not found." });
+                return NotFound(new { success = false, message = "Book not found." });
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
-                return Json(new { success = false, message = details?.Message ?? "Could not load book." });
+                return BadRequest(new { success = false, message = details?.Message ?? "Could not load book." });
 
             var orderedChapters = details.Chapters.OrderBy(c => c.ChapterNumber).ToList();
             if (orderedChapters.Count == 0)
-                return Json(new { success = false, message = "Add at least one chapter in AI Writer before exporting the PDF." });
+                return BadRequest(new { success = false, message = "Add at least one chapter in AI Writer before exporting the PDF." });
 
             try
             {
                 var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
+                exportOpt.ApplyRequestOverrides(req);
                 exportOpt.IncludeCoverPage = false;
-                if (!string.IsNullOrWhiteSpace(req.InteriorStyle)) exportOpt.InteriorStyle = req.InteriorStyle!;
-                if (!string.IsNullOrWhiteSpace(req.TextSize)) exportOpt.TextSize = req.TextSize!;
-                if (!string.IsNullOrWhiteSpace(req.LineSpacing)) exportOpt.LineSpacing = req.LineSpacing!;
-                if (!string.IsNullOrWhiteSpace(req.BookFormat)) exportOpt.Format = req.BookFormat!;
                 if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
                     exportOpt.PublishingPlatform = NormalizePublishingPlatformForExport(req.PublishingPlatform);
 
@@ -1411,6 +1464,9 @@ namespace EBookDashboard.Controllers
                     publisherLabel,
                     cancellationToken);
 
+                if (pdfBytes == null || pdfBytes.Length < 128)
+                    return StatusCode(500, new { success = false, message = "Interior PDF generation produced an empty file." });
+
                 var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book-interior").Trim();
                 if (string.IsNullOrEmpty(rawName)) rawName = "book-interior";
                 var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
@@ -1423,7 +1479,7 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "DownloadBookInteriorPdf failed for book {BookId}", req.BookId);
-                return Json(new { success = false, message = "Interior PDF generation failed." });
+                return StatusCode(500, new { success = false, message = "Interior PDF generation failed." });
             }
         }
 
@@ -1678,7 +1734,8 @@ namespace EBookDashboard.Controllers
 
         [HttpPost]
         [Route("GeneratePrintReadyCover")]
-        public async Task<IActionResult> GeneratePrintReadyCover([FromBody] PrintReadyCoverRequest req, CancellationToken cancellationToken)
+        [Microsoft.AspNetCore.Http.Timeouts.RequestTimeout("CoverGeneration")]
+        public async Task<IActionResult> GeneratePrintReadyCover([FromBody] PrintReadyCoverRequest req)
         {
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, status = "error", message = "BookId is required." });
@@ -1687,21 +1744,24 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
+            // Do not tie long-running cover generation to the browser/proxy connection (avoids nginx 504 canceling upstream work).
+            var dbCancel = HttpContext.RequestAborted;
+
             var book = await _context.Books
                 .AsNoTracking()
-                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, dbCancel);
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
-            await ClearStoredCoverAssetsAsync(req.BookId, cancellationToken);
+            await ClearStoredCoverAssetsAsync(req.BookId, dbCancel);
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
                 return Json(new { success = false, status = "error", message = details?.Message ?? "Could not load book details." });
 
-            var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, cancellationToken);
+            var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, req.BookId, dbCancel);
             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
-            var savedPageCount = await ResolvePrintReadyPageCountAsync(req.BookId, cancellationToken);
+            var savedPageCount = await ResolvePrintReadyPageCountAsync(req.BookId, dbCancel);
             var pageCountForCover = req.PageCount is > 0 ? req.PageCount.Value
                 : (savedPageCount > 0 ? savedPageCount
                     : (metrics.PageCount > 0 ? metrics.PageCount : Application.Kdp.Constants.KdpPaperbackConstants.MinPageCount));
@@ -1713,7 +1773,7 @@ namespace EBookDashboard.Controllers
             if (string.IsNullOrWhiteSpace(title)) title = "My Book";
 
             var user = await _context.Users.AsNoTracking()
-                .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
+                .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, dbCancel);
             var authorName = (req.Author ?? "").Trim();
             if (string.IsNullOrWhiteSpace(authorName))
                 authorName = (user?.FullName ?? "").Trim();
@@ -1779,30 +1839,30 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrWhiteSpace(wrapRef))
                     return Json(new { success = false, status = "error", message = "No image found in print-ready cover response." });
 
-                var persistedWrap = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, wrapRef, cancellationToken) ?? wrapRef;
+                var persistedWrap = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, wrapRef, CancellationToken.None) ?? wrapRef;
                 var persistedFront = string.IsNullOrWhiteSpace(assets.Front)
                     ? ""
-                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Front, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Front));
+                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Front, CancellationToken.None) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Front));
                 var persistedBack = string.IsNullOrWhiteSpace(assets.Back)
                     ? ""
-                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Back, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Back));
+                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Back, CancellationToken.None) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Back));
                 var persistedSpine = string.IsNullOrWhiteSpace(assets.Spine)
                     ? ""
-                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Spine, cancellationToken) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Spine));
+                    : (await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, assets.Spine, CancellationToken.None) ?? CoverExternalApiHelper.NormalizeImageRef(assets.Spine));
 
                 if (persistedWrap.Length <= Models.Settings.DbCompatMaxValueLength)
                 {
-                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrapApi", persistedWrap, "Book", cancellationToken);
-                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrap", persistedWrap, "Book", cancellationToken);
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrapApi", persistedWrap, "Book", CancellationToken.None);
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverWrap", persistedWrap, "Book", CancellationToken.None);
                 }
                 if (!string.IsNullOrWhiteSpace(persistedFront))
-                    await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, persistedFront, cancellationToken);
+                    await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, persistedFront, CancellationToken.None);
                 if (!string.IsNullOrWhiteSpace(persistedBack))
-                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverBack", persistedBack, "Book", cancellationToken);
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverBack", persistedBack, "Book", CancellationToken.None);
                 if (!string.IsNullOrWhiteSpace(persistedSpine))
-                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverSpine", persistedSpine, "Book", cancellationToken);
-                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", pageCountForCover.ToString(), "Book", cancellationToken);
-                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyTrimSize", trimSize, "Book", cancellationToken);
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyCoverSpine", persistedSpine, "Book", CancellationToken.None);
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", pageCountForCover.ToString(), "Book", CancellationToken.None);
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyTrimSize", trimSize, "Book", CancellationToken.None);
 
                 return Json(new
                 {
@@ -2443,6 +2503,15 @@ namespace EBookDashboard.Controllers
                     if (string.IsNullOrWhiteSpace(primaryPlatform))
                         primaryPlatform = (fmt?.PublishingPlatform ?? "").Trim();
                     var platformCsv = (exportOptForMode.PublishingPlatforms ?? fmt?.PublishingPlatforms ?? "").Trim();
+                    ViewBag.PublishFormatterSnapshot = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        interiorStyle = exportOptForMode.InteriorStyle,
+                        textSize = exportOptForMode.TextSize,
+                        lineSpacing = exportOptForMode.LineSpacing,
+                        bookFormat = exportOptForMode.Format,
+                        publishingPlatform = primaryPlatform,
+                        publishingPlatforms = platformCsv
+                    });
                     var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     var hasPrintReadyPlatform =
                         primaryPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
@@ -2490,8 +2559,34 @@ namespace EBookDashboard.Controllers
                 return Json(new { success = false, message = "Book not found." });
 
             var step = req.Step.Trim().ToLowerInvariant();
+
+            if (req.WipeAllWork)
+            {
+                await _bookFlow.ResetStepAsync(req.BookId, BookFlowStateService.StepCover);
+                await _bookFlow.ResetStepAsync(req.BookId, BookFlowStateService.StepFormat);
+                await ClearStoredCoverAssetsAsync(req.BookId, HttpContext.RequestAborted);
+                await ClearBookCoverImagePathAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
+                var (_, path) = await _bookFlow.GetStepAsync(req.BookId);
+                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepGenerate, path);
+                HttpContext.Session.SetString("FormattingDone", "0");
+                HttpContext.Session.Remove("CoverFinalized");
+                return Json(new
+                {
+                    success = true,
+                    step = BookFlowStateService.StepGenerate,
+                    wiped = true,
+                    resumeUrl = $"/Books/AIGenerateBook?bookId={req.BookId}"
+                });
+            }
+
             await _bookFlow.RegressAndResetAsync(req.BookId, step);
-            var (newStep, path) = await _bookFlow.GetStepAsync(req.BookId);
+            if (step == BookFlowStateService.StepCover)
+            {
+                await ClearStoredCoverAssetsAsync(req.BookId, HttpContext.RequestAborted);
+                await ClearBookCoverImagePathAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
+            }
+
+            var (newStep, newPath) = await _bookFlow.GetStepAsync(req.BookId);
             if (newStep == BookFlowStateService.StepFormat || newStep == BookFlowStateService.StepGenerate)
                 HttpContext.Session.SetString("FormattingDone", "0");
             if (newStep == BookFlowStateService.StepGenerate)
@@ -2500,8 +2595,17 @@ namespace EBookDashboard.Controllers
             {
                 success = true,
                 step = newStep,
-                resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, newStep, path)
+                wiped = step == BookFlowStateService.StepCover,
+                resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, newStep, newPath)
             });
+        }
+
+        private async Task ClearBookCoverImagePathAsync(int bookId, int userId, CancellationToken cancellationToken)
+        {
+            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+            if (book == null || string.IsNullOrWhiteSpace(book.CoverImagePath)) return;
+            book.CoverImagePath = "";
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         [Route("EditingFormatting")]

@@ -416,6 +416,17 @@
         margin: 1rem 0 0.5rem 0;
         line-height: 1.25;
         text-indent: 0;
+        break-after: avoid;
+        page-break-after: avoid;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .reader-page-body h1, .reader-page-body h2, .reader-page-body h3,
+    .reader-page-body h4, .reader-page-body h5, .reader-page-body h6 {
+        break-after: avoid;
+        page-break-after: avoid;
+        break-inside: avoid;
+        page-break-inside: avoid;
     }
     .reader-page-body .manuscript-h1 { font-size: 1.5rem; }
     .reader-page-body .manuscript-h2 { font-size: 1.28rem; }
@@ -976,40 +987,10 @@
         justify-content: center;
         gap: 0.2rem;
     }
-    .fmt-int-card::after {
-        content: '';
-        position: absolute;
-        right: 0.55rem;
-        bottom: 0.55rem;
-        width: 2.4rem;
-        height: 3.2rem;
-        border-radius: 3px;
-        pointer-events: none;
-        opacity: 0.92;
-        box-shadow: 0 4px 12px -4px rgba(15, 23, 42, 0.22);
-        transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
-    }
-    .fmt-int-card[data-style="Novel"]::after {
-        background: linear-gradient(180deg, #fffdf8 0%, #faf8f2 100%);
-        border: 1px solid #d4b08a;
-    }
-    .fmt-int-card[data-style="Modern"]::after {
-        background: #fff;
-        border: 1px solid #9fb1c9;
-        box-shadow: 0 6px 14px -6px rgba(51, 65, 85, 0.35);
-    }
-    .fmt-int-card[data-style="Classic"]::after {
-        background: #fdfcfa url("data:image/svg+xml,%3Csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 20L20 0' stroke='%23ebe6dc' stroke-width='0.5' fill='none'/%3E%3C/svg%3E");
-        border: 1px solid #ddd2c4;
-    }
-    .fmt-int-card[data-style="Minimalist"]::after {
-        background: #fff;
-        border: 1px solid #e4e4e7;
-        box-shadow: none;
-    }
-    .fmt-int-card[data-style="ElegantTrade"]::after {
-        background: linear-gradient(165deg, #fffef8 0%, #f9f5ee 55%, #fffef8 100%);
-        border: 1px solid #cfbea5;
+    .fmt-int-card::after,
+    .fmt-int-card[data-style]::after {
+        display: none !important;
+        content: none !important;
     }
     .fmt-int-card[data-style="Novel"] { background: linear-gradient(180deg, #fffef9 0%, #fff 100%); }
     .fmt-int-card[data-style="Modern"] { background: linear-gradient(180deg, #f8fafc 0%, #fff 100%); }
@@ -1998,11 +1979,11 @@
                     <span id="prModalWrapPlaceholder" class="text-xs text-slate-500">Auto-generated wrap preview appears here.</span>
                 </div>
                 <div class="pr-cover-parts">
-                    <div id="prModalBackTile" class="pr-cover-part hidden" data-optional="1"><img id="prModalBackImg" src="" alt="Back cover" class="hidden" /></div>
-                    <div id="prModalSpineTile" class="pr-cover-part hidden" data-optional="1"><img id="prModalSpineImg" src="" alt="Spine cover" class="hidden" /></div>
                     <div class="pr-cover-part"><img id="prModalFrontImg" src="" alt="Front cover" class="hidden" /><span id="prModalFrontLabel">Front</span></div>
+                    <div id="prModalSpineTile" class="pr-cover-part hidden" data-optional="1"><img id="prModalSpineImg" src="" alt="Spine cover" class="hidden" /><span id="prModalSpineLabel">Spine</span></div>
+                    <div id="prModalBackTile" class="pr-cover-part hidden" data-optional="1"><img id="prModalBackImg" src="" alt="Back cover" class="hidden" /><span id="prModalBackLabel">Back</span></div>
                 </div>
-                <p class="text-xs text-slate-500 mt-2">Back/spine/front are generated in one cohesive theme so back cover color style matches front design.</p>
+                <p class="text-xs text-slate-500 mt-2">Panels shown in order: front, spine, then back — assembled into one KDP full wrap.</p>
             </section>
         </div>
         <div class="pr-modal-footer">
@@ -2752,6 +2733,9 @@
         if (!children.length) return null;
         var last = children[children.length - 1];
         if (!last || !/^h[1-6]$/i.test(last.tagName || '')) return null;
+        if (children.length === 1 && /^h[1-6]$/i.test(last.tagName || '')) {
+            return { bodyWithoutHeading: '', headingHtml: moved };
+        }
         if (children.length <= 1) return null;
         var moved = last.outerHTML;
         children.pop();
@@ -2826,11 +2810,32 @@
                 out.push(s);
                 return;
             }
+            var elements = [];
             for (var i = 0; i < tmp.children.length; i++) {
-                out.push(tmp.children[i].outerHTML);
+                elements.push(tmp.children[i].outerHTML);
+            }
+            for (var j = 0; j < elements.length; j++) {
+                var block = elements[j];
+                var isHeading = /^<h[1-6]\b/i.test(String(block || '').trim());
+                if (isHeading && j < elements.length - 1) {
+                    out.push(block + elements[j + 1]);
+                    j++;
+                } else {
+                    out.push(block);
+                }
             }
         });
         return out;
+    }
+
+    function isFlowHeadingSegment(html) {
+        var s = String(html || '').trim();
+        if (!s) return false;
+        if (/^<h[1-6]\b[^>]*>[\s\S]*<\/h[1-6]>$/i.test(s)) return true;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = s;
+        if (tmp.children.length === 1 && /^h[1-6]$/i.test(tmp.firstElementChild.tagName || '')) return true;
+        return false;
     }
 
     function buildReaderPageBlockHtml(bodyHtml, opts) {
@@ -2907,22 +2912,43 @@
         }
 
         function pushPage(bodyHtml, po) {
+            var pulled = pullTrailingHeadingBlock(bodyHtml);
+            if (pulled) {
+                pages.push(buildReaderPageBlockHtml(pulled.bodyWithoutHeading, po));
+                includeTitle = false;
+                chapterStart = false;
+                return pulled.headingHtml;
+            }
             pages.push(buildReaderPageBlockHtml(bodyHtml, po));
             includeTitle = false;
             chapterStart = false;
+            return '';
         }
 
         for (var i = 0; i < flat.length; i++) {
             var seg = flat[i];
+            if (isFlowHeadingSegment(seg) && i + 1 < flat.length && !isFlowHeadingSegment(flat[i + 1])) {
+                seg = seg + flat[i + 1];
+                i++;
+            }
             var trial = acc ? (acc + seg) : seg;
             if (fmtPageContentFits(buildReaderPageBlockHtml(trial, pageOpts()))) {
                 acc = trial;
                 continue;
             }
             if (acc) {
-                pushPage(acc, pageOpts());
-                acc = '';
-                i--;
+                var orphanHeading = pushPage(acc, pageOpts());
+                acc = orphanHeading || '';
+                if (orphanHeading) {
+                    if (fmtPageContentFits(buildReaderPageBlockHtml(orphanHeading + seg, pageOpts()))) {
+                        acc = orphanHeading + seg;
+                    } else {
+                        acc = orphanHeading;
+                        i--;
+                    }
+                } else {
+                    i--;
+                }
                 continue;
             }
             var wordParts = splitFlowSegmentByWords(seg, pageOpts(), '');
@@ -2936,15 +2962,36 @@
                 }
             }
         }
-        if (acc) pushPage(acc, pageOpts());
+        if (acc) {
+            var trailingOrphan = pushPage(acc, pageOpts());
+            if (trailingOrphan) pushPage(trailingOrphan, pageOpts());
+        }
         return pages;
     }
 
     function finalizeReaderPages(pages, chapterIdxs) {
         if (!pages.length) return { pages: pages, chapterIdxs: chapterIdxs };
+        pages = stripTrailingHeadingsFromReaderPages(pages);
         var merged = mergeUnderfilledReaderPages(pages, chapterIdxs);
         merged = pullOrphansToFillPages(merged.pages, merged.chapterIdxs);
         return merged;
+    }
+
+    function stripTrailingHeadingsFromReaderPages(pages) {
+        if (!Array.isArray(pages) || pages.length < 2) return pages;
+        var out = pages.slice();
+        for (var i = 0; i < out.length - 1; i++) {
+            var bodyMatch = out[i].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
+            if (!bodyMatch) continue;
+            var pulled = pullTrailingHeadingBlock(bodyMatch[2]);
+            if (!pulled) continue;
+            out[i] = out[i].replace(bodyMatch[0], bodyMatch[1] + pulled.bodyWithoutHeading + bodyMatch[3]);
+            var nextBody = out[i + 1].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
+            if (nextBody) {
+                out[i + 1] = out[i + 1].replace(nextBody[0], nextBody[1] + pulled.headingHtml + nextBody[2] + nextBody[3]);
+            }
+        }
+        return out;
     }
 
     function pullOrphansToFillPages(pages, chapterIdxs) {
@@ -3594,7 +3641,15 @@
                     coverStyle: coverStyle
                 })
             });
-            var data = await response.json();
+            var rawText = await response.text();
+            var data = {};
+            try { data = rawText ? JSON.parse(rawText) : {}; } catch (parseErr) {
+                console.error('[CoverDesign] GeneratePrintReadyCover JSON parse error', parseErr, rawText);
+                var gatewayMsg = response.status === 504
+                    ? 'Cover generation timed out at the server gateway. Please retry — large wraps can take a few minutes.'
+                    : ('Unexpected server response (HTTP ' + response.status + '). Please retry.');
+                throw new Error(gatewayMsg);
+            }
             if (!response.ok || !data || data.success === false) {
                 throw new Error((data && data.message) ? data.message : ('HTTP ' + response.status));
             }
@@ -3699,7 +3754,7 @@
         selectedFormat = fmt;
         if (btn) {
             if (fmt === 'Paperback' && hasPrintReady) {
-                btn.innerHTML = 'Open Print-Ready Cover Designer <i class="fas fa-arrow-right"></i>';
+                btn.innerHTML = 'Next: AI Cover Design <i class="fas fa-arrow-right"></i>';
             } else if (fmt === 'Both' && hasPrintReady) {
                 btn.innerHTML = 'Generate Print Wrap, Then Ebook Cover <i class="fas fa-arrow-right"></i>';
             } else {
@@ -3720,9 +3775,9 @@
         }
         if (hint) {
             if (fmt === 'Paperback' && hasPrintReady) {
-                hint.textContent = 'Print-ready mode: stay on this screen, open the KDP-style designer modal, auto-generate the full wrap, then continue to Publish.';
+                hint.textContent = 'Print-ready mode: continue to AI Cover Design to generate front, spine, and back cover panels.';
             } else if (fmt === 'Both' && hasPrintReady) {
-                hint.textContent = 'Both mode: generate the print-ready wrap first in the modal, then continue to AI Cover Design for the ebook front cover.';
+                hint.textContent = 'Both mode with Publishable Book: continue to AI Cover Design for print wrap and ebook cover.';
             } else if (fmt === 'Both') {
                 hint.textContent = 'Both mode without Publishable Book: continue to AI Cover Design for the shared front cover workflow.';
             } else {
@@ -5325,20 +5380,9 @@
             var hasPrintReady = hasPrintReadyPlatformSelected();
             saveFormatting(function(ok) {
                 if (!ok) return;
-                if (fmt === 'Paperback' && hasPrintReady) {
-                    openPrintReadyModal(bid, {
-                        nextUrl: '/Dashboard/Publish?bookId=' + encodeURIComponent(bid) + '&flow=printready'
-                    });
-                    return;
-                }
-                if (fmt === 'Both' && hasPrintReady) {
-                    openPrintReadyModal(bid, {
-                        nextUrl: '/Dashboard/CoverDesign?bookId=' + encodeURIComponent(bid) + '&coverType=both&skipPrintReadyAuto=1'
-                    });
-                    return;
-                }
                 var url = '/Dashboard/CoverDesign?bookId=' + encodeURIComponent(bid);
                 if (fmt === 'Both') url += '&coverType=both';
+                else if (fmt === 'Paperback' && hasPrintReady) url += '&flow=printready';
                 window.location.href = url;
             });
         });

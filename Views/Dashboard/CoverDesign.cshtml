@@ -12,7 +12,7 @@
     .cover-design-page .font-serif { font-family: 'Playfair Display', Georgia, 'Times New Roman', serif; }
     /* Fallback when no cover image: solid brand violet — no gradient / no blue wash */
     .cov-preview-fallback-purple {
-        background: #5b21b6 !important;
+        background: #475569 !important;
         background-image: none !important;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(0, 0, 0, 0.08);
     }
@@ -400,7 +400,12 @@
     function resolveCoverPathForBook(book) {
         if (!book) return '';
         var path = (book.aiCoverLastPreview || book.coverImagePath || '').trim();
-        if (!path) path = readPersistedCoverUrl(book.bookId);
+        if (!path) {
+            try {
+                if (sessionStorage.getItem('coverDesign_hasGenerated') === '1')
+                    path = readPersistedCoverUrl(book.bookId);
+            } catch (_) {}
+        }
         return path;
     }
     /** Last 3 generated / edited cover URLs for quick recall */
@@ -1061,7 +1066,10 @@
             var d = {};
             try { d = text ? JSON.parse(text) : {}; } catch (e) {
                 console.error('[CoverDesign] GeneratePrintReadyCover JSON parse error', e, text);
-                d = { success: false, message: text || 'Invalid JSON' };
+                var gatewayMsg = r.status === 504
+                    ? 'Cover generation timed out at the server gateway. Please retry — full wraps can take several minutes.'
+                    : (text && text.indexOf('<html') >= 0 ? ('Server error (HTTP ' + r.status + '). Please retry.') : (text || 'Invalid JSON'));
+                d = { success: false, message: gatewayMsg };
             }
             if (!r.ok && !d.message) d.message = 'HTTP ' + r.status;
             if (d.status === 'error' || d.success === false) {
@@ -1393,7 +1401,7 @@
         }).join('');
         var coverImg = coverDataUrl
             ? '<img src="' + coverDataUrl.replace(/"/g, '&quot;') + '" alt="" style="width:100%;max-width:200px;margin:0 auto;display:block;border-radius:16px;box-shadow:0 10px 30px rgba(76,29,149,0.22);aspect-ratio:2/3;object-fit:cover;"/>'
-            : '<div style="width:100%;max-width:200px;margin:0 auto;aspect-ratio:2/3;border-radius:16px;background:#5b21b6;"></div>';
+            : '<div style="width:100%;max-width:200px;margin:0 auto;aspect-ratio:2/3;border-radius:16px;background:#475569;"></div>';
         return '<div style="text-align:left;color:#0f172a;">' +
             '<p style="margin:0 0 12px;font-size:13px;color:#64748b;">Your PDF will match this cover (captured live) and include <strong>' + (data.totalChapters || 0) + '</strong> formatted chapters.</p>' +
             '<div style="display:grid;grid-template-columns:minmax(120px,1fr) minmax(0,2fr);gap:14px;max-height:min(52vh,440px);overflow:auto;padding-right:4px;">' +

@@ -296,5 +296,7 @@ namespace EBookDashboard.Models
     {
         public int BookId { get; set; }
         public string? Step { get; set; }
+        /// <summary>When true (leaving to AI Writer), wipe cover + formatting and regress to generate step.</summary>
+        public bool WipeAllWork { get; set; }
     }
 }
