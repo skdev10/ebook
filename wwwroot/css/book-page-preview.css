@@ -43,6 +43,13 @@
     margin-inline: auto;
     max-width: 100%;
     box-sizing: border-box;
+    overflow: hidden;
+}
+
+#bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
+    overflow-x: hidden;
+    overflow-y: hidden !important;
+    overscroll-behavior: contain;
 }
 
 @media (min-width: 1024px) {

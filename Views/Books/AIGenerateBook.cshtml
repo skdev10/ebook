@@ -182,17 +182,17 @@
         overflow: hidden;
         position: relative;
     }
-    /* 6×9 shell — mobile/tablet uses aspect-ratio; desktop size from syncAiWriterPreviewLayout */
+    /* 6×9 shell — fixed trim; page turns via arrows (no inner scroll trap) */
     #bookResult .paginated-reader-shell.book-page-preview-shell {
         position: relative;
         width: min(100%, 40rem, 6in);
         max-width: 100%;
         margin-inline: auto;
-        aspect-ratio: auto;
+        aspect-ratio: 6 / 9;
         height: auto;
-        min-height: clamp(26rem, 65dvh, 48rem);
-        max-height: min(92dvh, 56rem);
-        overflow: visible;
+        min-height: 0;
+        max-height: min(9in, calc(100dvh - 14rem));
+        overflow: hidden;
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
@@ -251,8 +251,8 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow-x: hidden;
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
+        overflow-y: hidden !important;
+        overscroll-behavior: contain;
         box-sizing: border-box;
         padding: clamp(0.85rem, 2.5vw, 1.5rem);
         margin: 0;
@@ -379,11 +379,10 @@
     }
     .book-page-content {
         flex: 1 1 auto;
-        min-height: auto;
+        min-height: 0;
         height: auto;
-        overflow-y: visible;
+        overflow-y: hidden;
         overflow-x: hidden;
-        -webkit-overflow-scrolling: touch;
         word-wrap: break-word;
         transform: none !important;
         scale: 1;
@@ -1877,13 +1876,42 @@ window.syncAiWriterPreviewLayout = function () {
     if (window.innerWidth < 1024 || !sidebar) {
         bookResult.style.minHeight = '';
         bookResult.style.height = '';
-        shell.style.width = '';
-        shell.style.height = '';
-        shell.style.maxHeight = '';
-        shell.style.maxWidth = '';
-        shell.style.aspectRatio = '';
-        delete shell.dataset.layoutKey;
-        delete shell.dataset.measureKey;
+        var mobW = scrollHost.clientWidth || bookResult.clientWidth || 320;
+        var mobShellW = Math.floor(Math.min(mobW, 480, mobW * 0.92));
+        var mobShellH = Math.floor(mobShellW * (9 / 6));
+        var mobMaxH = Math.floor(window.innerHeight * 0.55);
+        if (mobShellH > mobMaxH && mobMaxH > 80) {
+            mobShellH = mobMaxH;
+            mobShellW = Math.floor(mobShellH * (6 / 9));
+        }
+        shell.style.width = mobShellW + 'px';
+        shell.style.height = mobShellH + 'px';
+        shell.style.maxHeight = mobShellH + 'px';
+        shell.style.maxWidth = '100%';
+        shell.style.aspectRatio = '6 / 9';
+        if (viewport && mobShellW > 0 && mobShellH > 0) {
+            viewport.scrollTop = 0;
+            var mh = document.getElementById('previewMeasureHost');
+            if (mh) {
+                var vpStyles = window.getComputedStyle(viewport);
+                mh.style.width = mobShellW + 'px';
+                mh.style.padding = vpStyles.padding;
+                mh.style.fontSize = vpStyles.fontSize;
+                mh.style.lineHeight = vpStyles.lineHeight;
+            }
+        }
+        var mobKey = mobShellW + 'x' + mobShellH + '@@mob';
+        if (shell.dataset.layoutKey !== mobKey) {
+            shell.dataset.layoutKey = mobKey;
+            if (window._previewChaptersMeta && window._previewChaptersMeta.length && typeof window.invalidateReaderPageCaches === 'function') {
+                window.invalidateReaderPageCaches();
+                var chMob = window._previewChaptersMeta[window._previewChapterIndex || 0];
+                if (chMob && !chMob.loading && typeof window.ensureChapterPagesForMeta === 'function') {
+                    window.ensureChapterPagesForMeta(chMob);
+                    if (typeof window.renderCurrentReaderPage === 'function') window.renderCurrentReaderPage();
+                }
+            }
+        }
         return;
     }
 
