@@ -7,7 +7,7 @@
     var hasMoreDrafts = draftBooks.Count > 8;
     var demoDraftsShow = (Model.DemoDrafts ?? new List<EBookDashboard.Models.DemoDraftViewModel>()).Take(8).ToList();
     var hasMoreDemoDrafts = (Model.DemoDrafts?.Count ?? 0) > 8;
-    var startBookUrl = Url.Action("StartNewBook", "Dashboard", new { create = 1 }) ?? "/Dashboard/StartNewBook?create=1";
+    var startBookUrl = Url.Action("StartNewBook", "Dashboard", new { writer = 1 }) ?? "/Dashboard/StartNewBook?writer=1";
     var defaultCoverPlaceholder = Url.Content("~/images/books/cover-in-progress.png");
 }
 <style>

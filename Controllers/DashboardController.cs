@@ -111,7 +111,7 @@ namespace EBookDashboard.Controllers
         /// <summary>Empty-dashboard / My Books entry: create a draft and open AI Writer (Step 1).</summary>
         [HttpGet]
         [Route("StartNewBook")]
-        public async Task<IActionResult> StartNewBook(string? title, int create = 0)
+        public async Task<IActionResult> StartNewBook(string? title, int create = 0, int writer = 0)
         {
             var userId = _currentUser.GetUserId();
             if (!userId.HasValue || userId.Value <= 0)
@@ -121,7 +121,7 @@ namespace EBookDashboard.Controllers
             if (user == null)
                 return RedirectToAction("UserLogin", "Account");
 
-            // Existing authors: resume latest draft unless explicitly creating another book (?create=1).
+            // Resume latest draft unless explicitly creating another book (?create=1).
             if (create != 1)
             {
                 var inProgress = await _context.Books.AsNoTracking()
@@ -135,6 +135,9 @@ namespace EBookDashboard.Controllers
                 {
                     HttpContext.Session.SetInt32("LastSelectedBookId", inProgress.BookId);
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, inProgress.BookId);
+                    // Dashboard "New Book" opens AI Writer directly (no forced re-create).
+                    if (writer == 1)
+                        return RedirectToAction("AIGenerateBook", "Books", new { bookId = inProgress.BookId });
                     var flow = await _bookFlow.GetStepAsync(inProgress.BookId);
                     var resumeUrl = _bookFlow.BuildResumeUrl(inProgress.BookId, flow.Step, flow.Path);
                     if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
@@ -149,7 +152,7 @@ namespace EBookDashboard.Controllers
                 var (authorId, categoryId, languageId) = await EnsureAuthorAndDefaultsForUserAsync(user);
                 var request = new CreateBookRequest
                 {
-                    UserId = userId.Value,
+                    UserId = user.UserId,
                     AuthorId = authorId,
                     CategoryId = categoryId,
                     LanguageId = languageId,
@@ -167,14 +170,36 @@ namespace EBookDashboard.Controllers
                     BookCode = Guid.NewGuid().ToString("N")[..12]
                 };
                 var book = await _bookService.CreateBookFromRequestAsync(request);
-                await _bookFlow.SaveStepAsync(book.BookId, BookFlowStateService.StepGenerate);
+                try
+                {
+                    await _bookFlow.SaveStepAsync(book.BookId, BookFlowStateService.StepGenerate);
+                }
+                catch (Exception flowEx)
+                {
+                    _logger.LogWarning(flowEx, "StartNewBook: flow step save failed for book {BookId}; continuing to AI Writer.", book.BookId);
+                }
                 HttpContext.Session.SetInt32("LastSelectedBookId", book.BookId);
                 HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, book.BookId);
                 return RedirectToAction("AIGenerateBook", "Books", new { bookId = book.BookId });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "StartNewBook failed for user {UserId}", userId);
+                _logger.LogError(ex, "StartNewBook failed for user {UserId}", user.UserId);
+                // If create failed but a draft exists, still open AI Writer instead of showing a dead end.
+                var fallback = await _context.Books.AsNoTracking()
+                    .Where(b => b.UserId == user.UserId
+                        && b.Status != "Published"
+                        && b.Status != "Finalized")
+                    .OrderByDescending(b => b.isActive)
+                    .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                    .Select(b => b.BookId)
+                    .FirstOrDefaultAsync();
+                if (fallback > 0)
+                {
+                    HttpContext.Session.SetInt32("LastSelectedBookId", fallback);
+                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, fallback);
+                    return RedirectToAction("AIGenerateBook", "Books", new { bookId = fallback });
+                }
                 TempData["InfoMessage"] = "We couldn't create your book just now. Please try again.";
                 return RedirectToAction(nameof(Index));
             }
