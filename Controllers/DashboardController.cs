@@ -121,23 +121,19 @@ namespace EBookDashboard.Controllers
             if (user == null)
                 return RedirectToAction("UserLogin", "Account");
 
-            // Resume latest draft unless explicitly creating another book (?create=1).
+            // Dashboard "New Book" always opens a fresh Untitled Book in AI Writer (never resume demo/old drafts).
+            if (writer == 1)
+                return await CreateUntitledBookAndOpenWriterAsync(user, title);
+
+            // Resume latest real draft unless explicitly creating another book (?create=1).
             if (create != 1)
             {
-                var inProgress = await _context.Books.AsNoTracking()
-                    .Where(b => b.UserId == user.UserId
-                        && b.Status != "Published"
-                        && b.Status != "Finalized")
-                    .OrderByDescending(b => b.isActive)
-                    .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
-                    .FirstOrDefaultAsync();
+                var inProgress = await FindLatestUserDraftAsync(user.UserId);
                 if (inProgress != null)
                 {
+                    await SetActiveBookForUserAsync(user.UserId, inProgress.BookId);
                     HttpContext.Session.SetInt32("LastSelectedBookId", inProgress.BookId);
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, inProgress.BookId);
-                    // Dashboard "New Book" opens AI Writer directly (no forced re-create).
-                    if (writer == 1)
-                        return RedirectToAction("AIGenerateBook", "Books", new { bookId = inProgress.BookId });
                     var flow = await _bookFlow.GetStepAsync(inProgress.BookId);
                     var resumeUrl = _bookFlow.BuildResumeUrl(inProgress.BookId, flow.Step, flow.Path);
                     if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
@@ -146,30 +142,17 @@ namespace EBookDashboard.Controllers
                 }
             }
 
+            return await CreateUntitledBookAndOpenWriterAsync(user, title);
+        }
+
+        /// <summary>Creates (or reuses) an Untitled Book and redirects to AI Writer.</summary>
+        private async Task<IActionResult> CreateUntitledBookAndOpenWriterAsync(Users user, string? title)
+        {
             var trimmedTitle = string.IsNullOrWhiteSpace(title) ? "Untitled Book" : title.Trim();
             try
             {
-                var (authorId, categoryId, languageId) = await EnsureAuthorAndDefaultsForUserAsync(user);
-                var request = new CreateBookRequest
-                {
-                    UserId = user.UserId,
-                    AuthorId = authorId,
-                    CategoryId = categoryId,
-                    LanguageId = languageId,
-                    Title = trimmedTitle,
-                    Description = "",
-                    Dedication = "",
-                    Ghostwriting = "",
-                    Epigraph = "",
-                    Genre = "General",
-                    WordCount = 0,
-                    CoverImagePath = "",
-                    ManuscriptPath = "",
-                    Subtitle = "",
-                    AuthorCode = user.UserId.ToString(),
-                    BookCode = Guid.NewGuid().ToString("N")[..12]
-                };
-                var book = await _bookService.CreateBookFromRequestAsync(request);
+                var book = await CreateUntitledBookAsync(user, trimmedTitle);
+                await SetActiveBookForUserAsync(user.UserId, book.BookId);
                 try
                 {
                     await _bookFlow.SaveStepAsync(book.BookId, BookFlowStateService.StepGenerate);
@@ -185,17 +168,16 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "StartNewBook failed for user {UserId}", user.UserId);
-                // If create failed but a draft exists, still open AI Writer instead of showing a dead end.
                 var fallback = await _context.Books.AsNoTracking()
                     .Where(b => b.UserId == user.UserId
-                        && b.Status != "Published"
-                        && b.Status != "Finalized")
-                    .OrderByDescending(b => b.isActive)
-                    .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                        && b.Title == trimmedTitle
+                        && !BookFlowStateService.IsPublishedStatus(b.Status))
+                    .OrderByDescending(b => b.CreatedAt)
                     .Select(b => b.BookId)
                     .FirstOrDefaultAsync();
                 if (fallback > 0)
                 {
+                    await SetActiveBookForUserAsync(user.UserId, fallback);
                     HttpContext.Session.SetInt32("LastSelectedBookId", fallback);
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, fallback);
                     return RedirectToAction("AIGenerateBook", "Books", new { bookId = fallback });
@@ -204,6 +186,55 @@ namespace EBookDashboard.Controllers
                 return RedirectToAction(nameof(Index));
             }
         }
+
+        private async Task<Books> CreateUntitledBookAsync(Users user, string title)
+        {
+            var (authorId, categoryId, languageId) = await EnsureAuthorAndDefaultsForUserAsync(user);
+            var request = new CreateBookRequest
+            {
+                UserId = user.UserId,
+                AuthorId = authorId,
+                CategoryId = categoryId,
+                LanguageId = languageId,
+                Title = title,
+                Description = "",
+                Dedication = "",
+                Ghostwriting = "",
+                Epigraph = "",
+                Genre = "General",
+                WordCount = 0,
+                CoverImagePath = "",
+                ManuscriptPath = "",
+                Subtitle = "",
+                AuthorCode = user.UserId.ToString(),
+                BookCode = Guid.NewGuid().ToString("N")[..12]
+            };
+            return await _bookService.CreateBookFromRequestAsync(request);
+        }
+
+        private async Task<Books?> FindLatestUserDraftAsync(int userId)
+        {
+            var drafts = await _context.Books.AsNoTracking()
+                .Where(b => b.UserId == userId && !BookFlowStateService.IsPublishedStatus(b.Status))
+                .OrderByDescending(b => b.isActive)
+                .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .ToListAsync();
+            return drafts.FirstOrDefault(b => !IsDemoSeedTitle(b.Title));
+        }
+
+        private async Task SetActiveBookForUserAsync(int userId, int bookId)
+        {
+            await _context.Books
+                .Where(b => b.UserId == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 0));
+            await _context.Books
+                .Where(b => b.UserId == userId && b.BookId == bookId)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 1));
+        }
+
+        private static bool IsDemoSeedTitle(string? title) =>
+            !string.IsNullOrWhiteSpace(title) &&
+            DemoSeedTitles.Contains(title.Trim(), StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Dashboard book pick — marks flow entry and resumes at the saved step.</summary>
         [HttpGet]
@@ -453,12 +484,15 @@ namespace EBookDashboard.Controllers
                 return (b.CoverImagePath ?? "").Trim();
             }
 
-            // Dashboard display data (real user books, preserving approved visual style)
-            var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, books);
-            var pendingBooks = books.Where(b => !BookFlowStateService.IsPublishedStatus(b.Status)).ToList();
+            // Dashboard display data — exclude seeded demo placeholders from user drafts.
+            var userDraftBooks = books
+                .Where(b => !BookFlowStateService.IsPublishedStatus(b.Status) && !IsDemoSeedTitle(b.Title))
+                .ToList();
+            var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, userDraftBooks);
+            var pendingBooks = userDraftBooks;
             var flowMap = await LoadBookFlowMapAsync(pendingBooks.Select(b => b.BookId).ToList());
             var demoPublished = new List<DemoPublishedBookViewModel>();
-            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(books, ResolveBookCover), flowMap, _bookFlow);
+            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(userDraftBooks, ResolveBookCover), flowMap, _bookFlow);
             var demoHero = BuildHeroFromBook(lastWorkedBook, ResolveBookCover);
             var demoCurrentRead = BuildCurrentReadFromBook(lastWorkedBook, chaptersGeneratedByBookId, ResolveBookCover);
             var hasAnyBooks = books.Count > 0;
@@ -534,6 +568,17 @@ namespace EBookDashboard.Controllers
             ViewBag.ProfilePicturePath = user.ProfilePicturePath;
             return View(viewModel);
         }
+
+        private static readonly string[] DemoSeedTitles =
+        {
+            "The Wizarding Chronicles",
+            "The Bird",
+            "SOUL",
+            "Good Things Are Up Ahead",
+            "Fairy Tale",
+            "Conquest of Flames",
+            "The Chambers of Secrets"
+        };
 
         private static readonly string[] DemoCoverUrls = new[]
         {
