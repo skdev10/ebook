@@ -14,5 +14,7 @@ namespace EBookDashboard.Models
         public bool RecordVersion { get; set; } = true;
         /// <summary>When true, only update the chapter title (allowed on finalized/read-only chapters).</summary>
         public bool TitleOnly { get; set; }
+        /// <summary>Optional book-level title from AI Writer (synced when DB title is still a placeholder).</summary>
+        public string? BookTitle { get; set; }
     }
 }

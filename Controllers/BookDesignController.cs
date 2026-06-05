@@ -270,6 +270,9 @@ namespace EBookDashboard.Controllers
                 if (req == null || req.BookId <= 0)
                     return Json(new { success = false, message = "Invalid request" });
 
+                if (!string.IsNullOrWhiteSpace(req.BookTitle))
+                    await BookTitleResolver.SyncBookTitleAsync(_context, userId, req.BookId, req.BookTitle);
+
                 var existing = await _context.BookFormatting
                     .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == userId);
 
@@ -669,7 +672,8 @@ namespace EBookDashboard.Controllers
                         .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
                     if (book != null)
                     {
-                        bookTitle = book.Title ?? "Untitled";
+                        bookTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                            _context, userId, book.BookId, book.Title);
                     }
                 }
 

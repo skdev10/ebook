@@ -3138,12 +3138,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!bodyHtml) bodyHtml = window._currentChapterContent || '';
         var topicText = (inputChapterTopic && inputChapterTopic.value) ? String(inputChapterTopic.value) : '';
         if (!String(bodyHtml || '').trim() && !topicText.trim()) return null;
+        var bookTitleValue = (inputBookTitle && inputBookTitle.value) ? String(inputBookTitle.value).trim() : '';
         return {
             UserId: String(userIdValue),
             BookId: String(bookIdValue),
             Chapter: String(chapterNoValue),
             NewContent: bodyHtml || '<p></p>',
             ChapterTitle: chapterTitle,
+            BookTitle: bookTitleValue || null,
             Topic: topicText,
             RecordVersion: false
         };

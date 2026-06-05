@@ -13,5 +13,7 @@ namespace EBookDashboard.Models.DTO
         public string? DraftStateJson { get; set; } // Full client state snapshot
         /// <summary>Preview pagination page count from Book Formatting UI (source of truth for KDP spine).</summary>
         public int? PreviewPageCount { get; set; }
+        /// <summary>Display title from formatter preview (synced when DB title is a placeholder).</summary>
+        public string? BookTitle { get; set; }
     }
 }

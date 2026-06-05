@@ -3850,10 +3850,8 @@
             return;
         }
         var fmtEl = document.getElementById('format-select');
-        var fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
         var hasPrintReady = hasPrintReadyPlatformSelected();
-        if (!opts.force && fmt !== 'Paperback') return;
-        if (!hasPrintReady) return;
 
         coverDesignAutoNavInFlight = true;
         saveFormatting(function (ok) {
@@ -3862,6 +3860,7 @@
                 showToast('Could not save formatting. Retry or use Next: AI Cover Design.');
                 return;
             }
+            try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (e) {}
             window.location.href = buildCoverDesignUrl(bid, fmt, hasPrintReady);
         });
     }
@@ -5351,11 +5350,13 @@
         const state = getFormatterStateFromUi();
         persistFormatterDraftLocal(state, bid);
         const fmt = state.format;
+        var titleForSave = (formatterBookTitle || bookPreviewContext.bookTitle || '').trim();
         fetch('/BookDesign/SaveBookFormatting', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 bookId: bid,
+                bookTitle: titleForSave || null,
                 format: fmt === 'Both' ? 'Both' : (fmt === 'Paperback' ? 'Paperback' : 'Ebook'),
                 interiorStyle: state.interiorStyle,
                 textSize: state.textSize,

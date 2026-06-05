@@ -686,12 +686,14 @@ namespace EBookDashboard.Services
                 var chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true);
 
                 var authorName = await ResolveAuthorDisplayNameAsync(userId);
+                var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                    _context, userId, book.BookId, book.Title);
 
                 return new BookDetailsResponseDto
                 {
                     Success = true,
                     BookId = book.BookId,
-                    BookTitle = book.Title,
+                    BookTitle = displayTitle,
                     Subtitle = book.Subtitle,
                     Description = book.Description,
                     Genre = book.Genre,

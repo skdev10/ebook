@@ -2263,6 +2263,9 @@ namespace EBookDashboard.Controllers
                 if (book == null)
                     return NotFound(new { success = false, message = "Book not found or access denied." });
 
+                if (!string.IsNullOrWhiteSpace(model.BookTitle))
+                    await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, model.BookTitle);
+
                 var titleTrim = TruncateTitle(model.ChapterTitle);
                 if (string.IsNullOrEmpty(titleTrim))
                     titleTrim = $"Chapter {chapterNum}";
@@ -3555,7 +3558,8 @@ namespace EBookDashboard.Controllers
 
             var books = await _context.Books
                 .Where(b => b.UserId == sessionUserId.Value)
-                .OrderByDescending(b => b.CreatedAt)
+                .OrderByDescending(b => b.isActive)
+                .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .Select(b => new { b.BookId, b.Title, b.CoverImagePath, b.Description, b.Genre, b.Subtitle })
                 .ToListAsync();
 
@@ -3575,7 +3579,8 @@ namespace EBookDashboard.Controllers
             // Display name for cover only — do not use email as default author text (wrong UX on preview).
             var authorDisplayName = (coverUser?.FullName ?? "").Trim();
 
-            var result = books.Select(b =>
+            var result = new List<object>();
+            foreach (var b in books)
             {
                 var pKey = $"book:{b.BookId}:aiCoverPrompt";
                 var lastKey = $"book:{b.BookId}:aiCoverLastPreview";
@@ -3586,10 +3591,12 @@ namespace EBookDashboard.Controllers
                 var wrapPreview = (promptRows.GetValueOrDefault(wrapKey, "") ?? "").Trim();
                 var resolvedPreview = BookCoverRefResolver.NormalizeCoverUrlRef(
                     BookCoverRefResolver.ResolveEbookFrontCoverRef(frontPreview, lastPreview, b.CoverImagePath, wrapPreview));
-                return new
+                var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                    _context, sessionUserId.Value, b.BookId, b.Title);
+                result.Add(new
                 {
                     bookId = b.BookId,
-                    title = b.Title ?? "",
+                    title = displayTitle,
                     subtitle = b.Subtitle ?? "",
                     coverImagePath = b.CoverImagePath ?? "",
                     description = b.Description ?? "",
@@ -3597,8 +3604,8 @@ namespace EBookDashboard.Controllers
                     aiCoverPrompt = promptRows.GetValueOrDefault(pKey, ""),
                     aiCoverLastPreview = resolvedPreview,
                     authorName = authorDisplayName
-                };
-            }).ToList();
+                });
+            }
 
             return Json(new { success = true, books = result });
         }
@@ -3638,10 +3645,13 @@ namespace EBookDashboard.Controllers
             var resolvedPreview = BookCoverRefResolver.NormalizeCoverUrlRef(
                 BookCoverRefResolver.ResolveEbookFrontCoverRef(frontPreview, lastPreview, b.CoverImagePath, wrapPreview));
 
+            var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                _context, sessionUserId.Value, b.BookId, b.Title);
+
             var book = new
             {
                 bookId = b.BookId,
-                title = b.Title ?? "",
+                title = displayTitle,
                 subtitle = b.Subtitle ?? "",
                 coverImagePath = b.CoverImagePath ?? "",
                 description = b.Description ?? "",

@@ -1311,8 +1311,15 @@
     }
 
     function loadBooks() {
+        if (initialBookId > 0) {
+            try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(initialBookId)); } catch (_) {}
+        }
         var cached = null;
         try { cached = JSON.parse(sessionStorage.getItem(booksCacheKey) || 'null'); } catch (_) { cached = null; }
+        if (initialBookId > 0 && cached && cached.success && cached.books && cached.books.length) {
+            var hasTarget = cached.books.some(function (b) { return b.bookId === initialBookId; });
+            if (!hasTarget) cached = null;
+        }
         if (cached && cached.success && cached.books && cached.books.length) {
             cached.books.forEach(function (b) {
                 if (!b || !b.bookId) return;
@@ -1326,6 +1333,13 @@
         fetch('/Books/GetUserBooksForCoverDesign')
             .then(function (r) { return r.json(); })
             .then(function (d) {
+                if (initialBookId > 0 && d && d.success && d.books && d.books.length) {
+                    d.books.sort(function (a, b) {
+                        if (a.bookId === initialBookId) return -1;
+                        if (b.bookId === initialBookId) return 1;
+                        return 0;
+                    });
+                }
                 try { sessionStorage.setItem(booksCacheKey, JSON.stringify(d)); } catch (_) {}
                 renderBooks(d);
             })

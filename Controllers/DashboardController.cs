@@ -1006,6 +1006,10 @@ namespace EBookDashboard.Controllers
 
             if (!bookId.HasValue || bookId.Value <= 0)
             {
+                var sessionBookId = HttpContext.Session.GetInt32("LastSelectedBookId")
+                    ?? HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
+                if (sessionBookId is > 0)
+                    return RedirectToAction(nameof(CoverDesign), new { bookId = sessionBookId, flow = requestedFlow, coverType = requestedCoverType, skipPrintReadyAuto });
                 TempData["InfoMessage"] = "Select a book from the Dashboard to continue cover design.";
                 return RedirectToAction("Index");
             }
@@ -1044,8 +1048,18 @@ namespace EBookDashboard.Controllers
                 return Redirect(_bookFlow.BuildResumeUrl(bookId.Value, savedFlowStep, savedFlowPath));
             }
 
+            if (user != null)
+                await BookTitleResolver.SyncBookTitleAsync(_context, user.UserId, bookId.Value,
+                    await BookTitleResolver.ResolveDisplayTitleAsync(_context, user.UserId, bookId.Value,
+                        (await _context.Books.AsNoTracking()
+                            .Where(b => b.BookId == bookId.Value && b.UserId == user.UserId)
+                            .Select(b => b.Title)
+                            .FirstOrDefaultAsync()) ?? ""));
+
             var (_, coverPath) = await _bookFlow.GetStepAsync(bookId.Value);
             await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepCover, coverPath);
+            HttpContext.Session.SetInt32("LastSelectedBookId", bookId.Value);
+            HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
             ViewBag.FlowBookId = bookId.Value;
             ViewBag.FlowStep = BookFlowStateService.StepCover;
             ViewBag.FlowPath = coverPath;
