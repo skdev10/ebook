@@ -11,7 +11,8 @@ App__PublicBaseUrl=http://138.197.76.70:5000
 ExternalApi__ApiKey=PASTE_YOUR_KEY_HERE
 
 # MySQL on this VM — MUST quote; semicolons break unquoted bash source
-ConnectionStrings__DefaultConnection='Server=localhost;Port=3306;Database=ebookpublications;User=root;Password=Root@1234;SslMode=None;AllowPublicKeyRetrieval=True;'
+# Use 127.0.0.1 (not localhost) — avoids Unix socket auth mismatch on Ubuntu.
+ConnectionStrings__DefaultConnection='Server=127.0.0.1;Port=3306;Database=ebookpublications;User=root;Password=Root@1234;SslMode=None;AllowPublicKeyRetrieval=True;'
 # Alternative URL style supported as well:
 # DATABASE_URL='mysql://root:Root@1234@localhost:3306/ebookpublications?sslmode=None'
 
