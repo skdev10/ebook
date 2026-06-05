@@ -47,15 +47,36 @@ sleep 2
 echo "==> [5/5] Start app (nohup)"
 cd "$APP_DIR/publish"
 : > "$APP_DIR/nohup.out"
-nohup dotnet EBookDashboard.dll --urls "http://0.0.0.0:${PORT}" >> "$APP_DIR/nohup.out" 2>&1 &
-echo "    Started PID $!"
-sleep 3
+if [[ -x ./EBookDashboard ]]; then
+  nohup ./EBookDashboard --urls "http://0.0.0.0:${PORT}" >> "$APP_DIR/nohup.out" 2>&1 &
+else
+  nohup dotnet EBookDashboard.dll --urls "http://0.0.0.0:${PORT}" >> "$APP_DIR/nohup.out" 2>&1 &
+fi
+APP_PID=$!
+echo "    Started PID $APP_PID"
 
-echo "==> Health check"
-curl -sf "http://127.0.0.1:${PORT}/health" | head -c 500 || {
-  echo "Health check failed — last log lines:"
-  tail -n 40 "$APP_DIR/nohup.out" 2>/dev/null || true
+echo "==> Health check (retry up to 60s — app can take 10–20s on cold start)"
+HEALTH_OK=0
+for i in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:${PORT}/health" | head -c 500; then
+    echo ""
+    HEALTH_OK=1
+    break
+  fi
+  if ! kill -0 "$APP_PID" 2>/dev/null; then
+    echo "    Process $APP_PID exited before health check passed."
+    break
+  fi
+  sleep 2
+done
+
+if [[ "$HEALTH_OK" -ne 1 ]]; then
+  echo "Health check failed — diagnostics:"
+  ps -p "$APP_PID" -o pid,cmd 2>/dev/null || echo "    Process not running."
+  netstat -tpln 2>/dev/null | grep ":$PORT" || ss -tlnp 2>/dev/null | grep ":$PORT" || echo "    Nothing listening on :$PORT"
+  echo "    Last log lines:"
+  tail -n 60 "$APP_DIR/nohup.out" 2>/dev/null || true
   exit 1
-}
+fi
 echo ""
 echo "Deploy complete → http://138.197.76.70:${PORT}"

@@ -57,9 +57,15 @@ fi
 
 cd "$APP_DIR/publish"
 
-nohup dotnet EBookDashboard.dll --urls "http://0.0.0.0:${PORT}" > "$APP_DIR/nohup.out" 2>&1 &
+if [[ -x "$APP_DIR/publish/EBookDashboard" ]]; then
+  cd "$APP_DIR/publish"
+  nohup ./EBookDashboard --urls "http://0.0.0.0:${PORT}" > "$APP_DIR/nohup.out" 2>&1 &
+else
+  cd "$APP_DIR/publish"
+  nohup dotnet EBookDashboard.dll --urls "http://0.0.0.0:${PORT}" > "$APP_DIR/nohup.out" 2>&1 &
+fi
 echo "Started PID $! on port $PORT"
-sleep 2
+sleep 5
 netstat -tpln 2>/dev/null | grep ":$PORT" || ss -tlnp | grep ":$PORT" || true
 echo "Logs: tail -f $APP_DIR/nohup.out"
 echo "Health: curl -s http://127.0.0.1:${PORT}/health"
