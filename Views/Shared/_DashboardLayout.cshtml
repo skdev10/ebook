@@ -5257,12 +5257,7 @@
 
                 function clearStepLocalState(step) {
                     try {
-                        if (step === 'format') localStorage.removeItem('formatter_draft_v2_' + flowBookId);
-                        if (step === 'cover') sessionStorage.removeItem('cover_design_draft_' + flowBookId);
-                        if (step === 'publish') {
-                            sessionStorage.removeItem('cover_design_draft_' + flowBookId);
-                            localStorage.removeItem('formatter_draft_v2_' + flowBookId);
-                        }
+                        // Soft back: only clear scratch state for the step being left, not earlier completed work.
                         if (step === 'generate') localStorage.removeItem('ebook_ai_reader_state_v2_' + flowBookId);
                     } catch (_) {}
                 }
@@ -5341,17 +5336,20 @@
                 window.confirmFlowBack = function (targetUrl) {
                     var target = targetUrl || flowBackUrl || '/Dashboard';
                     clearStepLocalState(flowStep);
-                    if (flowStep === 'cover') clearCoverClientState(flowBookId);
-                    try {
-                        fetch('/Dashboard/ResetFlowStep', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            keepalive: true,
-                            body: JSON.stringify({ bookId: flowBookId, step: flowStep })
-                        }).catch(function () { /* non-blocking */ });
-                    } catch (_) { /* ignore */ }
-                    hardNavigate(target);
-                    return Promise.resolve(true);
+                    var navigated = false;
+                    function go() {
+                        if (navigated) return;
+                        navigated = true;
+                        hardNavigate(target);
+                    }
+                    var fallbackTimer = setTimeout(go, 3000);
+                    return fetch('/Dashboard/ResetFlowStep', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bookId: flowBookId, step: flowStep })
+                    })
+                        .then(function () { clearTimeout(fallbackTimer); go(); return true; })
+                        .catch(function () { clearTimeout(fallbackTimer); go(); return true; });
                 };
 
                 document.addEventListener('DOMContentLoaded', function () {

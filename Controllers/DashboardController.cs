@@ -2589,15 +2589,11 @@ namespace EBookDashboard.Controllers
                 });
             }
 
-            await _bookFlow.RegressAndResetAsync(req.BookId, step);
-            if (step == BookFlowStateService.StepCover)
-            {
-                await ClearStoredCoverAssetsAsync(req.BookId, HttpContext.RequestAborted);
-                await ClearBookCoverImagePathAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
-            }
+            // Soft back: only move the persisted step backward — keep formatting/cover saves intact.
+            await _bookFlow.RegressStepAsync(req.BookId, step);
 
             var (newStep, newPath) = await _bookFlow.GetStepAsync(req.BookId);
-            if (newStep == BookFlowStateService.StepFormat || newStep == BookFlowStateService.StepGenerate)
+            if (step == BookFlowStateService.StepFormat)
                 HttpContext.Session.SetString("FormattingDone", "0");
             if (newStep == BookFlowStateService.StepGenerate)
                 HttpContext.Session.Remove("CoverFinalized");

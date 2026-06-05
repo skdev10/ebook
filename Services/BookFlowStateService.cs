@@ -109,7 +109,17 @@ public sealed class BookFlowStateService
         _ => null
     };
 
-    /// <summary>Hard-reset the current step and move flow back one step (used when user confirms back navigation).</summary>
+    /// <summary>Move flow back one step without deleting saved work (soft back navigation).</summary>
+    public async Task RegressStepAsync(int bookId, string currentStep, CancellationToken ct = default)
+    {
+        if (bookId <= 0 || string.IsNullOrWhiteSpace(currentStep)) return;
+        var prev = PreviousStep(currentStep);
+        if (prev == null) return;
+        var (_, path) = await GetStepAsync(bookId, ct);
+        await SaveStepAsync(bookId, prev, path, ct);
+    }
+
+    /// <summary>Hard-reset the current step and move flow back one step (destructive — wipe flows only).</summary>
     public async Task RegressAndResetAsync(int bookId, string currentStep, CancellationToken ct = default)
     {
         if (bookId <= 0 || string.IsNullOrWhiteSpace(currentStep)) return;
