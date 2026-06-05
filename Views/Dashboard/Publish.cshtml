@@ -1160,17 +1160,45 @@
         });
     }
 
-    function fetchPdfExport(url, body) {
-        return fetch(url, {
+    function ensureFormatterSavedOnServer() {
+        if (!bookId || bookId <= 0) return Promise.resolve(true);
+        var snap = getFormatterDraftSnapshot();
+        var payload = {
+            bookId: bookId,
+            format: snap.bookFormat || publishBookFormat || 'Ebook',
+            interiorStyle: snap.interiorStyle || 'Novel',
+            textSize: snap.textSize || 'Medium',
+            lineSpacing: snap.lineSpacing || '1.6',
+            publishingPlatforms: snap.publishingPlatforms || '',
+            publishingPlatform: snap.publishingPlatform || '',
+            previewPageCount: snap.previewPageCount || null
+        };
+        return fetch('/BookDesign/SaveBookFormatting', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/pdf, application/json' },
+            headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify(body)
-        }).then(function (res) {
-            var ct = (res.headers.get('Content-Type') || '').toLowerCase();
-            if (!res.ok) return parseExportErrorResponse(res, 'Could not generate PDF.');
-            if (ct.indexOf('application/pdf') < 0) return parseExportErrorResponse(res, 'Server did not return a PDF file.');
-            return res.blob().then(validatePdfBlob);
+            body: JSON.stringify(payload)
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (j) { return !!(j && j.success); })
+            .catch(function () { return false; });
+    }
+
+    function fetchPdfExport(url, body) {
+        showTransientMessage('info', 'Saving your formatting, then building PDF…');
+        return ensureFormatterSavedOnServer().then(function (saved) {
+            if (!saved) showTransientMessage('warning', 'Could not sync formatting — using last saved settings.');
+            return fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/pdf, application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify(body)
+            }).then(function (res) {
+                var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+                if (!res.ok) return parseExportErrorResponse(res, 'Could not generate PDF.');
+                if (ct.indexOf('application/pdf') < 0) return parseExportErrorResponse(res, 'Server did not return a PDF file.');
+                return res.blob().then(validatePdfBlob);
+            });
         });
     }
 
@@ -1301,7 +1329,10 @@
     }
 
     function downloadBlobAsFile(blob, filename) {
-        var url = URL.createObjectURL(blob);
+        var typed = (blob && blob.type === 'application/pdf')
+            ? blob
+            : new Blob([blob], { type: filename && filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : (blob.type || 'application/octet-stream') });
+        var url = URL.createObjectURL(typed);
         var a = document.createElement('a');
         a.href = url;
         a.download = filename || 'book.epub';
@@ -1370,7 +1401,8 @@
         var url = fmt === 'docx' ? '/Books/ExportDocx' : '/Books/ExportEpub';
         var token = getPublishAntiForgeryToken();
         if (triggerBtn) triggerBtn.disabled = true;
-        showTransientMessage('info', fmt === 'docx' ? 'Building Word document…' : 'Building EPUB…');
+        showTransientMessage('info', fmt === 'docx' ? 'Saving formatting…' : 'Saving formatting, then building EPUB…');
+        ensureFormatterSavedOnServer().then(function () {
         fetch(url, {
             method: 'POST',
             headers: {
@@ -1416,6 +1448,7 @@
             .finally(function () {
                 if (triggerBtn) triggerBtn.disabled = false;
             });
+        });
     }
 
     function runPrintBundleExport(triggerBtn) {

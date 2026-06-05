@@ -112,4 +112,17 @@ public class BookPdfExportOptions
         if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
             PublishingPlatform = req.PublishingPlatform.Trim();
     }
+
+    /// <summary>Overlay persisted formatter draft JSON on top of saved BookFormatting (draft wins when set).</summary>
+    public void OverlayFromDraftJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return;
+        var draft = FromDraftJson(json);
+        if (!string.IsNullOrWhiteSpace(draft.InteriorStyle)) InteriorStyle = draft.InteriorStyle.Trim();
+        if (!string.IsNullOrWhiteSpace(draft.TextSize)) TextSize = draft.TextSize.Trim();
+        if (!string.IsNullOrWhiteSpace(draft.LineSpacing)) LineSpacing = draft.LineSpacing.Trim();
+        if (!string.IsNullOrWhiteSpace(draft.Format)) Format = draft.Format;
+        if (!string.IsNullOrWhiteSpace(draft.PublishingPlatform)) PublishingPlatform = draft.PublishingPlatform.Trim();
+        if (!string.IsNullOrWhiteSpace(draft.PublishingPlatforms)) PublishingPlatforms = draft.PublishingPlatforms;
+    }
 }

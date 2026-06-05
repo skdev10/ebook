@@ -1928,10 +1928,11 @@ namespace EBookDashboard.Controllers
         {
             var draftRow = await _context.Settings.AsNoTracking()
                 .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:formattingDraft", cancellationToken);
-            var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
             var fmtRow = await _context.BookFormatting.AsNoTracking()
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
+            var exportOpt = new BookPdfExportOptions();
             exportOpt.MergeFromBookFormatting(fmtRow);
+            exportOpt.OverlayFromDraftJson(draftRow?.Value);
             return exportOpt;
         }
 

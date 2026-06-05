@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Hosting;
 using PuppeteerSharp;
 using PuppeteerSharp.Media;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 namespace EBookDashboard.Services;
 
@@ -17,13 +18,36 @@ public class BookPdfService : IBookPdfService
 {
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<BookPdfService> _logger;
+    private readonly IConfiguration _configuration;
     private static readonly SemaphoreSlim FetchLock = new(1, 1);
     private static bool _fetched;
 
-    public BookPdfService(IWebHostEnvironment env, ILogger<BookPdfService> logger)
+    public BookPdfService(IWebHostEnvironment env, ILogger<BookPdfService> logger, IConfiguration configuration)
     {
         _env = env;
         _logger = logger;
+        _configuration = configuration;
+    }
+
+    private async Task<string?> ResolveBrowserExecutableAsync(CancellationToken cancellationToken)
+    {
+        var configured = _configuration["Puppeteer:ExecutablePath"]
+            ?? Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
+        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
+            return configured;
+
+        var winChrome = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "Google", "Chrome", "Application", "chrome.exe");
+        if (File.Exists(winChrome)) return winChrome;
+
+        var winChromeX86 = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            "Google", "Chrome", "Application", "chrome.exe");
+        if (File.Exists(winChromeX86)) return winChromeX86;
+
+        await EnsureChromiumAsync(cancellationToken);
+        return null;
     }
 
     private static async Task EnsureChromiumAsync(CancellationToken cancellationToken)
@@ -125,17 +149,29 @@ public class BookPdfService : IBookPdfService
         var headerTemplate = BuildHeaderTemplate(title, author);
         var footerTemplate = BuildFooterTemplate();
 
-        await using var browser = await Puppeteer.LaunchAsync(new LaunchOptions
+        var executablePath = await ResolveBrowserExecutableAsync(cancellationToken);
+        var launchOptions = new LaunchOptions
         {
             Headless = true,
-            Args = new[] { "--no-sandbox", "--disable-setuid-sandbox", "--font-render-hinting=none" }
-        });
+            ExecutablePath = executablePath,
+            Args = new[]
+            {
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--font-render-hinting=none",
+                "--disable-gpu"
+            }
+        };
+
+        await using var browser = await Puppeteer.LaunchAsync(launchOptions);
         await using var page = await browser.NewPageAsync();
         await page.SetContentAsync(html, new NavigationOptions
         {
-            WaitUntil = new[] { WaitUntilNavigation.Load, WaitUntilNavigation.Networkidle0 },
-            Timeout = 90_000
+            WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded },
+            Timeout = 45_000
         });
+        await Task.Delay(350, cancellationToken);
 
         var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
         EnsureValidPdf(pdfBytes);
@@ -501,12 +537,6 @@ public class BookPdfService : IBookPdfService
         doc.AppendLine("<!DOCTYPE html>");
         doc.AppendLine("<html lang=\"en\">");
         doc.AppendLine("<head><meta charset=\"utf-8\"/>");
-        if (bodyTemplateClass.Contains("tpl-elegant-trade", StringComparison.Ordinal))
-        {
-            doc.AppendLine("<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\"/>");
-            doc.AppendLine("<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin/>");
-            doc.AppendLine("<link href=\"https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:wght@500;600;700&display=swap\" rel=\"stylesheet\"/>");
-        }
         doc.AppendLine("<style>");
         doc.AppendLine(CultureInvariant($"@page {{ size: {pageSizeCss}; }}"));
         doc.AppendLine("* { box-sizing: border-box; }");
