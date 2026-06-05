@@ -1167,20 +1167,20 @@
         try {
             draftJson = localStorage.getItem('formatter_draft_v2_' + bookId);
         } catch (e) { /* ignore */ }
-        var interior = snap.interiorStyle || (publishFormatterSnapshot && publishFormatterSnapshot.interiorStyle) || null;
-        var textSize = snap.textSize || (publishFormatterSnapshot && publishFormatterSnapshot.textSize) || null;
-        var lineSpacing = snap.lineSpacing || (publishFormatterSnapshot && publishFormatterSnapshot.lineSpacing) || null;
+        var interior = snap.interiorStyle || (publishFormatterSnapshot && publishFormatterSnapshot.interiorStyle) || 'Novel';
+        var textSize = snap.textSize || (publishFormatterSnapshot && publishFormatterSnapshot.textSize) || 'Medium';
+        var lineSpacing = snap.lineSpacing || (publishFormatterSnapshot && publishFormatterSnapshot.lineSpacing) || '1.6';
         var payload = {
             bookId: bookId,
             format: snap.bookFormat || publishBookFormat || null,
+            interiorStyle: interior,
+            textSize: textSize,
+            lineSpacing: lineSpacing,
             publishingPlatforms: snap.publishingPlatforms || '',
             publishingPlatform: snap.publishingPlatform || '',
             previewPageCount: snap.previewPageCount || null,
             draftStateJson: draftJson || null
         };
-        if (interior) payload.interiorStyle = interior;
-        if (textSize) payload.textSize = textSize;
-        if (lineSpacing) payload.lineSpacing = lineSpacing;
         if (!payload.format) payload.format = publishBookFormat || 'Ebook';
         return fetch('/BookDesign/SaveBookFormatting', {
             method: 'POST',
@@ -1551,12 +1551,16 @@
             return;
         }
         if (triggerBtn) triggerBtn.disabled = true;
+        var fmtSnap = getFormatterDraftSnapshot();
         fetchPdfExport('/Dashboard/DownloadBookInteriorPdf', buildExportPayload({
             bookId: bookId,
             displayTitle: pbTitle || '',
             displayAuthor: '',
             displayGenre: pbGenre || '',
-            bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
+            interiorStyle: fmtSnap.interiorStyle || 'Novel',
+            textSize: fmtSnap.textSize || 'Medium',
+            lineSpacing: fmtSnap.lineSpacing || '1.6',
+            bookFormat: fmtSnap.bookFormat || publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
             publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
         }))
             .then(function (blob) {

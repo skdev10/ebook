@@ -197,7 +197,12 @@ public static class InteriorExportTheme
             "page-break-inside: avoid; break-inside: avoid; } ",
             ".manuscript-root > section.chapter:first-of-type { break-before: auto; page-break-before: auto; } ",
             ".manuscript-root > section.chapter ~ section.chapter { break-before: page; page-break-before: always; } ",
-            ".manuscript-root > section.chapter:last-of-type { break-after: auto; page-break-after: auto; } ");
+            ".manuscript-root > section.chapter:last-of-type { break-after: auto; page-break-after: auto; } ",
+            ".chapter-body .manuscript-chapter-heading, .chapter-body .manuscript-heading { font-family: var(--heading-font); color: var(--heading-color); } ",
+            ".chapter-body .manuscript-h1 { font-size: 16pt; margin: 5mm 0 3mm; } ",
+            ".chapter-body .manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; } ",
+            ".chapter-body .manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; } ",
+            ".chapter-body .manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; } ");
 
         var tplCss = interior switch
         {

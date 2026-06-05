@@ -135,16 +135,13 @@ public class BookPdfService : IBookPdfService
             var phNum = displayNum > 0 ? displayNum : 1;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
-            var displayHeading = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, phNum);
+            var displayHeading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
             var chTitleHtml = BookManuscriptHtmlFormatter.EscapeHtml(displayHeading);
             var sectionId = i + 1;
-            var metaHtml = string.IsNullOrWhiteSpace(ch.ExportMetaHtml) ? "" : ch.ExportMetaHtml;
-            var bodyRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Content ?? "", ph);
-            var bodyHtml = BookManuscriptHtmlFormatter.FormatBodyToHtml(bodyRaw);
+            var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, displayHeading);
             sections.Append(CultureInvariant($"""
                 <section class="chapter" id="ch-{sectionId}">
                   <h2 class="chapter-heading">{chTitleHtml}</h2>
-                  {metaHtml}
                   <div class="chapter-body">{bodyHtml}</div>
                 </section>
                 """));
@@ -154,7 +151,7 @@ public class BookPdfService : IBookPdfService
             sections.Append("""<section class="chapter" id="ch-0"><p class="manuscript-p">No chapters in this book yet.</p></section>""");
 
         var tocHtml = BuildTocHtml(chapters, phBase);
-        var copyrightHtml = BuildCopyrightPageHtml(title, author, publisherDisplayName, layout.BleedNoteHtml, layout.CmykNoteHtml);
+        var copyrightHtml = BuildCopyrightPageHtml(title, author, publisherDisplayName);
         var themeCss = InteriorExportTheme.BuildPdfThemeCss(opt);
         var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
 
@@ -254,7 +251,7 @@ public class BookPdfService : IBookPdfService
 
     private static string CultureInvariant(FormattableString fs) => FormattableString.Invariant(fs);
 
-    private static string BuildCopyrightPageHtml(string title, string author, string? publisherDisplayName, string? bleedNoteEncoded, string? cmykNoteEncoded)
+    private static string BuildCopyrightPageHtml(string title, string author, string? publisherDisplayName)
     {
         var y = DateTime.UtcNow.Year;
         var sb = new StringBuilder();
@@ -265,11 +262,6 @@ public class BookPdfService : IBookPdfService
         sb.AppendLine($"""<p class="cr-legal">Copyright © {y.ToString(CultureInfo.InvariantCulture)} {WebUtility.HtmlEncode(author)}. All rights reserved.</p>""");
         if (!string.IsNullOrEmpty(publisherDisplayName))
             sb.AppendLine($"""<p class="cr-legal">Prepared for publication by {WebUtility.HtmlEncode(publisherDisplayName)}.</p>""");
-        sb.AppendLine("""<p class="cr-small">This document was generated from your saved manuscript and formatting preferences. Chapter breaks and page numbers follow standard print layout.</p>""");
-        if (!string.IsNullOrWhiteSpace(bleedNoteEncoded))
-            sb.AppendLine($"""<p class="cr-small">{bleedNoteEncoded}</p>""");
-        if (!string.IsNullOrWhiteSpace(cmykNoteEncoded))
-            sb.AppendLine($"""<p class="cr-small">{cmykNoteEncoded}</p>""");
         sb.AppendLine("</div>");
         return sb.ToString();
     }
@@ -320,10 +312,9 @@ public class BookPdfService : IBookPdfService
             var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : tocNarrative;
             var sectionId = i + 1;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
-            var chapterLine = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, phNum);
-
-            var bodyRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Content ?? "", ph);
-            var bodyHtml = BookManuscriptHtmlFormatter.FormatBodyToHtml(bodyRaw);
+            var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
+            var chapterLine = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
+            var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, chapterLine);
             var subHeadings = ExtractHeadingsFromChapterBodyHtml(bodyHtml);
 
             sb.AppendLine("""<li class="toc-item">""");

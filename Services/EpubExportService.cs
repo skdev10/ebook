@@ -129,12 +129,14 @@ public class EpubExportService : IEpubExportService
                     ? 0
                     : narrativeOrdinal;
                 var storageNum = ch.ChapterNumber > 0 ? ch.ChapterNumber : Math.Max(1, displayOrd);
-                var heading = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, displayOrd > 0 ? displayOrd : 1);
+                var phNum = displayOrd > 0 ? displayOrd : 1;
+                var chCtx = baseCtx.WithChapter(ch.Title ?? "", phNum, storageNum);
+                var chTitleApplied = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", chCtx);
+                var heading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleApplied, ch.ChapterNumber, phNum);
                 var id = $"chapter{itemIndex}";
                 var href = $"chapter{itemIndex}.xhtml";
                 var chTitle = WebUtility.HtmlEncode(heading);
-                var chCtx = baseCtx.WithChapter(ch.Title ?? heading, displayOrd > 0 ? displayOrd : 1, storageNum);
-                var body = FormatChapterBodyXhtml(ch.Content ?? "", chCtx);
+                var body = FormatChapterBodyXhtml(ch.Content ?? "", chCtx, heading);
                 var xhtml = $"""
                     <?xml version="1.0" encoding="UTF-8"?>
                     <!DOCTYPE html>
@@ -205,10 +207,12 @@ public class EpubExportService : IEpubExportService
         return ms.ToArray();
     }
 
-    private static string FormatChapterBodyXhtml(string content, BookManuscriptHtmlFormatter.PlaceholderContext ctx)
+    private static string FormatChapterBodyXhtml(
+        string content,
+        BookManuscriptHtmlFormatter.PlaceholderContext ctx,
+        string chapterDisplayTitle)
     {
-        var raw = BookManuscriptHtmlFormatter.ApplyPlaceholders(content, ctx);
-        var html = BookManuscriptHtmlFormatter.FormatBodyToHtml(raw);
+        var html = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(content, ctx, chapterDisplayTitle);
         return ToWellFormedXhtmlFragment(html);
     }
 

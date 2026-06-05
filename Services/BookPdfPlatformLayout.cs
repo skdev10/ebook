@@ -1,12 +1,10 @@
-using System.Net;
 using EBookDashboard.Models.DTO;
 using PuppeteerSharp.Media;
 
 namespace EBookDashboard.Services;
 
 /// <summary>
-/// Maps saved publishing platform + book format to PDF page dimensions, margins, and print notes (bleed / CMYK guidance).
-/// Chromium outputs sRGB; CMYK conversion is documented for professional print workflows.
+/// Maps saved publishing platform + book format to PDF page dimensions and margins.
 /// </summary>
 public static class BookPdfPlatformLayout
 {
@@ -20,9 +18,7 @@ public static class BookPdfPlatformLayout
         string MarginBottom,
         string MarginLeft,
         string MarginRight,
-        bool PreferCssPageSize,
-        string BleedNoteHtml,
-        string CmykNoteHtml);
+        bool PreferCssPageSize);
 
     public static PdfLayoutSpec Resolve(BookPdfExportOptions opt)
     {
@@ -40,66 +36,44 @@ public static class BookPdfPlatformLayout
              fmt.Equals("Print", StringComparison.OrdinalIgnoreCase) ||
              fmt.Equals("Both", StringComparison.OrdinalIgnoreCase)))
         {
-            return Trim6x9Print(bleedHeavy: false, cmyk: true,
-                "Print layout (6×9\"). Select a publishing platform in Book Formatting for distributor-specific margin notes.");
+            return Trim6x9Print(bleedHeavy: false);
         }
 
         return platform switch
         {
-            "justprint" => Trim6x9Print(bleedHeavy: true, cmyk: true,
-                "Bleed: this PDF uses a 6×9\" trim with extra safe margins. For full bleed, extend artwork 0.125\" beyond trim per your printer."),
-            "ingram" => Trim6x9Print(bleedHeavy: true, cmyk: true,
-                "Bleed: follow IngramSpark interior PDF specs (typically 0.125\" bleed outside trim). Safe area respected in this export."),
-            "bn" => Trim6x9Print(bleedHeavy: false, cmyk: true,
-                "Margins follow common Barnes & Noble Press paperback safe zones; confirm current trim requirements in your dashboard."),
-            "kdp" => Trim6x9Print(bleedHeavy: false, cmyk: true,
-                "Margins suit typical KDP paperback interiors; verify latest KDP margin minimums for your trim size."),
+            "justprint" => Trim6x9Print(bleedHeavy: true),
+            "ingram" => Trim6x9Print(bleedHeavy: true),
+            "bn" => Trim6x9Print(bleedHeavy: false),
+            "kdp" => Trim6x9Print(bleedHeavy: false),
             _ => fmt.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
                 ? A4ScreenLayout()
-                : Trim6x9Print(bleedHeavy: false, cmyk: true,
-                    "Print layout (6×9\"). Confirm final specs with your chosen distributor.")
+                : Trim6x9Print(bleedHeavy: false)
         };
     }
 
-    private static PdfLayoutSpec A4ScreenLayout()
-    {
-        const string cmyk = "";
-        const string bleed = "";
-        return new PdfLayoutSpec(
-            PageSizeCss: "A4",
-            PdfWidth: null,
-            PdfHeight: null,
-            UseBuiltInFormat: true,
-            BuiltInFormat: PaperFormat.A4,
-            MarginTop: "22mm",
-            MarginBottom: "24mm",
-            MarginLeft: "16mm",
-            MarginRight: "16mm",
-            PreferCssPageSize: false,
-            BleedNoteHtml: bleed,
-            CmykNoteHtml: cmyk);
-    }
+    private static PdfLayoutSpec A4ScreenLayout() => new(
+        PageSizeCss: "A4",
+        PdfWidth: null,
+        PdfHeight: null,
+        UseBuiltInFormat: true,
+        BuiltInFormat: PaperFormat.A4,
+        MarginTop: "22mm",
+        MarginBottom: "24mm",
+        MarginLeft: "16mm",
+        MarginRight: "16mm",
+        PreferCssPageSize: false);
 
-    private static PdfLayoutSpec Trim6x9Print(bool bleedHeavy, bool cmyk, string bleedMsg)
-    {
-        var cmykNote = cmyk
-            ? "Color: exported as sRGB. For offset or POD CMYK workflows, convert images and review in Acrobat or your printer’s preflight."
-            : "";
-        return new PdfLayoutSpec(
-            PageSizeCss: "6in 9in",
-            PdfWidth: "6in",
-            PdfHeight: "9in",
-            UseBuiltInFormat: false,
-            BuiltInFormat: PaperFormat.A4,
-            // Slightly wider inner margin for gutter on print targets
-            MarginTop: bleedHeavy ? "20mm" : "19mm",
-            MarginBottom: bleedHeavy ? "22mm" : "20mm",
-            MarginLeft: bleedHeavy ? "20mm" : "18mm",
-            MarginRight: bleedHeavy ? "18mm" : "17mm",
-            PreferCssPageSize: false,
-            BleedNoteHtml: WebUtility.HtmlEncode(bleedMsg),
-            CmykNoteHtml: WebUtility.HtmlEncode(cmykNote));
-    }
+    private static PdfLayoutSpec Trim6x9Print(bool bleedHeavy) => new(
+        PageSizeCss: "6in 9in",
+        PdfWidth: "6in",
+        PdfHeight: "9in",
+        UseBuiltInFormat: false,
+        BuiltInFormat: PaperFormat.A4,
+        MarginTop: bleedHeavy ? "20mm" : "19mm",
+        MarginBottom: bleedHeavy ? "22mm" : "20mm",
+        MarginLeft: bleedHeavy ? "20mm" : "18mm",
+        MarginRight: bleedHeavy ? "18mm" : "17mm",
+        PreferCssPageSize: false);
 
     private static string NormalizePlatform(string? raw)
     {

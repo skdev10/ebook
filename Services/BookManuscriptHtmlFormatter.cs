@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using HtmlAgilityPack;
+using System.Linq;
 
 namespace EBookDashboard.Services;
 
@@ -221,4 +222,118 @@ public static class BookManuscriptHtmlFormatter
         Genre = genre,
         AuthorName = authorName
     };
+
+    private static readonly Regex ChapterBannerRegex = new(
+        @"^\s*(chapter|ch\.?)\s*[0-9IVXLCMDivxlcdm]+\s*[\s:\.\-\u2013\u2014–—]*",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Mirrors formatter preview: placeholders, HTML conversion, then strip duplicate chapter-opening headings.
+    /// </summary>
+    public static string PrepareChapterBodyForExport(string? rawContent, PlaceholderContext ph, string? chapterDisplayTitle)
+    {
+        var bodyRaw = ApplyPlaceholders(rawContent ?? "", ph);
+        var bodyHtml = FormatBodyToHtml(bodyRaw);
+        return StripRedundantChapterOpenings(bodyHtml, chapterDisplayTitle);
+    }
+
+    /// <summary>Remove leading headings that duplicate the chapter title (formatter preview behaviour).</summary>
+    public static string StripDuplicateLeadingHeading(string? title, string? contentHtml)
+    {
+        var titleText = NormalizeHeadingCompareKey(title);
+        var html = (contentHtml ?? "").Trim();
+        if (string.IsNullOrEmpty(titleText) || string.IsNullOrEmpty(html))
+            return html;
+
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml("<div id=\"wrap\">" + html + "</div>");
+            var wrap = doc.GetElementbyId("wrap");
+            if (wrap == null) return html;
+
+            while (true)
+            {
+                var first = wrap.ChildNodes.FirstOrDefault(n =>
+                    n.NodeType == HtmlNodeType.Element && HeadingTags.Contains(n.Name));
+                if (first == null) break;
+
+                var headKey = NormalizeHeadingCompareKey(first.InnerText);
+                if (string.IsNullOrEmpty(headKey)) break;
+
+                var titleIsChapter = ChapterBannerRegex.IsMatch(titleText);
+                var headIsChapter = ChapterBannerRegex.IsMatch(headKey);
+                var matches = headKey == titleText
+                              || (titleIsChapter && headIsChapter && headKey == titleText);
+                if (!matches) break;
+
+                first.Remove();
+            }
+
+            return string.Concat(wrap.ChildNodes.Select(n => n.OuterHtml)).Trim();
+        }
+        catch
+        {
+            return html;
+        }
+    }
+
+    /// <summary>Strip AI-writer chapter banners and duplicate titles so PDF matches formatter preview.</summary>
+    public static string StripRedundantChapterOpenings(string? contentHtml, string? chapterDisplayTitle)
+    {
+        var html = StripDuplicateLeadingHeading(chapterDisplayTitle, contentHtml ?? "");
+        if (string.IsNullOrWhiteSpace(html)) return html;
+
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml("<div id=\"wrap\">" + html + "</div>");
+            var wrap = doc.GetElementbyId("wrap");
+            if (wrap == null) return html;
+
+            var displayKey = NormalizeHeadingCompareKey(chapterDisplayTitle);
+
+            while (true)
+            {
+                var node = wrap.ChildNodes.FirstOrDefault(n => n.NodeType == HtmlNodeType.Element);
+                if (node == null) break;
+
+                if (node.Name.Equals("hr", StringComparison.OrdinalIgnoreCase))
+                {
+                    node.Remove();
+                    continue;
+                }
+
+                if (!HeadingTags.Contains(node.Name))
+                    break;
+
+                var cls = node.GetAttributeValue("class", "");
+                var textKey = NormalizeHeadingCompareKey(node.InnerText);
+                var isChapterBanner = cls.Contains("manuscript-chapter-heading", StringComparison.OrdinalIgnoreCase)
+                                      || ChapterBannerRegex.IsMatch(textKey);
+                var duplicatesTitle = !string.IsNullOrEmpty(displayKey)
+                                      && !string.IsNullOrEmpty(textKey)
+                                      && textKey == displayKey;
+
+                if (!isChapterBanner && !duplicatesTitle)
+                    break;
+
+                node.Remove();
+            }
+
+            return string.Concat(wrap.ChildNodes.Select(n => n.OuterHtml)).Trim();
+        }
+        catch
+        {
+            return html;
+        }
+    }
+
+    private static readonly HashSet<string> HeadingTags = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "h1", "h2", "h3", "h4", "h5", "h6"
+    };
+
+    private static string NormalizeHeadingCompareKey(string? text) =>
+        Regex.Replace((text ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
 }

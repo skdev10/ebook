@@ -21,6 +21,26 @@ public static class BookChapterExportHelper
             .ThenBy(c => c.Title ?? "")
             .ToList();
 
+    /// <summary>
+    /// Chapter title for formatter preview and PDF/EPUB export — user-facing title without a redundant "Chapter N:" prefix.
+    /// </summary>
+    public static string GetPreviewStyleHeading(string? title, int storageChapterNumber, int narrativeOrdinal)
+    {
+        if (IsFrontMatter(storageChapterNumber))
+            return GetExportHeading(title, storageChapterNumber, narrativeOrdinal);
+
+        var t = (title ?? "").Trim();
+        if (string.IsNullOrEmpty(t) || ChapterZeroOnlyRegex.IsMatch(t))
+            return $"Chapter {narrativeOrdinal}";
+
+        var display = BookChapterHeadingFormatter.GetDisplayTitle(t, narrativeOrdinal);
+        if (!string.IsNullOrWhiteSpace(display)
+            && !display.Equals($"Part {narrativeOrdinal}", StringComparison.OrdinalIgnoreCase))
+            return display;
+
+        return $"Chapter {narrativeOrdinal}";
+    }
+
     /// <summary>Plain heading for export TOC / H1 (not HTML-encoded).</summary>
     public static string GetExportHeading(string? title, int storageChapterNumber, int narrativeOrdinal)
     {

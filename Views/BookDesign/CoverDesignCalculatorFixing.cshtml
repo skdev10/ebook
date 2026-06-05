@@ -947,6 +947,7 @@
     #fmt-studio-stage .paginated-reader-shell {
         max-width: 100%;
         aspect-ratio: 6 / 9;
+        max-height: min(11in, calc(100dvh - 8rem));
         border-radius: 12px;
         box-shadow: 0 12px 40px -12px rgba(91, 33, 182, 0.35);
     }
@@ -962,7 +963,7 @@
     }
     #fmt-studio-stage .fmt-interior-canvas {
         flex: 1 1 0%;
-        min-height: clamp(22rem, 48dvh, 40rem);
+        min-height: clamp(28rem, 62dvh, 48rem);
         width: 100%;
     }
     @@media (min-width: 1024px) {
@@ -1706,10 +1707,11 @@
 
     #fmt-book-result .paginated-reader-shell {
         width: 100% !important;
-        max-width: min(100%, 36rem) !important;
+        max-width: min(100%, 40rem) !important;
         margin-left: auto !important;
         margin-right: auto !important;
         aspect-ratio: 6 / 9 !important;
+        max-height: min(11in, calc(100dvh - 8rem)) !important;
         min-height: 0 !important;
         height: auto !important;
     }
@@ -4165,6 +4167,34 @@
         return html;
     }
 
+    function stripRedundantChapterOpenings(title, contentHtml) {
+        var html = stripDuplicateLeadingHeading(title, contentHtml);
+        if (!html) return html;
+        var displayKey = String(title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        var chapterBannerRe = /^\s*(chapter|ch\.?)\s*\d+/i;
+        try {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var body = doc.body;
+            if (!body) return html;
+            while (body.firstElementChild) {
+                var node = body.firstElementChild;
+                if ((node.tagName || '').toLowerCase() === 'hr') {
+                    node.remove();
+                    continue;
+                }
+                if (!/^h[1-6]$/i.test(node.tagName || '')) break;
+                var cls = String(node.className || '');
+                var textKey = String(node.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                var isBanner = cls.indexOf('manuscript-chapter-heading') >= 0 || chapterBannerRe.test(textKey);
+                var dupTitle = displayKey && textKey && textKey === displayKey;
+                if (!isBanner && !dupTitle) break;
+                node.remove();
+            }
+            return (body.innerHTML || '').trim();
+        } catch (e) { /* ignore */ }
+        return html;
+    }
+
     function sanitizeManuscriptHtml(unsafeHtml) {
         try {
             var allowedTags = new Set(['p', 'br', 'hr', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'span', 'div']);
@@ -4251,7 +4281,7 @@
             const ch = bookChapters[ci];
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
             const content = (ch && ch.content && String(ch.content).trim()) || '';
-            const normalizedContent = stripDuplicateLeadingHeading(title, content);
+            const normalizedContent = stripRedundantChapterOpenings(title, content);
             const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
             const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
 
@@ -5744,14 +5774,15 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
-        padding: 8px 18px 12px;
+        padding: 12px 20px 16px;
         box-sizing: border-box;
+        overflow: visible;
     }
     #book-formatter-root .book-page-content {
         flex: 1;
         min-height: 0;
-        overflow: hidden;
         overflow-x: hidden;
+        overflow-y: auto;
         -webkit-overflow-scrolling: touch;
         color: #1c1917;
         font-size: var(--fmt-font-size, 16px);
