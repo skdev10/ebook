@@ -4598,7 +4598,6 @@
                 });
             }
 
-            // Logout: see handleLogout on .logout-btn (DOMContentLoaded below)
 
             // File upload functionality
             if (fileUploadBtn && fileInput) {
@@ -4981,7 +4980,10 @@
             __guidedTourActiveResize = onResize;
 
             nextStep();
-        }
+        }  
+         
+
+
         var __guidedTourActiveResize = null;
 
         function teardownGuidedTourListeners() {
@@ -5064,11 +5066,7 @@
             // Welcome message removed per user request
             // showWelcomeMessage();
             
-            // Add logout confirmation
-            const logoutBtn = document.querySelector('.logout-btn');
-            if (logoutBtn) {
-                logoutBtn.addEventListener('click', handleLogout);
-            }
+            // Logout goes directly to /Account/Logout (no confirmation dialog).
             
             // AOS only on main content (sidebar has no data-aos - no shake, no weird icons)
             if (typeof AOS !== 'undefined') {
@@ -5167,34 +5165,6 @@
             }
         }
         
-        // Logout: use currentTarget (the <a>) — clicks on inner <i>/<span> make event.target.href undefined.
-        function handleLogout(event) {
-            event.preventDefault();
-            var anchor = event.currentTarget || (event.target && event.target.closest ? event.target.closest('a') : null);
-            var logoutUrl = (anchor && anchor.href) ? anchor.href : '/Account/Logout';
-
-            if (typeof Swal === 'undefined') {
-                if (confirm('Are you sure you want to logout?')) {
-                    window.location.assign(logoutUrl);
-                }
-                return;
-            }
-
-            Swal.fire({
-                title: 'Confirm Logout',
-                text: 'Are you sure you want to logout?',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#4a6cf7',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, logout',
-                cancelButtonText: 'Cancel'
-            }).then(function (result) {
-                if (result.isConfirmed) {
-                    window.location.assign(logoutUrl);
-                }
-            });
-        }
         
         // Dark Mode Functionality
         function initializeDarkMode() {
@@ -5364,51 +5334,17 @@
                 window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
 
                 window.confirmFlowBack = function (targetUrl) {
-                    var leaveMsg = flowStep === 'format'
-                        ? 'Going back to <strong>AI Writer</strong> will discard your formatting work on this step. Your earlier chapters stay saved.'
-                        : (flowStep === 'publish'
-                            ? 'Going back will discard unsaved work on this step. Continue?'
-                            : 'Going back will <strong>discard the work</strong> you have done on this step and you will need to redo it. Your earlier steps stay saved.');
-                    if (typeof Swal === 'undefined') {
-                        if (window.confirm('Leave this step? Your work on this step may be lost.')) {
-                            return fetch('/Dashboard/ResetFlowStep', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ bookId: flowBookId, step: flowStep })
-                            }).then(function () {
-                                clearStepLocalState(flowStep);
-                                hardNavigate(targetUrl);
-                            });
-                        }
-                        return Promise.resolve(false);
-                    }
-                    return Swal.fire({
-                        title: 'Leave this step?',
-                        html: leaveMsg,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, go back',
-                        cancelButtonText: 'Stay here',
-                        confirmButtonColor: '#7c3aed',
-                        cancelButtonColor: '#64748b'
-                    }).then(function (result) {
-                        if (!result.isConfirmed) return false;
-                        return fetch('/Dashboard/ResetFlowStep', {
+                    var target = targetUrl || flowBackUrl || '/Dashboard';
+                    hardNavigate(target);
+                    try {
+                        fetch('/Dashboard/ResetFlowStep', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
+                            keepalive: true,
                             body: JSON.stringify({ bookId: flowBookId, step: flowStep })
-                        }).then(function (r) { return r.json(); }).then(function () {
-                            clearStepLocalState(flowStep);
-                            if (flowStep === 'cover') clearCoverClientState(flowBookId);
-                            hardNavigate(targetUrl);
-                            return true;
-                        }).catch(function () {
-                            clearStepLocalState(flowStep);
-                            if (flowStep === 'cover') clearCoverClientState(flowBookId);
-                            hardNavigate(targetUrl);
-                            return true;
-                        });
-                    });
+                        }).catch(function () { /* non-blocking */ });
+                    } catch (_) { /* ignore */ }
+                    return Promise.resolve(true);
                 };
 
                 document.addEventListener('DOMContentLoaded', function () {
@@ -5442,8 +5378,8 @@
                     if (window.history && window.history.pushState) {
                         history.pushState({ flowGuard: true }, '');
                         window.addEventListener('popstate', function () {
-                            history.pushState({ flowGuard: true }, '');
                             if (flowStep === 'generate') {
+                                history.pushState({ flowGuard: true }, '');
                                 showFlowBlockedAlert();
                                 return;
                             }

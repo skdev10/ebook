@@ -3821,6 +3821,57 @@
         return getSelectedPlatformsArray().indexOf(PRINT_READY_PLATFORM) >= 0;
     }
 
+    var coverDesignAutoNavTimer = null;
+    var coverDesignAutoNavInFlight = false;
+
+    function buildCoverDesignUrl(bid, fmt, hasPrintReady) {
+        var url = '/Dashboard/CoverDesign?bookId=' + encodeURIComponent(bid);
+        if (fmt === 'Both') url += '&coverType=both';
+        else if (fmt === 'Paperback' && hasPrintReady) url += '&flow=printready';
+        return url;
+    }
+
+    function shouldAutoNavigateToCoverDesign() {
+        var fmtEl = document.getElementById('format-select');
+        var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
+        return fmt === 'Paperback' && hasPrintReadyPlatformSelected();
+    }
+
+    function navigateToCoverDesignFromFormatter(options) {
+        var opts = options || {};
+        if (coverDesignAutoNavInFlight) return;
+        var hid = document.getElementById('selected-book-id');
+        var bid = parseInt((hid && hid.value) || '0', 10);
+        if (!bid) {
+            if (!opts.silent) showToast('Select a book in AI Writer first.');
+            return;
+        }
+        var fmtEl = document.getElementById('format-select');
+        var fmt = (fmtEl && fmtEl.value) || 'Ebook';
+        var hasPrintReady = hasPrintReadyPlatformSelected();
+        if (!opts.force && fmt !== 'Paperback') return;
+        if (!hasPrintReady) return;
+
+        coverDesignAutoNavInFlight = true;
+        saveFormatting(function (ok) {
+            coverDesignAutoNavInFlight = false;
+            if (!ok && !opts.allowOnSaveFail) {
+                showToast('Could not save formatting. Retry or use Next: AI Cover Design.');
+                return;
+            }
+            window.location.href = buildCoverDesignUrl(bid, fmt, hasPrintReady);
+        });
+    }
+
+    function queueAutoNavigateToCoverDesign() {
+        if (!shouldAutoNavigateToCoverDesign()) return;
+        if (coverDesignAutoNavTimer) clearTimeout(coverDesignAutoNavTimer);
+        coverDesignAutoNavTimer = setTimeout(function () {
+            coverDesignAutoNavTimer = null;
+            navigateToCoverDesignFromFormatter({ silent: true, force: true, allowOnSaveFail: true });
+        }, 450);
+    }
+
     function syncFormatterNextActionUi() {
         var btn = document.getElementById('btn-next-cover');
         var btnStudio = document.getElementById('fmt-btn-studio-next');
@@ -5333,6 +5384,9 @@
                 persistFormatterDraftLocal(getFormatterStateFromUi());
                 syncFormatterNextActionUi();
                 queueAutosave(120);
+                if (this.getAttribute('data-platform') === PRINT_READY_PLATFORM && this.checked) {
+                    queueAutoNavigateToCoverDesign();
+                }
             });
         });
 
@@ -5372,6 +5426,9 @@
             syncFormatterNextActionUi();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
+            if (selectedFormat === 'Paperback' && hasPrintReadyPlatformSelected()) {
+                queueAutoNavigateToCoverDesign();
+            }
         });
 
         (function initFormatPicker() {
@@ -5475,19 +5532,7 @@
         });
 
         document.getElementById('btn-next-cover')?.addEventListener('click', function() {
-            const hid = document.getElementById('selected-book-id');
-            const bid = parseInt((hid && hid.value) || '0', 10);
-            if (!bid) { showToast('Select a book in AI Writer first.'); return; }
-            var fmtEl = document.getElementById('format-select');
-            var fmt = (fmtEl && fmtEl.value) || 'Ebook';
-            var hasPrintReady = hasPrintReadyPlatformSelected();
-            saveFormatting(function(ok) {
-                if (!ok) return;
-                var url = '/Dashboard/CoverDesign?bookId=' + encodeURIComponent(bid);
-                if (fmt === 'Both') url += '&coverType=both';
-                else if (fmt === 'Paperback' && hasPrintReady) url += '&flow=printready';
-                window.location.href = url;
-            });
+            navigateToCoverDesignFromFormatter({ allowOnSaveFail: false });
         });
 
         document.getElementById('fmt-btn-rename-chapter')?.addEventListener('click', function () { saveFormatterChapterName(); });
