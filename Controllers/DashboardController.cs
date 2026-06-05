@@ -2577,6 +2577,7 @@ namespace EBookDashboard.Controllers
                 await _bookFlow.ResetStepAsync(req.BookId, BookFlowStateService.StepFormat);
                 await ClearStoredCoverAssetsAsync(req.BookId, HttpContext.RequestAborted);
                 await ClearBookCoverImagePathAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
+                await ClearBookFormattingRowAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
                 var (_, path) = await _bookFlow.GetStepAsync(req.BookId);
                 await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepGenerate, path);
                 HttpContext.Session.SetString("FormattingDone", "0");
@@ -2590,19 +2591,50 @@ namespace EBookDashboard.Controllers
                 });
             }
 
-            // Soft back: only move the persisted step backward — keep formatting/cover saves intact.
-            await _bookFlow.RegressStepAsync(req.BookId, step);
+            if (req.DestructiveBack)
+            {
+                await _bookFlow.RegressAndResetAsync(req.BookId, step);
+                if (step == BookFlowStateService.StepCover)
+                {
+                    await ClearStoredCoverAssetsAsync(req.BookId, HttpContext.RequestAborted);
+                    await ClearBookCoverImagePathAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
+                    HttpContext.Session.Remove("CoverFinalized");
+                }
+                if (step == BookFlowStateService.StepFormat)
+                {
+                    await ClearBookFormattingRowAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
+                    HttpContext.Session.SetString("FormattingDone", "0");
+                }
 
-            var (newStep, newPath) = await _bookFlow.GetStepAsync(req.BookId);
-            if (newStep == BookFlowStateService.StepGenerate)
-                HttpContext.Session.Remove("CoverFinalized");
+                var (newStep, newPath) = await _bookFlow.GetStepAsync(req.BookId);
+                return Json(new
+                {
+                    success = true,
+                    step = newStep,
+                    wiped = true,
+                    resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, newStep, newPath)
+                });
+            }
+
+            // Fallback: non-destructive step regress (should not be used from UI).
+            await _bookFlow.RegressStepAsync(req.BookId, step);
+            var (fallbackStep, fallbackPath) = await _bookFlow.GetStepAsync(req.BookId);
             return Json(new
             {
                 success = true,
-                step = newStep,
+                step = fallbackStep,
                 wiped = false,
-                resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, newStep, newPath)
+                resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, fallbackStep, fallbackPath)
             });
+        }
+
+        private async Task ClearBookFormattingRowAsync(int bookId, int userId, CancellationToken cancellationToken)
+        {
+            var row = await _context.BookFormatting
+                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
+            if (row == null) return;
+            _context.BookFormatting.Remove(row);
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
         private async Task ClearBookCoverImagePathAsync(int bookId, int userId, CancellationToken cancellationToken)

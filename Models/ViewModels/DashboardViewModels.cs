@@ -298,5 +298,8 @@ namespace EBookDashboard.Models
         public string? Step { get; set; }
         /// <summary>When true (leaving to AI Writer), wipe cover + formatting and regress to generate step.</summary>
         public bool WipeAllWork { get; set; }
+
+        /// <summary>When true (confirmed back within flow), wipe the step being left and move one step backward.</summary>
+        public bool DestructiveBack { get; set; }
     }
 }

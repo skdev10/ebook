@@ -5257,9 +5257,14 @@
 
                 function clearStepLocalState(step) {
                     try {
-                        // Soft back: only clear scratch state for the step being left, not earlier completed work.
                         if (step === 'generate') localStorage.removeItem('ebook_ai_reader_state_v2_' + flowBookId);
+                        if (step === 'format') localStorage.removeItem('formatter_draft_v2_' + flowBookId);
                     } catch (_) {}
+                }
+
+                function clearAllFlowClientState() {
+                    ['generate', 'format', 'cover', 'publish'].forEach(clearStepLocalState);
+                    clearCoverClientState(flowBookId);
                 }
 
                 function clearCoverClientState(bookId) {
@@ -5298,59 +5303,67 @@
                     });
                 }
 
-                function confirmLeaveToAiWriter(targetUrl) {
-                    return Swal.fire({
-                        title: 'Leave and lose all saved work?',
-                        html: 'If you go back to <strong>AI Writer</strong> now, your formatting, cover design, and progress on this step will be <strong>permanently deleted</strong>. You will need to redo everything.',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, delete and leave',
-                        cancelButtonText: 'Stay here',
-                        confirmButtonColor: '#dc2626',
-                        cancelButtonColor: '#64748b'
-                    }).then(function (result) {
-                        if (!result.isConfirmed) return false;
-                        return fetch('/Dashboard/ResetFlowStep', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ bookId: flowBookId, step: flowStep, wipeAllWork: true })
-                        }).then(function () {
-                            clearStepLocalState(flowStep);
-                            clearStepLocalState('format');
-                            clearStepLocalState('cover');
-                            clearStepLocalState('publish');
-                            clearStepLocalState('generate');
-                            clearCoverClientState(flowBookId);
-                            hardNavigate(targetUrl);
-                            return true;
-                        }).catch(function () {
-                            clearStepLocalState(flowStep);
-                            clearCoverClientState(flowBookId);
-                            hardNavigate(targetUrl);
-                            return true;
-                        });
-                    });
-                }
-                window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
-
-                window.confirmFlowBack = function (targetUrl) {
-                    var target = targetUrl || flowBackUrl || '/Dashboard';
-                    clearStepLocalState(flowStep);
-                    var navigated = false;
-                    function go() {
-                        if (navigated) return;
-                        navigated = true;
-                        hardNavigate(target);
+                function destructiveBackMessage(targetUrl) {
+                    var path = normalizePath(targetUrl || flowBackUrl || '/Dashboard');
+                    if (isAiWriterPath(path)) {
+                        return 'If you go back to <strong>AI Writer</strong> now, your formatting, cover design, and all progress on this book will be <strong>permanently deleted</strong>. You will need to redo everything.';
                     }
-                    var fallbackTimer = setTimeout(go, 3000);
+                    if (flowStep === 'cover') {
+                        return 'If you go back to <strong>Book Formatting</strong>, your <strong>cover design will be permanently deleted</strong> and cannot be recovered.';
+                    }
+                    if (flowStep === 'publish') {
+                        return 'If you go back to <strong>Cover Design</strong>, your publish progress on this step will be <strong>reset</strong>.';
+                    }
+                    if (flowStep === 'format') {
+                        return 'If you go back now, your <strong>formatting and cover work will be permanently deleted</strong>.';
+                    }
+                    return 'If you go back now, your saved work on this step will be <strong>permanently deleted</strong>.';
+                }
+
+                function runDestructiveBack(targetUrl, options) {
+                    var opts = options || {};
+                    var target = targetUrl || flowBackUrl || '/Dashboard';
+                    var path = normalizePath(target);
+                    var body = { bookId: flowBookId, step: flowStep };
+                    if (opts.wipeAllWork || isAiWriterPath(path)) body.wipeAllWork = true;
+                    else body.destructiveBack = true;
                     return fetch('/Dashboard/ResetFlowStep', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bookId: flowBookId, step: flowStep })
-                    })
-                        .then(function () { clearTimeout(fallbackTimer); go(); return true; })
-                        .catch(function () { clearTimeout(fallbackTimer); go(); return true; });
-                };
+                        body: JSON.stringify(body)
+                    }).then(function () {
+                        clearAllFlowClientState();
+                        hardNavigate(target);
+                        return true;
+                    }).catch(function () {
+                        clearAllFlowClientState();
+                        hardNavigate(target);
+                        return true;
+                    });
+                }
+
+                function confirmDestructiveFlowBack(targetUrl, options) {
+                    return Swal.fire({
+                        title: 'Go back and lose your work?',
+                        html: destructiveBackMessage(targetUrl),
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, delete and go back',
+                        cancelButtonText: 'Stay here',
+                        confirmButtonColor: '#dc2626',
+                        cancelButtonColor: '#64748b',
+                        allowOutsideClick: false
+                    }).then(function (result) {
+                        if (!result.isConfirmed) return false;
+                        return runDestructiveBack(targetUrl, options);
+                    });
+                }
+
+                function confirmLeaveToAiWriter(targetUrl) {
+                    return confirmDestructiveFlowBack(targetUrl, { wipeAllWork: true });
+                }
+                window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
+                window.confirmFlowBack = confirmDestructiveFlowBack;
 
                 document.addEventListener('DOMContentLoaded', function () {
                     document.querySelectorAll('.sidebar-menu a[href], .sidebar-footer a[href]').forEach(function (a) {
@@ -5373,10 +5386,6 @@
                         btn.addEventListener('click', function (e) {
                             e.preventDefault();
                             var target = btn.getAttribute('data-flow-back') || flowBackUrl;
-                            if (flowStep === 'publish' && isAiWriterPath(normalizePath(target))) {
-                                confirmLeaveToAiWriter(target);
-                                return;
-                            }
                             window.confirmFlowBack(target);
                         });
                     });
@@ -5384,8 +5393,8 @@
                     if (window.history && window.history.pushState) {
                         history.pushState({ flowGuard: true }, '');
                         window.addEventListener('popstate', function () {
+                            history.pushState({ flowGuard: true }, '');
                             if (flowStep === 'generate') {
-                                history.pushState({ flowGuard: true }, '');
                                 showFlowBlockedAlert();
                                 return;
                             }
