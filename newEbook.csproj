@@ -43,6 +43,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="OpenAI" Version="2.3.0" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.0" />
+    <PackageReference Include="PDFsharp" Version="6.2.0" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
     <PackageReference Include="PuppeteerSharp" Version="20.2.4" />
     <PackageReference Include="Rotativa.AspNetCore" Version="1.4.0" />

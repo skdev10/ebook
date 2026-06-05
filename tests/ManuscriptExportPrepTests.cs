@@ -1,3 +1,4 @@
+using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
 using Xunit;
 
@@ -33,6 +34,20 @@ public class ManuscriptExportPrepTests
         Assert.DoesNotContain("CHOKEHOLD", cleaned, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("manuscript-chapter-heading", cleaned, StringComparison.OrdinalIgnoreCase);
         Assert.StartsWith("<p", cleaned, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildChapterSectionsHtml_uses_preview_dom_structure()
+    {
+        var html = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(
+            [new ChapterDto { ChapterNumber = 1, Title = "Scene One", Content = "Hello world." }],
+            BookManuscriptHtmlFormatter.CreateBaseContext("Book", null, null, null, "Author"),
+            new BookPdfExportOptions { InteriorStyle = "Classic", TextSize = "Medium", LineSpacing = "1.6" });
+
+        Assert.Contains("reader-page-title", html, StringComparison.Ordinal);
+        Assert.Contains("reader-page-body", html, StringComparison.Ordinal);
+        Assert.Contains("reader-chapter-block", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("chapter-heading", html, StringComparison.Ordinal);
     }
 
     [Fact]

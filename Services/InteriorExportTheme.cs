@@ -202,19 +202,33 @@ public static class InteriorExportTheme
             ".chapter-body .manuscript-h1 { font-size: 16pt; margin: 5mm 0 3mm; } ",
             ".chapter-body .manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; } ",
             ".chapter-body .manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; } ",
-            ".chapter-body .manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; } ");
+            ".chapter-body .manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; } ",
+            BuildPreviewMatchedReaderCss(interior, justify, chapterAlign, theme));
 
         var tplCss = interior switch
         {
-            "Modern" => ".book-pdf-body.tpl-modern .chapter-heading { font-size: 11pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em; border-bottom: none; border-left: 4px solid #6366f1; padding-left: 4mm; } ",
-            "Minimalist" => ".book-pdf-body.tpl-minimalist .chapter-heading { font-size: 13pt; font-weight: 600; border-bottom: 1px solid #e5e5e5; letter-spacing: -0.02em; } ",
-            "Classic" => ".book-pdf-body.tpl-classic .chapter-heading { font-size: 17pt; font-variant: small-caps; font-style: italic; letter-spacing: 0.12em; border-bottom: 3px double #d6c4a8; padding-bottom: 5mm; } ",
-            "ElegantTrade" => ".book-pdf-body.tpl-elegant-trade .chapter-heading { font-size: 16pt; font-weight: 600; letter-spacing: 0.04em; color: #3d2914; border-bottom: 1px solid #c9b8a0; padding-bottom: 5mm; } ",
-            _ => ".book-pdf-body.tpl-novel .chapter-heading { font-size: 16pt; font-weight: 700; letter-spacing: 0.015em; border-bottom: 1px solid rgba(111, 47, 16, 0.18); color: #6f2f10; padding-bottom: 3mm; } "
+            "Modern" => ".book-pdf-body.tpl-modern .reader-page-title { font-size: 11pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em; border-bottom: none; border-left: 4px solid #6366f1; padding-left: 4mm; text-align: left; } ",
+            "Minimalist" => ".book-pdf-body.tpl-minimalist .reader-page-title { font-size: 13pt; font-weight: 600; border-bottom: 1px solid #e5e5e5; letter-spacing: -0.02em; text-align: left; } ",
+            "Classic" => ".book-pdf-body.tpl-classic .reader-page-title { font-size: 17pt; font-variant: small-caps; font-style: italic; letter-spacing: 0.12em; border-bottom: 3px double #d6c4a8; padding-bottom: 5mm; text-align: center; } ",
+            "ElegantTrade" => ".book-pdf-body.tpl-elegant-trade .reader-page-title { font-size: 16pt; font-weight: 600; letter-spacing: 0.04em; color: #3d2914; border-bottom: 1px solid #c9b8a0; padding-bottom: 5mm; text-align: center; } ",
+            _ => ".book-pdf-body.tpl-novel .reader-page-title { font-size: 16pt; font-weight: 700; letter-spacing: 0.015em; border-bottom: 1px solid rgba(111, 47, 16, 0.18); color: #6f2f10; padding-bottom: 3mm; text-align: center; } "
         };
 
         return baseCss + tplCss;
     }
+
+    private static string BuildPreviewMatchedReaderCss(string interior, string justify, string chapterAlign, ThemeSpec theme) =>
+        string.Concat(
+            ".reader-chapter-block { margin: 0; padding: 0; } ",
+            ".reader-page-title { font-family: var(--heading-font); color: var(--heading-color); margin: 0 0 6mm; padding-bottom: 2mm; ",
+            chapterAlign, " ", theme.ChapterHeadingExtra, " } ",
+            ".reader-page-body { ", justify, " margin: 0; padding: 0; } ",
+            ".reader-page-body p, .reader-page-body .manuscript-p { margin: 0 0 3mm; orphans: 3; widows: 3; ",
+            theme.ParagraphRules, " } ",
+            ".reader-page-body p:first-of-type, .reader-page-title + .reader-page-body p:first-of-type { text-indent: 0; } ",
+            interior == "Classic"
+                ? ".book-pdf-body.tpl-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 600; color: #78350f; } "
+                : "");
 
     private static ThemeSpec ResolveTheme(string interior) => interior switch
     {

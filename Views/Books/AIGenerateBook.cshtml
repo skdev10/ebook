@@ -185,12 +185,13 @@
     /* 6×9 shell — mobile/tablet uses aspect-ratio; desktop size from syncAiWriterPreviewLayout */
     #bookResult .paginated-reader-shell.book-page-preview-shell {
         position: relative;
-        width: min(100%, calc((100dvh - 18rem) * 6 / 9), 6in);
+        width: min(100%, 40rem, 6in);
         max-width: 100%;
         margin-inline: auto;
-        aspect-ratio: 6 / 9;
+        aspect-ratio: auto;
         height: auto;
-        max-height: min(11in, calc(100dvh - 9rem));
+        min-height: clamp(26rem, 65dvh, 48rem);
+        max-height: min(92dvh, 56rem);
         overflow: visible;
         flex-shrink: 0;
         display: flex;
@@ -377,9 +378,10 @@
         rotate: 0deg;
     }
     .book-page-content {
-        flex: 1;
-        min-height: 0;
-        overflow-y: auto;
+        flex: 1 1 auto;
+        min-height: auto;
+        height: auto;
+        overflow-y: visible;
         overflow-x: hidden;
         -webkit-overflow-scrolling: touch;
         word-wrap: break-word;

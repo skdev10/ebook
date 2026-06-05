@@ -1710,10 +1710,11 @@
         max-width: min(100%, 40rem) !important;
         margin-left: auto !important;
         margin-right: auto !important;
-        aspect-ratio: 6 / 9 !important;
-        max-height: min(11in, calc(100dvh - 8rem)) !important;
-        min-height: 0 !important;
+        aspect-ratio: auto !important;
+        min-height: clamp(28rem, 68dvh, 52rem) !important;
+        max-height: min(92dvh, 56rem) !important;
         height: auto !important;
+        overflow: visible !important;
     }
 
     #fmt-book-result #preview-content.chapter-preview-viewport,
@@ -5779,10 +5780,11 @@
         overflow: visible;
     }
     #book-formatter-root .book-page-content {
-        flex: 1;
-        min-height: 0;
+        flex: 1 1 auto;
+        min-height: auto;
+        height: auto;
         overflow-x: hidden;
-        overflow-y: auto;
+        overflow-y: visible;
         -webkit-overflow-scrolling: touch;
         color: #1c1917;
         font-size: var(--fmt-font-size, 16px);

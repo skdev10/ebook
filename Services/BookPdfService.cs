@@ -124,36 +124,13 @@ public class BookPdfService : IBookPdfService
 
         // One DB chapter = one PDF chapter. Do not split on in-body <h2> — those are section headings (##), not new chapters.
         var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
-        var sections = new StringBuilder();
-        var narrativeOrdinal = 0;
-        for (var i = 0; i < chapters.Count; i++)
-        {
-            var ch = chapters[i];
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
-                narrativeOrdinal++;
-            var displayNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 0 : narrativeOrdinal;
-            var phNum = displayNum > 0 ? displayNum : 1;
-            var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
-            var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
-            var displayHeading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
-            var chTitleHtml = BookManuscriptHtmlFormatter.EscapeHtml(displayHeading);
-            var sectionId = i + 1;
-            var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, displayHeading);
-            sections.Append(CultureInvariant($"""
-                <section class="chapter" id="ch-{sectionId}">
-                  <h2 class="chapter-heading">{chTitleHtml}</h2>
-                  <div class="chapter-body">{bodyHtml}</div>
-                </section>
-                """));
-        }
-
-        if (sections.Length == 0)
-            sections.Append("""<section class="chapter" id="ch-0"><p class="manuscript-p">No chapters in this book yet.</p></section>""");
-
+        var sections = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(chapters, phBase, opt);
         var tocHtml = BuildTocHtml(chapters, phBase);
         var copyrightHtml = BuildCopyrightPageHtml(title, author, publisherDisplayName);
         var themeCss = InteriorExportTheme.BuildPdfThemeCss(opt);
         var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
+        var shellCls = InteriorPrintDocumentBuilder.PreviewShellClass(opt.InteriorStyle);
+        var wrapCls = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(opt.InteriorStyle);
 
         var html = BuildPrintDocumentHtml(
             title,
@@ -164,10 +141,12 @@ public class BookPdfService : IBookPdfService
             opt.IncludeCoverPage,
             copyrightHtml,
             tocHtml,
-            sections.ToString(),
+            sections,
             themeCss,
             layout.PageSizeCss,
-            bodyTpl);
+            bodyTpl,
+            shellCls,
+            wrapCls);
 
         var headerTemplate = BuildHeaderTemplate(title, author);
         var footerTemplate = BuildFooterTemplate();
@@ -193,10 +172,11 @@ public class BookPdfService : IBookPdfService
             await using var page = await browser.NewPageAsync();
             await page.SetContentAsync(html, new NavigationOptions
             {
-                WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded },
-                Timeout = 45_000
+                WaitUntil = new[] { WaitUntilNavigation.Networkidle0 },
+                Timeout = 60_000
             });
-            await Task.Delay(350, cancellationToken);
+            await page.EvaluateFunctionAsync(@"() => document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()");
+            await Task.Delay(500, cancellationToken);
 
             var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
             EnsureValidPdf(pdfBytes);
@@ -206,10 +186,21 @@ public class BookPdfService : IBookPdfService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Puppeteer PDF render failed (executable={Executable})", executablePath ?? "bundled");
-            throw new InvalidOperationException(
-                "PDF generation failed. Install Google Chrome or Microsoft Edge on the server, or set Puppeteer:ExecutablePath in configuration.",
-                ex);
+            _logger.LogWarning(ex, "Puppeteer PDF render failed (executable={Executable}); falling back to PdfSharp.", executablePath ?? "bundled");
+            try
+            {
+                var fallback = BookPdfSharpRenderer.RenderInteriorPdf(details, title, author, opt);
+                EnsureValidPdf(fallback);
+                _logger.LogInformation("PDF generated via PdfSharp fallback: {Bytes} bytes, book={BookId}", fallback.Length, details.BookId);
+                return fallback;
+            }
+            catch (Exception sharpEx)
+            {
+                _logger.LogError(sharpEx, "PdfSharp fallback also failed for book {BookId}", details.BookId);
+                throw new InvalidOperationException(
+                    "PDF generation failed. Install Google Chrome or Microsoft Edge on the server, or set Puppeteer:ExecutablePath in configuration.",
+                    ex);
+            }
         }
     }
 
@@ -427,7 +418,9 @@ public class BookPdfService : IBookPdfService
         string chapterSections,
         string themeCss,
         string pageSizeCss,
-        string bodyTemplateClass)
+        string bodyTemplateClass,
+        string previewShellClass,
+        string previewWrapClass)
     {
         var coverBlock = !includeCoverPage
             ? ""
@@ -461,6 +454,7 @@ public class BookPdfService : IBookPdfService
         doc.AppendLine("<!DOCTYPE html>");
         doc.AppendLine("<html lang=\"en\">");
         doc.AppendLine("<head><meta charset=\"utf-8\"/>");
+        doc.AppendLine(InteriorPrintDocumentBuilder.GoogleFontLinks());
         doc.AppendLine("<style>");
         doc.AppendLine(CultureInvariant($"@page {{ size: {pageSizeCss}; }}"));
         doc.AppendLine("* { box-sizing: border-box; }");
@@ -476,7 +470,7 @@ public class BookPdfService : IBookPdfService
         doc.AppendLine(".title-page-author { font-size: 13pt; margin: 4mm 0; }");
         doc.AppendLine(".title-page-genre { font-size: 10pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.12em; }");
         doc.AppendLine("</style></head>");
-        doc.AppendLine("<body class=\"book-pdf-body " + bodyTemplateClass + "\">");
+        doc.AppendLine("<body class=\"book-pdf-body " + bodyTemplateClass + " " + previewShellClass + " " + previewWrapClass + "\">");
         doc.Append(coverBlock);
         doc.AppendLine("<div class=\"title-page\">");
         doc.Append("<h1>").Append(WebUtility.HtmlEncode(title)).AppendLine("</h1>");
