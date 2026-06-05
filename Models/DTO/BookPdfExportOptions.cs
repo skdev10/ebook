@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using EBookDashboard.Models;
+using EBookDashboard.Services;
 
 namespace EBookDashboard.Models.DTO;
 
@@ -44,6 +45,7 @@ public class BookPdfExportOptions
             /* use defaults */
         }
 
+        o.Normalize();
         return o;
     }
 
@@ -61,6 +63,7 @@ public class BookPdfExportOptions
         if (!string.IsNullOrWhiteSpace(f.PublishingPlatform)) PublishingPlatform = f.PublishingPlatform.Trim();
         if (string.IsNullOrWhiteSpace(PublishingPlatform) && !string.IsNullOrWhiteSpace(PublishingPlatforms))
             PublishingPlatform = PublishingPlatforms.Split(',')[0].Trim();
+        Normalize();
     }
 
     public string PrimaryPlatformToken()
@@ -85,21 +88,11 @@ public class BookPdfExportOptions
         return !string.IsNullOrWhiteSpace(value);
     }
 
-    public string BodyFontSizePt()
-    {
-        if (string.Equals(TextSize, "Small", StringComparison.OrdinalIgnoreCase)) return "10.5";
-        if (string.Equals(TextSize, "Large", StringComparison.OrdinalIgnoreCase)) return "15";
-        return "12";
-    }
+    public string BodyFontSizePt() =>
+        InteriorExportTheme.ResolveBodyFontSizePt(InteriorStyle, TextSize);
 
-    public string BodyLineHeight()
-    {
-        if (!double.TryParse(LineSpacing, NumberStyles.Any, CultureInfo.InvariantCulture, out var lh))
-            lh = 1.55;
-        if (lh < 1.15) lh = 1.15;
-        if (lh > 2.4) lh = 2.4;
-        return lh.ToString("0.###", CultureInfo.InvariantCulture);
-    }
+    public string BodyLineHeight() =>
+        InteriorExportTheme.ResolveLineHeight(LineSpacing);
 
     /// <summary>Apply client-sent formatter snapshot (Publish localStorage) over DB-loaded options.</summary>
     public void ApplyRequestOverrides(ExportBookPdfRequest? req)
@@ -111,9 +104,12 @@ public class BookPdfExportOptions
         if (!string.IsNullOrWhiteSpace(req.BookFormat)) Format = NormalizeFormatToken(req.BookFormat);
         if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
             PublishingPlatform = req.PublishingPlatform.Trim();
+        if (!string.IsNullOrWhiteSpace(req.PublishingPlatforms))
+            PublishingPlatforms = req.PublishingPlatforms.Trim();
+        Normalize();
     }
 
-    /// <summary>Overlay persisted formatter draft JSON on top of saved BookFormatting (draft wins when set).</summary>
+    /// <summary>Overlay persisted formatter draft JSON — used as fallback; <see cref="BookFormatting"/> wins on export.</summary>
     public void OverlayFromDraftJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return;
@@ -124,5 +120,16 @@ public class BookPdfExportOptions
         if (!string.IsNullOrWhiteSpace(draft.Format)) Format = draft.Format;
         if (!string.IsNullOrWhiteSpace(draft.PublishingPlatform)) PublishingPlatform = draft.PublishingPlatform.Trim();
         if (!string.IsNullOrWhiteSpace(draft.PublishingPlatforms)) PublishingPlatforms = draft.PublishingPlatforms;
+        Normalize();
+    }
+
+    /// <summary>Canonicalize interior style / text size / line spacing for export.</summary>
+    public void Normalize()
+    {
+        InteriorStyle = InteriorExportTheme.NormalizeInteriorStyle(InteriorStyle);
+        TextSize = InteriorExportTheme.NormalizeTextSize(TextSize);
+        LineSpacing = InteriorExportTheme.NormalizeLineSpacing(LineSpacing);
+        if (string.IsNullOrWhiteSpace(PublishingPlatform) && !string.IsNullOrWhiteSpace(PublishingPlatforms))
+            PublishingPlatform = PublishingPlatforms.Split(',')[0].Trim();
     }
 }

@@ -283,11 +283,37 @@ namespace EBookDashboard.Controllers
                     _context.BookFormatting.Add(existing);
                 }
 
-                existing.Format = req.Format ?? "Ebook";
-                existing.InteriorStyle = req.InteriorStyle ?? "Novel";
-                existing.TextSize = req.TextSize ?? "Medium";
-                existing.LineSpacing = string.IsNullOrWhiteSpace(req.LineSpacing) ? "1.6" : req.LineSpacing.Trim();
-                existing.PublishingPlatforms = req.PublishingPlatforms ?? "";
+                var draftOpt = BookPdfExportOptions.FromDraftJson(req.DraftStateJson);
+
+                if (!string.IsNullOrWhiteSpace(req.InteriorStyle))
+                    existing.InteriorStyle = InteriorExportTheme.NormalizeInteriorStyle(req.InteriorStyle);
+                else if (!string.IsNullOrWhiteSpace(draftOpt.InteriorStyle))
+                    existing.InteriorStyle = draftOpt.InteriorStyle;
+                else if (string.IsNullOrWhiteSpace(existing.InteriorStyle))
+                    existing.InteriorStyle = "Novel";
+
+                if (!string.IsNullOrWhiteSpace(req.TextSize))
+                    existing.TextSize = InteriorExportTheme.NormalizeTextSize(req.TextSize);
+                else if (!string.IsNullOrWhiteSpace(draftOpt.TextSize))
+                    existing.TextSize = draftOpt.TextSize;
+                else if (string.IsNullOrWhiteSpace(existing.TextSize))
+                    existing.TextSize = "Medium";
+
+                if (!string.IsNullOrWhiteSpace(req.LineSpacing))
+                    existing.LineSpacing = InteriorExportTheme.NormalizeLineSpacing(req.LineSpacing.Trim());
+                else if (!string.IsNullOrWhiteSpace(draftOpt.LineSpacing))
+                    existing.LineSpacing = draftOpt.LineSpacing;
+                else if (string.IsNullOrWhiteSpace(existing.LineSpacing))
+                    existing.LineSpacing = "1.6";
+
+                if (!string.IsNullOrWhiteSpace(req.Format))
+                    existing.Format = req.Format;
+                else if (!string.IsNullOrWhiteSpace(draftOpt.Format))
+                    existing.Format = draftOpt.Format;
+                else if (string.IsNullOrWhiteSpace(existing.Format))
+                    existing.Format = "Ebook";
+
+                existing.PublishingPlatforms = req.PublishingPlatforms ?? existing.PublishingPlatforms ?? "";
                 var primaryPlatform = string.IsNullOrWhiteSpace(req.PublishingPlatform)
                     ? (existing.PublishingPlatforms ?? "").Split(',')[0].Trim()
                     : req.PublishingPlatform.Trim();
@@ -296,18 +322,16 @@ namespace EBookDashboard.Controllers
 
                 await _context.SaveChangesAsync();
 
-                var statePayload = string.IsNullOrWhiteSpace(req.DraftStateJson)
-                    ? JsonSerializer.Serialize(new
-                    {
-                        format = existing.Format ?? "Ebook",
-                        interiorStyle = existing.InteriorStyle ?? "Novel",
-                        textSize = existing.TextSize ?? "Medium",
-                        lineSpacing = existing.LineSpacing ?? "1.6",
-                        publishingPlatforms = existing.PublishingPlatforms ?? "",
-                        publishingPlatform = existing.PublishingPlatform ?? primaryPlatform ?? "",
-                        savedAtUtc = DateTime.UtcNow
-                    })
-                    : req.DraftStateJson;
+                var statePayload = JsonSerializer.Serialize(new
+                {
+                    format = existing.Format ?? "Ebook",
+                    interiorStyle = existing.InteriorStyle ?? "Novel",
+                    textSize = existing.TextSize ?? "Medium",
+                    lineSpacing = existing.LineSpacing ?? "1.6",
+                    publishingPlatforms = existing.PublishingPlatforms ?? "",
+                    publishingPlatform = existing.PublishingPlatform ?? primaryPlatform ?? "",
+                    savedAtUtc = DateTime.UtcNow
+                });
                 var key = $"book:{req.BookId}:formattingDraft";
                 var draftSetting = await _context.Settings.FirstOrDefaultAsync(s => s.Key == key);
                 if (draftSetting == null)

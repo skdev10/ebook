@@ -83,7 +83,11 @@
     else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
     if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
     if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
-    bool flowGenerateLock = string.Equals(flowStep, "generate", StringComparison.OrdinalIgnoreCase);
+    bool flowSidebarMinimal = flowBookId > 0 && (
+        string.Equals(flowStep, BookFlowStateService.StepGenerate, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(flowStep, BookFlowStateService.StepFormat, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(flowStep, BookFlowStateService.StepCover, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(flowStep, BookFlowStateService.StepPublish, StringComparison.OrdinalIgnoreCase));
 
     int sidebarActiveBookId = flowBookId;
     if (sidebarActiveBookId <= 0 && ViewBag.SelectedBookId != null)
@@ -3374,7 +3378,7 @@
                         <i data-lucide="layout-grid" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Dashboard</span>
                     </a>
                 </li>
-                @if (!flowGenerateLock)
+                @if (!flowSidebarMinimal)
                 {
                 <li>
                     <a href="@sidebarAiWriterUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" ? "active" : "")">
@@ -4819,7 +4823,7 @@
             ],
             'formatter': [
                 { sel: '[data-guided-tour="fmt-book"]', title: 'Select book', body: 'Choose which book you are formatting. The preview loads from your saved manuscript.' },
-                { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Novel, Modern, Classic, and Minimalist change colors, headings, and paragraph treatment in the live preview.' },
+                { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Novel, Classic, Minimalist, and Elegant trade change colors, headings, and paragraph treatment in the live preview and in PDF/EPUB export.' },
                 { sel: '[data-guided-tour="fmt-preview"]', title: 'Live preview', body: 'This frame simulates a real book page. Use the page controls to flip through.' },
                 { sel: '[data-guided-tour="fmt-actions"]', title: 'Auto-save & continue', body: 'Formatting changes save automatically. Use Next to continue to AI Cover Design.' }
             ],

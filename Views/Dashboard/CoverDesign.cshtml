@@ -1517,24 +1517,41 @@
                         });
                 }).then(function (r) {
                     var ct = (r.headers.get('content-type') || '').toLowerCase();
-                    if (ct.indexOf('application/pdf') >= 0)
-                        return r.blob().then(function (blob) { return { ok: true, blob: blob }; });
-                    return r.json().then(function (j) { return { ok: false, msg: (j && j.message) ? j.message : 'PDF failed' }; });
+                    if (!r.ok) {
+                        return r.json().then(function (j) { return { ok: false, msg: (j && j.message) ? j.message : 'PDF failed' }; })
+                            .catch(function () { return { ok: false, msg: 'PDF failed (HTTP ' + r.status + ')' }; });
+                    }
+                    if (ct.indexOf('application/pdf') < 0) {
+                        return r.text().then(function (t) { return { ok: false, msg: t || 'Server did not return a PDF file.' }; });
+                    }
+                    return r.blob().then(function (blob) {
+                        if (!blob || blob.size < 128) return { ok: false, msg: 'PDF file is empty.' };
+                        return blob.arrayBuffer().then(function (ab) {
+                            var u8 = new Uint8Array(ab);
+                            var hdr = String.fromCharCode(u8[0] || 0, u8[1] || 0, u8[2] || 0, u8[3] || 0);
+                            if (hdr !== '%PDF') return { ok: false, msg: 'Download is not a valid PDF. PDF generation may have failed on the server.' };
+                            return { ok: true, blob: new Blob([ab], { type: 'application/pdf' }) };
+                        });
+                    });
                 }).then(function (result) {
                     Swal.close();
                     if (!result.ok) {
                         toast('error', result.msg || 'PDF failed');
                         return;
                     }
-                    var url = URL.createObjectURL(result.blob);
-                    var a = document.createElement('a');
-                    a.href = url;
                     var base = (bookTitle.value || selectedBook.title || 'book').replace(/[^\w\-\s]/g, '').replace(/\s+/g, '-').replace(/^-|-$/g, '') || 'book';
-                    a.download = base + '-' + selectedBook.bookId + '.pdf';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    URL.revokeObjectURL(url);
+                    var fname = base + '-' + selectedBook.bookId + '.pdf';
+                    if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function') {
+                        window.navigator.msSaveOrOpenBlob(result.blob, fname);
+                    } else {
+                        var url = URL.createObjectURL(result.blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = fname;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(function () { a.remove(); URL.revokeObjectURL(url); }, 120000);
+                    }
                     Swal.fire({
                         icon: 'success',
                         title: 'Ready',

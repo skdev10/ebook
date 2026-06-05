@@ -86,6 +86,7 @@ public class EpubExportService : IEpubExportService
             var itemIndex = 0;
 
             var exportOpt = exportOptions ?? new BookPdfExportOptions();
+            var interiorTpl = InteriorExportTheme.PdfBodyTemplateClass(exportOpt.InteriorStyle);
             var epubCss = InteriorExportTheme.BuildEpubStylesheet(exportOpt);
 
             WriteEntry(zip, "OEBPS/styles.css", epubCss);
@@ -142,7 +143,7 @@ public class EpubExportService : IEpubExportService
                       <title>{chTitle}</title>
                       <link rel="stylesheet" type="text/css" href="styles.css"/>
                     </head>
-                    <body>
+                    <body class="{interiorTpl}">
                       <h1>{chTitle}</h1>
                       {body}
                     </body></html>

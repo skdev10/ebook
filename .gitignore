@@ -38,8 +38,17 @@ _buildcheck/
 Thumbs.db
 Desktop.ini
 
-## User-generated recordings (do not commit)
+## User-generated uploads (do not commit)
 wwwroot/uploads/audio/
+wwwroot/uploads/**/cover_ai_*.png
+
+## Local agent / git scratch files
+.cursor/
+.git-commit-msg.txt
+.git-staged-out.txt
+.git-status-out.txt
+git-branch.txt
+git-status-out.txt
 
 ## Local overrides with real secrets (optional)
 appsettings.Local.json

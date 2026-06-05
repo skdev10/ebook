@@ -1398,6 +1398,8 @@ namespace EBookDashboard.Controllers
 
                 if (pdfBytes == null || pdfBytes.Length < 128)
                     return StatusCode(500, new { success = false, message = "PDF generation produced an empty file." });
+                if (!IsValidPdfBytes(pdfBytes))
+                    return StatusCode(500, new { success = false, message = "PDF generation produced invalid output. Verify Chromium/Puppeteer is available on the server." });
 
                 var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
                 if (string.IsNullOrEmpty(rawName)) rawName = "book";
@@ -1466,6 +1468,8 @@ namespace EBookDashboard.Controllers
 
                 if (pdfBytes == null || pdfBytes.Length < 128)
                     return StatusCode(500, new { success = false, message = "Interior PDF generation produced an empty file." });
+                if (!IsValidPdfBytes(pdfBytes))
+                    return StatusCode(500, new { success = false, message = "Interior PDF generation produced invalid output. Verify Chromium/Puppeteer is available on the server." });
 
                 var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book-interior").Trim();
                 if (string.IsNullOrEmpty(rawName)) rawName = "book-interior";
@@ -1931,10 +1935,19 @@ namespace EBookDashboard.Controllers
             var fmtRow = await _context.BookFormatting.AsNoTracking()
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
             var exportOpt = new BookPdfExportOptions();
-            exportOpt.MergeFromBookFormatting(fmtRow);
-            exportOpt.OverlayFromDraftJson(draftRow?.Value);
+            if (fmtRow != null)
+                exportOpt.MergeFromBookFormatting(fmtRow);
+            else
+                exportOpt.OverlayFromDraftJson(draftRow?.Value);
             return exportOpt;
         }
+
+        private static bool IsValidPdfBytes(byte[]? pdfBytes) =>
+            pdfBytes is { Length: >= 128 }
+            && pdfBytes[0] == (byte)'%'
+            && pdfBytes[1] == (byte)'P'
+            && pdfBytes[2] == (byte)'D'
+            && pdfBytes[3] == (byte)'F';
 
         private static string InferPaperTypeFromGenre(string? genre)
         {

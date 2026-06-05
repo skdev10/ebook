@@ -1847,8 +1847,10 @@ namespace EBookDashboard.Controllers
             var fmtRow = await _context.BookFormatting.AsNoTracking()
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
             var exportOpt = new BookPdfExportOptions();
-            exportOpt.MergeFromBookFormatting(fmtRow);
-            exportOpt.OverlayFromDraftJson(draftRow?.Value);
+            if (fmtRow != null)
+                exportOpt.MergeFromBookFormatting(fmtRow);
+            else
+                exportOpt.OverlayFromDraftJson(draftRow?.Value);
             return exportOpt;
         }
 

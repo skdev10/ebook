@@ -11,11 +11,10 @@ namespace EBookDashboard.Controllers
         private readonly ApplicationDbContext _context;
         private readonly BookProcessingService _processingService;
 
-        // Constructor with dependency injection
-        public BookProcessingController(ApplicationDbContext context)
+        public BookProcessingController(ApplicationDbContext context, BookProcessingService processingService)
         {
             _context = context;
-            _processingService = new BookProcessingService(_context);
+            _processingService = processingService;
         }
         // Add this to your BookProcessingController
         [HttpGet]

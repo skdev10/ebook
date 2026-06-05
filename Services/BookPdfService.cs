@@ -46,6 +46,16 @@ public class BookPdfService : IBookPdfService
             "Google", "Chrome", "Application", "chrome.exe");
         if (File.Exists(winChromeX86)) return winChromeX86;
 
+        var winEdge = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            "Microsoft", "Edge", "Application", "msedge.exe");
+        if (File.Exists(winEdge)) return winEdge;
+
+        var winEdge64 = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "Microsoft", "Edge", "Application", "msedge.exe");
+        if (File.Exists(winEdge64)) return winEdge64;
+
         await EnsureChromiumAsync(cancellationToken);
         return null;
     }
@@ -129,8 +139,8 @@ public class BookPdfService : IBookPdfService
 
         var tocHtml = BuildTocHtml(chapters, phBase);
         var copyrightHtml = BuildCopyrightPageHtml(title, author, publisherDisplayName, layout.BleedNoteHtml, layout.CmykNoteHtml);
-        var themeCss = BuildThemeCss(opt);
-        var bodyTpl = InteriorTemplateClass(opt.InteriorStyle);
+        var themeCss = InteriorExportTheme.BuildPdfThemeCss(opt);
+        var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
 
         var html = BuildPrintDocumentHtml(
             title,
@@ -164,18 +174,30 @@ public class BookPdfService : IBookPdfService
             }
         };
 
-        await using var browser = await Puppeteer.LaunchAsync(launchOptions);
-        await using var page = await browser.NewPageAsync();
-        await page.SetContentAsync(html, new NavigationOptions
+        try
         {
-            WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded },
-            Timeout = 45_000
-        });
-        await Task.Delay(350, cancellationToken);
+            await using var browser = await Puppeteer.LaunchAsync(launchOptions);
+            await using var page = await browser.NewPageAsync();
+            await page.SetContentAsync(html, new NavigationOptions
+            {
+                WaitUntil = new[] { WaitUntilNavigation.DOMContentLoaded },
+                Timeout = 45_000
+            });
+            await Task.Delay(350, cancellationToken);
 
-        var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
-        EnsureValidPdf(pdfBytes);
-        return pdfBytes;
+            var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
+            EnsureValidPdf(pdfBytes);
+            _logger.LogInformation("PDF generated: {Bytes} bytes, style={Style}, book={BookId}",
+                pdfBytes.Length, opt.InteriorStyle, details.BookId);
+            return pdfBytes;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Puppeteer PDF render failed (executable={Executable})", executablePath ?? "bundled");
+            throw new InvalidOperationException(
+                "PDF generation failed. Install Google Chrome or Microsoft Edge on the server, or set Puppeteer:ExecutablePath in configuration.",
+                ex);
+        }
     }
 
     private static void EnsureValidPdf(byte[]? pdfBytes)
@@ -212,16 +234,6 @@ public class BookPdfService : IBookPdfService
         }
 
         return o;
-    }
-
-    private static string InteriorTemplateClass(string? interiorStyle)
-    {
-        var s = (interiorStyle ?? "Novel").Trim();
-        if (s.Equals("Modern", StringComparison.OrdinalIgnoreCase)) return "tpl-modern";
-        if (s.Equals("Minimalist", StringComparison.OrdinalIgnoreCase)) return "tpl-minimalist";
-        if (s.Equals("Classic", StringComparison.OrdinalIgnoreCase)) return "tpl-classic";
-        if (s.Equals("ElegantTrade", StringComparison.OrdinalIgnoreCase)) return "tpl-elegant-trade";
-        return "tpl-novel";
     }
 
     private static string CultureInvariant(FormattableString fs) => FormattableString.Invariant(fs);
@@ -317,101 +329,6 @@ public class BookPdfService : IBookPdfService
             sb.AppendLine("""<li class="toc-item">No chapters yet.</li>""");
         sb.AppendLine("</ol></div>");
         return sb.ToString();
-    }
-
-    private static string BuildThemeCss(BookPdfExportOptions opt)
-    {
-        var pt = opt.BodyFontSizePt();
-        var lh = opt.BodyLineHeight();
-        var interior = (opt.InteriorStyle ?? "Novel").Trim();
-        var isModern = interior.Equals("Modern", StringComparison.OrdinalIgnoreCase);
-        var isMinimal = interior.Equals("Minimalist", StringComparison.OrdinalIgnoreCase);
-        var isClassic = interior.Equals("Classic", StringComparison.OrdinalIgnoreCase);
-        var isElegantTrade = interior.Equals("ElegantTrade", StringComparison.OrdinalIgnoreCase);
-        var isNovel = interior.Equals("Novel", StringComparison.OrdinalIgnoreCase);
-        var isFallbackNovel = !isModern && !isMinimal && !isClassic && !isElegantTrade && !isNovel;
-        if (isFallbackNovel) isNovel = true;
-
-        var bodyFont = (isModern || isMinimal)
-            ? "system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"
-            : isClassic
-                ? "'Palatino Linotype', 'Book Antiqua', Palatino, 'Times New Roman', Times, serif"
-                : isElegantTrade
-                    ? "'EB Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif"
-                    : "'Palatino Linotype', Georgia, 'Times New Roman', Times, serif";
-
-        var headingColor = isModern ? "#4f46e5" : isMinimal ? "#0a0a0a" : isClassic ? "#78350f" : isElegantTrade ? "#4a3728" : "#4c1d95";
-        var chapterAlign = (isClassic || isNovel || isElegantTrade) ? "text-align:center;" : "";
-        var justify = isMinimal || isModern ? "text-align:left;" : "text-align:justify;";
-
-        var baseCss = BuildThemeCssInner(pt, lh, bodyFont, headingColor, chapterAlign, justify);
-
-        // Per-template refinements (distinct interiors for export, not only a stored label).
-        var tpl = string.Concat(
-            ".book-pdf-body.tpl-novel .chapter-heading { font-size: 16pt; letter-spacing: 0.02em; border-bottom: 2px solid #c4b5fd; padding-bottom: 4mm; margin-top: 2mm; } ",
-            ".book-pdf-body.tpl-novel .toc-title { font-family: Georgia, 'Times New Roman', serif; } ",
-            ".book-pdf-body.tpl-classic .chapter-heading { font-size: 17pt; font-variant: small-caps; letter-spacing: 0.12em; border-bottom: 3px double #d6c4a8; padding-bottom: 5mm; margin-top: 4mm; } ",
-            ".book-pdf-body.tpl-classic .toc-title { font-variant: small-caps; letter-spacing: 0.15em; } ",
-            ".book-pdf-body.tpl-classic blockquote { border-left-color: #d6c4a8; } ",
-            ".book-pdf-body.tpl-modern .chapter-heading { font-family: system-ui, 'Segoe UI', sans-serif; font-weight: 800; border-bottom: none; border-left: 4px solid #4f46e5; padding-left: 4mm; text-align: left; } ",
-            ".book-pdf-body.tpl-modern .toc-title { font-family: system-ui, sans-serif; font-weight: 800; } ",
-            ".book-pdf-body.tpl-minimalist .chapter-heading { font-size: 14pt; font-weight: 600; border-bottom: 1px solid #e5e5e5; letter-spacing: -0.02em; text-align: left; } ",
-            ".book-pdf-body.tpl-minimalist .toc-title { font-weight: 600; letter-spacing: -0.03em; } ",
-            ".book-pdf-body.tpl-elegant-trade .chapter-heading { font-family: 'Lora', Georgia, 'Times New Roman', Times, serif; font-size: 17pt; font-weight: 600; letter-spacing: 0.04em; color: #3d2914; border-bottom: 1px solid #c9b8a0; padding-bottom: 5mm; margin-top: 3mm; } ",
-            ".book-pdf-body.tpl-elegant-trade .toc-title { font-family: 'Lora', Georgia, 'Times New Roman', Times, serif; font-weight: 600; letter-spacing: 0.03em; color: #4a3728; } ",
-            ".book-pdf-body.tpl-elegant-trade blockquote { border-left-color: #c9b8a0; } "
-        );
-
-        return baseCss + tpl;
-    }
-
-    private static string BuildThemeCssInner(string pt, string lh, string bodyFont, string headingColor, string chapterAlign, string justify)
-    {
-        return string.Concat(
-            ":root { ",
-            "--body-pt: ", pt, "pt; ",
-            "--body-lh: ", lh, "; ",
-            "--body-font: ", bodyFont, "; ",
-            "--heading-color: ", headingColor, "; ",
-            "} ",
-            ".book-pdf-body { font-family: var(--body-font); font-size: var(--body-pt); line-height: var(--body-lh); color: #0f172a; margin: 0; } ",
-            ".front-matter-page { page-break-after: always; padding-top: 8mm; } ",
-            ".copyright-page .cr-meta { font-size: 12pt; margin: 0 0 4mm; } ",
-            ".copyright-page .cr-legal { font-size: 10pt; margin: 6mm 0 3mm; line-height: 1.5; } ",
-            ".copyright-page .cr-small { font-size: 9pt; color: #64748b; margin-top: 4mm; line-height: 1.45; } ",
-            ".toc-title { font-size: 20pt; margin: 0 0 6mm; color: var(--heading-color); font-weight: 600; } ",
-            ".toc-hint { font-size: 9pt; color: #64748b; margin: 0 0 8mm; } ",
-            ".toc-list { margin: 0; padding-left: 5mm; } ",
-            ".toc-item { margin: 0 0 5mm; font-size: 11pt; list-style-position: outside; } ",
-            ".toc-chapter-line { font-weight: 600; margin: 0 0 2mm; display: flex; align-items: baseline; gap: 6mm; } ",
-            ".toc-chapter-line::after { content: ''; flex: 1 1 auto; border-bottom: 1px dotted #94a3b8; transform: translateY(-2px); } ",
-            ".toc-page-ref { font-weight: 600; min-width: 9mm; text-align: right; color: #334155; } ",
-            ".toc-subheadings { list-style: none; padding-left: 8mm; margin: 0 0 2mm; } ",
-            ".toc-subheading-item { font-size: 10pt; color: #334155; margin: 0 0 1.8mm; font-weight: 400; line-height: 1.35; } ",
-            ".toc-heading-prefix { font-weight: 600; color: #0f172a; margin-right: 2mm; } ",
-            ".toc-link { color: #0f172a; text-decoration: none; } ",
-            ".title-page .subtitle { font-size: 12pt; color: #64748b; margin-top: 4mm; } ",
-            ".chapter-heading { font-size: 15pt; margin: 0 0 6mm; color: var(--heading-color); border-bottom: 1px solid #e2e8f0; padding-bottom: 2mm; ",
-            chapterAlign, " } ",
-            ".export-meta { font-size: 9pt; color: #64748b; margin: 0 0 4mm; line-height: 1.45; } ",
-            ".chapter-body { ", justify, " } ",
-            ".manuscript-h1 { font-size: 16pt; margin: 5mm 0 3mm; } ",
-            ".manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; } ",
-            ".manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; } ",
-            ".manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; } ",
-            ".manuscript-p { margin: 0 0 3mm; orphans: 3; widows: 3; page-break-inside: avoid; } ",
-            ".manuscript-hr { border: none; border-top: 1px solid #cbd5e1; margin: 6mm 0; } ",
-            "blockquote { margin: 3mm 0 3mm 6mm; padding-left: 4mm; border-left: 3px solid #c4b5fd; color: #334155; } ",
-            /* In-chapter headings (h1–h6) must not start a new page — only a new <section class=\"chapter\"> does (KDP-style). */
-            ".chapter-body h1, .chapter-body h2, .chapter-body h3, .chapter-body h4, .chapter-body h5, .chapter-body h6, ",
-            ".chapter-body .manuscript-h1, .chapter-body .manuscript-h2, .chapter-body .manuscript-h3, .chapter-body .manuscript-h4, .chapter-body .manuscript-h5, .chapter-body .manuscript-h6 { ",
-            "page-break-before: avoid !important; break-before: avoid !important; page-break-after: avoid; break-after: avoid; ",
-            "page-break-inside: avoid; break-inside: avoid; } ",
-            /* Chapter 2+ always start a new page; headings inside .chapter-body never force that. */
-            ".manuscript-root > section.chapter { -webkit-region-break-inside: auto; } ",
-            ".manuscript-root > section.chapter:first-of-type { break-before: auto; page-break-before: auto; } ",
-            ".manuscript-root > section.chapter ~ section.chapter { break-before: page; page-break-before: always; } ",
-            ".manuscript-root > section.chapter:last-of-type { break-after: auto; page-break-after: auto; } ");
     }
 
     /// <summary>Stable chapter order for export — one stored chapter per PDF section (no splitting on ## / h2).</summary>

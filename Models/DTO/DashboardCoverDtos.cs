@@ -49,11 +49,18 @@ namespace EBookDashboard.Models.DTO
         public string? DisplayGenre { get; set; }
 
         /// <summary>Optional overrides; when null, server loads saved formatter draft from <c>Settings</c>.</summary>
+        [JsonPropertyName("interiorStyle")]
         public string? InteriorStyle { get; set; }
+        [JsonPropertyName("textSize")]
         public string? TextSize { get; set; }
+        [JsonPropertyName("lineSpacing")]
         public string? LineSpacing { get; set; }
+        [JsonPropertyName("bookFormat")]
         public string? BookFormat { get; set; }
+        [JsonPropertyName("publishingPlatform")]
         public string? PublishingPlatform { get; set; }
+        [JsonPropertyName("publishingPlatforms")]
+        public string? PublishingPlatforms { get; set; }
 
         /// <summary>Ebook export format: <c>epub</c> (default) or <c>docx</c> (Word document).</summary>
         public string? ExportFormat { get; set; }

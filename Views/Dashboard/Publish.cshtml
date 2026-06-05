@@ -1163,16 +1163,25 @@
     function ensureFormatterSavedOnServer() {
         if (!bookId || bookId <= 0) return Promise.resolve(true);
         var snap = getFormatterDraftSnapshot();
+        var draftJson = null;
+        try {
+            draftJson = localStorage.getItem('formatter_draft_v2_' + bookId);
+        } catch (e) { /* ignore */ }
+        var interior = snap.interiorStyle || (publishFormatterSnapshot && publishFormatterSnapshot.interiorStyle) || null;
+        var textSize = snap.textSize || (publishFormatterSnapshot && publishFormatterSnapshot.textSize) || null;
+        var lineSpacing = snap.lineSpacing || (publishFormatterSnapshot && publishFormatterSnapshot.lineSpacing) || null;
         var payload = {
             bookId: bookId,
-            format: snap.bookFormat || publishBookFormat || 'Ebook',
-            interiorStyle: snap.interiorStyle || 'Novel',
-            textSize: snap.textSize || 'Medium',
-            lineSpacing: snap.lineSpacing || '1.6',
+            format: snap.bookFormat || publishBookFormat || null,
             publishingPlatforms: snap.publishingPlatforms || '',
             publishingPlatform: snap.publishingPlatform || '',
-            previewPageCount: snap.previewPageCount || null
+            previewPageCount: snap.previewPageCount || null,
+            draftStateJson: draftJson || null
         };
+        if (interior) payload.interiorStyle = interior;
+        if (textSize) payload.textSize = textSize;
+        if (lineSpacing) payload.lineSpacing = lineSpacing;
+        if (!payload.format) payload.format = publishBookFormat || 'Ebook';
         return fetch('/BookDesign/SaveBookFormatting', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1332,6 +1341,10 @@
         var typed = (blob && blob.type === 'application/pdf')
             ? blob
             : new Blob([blob], { type: filename && filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : (blob.type || 'application/octet-stream') });
+        if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function' && typed.type === 'application/pdf') {
+            window.navigator.msSaveOrOpenBlob(typed, filename || 'book.pdf');
+            return;
+        }
         var url = URL.createObjectURL(typed);
         var a = document.createElement('a');
         a.href = url;
@@ -1339,10 +1352,11 @@
         a.rel = 'noopener';
         document.body.appendChild(a);
         a.click();
+        // Revoke only after the browser finishes writing the file — early revoke corrupts PDFs on Windows.
         setTimeout(function () {
             a.remove();
             URL.revokeObjectURL(url);
-        }, 400);
+        }, 120000);
     }
 
     function safeBookSlug() {

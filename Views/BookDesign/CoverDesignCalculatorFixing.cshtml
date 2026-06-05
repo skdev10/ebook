@@ -1075,7 +1075,29 @@
         border: 1px solid #e4e4e7;
         box-shadow: none;
     }
-    #book-formatter-root #paginatedReaderShell.interior-elegant-trade #bookContainer {
+    #book-formatter-root #paginatedReaderShell.interior-elegant-trade #bookContainer,
+    #book-formatter-root #bookContainer.interior-elegant-trade {
+        background: #fcf9f3;
+        border: 1px solid #cfbea5;
+    }
+    #book-formatter-root #bookContainer.interior-novel {
+        background: #fffdf8;
+        border: 1px solid #d4b08a;
+    }
+    #book-formatter-root #bookContainer.interior-modern {
+        background: #ffffff;
+        border: 1px solid #9fb1c9;
+    }
+    #book-formatter-root #bookContainer.interior-classic {
+        background: #fdfcfa;
+        border: 1px solid #ddd2c4;
+    }
+    #book-formatter-root #bookContainer.interior-minimalist {
+        background: #ffffff;
+        border: 1px solid #e4e4e7;
+        box-shadow: none;
+    }
+    #book-formatter-root #bookContainer.interior-elegant-trade {
         background: #fcf9f3;
         border: 1px solid #cfbea5;
     }
@@ -1293,6 +1315,52 @@
         border: none;
         box-shadow: none;
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+    /* Full preview canvas: outer mat + scroll host follow selected interior style */
+    #book-formatter-root #fmt-book-result.fmt-mat-novel {
+        background: linear-gradient(180deg, #f7eee2 0%, #f3e4d3 100%);
+        border-color: #d7bf9f;
+    }
+    #book-formatter-root #fmt-book-result.fmt-mat-modern {
+        background: linear-gradient(180deg, #eceff5 0%, #e2e8f0 100%);
+        border-color: #c6d2e2;
+    }
+    #book-formatter-root #fmt-book-result.fmt-mat-classic {
+        background: linear-gradient(180deg, #e8e2d8 0%, #d8d1c6 100%);
+        border-color: #bcae99;
+    }
+    #book-formatter-root #fmt-book-result.fmt-mat-minimalist {
+        background: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
+        border-color: #e4e4e7;
+    }
+    #book-formatter-root #fmt-book-result.fmt-mat-elegant-trade {
+        background: linear-gradient(180deg, #ece4d8 0%, #e0d4c4 100%);
+        border-color: #c9b79f;
+    }
+    #book-formatter-root #fmt-preview-scroll-host.interior-novel { background: transparent; }
+    #book-formatter-root #fmt-preview-scroll-host.interior-classic { background: transparent; }
+    #book-formatter-root #fmt-preview-scroll-host.interior-minimalist { background: transparent; }
+    #book-formatter-root #fmt-preview-scroll-host.interior-elegant-trade { background: transparent; }
+    #book-formatter-root #bookStage.interior-novel #bookContainer,
+    #book-formatter-root #bookContainer.interior-novel {
+        background: #fffdf8 !important;
+        border-color: #d4b08a !important;
+    }
+    #book-formatter-root #bookStage.interior-classic #bookContainer,
+    #book-formatter-root #bookContainer.interior-classic {
+        background: #fdfcfa !important;
+        border-color: #ddd2c4 !important;
+    }
+    #book-formatter-root #bookStage.interior-minimalist #bookContainer,
+    #book-formatter-root #bookContainer.interior-minimalist {
+        background: #ffffff !important;
+        border-color: #e4e4e7 !important;
+        box-shadow: none !important;
+    }
+    #book-formatter-root #bookStage.interior-elegant-trade #bookContainer,
+    #book-formatter-root #bookContainer.interior-elegant-trade {
+        background: #fcf9f3 !important;
+        border-color: #cfbea5 !important;
     }
     #fmt-book-result .paginated-reader-shell.interior-novel {
         background: linear-gradient(180deg, #f7eee2 0%, #f3e4d3 100%);
@@ -1716,14 +1784,12 @@
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Interior style</label>
                             <select id="style-select" class="sr-only" tabindex="-1" aria-hidden="true" title="Interior style">
                                 @if ((Model?.InteriorStyle ?? "Novel") == "Novel") { <option value="Novel" selected>Novel</option> } else { <option value="Novel">Novel</option> }
-                                @if ((Model?.InteriorStyle ?? "") == "Modern") { <option value="Modern" selected>Modern</option> } else { <option value="Modern">Modern</option> }
                                 @if ((Model?.InteriorStyle ?? "") == "Classic") { <option value="Classic" selected>Classic</option> } else { <option value="Classic">Classic</option> }
                                 @if ((Model?.InteriorStyle ?? "") == "Minimalist") { <option value="Minimalist" selected>Minimalist</option> } else { <option value="Minimalist">Minimalist</option> }
                                 @if ((Model?.InteriorStyle ?? "") == "ElegantTrade") { <option value="ElegantTrade" selected>Elegant trade (POD)</option> } else { <option value="ElegantTrade">Elegant trade (POD)</option> }
                             </select>
                             <div id="fmt-interior-cards" class="grid grid-cols-2 sm:grid-cols-3 gap-2" role="group" aria-label="Interior style">
                                 <button type="button" class="fmt-int-card" data-style="Novel"><span class="fmt-int-card__badge">Traditional</span><span class="fmt-int-card__name">Novel</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Modern"><span class="fmt-int-card__badge">Contemporary</span><span class="fmt-int-card__name">Modern</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Classic"><span class="fmt-int-card__badge">Fine book</span><span class="fmt-int-card__name">Classic</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Minimalist"><span class="fmt-int-card__badge">Clean</span><span class="fmt-int-card__name">Minimalist</span></button>
                                 <button type="button" class="fmt-int-card" data-style="ElegantTrade"><span class="fmt-int-card__badge">POD</span><span class="fmt-int-card__name">Elegant trade</span></button>
@@ -1848,7 +1914,7 @@
                                     </button>
                                 </div>
                                 <!-- Match AI Book Writer `#bookResult` lavender panel + scroll host -->
-                                <div id="fmt-book-result" class="fmt-book-result relative rounded-2xl py-6 md:py-8 lg:py-10 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg" style="background-color:#f5f3ff;border-color:#ddd6fe;">
+                                <div id="fmt-book-result" class="fmt-book-result fmt-mat-novel relative rounded-2xl py-6 md:py-8 lg:py-10 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg">
                                     <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview">
                                         <div id="preview-single" class="preview-panel-single flex flex-1 flex-col min-h-0 w-full" tabindex="0">
                                             <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell reader-content-wrap interior-novel interior-preview-novel relative w-full flex-1 min-h-0 flex flex-col">
@@ -2109,9 +2175,17 @@
         'Classic': 'interior-classic',
         'ElegantTrade': 'interior-elegant-trade'
     };
+    var fmtMatClassMap = {
+        'Minimalist': 'fmt-mat-minimalist',
+        'Novel': 'fmt-mat-novel',
+        'Modern': 'fmt-mat-modern',
+        'Classic': 'fmt-mat-classic',
+        'ElegantTrade': 'fmt-mat-elegant-trade'
+    };
     var allInteriorStyleClasses = Object.values(interiorStyleClassMap);
     var allInteriorShellClasses = Object.values(interiorPreviewShellMap);
     var allInteriorWrapClasses = Object.values(interiorWrapClassMap);
+    var allFmtMatClasses = Object.values(fmtMatClassMap);
 
     /** 6×9 trim pagination: chars per preview page (not PARAS count). */
     const CONTENT_CHARS_SOFT_LIMIT = 5500;
@@ -2193,7 +2267,10 @@
         const sizeEl = document.getElementById('text-size-select');
         const lineEl = document.getElementById('line-spacing-select');
         if (fmtEl && state.format && ['Ebook', 'Paperback', 'Both'].indexOf(state.format) >= 0) fmtEl.value = state.format;
-        if (styleEl && state.interiorStyle) styleEl.value = state.interiorStyle;
+        if (styleEl && state.interiorStyle) {
+            var styleVal = state.interiorStyle === 'Modern' ? 'Novel' : state.interiorStyle;
+            styleEl.value = styleVal;
+        }
         if (sizeEl && state.textSize) sizeEl.value = state.textSize;
         if (lineEl && state.lineSpacing) lineEl.value = state.lineSpacing;
         if (typeof state.publishingPlatforms === 'string') setSelectedPlatforms(state.publishingPlatforms);
@@ -4327,24 +4404,50 @@
         var cls = interiorStyleClassMap[interior] || interiorStyleClassMap['Novel'];
         var shellCls = interiorPreviewShellMap[interior] || interiorPreviewShellMap['Novel'];
         var wrapCls = interiorWrapClassMap[interior] || interiorWrapClassMap['Novel'];
+        var matCls = fmtMatClassMap[interior] || fmtMatClassMap['Novel'];
         [document.getElementById('bookPageContentA'), document.getElementById('bookPageContentB')].filter(Boolean).forEach(function(el) {
             el.classList.remove(...allInteriorStyleClasses);
             if (cls) el.classList.add(cls);
         });
-        var shell = document.getElementById('paginatedReaderShell');
-        var stage = document.getElementById('bookStage');
-        [shell, stage].filter(Boolean).forEach(function(el) {
-            el.classList.remove(...allInteriorShellClasses);
-            if (shellCls) el.classList.add(shellCls);
+        document.querySelectorAll('#book-formatter-root .book-page-content').forEach(function(el) {
+            el.classList.remove(...allInteriorStyleClasses);
+            if (cls) el.classList.add(cls);
         });
-        if (shell) {
-            shell.classList.remove(...allInteriorWrapClasses);
-            if (wrapCls) shell.classList.add(wrapCls);
+        var shells = getFmtPaginatedShells();
+        if (!shells.length) {
+            var mainShell = document.getElementById('paginatedReaderShell');
+            if (mainShell) shells = [mainShell];
         }
-        document.querySelectorAll('#bookStage .book-page-background').forEach(function(bg) {
+        shells.forEach(function(shell) {
+            shell.classList.remove(...allInteriorShellClasses, ...allInteriorWrapClasses);
+            if (shellCls) shell.classList.add(shellCls);
+            if (wrapCls) shell.classList.add(wrapCls);
+        });
+        var stage = document.getElementById('bookStage');
+        if (stage) {
+            stage.classList.remove(...allInteriorShellClasses, ...allInteriorWrapClasses);
+            if (shellCls) stage.classList.add(shellCls);
+            if (wrapCls) stage.classList.add(wrapCls);
+        }
+        var container = document.getElementById('bookContainer');
+        if (container) {
+            container.classList.remove(...allInteriorWrapClasses);
+            if (wrapCls) container.classList.add(wrapCls);
+        }
+        document.querySelectorAll('#book-formatter-root .book-page-background').forEach(function(bg) {
             bg.classList.remove(...allInteriorStyleClasses);
             if (cls) bg.classList.add(cls);
         });
+        var matHost = document.getElementById('fmt-book-result');
+        if (matHost) {
+            matHost.classList.remove(...allFmtMatClasses);
+            if (matCls) matHost.classList.add(matCls);
+        }
+        var scrollHost = document.getElementById('fmt-preview-scroll-host');
+        if (scrollHost) {
+            scrollHost.classList.remove(...allInteriorWrapClasses);
+            if (wrapCls) scrollHost.classList.add(wrapCls);
+        }
     }
 
     function applyPreviewStyles(el) {
@@ -4355,8 +4458,6 @@
         const size = sizeEl ? sizeEl.value : 'Medium';
         const lineSp = lineEl ? lineEl.value : '1.6';
         var previewLineSp = String(lineSp);
-        var lineNum = parseFloat(String(lineSp || '1.6'));
-        if (Number.isFinite(lineNum) && lineNum >= 1.95) previewLineSp = '1.8';
         const interior = styleEl ? styleEl.value : 'Novel';
 
         var fontSize;
@@ -5311,6 +5412,8 @@
 
         document.getElementById('style-select')?.addEventListener('change', function() {
             applyInteriorStyleClasses(this.value || 'Novel');
+            var liveContent = document.getElementById('bookPageContentA') || document.getElementById('preview-content');
+            if (liveContent) applyPreviewStyles(liveContent);
             if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
@@ -5555,7 +5658,7 @@
             0 2px 0 rgba(255, 255, 255, 0.85) inset,
             0 14px 40px -12px rgba(91, 33, 182, 0.22),
             0 4px 16px rgba(15, 23, 42, 0.12);
-        background: #fafaf9;
+        background: #fffdf8;
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
     }
     #book-formatter-root .book-page-layer {
@@ -5574,7 +5677,7 @@
     #book-formatter-root .book-page-background {
         position: absolute;
         inset: 0;
-        background: #fafaf9;
+        background: inherit;
         border-radius: 2px;
     }
     #book-formatter-root .book-page-content-wrap {
