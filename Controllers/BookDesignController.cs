@@ -616,7 +616,8 @@ namespace EBookDashboard.Controllers
                 }
 
                 var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId);
-                if (BookFlowStateService.StepRank(savedFlowStep) > BookFlowStateService.StepRank(BookFlowStateService.StepFormat))
+                // Allow format + cover steps (soft back from Cover Design may briefly still show cover).
+                if (BookFlowStateService.StepRank(savedFlowStep) > BookFlowStateService.StepRank(BookFlowStateService.StepCover))
                 {
                     TempData["InfoMessage"] = "Continue your project from the Dashboard.";
                     return Redirect(_bookFlow.BuildResumeUrl(bookId, savedFlowStep, savedFlowPath));

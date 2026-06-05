@@ -2552,8 +2552,9 @@ namespace EBookDashboard.Controllers
             return View();
         }
 
-        /// <summary>Hard-reset the current flow step when user confirms back navigation.</summary>
+        /// <summary>Soft or hard flow step reset when user navigates back.</summary>
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         [Route("Dashboard/ResetFlowStep")]
         public async Task<IActionResult> ResetFlowStep([FromBody] ResetFlowStepRequest req)
         {
@@ -2593,15 +2594,13 @@ namespace EBookDashboard.Controllers
             await _bookFlow.RegressStepAsync(req.BookId, step);
 
             var (newStep, newPath) = await _bookFlow.GetStepAsync(req.BookId);
-            if (step == BookFlowStateService.StepFormat)
-                HttpContext.Session.SetString("FormattingDone", "0");
             if (newStep == BookFlowStateService.StepGenerate)
                 HttpContext.Session.Remove("CoverFinalized");
             return Json(new
             {
                 success = true,
                 step = newStep,
-                wiped = step == BookFlowStateService.StepCover,
+                wiped = false,
                 resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, newStep, newPath)
             });
         }
