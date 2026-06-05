@@ -1846,12 +1846,7 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:formattingDraft", cancellationToken);
             var fmtRow = await _context.BookFormatting.AsNoTracking()
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
-            var exportOpt = new BookPdfExportOptions();
-            if (fmtRow != null)
-                exportOpt.MergeFromBookFormatting(fmtRow);
-            else
-                exportOpt.OverlayFromDraftJson(draftRow?.Value);
-            return exportOpt;
+            return BookPdfExportOptions.LoadFromPersistence(fmtRow, draftRow?.Value);
         }
 
         private async Task<string> ResolveBookCoverAsync(string? existingCoverPath, string? title, string fallbackUrl)
@@ -2638,10 +2633,9 @@ namespace EBookDashboard.Controllers
             {
                 var draftRow = await _context.Settings.AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Key == $"book:{req.BookId}:formattingDraft", cancellationToken);
-                var exportOpt = BookPdfExportOptions.FromDraftJson(draftRow?.Value);
                 var fmtRow = await _context.BookFormatting.AsNoTracking()
                     .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == sessionUserId.Value, cancellationToken);
-                exportOpt.MergeFromBookFormatting(fmtRow);
+                var exportOpt = BookPdfExportOptions.LoadFromPersistence(fmtRow, draftRow?.Value);
                 exportOpt.ApplyRequestOverrides(req);
                 exportOpt.Format = "Paperback";
                 exportOpt.IncludeCoverPage = false;

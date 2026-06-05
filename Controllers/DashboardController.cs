@@ -781,10 +781,8 @@ namespace EBookDashboard.Controllers
             return months == 1 ? "Edited 1 month ago" : $"Edited {months} months ago";
         }
 
-        private static string NormalizePublishingPlatformForExport(string? platform)
-        {
-            return string.IsNullOrWhiteSpace(platform) ? "" : "Just Print Ready File";
-        }
+        private static string NormalizePublishingPlatformForExport(string? platform) =>
+            string.IsNullOrWhiteSpace(platform) ? "" : platform.Trim();
 
         private static List<DemoReaderFriendViewModel> GetDemoReaderFriends()
         {
@@ -1437,6 +1435,8 @@ namespace EBookDashboard.Controllers
             var orderedChapters = details.Chapters.OrderBy(c => c.ChapterNumber).ToList();
             if (orderedChapters.Count == 0)
                 return BadRequest(new { success = false, message = "Add at least one chapter in AI Writer before exporting the PDF." });
+            if (!orderedChapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
+                return BadRequest(new { success = false, message = "Your chapters need body text. Add content in AI Writer, save, then download again." });
 
             try
             {
@@ -1456,8 +1456,8 @@ namespace EBookDashboard.Controllers
                     details,
                     null,
                     (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
-                    (req.DisplayAuthor ?? "").Trim(),
-                    (req.DisplayGenre ?? "").Trim(),
+                    (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
+                    (req.DisplayGenre ?? details.Genre ?? "").Trim(),
                     exportOpt,
                     publisherLabel,
                     cancellationToken);
@@ -1476,10 +1476,15 @@ namespace EBookDashboard.Controllers
                 Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
                 return File(pdfBytes, "application/pdf", fileName);
             }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "DownloadBookInteriorPdf failed for book {BookId}", req.BookId);
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "DownloadBookInteriorPdf failed for book {BookId}", req.BookId);
-                return StatusCode(500, new { success = false, message = "Interior PDF generation failed." });
+                return StatusCode(500, new { success = false, message = "Interior PDF generation failed. " + ex.Message });
             }
         }
 
@@ -1930,12 +1935,7 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:formattingDraft", cancellationToken);
             var fmtRow = await _context.BookFormatting.AsNoTracking()
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
-            var exportOpt = new BookPdfExportOptions();
-            if (fmtRow != null)
-                exportOpt.MergeFromBookFormatting(fmtRow);
-            else
-                exportOpt.OverlayFromDraftJson(draftRow?.Value);
-            return exportOpt;
+            return BookPdfExportOptions.LoadFromPersistence(fmtRow, draftRow?.Value);
         }
 
         private static bool IsValidPdfBytes(byte[]? pdfBytes) =>

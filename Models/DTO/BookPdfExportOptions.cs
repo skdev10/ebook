@@ -123,6 +123,14 @@ public class BookPdfExportOptions
         Normalize();
     }
 
+    /// <summary>Load export options from persisted formatter draft JSON + BookFormatting row (DB wins on conflicts).</summary>
+    public static BookPdfExportOptions LoadFromPersistence(BookFormatting? formattingRow, string? draftJson)
+    {
+        var exportOpt = FromDraftJson(draftJson);
+        exportOpt.MergeFromBookFormatting(formattingRow);
+        return exportOpt;
+    }
+
     /// <summary>Canonicalize interior style / text size / line spacing for export.</summary>
     public void Normalize()
     {

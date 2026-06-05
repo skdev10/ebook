@@ -29,12 +29,30 @@ public class BookPdfService : IBookPdfService
         _configuration = configuration;
     }
 
+    private static readonly string[] LinuxBrowserCandidates =
+    [
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/chromium",
+        "/snap/bin/chromium"
+    ];
+
     private async Task<string?> ResolveBrowserExecutableAsync(CancellationToken cancellationToken)
     {
         var configured = _configuration["Puppeteer:ExecutablePath"]
             ?? Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
         if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
             return configured;
+
+        if (OperatingSystem.IsLinux())
+        {
+            foreach (var candidate in LinuxBrowserCandidates)
+            {
+                if (File.Exists(candidate))
+                    return candidate;
+            }
+        }
 
         var winChrome = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
@@ -87,8 +105,6 @@ public class BookPdfService : IBookPdfService
         string? publisherDisplayName,
         CancellationToken cancellationToken = default)
     {
-        await EnsureChromiumAsync(cancellationToken);
-
         var opt = exportOptions ?? new BookPdfExportOptions();
 
         var title = (displayTitle ?? details.BookTitle ?? "").Trim();

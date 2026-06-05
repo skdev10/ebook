@@ -258,6 +258,7 @@ namespace EBookDashboard.Controllers
         // POST: Save BookFormatting
         //=====================================================
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> SaveBookFormatting([FromBody] SaveBookFormattingRequest req)
         {
             try

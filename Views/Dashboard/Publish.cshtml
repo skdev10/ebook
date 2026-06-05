@@ -1372,6 +1372,10 @@
         return t ? t.value : '';
     }
 
+    function buildExportPayload(overrides) {
+        return Object.assign({}, getFormatterDraftSnapshot(), overrides || {});
+    }
+
     function getFormatterDraftSnapshot() {
         var base = {};
         try {
@@ -1424,13 +1428,13 @@
                 'RequestVerificationToken': token
             },
             credentials: 'same-origin',
-            body: JSON.stringify(Object.assign({
+            body: JSON.stringify(buildExportPayload({
                 bookId: bookId,
                 displayTitle: pbTitle || '',
                 displayAuthor: '',
                 displayGenre: pbGenre || '',
                 exportFormat: fmt
-            }, getFormatterDraftSnapshot()))
+            }))
         })
             .then(function (res) {
                 if (!res.ok) {
@@ -1481,14 +1485,14 @@
                 'RequestVerificationToken': token
             },
             credentials: 'same-origin',
-            body: JSON.stringify(Object.assign({
+            body: JSON.stringify(buildExportPayload({
                 bookId: bookId,
                 displayTitle: pbTitle || '',
                 displayAuthor: '',
                 displayGenre: pbGenre || '',
                 bookFormat: publishBookFormat || 'Paperback',
                 publishingPlatform: 'Just Print Ready File'
-            }, getFormatterDraftSnapshot()))
+            }))
         })
             .then(function (res) {
                 if (!res.ok) {
@@ -1521,14 +1525,14 @@
         }
         if (triggerBtn) triggerBtn.disabled = true;
 
-        fetchPdfExport('/Dashboard/DownloadBookPdf', Object.assign({
+        fetchPdfExport('/Dashboard/DownloadBookPdf', buildExportPayload({
             bookId: bookId,
             displayTitle: pbTitle || '',
             displayAuthor: '',
             displayGenre: pbGenre || '',
             bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
             publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
-        }, getFormatterDraftSnapshot()))
+        }))
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-interior.pdf');
                 showTransientMessage('success', 'Print-ready interior PDF download started.');
@@ -1547,14 +1551,14 @@
             return;
         }
         if (triggerBtn) triggerBtn.disabled = true;
-        fetchPdfExport('/Dashboard/DownloadBookInteriorPdf', Object.assign({
+        fetchPdfExport('/Dashboard/DownloadBookInteriorPdf', buildExportPayload({
             bookId: bookId,
             displayTitle: pbTitle || '',
             displayAuthor: '',
             displayGenre: pbGenre || '',
             bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
             publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
-        }, getFormatterDraftSnapshot()))
+        }))
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-interior.pdf');
                 redirectToDashboardAfterExport('Print-ready interior PDF downloaded — returning to Dashboard…');

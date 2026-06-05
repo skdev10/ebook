@@ -10,16 +10,36 @@ ENV_FILE="${ENV_FILE:-/etc/default/ebookai}"
 
 cd "$APP_DIR"
 
-echo "==> [1/5] Git branch + pull"
+echo "==> [1/6] Git branch + pull"
 git branch
 git checkout "$BRANCH"
 git pull origin "$BRANCH"
 echo "    HEAD: $(git log -1 --oneline)"
 
-echo "==> [2/5] Publish (linux-x64 self-contained)"
+echo "==> [2/5] Chromium for PDF export (interior PDF needs a headless browser)"
+if ! command -v google-chrome-stable >/dev/null 2>&1 \
+   && ! command -v google-chrome >/dev/null 2>&1 \
+   && ! command -v chromium-browser >/dev/null 2>&1 \
+   && ! command -v chromium >/dev/null 2>&1; then
+  echo "    No system Chrome/Chromium found — installing chromium-browser (apt) if available…"
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update -qq && apt-get install -y -qq chromium-browser || apt-get install -y -qq chromium || true
+  fi
+fi
+if command -v google-chrome-stable >/dev/null 2>&1; then
+  echo "    Using $(command -v google-chrome-stable)"
+elif command -v chromium-browser >/dev/null 2>&1; then
+  echo "    Using $(command -v chromium-browser)"
+elif command -v chromium >/dev/null 2>&1; then
+  echo "    Using $(command -v chromium)"
+else
+  echo "    WARNING: Install Chrome/Chromium or set Puppeteer__ExecutablePath in /etc/default/ebookai"
+fi
+
+echo "==> [3/5] Publish (linux-x64 self-contained)"
 dotnet publish newEbook.csproj -c Release -r linux-x64 --self-contained true -maxcpucount:1 -o publish
 
-echo "==> [3/5] Load environment"
+echo "==> [4/5] Load environment"
 if [[ -f "$ENV_FILE" ]]; then
   set -a
   # shellcheck disable=SC1090
@@ -31,7 +51,7 @@ fi
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://0.0.0.0:${PORT}}"
 
-echo "==> [4/5] Stop process on port $PORT"
+echo "==> [5/6] Stop process on port $PORT"
 if command -v netstat >/dev/null 2>&1; then
   OLD_PID=$(netstat -tpln 2>/dev/null | awk -v p=":$PORT" '$4 ~ p {print $7}' | sed 's/.*\///' | cut -d, -f1 | head -1)
 elif command -v ss >/dev/null 2>&1; then
@@ -44,7 +64,7 @@ fi
 fuser -k "${PORT}/tcp" 2>/dev/null || true
 sleep 2
 
-echo "==> [5/5] Start app (nohup)"
+echo "==> [6/6] Start app (nohup)"
 cd "$APP_DIR/publish"
 : > "$APP_DIR/nohup.out"
 if [[ -x ./EBookDashboard ]]; then
