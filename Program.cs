@@ -3,6 +3,7 @@ using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.Options;
 using EBookDashboard.Services;
+using EBookDashboard.Services.BookApi;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -257,6 +258,7 @@ builder.Services.Configure<ChapterGenerationOptions>(
 builder.Services.Configure<BookPaymentOptions>(
     builder.Configuration.GetSection(BookPaymentOptions.SectionName));
 builder.Services.AddBookUpstreamHttpClients(builder.Configuration);
+builder.Services.AddScoped<IUpstreamQueueProbe, UpstreamQueueProbe>();
 builder.Services.AddHealthChecks()
     .AddCheck<UpstreamBookApiHealthCheck>("upstream_book_api", failureStatus: HealthStatus.Degraded, tags: ["ready"]);
 builder.Services.AddScoped<IBookChapterPipelineService, BookChapterPipelineService>();

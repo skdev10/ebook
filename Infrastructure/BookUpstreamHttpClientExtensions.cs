@@ -18,25 +18,26 @@ public static class BookUpstreamHttpClientExtensions
         services.AddTransient<BookApiAuthenticationHandler>();
         services.AddTransient<BookApiLoggingHandler>();
 
-        AddClient(services, BookApiConstants.HttpClientNameShort, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(48));
+        AddClient(services, BookApiConstants.HttpClientNameShort, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(48), maxRetries: 2);
 
         var longMins = BookApiUpstreamCancellation.ResolveTimeoutMinutes(configuration);
         var longAttempt = TimeSpan.FromMinutes(longMins);
         var longTotal = TimeSpan.FromMinutes(Math.Min(longMins + 10, 120));
-        AddClient(services, BookApiConstants.HttpClientNameLong, longAttempt, longTotal);
+        // LLM calls block until upstream finishes — retries only multiply wait time on failure.
+        AddClient(services, BookApiConstants.HttpClientNameLong, longAttempt, longTotal, maxRetries: 0);
 
         services.AddScoped<IBookApiClient, BookApiClient>();
         return services;
     }
 
-    private static void AddClient(IServiceCollection services, string name, TimeSpan attemptTimeout, TimeSpan totalTimeout)
+    private static void AddClient(IServiceCollection services, string name, TimeSpan attemptTimeout, TimeSpan totalTimeout, int maxRetries = 3)
     {
         services.AddHttpClient(name, client => { client.Timeout = Timeout.InfiniteTimeSpan; })
             .AddHttpMessageHandler<BookApiLoggingHandler>()
             .AddHttpMessageHandler<BookApiAuthenticationHandler>()
             .AddStandardResilienceHandler(options =>
             {
-                options.Retry.MaxRetryAttempts = 3;
+                options.Retry.MaxRetryAttempts = maxRetries;
                 options.Retry.Delay = TimeSpan.FromSeconds(1);
                 options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
                 options.Retry.MaxDelay = TimeSpan.FromSeconds(20);

@@ -2126,6 +2126,33 @@ window.scrollAiWriterChapterToTop = function () {
     if (pc) pc.scrollTop = 0;
 };
 
+/** Probe upstream queue before LLM calls — fail fast when workers are stuck (waiting>0, running=0). */
+window.checkUpstreamQueueBeforeAiCall = async function () {
+    try {
+        var r = await fetch('/Books/GetQueueData', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        if (!r.ok) return { ok: true };
+        var d = await r.json();
+        var s = (d && d.status) ? d.status : d;
+        var waiting = Number(s.waiting || s.status_waiting || 0);
+        var running = Number(s.running || s.status_running || 0);
+        if (waiting > 0 && running === 0) {
+            return {
+                ok: false,
+                message: 'The book AI service queue is not processing requests (' + waiting + ' waiting, 0 running). Please wait a few minutes or contact support to restart the API server.'
+            };
+        }
+        if (waiting >= 25) {
+            return {
+                ok: false,
+                message: 'The book AI service is very busy (' + waiting + ' requests waiting). Please try again in a few minutes.'
+            };
+        }
+        return { ok: true, waiting: waiting, running: running };
+    } catch (e) {
+        return { ok: true };
+    }
+};
+
 /**
  * Isolate preview/version state: clear text selection; on chapter change or force, drop modal edit cache and strip temp classes
  * so switching versions or chapters never carries highlights/formatting from a prior view.
@@ -4710,6 +4737,15 @@ document.addEventListener('DOMContentLoaded', function() {
                  ? window.__chapterGenFetchTimeoutMs
                  : (12 * 60 * 1000);
              try {
+                 if (typeof window.checkUpstreamQueueBeforeAiCall === 'function') {
+                     var queueCheck = await window.checkUpstreamQueueBeforeAiCall();
+                     if (queueCheck && queueCheck.ok === false) {
+                         doneCommon();
+                         addMessage(queueCheck.message || 'AI service is busy. Please try again shortly.', false);
+                         if (typeof showNotification === 'function') showNotification(queueCheck.message, 'error');
+                         return;
+                     }
+                 }
                  var payload = Object.assign({}, requestData);
                  if (typeof window.buildGenerateUserInputWithMemory === 'function') {
                      payload.UserInput = window.buildGenerateUserInputWithMemory(originalBrief || requestData.UserInput);

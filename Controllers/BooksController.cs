@@ -63,12 +63,14 @@ namespace EBookDashboard.Controllers
         private readonly BookPublishReadinessService _publishReadiness;
         private readonly IWebHostEnvironment _hostEnvironment;
         private readonly BookFlowStateService _bookFlow;
+        private readonly IUpstreamQueueProbe _queueProbe;
 
         public BooksController(
             IBookService bookService,
             ApplicationDbContext context,
             IHttpClientFactory httpClientFactory,
             IBookApiClient bookApiClient,
+            IUpstreamQueueProbe queueProbe,
             IOptionsSnapshot<ExternalApiOptions> externalApiOptions,
             IAPIRawResponseService rawResponseService,
             IConfiguration configuration,
@@ -84,6 +86,7 @@ namespace EBookDashboard.Controllers
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
+            _queueProbe = queueProbe;
             _externalApiOptions = externalApiOptions;
             _httpClient = httpClientFactory.CreateClient();
             _bookService = bookService;
@@ -620,6 +623,9 @@ namespace EBookDashboard.Controllers
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
+            var queueBlock = await GetUpstreamQueueBlockReasonAsync(HttpContext.RequestAborted);
+            if (queueBlock != null)
+                return Json(new { error = true, message = queueBlock, queueBlocked = true });
             var responseData = string.Empty;
             int? rawResponseId = null;
             try
@@ -792,6 +798,9 @@ namespace EBookDashboard.Controllers
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
+            var queueBlock = await GetUpstreamQueueBlockReasonAsync(HttpContext.RequestAborted);
+            if (queueBlock != null)
+                return Json(new { error = true, message = queueBlock, queueBlocked = true });
 
             var userId = model.UserId ?? "";
             var bookId = model.BookId ?? "";
@@ -3952,20 +3961,21 @@ namespace EBookDashboard.Controllers
             var queueUrl = _bookApiClient.ResolveUrl(opt.QueueDataUrl, "/api/queue-data");
             string queueStatus = "not_tested";
             int? queueHttp = null;
+            UpstreamQueueSnapshot? queueSnapshot = null;
+            string? queueBlockReason = null;
 
             if (!string.IsNullOrEmpty(key))
             {
-                try
+                queueSnapshot = await _queueProbe.TryGetSnapshotAsync(HttpContext.RequestAborted);
+                if (queueSnapshot != null)
                 {
-                    using var req = new HttpRequestMessage(HttpMethod.Get, queueUrl);
-                    using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
-                    queueHttp = (int)resp.StatusCode;
-                    queueStatus = resp.IsSuccessStatusCode ? "ok" : "http_" + queueHttp;
+                    queueStatus = "ok";
+                    queueHttp = 200;
+                    queueBlockReason = UpstreamQueueGuard.GetBlockReason(queueSnapshot, _configuration);
                 }
-                catch (Exception ex)
+                else
                 {
                     queueStatus = "error";
-                    _logger.LogWarning(ex, "ExternalApiStatus queue probe failed");
                 }
             }
             else
@@ -3982,6 +3992,16 @@ namespace EBookDashboard.Controllers
                 queueUrl,
                 queueProbe = queueStatus,
                 queueHttpStatus = queueHttp,
+                queue = queueSnapshot == null ? null : new
+                {
+                    running = queueSnapshot.Running,
+                    waiting = queueSnapshot.Waiting,
+                    maxConcurrent = queueSnapshot.MaxConcurrent,
+                    totalRequests = queueSnapshot.TotalRequests,
+                    isStuck = queueSnapshot.IsStuck,
+                    isSaturated = queueSnapshot.IsSaturated,
+                    blockReason = queueBlockReason
+                },
                 endpoints = new
                 {
                     generateChapter = opt.GenerateUrl,
@@ -4317,7 +4337,10 @@ namespace EBookDashboard.Controllers
             await _context.SaveChangesAsync();
         }
 
-
-
+        private async Task<string?> GetUpstreamQueueBlockReasonAsync(CancellationToken cancellationToken)
+        {
+            var snapshot = await _queueProbe.TryGetSnapshotAsync(cancellationToken);
+            return UpstreamQueueGuard.GetBlockReason(snapshot, _configuration);
+        }
     }
 }

@@ -1,25 +1,18 @@
-using Microsoft.Extensions.Configuration;
-using EBookDashboard.Models.Options;
 using EBookDashboard.Services;
 using EBookDashboard.Services.BookApi;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Options;
 
 namespace EBookDashboard.Health;
 
 public sealed class UpstreamBookApiHealthCheck : IHealthCheck
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IOptions<ExternalApiOptions> _options;
+    private readonly IUpstreamQueueProbe _queueProbe;
     private readonly IConfiguration _configuration;
 
-    public UpstreamBookApiHealthCheck(
-        IHttpClientFactory httpClientFactory,
-        IOptions<ExternalApiOptions> options,
-        IConfiguration configuration)
+    public UpstreamBookApiHealthCheck(IUpstreamQueueProbe queueProbe, IConfiguration configuration)
     {
-        _httpClientFactory = httpClientFactory;
-        _options = options;
+        _queueProbe = queueProbe;
         _configuration = configuration;
     }
 
@@ -30,21 +23,18 @@ public sealed class UpstreamBookApiHealthCheck : IHealthCheck
         if (string.IsNullOrWhiteSpace(ExternalApiKeyResolver.Resolve(_configuration)))
             return HealthCheckResult.Degraded("Upstream API key is not configured (ExternalApi__ApiKey).");
 
-        var url = _options.Value.ResolveUrl(_options.Value.QueueDataUrl, "/api/queue-data");
-        try
-        {
-            var client = _httpClientFactory.CreateClient(BookApiConstants.HttpClientNameShort);
-            using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            using var resp = await client
-                .SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                .ConfigureAwait(false);
-            if (resp.IsSuccessStatusCode)
-                return HealthCheckResult.Healthy("Upstream GET /api/queue-data succeeded.");
-            return HealthCheckResult.Degraded($"Upstream returned HTTP {(int)resp.StatusCode}.");
-        }
-        catch (Exception ex)
-        {
-            return HealthCheckResult.Degraded("Upstream queue probe failed.", ex);
-        }
+        var snapshot = await _queueProbe.TryGetSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        if (snapshot == null)
+            return HealthCheckResult.Degraded("Upstream GET /api/queue-data failed or returned invalid JSON.");
+
+        if (snapshot.IsStuck)
+            return HealthCheckResult.Degraded(
+                $"Upstream queue stuck: {snapshot.Describe()}. Restart FastAPI workers on the book API server.");
+
+        var block = UpstreamQueueGuard.GetBlockReason(snapshot, _configuration);
+        if (block != null)
+            return HealthCheckResult.Degraded($"Upstream overloaded: {snapshot.Describe()}.");
+
+        return HealthCheckResult.Healthy($"Upstream queue OK ({snapshot.Describe()}).");
     }
 }
