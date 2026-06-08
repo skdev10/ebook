@@ -270,7 +270,8 @@ public static class BookManuscriptHtmlFormatter
     /// </summary>
     public static string PrepareChapterBodyForExport(string? rawContent, PlaceholderContext ph, string? chapterDisplayTitle)
     {
-        var bodyRaw = ApplyPlaceholders(rawContent ?? "", ph);
+        var cleaned = ChapterContentNormalizer.NormalizeForManuscript(rawContent);
+        var bodyRaw = ApplyPlaceholders(cleaned, ph);
         var bodyHtml = FormatBodyToHtml(bodyRaw);
         return StripRedundantChapterOpenings(bodyHtml, chapterDisplayTitle);
     }

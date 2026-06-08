@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -8,8 +7,6 @@ using EBookDashboard.Services.PdfExport;
 using HtmlAgilityPack;
 using EBookDashboard.Models.DTO;
 using Microsoft.AspNetCore.Hosting;
-using PuppeteerSharp;
-using PuppeteerSharp.Media;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 
@@ -20,80 +17,12 @@ public class BookPdfService : IBookPdfService
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<BookPdfService> _logger;
     private readonly IConfiguration _configuration;
-    private static readonly SemaphoreSlim FetchLock = new(1, 1);
-    private static bool _fetched;
 
     public BookPdfService(IWebHostEnvironment env, ILogger<BookPdfService> logger, IConfiguration configuration)
     {
         _env = env;
         _logger = logger;
         _configuration = configuration;
-    }
-
-    private static readonly string[] LinuxBrowserCandidates =
-    [
-        "/usr/bin/google-chrome-stable",
-        "/usr/bin/google-chrome",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/chromium",
-        "/snap/bin/chromium"
-    ];
-
-    private async Task<string?> ResolveBrowserExecutableAsync(CancellationToken cancellationToken)
-    {
-        var configured = _configuration["Puppeteer:ExecutablePath"]
-            ?? Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
-        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
-            return configured;
-
-        if (OperatingSystem.IsLinux())
-        {
-            foreach (var candidate in LinuxBrowserCandidates)
-            {
-                if (File.Exists(candidate))
-                    return candidate;
-            }
-        }
-
-        var winChrome = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            "Google", "Chrome", "Application", "chrome.exe");
-        if (File.Exists(winChrome)) return winChrome;
-
-        var winChromeX86 = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-            "Google", "Chrome", "Application", "chrome.exe");
-        if (File.Exists(winChromeX86)) return winChromeX86;
-
-        var winEdge = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-            "Microsoft", "Edge", "Application", "msedge.exe");
-        if (File.Exists(winEdge)) return winEdge;
-
-        var winEdge64 = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-            "Microsoft", "Edge", "Application", "msedge.exe");
-        if (File.Exists(winEdge64)) return winEdge64;
-
-        await EnsureChromiumAsync(cancellationToken);
-        return null;
-    }
-
-    private static async Task EnsureChromiumAsync(CancellationToken cancellationToken)
-    {
-        if (_fetched) return;
-        await FetchLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_fetched) return;
-            var bf = new BrowserFetcher();
-            await bf.DownloadAsync();
-            _fetched = true;
-        }
-        finally
-        {
-            FetchLock.Release();
-        }
     }
 
     public async Task<byte[]> RenderFullBookPdfAsync(
@@ -121,121 +50,74 @@ public class BookPdfService : IBookPdfService
             genre,
             author);
 
-        var engine = (_configuration["PdfExport:Engine"] ?? "PdfSharp").Trim();
-        if (engine.Equals("PdfSharp", StringComparison.OrdinalIgnoreCase)
-            || engine.Equals("PDFsharp", StringComparison.OrdinalIgnoreCase))
-        {
-            try
-            {
-                var exporter = new PdfSharpBookExporter(_env, _logger);
-                var pdfSharpBytes = await Task.Run(() => exporter.Render(
-                    details, coverSrc, title, author, opt, opt.IncludeCoverPage), cancellationToken);
-                EnsureValidPdf(pdfSharpBytes);
-                return pdfSharpBytes;
-            }
-            catch (Exception pdfSharpEx)
-            {
-                _logger.LogWarning(pdfSharpEx, "PdfSharp primary export failed for book {BookId}; trying Chromium.", details.BookId);
-            }
-        }
-
-        var layout = BookPdfPlatformLayout.Resolve(opt);
+        var layout = BookPdfPlatformLayout.Resolve(opt, BookPdfLayoutOptions.FromConfiguration(_configuration));
 
         // One DB chapter = one PDF chapter. Do not split on in-body <h2> — those are section headings (##), not new chapters.
         var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
         var sections = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(chapters, phBase, opt);
         var tocHtml = BuildTocHtml(chapters, phBase);
         var copyrightHtml = BuildCopyrightPageHtml(title, author, publisherDisplayName);
-        var themeCss = InteriorExportTheme.BuildPdfThemeCss(opt);
         var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
         var shellCls = InteriorPrintDocumentBuilder.PreviewShellClass(opt.InteriorStyle);
         var wrapCls = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(opt.InteriorStyle);
 
-        var html = BuildPrintDocumentHtml(
-            title,
-            author,
-            genre,
-            details.Subtitle,
-            coverSrc,
-            opt.IncludeCoverPage,
-            copyrightHtml,
-            tocHtml,
-            sections,
-            themeCss,
-            layout.PageSizeCss,
-            bodyTpl,
-            shellCls,
-            wrapCls);
+        // BookPreview HTML = PDF input (CSS-based, 1:1 with formatter preview).
+        var html = BookPreviewPrintHtmlBuilder.Build(
+            title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
+            copyrightHtml, tocHtml, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
+            _env.WebRootPath);
+
+        if (ChapterContentNormalizer.LooksLikeJsonEnvelope(html))
+            _logger.LogWarning("Export HTML still contains JSON wrapper after normalization for book {BookId}.", details.BookId);
+
+        _logger.LogDebug(
+            "PDF export book={BookId} engine={Engine} style={Style} interior={Interior} htmlLen={Len} hasPreviewSheet={Sheet}",
+            details.BookId, PdfExportEngine.Resolve(_configuration), opt.InteriorStyle, wrapCls,
+            html.Length, html.Contains("book-preview-sheet", StringComparison.Ordinal));
 
         var headerTemplate = BuildHeaderTemplate(title, author);
         var footerTemplate = BuildFooterTemplate();
 
-        var executablePath = await ResolveBrowserExecutableAsync(cancellationToken);
-        var launchOptions = new LaunchOptions
+        var engine = PdfExportEngine.Resolve(_configuration);
+        if (engine == PdfExportEngine.DinkToPdf)
         {
-            Headless = true,
-            ExecutablePath = executablePath,
-            Args = new[]
+            _logger.LogWarning("DinkToPdf engine is not wired yet; using Chromium for book {BookId}.", details.BookId);
+            engine = PdfExportEngine.Chromium;
+        }
+
+        if (engine != PdfExportEngine.PdfSharp)
+        {
+            try
             {
-                "--no-sandbox",
-                "--disable-setuid-sandbox",
-                "--disable-dev-shm-usage",
-                "--font-render-hinting=none",
-                "--disable-gpu"
+                var chromium = new ChromiumPdfExporter(_logger, _configuration);
+                var pdfBytes = await chromium.ExportAsync(html, layout, headerTemplate, footerTemplate, cancellationToken);
+                EnsureValidPdf(pdfBytes);
+                _logger.LogInformation(
+                    "Chromium PDF: {Bytes} bytes, 6x9={W}x{H}, style={Style}, pageBg={PageBg}, book={BookId}",
+                    pdfBytes.Length, layout.PdfWidth, layout.PdfHeight, opt.InteriorStyle,
+                    opt.ResolvePageBackgroundColor(), details.BookId);
+                return pdfBytes;
             }
-        };
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Chromium CSS PDF failed for book {BookId}; falling back to PdfSharp.", details.BookId);
+            }
+        }
 
         try
         {
-            await using var browser = await Puppeteer.LaunchAsync(launchOptions);
-            await using var page = await browser.NewPageAsync();
-            await page.EmulateMediaTypeAsync(MediaType.Print);
-            await page.SetContentAsync(html, new NavigationOptions
-            {
-                WaitUntil = new[] { WaitUntilNavigation.Networkidle0 },
-                Timeout = 90_000
-            });
-            var fontStatus = await page.EvaluateFunctionAsync<string>(@"async () => {
-                if (document.fonts && document.fonts.ready) await document.fonts.ready;
-                await new Promise(r => setTimeout(r, 1200));
-                if (!document.fonts || !document.fonts.forEach) return 'no-fonts-api';
-                var loaded = [], failed = [];
-                document.fonts.forEach(f => {
-                    var line = (f.family || '?') + ' ' + (f.weight || '') + ' ' + (f.status || '');
-                    if (f.status === 'loaded') loaded.push(line);
-                    else if (f.status === 'error' || f.status === 'unloaded') failed.push(line);
-                });
-                return JSON.stringify({ loaded: loaded.length, failed: failed.length, failedFamilies: failed.slice(0, 8) });
-            }");
-            _logger.LogInformation("PDF font preload book={BookId} style={Style}: {FontStatus}",
-                details.BookId, opt.InteriorStyle, fontStatus ?? "unknown");
-            await Task.Delay(800, cancellationToken);
-
-            var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
-            EnsureValidPdf(pdfBytes);
-            _logger.LogInformation(
-                "PDF generated: {Bytes} bytes, style={Style}, pageBg={PageBg}, book={BookId}",
-                pdfBytes.Length, opt.InteriorStyle, opt.ResolvePageBackgroundColor(), details.BookId);
-            return pdfBytes;
+            var exporter = new PdfSharpBookExporter(_env, _logger);
+            var fallback = exporter.Render(details, coverSrc, title, author, opt, opt.IncludeCoverPage);
+            EnsureValidPdf(fallback);
+            _logger.LogInformation("PDF generated via PdfSharp fallback: {Bytes} bytes, book={BookId}", fallback.Length, details.BookId);
+            return fallback;
         }
-        catch (Exception ex)
+        catch (Exception sharpEx)
         {
-            _logger.LogWarning(ex, "Puppeteer PDF render failed (executable={Executable}); falling back to PdfSharp.", executablePath ?? "bundled");
-            try
-            {
-                var exporter = new PdfSharpBookExporter(_env, _logger);
-                var fallback = exporter.Render(details, coverSrc, title, author, opt, opt.IncludeCoverPage);
-                EnsureValidPdf(fallback);
-                _logger.LogInformation("PDF generated via PdfSharp fallback: {Bytes} bytes, book={BookId}", fallback.Length, details.BookId);
-                return fallback;
-            }
-            catch (Exception sharpEx)
-            {
-                _logger.LogError(sharpEx, "PdfSharp fallback also failed for book {BookId}", details.BookId);
-                throw new InvalidOperationException(
-                    "PDF generation failed. Install Google Chrome or Microsoft Edge on the server, or set Puppeteer:ExecutablePath in configuration.",
-                    ex);
-            }
+            _logger.LogError(sharpEx, "PdfSharp fallback failed for book {BookId}", details.BookId);
+            throw new InvalidOperationException(
+                "PDF generation failed. Install Google Chrome on the server (apt install google-chrome-stable) and set Puppeteer:ExecutablePath, or run Scripts/download-export-fonts.sh for PdfSharp.",
+                sharpEx);
         }
     }
 
@@ -245,34 +127,6 @@ public class BookPdfService : IBookPdfService
             throw new InvalidOperationException("PDF generation produced an empty document.");
         if (pdfBytes[0] != (byte)'%' || pdfBytes[1] != (byte)'P' || pdfBytes[2] != (byte)'D' || pdfBytes[3] != (byte)'F')
             throw new InvalidOperationException("PDF generation produced invalid output.");
-    }
-
-    private static PdfOptions BuildPdfOptions(BookPdfPlatformLayout.PdfLayoutSpec layout, string headerTemplate, string footerTemplate)
-    {
-        var o = new PdfOptions
-        {
-            PrintBackground = true,
-            PreferCSSPageSize = layout.PreferCssPageSize,
-            DisplayHeaderFooter = true,
-            HeaderTemplate = headerTemplate,
-            FooterTemplate = footerTemplate,
-            MarginOptions = new MarginOptions
-            {
-                Top = layout.MarginTop,
-                Bottom = layout.MarginBottom,
-                Left = layout.MarginLeft,
-                Right = layout.MarginRight
-            }
-        };
-        if (layout.UseBuiltInFormat)
-            o.Format = layout.BuiltInFormat;
-        else
-        {
-            o.Width = layout.PdfWidth;
-            o.Height = layout.PdfHeight;
-        }
-
-        return o;
     }
 
     private static string CultureInvariant(FormattableString fs) => FormattableString.Invariant(fs);
@@ -364,10 +218,6 @@ public class BookPdfService : IBookPdfService
         return sb.ToString();
     }
 
-    /// <summary>Stable chapter order for export — one stored chapter per PDF section (no splitting on ## / h2).</summary>
-    private static List<ChapterDto> OrderChaptersForPdf(IEnumerable<ChapterDto> source) =>
-        source.OrderBy(c => c.ChapterNumber).ToList();
-
     private static string BuildHeaderTemplate(string title, string author)
     {
         var t = WebUtility.HtmlEncode(TruncateForHeader(title, 48));
@@ -439,101 +289,5 @@ public class BookPdfService : IBookPdfService
         }
 
         return null;
-    }
-
-    private static string BuildPrintDocumentHtml(
-        string title,
-        string author,
-        string genre,
-        string? subtitle,
-        string? coverSrc,
-        bool includeCoverPage,
-        string copyrightHtml,
-        string tocHtml,
-        string chapterSections,
-        string themeCss,
-        string pageSizeCss,
-        string bodyTemplateClass,
-        string previewShellClass,
-        string previewWrapClass)
-    {
-        var coverBlock = !includeCoverPage
-            ? ""
-            : string.IsNullOrEmpty(coverSrc)
-            ? """
-              <div class="cover-page cover-fallback">
-                <div class="cover-fallback-inner">
-                  <h1 class="cover-title">COVER</h1>
-                  <p class="cover-meta">Generate or select a cover in the dashboard for a full graphic cover in export.</p>
-                </div>
-              </div>
-              """
-            : $"""
-              <div class="cover-page">
-                <img src="{WebUtility.HtmlEncode(coverSrc)}" alt="" class="cover-img" />
-              </div>
-              """;
-
-        var metaLines = new StringBuilder();
-        if (!string.IsNullOrEmpty(author))
-            metaLines.Append(CultureInvariant($"""<p class="title-page-author">{WebUtility.HtmlEncode(author)}</p>"""));
-        if (!string.IsNullOrEmpty(genre))
-            metaLines.Append(CultureInvariant($"""<p class="title-page-genre">{WebUtility.HtmlEncode(genre)}</p>"""));
-
-        var subtitleBlock = string.IsNullOrWhiteSpace(subtitle)
-            ? ""
-            : CultureInvariant($"""<p class="subtitle">{WebUtility.HtmlEncode(subtitle.Trim())}</p>""");
-        var pageHeightPx = pageSizeCss.Contains("A4", StringComparison.OrdinalIgnoreCase) ? 1122.0 : 864.0;
-
-        var doc = new StringBuilder();
-        doc.AppendLine("<!DOCTYPE html>");
-        doc.AppendLine("<html lang=\"en\">");
-        doc.AppendLine("<head><meta charset=\"utf-8\"/>");
-        doc.AppendLine(InteriorPrintDocumentBuilder.GoogleFontLinks());
-        doc.AppendLine("<style>");
-        doc.AppendLine(CultureInvariant($"@page {{ size: {pageSizeCss}; }}"));
-        doc.AppendLine("* { box-sizing: border-box; }");
-        doc.AppendLine(themeCss);
-        doc.AppendLine(".cover-page { page-break-after: always; width: 100%; min-height: 100vh; position: relative; margin: 0; padding: 0; background: #1e1b4b; }");
-        doc.AppendLine(".cover-img { width: 100%; height: 100vh; object-fit: cover; display: block; }");
-        doc.AppendLine(".cover-fallback { display: flex; align-items: center; justify-content: center; color: #fafafa; min-height: 100vh; }");
-        doc.AppendLine(".cover-fallback-inner { text-align: center; padding: 24mm; }");
-        doc.AppendLine(".cover-title { font-size: 28pt; margin: 0 0 8mm; letter-spacing: 0.08em; }");
-        doc.AppendLine(".cover-meta { font-size: 11pt; opacity: 0.85; max-width: 140mm; margin: 0 auto; }");
-        doc.AppendLine(".title-page { page-break-after: always; text-align: center; padding-top: 36mm; }");
-        doc.AppendLine(".title-page h1 { font-size: 24pt; margin: 0 0 8mm; font-weight: 600; }");
-        doc.AppendLine(".title-page-author { font-size: 13pt; margin: 4mm 0; }");
-        doc.AppendLine(".title-page-genre { font-size: 10pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.12em; }");
-        doc.AppendLine("</style></head>");
-        doc.AppendLine("<body class=\"book-pdf-body " + bodyTemplateClass + " " + previewShellClass + " " + previewWrapClass + "\">");
-        doc.Append(coverBlock);
-        doc.AppendLine("<div class=\"title-page\">");
-        doc.Append("<h1>").Append(WebUtility.HtmlEncode(title)).AppendLine("</h1>");
-        doc.AppendLine(subtitleBlock);
-        doc.Append(metaLines);
-        doc.AppendLine("</div>");
-        doc.AppendLine(copyrightHtml);
-        doc.AppendLine(tocHtml);
-        doc.AppendLine("""<div class="manuscript-root">""");
-        doc.Append(chapterSections);
-        doc.AppendLine("</div>");
-        doc.AppendLine("<script>");
-        doc.AppendLine("(function () {");
-        doc.AppendLine("  var pageHeight = " + pageHeightPx.ToString("0.###", CultureInfo.InvariantCulture) + ";");
-        doc.AppendLine("  if (!Number.isFinite(pageHeight) || pageHeight <= 0) pageHeight = 864;");
-        doc.AppendLine("  var refs = document.querySelectorAll('.toc-page-ref[data-target]');");
-        doc.AppendLine("  refs.forEach(function (el) {");
-        doc.AppendLine("    var id = el.getAttribute('data-target');");
-        doc.AppendLine("    if (!id) return;");
-        doc.AppendLine("    var target = document.getElementById(id);");
-        doc.AppendLine("    if (!target) return;");
-        doc.AppendLine("    var top = target.getBoundingClientRect().top + window.scrollY;");
-        doc.AppendLine("    var pageNo = Math.max(1, Math.floor(top / pageHeight) + 1);");
-        doc.AppendLine("    el.textContent = String(pageNo);");
-        doc.AppendLine("  });");
-        doc.AppendLine("})();");
-        doc.AppendLine("</script>");
-        doc.AppendLine("</body></html>");
-        return doc.ToString();
     }
 }

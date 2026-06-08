@@ -1,157 +1,188 @@
-# PDF Export — WYSIWYG Architecture
+# PDF Export — BookPreview ≡ PDF (WYSIWYG)
 
-Production PDF export uses **PDFsharp (primary)** with embedded TTF fonts, 6×9 KDP margins, and HTML style painting. **PuppeteerSharp** remains optional (`PdfExport:Engine`: `Chromium`) for browser-perfect CSS when Chrome is installed.
+**Goal:** Jo user BookPreview / Ebook Formatting mein dekhta hai (fonts, colors, spacing, page background, images) — wahi exact 6×9 KDP PDF export ho.
 
-## Why PDFsharp is primary (your PDF software workflow)
-
-Dedicated PDF tools embed fonts and draw at exact page size — PDFsharp does the same:
-- **6×9 inch** page (`432×648` pt) with KDP gutters from `BookPdfPlatformLayout`
-- **Fonts embedded** from `wwwroot/fonts/pdf/*.ttf` via `ExportPdfFontResolver`
-- **Inline CSS** (`color`, `font-size`, `font-family`) parsed in `ManuscriptHtmlPdfPainter`
-- **Page background** fill per interior style (`#fdfcfa`, `#fffdf8`, etc.)
-- **Images** embedded from `data:` URLs or https
-
-Chromium HTML-print is optional fallback — on many servers Puppeteer failed and the old plain-text PdfSharp fallback stripped all styles. That is fixed.
-
-## Why not QuestPDF / iText / DinkToPdf alone
-
-| Library | CSS/HTML fidelity | Custom fonts | Verdict |
-|---------|-------------------|--------------|---------|
-| **PuppeteerSharp** (used) | Full browser engine | Google Fonts + system; embedded in PDF by Chromium | **Best for editor WYSIWYG** |
-| QuestPDF / iText | Manual layout code | Manual TTF embed | Rebuild every editor style by hand |
-| DinkToPdf | Weak CSS3 | Limited | Deprecated WebKit |
-| IronPDF / Syncfusion | Similar to Puppeteer | Paid | Extra cost; migration risk |
-| PDFsharp (fallback only) | Plain text | System fonts only | Degraded path when Chromium missing |
-
-## Pipeline
+## Architecture
 
 ```mermaid
 flowchart LR
-  UI[Publish / Formatter] --> API[POST /Dashboard/DownloadBookPdf]
-  API --> Opts[BookPdfExportOptions]
-  API --> Chapters[BookService chapters]
-  Opts --> HTML[InteriorPrintDocumentBuilder + InteriorExportTheme]
-  Chapters --> HTML
-  HTML --> Chrome[PuppeteerSharp Chromium]
-  Chrome --> PDF[application/pdf bytes]
-  Chrome -.fail.-> Sharp[BookPdfSharpRenderer PDFsharp]
+  Editor[Editor + Ebook Formatting] --> Preview[BookPreview HTML/CSS]
+  Preview --> Builder[BookPreviewPrintHtmlBuilder]
+  Builder --> Engine{PdfExport:Engine}
+  Engine -->|Chromium default| Chrome[ChromiumPdfExporter]
+  Engine -->|PdfSharp| Sharp[PdfSharpBookExporter]
+  Chrome -.fail.-> Sharp
+  Chrome --> PDF[6x9 application/pdf]
+  Sharp --> PDF
 ```
 
-## API endpoints
+## Engine choice (recommended: Chromium)
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /Dashboard/DownloadBookPdf` | Full book (cover + interior) |
-| `POST /Dashboard/DownloadBookInteriorPdf` | Chapters only |
-| `POST /Books/DownloadFinalizedChaptersPdf` | Finalized iterations only |
-| `POST /Books/ExportPrintReadyBundle` | ZIP: 6×9 interior PDF + wrap PNG |
+| Engine | NuGet / binary | CSS fidelity | Linux server | Status |
+|--------|----------------|--------------|--------------|--------|
+| **Chromium** (PuppeteerSharp) | `PuppeteerSharp` + `google-chrome-stable` | Full browser CSS | ✅ Recommended | **Default** |
+| **PdfSharp** | `PDFsharp` + `wwwroot/fonts/pdf/*.ttf` | Inline styles only | ✅ No browser | Fallback |
+| DinkToPdf / wkhtmltopdf | `DinkToPdf` + `wkhtmltopdf` apt | Weak CSS3 | ⚠️ Old WebKit | Reserved (not wired) |
+| IronPDF / SelectPdf / Syncfusion | Commercial | Chrome-like | Paid license | Not integrated |
 
-**Request body** (`ExportBookPdfRequest`):
+### Why Chromium over alternatives?
 
-```json
-{
-  "bookId": 42,
-  "coverImageDataUrl": "data:image/png;base64,...",
-  "displayTitle": "My Book",
-  "displayAuthor": "Author Name",
-  "interiorStyle": "Classic",
-  "textSize": "Medium",
-  "lineSpacing": "1.6",
-  "bookFormat": "Paperback",
-  "publishingPlatform": "Amazon KDP",
-  "previewAccent": "#5b21b6"
-}
-```
+- **IronPDF vs PuppeteerSharp:** Dono Chrome engine use karte hain; PuppeteerSharp free + open-source hai. IronPDF paid license + similar output — performance comparable, PuppeteerSharp sufficient for batch export.
+- **SelectPdf vs Chromium:** Layout consistency ke liye real browser print (Chromium) best — SelectPdf commercial, CSS edge cases alag ho sakte hain.
+- **DinkToPdf custom fonts:** `@font-face` with absolute `file://` ya base64; `--enable-local-file-access`, `--print-media-type`, `--background`. Hum base64 embed use karte hain (`BuildFontStylesForExport`) — Chromium mein zyada reliable.
+- **Syncfusion page breaks:** `page-break-before/after` CSS — hum manuscript HTML mein already use karte hain; Chromium respects these natively.
 
-When overrides are omitted, the server loads `BookFormatting` + `Settings` draft JSON.
-
-## NuGet dependencies
+## NuGet packages
 
 ```xml
 <PackageReference Include="PuppeteerSharp" Version="20.2.4" />
 <PackageReference Include="PDFsharp" Version="6.2.0" />
 ```
 
-Registered in `Program.cs`:
+## Configuration
 
-```csharp
-services.AddScoped<IBookPdfService, BookPdfService>();
-```
-
-## Configuration (production server)
+`appsettings.json`:
 
 ```json
 {
+  "PdfExport": {
+    "Engine": "Chromium",
+    "Margins": {
+      "Trim6x9": {
+        "Top": "0.5in",
+        "Bottom": "0.5in",
+        "Inside": "0.375in",
+        "Outside": "0.25in"
+      }
+    }
+  },
   "Puppeteer": {
     "ExecutablePath": "/usr/bin/google-chrome-stable"
   }
 }
 ```
 
-Or environment variable: `PUPPETEER_EXECUTABLE_PATH`
+| Key | Values |
+|-----|--------|
+| `PdfExport:Engine` | `Chromium` (default), `PdfSharp`, `DinkToPdf` (falls back to Chromium until wired) |
+| `Puppeteer:ExecutablePath` | Chrome/Chromium path on server |
+| `PUPPETEER_EXECUTABLE_PATH` | Env override |
+| `PdfExport:Margins:Trim6x9` | Override KDP gutter/margins |
 
-**Requirements:**
+## Linux server setup (DigitalOcean)
 
-- Google Chrome, Chromium, or Microsoft Edge on the server
-- Outbound HTTPS to `fonts.googleapis.com` / `fonts.gstatic.com` (Google Fonts)
-- `PrintBackground: true` (already set) for page background colors
+```bash
+apt-get update
+apt-get install -y google-chrome-stable
+# fonts for PdfSharp fallback:
+bash Scripts/download-export-fonts.sh
+# deploy
+bash deploy/webconsole-deploy.sh
+```
 
-## Font persistence
+Outbound HTTPS: `fonts.googleapis.com` (Google Fonts fallback if local TTF missing).
 
-1. **Detection** — Interior style maps to Google Font stacks in `InteriorExportTheme.ResolveTheme()` (Merriweather, Playfair Display, Inter, Cormorant Garamond, EB Garamond, Lora).
-2. **Loading** — `InteriorPrintDocumentBuilder.GoogleFontLinks()` injects `<link>` tags into print HTML.
-3. **Embedding** — Chromium `page.PdfDataAsync()` subsets and embeds fonts used on each page (standard print-to-PDF behaviour).
-4. **Wait** — `document.fonts.ready` + 1.2s delay before PDF generation; status logged in `BookPdfService`.
-5. **Fallback** — If Chromium fails → `BookPdfSharpRenderer` (Georgia/Segoe UI only, no rich CSS). If a font fails to load, Chromium falls back to the next font in the CSS stack.
+## Pipeline (code)
 
-## CSS & style preservation
+1. `InteriorPrintDocumentBuilder.BuildChapterSectionsHtml` — same DOM as preview (`book-preview-sheet`, `reader-chapter-block`, `reader-page-title`, `reader-page-body`).
+2. `BookPreviewPrintHtmlBuilder.Build` — full HTML doc with `@font-face`, theme CSS, `reader-content-wrap` + `interior-*` classes.
+3. `ChromiumPdfExporter.ExportAsync` — `SetContentAsync(html)`, `document.fonts.ready`, `PrintBackground: true`, 6×9 + margins.
+4. On failure → `PdfSharpBookExporter.Render`.
 
-| Source | How it is preserved |
-|--------|---------------------|
-| Interior style (Novel, Classic, …) | `InteriorExportTheme.BuildPdfThemeCss()` + `BuildFormatterInteriorCss()` |
-| Text size / line spacing | CSS variables `--body-pt`, `--body-lh` |
-| Page background color | `--page-bg` per interior sheet (Classic `#fdfcfa`, Novel `#fffdf8`, ElegantTrade `#fcf9f3`) or `pageBackgroundColor` override in export request |
-| Preview accent color | `--fmt-accent` from formatter `previewAccent` |
-| Inline `style=""` on HTML | Kept by `BookManuscriptHtmlFormatter.SanitizeHtml()` |
-| Images `<img>` | Allowed with safe `src` (https, data:image, /) |
-| Chapter body HTML | `PrepareChapterBodyForExport()` — placeholders + markdown |
+## Fonts
 
-## Page dimensions (6×9)
+| Font | Interior style |
+|------|----------------|
+| Merriweather | Novel |
+| Playfair Display | Novel headings |
+| Inter | Modern, Minimalist |
+| Cormorant Garamond | Classic |
+| EB Garamond | Elegant Trade body |
+| Lora | Elegant Trade headings |
 
-`BookPdfPlatformLayout.Resolve()` selects:
+Local TTF: `wwwroot/fonts/pdf/` — download via `Scripts/download-export-fonts.sh`.
 
-- **Ebook only** → A4
-- **Print / KDP / Paperback** → `6in × 9in` with distributor margins
+`InteriorPrintDocumentBuilder.BuildFontStylesForExport()` injects base64 `@font-face` + Google Fonts `<link>` fallback.
+
+## Page background (cream / off-white)
+
+Per interior via `InteriorExportTheme.ResolveDefaultPageBackground()`:
+
+| Style | Color |
+|-------|-------|
+| Novel | `#fffdf8` |
+| Classic | `#fdfcfa` |
+| Elegant Trade | `#fcf9f3` |
+| Modern / Minimalist | `#ffffff` |
+
+Override: `pageBackgroundColor` in export request → `BookPdfExportOptions.ResolvePageBackgroundColor()`.
+
+Chromium: `PrintBackground: true` (required).
+
+## KDP 6×9 margins (default)
+
+| Edge | Value |
+|------|-------|
+| Page size | 6in × 9in |
+| Inside (gutter) | 0.375in |
+| Outside | 0.25in |
+| Top / bottom | 0.5in |
+
+Bleed-heavy platforms (Ingram, Just Print) use slightly larger values — see `BookPdfPlatformLayout.Trim6x9Print`.
+
+## BookPreview UX (no scroll, no last-word cut)
+
+| Location | Fix |
+|----------|-----|
+| AI Writer | `Views/Books/AIGenerateBook.cshtml` — `getReaderPageMaxHeight`, `splitHtmlIntoReaderPages`, `overflow: hidden` |
+| Ebook Formatter | `Views/BookDesign/CoverDesignCalculatorFixing.cshtml` — viewport `overflow-y: hidden`, 6×9 aspect shell, padding-aware `getFmtContentAreaHeightPx` |
+| Shared CSS | `wwwroot/css/book-page-preview.css` |
+
+## API endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /Dashboard/DownloadBookPdf` | Full book PDF |
+| `POST /Dashboard/DownloadBookInteriorPdf` | Interior only |
+| `POST /Books/DownloadFinalizedChaptersPdf` | Finalized chapters |
+| `POST /Books/ExportPrintReadyBundle` | ZIP: PDF + cover PNG |
 
 ## Key source files
 
 | File | Role |
 |------|------|
-| `Services/BookPdfService.cs` | Chromium launch, HTML → PDF |
-| `Services/InteriorExportTheme.cs` | Typography + page colors + interior shell CSS |
-| `Services/InteriorPrintDocumentBuilder.cs` | Chapter HTML + Google Fonts |
-| `Services/BookManuscriptHtmlFormatter.cs` | HTML sanitize (style, img) |
+| `Services/BookPdfService.cs` | Orchestration |
+| `Services/PdfExport/BookPreviewPrintHtmlBuilder.cs` | Preview = export HTML |
+| `Services/PdfExport/ChromiumPdfExporter.cs` | PuppeteerSharp |
+| `Services/PdfExport/PdfSharpBookExporter.cs` | Fallback |
+| `Services/PdfExport/PdfExportEngine.cs` | Engine name resolution |
+| `Models/DTO/BookPdfLayoutOptions.cs` | Configurable margins |
+| `Services/InteriorExportTheme.cs` | Typography + page colors + `book-preview-sheet` CSS |
 | `Services/BookPdfPlatformLayout.cs` | 6×9 vs A4 |
-| `Models/DTO/BookPdfExportOptions.cs` | Formatter options from DB/draft |
-| `Controllers/DashboardController.cs` | Download endpoints |
 
-## AI Writer preview (screen)
+## Memory optimization (ASP.NET PDF)
 
-Chapter pagination fixes live in `Views/Books/AIGenerateBook.cshtml` + `wwwroot/css/book-page-preview.css`:
+- Reuse one browser per export (launch → one page → close) — current design.
+- For high volume: browser pool singleton with semaphore limit (future).
+- Large books: stream PDF bytes directly to response; don't hold HTML + PDF in memory longer than needed.
+- Base64 fonts: only fonts under 900KB embedded; rest use Google Fonts.
 
-- Measure/render padding aligned (no bottom word clipping)
-- `getReaderPageMaxHeight()` subtracts viewport padding
-- No inner scroll — content paginates across page nav buttons
+## Switching engines
+
+1. Set `PdfExport:Engine` in appsettings or environment.
+2. **Chromium:** install Chrome, set `Puppeteer:ExecutablePath`.
+3. **PdfSharp:** run font download script; limited CSS (no full preview parity).
+4. Restart app after config change.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| PDF plain text, wrong fonts | Chromium not installed — set `Puppeteer:ExecutablePath` |
-| Fonts wrong but PDF has layout | Check server logs for `PDF font preload` — Google Fonts blocked? |
-| Colors missing | Ensure `PrintBackground: true` (default) |
-| Empty PDF | Chapters need saved body text in DB |
-| 6×9 wrong size | Set `bookFormat: Paperback` or publishing platform in formatter |
+| Plain text PDF, no colors | Chromium failed — install Chrome, check logs |
+| Font substitution warnings | Run `download-export-fonts.sh` |
+| White background in PDF | `PrintBackground` must be true (default) |
+| Preview OK, PDF different | Ensure `Engine: Chromium`; check `Chromium PDF font status` log |
+| KDP margin warning | Adjust `PdfExport:Margins:Trim6x9` |
 
 ## Tests
 

@@ -149,6 +149,20 @@ public static class InteriorExportTheme
             _ => "#ffffff"
         };
 
+    /// <summary>CSS keep-with-next: in-chapter headings stay with the following block (preview + Chromium PDF).</summary>
+    public static string BuildHeadingKeepWithNextCss() =>
+        string.Concat(
+            ".reader-page-body .manuscript-heading, .reader-page-body .manuscript-h1, .reader-page-body .manuscript-h2, ",
+            ".reader-page-body .manuscript-h3, .reader-page-body .manuscript-h4, .reader-page-body .manuscript-h5, .reader-page-body .manuscript-h6, ",
+            ".reader-page-body h1, .reader-page-body h2, .reader-page-body h3, .reader-page-body h4, .reader-page-body h5, .reader-page-body h6, ",
+            ".chapter-body .manuscript-heading, .chapter-body h1, .chapter-body h2, .chapter-body h3, .chapter-body h4, .chapter-body h5, .chapter-body h6 { ",
+            "break-after: avoid !important; page-break-after: avoid !important; break-inside: avoid; page-break-inside: avoid; } ",
+            ".reader-page-body .manuscript-heading + *, .reader-page-body h1 + *, .reader-page-body h2 + *, .reader-page-body h3 + *, ",
+            ".reader-page-body h4 + *, .reader-page-body h5 + *, .reader-page-body h6 + *, ",
+            ".chapter-body .manuscript-heading + *, .chapter-body h1 + *, .chapter-body h2 + *, .chapter-body h3 + *, ",
+            ".chapter-body h4 + *, .chapter-body h5 + *, .chapter-body h6 + * { ",
+            "break-before: avoid !important; page-break-before: avoid !important; } ");
+
     /// <summary>PDF interior CSS (embedded in print HTML).</summary>
     public static string BuildPdfThemeCss(BookPdfExportOptions opt)
     {
@@ -240,7 +254,28 @@ public static class InteriorExportTheme
             _ => ".book-pdf-body.tpl-novel .reader-page-title { font-size: 16pt; font-weight: 700; letter-spacing: 0.015em; border-bottom: 1px solid rgba(111, 47, 16, 0.18); color: #6f2f10; padding-bottom: 3mm; text-align: center; } "
         };
 
-        return baseCss + tplCss + BuildFormatterInteriorCss();
+        return baseCss + tplCss + BuildFormatterInteriorCss() + BuildBookPreviewSheetPrintCss(interior, pageBg) + BuildHeadingKeepWithNextCss();
+    }
+
+    /// <summary>book-preview-sheet backgrounds — matches Book Formatter preview per interior style.</summary>
+    public static string BuildBookPreviewSheetPrintCss(string interior, string pageBg)
+    {
+        var sheetBg = ResolveDefaultPageBackground(interior);
+        var baseRules = string.Concat(
+            ".book-preview-sheet { width: 100%; box-sizing: border-box; background: ", sheetBg,
+            "; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 6mm 7mm; } ",
+            ".reader-content-wrap { background: var(--page-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; } ");
+
+        var perInterior = interior switch
+        {
+            "Classic" => ".reader-content-wrap.interior-classic .book-preview-sheet { background: #fdfcfa; border: 1px solid #ddd2c4; } ",
+            "Modern" => ".reader-content-wrap.interior-modern .book-preview-sheet { background: #ffffff; border: 1px solid #9fb1c9; } ",
+            "Minimalist" => ".reader-content-wrap.interior-minimalist .book-preview-sheet { background: #ffffff; border: 1px solid #e4e4e7; } ",
+            "ElegantTrade" => ".reader-content-wrap.interior-elegant-trade .book-preview-sheet { background: #fcf9f3; border: 1px solid #cfbea5; } ",
+            _ => ".reader-content-wrap.interior-novel .book-preview-sheet { background: #fffdf8; border: 1px solid #d4b08a; } "
+        };
+
+        return baseRules + perInterior;
     }
 
     /// <summary>Interior shell rules — mirrors Book Formatter preview (<c>interior-*</c> on body).</summary>

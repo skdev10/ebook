@@ -88,6 +88,55 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void NormalizeForManuscript_strips_status_data_string_wrapper()
+    {
+        var raw = """{"status":"success","data":"<p class=\"manuscript-p\">Drop zone secured.</p>"}""";
+        var clean = ChapterContentNormalizer.NormalizeForManuscript(raw);
+        Assert.DoesNotContain("status", clean, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"data\"", clean, StringComparison.Ordinal);
+        Assert.Contains("Drop zone secured", clean, StringComparison.Ordinal);
+        Assert.Contains("manuscript-p", clean, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NormalizeForManuscript_strips_status_data_content_object_wrapper()
+    {
+        var raw = """{"status":"success","data":{"content":"<p>Battle royale begins.</p>"}}""";
+        var clean = ChapterContentNormalizer.NormalizeForManuscript(raw);
+        Assert.Equal("<p>Battle royale begins.</p>", clean);
+    }
+
+    [Fact]
+    public void PrepareChapterBodyForExport_never_emits_json_wrapper()
+    {
+        var raw = """{"status":"success","data":"<p>Erangel fog rolls in.</p>"}""";
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("PUBG Guide", null, null, "Gaming", "Author");
+        var html = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(raw, ph, "Chapter 1");
+        Assert.DoesNotContain("{\"status\"", html, StringComparison.Ordinal);
+        Assert.Contains("Erangel fog", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildChapterSectionsHtml_includes_book_preview_sheet()
+    {
+        var html = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(
+            [new ChapterDto { ChapterNumber = 1, Title = "Scene One", Content = "Hello world." }],
+            BookManuscriptHtmlFormatter.CreateBaseContext("Book", null, null, null, "Author"),
+            new BookPdfExportOptions { InteriorStyle = "Novel", TextSize = "Medium", LineSpacing = "1.6" });
+
+        Assert.Contains("book-preview-sheet", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildPdfThemeCss_includes_heading_keep_with_next_rules()
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.Contains("page-break-after: avoid", css, StringComparison.Ordinal);
+        Assert.Contains("page-break-before: avoid", css, StringComparison.Ordinal);
+        Assert.Contains(".reader-page-body h2 + *", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildPdfThemeCss_classic_includes_tpl_classic_marker()
     {
         var css = InteriorExportTheme.BuildPdfThemeCss(new Models.DTO.BookPdfExportOptions

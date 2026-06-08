@@ -20,7 +20,7 @@ public static class BookPdfPlatformLayout
         string MarginRight,
         bool PreferCssPageSize);
 
-    public static PdfLayoutSpec Resolve(BookPdfExportOptions opt)
+    public static PdfLayoutSpec Resolve(BookPdfExportOptions opt, BookPdfLayoutOptions? marginOverrides = null)
     {
         var platform = NormalizePlatform(opt.PrimaryPlatformToken());
         var fmt = (opt.Format ?? "Ebook").Trim();
@@ -36,10 +36,10 @@ public static class BookPdfPlatformLayout
              fmt.Equals("Print", StringComparison.OrdinalIgnoreCase) ||
              fmt.Equals("Both", StringComparison.OrdinalIgnoreCase)))
         {
-            return Trim6x9Print(bleedHeavy: false);
+            return ApplyMarginOverrides(Trim6x9Print(bleedHeavy: false), marginOverrides);
         }
 
-        return platform switch
+        var spec = platform switch
         {
             "justprint" => Trim6x9Print(bleedHeavy: true),
             "ingram" => Trim6x9Print(bleedHeavy: true),
@@ -48,6 +48,21 @@ public static class BookPdfPlatformLayout
             _ => fmt.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
                 ? A4ScreenLayout()
                 : Trim6x9Print(bleedHeavy: false)
+        };
+        return spec.PageSizeCss.Contains("6in", StringComparison.Ordinal)
+            ? ApplyMarginOverrides(spec, marginOverrides)
+            : spec;
+    }
+
+    private static PdfLayoutSpec ApplyMarginOverrides(PdfLayoutSpec spec, BookPdfLayoutOptions? o)
+    {
+        if (o == null) return spec;
+        return spec with
+        {
+            MarginTop = string.IsNullOrWhiteSpace(o.MarginTop) ? spec.MarginTop : o.MarginTop.Trim(),
+            MarginBottom = string.IsNullOrWhiteSpace(o.MarginBottom) ? spec.MarginBottom : o.MarginBottom.Trim(),
+            MarginLeft = string.IsNullOrWhiteSpace(o.MarginInside) ? spec.MarginLeft : o.MarginInside.Trim(),
+            MarginRight = string.IsNullOrWhiteSpace(o.MarginOutside) ? spec.MarginRight : o.MarginOutside.Trim()
         };
     }
 
@@ -63,17 +78,18 @@ public static class BookPdfPlatformLayout
         MarginRight: "16mm",
         PreferCssPageSize: false);
 
+    /// <summary>KDP 6×9 — inside gutter ~0.375in, outside/top/bottom ≥0.25in (we use 0.5in top/bottom for readability).</summary>
     private static PdfLayoutSpec Trim6x9Print(bool bleedHeavy) => new(
         PageSizeCss: "6in 9in",
         PdfWidth: "6in",
         PdfHeight: "9in",
         UseBuiltInFormat: false,
         BuiltInFormat: PaperFormat.A4,
-        MarginTop: bleedHeavy ? "20mm" : "19mm",
-        MarginBottom: bleedHeavy ? "22mm" : "20mm",
-        MarginLeft: bleedHeavy ? "20mm" : "18mm",
-        MarginRight: bleedHeavy ? "18mm" : "17mm",
-        PreferCssPageSize: false);
+        MarginTop: bleedHeavy ? "0.55in" : "0.5in",
+        MarginBottom: bleedHeavy ? "0.55in" : "0.5in",
+        MarginLeft: bleedHeavy ? "0.5in" : "0.375in",
+        MarginRight: bleedHeavy ? "0.375in" : "0.25in",
+        PreferCssPageSize: true);
 
     private static string NormalizePlatform(string? raw)
     {

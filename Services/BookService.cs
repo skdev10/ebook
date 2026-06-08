@@ -549,22 +549,12 @@ namespace EBookDashboard.Services
         private static string ResolveChapterBodyContent(string? content, string? responseData)
         {
             if (!string.IsNullOrWhiteSpace(content))
-            {
-                var trimmed = content.Trim();
-                if (trimmed.StartsWith('{') || trimmed.StartsWith('['))
-                {
-                    var fromJson = APIRawResponseService.ExtractContentFromResponse(trimmed);
-                    if (!string.IsNullOrWhiteSpace(fromJson))
-                        return fromJson;
-                }
-                return content;
-            }
+                return ChapterContentNormalizer.NormalizeForManuscript(content);
 
             if (string.IsNullOrWhiteSpace(responseData))
                 return string.Empty;
 
-            var extracted = APIRawResponseService.ExtractContentFromResponse(responseData);
-            return !string.IsNullOrWhiteSpace(extracted) ? extracted : responseData;
+            return ChapterContentNormalizer.NormalizeForManuscript(responseData);
         }
 
         /// <summary>
@@ -812,7 +802,7 @@ namespace EBookDashboard.Services
                         ResponseId = 0,
                         ChapterNumber = n,
                         Title = BookChapterExportHelper.GetDefaultStoredTitle(ch.Title, n, narrativeOrdinal),
-                        Content = ch.Content ?? "",
+                        Content = ChapterContentNormalizer.NormalizeForManuscript(ch.Content),
                         StatusCode = ch.Status,
                         CreatedAt = ch.UpdatedAt != default ? ch.UpdatedAt : ch.CreatedAt
                     });
@@ -823,6 +813,7 @@ namespace EBookDashboard.Services
                     if (r != null)
                     {
                         r.Title = BookChapterExportHelper.GetDefaultStoredTitle(r.Title, n, narrativeOrdinal);
+                        r.Content = ChapterContentNormalizer.NormalizeForManuscript(r.Content);
                         result.Add(r);
                         continue;
                     }
@@ -833,7 +824,7 @@ namespace EBookDashboard.Services
                             ResponseId = 0,
                             ChapterNumber = n,
                             Title = BookChapterExportHelper.GetDefaultStoredTitle(draftCh.Title, n, narrativeOrdinal),
-                            Content = draftCh.Content ?? "",
+                            Content = ChapterContentNormalizer.NormalizeForManuscript(draftCh.Content),
                             StatusCode = draftCh.Status,
                             CreatedAt = draftCh.UpdatedAt != default ? draftCh.UpdatedAt : draftCh.CreatedAt
                         });
@@ -846,7 +837,7 @@ namespace EBookDashboard.Services
                             ResponseId = iter.ResponseId ?? 0,
                             ChapterNumber = n,
                             Title = BookChapterExportHelper.GetDefaultStoredTitle(iter.Title, n, narrativeOrdinal),
-                            Content = iter.Content ?? "",
+                            Content = ChapterContentNormalizer.NormalizeForManuscript(iter.Content),
                             StatusCode = iter.IsFinalized ? "Finalized" : "Draft",
                             CreatedAt = iter.GenerationDate.Add(iter.GenerationTime)
                         });

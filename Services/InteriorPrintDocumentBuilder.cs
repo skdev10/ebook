@@ -40,9 +40,11 @@ public static class InteriorPrintDocumentBuilder
 
             sb.Append(CultureInfo.InvariantCulture, $"""
                 <section class="chapter" id="ch-{sectionId}">
-                  <div class="reader-chapter-block" data-chapter-start="1">
-                    <article class="reader-page-title">{titleHtml}</article>
-                    <section class="reader-page-body {bodyClass}">{bodyHtml}</section>
+                  <div class="book-preview-sheet">
+                    <div class="reader-chapter-block" data-chapter-start="1">
+                      <article class="reader-page-title">{titleHtml}</article>
+                      <section class="reader-page-body {bodyClass}">{bodyHtml}</section>
+                    </div>
                   </div>
                 </section>
                 """);
@@ -52,9 +54,11 @@ public static class InteriorPrintDocumentBuilder
         {
             sb.Append("""
                 <section class="chapter" id="ch-0">
-                  <div class="reader-chapter-block" data-chapter-start="1">
-                    <article class="reader-page-title">Chapter</article>
-                    <section class="reader-page-body"><p class="manuscript-p">No chapters in this book yet.</p></section>
+                  <div class="book-preview-sheet">
+                    <div class="reader-chapter-block" data-chapter-start="1">
+                      <article class="reader-page-title">Chapter</article>
+                      <section class="reader-page-body"><p class="manuscript-p">No chapters in this book yet.</p></section>
+                    </div>
                   </div>
                 </section>
                 """);
@@ -96,4 +100,52 @@ public static class InteriorPrintDocumentBuilder
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;600;700;800&family=Lato:wght@400;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
         """;
+
+    private static readonly (string Family, string Weight, string File)[] EmbeddedFontFiles =
+    [
+        ("Merriweather", "400", "Merriweather-Regular.ttf"),
+        ("Merriweather", "700", "Merriweather-Bold.ttf"),
+        ("Playfair Display", "700", "PlayfairDisplay-Bold.ttf"),
+        ("Inter", "400", "Inter-Regular.ttf"),
+        ("Inter", "700", "Inter-Bold.ttf"),
+        ("Cormorant Garamond", "400", "CormorantGaramond-Regular.ttf"),
+        ("Cormorant Garamond", "700", "CormorantGaramond-Bold.ttf"),
+        ("Cormorant Garamond", "400 italic", "CormorantGaramond-Italic.ttf"),
+        ("EB Garamond", "400", "EBGaramond-Regular.ttf"),
+        ("Lora", "400", "Lora-Regular.ttf"),
+    ];
+
+    /// <summary>Embedded @font-face (offline) + Google Fonts fallback — same fonts as BookPreview.</summary>
+    public static string BuildFontStylesForExport(string? webRootPath)
+    {
+        var sb = new StringBuilder();
+        var fontDir = string.IsNullOrEmpty(webRootPath)
+            ? null
+            : Path.Combine(webRootPath, "fonts", "pdf");
+        var embeddedAny = false;
+
+        if (fontDir != null && Directory.Exists(fontDir))
+        {
+            sb.AppendLine("<style>");
+            foreach (var (family, weight, file) in EmbeddedFontFiles)
+            {
+                var path = Path.Combine(fontDir, file);
+                if (!File.Exists(path)) continue;
+                var info = new FileInfo(path);
+                if (info.Length > 900_000) continue;
+
+                var bytes = File.ReadAllBytes(path);
+                var b64 = Convert.ToBase64String(bytes);
+                var isItalic = weight.Contains("italic", StringComparison.OrdinalIgnoreCase);
+                var weightNum = weight.Contains("700") ? "700" : "400";
+                var style = isItalic ? "italic" : "normal";
+                sb.AppendLine(FormattableString.Invariant(
+                    $"@font-face {{ font-family: '{family}'; font-style: {style}; font-weight: {weightNum}; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-display: swap; }}"));
+                embeddedAny = true;
+            }
+            sb.AppendLine("</style>");
+        }
+
+        return embeddedAny ? sb.ToString() + GoogleFontLinks() : GoogleFontLinks();
+    }
 }

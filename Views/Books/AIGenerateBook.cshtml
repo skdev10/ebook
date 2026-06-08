@@ -20,6 +20,7 @@
     window.__chapterGenFetchTimeoutMs = @chapterGenFetchTimeoutMs;
 </script>
 <link rel="stylesheet" href="~/css/book-page-preview.css" asp-append-version="true" />
+<script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <style>
 
     body { font-family: 'Inter', sans-serif; }
@@ -529,7 +530,29 @@
         color: #0f172a; font-size: 1.2rem; font-weight: 600; margin: 0 0 1rem 0;
         letter-spacing: -0.02em;
     }
-    #bookResult .book-page-content .manuscript-heading { color: #1e293b; font-weight: 600; margin: 1.15rem 0 0.65rem 0; line-height: 1.25; }
+    #bookResult .book-page-content .manuscript-heading { color: #1e293b; font-weight: 600; margin: 1.15rem 0 0.65rem 0; line-height: 1.25; break-after: avoid; page-break-after: avoid; }
+    #bookResult #preview-content .reader-page-body .manuscript-heading,
+    #bookResult #preview-content .reader-page-body h1,
+    #bookResult #preview-content .reader-page-body h2,
+    #bookResult #preview-content .reader-page-body h3,
+    #bookResult #preview-content .reader-page-body h4,
+    #bookResult #preview-content .reader-page-body h5,
+    #bookResult #preview-content .reader-page-body h6 {
+        break-after: avoid;
+        page-break-after: avoid;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    #bookResult #preview-content .reader-page-body .manuscript-heading + *,
+    #bookResult #preview-content .reader-page-body h1 + *,
+    #bookResult #preview-content .reader-page-body h2 + *,
+    #bookResult #preview-content .reader-page-body h3 + *,
+    #bookResult #preview-content .reader-page-body h4 + *,
+    #bookResult #preview-content .reader-page-body h5 + *,
+    #bookResult #preview-content .reader-page-body h6 + * {
+        break-before: avoid;
+        page-break-before: avoid;
+    }
     #bookResult .book-page-content .manuscript-h1 { font-size: 1.65rem; }
     #bookResult .book-page-content .manuscript-h2 { font-size: 1.4rem; }
     #bookResult .book-page-content .manuscript-h3 { font-size: 1.2rem; }
@@ -1871,17 +1894,40 @@ window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
             continue;
         }
         if (acc) {
-            flushAcc();
-            if (blockHeight(seg) <= maxH) {
-                acc = seg;
+            var brp = window.BookReaderPagination;
+            var pendingHeading = '';
+            if (brp && typeof brp.splitAccBeforeFlush === 'function') {
+                var split = brp.splitAccBeforeFlush(acc, seg);
+                if (split.carry) {
+                    if (split.flushBody) {
+                        pages.push('<div class="reader-chapter-block">' + split.flushBody + '</div>');
+                    }
+                    pendingHeading = split.carry;
+                    acc = '';
+                } else {
+                    flushAcc();
+                }
             } else {
-                pushOversizedSegment(seg);
+                flushAcc();
+            }
+            var candidate = pendingHeading ? (pendingHeading + seg) : seg;
+            if (blockHeight(candidate) <= maxH) {
+                acc = candidate;
+            } else if (pendingHeading && blockHeight(pendingHeading) <= maxH) {
+                pages.push('<div class="reader-chapter-block">' + pendingHeading + '</div>');
+                if (blockHeight(seg) <= maxH) acc = seg;
+                else pushOversizedSegment(seg);
+            } else {
+                pushOversizedSegment(candidate);
             }
         } else {
             pushOversizedSegment(seg);
         }
     }
     flushAcc();
+    if (window.BookReaderPagination && typeof window.BookReaderPagination.stripTrailingHeadingsFromChapterBlockPages === 'function') {
+        pages = window.BookReaderPagination.stripTrailingHeadingsFromChapterBlockPages(pages);
+    }
     return pages.length ? pages : [fullHtml];
 };
 

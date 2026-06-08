@@ -29,13 +29,59 @@ public static class UpstreamResponseParser
             if (!string.IsNullOrWhiteSpace(content))
                 return content.Trim();
 
-            return ExtractContentWithRegex(trimmed);
+            var regex = ExtractContentWithRegex(trimmed);
+            if (!string.IsNullOrWhiteSpace(regex))
+                return regex;
+
+            return TryExtractDataStringLiteral(trimmed) ?? string.Empty;
         }
         catch
         {
-            return ExtractContentWithRegex(trimmed);
+            var regex = ExtractContentWithRegex(trimmed);
+            if (!string.IsNullOrWhiteSpace(regex))
+                return regex;
+
+            return TryExtractDataStringLiteral(trimmed) ?? string.Empty;
         }
     }
+
+    /// <summary>
+    /// When JSON is malformed (HTML quotes inside <c>data</c>), extract the string value of <c>data</c> literally.
+    /// </summary>
+    public static string? TryExtractDataStringLiteral(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var s = raw.Trim();
+        foreach (var marker in new[] { "\"data\":\"", "\"data\": \"", "'data':'", "'data': '" })
+        {
+            var idx = s.IndexOf(marker, StringComparison.Ordinal);
+            if (idx < 0) continue;
+
+            var start = idx + marker.Length;
+            if (start >= s.Length) continue;
+
+            var end = s.LastIndexOf("\"}", StringComparison.Ordinal);
+            if (end <= start)
+                end = s.LastIndexOf("'}", StringComparison.Ordinal);
+            if (end <= start)
+                continue;
+
+            var inner = s.Substring(start, end - start);
+            return UnescapeJsonString(inner);
+        }
+
+        return null;
+    }
+
+    private static string UnescapeJsonString(string s) =>
+        s.Replace("\\n", "\n", StringComparison.Ordinal)
+            .Replace("\\r", "\r", StringComparison.Ordinal)
+            .Replace("\\t", "\t", StringComparison.Ordinal)
+            .Replace("\\\"", "\"", StringComparison.Ordinal)
+            .Replace("\\/", "/", StringComparison.Ordinal)
+            .Replace("\\\\", "\\", StringComparison.Ordinal);
 
     public static List<string> ExtractSuggestedChapterNames(string? jsonResponse)
     {

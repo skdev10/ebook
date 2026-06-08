@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lato:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,700;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="~/css/book-page-preview.css" asp-append-version="true" />
+<script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <style>
 
 
@@ -1403,10 +1404,12 @@
         width: 100%;
         flex: 1 1 auto;
         min-height: 0;
-        overflow-y: auto;
+        overflow-y: hidden !important;
         overflow-x: hidden;
+        overscroll-behavior: contain;
         box-sizing: border-box;
         padding: 1.5rem;
+        padding-bottom: clamp(0.65rem, 1.8vw, 0.85rem);
         margin: 0;
     }
     .paginated-reader-shell.interior-novel .chapter-preview-viewport { background: #fffef9; }
@@ -1707,20 +1710,21 @@
 
     #fmt-book-result .paginated-reader-shell {
         width: 100% !important;
-        max-width: min(100%, 40rem) !important;
+        max-width: min(100%, 6in) !important;
         margin-left: auto !important;
         margin-right: auto !important;
-        aspect-ratio: auto !important;
-        min-height: clamp(28rem, 68dvh, 52rem) !important;
-        max-height: min(92dvh, 56rem) !important;
+        aspect-ratio: 6 / 9 !important;
+        max-height: min(9in, calc(100dvh - 12rem)) !important;
         height: auto !important;
-        overflow: visible !important;
+        overflow: hidden !important;
+        flex-shrink: 0;
     }
 
     #fmt-book-result #preview-content.chapter-preview-viewport,
     #fmt-book-result #preview-content-ebook.chapter-preview-viewport,
     #fmt-book-result #preview-content-paperback.chapter-preview-viewport {
-        padding: 1.5rem !important;
+        padding: clamp(0.75rem, 2.2vw, 1.25rem) !important;
+        padding-bottom: clamp(0.65rem, 1.8vw, 0.85rem) !important;
     }
 </style>
 
@@ -2595,20 +2599,37 @@
         return (shell && shell.clientWidth > 48) ? shell.clientWidth : 0;
     }
 
-    /** Available scroll height inside the live `.book-page-content` slot (matches on-screen reader). */
+    /** Usable inner height for one 6×9 page (viewport padding subtracted — no scroll). */
     function getFmtContentAreaHeightPx() {
+        var viewport = document.getElementById('preview-content')
+            || document.getElementById('preview-content-ebook')
+            || document.getElementById('preview-content-paperback');
+        var shell = document.getElementById('paginatedReaderShell')
+            || document.getElementById('paginatedReaderShellEbook')
+            || document.getElementById('paginatedReaderShellPaperback');
+        if (viewport && viewport.clientHeight >= 48) {
+            var vs = window.getComputedStyle(viewport);
+            var padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
+            var blockPad = 0;
+            var sample = viewport.querySelector('.reader-chapter-block, .book-preview-sheet');
+            if (sample) {
+                var bs = window.getComputedStyle(sample);
+                blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
+            }
+            var usable = Math.max(0, viewport.clientHeight - padY - blockPad - 8);
+            if (usable >= 48) return usable;
+        }
         var contentEl = document.getElementById('bookPageContentA');
         if (contentEl && contentEl.clientHeight >= 80) return contentEl.clientHeight;
-        var shell = document.getElementById('paginatedReaderShell');
         if (shell && shell.clientHeight >= 80) {
-            var wrapPad = 20;
+            var padY2 = 20;
             var footerReserve = 34;
-            return Math.max(160, shell.clientHeight - wrapPad - footerReserve);
+            return Math.max(160, shell.clientHeight - padY2 - footerReserve - 8);
         }
         var w = getFmtMeasureShellWidth();
         if (w >= 48) {
             var shellH = Math.floor(w * (9 / 6));
-            return Math.max(160, Math.floor(shellH * 0.88) - 20);
+            return Math.max(160, Math.floor(shellH * 0.88) - 28);
         }
         return 520;
     }
@@ -2805,6 +2826,9 @@
     }
 
     function pullTrailingHeadingBlock(bodyHtml) {
+        if (window.BookReaderPagination && typeof window.BookReaderPagination.pullTrailingHeadingFromInnerHtml === 'function') {
+            return window.BookReaderPagination.pullTrailingHeadingFromInnerHtml(bodyHtml);
+        }
         var html = String(bodyHtml || '').trim();
         if (!html) return null;
         var tmp = document.createElement('div');
@@ -2813,8 +2837,8 @@
         if (!children.length) return null;
         var last = children[children.length - 1];
         if (!last || !/^h[1-6]$/i.test(last.tagName || '')) return null;
-        if (children.length === 1 && /^h[1-6]$/i.test(last.tagName || '')) {
-            return { bodyWithoutHeading: '', headingHtml: moved };
+        if (children.length === 1) {
+            return { bodyWithoutHeading: '', headingHtml: last.outerHTML };
         }
         if (children.length <= 1) return null;
         var moved = last.outerHTML;

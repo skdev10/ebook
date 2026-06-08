@@ -9,7 +9,7 @@ using PdfSharp.Pdf;
 namespace EBookDashboard.Services.PdfExport;
 
 /// <summary>
-/// Primary PDF engine — PDFsharp with embedded fonts, 6×9 layout, HTML styles (not plain-text fallback).
+/// Secondary PDF engine — PDFsharp with embedded fonts, 6×9 layout (fallback when Chromium unavailable).
 /// </summary>
 public sealed class PdfSharpBookExporter
 {
