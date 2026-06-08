@@ -65,7 +65,7 @@ public static class BookTitleResolver
         if (trimmed.Length > 250) trimmed = trimmed[..250];
 
         var book = await context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, ct);
-        if (book != null && IsPlaceholderTitle(book.Title))
+        if (book != null)
         {
             book.Title = trimmed;
             book.UpdatedAt = DateTime.UtcNow;

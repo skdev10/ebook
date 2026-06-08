@@ -147,9 +147,11 @@ namespace EBookDashboard.Controllers
                 .Where(b => b.BookId == bookId.Value)
                 .Select(b => b.Title)
                 .FirstOrDefaultAsync();
+            var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                _context, userId.Value, bookId.Value, bookTitle);
             ViewBag.UserId = userId;
             ViewBag.SelectedBookId = bookId;
-            ViewBag.SelectedBookTitle = string.IsNullOrWhiteSpace(bookTitle) ? "Untitled" : bookTitle;
+            ViewBag.SelectedBookTitle = displayTitle;
             ViewBag.FlowBookId = bookId.Value;
             ViewBag.FlowStep = BookFlowStateService.StepGenerate;
             ViewBag.FlowBackUrl = "/Dashboard";
@@ -614,6 +616,18 @@ namespace EBookDashboard.Controllers
             if (model == null)
                 return Json(new { error = true, message = "Invalid request data — empty body or invalid JSON." });
 
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
+                return Json(new { error = true, message = "Please sign in again, then retry chapter generation." });
+            model.UserId = sessionUserId.Value.ToString(CultureInfo.InvariantCulture);
+            if (int.TryParse(model.BookId, out var genBookId) && genBookId > 0)
+            {
+                var owns = await _context.Books.AsNoTracking()
+                    .AnyAsync(b => b.BookId == genBookId && b.UserId == sessionUserId.Value);
+                if (!owns)
+                    return Json(new { error = true, message = "Book not found. Open your project from the Dashboard and try again." });
+            }
+
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateUrl, "/api/generate_chapter");
             if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
             {
@@ -623,9 +637,6 @@ namespace EBookDashboard.Controllers
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
-            var queueBlock = await GetUpstreamQueueBlockReasonAsync(HttpContext.RequestAborted);
-            if (queueBlock != null)
-                return Json(new { error = true, message = queueBlock, queueBlocked = true });
             var responseData = string.Empty;
             int? rawResponseId = null;
             try
@@ -719,7 +730,7 @@ namespace EBookDashboard.Controllers
                 if (rawResponseId == null)
                     try { await _rawResponseService.SaveRawResponseAsync(model, responseData ?? "", apiUrl, "504", "Timeout waiting for generation API"); } catch { }
                 Console.WriteLine($"❌ Generate chapter timeout: {ex.Message}");
-                return Json(new { error = true, message = "Generation is taking longer than expected. If your chapter is very long, try again or shorten the prompt. You can also retry in a few minutes." });
+                return Json(new { error = true, message = "The AI service did not respond in time. The upstream API at 162.229.248.26 may be busy — wait 2–3 minutes and try again, or contact support if this continues." });
             }
             catch (OperationCanceledException)
             {
@@ -798,12 +809,21 @@ namespace EBookDashboard.Controllers
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
-            var queueBlock = await GetUpstreamQueueBlockReasonAsync(HttpContext.RequestAborted);
-            if (queueBlock != null)
-                return Json(new { error = true, message = queueBlock, queueBlocked = true });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
+                return Json(new { error = true, message = "Please sign in again, then retry." });
+            model.UserId = sessionUserId.Value.ToString(CultureInfo.InvariantCulture);
 
             var userId = model.UserId ?? "";
             var bookId = model.BookId ?? "";
+            if (int.TryParse(bookId, out var editBookId) && editBookId > 0)
+            {
+                var owns = await _context.Books.AsNoTracking()
+                    .AnyAsync(b => b.BookId == editBookId && b.UserId == sessionUserId.Value);
+                if (!owns)
+                    return Json(new { error = true, message = "Book not found. Open your project from the Dashboard." });
+            }
             var chapter = model.Chapter;
             var changes = model.Changes ?? "";
 
@@ -2272,6 +2292,20 @@ namespace EBookDashboard.Controllers
                 if (book == null)
                     return NotFound(new { success = false, message = "Book not found or access denied." });
 
+                if (model.BookTitleOnly)
+                {
+                    if (!string.IsNullOrWhiteSpace(model.BookTitle))
+                        await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, model.BookTitle);
+                    await _context.Entry(book).ReloadAsync();
+                    return Json(new
+                    {
+                        success = true,
+                        message = "Book title saved.",
+                        bookTitle = book.Title,
+                        bookTitleOnly = true
+                    });
+                }
+
                 if (!string.IsNullOrWhiteSpace(model.BookTitle))
                     await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, model.BookTitle);
 
@@ -2379,11 +2413,13 @@ namespace EBookDashboard.Controllers
                     }
                 }
 
+                await _context.Entry(book).ReloadAsync();
                 return Json(new
                 {
                     success = true,
                     message = "Chapter updated successfully.",
-                    responseId = newResponseId
+                    responseId = newResponseId,
+                    bookTitle = book.Title
                 });
             }
             catch (Exception ex)
@@ -4337,10 +4373,5 @@ namespace EBookDashboard.Controllers
             await _context.SaveChangesAsync();
         }
 
-        private async Task<string?> GetUpstreamQueueBlockReasonAsync(CancellationToken cancellationToken)
-        {
-            var snapshot = await _queueProbe.TryGetSnapshotAsync(cancellationToken);
-            return UpstreamQueueGuard.GetBlockReason(snapshot, _configuration);
-        }
     }
 }

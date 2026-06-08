@@ -131,7 +131,8 @@ public static class InteriorExportTheme
             "} ",
             "p:first-of-type, h1 + p, h2 + p, h4 + p { text-indent: 0; } ",
             theme.ExtraRules,
-            "img { max-width: 100%; height: auto; } ",
+            "img { max-width: 100%; height: auto; page-break-inside: avoid; break-inside: avoid; } ",
+            "[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             "blockquote { ", theme.BlockquoteRules, " } ",
             tplCss);
     }
@@ -147,6 +148,11 @@ public static class InteriorExportTheme
         var justify = interior is "Modern" or "Minimalist" ? "text-align:left;" : "text-align:justify;";
         var chapterAlign = interior is "Classic" or "Novel" or "ElegantTrade" ? "text-align:center;" : "text-align:left;";
 
+        var accent = NormalizeAccentHex(opt.PreviewAccent);
+        var accentCss = string.IsNullOrEmpty(accent)
+            ? ""
+            : string.Concat("--fmt-accent: ", accent, "; ");
+
         var baseCss = string.Concat(
             ":root { ",
             "--body-pt: ", pt, "pt; ",
@@ -156,13 +162,14 @@ public static class InteriorExportTheme
             "--heading-color: ", theme.HeadingColor, "; ",
             "--body-color: ", theme.BodyColor, "; ",
             "--page-bg: ", theme.PageBackground, "; ",
+            accentCss,
             "} ",
             "html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             "@page { background-color: var(--page-bg); } ",
             "html { background-color: var(--page-bg); margin: 0; padding: 0; } ",
             ".book-pdf-body { font-family: var(--body-font); font-size: var(--body-pt); line-height: var(--body-lh); color: var(--body-color); background: var(--page-bg); margin: 0; min-height: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             ".front-matter-page, .title-page, .copyright-page, .manuscript-root > section.chapter { background: var(--page-bg); box-sizing: border-box; } ",
-            ".manuscript-root > section.chapter { min-height: 100vh; padding-top: 2mm; } ",
+            ".manuscript-root > section.chapter { min-height: auto; padding-top: 2mm; padding-bottom: 2mm; } ",
             ".front-matter-page { page-break-after: always; padding-top: 8mm; background: var(--page-bg); min-height: 100vh; } ",
             ".title-page { min-height: 100vh; background: var(--page-bg); } ",
             ".copyright-page .cr-meta { font-size: 12pt; margin: 0 0 4mm; } ",
@@ -203,6 +210,10 @@ public static class InteriorExportTheme
             ".chapter-body .manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; } ",
             ".chapter-body .manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; } ",
             ".chapter-body .manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; } ",
+            "img { max-width: 100%; height: auto; page-break-inside: avoid; break-inside: avoid; } ",
+            "[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
+            ".book-pdf-body.interior-modern .reader-page-body p { border-left-color: var(--fmt-accent, #6366f1); } ",
+            ".book-pdf-body blockquote { border-left-color: var(--fmt-accent, #c4b5fd); } ",
             BuildPreviewMatchedReaderCss(interior, justify, chapterAlign, theme));
 
         var tplCss = interior switch
@@ -214,8 +225,28 @@ public static class InteriorExportTheme
             _ => ".book-pdf-body.tpl-novel .reader-page-title { font-size: 16pt; font-weight: 700; letter-spacing: 0.015em; border-bottom: 1px solid rgba(111, 47, 16, 0.18); color: #6f2f10; padding-bottom: 3mm; text-align: center; } "
         };
 
-        return baseCss + tplCss;
+        return baseCss + tplCss + BuildFormatterInteriorCss();
     }
+
+    /// <summary>Interior shell rules — mirrors Book Formatter preview (<c>interior-*</c> on body).</summary>
+    public static string BuildFormatterInteriorCss() =>
+        string.Concat(
+            ".book-pdf-body.interior-novel .reader-page-title { font-family: 'Playfair Display', Georgia, serif; color: #6f2f10; font-weight: 700; text-align: center; border-bottom: 1px solid rgba(111, 47, 16, 0.18); } ",
+            ".book-pdf-body.interior-novel .reader-page-body { font-family: 'Merriweather', Georgia, serif; color: #2c2118; } ",
+            ".book-pdf-body.interior-novel .reader-page-body p { text-indent: 1.5em; margin-bottom: 0.95em; } ",
+            ".book-pdf-body.interior-modern .reader-page-title { font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 800; color: #334155; text-align: left; border-bottom: none; } ",
+            ".book-pdf-body.interior-modern .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #334155; } ",
+            ".book-pdf-body.interior-modern .reader-page-body p { text-indent: 0; border-left: 3px solid #6366f1; padding-left: 0.9em; margin-bottom: 0.85em; } ",
+            ".book-pdf-body.interior-classic .reader-page-title { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; font-style: italic; font-variant: small-caps; letter-spacing: 0.12em; text-align: center; border-bottom: 3px double #d6c4a8; } ",
+            ".book-pdf-body.interior-classic .reader-page-body { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; text-align: justify; color: #231f1a; } ",
+            ".book-pdf-body.interior-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.4em; line-height: 0.8; padding-right: 0.1em; font-weight: 600; color: #111; font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; } ",
+            ".book-pdf-body.interior-minimalist .reader-page-title { font-family: 'Inter', system-ui, sans-serif; font-weight: 600; color: #111827; text-align: left; border-bottom: 1px solid #ececec; } ",
+            ".book-pdf-body.interior-minimalist .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #3f3f46; } ",
+            ".book-pdf-body.interior-minimalist .reader-page-body p { text-indent: 0; margin-bottom: 1.1em; } ",
+            ".book-pdf-body.interior-elegant-trade .reader-page-title { font-family: 'Lora', 'Times New Roman', serif; font-weight: 600; letter-spacing: 0.06em; color: #3d2914; text-align: center; border-bottom: 1px solid #c8b08e; } ",
+            ".book-pdf-body.interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
+            ".book-pdf-body.interior-elegant-trade .reader-page-body p { text-indent: 1.35em; margin-bottom: 0.95em; } ",
+            ".book-pdf-body.interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ");
 
     private static string BuildPreviewMatchedReaderCss(string interior, string justify, string chapterAlign, ThemeSpec theme) =>
         string.Concat(
@@ -230,11 +261,19 @@ public static class InteriorExportTheme
                 ? ".book-pdf-body.tpl-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 600; color: #78350f; } "
                 : "");
 
+    private static string? NormalizeAccentHex(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var s = raw.Trim();
+        if (!s.StartsWith('#')) s = "#" + s;
+        return System.Text.RegularExpressions.Regex.IsMatch(s, @"^#[0-9A-Fa-f]{6}$") ? s : null;
+    }
+
     private static ThemeSpec ResolveTheme(string interior) => interior switch
     {
         "Modern" => new ThemeSpec(
-            "'Segoe UI', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif",
-            "'Segoe UI', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif",
+            "'Inter', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif",
+            "'Inter', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif",
             "#334155", "#334155", "#ffffff",
             "font-weight: 800; margin: 1.2em 0 0.8em;",
             "text-indent: 0; margin-bottom: 0.85em; padding-left: 0.9em; border-left: 3px solid #6366f1;",
@@ -242,8 +281,8 @@ public static class InteriorExportTheme
             "border-bottom: none;",
             ""),
         "Minimalist" => new ThemeSpec(
-            "'Segoe UI', system-ui, Roboto, Arial, sans-serif",
-            "'Segoe UI', system-ui, Roboto, Arial, sans-serif",
+            "'Inter', system-ui, Roboto, Arial, sans-serif",
+            "'Inter', system-ui, Roboto, Arial, sans-serif",
             "#111111", "#1a1a1a", "#ffffff",
             "font-weight: 600; font-size: 1.15em; letter-spacing: -0.02em; margin: 1.2em 0 0.8em;",
             "text-indent: 0; margin-bottom: 0.8em;",
@@ -251,8 +290,8 @@ public static class InteriorExportTheme
             "border-bottom: 1px solid #e5e5e5;",
             ""),
         "Classic" => new ThemeSpec(
-            "'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, 'Times New Roman', Times, serif",
-            "'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, 'Times New Roman', Times, serif",
+            "'Cormorant Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif",
+            "'Cormorant Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif",
             "#78350f", "#111111", "#fdfcfa",
             "font-weight: 400; font-size: 1.25em; font-style: italic; letter-spacing: 0.03em; margin: 1.5em 0 1em;",
             "text-indent: 2em; margin-bottom: 0;",
@@ -260,8 +299,8 @@ public static class InteriorExportTheme
             "border-bottom: 3px double #d6c4a8;",
             ".book-pdf-body.tpl-classic .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 600; color: #78350f; } "),
         "ElegantTrade" => new ThemeSpec(
-            "'Merriweather', Georgia, 'Times New Roman', Times, serif",
-            "'Merriweather', Georgia, 'Times New Roman', Times, serif",
+            "'EB Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif",
+            "'Lora', 'Merriweather', Georgia, 'Times New Roman', Times, serif",
             "#3d2914", "#1a1a1a", "#ffffff",
             "font-weight: 600; font-size: 1.2em; letter-spacing: 0.04em; margin: 1.3em 0 0.9em;",
             "text-indent: 1.5em; margin-bottom: 0;",

@@ -27,7 +27,6 @@ public class BookChapterPipelineService : IBookChapterPipelineService
     private readonly IBookService _bookService;
     private readonly IChapterIterationService _chapterIterationService;
     private readonly IBookApiClient _bookApiClient;
-    private readonly IUpstreamQueueProbe _queueProbe;
     private readonly IOptionsSnapshot<ExternalApiOptions> _externalApiOptions;
     private readonly IOptions<ChapterGenerationOptions> _genOptions;
     private readonly ILogger<BookChapterPipelineService> _logger;
@@ -39,7 +38,6 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         IBookService bookService,
         IChapterIterationService chapterIterationService,
         IBookApiClient bookApiClient,
-        IUpstreamQueueProbe queueProbe,
         IOptionsSnapshot<ExternalApiOptions> externalApiOptions,
         IOptions<ChapterGenerationOptions> genOptions,
         ILogger<BookChapterPipelineService> logger)
@@ -50,7 +48,6 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         _bookService = bookService;
         _chapterIterationService = chapterIterationService;
         _bookApiClient = bookApiClient;
-        _queueProbe = queueProbe;
         _externalApiOptions = externalApiOptions;
         _genOptions = genOptions;
         _logger = logger;
@@ -214,20 +211,6 @@ public class BookChapterPipelineService : IBookChapterPipelineService
                 Message = ExternalApiKeyResolver.MissingKeyUserMessage,
                 ChapterNumber = chapterNumber,
                 LastHttpStatus = 0
-            };
-        }
-
-        var queueSnapshot = await _queueProbe.TryGetSnapshotAsync(cancellationToken);
-        var queueBlock = UpstreamQueueGuard.GetBlockReason(queueSnapshot, _configuration);
-        if (queueBlock != null)
-        {
-            _logger.LogWarning("Chapter generate blocked by upstream queue: {Queue}", queueSnapshot?.Describe());
-            return new ChapterGenerateResultDto
-            {
-                Success = false,
-                Message = queueBlock,
-                ChapterNumber = chapterNumber,
-                LastHttpStatus = 503
             };
         }
 

@@ -62,6 +62,10 @@ namespace EBookDashboard.Models.DTO
         [JsonPropertyName("publishingPlatforms")]
         public string? PublishingPlatforms { get; set; }
 
+        /// <summary>Formatter accent color (#RRGGBB) from preview studio.</summary>
+        [JsonPropertyName("previewAccent")]
+        public string? PreviewAccent { get; set; }
+
         /// <summary>Ebook export format: <c>epub</c> (default) or <c>docx</c> (Word document).</summary>
         public string? ExportFormat { get; set; }
     }

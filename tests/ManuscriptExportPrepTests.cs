@@ -51,6 +51,24 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void SanitizeHtml_preserves_img_and_inline_styles()
+    {
+        var html = """<p style="color:#b91c1c;font-size:18px">Red text</p><img src="https://cdn.example.com/a.png" alt="fig" style="width:80%" />""";
+        var clean = BookManuscriptHtmlFormatter.SanitizeHtml(html);
+        Assert.Contains("color:#b91c1c", clean, StringComparison.Ordinal);
+        Assert.Contains("<img", clean, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("cdn.example.com", clean, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildPdfThemeCss_includes_formatter_interior_shell_rules()
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.Contains("interior-novel", css, StringComparison.Ordinal);
+        Assert.Contains("Merriweather", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildPdfThemeCss_classic_includes_tpl_classic_marker()
     {
         var css = InteriorExportTheme.BuildPdfThemeCss(new Models.DTO.BookPdfExportOptions

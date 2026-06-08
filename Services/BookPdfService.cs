@@ -170,13 +170,27 @@ public class BookPdfService : IBookPdfService
         {
             await using var browser = await Puppeteer.LaunchAsync(launchOptions);
             await using var page = await browser.NewPageAsync();
+            await page.EmulateMediaTypeAsync(MediaType.Print);
             await page.SetContentAsync(html, new NavigationOptions
             {
                 WaitUntil = new[] { WaitUntilNavigation.Networkidle0 },
-                Timeout = 60_000
+                Timeout = 90_000
             });
-            await page.EvaluateFunctionAsync(@"() => document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()");
-            await Task.Delay(500, cancellationToken);
+            var fontStatus = await page.EvaluateFunctionAsync<string>(@"async () => {
+                if (document.fonts && document.fonts.ready) await document.fonts.ready;
+                await new Promise(r => setTimeout(r, 1200));
+                if (!document.fonts || !document.fonts.forEach) return 'no-fonts-api';
+                var loaded = [], failed = [];
+                document.fonts.forEach(f => {
+                    var line = (f.family || '?') + ' ' + (f.weight || '') + ' ' + (f.status || '');
+                    if (f.status === 'loaded') loaded.push(line);
+                    else if (f.status === 'error' || f.status === 'unloaded') failed.push(line);
+                });
+                return JSON.stringify({ loaded: loaded.length, failed: failed.length, failedFamilies: failed.slice(0, 8) });
+            }");
+            _logger.LogInformation("PDF font preload book={BookId} style={Style}: {FontStatus}",
+                details.BookId, opt.InteriorStyle, fontStatus ?? "unknown");
+            await Task.Delay(800, cancellationToken);
 
             var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
             EnsureValidPdf(pdfBytes);

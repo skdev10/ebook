@@ -20,6 +20,9 @@ public class BookPdfExportOptions
     /// <summary>Comma-separated list from formatter (used when <see cref="PublishingPlatform"/> is empty).</summary>
     public string? PublishingPlatforms { get; set; }
 
+    /// <summary>Formatter preview accent (#RRGGBB) — tints borders and highlights in PDF export.</summary>
+    public string? PreviewAccent { get; set; }
+
     public static BookPdfExportOptions FromDraftJson(string? json)
     {
         var o = new BookPdfExportOptions();
@@ -34,6 +37,7 @@ public class BookPdfExportOptions
             if (TryGetString(root, "format", out s)) o.Format = NormalizeFormatToken(s);
             if (TryGetString(root, "publishingPlatform", out s)) o.PublishingPlatform = s;
             if (TryGetString(root, "publishingPlatforms", out s)) o.PublishingPlatforms = s;
+            if (TryGetString(root, "previewAccent", out s)) o.PreviewAccent = NormalizeHexColor(s);
             if (root.TryGetProperty("includeCoverPage", out var c))
             {
                 if (c.ValueKind == JsonValueKind.True) o.IncludeCoverPage = true;
@@ -106,7 +110,17 @@ public class BookPdfExportOptions
             PublishingPlatform = req.PublishingPlatform.Trim();
         if (!string.IsNullOrWhiteSpace(req.PublishingPlatforms))
             PublishingPlatforms = req.PublishingPlatforms.Trim();
+        if (!string.IsNullOrWhiteSpace(req.PreviewAccent))
+            PreviewAccent = NormalizeHexColor(req.PreviewAccent);
         Normalize();
+    }
+
+    private static string? NormalizeHexColor(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var s = raw.Trim();
+        if (!s.StartsWith('#')) s = "#" + s;
+        return System.Text.RegularExpressions.Regex.IsMatch(s, @"^#[0-9A-Fa-f]{6}$") ? s : null;
     }
 
     /// <summary>Overlay persisted formatter draft JSON — used as fallback; <see cref="BookFormatting"/> wins on export.</summary>

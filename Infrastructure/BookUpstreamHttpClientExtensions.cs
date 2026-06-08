@@ -24,7 +24,7 @@ public static class BookUpstreamHttpClientExtensions
         var longAttempt = TimeSpan.FromMinutes(longMins);
         var longTotal = TimeSpan.FromMinutes(Math.Min(longMins + 10, 120));
         // LLM calls block until upstream finishes — retries only multiply wait time on failure.
-        AddClient(services, BookApiConstants.HttpClientNameLong, longAttempt, longTotal, maxRetries: 0);
+        AddClient(services, BookApiConstants.HttpClientNameLong, longAttempt, longTotal, maxRetries: 1);
 
         services.AddScoped<IBookApiClient, BookApiClient>();
         return services;

@@ -43,6 +43,29 @@ Diagnostics on production:
 - `GET /Books/ExternalApiStatus` — key configured, queue probe (no secret returned)  
 - `GET /Books/DeploymentStatus` — DB, uploads, OAuth, env hints  
 
+### BFF → upstream route map (browser never calls upstream directly)
+
+| User action (AI Writer / app) | ASP.NET endpoint (session cookie) | Upstream |
+|-------------------------------|-----------------------------------|----------|
+| Generate chapter | `POST /Books/AIGenerateBook` | `POST /api/generate_chapter` |
+| Edit chapter | `POST /Books/AIEditBook` | `POST /api/edit` |
+| Approve / finalize | `POST /Books/ApproveChapter` (and related) | `POST /api/approve` |
+| Audio → text | `POST /Books/TranscribeAudio` (multipart) | `POST /api/audio` |
+| Queue status | `GET /Books/ExternalApiStatus` | `GET /api/queue-data` |
+| Generate cover | Cover API controllers / BookDesign | `POST /api/generate-cover` |
+| Edit cover | Cover API | `POST /api/edit-cover` |
+| Refine cover prompt | BookDesign | `POST /api/refine_cover_prompt` |
+| Suggest chapter names | Books pipeline | `POST /api/book_chapters_name` |
+| Suggest cover from highlights | BookDesign | `POST /api/suggest-cover-prompt-from-highlights` |
+
+**Configure the key on the server only** (never in git or this doc):
+
+```bash
+# /etc/default/ebookai
+ExternalApi__ApiKey="<your-secret-key>"
+ExternalApi__BaseUrl="http://162.229.248.26:8001"
+```
+
 ---
 
 ## Endpoints
@@ -441,16 +464,29 @@ sequenceDiagram
 
 ## Troubleshooting “APIs not working”
 
+### Diagnosis flow (run in order)
+
+1. **BFF health** — `curl http://138.197.76.70:5000/health` → JSON with `status: ok`.
+2. **Key configured** — `curl http://138.197.76.70:5000/Books/ExternalApiStatus` → `apiKeyConfigured: true`.
+3. **Upstream reachable** — from a host that can reach `162.229.248.26`:
+   ```bash
+   export API_KEY="your-key-from-/etc/default/ebookai"
+   curl -s --max-time 20 -H "X-API-Key: $API_KEY" http://162.229.248.26:8001/api/queue-data
+   ```
+4. **Queue** — if `waiting` is high and `running` is `0` for several minutes, LLM workers are stuck → restart FastAPI on upstream.
+5. **Generate smoke** — `POST /api/generate_chapter` with a short `user_input`; expect **minutes**, not seconds.
+
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
 | Empty response / JSON parse error in browser | Session expired after deploy | Log in again; ensure deploy uses `deploy/link-persistent.sh` |
 | `Server configuration error: no API key` | `ExternalApi__ApiKey` missing on server | Set in `/etc/default/ebookai`, restart app |
 | Requests hang then fail | Large `waiting` queue on upstream | `GET /api/queue-data`; retry later or scale upstream workers |
-| **`waiting` > 0 and `running` = 0** | Queue counter often **stale/cumulative** — not always a hard block | EbookAI does **not** block by default; optional `ExternalApi:QueueFailFastWhenStuck=true` for ops only |
-| `approve` fast but `generate`/`edit` hang | LLM endpoints block in queue; approve may bypass it | Restart upstream workers; check `error_logs` table |
-| `401` on upstream | Wrong or missing `X-API-Key` | Verify key matches upstream config |
+| **`waiting` > 0 and `running` = 0** | Workers not processing LLM jobs | SSH to `162.229.248.26`, restart API; inspect `queue_monitor` + `error_logs` |
+| `approve` fast but `generate`/`edit` hang | Approve is lightweight; generate/edit wait on LLM queue | Same worker restart |
+| `401` on upstream | Wrong or missing `X-API-Key` | Match server env with upstream; **rotate key** if exposed in chat |
+| Upstream timeout from your PC | Firewall / server down | On upstream: `curl http://127.0.0.1:8001/api/queue-data` |
 | Audio fails with JSON path | Path is on client PC, not server | Use multipart upload through EbookAI |
-| Cover edit fails | Invalid base64 or size | Use valid `size`; strip data-URL prefix from base64 |
+| Cover edit fails | Invalid base64 or size | Valid `size`; strip `data:image/...` prefix from base64 |
 
 **Production checklist**
 

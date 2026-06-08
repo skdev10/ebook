@@ -42,7 +42,12 @@ public static class BookManuscriptHtmlFormatter
     private static readonly HashSet<string> AllowedTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "p", "br", "hr", "ul", "ol", "li", "strong", "b", "em", "i", "u",
-        "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre", "span", "div"
+        "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre", "span", "div", "img"
+    };
+
+    private static readonly HashSet<string> AllowedImgAttrs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "src", "alt", "width", "height", "class", "style", "title"
     };
 
     public static string NormalizeManuscriptEscapes(string? str)
@@ -102,6 +107,17 @@ public static class BookManuscriptHtmlFormatter
 
     public static bool IsLikelyHtml(string? s) => !string.IsNullOrEmpty(s) && LikelyHtmlRegex.IsMatch(s);
 
+    private static bool IsSafeImageSrc(string? src)
+    {
+        if (string.IsNullOrWhiteSpace(src)) return false;
+        var s = src.Trim();
+        if (s.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)) return true;
+        if (s.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return true;
+        if (s.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) return true;
+        if (s.StartsWith("/", StringComparison.Ordinal)) return true;
+        return false;
+    }
+
     public static string EscapeHtml(string? str)
     {
         if (string.IsNullOrEmpty(str)) return "";
@@ -131,6 +147,25 @@ public static class BookManuscriptHtmlFormatter
                 foreach (var attr in attrs)
                 {
                     var an = attr.Name.ToLowerInvariant();
+                    if (name == "img")
+                    {
+                        if (!AllowedImgAttrs.Contains(an))
+                        {
+                            el.Attributes.Remove(attr);
+                            continue;
+                        }
+
+                        if (an == "src" && !IsSafeImageSrc(attr.Value))
+                        {
+                            el.Attributes.Remove(attr);
+                            continue;
+                        }
+
+                        if (an == "style" && Regex.IsMatch(attr.Value ?? "", @"expression\s*\(|javascript:", RegexOptions.IgnoreCase))
+                            el.Attributes.Remove(attr);
+                        continue;
+                    }
+
                     if (an != "class" && an != "style")
                     {
                         el.Attributes.Remove(attr);
@@ -140,6 +175,9 @@ public static class BookManuscriptHtmlFormatter
                     if (an == "style" && Regex.IsMatch(attr.Value ?? "", @"expression\s*\(|javascript:|url\s*\(", RegexOptions.IgnoreCase))
                         el.Attributes.Remove(attr);
                 }
+
+                if (name == "img" && string.IsNullOrWhiteSpace(el.GetAttributeValue("src", "")))
+                    el.Remove();
             }
 
             return doc.DocumentNode.InnerHtml;

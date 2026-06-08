@@ -16,5 +16,7 @@ namespace EBookDashboard.Models
         public bool TitleOnly { get; set; }
         /// <summary>Optional book-level title from AI Writer (synced when DB title is still a placeholder).</summary>
         public string? BookTitle { get; set; }
+        /// <summary>When true, only persist <see cref="BookTitle"/> (no chapter body required).</summary>
+        public bool BookTitleOnly { get; set; }
     }
 }

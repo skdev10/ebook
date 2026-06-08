@@ -5,6 +5,9 @@
     var userId = ViewBag.UserId as int? ?? 0;
     var selectedBookId = ViewBag.SelectedBookId as int?;
     var selectedBookTitle = ViewBag.SelectedBookTitle as string ?? "Your book";
+    var initialBookTitle = selectedBookTitle.Equals("Untitled", StringComparison.OrdinalIgnoreCase)
+        || selectedBookTitle.Equals("Untitled Book", StringComparison.OrdinalIgnoreCase)
+        ? "" : selectedBookTitle;
     var chapterGenFetchTimeoutMs = 3300000;
     if (ViewBag.ChapterGenerateFetchTimeoutMs is int tms) { chapterGenFetchTimeoutMs = tms; }
     else if (ViewBag.ChapterGenerateFetchTimeoutMs != null)
@@ -274,9 +277,13 @@
         color: #1e293b;
         background: #fff;
     }
-    #previewMeasureHost.preview-measure-host .reader-chapter-block {
+    #previewMeasureHost.preview-measure-host .reader-chapter-block,
+    #bookResult #preview-content .reader-chapter-block {
         padding: 0;
         margin: 0;
+    }
+    #bookResult #preview-content.chapter-preview-viewport {
+        padding-bottom: 0.65rem;
     }
     #bookResult .reader-chapter-block p {
         margin: 0 0 1rem 0;
@@ -1286,7 +1293,7 @@
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800 mb-1">Write a New Book</h2>
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Book Title</label>
-                    <input type="text" id="BookTitle" placeholder="Enter Book Title" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
+                    <input type="text" id="BookTitle" value="@initialBookTitle" placeholder="Enter Book Title" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Chapter No.</label>
@@ -1768,6 +1775,13 @@ window.splitOversizedHtmlSegment = function (segmentHtml, maxH, mh) {
             } else hi = mid - 1;
         }
         if (best <= start) best = start + 1;
+        while (best > start + 1) {
+            var tryChunk = words.slice(start, best).join(' ');
+            mh.innerHTML = '<div class="reader-chapter-block">' + openTag + esc(tryChunk) + closeTag + '</div>';
+            var tryHt = mh.firstElementChild ? mh.firstElementChild.scrollHeight : 0;
+            if (tryHt <= maxH) break;
+            best--;
+        }
         var chunkW = words.slice(start, best).join(' ');
         out.push('<div class="reader-chapter-block">' + openTag + esc(chunkW) + closeTag + '</div>');
         start = best;
@@ -1778,12 +1792,18 @@ window.splitOversizedHtmlSegment = function (segmentHtml, maxH, mh) {
 /** Usable inner height for one 6×9 page (matches viewport padding; no scroll). */
 window.getReaderPageMaxHeight = function (shellEl, viewportEl) {
     if (!viewportEl) return 0;
-    var vh = viewportEl.clientHeight;
-    if (vh >= 48) return vh;
-    if (!shellEl || shellEl.clientHeight < 48) return 0;
     var vs = window.getComputedStyle(viewportEl);
-    var pad = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
-    return Math.max(0, shellEl.clientHeight - pad);
+    var padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
+    var blockPad = 0;
+    var sample = viewportEl.querySelector('.reader-chapter-block');
+    if (sample) {
+        var bs = window.getComputedStyle(sample);
+        blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
+    }
+    var usable = Math.max(0, viewportEl.clientHeight - padY - blockPad - 8);
+    if (usable >= 32) return usable;
+    if (!shellEl || shellEl.clientHeight < 48) return 0;
+    return Math.max(0, shellEl.clientHeight - padY - blockPad - 8);
 };
 
 window.getReaderLayoutCacheKey = function (shellEl, viewportEl) {
@@ -3183,8 +3203,21 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!bodyHtml && previewContent && previewContent.innerHTML) bodyHtml = previewContent.innerHTML;
         if (!bodyHtml) bodyHtml = window._currentChapterContent || '';
         var topicText = (inputChapterTopic && inputChapterTopic.value) ? String(inputChapterTopic.value) : '';
-        if (!String(bodyHtml || '').trim() && !topicText.trim()) return null;
         var bookTitleValue = (inputBookTitle && inputBookTitle.value) ? String(inputBookTitle.value).trim() : '';
+        if (!String(bodyHtml || '').trim() && !topicText.trim()) {
+            if (!bookTitleValue) return null;
+            return {
+                UserId: String(userIdValue),
+                BookId: String(bookIdValue),
+                Chapter: String(chapterNoValue),
+                NewContent: '',
+                ChapterTitle: chapterTitle,
+                BookTitle: bookTitleValue,
+                Topic: '',
+                RecordVersion: false,
+                BookTitleOnly: true
+            };
+        }
         return {
             UserId: String(userIdValue),
             BookId: String(bookIdValue),
@@ -3216,6 +3249,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }).then(function (result) {
             if (result.ok && result.data && result.data.success) {
                 setWriterAutoSaveStatus('Saved', false);
+                var savedTitle = (result.data.bookTitle || payload.BookTitle || '').trim();
+                if (savedTitle) {
+                    syncWorkingOnBookTitle(savedTitle);
+                    if (inputBookTitle && !inputBookTitle.value.trim()) inputBookTitle.value = savedTitle;
+                }
                 if (payload.TitleOnly && typeof loadBookAllChaptersNumbers === 'function') {
                     loadBookAllChaptersNumbers();
                 }
@@ -3247,9 +3285,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }, typeof delayMs === 'number' ? delayMs : 700);
     }
 
+    function syncWorkingOnBookTitle(title) {
+        var el = document.getElementById('aiWriterSelectedBookTitle');
+        if (!el) return;
+        var t = (title || '').trim();
+        if (!t || t === 'Untitled' || t === 'Untitled Book') {
+            el.textContent = 'Untitled Book';
+            return;
+        }
+        el.textContent = t;
+    }
+
     function updatePreviewUI() {
         var bookTitle = getBookTitle() || defaultBookTitle;
         previewBookTitle.textContent = bookTitle || 'Your Chapter\'s Preview';
+        syncWorkingOnBookTitle(getBookTitle());
         var chNo = getChapterNo();
         var chTitle = inputChapterTitle.value.trim();
         window.setPreviewChapterHeaderText(chTitle ? 'Chapter ' + chNo + ': ' + chTitle : 'Chapter ' + chNo);
@@ -3359,7 +3409,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             window.syncChapterNoDropdownAndHidden(chNum);
                         }
                     }
-                    if (data.bookTitle) previewBookTitle.textContent = data.bookTitle;
+                    if (data.bookTitle) {
+                        previewBookTitle.textContent = data.bookTitle;
+                        syncWorkingOnBookTitle(data.bookTitle);
+                        if (inputBookTitle && !inputBookTitle.value.trim()) inputBookTitle.value = data.bookTitle;
+                    }
                 }
             })
             .catch(function() {});
@@ -3373,6 +3427,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Generate is handled by onclick="confirmGenerateChapter()" -> generateBook() in second script (correct payload: UserId, BookId, etc.)
 
+    syncWorkingOnBookTitle(getBookTitle() || @Html.Raw(System.Text.Json.JsonSerializer.Serialize(selectedBookTitle)));
     updatePreviewUI();
     var bookId = getBookId();
     if (bookId > 0) loadChapterPreview(bookId, getChapterNo());
@@ -3387,7 +3442,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (writerAutosaveStatusTimer) clearTimeout(writerAutosaveStatusTimer);
         writerAutosaveStatusTimer = setTimeout(function () { setWriterAutoSaveStatus('', false); }, 2200);
     });
-    inputBookTitle.addEventListener('input', function () { queueWriterAutosave(700); });
+    inputBookTitle.addEventListener('input', function () {
+        syncWorkingOnBookTitle(getBookTitle());
+        queueWriterAutosave(400);
+    });
 
     var btnSaveChapterName = document.getElementById('btnSaveChapterName');
     if (btnSaveChapterName) {
