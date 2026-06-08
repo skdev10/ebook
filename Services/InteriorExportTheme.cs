@@ -137,13 +137,26 @@ public static class InteriorExportTheme
             tplCss);
     }
 
+    /// <summary>Default book-preview-sheet background per interior (matches Book Formatter).</summary>
+    public static string ResolveDefaultPageBackground(string? interiorStyle) =>
+        NormalizeInteriorStyle(interiorStyle) switch
+        {
+            "Classic" => "#fdfcfa",
+            "ElegantTrade" => "#fcf9f3",
+            "Novel" => "#fffdf8",
+            "Modern" => "#ffffff",
+            "Minimalist" => "#ffffff",
+            _ => "#ffffff"
+        };
+
     /// <summary>PDF interior CSS (embedded in print HTML).</summary>
     public static string BuildPdfThemeCss(BookPdfExportOptions opt)
     {
         var interior = NormalizeInteriorStyle(opt.InteriorStyle);
         var pt = ResolveBodyFontSizePt(interior, opt.TextSize);
         var lh = ResolveLineHeight(opt.LineSpacing);
-        var theme = ResolveTheme(interior);
+        var pageBg = opt.ResolvePageBackgroundColor();
+        var theme = ResolveTheme(interior) with { PageBackground = pageBg };
         var tpl = PdfBodyTemplateClass(interior);
         var justify = interior is "Modern" or "Minimalist" ? "text-align:left;" : "text-align:justify;";
         var chapterAlign = interior is "Classic" or "Novel" or "ElegantTrade" ? "text-align:center;" : "text-align:left;";
@@ -168,7 +181,9 @@ public static class InteriorExportTheme
             "@page { background-color: var(--page-bg); } ",
             "html { background-color: var(--page-bg); margin: 0; padding: 0; } ",
             ".book-pdf-body { font-family: var(--body-font); font-size: var(--body-pt); line-height: var(--body-lh); color: var(--body-color); background: var(--page-bg); margin: 0; min-height: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
-            ".front-matter-page, .title-page, .copyright-page, .manuscript-root > section.chapter { background: var(--page-bg); box-sizing: border-box; } ",
+            ".front-matter-page, .title-page, .copyright-page, .manuscript-root > section.chapter, ",
+            ".reader-chapter-block, .reader-page-title, .reader-page-body { background-color: var(--page-bg) !important; box-sizing: border-box; } ",
+            ".manuscript-root > section.chapter { box-sizing: border-box; } ",
             ".manuscript-root > section.chapter { min-height: auto; padding-top: 2mm; padding-bottom: 2mm; } ",
             ".front-matter-page { page-break-after: always; padding-top: 8mm; background: var(--page-bg); min-height: 100vh; } ",
             ".title-page { min-height: 100vh; background: var(--page-bg); } ",
@@ -301,7 +316,7 @@ public static class InteriorExportTheme
         "ElegantTrade" => new ThemeSpec(
             "'EB Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif",
             "'Lora', 'Merriweather', Georgia, 'Times New Roman', Times, serif",
-            "#3d2914", "#1a1a1a", "#ffffff",
+            "#3d2914", "#1a1a1a", "#fcf9f3",
             "font-weight: 600; font-size: 1.2em; letter-spacing: 0.04em; margin: 1.3em 0 0.9em;",
             "text-indent: 1.5em; margin-bottom: 0;",
             "border-left: 3px solid #c9b8a0; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #334155;",

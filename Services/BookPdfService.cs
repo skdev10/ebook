@@ -194,8 +194,9 @@ public class BookPdfService : IBookPdfService
 
             var pdfBytes = await page.PdfDataAsync(BuildPdfOptions(layout, headerTemplate, footerTemplate));
             EnsureValidPdf(pdfBytes);
-            _logger.LogInformation("PDF generated: {Bytes} bytes, style={Style}, book={BookId}",
-                pdfBytes.Length, opt.InteriorStyle, details.BookId);
+            _logger.LogInformation(
+                "PDF generated: {Bytes} bytes, style={Style}, pageBg={PageBg}, book={BookId}",
+                pdfBytes.Length, opt.InteriorStyle, opt.ResolvePageBackgroundColor(), details.BookId);
             return pdfBytes;
         }
         catch (Exception ex)

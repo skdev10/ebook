@@ -61,6 +61,25 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void ResolveDefaultPageBackground_elegant_trade_matches_formatter_sheet()
+    {
+        var bg = InteriorExportTheme.ResolveDefaultPageBackground("ElegantTrade");
+        Assert.Equal("#fcf9f3", bg, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildPdfThemeCss_uses_custom_page_background_override()
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions
+        {
+            InteriorStyle = "Classic",
+            PageBackgroundColor = "#f0e6d2"
+        });
+        Assert.Contains("--page-bg: #f0e6d2", css, StringComparison.Ordinal);
+        Assert.Contains("background-color: var(--page-bg) !important", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildPdfThemeCss_includes_formatter_interior_shell_rules()
     {
         var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });

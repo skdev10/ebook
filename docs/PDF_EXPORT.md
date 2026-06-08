@@ -99,7 +99,7 @@ Or environment variable: `PUPPETEER_EXECUTABLE_PATH`
 |--------|---------------------|
 | Interior style (Novel, Classic, …) | `InteriorExportTheme.BuildPdfThemeCss()` + `BuildFormatterInteriorCss()` |
 | Text size / line spacing | CSS variables `--body-pt`, `--body-lh` |
-| Page background color | `--page-bg` per interior theme (e.g. Classic `#fdfcfa`) |
+| Page background color | `--page-bg` per interior sheet (Classic `#fdfcfa`, Novel `#fffdf8`, ElegantTrade `#fcf9f3`) or `pageBackgroundColor` override in export request |
 | Preview accent color | `--fmt-accent` from formatter `previewAccent` |
 | Inline `style=""` on HTML | Kept by `BookManuscriptHtmlFormatter.SanitizeHtml()` |
 | Images `<img>` | Allowed with safe `src` (https, data:image, /) |

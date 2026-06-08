@@ -66,6 +66,10 @@ namespace EBookDashboard.Models.DTO
         [JsonPropertyName("previewAccent")]
         public string? PreviewAccent { get; set; }
 
+        /// <summary>Page/sheet background (#RRGGBB) from ebook formatting preview.</summary>
+        [JsonPropertyName("pageBackgroundColor")]
+        public string? PageBackgroundColor { get; set; }
+
         /// <summary>Ebook export format: <c>epub</c> (default) or <c>docx</c> (Word document).</summary>
         public string? ExportFormat { get; set; }
     }

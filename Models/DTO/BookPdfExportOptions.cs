@@ -23,6 +23,9 @@ public class BookPdfExportOptions
     /// <summary>Formatter preview accent (#RRGGBB) — tints borders and highlights in PDF export.</summary>
     public string? PreviewAccent { get; set; }
 
+    /// <summary>Optional page/sheet background (#RRGGBB). When null, uses interior-style default from formatter.</summary>
+    public string? PageBackgroundColor { get; set; }
+
     public static BookPdfExportOptions FromDraftJson(string? json)
     {
         var o = new BookPdfExportOptions();
@@ -38,6 +41,7 @@ public class BookPdfExportOptions
             if (TryGetString(root, "publishingPlatform", out s)) o.PublishingPlatform = s;
             if (TryGetString(root, "publishingPlatforms", out s)) o.PublishingPlatforms = s;
             if (TryGetString(root, "previewAccent", out s)) o.PreviewAccent = NormalizeHexColor(s);
+            if (TryGetString(root, "pageBackgroundColor", out s)) o.PageBackgroundColor = NormalizeHexColor(s);
             if (root.TryGetProperty("includeCoverPage", out var c))
             {
                 if (c.ValueKind == JsonValueKind.True) o.IncludeCoverPage = true;
@@ -112,8 +116,14 @@ public class BookPdfExportOptions
             PublishingPlatforms = req.PublishingPlatforms.Trim();
         if (!string.IsNullOrWhiteSpace(req.PreviewAccent))
             PreviewAccent = NormalizeHexColor(req.PreviewAccent);
+        if (!string.IsNullOrWhiteSpace(req.PageBackgroundColor))
+            PageBackgroundColor = NormalizeHexColor(req.PageBackgroundColor);
         Normalize();
     }
+
+    /// <summary>Resolved page background for PDF — explicit override or interior-style sheet color.</summary>
+    public string ResolvePageBackgroundColor() =>
+        PageBackgroundColor ?? InteriorExportTheme.ResolveDefaultPageBackground(InteriorStyle);
 
     private static string? NormalizeHexColor(string? raw)
     {
