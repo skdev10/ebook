@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using EBookDashboard.Interfaces;
+using EBookDashboard.Services.PdfExport;
 using HtmlAgilityPack;
 using EBookDashboard.Models.DTO;
 using Microsoft.AspNetCore.Hosting;
@@ -120,6 +121,24 @@ public class BookPdfService : IBookPdfService
             genre,
             author);
 
+        var engine = (_configuration["PdfExport:Engine"] ?? "PdfSharp").Trim();
+        if (engine.Equals("PdfSharp", StringComparison.OrdinalIgnoreCase)
+            || engine.Equals("PDFsharp", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var exporter = new PdfSharpBookExporter(_env, _logger);
+                var pdfSharpBytes = await Task.Run(() => exporter.Render(
+                    details, coverSrc, title, author, opt, opt.IncludeCoverPage), cancellationToken);
+                EnsureValidPdf(pdfSharpBytes);
+                return pdfSharpBytes;
+            }
+            catch (Exception pdfSharpEx)
+            {
+                _logger.LogWarning(pdfSharpEx, "PdfSharp primary export failed for book {BookId}; trying Chromium.", details.BookId);
+            }
+        }
+
         var layout = BookPdfPlatformLayout.Resolve(opt);
 
         // One DB chapter = one PDF chapter. Do not split on in-body <h2> — those are section headings (##), not new chapters.
@@ -204,7 +223,8 @@ public class BookPdfService : IBookPdfService
             _logger.LogWarning(ex, "Puppeteer PDF render failed (executable={Executable}); falling back to PdfSharp.", executablePath ?? "bundled");
             try
             {
-                var fallback = BookPdfSharpRenderer.RenderInteriorPdf(details, title, author, opt);
+                var exporter = new PdfSharpBookExporter(_env, _logger);
+                var fallback = exporter.Render(details, coverSrc, title, author, opt, opt.IncludeCoverPage);
                 EnsureValidPdf(fallback);
                 _logger.LogInformation("PDF generated via PdfSharp fallback: {Bytes} bytes, book={BookId}", fallback.Length, details.BookId);
                 return fallback;

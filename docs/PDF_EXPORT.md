@@ -1,8 +1,19 @@
 # PDF Export — WYSIWYG Architecture
 
-Production PDF export for EbookAI uses **PuppeteerSharp + headless Chromium** (not QuestPDF/iText/DinkToPdf). The browser renders the same HTML/CSS as the Book Formatter preview, then prints to PDF — preserving fonts, colors, inline styles, and images.
+Production PDF export uses **PDFsharp (primary)** with embedded TTF fonts, 6×9 KDP margins, and HTML style painting. **PuppeteerSharp** remains optional (`PdfExport:Engine`: `Chromium`) for browser-perfect CSS when Chrome is installed.
 
-## Why PuppeteerSharp (not the other libraries)
+## Why PDFsharp is primary (your PDF software workflow)
+
+Dedicated PDF tools embed fonts and draw at exact page size — PDFsharp does the same:
+- **6×9 inch** page (`432×648` pt) with KDP gutters from `BookPdfPlatformLayout`
+- **Fonts embedded** from `wwwroot/fonts/pdf/*.ttf` via `ExportPdfFontResolver`
+- **Inline CSS** (`color`, `font-size`, `font-family`) parsed in `ManuscriptHtmlPdfPainter`
+- **Page background** fill per interior style (`#fdfcfa`, `#fffdf8`, etc.)
+- **Images** embedded from `data:` URLs or https
+
+Chromium HTML-print is optional fallback — on many servers Puppeteer failed and the old plain-text PdfSharp fallback stripped all styles. That is fixed.
+
+## Why not QuestPDF / iText / DinkToPdf alone
 
 | Library | CSS/HTML fidelity | Custom fonts | Verdict |
 |---------|-------------------|--------------|---------|

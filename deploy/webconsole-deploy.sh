@@ -34,6 +34,15 @@ fi
 cd "$APP_DIR"
 echo "    HEAD: $(git log -1 --oneline)"
 
+echo ""
+echo "[1b/6] PDF export fonts (PDFsharp embedded TTF)"
+chmod +x Scripts/download-export-fonts.sh 2>/dev/null || true
+if [[ -x Scripts/download-export-fonts.sh ]]; then
+  bash Scripts/download-export-fonts.sh "$APP_DIR/wwwroot/fonts/pdf" || echo "    Font download skipped (curl/network) — run manually if PDF fonts missing"
+else
+  echo "    Scripts/download-export-fonts.sh not found — skip"
+fi
+
 # --- Step 2: publish ---
 echo ""
 echo "[2/6] dotnet publish -> publish/"
