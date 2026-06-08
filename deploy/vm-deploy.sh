@@ -30,31 +30,12 @@ if ! command -v dotnet >/dev/null 2>&1; then
   exit 1
 fi
 
-PERSIST_DIR="${PERSIST_DIR:-$REPO_ROOT/persistent}"
-PERSIST_UPLOADS="$PERSIST_DIR/uploads"
-PERSIST_KEYS="$PERSIST_DIR/DataProtection-Keys"
-mkdir -p "$PERSIST_UPLOADS" "$PERSIST_KEYS"
-
-# Seed persistent uploads from repo or previous publish (covers survive redeploy).
-if [[ -d "$REPO_ROOT/wwwroot/uploads" && -z "$(ls -A "$PERSIST_UPLOADS" 2>/dev/null)" ]]; then
-  echo "[deploy] Seeding persistent uploads from repo wwwroot/uploads"
-  cp -a "$REPO_ROOT/wwwroot/uploads/." "$PERSIST_UPLOADS/" 2>/dev/null || true
-elif [[ -d "$REPO_ROOT/$OUT_DIR/wwwroot/uploads" && -z "$(ls -A "$PERSIST_UPLOADS" 2>/dev/null)" ]]; then
-  echo "[deploy] Seeding persistent uploads from previous $OUT_DIR"
-  cp -a "$REPO_ROOT/$OUT_DIR/wwwroot/uploads/." "$PERSIST_UPLOADS/" 2>/dev/null || true
-fi
-
 echo "[deploy] dotnet publish -> $OUT_DIR (runtime=$RUNTIM self-contained=$SELF_CONTAINED)"
 dotnet publish "$REPO_ROOT/newEbook.csproj" -c Release -r "$RUNTIM" \
   --self-contained "$SELF_CONTAINED" -o "$REPO_ROOT/$OUT_DIR"
 
-mkdir -p "$REPO_ROOT/$OUT_DIR/wwwroot"
-rm -rf "$REPO_ROOT/$OUT_DIR/wwwroot/uploads"
-ln -sfn "$PERSIST_UPLOADS" "$REPO_ROOT/$OUT_DIR/wwwroot/uploads"
-rm -rf "$REPO_ROOT/$OUT_DIR/DataProtection-Keys"
-ln -sfn "$PERSIST_KEYS" "$REPO_ROOT/$OUT_DIR/DataProtection-Keys"
-echo "[deploy] Linked persistent uploads -> $REPO_ROOT/$OUT_DIR/wwwroot/uploads"
-echo "[deploy] Linked DataProtection keys -> $REPO_ROOT/$OUT_DIR/DataProtection-Keys"
+chmod +x "$SCRIPT_DIR/link-persistent.sh"
+bash "$SCRIPT_DIR/link-persistent.sh" "$REPO_ROOT" "$OUT_DIR"
 
 APP="$REPO_ROOT/$OUT_DIR/EBookDashboard"
 if [[ ! -x "$APP" ]]; then

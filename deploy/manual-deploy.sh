@@ -39,6 +39,10 @@ fi
 echo "==> [3/5] Publish (linux-x64 self-contained)"
 dotnet publish newEbook.csproj -c Release -r linux-x64 --self-contained true -maxcpucount:1 -o publish
 
+echo "==> [3b/5] Link persistent uploads + session/auth keys"
+chmod +x deploy/link-persistent.sh
+bash deploy/link-persistent.sh "$APP_DIR" publish
+
 echo "==> [4/5] Load environment"
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -50,6 +54,7 @@ else
 fi
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://0.0.0.0:${PORT}}"
+export EBOOKAI_PERSIST_DIR="${EBOOKAI_PERSIST_DIR:-$APP_DIR/persistent}"
 
 echo "==> [5/6] Stop process on port $PORT"
 if command -v netstat >/dev/null 2>&1; then

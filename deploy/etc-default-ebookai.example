@@ -4,6 +4,9 @@
 ASPNETCORE_ENVIRONMENT=Production
 ASPNETCORE_URLS=http://0.0.0.0:5000
 
+# Survives redeploy — keeps login/session cookies valid (required for live APIs)
+EBOOKAI_PERSIST_DIR=/root/latest/EbookAI/persistent
+
 # Public URL (Stripe redirects, absolute links) — must match how users open the site
 App__PublicBaseUrl=http://138.197.76.70:5000
 

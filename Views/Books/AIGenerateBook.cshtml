@@ -4809,10 +4809,15 @@ document.addEventListener('DOMContentLoaded', function() {
                              showNotification('Chapter ready.', 'success');
                          }
                      }
-                 } else {
-                     console.error("❌ Server error:", responseText);
-                     throw new Error(parseApiErrorMessage(responseText) || 'Failed to generate book');
-                 }
+                } else if (response.status === 401) {
+                    var loginMsg = 'Your session expired. Please log in again, then retry chapter generation.';
+                    addMessage(loginMsg, false);
+                    showNotification(loginMsg, 'error');
+                    setTimeout(function () { window.location.href = '/Account/UserLogin'; }, 2500);
+                } else {
+                    console.error("❌ Server error:", responseText);
+                    throw new Error(parseApiErrorMessage(responseText) || 'Failed to generate book');
+                }
              } catch (error) {
                  console.error("🔥 Generate error:", error);
                  var aborted = error && (error.name === 'AbortError' || (String(error.message || '').indexOf('aborted') >= 0));

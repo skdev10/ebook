@@ -54,6 +54,17 @@ namespace EBookDashboard.Controllers
             return RedirectToAction(nameof(UserLogin));
         }
 
+        /// <summary>Lightweight session probe for dashboard.js (returns 401 when logged out).</summary>
+        [HttpGet]
+        [Authorize(AuthenticationSchemes = "UserCookie")]
+        public IActionResult CheckSession()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (!userId.HasValue || userId.Value <= 0)
+                return Unauthorized(new { ok = false, message = "Session expired." });
+            return Json(new { ok = true, userId = userId.Value });
+        }
+
         // GET: /Account/AdminLogin - Administrator login page
         [HttpGet]
         public IActionResult AdminLogin()

@@ -6,7 +6,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/root/latest/EbookAI}"
 BRANCH="${BRANCH:-Clean_Code}"
-REPO_URL="${REPO_URL:-https://github.com/yitservices/EbookAI.git}"
+REPO_URL="${REPO_URL:-https://github.com/skdev10/ebook.git}"
 PORT="${PORT:-5000}"
 ENV_FILE="${ENV_FILE:-/etc/default/ebookai}"
 
@@ -39,6 +39,11 @@ echo ""
 echo "[2/6] dotnet publish -> publish/"
 dotnet publish newEbook.csproj -c Release -r linux-x64 --self-contained true -maxcpucount:1 -o publish
 
+echo ""
+echo "[2b/6] Link persistent uploads + session/auth keys (fixes APIs after redeploy)"
+chmod +x deploy/link-persistent.sh
+bash deploy/link-persistent.sh "$APP_DIR" publish
+
 # --- Step 3: load env (secrets already on server) ---
 echo ""
 echo "[3/6] Load environment from $ENV_FILE"
@@ -53,6 +58,7 @@ else
 fi
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://0.0.0.0:${PORT}}"
+export EBOOKAI_PERSIST_DIR="${EBOOKAI_PERSIST_DIR:-$APP_DIR/persistent}"
 
 # --- Step 4: check port 5000 ---
 echo ""

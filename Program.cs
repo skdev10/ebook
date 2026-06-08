@@ -26,7 +26,10 @@ var urlsCfgEarly = Environment.GetEnvironmentVariable("ASPNETCORE_URLS")
     ?? string.Empty;
 var httpsEndpointsConfigured = urlsCfgEarly.Contains("https://", StringComparison.OrdinalIgnoreCase);
 
-var dataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
+var persistDir = Environment.GetEnvironmentVariable("EBOOKAI_PERSIST_DIR")?.Trim();
+var dataProtectionKeysPath = !string.IsNullOrEmpty(persistDir)
+    ? Path.Combine(persistDir, "DataProtection-Keys")
+    : Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
 Directory.CreateDirectory(dataProtectionKeysPath);
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
@@ -141,6 +144,7 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.SlidingExpiration = true;
     options.Cookie.SecurePolicy = authCookieSecurePolicy;
     options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Events.OnRedirectToLogin = AuthRedirectHelper.RedirectToLoginOrUnauthorized;
 })
 .AddCookie("UserCookie", options =>
 {
@@ -152,6 +156,7 @@ var authenticationBuilder = builder.Services.AddAuthentication(options =>
     options.SlidingExpiration = true;
     options.Cookie.SecurePolicy = authCookieSecurePolicy;
     options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Events.OnRedirectToLogin = AuthRedirectHelper.RedirectToLoginOrUnauthorized;
 });
 
 // OAuth: read from Authentication:*, Google:*, Facebook:*, User Secrets, appsettings.Local.json, and common env var names.
