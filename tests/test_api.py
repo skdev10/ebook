@@ -148,3 +148,24 @@ def test_book_chapters_name():
         resp = c.post("/api/book_chapters_name", json=payload)
         assert resp.status_code == 200, resp.text[:600]
         _assert_json_response(resp)
+
+
+@pytest.mark.skipif(not API_KEY, reason="API_KEY env var is required for upstream tests")
+def test_refine_cover_prompt():
+    with _client() as c:
+        resp = c.post("/api/refine_cover_prompt", json={"user_prompt": "mystical forest at dawn"})
+        assert resp.status_code == 200, resp.text[:600]
+        _assert_json_response(resp)
+
+
+@pytest.mark.skipif(not API_KEY, reason="API_KEY env var is required for upstream tests")
+def test_suggest_cover_prompt_from_highlights():
+    payload = {
+        "user_id": "u1",
+        "book_id": "b1",
+        "highlights": [{"chapter_name": "Chapter 1", "detailed_bullet_summary": "Hero discovers gravity."}],
+    }
+    with _client() as c:
+        resp = c.post("/api/suggest-cover-prompt-from-highlights", json=payload)
+        assert resp.status_code == 200, resp.text[:600]
+        _assert_json_response(resp)

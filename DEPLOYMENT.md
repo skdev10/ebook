@@ -2,6 +2,8 @@
 
 This app is an **ASP.NET Core 8** web app that calls a **Python FastAPI** upstream. Secrets must come from **environment variables** in production (not `appsettings.Local.json`, which is gitignored and only for local dev).
 
+**Upstream API reference:** see [`docs/EXTERNAL_API.md`](docs/EXTERNAL_API.md) for all FastAPI endpoints, payloads, database tables, and troubleshooting.
+
 ## Configuration: nested keys → environment variables
 
 ASP.NET Core maps nested JSON keys to env vars using **double underscores** (`__`):

@@ -1,4 +1,5 @@
-### Upstream FastAPI smoke tests (replace BASE and KEY)
+### Upstream FastAPI smoke tests — full docs: docs/EXTERNAL_API.md
+### Sample JSON bodies: Scripts/smoke-payloads/
 @BASE = http://162.229.248.26:8001
 @KEY = YOUR_EXTERNAL_API_KEY
 

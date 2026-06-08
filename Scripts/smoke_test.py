@@ -145,6 +145,24 @@ CHECKS: list[EndpointCheck] = [
         },
         expected_statuses=[200],
     ),
+    EndpointCheck(
+        name="refine_cover_prompt",
+        method="POST",
+        path="/api/refine_cover_prompt",
+        body={"user_prompt": "mystical forest at dawn"},
+        expected_statuses=[200],
+    ),
+    EndpointCheck(
+        name="suggest-cover-prompt-from-highlights",
+        method="POST",
+        path="/api/suggest-cover-prompt-from-highlights",
+        body={
+            "user_id": "u1",
+            "book_id": "b1",
+            "highlights": [{"chapter_name": "Chapter 1", "detailed_bullet_summary": "Hero discovers gravity."}],
+        },
+        expected_statuses=[200],
+    ),
 ]
 
 
