@@ -2126,7 +2126,7 @@ window.scrollAiWriterChapterToTop = function () {
     if (pc) pc.scrollTop = 0;
 };
 
-/** Probe upstream queue before LLM calls — fail fast when workers are stuck (waiting>0, running=0). */
+/** Optional queue hint before LLM calls — never blocks generation (queue counters are often stale). */
 window.checkUpstreamQueueBeforeAiCall = async function () {
     try {
         var r = await fetch('/Books/GetQueueData', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
@@ -2135,17 +2135,8 @@ window.checkUpstreamQueueBeforeAiCall = async function () {
         var s = (d && d.status) ? d.status : d;
         var waiting = Number(s.waiting || s.status_waiting || 0);
         var running = Number(s.running || s.status_running || 0);
-        if (waiting > 0 && running === 0) {
-            return {
-                ok: false,
-                message: 'The book AI service queue is not processing requests (' + waiting + ' waiting, 0 running). Please wait a few minutes or contact support to restart the API server.'
-            };
-        }
-        if (waiting >= 25) {
-            return {
-                ok: false,
-                message: 'The book AI service is very busy (' + waiting + ' requests waiting). Please try again in a few minutes.'
-            };
+        if (waiting >= 15 && typeof showNotification === 'function') {
+            showNotification('AI service has a backlog (' + waiting + ' in queue). Chapter generation may take a few extra minutes.', 'info');
         }
         return { ok: true, waiting: waiting, running: running };
     } catch (e) {
@@ -4738,13 +4729,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  : (12 * 60 * 1000);
              try {
                  if (typeof window.checkUpstreamQueueBeforeAiCall === 'function') {
-                     var queueCheck = await window.checkUpstreamQueueBeforeAiCall();
-                     if (queueCheck && queueCheck.ok === false) {
-                         doneCommon();
-                         addMessage(queueCheck.message || 'AI service is busy. Please try again shortly.', false);
-                         if (typeof showNotification === 'function') showNotification(queueCheck.message, 'error');
-                         return;
-                     }
+                     await window.checkUpstreamQueueBeforeAiCall();
                  }
                  var payload = Object.assign({}, requestData);
                  if (typeof window.buildGenerateUserInputWithMemory === 'function') {

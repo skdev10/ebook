@@ -28,12 +28,8 @@ public sealed class UpstreamBookApiHealthCheck : IHealthCheck
             return HealthCheckResult.Degraded("Upstream GET /api/queue-data failed or returned invalid JSON.");
 
         if (snapshot.IsStuck)
-            return HealthCheckResult.Degraded(
-                $"Upstream queue stuck: {snapshot.Describe()}. Restart FastAPI workers on the book API server.");
-
-        var block = UpstreamQueueGuard.GetBlockReason(snapshot, _configuration);
-        if (block != null)
-            return HealthCheckResult.Degraded($"Upstream overloaded: {snapshot.Describe()}.");
+            return HealthCheckResult.Healthy(
+                $"Upstream reachable; queue backlog reported ({snapshot.Describe()}). Generation may be slower until workers drain the queue.");
 
         return HealthCheckResult.Healthy($"Upstream queue OK ({snapshot.Describe()}).");
     }
