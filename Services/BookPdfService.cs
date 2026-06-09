@@ -17,12 +17,18 @@ public class BookPdfService : IBookPdfService
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<BookPdfService> _logger;
     private readonly IConfiguration _configuration;
+    private readonly PdfHtmlExportServiceResolver _pdfEngineResolver;
 
-    public BookPdfService(IWebHostEnvironment env, ILogger<BookPdfService> logger, IConfiguration configuration)
+    public BookPdfService(
+        IWebHostEnvironment env,
+        ILogger<BookPdfService> logger,
+        IConfiguration configuration,
+        PdfHtmlExportServiceResolver pdfEngineResolver)
     {
         _env = env;
         _logger = logger;
         _configuration = configuration;
+        _pdfEngineResolver = pdfEngineResolver;
     }
 
     public async Task<byte[]> RenderFullBookPdfAsync(
@@ -78,29 +84,30 @@ public class BookPdfService : IBookPdfService
         var headerTemplate = BuildHeaderTemplate(title, author);
         var footerTemplate = BuildFooterTemplate();
 
-        var engine = PdfExportEngine.Resolve(_configuration);
-        if (engine == PdfExportEngine.DinkToPdf)
-        {
-            _logger.LogWarning("DinkToPdf engine is not wired yet; using Chromium for book {BookId}.", details.BookId);
-            engine = PdfExportEngine.Chromium;
-        }
-
-        if (engine != PdfExportEngine.PdfSharp)
+        var configuredEngine = PdfExportEngine.Resolve(_configuration);
+        if (configuredEngine != PdfExportEngine.PdfSharp)
         {
             try
             {
-                var chromium = new ChromiumPdfExporter(_logger, _configuration);
-                var pdfBytes = await chromium.ExportAsync(html, layout, headerTemplate, footerTemplate, cancellationToken);
+                var htmlEngine = _pdfEngineResolver.ResolvePrimary();
+                var pdfBytes = await htmlEngine.ExportHtmlAsync(new PdfHtmlExportRequest
+                {
+                    Html = html,
+                    Layout = layout,
+                    HeaderTemplate = headerTemplate,
+                    FooterTemplate = footerTemplate,
+                    BookId = details.BookId
+                }, cancellationToken);
                 EnsureValidPdf(pdfBytes);
                 _logger.LogInformation(
-                    "Chromium PDF: {Bytes} bytes, 6x9={W}x{H}, style={Style}, pageBg={PageBg}, book={BookId}",
-                    pdfBytes.Length, layout.PdfWidth, layout.PdfHeight, opt.InteriorStyle,
+                    "{Engine} PDF: {Bytes} bytes, 6x9={W}x{H}, style={Style}, pageBg={PageBg}, book={BookId}",
+                    htmlEngine.EngineName, pdfBytes.Length, layout.PdfWidth, layout.PdfHeight, opt.InteriorStyle,
                     opt.ResolvePageBackgroundColor(), details.BookId);
                 return pdfBytes;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Chromium CSS PDF failed for book {BookId}; falling back to PdfSharp.", details.BookId);
+                _logger.LogWarning(ex, "HTML PDF engine failed for book {BookId}; falling back to PdfSharp.", details.BookId);
             }
         }
 

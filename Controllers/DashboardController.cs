@@ -268,6 +268,31 @@ namespace EBookDashboard.Controllers
             return RedirectToAction("AIGenerateBook", "Books", new { bookId });
         }
 
+        /// <summary>Lightweight active-book pick from My Books (no redirect) — syncs session and sidebar workflow.</summary>
+        [HttpPost]
+        [Route("SetActiveBook")]
+        public async Task<IActionResult> SetActiveBook(int bookId)
+        {
+            var userId = _currentUser.GetUserId();
+            if (!userId.HasValue || userId.Value <= 0)
+                return Json(new { ok = false, message = "Please sign in again." });
+
+            if (bookId <= 0)
+                return Json(new { ok = false, message = "Invalid book." });
+
+            var book = await _context.Books.AsNoTracking()
+                .Where(b => b.BookId == bookId && b.UserId == userId.Value)
+                .Select(b => new { b.BookId, b.Title })
+                .FirstOrDefaultAsync();
+            if (book == null)
+                return Json(new { ok = false, message = "Book not found." });
+
+            await SetActiveBookForUserAsync(userId.Value, bookId);
+            HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+
+            return Json(new { ok = true, bookId = book.BookId, title = book.Title ?? "Untitled" });
+        }
+
         /// <summary>Every book needs a valid Authors row (AuthorId ≠ UserId). Creates author on first book for new users.</summary>
         private async Task<(int AuthorId, int CategoryId, int LanguageId)> EnsureAuthorAndDefaultsForUserAsync(Users user)
         {
@@ -3811,6 +3836,8 @@ namespace EBookDashboard.Controllers
                 !string.IsNullOrWhiteSpace(StripeKeys.Publishable(_configuration))
                 && !string.IsNullOrWhiteSpace(StripeKeys.Secret(_configuration));
             ViewBag.PaymentJustCompleted = string.Equals(Request.Query["payment"], "success", StringComparison.OrdinalIgnoreCase);
+            ViewBag.SelectedBookId = HttpContext.Session.GetInt32("LastSelectedBookId")
+                ?? (int.TryParse(Request.Query["bookId"], out var qBid) && qBid > 0 ? qBid : null);
 
             return View();
         }

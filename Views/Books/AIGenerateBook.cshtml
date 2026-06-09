@@ -2192,21 +2192,28 @@ window.scrollAiWriterChapterToTop = function () {
     if (pc) pc.scrollTop = 0;
 };
 
-/** Optional queue hint before LLM calls — never blocks generation (queue counters are often stale). */
+/** Pre-flight: API key + upstream queue before LLM calls (fast fail with clear message). */
 window.checkUpstreamQueueBeforeAiCall = async function () {
     try {
-        var r = await fetch('/Books/GetQueueData', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
-        if (!r.ok) return { ok: true };
-        var d = await r.json();
-        var s = (d && d.status) ? d.status : d;
-        var waiting = Number(s.waiting || s.status_waiting || 0);
-        var running = Number(s.running || s.status_running || 0);
-        if (waiting >= 15 && typeof showNotification === 'function') {
-            showNotification('AI service has a backlog (' + waiting + ' in queue). Chapter generation may take a few extra minutes.', 'info');
+        var ac = new AbortController();
+        var tid = setTimeout(function () { ac.abort(); }, 12000);
+        var r = await fetch('/Books/ChapterGenerationReady', { credentials: 'same-origin', headers: { 'Accept': 'application/json' }, signal: ac.signal });
+        clearTimeout(tid);
+        var d = await r.json().catch(function () { return {}; });
+        if (!d.canGenerate) {
+            var msg = (d.message || 'Chapter generation is not available right now.').toString();
+            throw new Error(msg);
         }
-        return { ok: true, waiting: waiting, running: running };
+        if (d.warning && typeof showNotification === 'function') {
+            showNotification(d.warning, 'info');
+        }
+        return { ok: true, queue: d.queue || null };
     } catch (e) {
-        return { ok: true };
+        if (e && e.name === 'AbortError') {
+            console.warn('ChapterGenerationReady timed out — continuing with generate.');
+            return { ok: true };
+        }
+        throw e;
     }
 };
 
@@ -2352,6 +2359,18 @@ window.showChapterGenerationOverlay = function (message) {
     }
     var br = document.getElementById('bookResult');
     if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    if (window._chapterGenTimer) { clearInterval(window._chapterGenTimer); window._chapterGenTimer = null; }
+    window._chapterGenStartedAt = Date.now();
+    window._chapterGenTimer = setInterval(function () {
+        var elapsed = Math.max(0, Math.floor((Date.now() - (window._chapterGenStartedAt || Date.now())) / 1000));
+        var mins = Math.floor(elapsed / 60);
+        var secs = elapsed % 60;
+        var clock = mins > 0 ? (mins + 'm ' + secs + 's') : (secs + 's');
+        if (tx) tx.textContent = shortMsg + ' (' + clock + ')';
+        if (elapsed > 0 && elapsed % 30 === 0) {
+            console.log('⏳ Chapter generation still in progress… ' + clock);
+        }
+    }, 1000);
 };
 window.hideChapterGenerationOverlay = function () {
     var o = document.getElementById('chapterGenerationOverlay');
@@ -3294,6 +3313,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return r.text().then(function (t) { return parseWriterAutosaveResponse(r, t); });
         }).then(function (result) {
             if (result.ok && result.data && result.data.success) {
+                if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                 setWriterAutoSaveStatus('Saved', false);
                 var savedTitle = (result.data.bookTitle || payload.BookTitle || '').trim();
                 if (savedTitle) {
@@ -3375,6 +3395,7 @@ document.addEventListener('DOMContentLoaded', function() {
     inputChapterNo.addEventListener('change', updatePreviewUI);
     inputChapterTitle.addEventListener('input', updatePreviewUI);
     inputChapterTopic.addEventListener('input', function () {
+        if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         updatePreviewUI();
         queueWriterAutosave(700);
     });
@@ -3460,6 +3481,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         syncWorkingOnBookTitle(data.bookTitle);
                         if (inputBookTitle && !inputBookTitle.value.trim()) inputBookTitle.value = data.bookTitle;
                     }
+                    if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                 }
             })
             .catch(function() {});
@@ -3479,6 +3501,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (bookId > 0) loadChapterPreview(bookId, getChapterNo());
     var hasShownTitleSavePrompt = false;
     inputChapterTitle.addEventListener('input', function (e) {
+        if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         queueWriterAutosave(700);
         if (hasShownTitleSavePrompt || !e.isTrusted) return;
         hasShownTitleSavePrompt = true;
@@ -3489,9 +3512,39 @@ document.addEventListener('DOMContentLoaded', function() {
         writerAutosaveStatusTimer = setTimeout(function () { setWriterAutoSaveStatus('', false); }, 2200);
     });
     inputBookTitle.addEventListener('input', function () {
+        if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         syncWorkingOnBookTitle(getBookTitle());
         queueWriterAutosave(400);
     });
+
+    if (previewContent) {
+        previewContent.addEventListener('input', function () {
+            if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+            queueWriterAutosave(700);
+        });
+    }
+
+    if (window.EbookUnsavedGuard) {
+        window.EbookUnsavedGuard.setContext('AI Writer');
+        window.EbookUnsavedGuard.setPendingSaveHandler(function () {
+            return new Promise(function (resolve) {
+                var payload = buildWriterAutosavePayload();
+                if (!payload) { resolve(true); return; }
+                fetch('/Books/SaveChapterContent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    credentials: 'same-origin'
+                }).then(function (r) {
+                    return r.text().then(function (t) { return parseWriterAutosaveResponse(r, t); });
+                }).then(function (result) {
+                    var ok = result.ok && result.data && result.data.success;
+                    if (ok && window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+                    resolve(ok);
+                }).catch(function () { resolve(false); });
+            });
+        });
+    }
 
     var btnSaveChapterName = document.getElementById('btnSaveChapterName');
     if (btnSaveChapterName) {
@@ -4150,6 +4203,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   if (typeof refreshChapterIterationsDropdown === 'function') {
                       refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value);
                   }
+                  if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
               } else {
                    // clearBookForm();
                    showNotification("Error: " + result.message, "error");
@@ -4844,6 +4898,10 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (typeof hideSideBySidePreview === 'function') hideSideBySidePreview();
                  var ac = new AbortController();
                  var abortTid = setTimeout(function () { ac.abort(); }, genTimeoutMs);
+                 var heartbeat = setInterval(function () {
+                     var elapsed = window._chapterGenStartedAt ? Math.floor((Date.now() - window._chapterGenStartedAt) / 1000) : 0;
+                     if (elapsed >= 45) console.log('⏳ Waiting for server/upstream AI (' + Math.floor(elapsed / 60) + 'm ' + (elapsed % 60) + 's)…');
+                 }, 15000);
                  var response;
                  try {
                      response = await fetch('/Books/AIGenerateBook', {
@@ -4855,6 +4913,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      });
                  } finally {
                      clearTimeout(abortTid);
+                     clearInterval(heartbeat);
                  }
                  console.log("📨 Response status:", response.status);
                  const responseText = await response.text();
@@ -4883,6 +4942,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      }
                      document.getElementById('ResponseId').value = bookData.responseId || bookData.response_id || savedResponseIdHeader || '';
                      if (bookData && bookData.bookId) document.getElementById('BookId').value = bookData.bookId;
+                     if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
 
                      if (typeof showGeneratedChapterWithTyping === 'function') {
                          showGeneratedChapterWithTyping(bookData, function() {

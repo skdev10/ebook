@@ -637,6 +637,19 @@ namespace EBookDashboard.Controllers
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
+
+            var queueSnapshot = await _queueProbe.TryGetSnapshotAsync(CancellationToken.None);
+            var queueBlock = UpstreamQueueGuard.GetBlockReason(queueSnapshot, _configuration);
+            if (!string.IsNullOrEmpty(queueBlock))
+            {
+                _logger.LogWarning("AIGenerateBook blocked: {Reason}", queueBlock);
+                return Json(new { error = true, message = queueBlock, queueStuck = queueSnapshot?.IsStuck == true });
+            }
+
+            if (queueSnapshot?.IsStuck == true)
+                _logger.LogWarning("AIGenerateBook: upstream queue reports waiting={Waiting} running={Running} — request may take a long time.",
+                    queueSnapshot.Waiting, queueSnapshot.Running);
+
             var responseData = string.Empty;
             int? rawResponseId = null;
             try
@@ -4124,6 +4137,66 @@ namespace EBookDashboard.Controllers
                     "Local and live use different MySQL unless you import the same database dump.",
                     "Set ConnectionStrings__DefaultConnection (or DATABASE_URL / MYSQL_URL) and App__PublicBaseUrl in /etc/default/ebookai.",
                     "Run: bash deploy/fix-live-parity.sh then bash deploy/do-deploy.sh on the server."
+                }
+            });
+        }
+
+        /// <summary>Pre-flight before chapter generate: API key + upstream queue (fast, &lt;10s).</summary>
+        [HttpGet]
+        [Route("Books/ChapterGenerationReady")]
+        public async Task<IActionResult> ChapterGenerationReady()
+        {
+            if (HttpContext.Session.GetInt32("UserId") is not > 0)
+                return Json(new { ok = false, canGenerate = false, message = "Please sign in again." });
+
+            var key = ExternalApiKeyResolver.Resolve(_configuration);
+            if (string.IsNullOrEmpty(key))
+            {
+                return Json(new
+                {
+                    ok = false,
+                    canGenerate = false,
+                    apiKeyConfigured = false,
+                    message = ExternalApiKeyResolver.MissingKeyUserMessage
+                });
+            }
+
+            var snapshot = await _queueProbe.TryGetSnapshotAsync(HttpContext.RequestAborted);
+            var blockReason = UpstreamQueueGuard.GetBlockReason(snapshot, _configuration);
+            if (!string.IsNullOrEmpty(blockReason))
+            {
+                return Json(new
+                {
+                    ok = false,
+                    canGenerate = false,
+                    apiKeyConfigured = true,
+                    message = blockReason,
+                    queue = snapshot == null ? null : new
+                    {
+                        running = snapshot.Running,
+                        waiting = snapshot.Waiting,
+                        isStuck = snapshot.IsStuck
+                    }
+                });
+            }
+
+            string? warning = null;
+            if (snapshot?.IsStuck == true)
+                warning = "AI service queue is backed up (jobs waiting, none running). Generation may take 5–15+ minutes — keep this tab open.";
+            else if (snapshot != null && snapshot.Waiting >= 5)
+                warning = $"AI service has {snapshot.Waiting} job(s) in queue. Your chapter may take a few extra minutes.";
+
+            return Json(new
+            {
+                ok = true,
+                canGenerate = true,
+                apiKeyConfigured = true,
+                warning,
+                queue = snapshot == null ? null : new
+                {
+                    running = snapshot.Running,
+                    waiting = snapshot.Waiting,
+                    isStuck = snapshot.IsStuck
                 }
             });
         }

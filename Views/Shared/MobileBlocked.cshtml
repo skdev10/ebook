@@ -1,0 +1,33 @@
+@model EBookDashboard.Models.MobileAccessOptions
+@{
+    Layout = null;
+    var title = Model?.Title ?? "Desktop Only";
+    var message = Model?.Message ?? "This application is currently not available on mobile devices.";
+    var subMessage = Model?.SubMessage ?? "Kindly open this application on a desktop or laptop browser to continue.";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>@title - EBookDashboard</title>
+    <link rel="stylesheet" href="~/css/mobile-block.css" asp-append-version="true" />
+    <style>
+        body { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: #f5f3ff; }
+        .mobile-block-overlay { position: static; display: flex !important; background: transparent; padding: 0; }
+        .mobile-block-overlay[hidden] { display: flex !important; }
+    </style>
+</head>
+<body>
+    <div class="mobile-block-overlay is-visible" role="main">
+        <div class="mobile-block-card">
+            <div class="mobile-block-icon" aria-hidden="true">&#128187;</div>
+            <h1 class="mobile-block-title">@title</h1>
+            <p class="mobile-block-message">@message</p>
+            <p class="mobile-block-submessage">@subMessage</p>
+            <p class="mobile-block-submessage" style="margin-top:16px;font-size:.8rem;color:#94a3b8;">EBookDashboard</p>
+        </div>
+    </div>
+</body>
+</html>

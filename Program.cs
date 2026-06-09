@@ -248,6 +248,7 @@ builder.Services.AddScoped<IAuthorBillsService, AuthorBillsService>();
 // OpenAIService2 disabled — voice uses ExternalApi:AudioUrl only.
 builder.Services.AddScoped<CommonMethodsService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddSingleton<EBookDashboard.Services.PdfExport.PdfHtmlExportServiceResolver>();
 builder.Services.AddScoped<IBookPdfService, BookPdfService>();
 builder.Services.AddScoped<IEpubExportService, EpubExportService>();
 builder.Services.AddScoped<IDocxExportService, DocxExportService>();
@@ -255,6 +256,8 @@ builder.Services.AddScoped<IBookPageMetricsService, BookPageMetricsService>();
 builder.Services.AddScoped<IChapterIterationService, ChapterIterationService>();
 builder.Services.Configure<ChapterGenerationOptions>(
     builder.Configuration.GetSection(ChapterGenerationOptions.SectionName));
+builder.Services.Configure<MobileAccessOptions>(
+    builder.Configuration.GetSection(MobileAccessOptions.SectionName));
 builder.Services.Configure<BookPaymentOptions>(
     builder.Configuration.GetSection(BookPaymentOptions.SectionName));
 builder.Services.AddBookUpstreamHttpClients(builder.Configuration);
@@ -397,6 +400,8 @@ if (httpsEndpointsConfigured)
 app.UseStaticFiles();
 
 app.UseRouting();
+
+app.UseMiddleware<EBookDashboard.Middleware.MobileBlockMiddleware>();
 
 app.UseRequestTimeouts();
 

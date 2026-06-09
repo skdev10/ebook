@@ -1,5 +1,6 @@
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
+using EBookDashboard.Services.PdfExport;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +15,9 @@ public class BookPdfSmokeTests
     public async Task RenderFullBookPdf_produces_valid_pdf_header()
     {
         var env = new StubEnv();
-        var svc = new BookPdfService(env, NullLogger<BookPdfService>.Instance, new ConfigurationBuilder().Build());
+        var cfg = new ConfigurationBuilder().Build();
+        var resolver = new PdfHtmlExportServiceResolver(cfg, NullLoggerFactory.Instance);
+        var svc = new BookPdfService(env, NullLogger<BookPdfService>.Instance, cfg, resolver);
         var details = new BookDetailsResponseDto
         {
             Success = true,

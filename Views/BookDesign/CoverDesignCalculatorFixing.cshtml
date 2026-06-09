@@ -5394,6 +5394,7 @@
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res && res.success) {
+                if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                 try {
                     sessionStorage.setItem('formatter_format_premium', fmt === 'Both' ? '1' : '0');
                 } catch (e) { /* ignore */ }
@@ -5420,6 +5421,7 @@
     }
 
     function queueAutosave(delayMs) {
+        if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         if (autosaveTimer) clearTimeout(autosaveTimer);
         autosaveTimer = setTimeout(function() {
             if (autosaveInFlight) {
@@ -5660,6 +5662,15 @@
         window.addEventListener('beforeunload', function() {
             persistFormatterDraftLocal(getFormatterStateFromUi());
         });
+
+        if (window.EbookUnsavedGuard) {
+            window.EbookUnsavedGuard.setContext('Book Formatting');
+            window.EbookUnsavedGuard.setPendingSaveHandler(function () {
+                return new Promise(function (resolve) {
+                    saveFormatting(function (ok) { resolve(!!ok); }, { silent: true });
+                });
+            });
+        }
 
         (function bindFmtStudioChrome() {
             var cards = document.getElementById('fmt-interior-cards');

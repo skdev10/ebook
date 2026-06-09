@@ -658,12 +658,70 @@
             coverWrap.innerHTML = '<div class="w-48 max-w-full aspect-[2/3] rounded-xl shadow-lg p-5 flex flex-col items-center justify-center text-center border-2 border-violet-900 mx-auto" style="background-color:#4c1d95;"><i class="fas fa-book-open text-5xl mb-2" style="color:#c4b5fd;"></i><span class="font-serif text-sm" style="color:#e9d5ff;">' + (safe || '—') + '</span></div>';
         }
     }
+    var MYBOOKS_SEL_KEY = 'ebook_mybooks_selected_book';
+    var serverSelectedBookId = @(ViewBag.SelectedBookId != null ? ViewBag.SelectedBookId.ToString() : "0");
+
     function setSelectedBookCard(bookId) {
-        document.querySelectorAll('.book-card').forEach(function(c) {
+        document.querySelectorAll('#recommendedGrid .book-card, #categoriesScroll .book-card').forEach(function(c) {
             var id = parseInt(c.getAttribute('data-book-id'), 10);
             if (id === bookId) c.classList.add('book-card-selected');
             else c.classList.remove('book-card-selected');
         });
+    }
+    function getBookFromCard(card) {
+        if (!card) return null;
+        return getBook({
+            BookId: card.getAttribute('data-book-id'),
+            Title: card.getAttribute('data-title'),
+            Description: card.getAttribute('data-desc'),
+            Status: card.getAttribute('data-status'),
+            ChapterCount: card.getAttribute('data-chapter-count'),
+            WordCount: card.getAttribute('data-word-count'),
+            Genre: card.getAttribute('data-genre'),
+            CoverImagePath: card.getAttribute('data-cover')
+        });
+    }
+    function resolveBookById(bookId) {
+        if (!bookId) return null;
+        var found = books && books.find(function(b) { return bookIdFrom(b) === bookId; });
+        if (found) return getBook(found);
+        var card = document.querySelector('#recommendedGrid .book-card[data-book-id="' + bookId + '"], #categoriesScroll .book-card[data-book-id="' + bookId + '"]');
+        return getBookFromCard(card);
+    }
+    function scrollSelectedCardIntoView(bookId) {
+        var card = document.querySelector('#recommendedGrid .book-card-selected[data-book-id="' + bookId + '"], #categoriesScroll .book-card-selected[data-book-id="' + bookId + '"]');
+        if (card && card.scrollIntoView) {
+            try { card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch (e) { card.scrollIntoView(false); }
+        }
+    }
+    function updateUrlBookId(bookId) {
+        try {
+            var url = new URL(window.location.href);
+            url.searchParams.set('bookId', String(bookId));
+            window.history.replaceState({}, '', url.pathname + url.search);
+        } catch (e) {}
+    }
+    function persistActiveBookOnServer(bookId) {
+        var token = getMyBooksAntiForgeryToken();
+        fetch('/Dashboard/SetActiveBook?bookId=' + encodeURIComponent(bookId), {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: token ? { 'RequestVerificationToken': token } : {}
+        }).catch(function() {});
+    }
+    function selectMyBook(bookId, opts) {
+        opts = opts || {};
+        bookId = parseInt(bookId, 10);
+        if (!bookId) return;
+        var book = resolveBookById(bookId);
+        if (!book) return;
+        fillAside(book);
+        try { sessionStorage.setItem(MYBOOKS_SEL_KEY, String(bookId)); } catch (e) {}
+        var bookIdEl = document.getElementById('BookId');
+        if (bookIdEl) bookIdEl.value = String(bookId);
+        if (!opts.skipServer) persistActiveBookOnServer(bookId);
+        if (!opts.skipScroll) scrollSelectedCardIntoView(bookId);
+        if (!opts.skipUrl) updateUrlBookId(bookId);
     }
     function bookIdFrom(b) {
         if (!b) return 0;
@@ -683,7 +741,7 @@
             chapterCount: book.ChapterCount || book.chapterCount || 0,
             wordCount: book.WordCount || book.wordCount || 0,
             genre: book.Genre || book.genre || '',
-            cover: resolveCoverUrl(book.CoverImagePath || book.coverImagePath || '')
+            cover: resolveCoverUrl(book.CoverImagePath || book.coverImagePath || book.cover || '')
         };
     }
     let selectedBookId = null;
@@ -718,6 +776,7 @@
                 var show = !selected || cardG === selected;
                 card.style.display = show ? 'flex' : 'none';
             });
+            if (selectedBookId) setSelectedBookCard(selectedBookId);
         });
     });
 
@@ -753,19 +812,20 @@
         setSelectedBookCard(book.bookId);
     }
 
-    document.querySelectorAll('.book-card').forEach(function(card) {
-        card.addEventListener('click', function(e) {
-            var row = this.closest('.drag-scroll');
-            if (row && row.classList.contains('is-dragging')) return;
-            var bookId = parseInt(this.getAttribute('data-book-id'), 10);
-            if (!bookId) return;
-            var book = books && books.find(function(b) { return bookIdFrom(b) === bookId; });
-            if (book) fillAside(getBook(book));
-        });
-        card.addEventListener('dblclick', function(e) {
-            var bookId = parseInt(this.getAttribute('data-book-id'), 10);
-            if (bookId > 0) window.location.href = '/Dashboard/SelectBook?bookId=' + bookId;
-        });
+    document.addEventListener('click', function(e) {
+        var card = e.target.closest('#recommendedGrid .book-card[data-book-id], #categoriesScroll .book-card[data-book-id]');
+        if (!card) return;
+        var row = card.closest('.drag-scroll');
+        if (row && row.classList.contains('is-dragging')) return;
+        var bookId = parseInt(card.getAttribute('data-book-id'), 10);
+        if (!bookId) return;
+        selectMyBook(bookId);
+    });
+    document.addEventListener('dblclick', function(e) {
+        var card = e.target.closest('#recommendedGrid .book-card[data-book-id], #categoriesScroll .book-card[data-book-id]');
+        if (!card) return;
+        var bookId = parseInt(card.getAttribute('data-book-id'), 10);
+        if (bookId > 0) window.location.href = '/Dashboard/SelectBook?bookId=' + bookId;
     });
 
     function normalizeChaptersForModal(chData) {
@@ -984,16 +1044,17 @@
             });
     }
 
-    if (books && books.length > 0) fillAside(getBook(books[0]));
-
-    (function () {
+    (function initMyBooksSelection() {
         var params = new URLSearchParams(window.location.search);
         var bid = parseInt(params.get('bookId') || '0', 10);
         var autoPreview = params.get('preview') === '1';
-        if (!bid) return;
-        var book = books && books.find(function (b) { return bookIdFrom(b) === bid; });
-        if (book) {
-            fillAside(book);
+        if (!bid) {
+            try { bid = parseInt(sessionStorage.getItem(MYBOOKS_SEL_KEY) || '0', 10); } catch (e) {}
+        }
+        if (!bid) bid = parseInt(serverSelectedBookId || '0', 10);
+        if (!bid && books && books.length) bid = bookIdFrom(books[0]);
+        if (bid) {
+            selectMyBook(bid);
             if (autoPreview) {
                 var viewBtn = document.getElementById('btn-view-book');
                 if (viewBtn) viewBtn.click();

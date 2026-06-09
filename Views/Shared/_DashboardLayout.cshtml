@@ -157,6 +157,7 @@
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="~/js/unsaved-changes-guard.js" asp-append-version="true"></script>
     <style>
         /* All your CSS styles remain exactly the same */
         /* Prevent layout shift and page shake */
@@ -5305,19 +5306,20 @@
 
                 function destructiveBackMessage(targetUrl) {
                     var path = normalizePath(targetUrl || flowBackUrl || '/Dashboard');
+                    var savedNote = ' Your chapter text already saved in AI Writer will <strong>not</strong> be removed.';
                     if (isAiWriterPath(path)) {
-                        return 'If you go back to <strong>AI Writer</strong> now, your formatting, cover design, and all progress on this book will be <strong>permanently deleted</strong>. You will need to redo everything.';
+                        return 'Going back to <strong>AI Writer</strong> will <strong>reset formatting, cover assets, and later-step progress</strong> for this book.' + savedNote;
                     }
                     if (flowStep === 'cover') {
-                        return 'If you go back to <strong>Book Formatting</strong>, your <strong>cover design will be permanently deleted</strong> and cannot be recovered.';
+                        return 'Going back to <strong>Book Formatting</strong> will <strong>clear your cover design</strong> for this book (you can regenerate it later).' + savedNote;
                     }
                     if (flowStep === 'publish') {
-                        return 'If you go back to <strong>Cover Design</strong>, your publish progress on this step will be <strong>reset</strong>.';
+                        return 'Going back to <strong>Cover Design</strong> will return you to the previous step. Publish/export settings on this screen may need to be reviewed again.';
                     }
                     if (flowStep === 'format') {
-                        return 'If you go back now, your <strong>formatting and cover work will be permanently deleted</strong>.';
+                        return 'Going back now will <strong>reset saved formatting choices and cover work</strong> for this book.' + savedNote;
                     }
-                    return 'If you go back now, your saved work on this step will be <strong>permanently deleted</strong>.';
+                    return 'Going back will <strong>reset progress on later workflow steps</strong> for this book.' + savedNote;
                 }
 
                 function runDestructiveBack(targetUrl, options) {
@@ -5343,20 +5345,29 @@
                 }
 
                 function confirmDestructiveFlowBack(targetUrl, options) {
-                    return Swal.fire({
-                        title: 'Go back and lose your work?',
-                        html: destructiveBackMessage(targetUrl),
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, delete and go back',
-                        cancelButtonText: 'Stay here',
-                        confirmButtonColor: '#dc2626',
-                        cancelButtonColor: '#64748b',
-                        allowOutsideClick: false
-                    }).then(function (result) {
-                        if (!result.isConfirmed) return false;
-                        return runDestructiveBack(targetUrl, options);
-                    });
+                    function showDestructiveConfirm() {
+                        return Swal.fire({
+                            title: 'Go back and reset workflow?',
+                            html: destructiveBackMessage(targetUrl),
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, reset and go back',
+                            cancelButtonText: 'Stay here',
+                            confirmButtonColor: '#dc2626',
+                            cancelButtonColor: '#64748b',
+                            allowOutsideClick: false
+                        }).then(function (result) {
+                            if (!result.isConfirmed) return false;
+                            return runDestructiveBack(targetUrl, options);
+                        });
+                    }
+                    if (window.EbookUnsavedGuard && window.EbookUnsavedGuard.isDirty()) {
+                        return window.EbookUnsavedGuard.confirmLeave(targetUrl).then(function (ok) {
+                            if (!ok) return false;
+                            return showDestructiveConfirm();
+                        });
+                    }
+                    return showDestructiveConfirm();
                 }
 
                 function confirmLeaveToAiWriter(targetUrl) {
@@ -5405,6 +5416,7 @@
             })();
         </script>
     }
+    <partial name="_MobileBlockOverlay" />
     @RenderSection("Scripts", required: false)
 </body>
 </html>
