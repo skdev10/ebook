@@ -60,15 +60,15 @@ public sealed class ChromiumPdfExporter
         await page.EmulateMediaTypeAsync(MediaType.Print);
         await page.SetContentAsync(html, new NavigationOptions
         {
-            WaitUntil = [WaitUntilNavigation.Networkidle0, WaitUntilNavigation.DOMContentLoaded],
+            WaitUntil = [WaitUntilNavigation.DOMContentLoaded, WaitUntilNavigation.Load],
             Timeout = 120_000
         });
 
         await page.EvaluateFunctionAsync(@"async () => {
             if (document.fonts && document.fonts.ready) await document.fonts.ready;
-            await new Promise(r => setTimeout(r, 1500));
+            await new Promise(r => setTimeout(r, 900));
         }");
-        await Task.Delay(500, cancellationToken);
+        await Task.Delay(250, cancellationToken);
 
         var fontStatus = await page.EvaluateFunctionAsync<string>(@"() => {
             if (!document.fonts || !document.fonts.forEach) return 'no-fonts-api';

@@ -26,7 +26,8 @@ public static class BookPreviewPrintHtmlBuilder
         string bodyTemplateClass,
         string previewShellClass,
         string previewWrapClass,
-        string? webRootPath)
+        string? webRootPath,
+        double? contentHeightPx = null)
     {
         var themeCss = InteriorExportTheme.BuildPdfThemeCss(opt);
         var fontCss = InteriorPrintDocumentBuilder.BuildFontStylesForExport(webRootPath);
@@ -59,7 +60,10 @@ public static class BookPreviewPrintHtmlBuilder
             ? ""
             : FormattableString.Invariant($"""<p class="subtitle">{WebUtility.HtmlEncode(subtitle.Trim())}</p>""");
 
-        var pageHeightPx = pageSizeCss.Contains("A4", StringComparison.OrdinalIgnoreCase) ? 1122.0 : 864.0;
+        // TOC page refs estimate page count from flowed content height: page height minus print margins.
+        var pageHeightPx = contentHeightPx is > 0
+            ? contentHeightPx.Value
+            : (pageSizeCss.Contains("A4", StringComparison.OrdinalIgnoreCase) ? 1122.0 : 864.0);
 
         var doc = new StringBuilder();
         doc.AppendLine("<!DOCTYPE html>");
@@ -78,10 +82,11 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine(".cover-fallback-inner { text-align: center; padding: 24mm; }");
         doc.AppendLine(".cover-title { font-size: 28pt; margin: 0 0 8mm; letter-spacing: 0.08em; }");
         doc.AppendLine(".cover-meta { font-size: 11pt; opacity: 0.85; max-width: 140mm; margin: 0 auto; }");
-        doc.AppendLine(".title-page { page-break-after: always; text-align: center; padding-top: 36mm; background: var(--export-page-bg, var(--page-bg)); }");
-        doc.AppendLine(".title-page h1 { font-size: 24pt; margin: 0 0 8mm; font-weight: 600; }");
-        doc.AppendLine(".title-page-author { font-size: 13pt; margin: 4mm 0; }");
-        doc.AppendLine(".title-page-genre { font-size: 10pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.12em; }");
+        doc.AppendLine(".title-page { page-break-after: always; text-align: center; padding: var(--ilt-title-page-pad-top, 3.625rem) 8mm 12mm; background: var(--export-page-bg, var(--page-bg)); min-height: 100vh; display: flex; flex-direction: column; justify-content: center; }");
+        doc.AppendLine(".title-page h1 { font-size: 28pt; margin: 0 0 12mm; font-weight: 600; letter-spacing: 0.03em; line-height: 1.2; max-width: 85%; margin-left: auto; margin-right: auto; }");
+        doc.AppendLine(".title-page .subtitle { margin-bottom: 14mm; }");
+        doc.AppendLine(".title-page-author { font-size: 13pt; margin: 16mm 0 3mm; letter-spacing: 0.06em; }");
+        doc.AppendLine(".title-page-genre { font-size: 9pt; color: #8a8175; text-transform: uppercase; letter-spacing: 0.22em; margin-top: 3mm; }");
         doc.AppendLine("</style></head>");
         doc.AppendLine("<body class=\"book-pdf-body reader-content-wrap " + bodyTemplateClass + " " + previewShellClass + " " + previewWrapClass + "\">");
         doc.Append(coverBlock);

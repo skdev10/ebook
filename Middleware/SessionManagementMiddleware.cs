@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using EBookDashboard.Models;
+using EBookDashboard.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
 
@@ -102,13 +103,39 @@ namespace EBookDashboard.Middleware
             var full = Models.Settings.ClampValueLength(path + qs, Models.Settings.DbCompatMaxValueLength) ?? "";
             if (!IsSafeResumePath(full))
                 return;
+
+            // Avoid 3–5 DB round-trips on every GET when the user is already on the same URL/book.
+            var sessionUrlKey = $"ResumeUrl:{uid.Value}";
+            var sessionBookKey = $"ResumeBookId:{uid.Value}";
+            var urlUnchanged = string.Equals(context.Session.GetString(sessionUrlKey), full, StringComparison.Ordinal);
+            TryExtractBookIdFromPathAndQuery(path, qs, out var bookId);
+            var bookUnchanged = bookId <= 0
+                || context.Session.GetInt32(sessionBookKey) == bookId;
+            if (urlUnchanged && bookUnchanged)
+                return;
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
                 var key = $"user:{uid.Value}:lastBookWorkUrl";
-                var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, context.RequestAborted);
-                if (row == null)
+                var row = await db.Settings.AsNoTracking()
+                    .Where(s => s.Key == key)
+                    .Select(s => new { s.SettingId, s.Value })
+                    .FirstOrDefaultAsync(context.RequestAborted);
+
+                if (row != null && string.Equals(row.Value, full, StringComparison.Ordinal) && bookUnchanged)
+                {
+                    context.Session.SetString(sessionUrlKey, full);
+                    if (bookId > 0) context.Session.SetInt32(sessionBookKey, bookId);
+                    return;
+                }
+
+                var tracked = row == null
+                    ? null
+                    : await db.Settings.FirstOrDefaultAsync(s => s.SettingId == row.SettingId, context.RequestAborted);
+
+                if (tracked == null)
                 {
                     var nextId = await db.NextSettingIdAsync(context.RequestAborted);
                     db.Settings.Add(new Models.Settings
@@ -124,18 +151,54 @@ namespace EBookDashboard.Middleware
                 }
                 else
                 {
-                    row.Value = full;
-                    row.UpdatedAt = DateTime.UtcNow;
+                    tracked.Value = full;
+                    tracked.UpdatedAt = DateTime.UtcNow;
                 }
 
-                await db.SaveChangesAsync(context.RequestAborted);
+                if (bookId > 0)
+                    await UpsertPerBookResumeUrlAsync(db, bookId, full, context.RequestAborted);
 
-                if (TryExtractBookIdFromPathAndQuery(path, qs, out var bookId) && bookId > 0)
+                await db.SaveChangesAsync(context.RequestAborted);
+                context.Session.SetString(sessionUrlKey, full);
+
+                if (bookId > 0)
+                {
                     await TryPersistLastWorkedBookAsync(db, uid.Value, bookId, context.RequestAborted);
+                    context.Session.SetInt32(sessionBookKey, bookId);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Could not persist resume URL for user {UserId}", uid.Value);
+            }
+        }
+
+        private static async Task UpsertPerBookResumeUrlAsync(
+            ApplicationDbContext db,
+            int bookId,
+            string fullUrl,
+            CancellationToken cancellationToken)
+        {
+            var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(bookId);
+            var perBookRow = await db.Settings.FirstOrDefaultAsync(s => s.Key == perBookKey, cancellationToken);
+            if (perBookRow == null)
+            {
+                var nextId = await db.NextSettingIdAsync(cancellationToken);
+                db.Settings.Add(new Settings
+                {
+                    SettingId = nextId,
+                    Key = perBookKey,
+                    Value = fullUrl,
+                    Category = "Resume",
+                    Description = "Last workflow URL for this book",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+            else if (!string.Equals(perBookRow.Value, fullUrl, StringComparison.Ordinal))
+            {
+                perBookRow.Value = fullUrl;
+                perBookRow.UpdatedAt = DateTime.UtcNow;
             }
         }
 
@@ -163,8 +226,19 @@ namespace EBookDashboard.Middleware
             if (!owns) return;
 
             var key = $"user:{userId}:lastBookId";
-            var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+            var existingId = await db.Settings.AsNoTracking()
+                .Where(s => s.Key == key)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
             var idText = bookId.ToString();
+            if (string.Equals(existingId, idText, StringComparison.Ordinal))
+            {
+                var alreadyActive = await db.Books.AsNoTracking()
+                    .AnyAsync(b => b.UserId == userId && b.BookId == bookId && b.isActive == 1, cancellationToken);
+                if (alreadyActive) return;
+            }
+
+            var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
             if (row == null)
             {
                 var nextId = await db.NextSettingIdAsync(cancellationToken);
@@ -186,10 +260,10 @@ namespace EBookDashboard.Middleware
             }
 
             await db.Books
-                .Where(b => b.UserId == userId)
+                .Where(b => b.UserId == userId && b.isActive == 1 && b.BookId != bookId)
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 0), cancellationToken);
             await db.Books
-                .Where(b => b.UserId == userId && b.BookId == bookId)
+                .Where(b => b.UserId == userId && b.BookId == bookId && b.isActive != 1)
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 1), cancellationToken);
             await db.Books
                 .Where(b => b.UserId == userId && b.BookId == bookId)

@@ -1,0 +1,915 @@
+using System.Globalization;
+
+using System.Text.Json;
+
+using EBookDashboard.Models.DTO;
+
+
+
+namespace EBookDashboard.Services;
+
+
+
+/// <summary>
+
+/// Single source of truth for interior page layout numbers shared by Book Formatter preview and PDF export.
+
+/// KDP 6×9 trim — margins, padding, frame, and text block use identical values in preview + Chromium PDF.
+
+/// </summary>
+
+public static class InteriorLayoutTokens
+
+{
+
+    /// <summary>KDP 6×9 Chromium margin box — running head / folio safe zone outside the text block.</summary>
+
+    public sealed record PrintMarginSpec(string Top, string Bottom, string Inside, string Outside);
+
+
+
+    /// <summary>Inner page padding — matches <c>.book-page-content-wrap</c> per interior.</summary>
+
+    public sealed record ContentPaddingSpec(string Top, string Right, string Bottom, string Left);
+
+
+
+    /// <summary>Body / paragraph typography defaults per interior (user line-spacing overrides via CSS var).</summary>
+
+    public sealed record BodyTypographySpec(
+
+        string DefaultBodyFontRem,
+
+        string DefaultLineHeight,
+
+        string TextIndent,
+
+        string ParagraphSpacing,
+
+        string TextAlign,
+
+        string TitleMarginBottom,
+
+        string TitlePaddingBottom);
+
+
+
+    /// <summary>Studio mat + paper frame — preview card and PDF sheet chrome.</summary>
+
+    public sealed record FrameSpec(
+
+        string MatBackground,
+
+        string MatBorder,
+
+        string SheetBorder,
+
+        string SheetShadow,
+
+        string ContainerShadow,
+
+        string PageBackground);
+
+
+
+    /// <summary>Per-interior layout bundle used to emit identical preview + print CSS.</summary>
+
+    public sealed record InteriorSpec(
+
+        string Key,
+
+        string SheetBackground,
+
+        ContentPaddingSpec SheetPadding,
+
+        BodyTypographySpec Body,
+
+        FrameSpec Frame,
+
+        string TitleFontSizePt,
+
+        string TitleLetterSpacing,
+
+        string TitleBorderBottom,
+
+        bool TitleUppercase,
+
+        bool TitleCentered);
+
+
+
+    /// <summary>Optimal reading measure — centered text block inside padded page (≈65 characters at 11pt).</summary>
+
+    public const string TextBlockMaxWidth = "4.35in";
+
+
+
+    /// <summary>KDP-style print margin box for 6×9 trim.</summary>
+
+    public static readonly PrintMarginSpec KdpTrim6x9Default = new(
+
+        Top: "0.55in",
+
+        Bottom: "0.5in",
+
+        Inside: "0.38in",
+
+        Outside: "0.32in");
+
+
+
+    public const string ChapterDrop = "2.5rem";
+
+    public const string FrontMatterPadTop = "2.1rem";
+
+    public const string TitlePagePadTop = "3.75rem";
+
+    public const string RunningHeadPadTop = "0.32in";
+
+    public const string RunningHeadPadSides = "0.58in";
+
+    public const string RunningHeadPadInside = "0.52in";
+
+    public const string FolioPadBottom = "0.32in";
+
+
+
+    private static readonly Dictionary<string, InteriorSpec> Specs = new(StringComparer.OrdinalIgnoreCase)
+
+    {
+
+        ["Novel"] = new(
+
+            Key: "novel",
+
+            SheetBackground: "#fffdf8",
+
+            SheetPadding: new("0.72in", "0.76in", "0.68in", "0.76in"),
+
+            Body: new("1.03rem", "1.88", "1.5rem", "1.05rem", "justify", "1.1rem", "0.7rem"),
+
+            Frame: new(
+
+                "linear-gradient(180deg, #f7eee2 0%, #f3e4d3 100%)",
+
+                "1px solid #d7bf9f",
+
+                "1px solid #d4b08a",
+
+                "0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 14px 40px -12px rgba(91, 33, 182, 0.22)",
+
+                "0 18px 44px -24px rgba(120, 72, 32, 0.36), 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 0 0 1px rgba(212, 176, 138, 0.45)",
+
+                "linear-gradient(180deg, #fffef9 0%, #faf8f2 100%)"),
+
+            TitleFontSizePt: "18",
+
+            TitleLetterSpacing: "0.015em",
+
+            TitleBorderBottom: "1px solid rgba(111, 47, 16, 0.18)",
+
+            TitleUppercase: false,
+
+            TitleCentered: true),
+
+        ["Modern"] = new(
+
+            Key: "modern",
+
+            SheetBackground: "#ffffff",
+
+            SheetPadding: new("0.65in", "0.82in", "0.58in", "0.68in"),
+
+            Body: new("0.97rem", "1.74", "0", "0.9rem", "left", "1rem", "0"),
+
+            Frame: new(
+
+                "linear-gradient(180deg, #eceff5 0%, #e2e8f0 100%)",
+
+                "1px solid #c6d2e2",
+
+                "1px solid #9fb1c9",
+
+                "0 12px 40px -12px rgba(51, 65, 85, 0.28)",
+
+                "0 20px 50px -30px rgba(51, 65, 85, 0.42), 0 2px 0 rgba(255, 255, 255, 0.9) inset, 0 0 0 1px rgba(159, 177, 201, 0.55)",
+
+                "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)"),
+
+            TitleFontSizePt: "11.5",
+
+            TitleLetterSpacing: "0.18em",
+
+            TitleBorderBottom: "none",
+
+            TitleUppercase: true,
+
+            TitleCentered: false),
+
+        ["Classic"] = new(
+
+            Key: "classic",
+
+            SheetBackground: "#fdfcfa",
+
+            SheetPadding: new("0.7in", "0.74in", "0.62in", "0.74in"),
+
+            Body: new("1.125rem", "1.95", "1.25rem", "0.42em", "justify", "1.1rem", "0.55rem"),
+
+            Frame: new(
+
+                "linear-gradient(180deg, #e8e2d8 0%, #d8d1c6 100%)",
+
+                "1px solid #bcae99",
+
+                "1px solid #ddd2c4",
+
+                "0 12px 36px -14px rgba(0, 0, 0, 0.18)",
+
+                "0 8px 30px rgba(0, 0, 0, 0.11), 0 0 0 1px rgba(255, 255, 255, 0.9) inset, 0 0 0 1px rgba(214, 196, 168, 0.5)",
+
+                "#fdfcf8 url(\"data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0' stroke='%23ebe6dc' stroke-width='0.5' fill='none'/%3E%3C/svg%3E\")"),
+
+            TitleFontSizePt: "18",
+
+            TitleLetterSpacing: "0.03em",
+
+            TitleBorderBottom: "1px solid #d4cfc4",
+
+            TitleUppercase: false,
+
+            TitleCentered: true),
+
+        ["Minimalist"] = new(
+
+            Key: "minimalist",
+
+            SheetBackground: "#ffffff",
+
+            SheetPadding: new("0.85in", "0.88in", "0.75in", "0.88in"),
+
+            Body: new("0.96rem", "1.86", "0", "1.15rem", "left", "1.15rem", "0.6rem"),
+
+            Frame: new(
+
+                "linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%)",
+
+                "1px solid #e4e4e7",
+
+                "1px solid #e4e4e7",
+
+                "0 8px 28px -16px rgba(15, 23, 42, 0.12)",
+
+                "0 0 0 1px #e4e4e7",
+
+                "#ffffff"),
+
+            TitleFontSizePt: "12",
+
+            TitleLetterSpacing: "-0.01em",
+
+            TitleBorderBottom: "1px solid #ececec",
+
+            TitleUppercase: false,
+
+            TitleCentered: false),
+
+        ["ElegantTrade"] = new(
+
+            Key: "elegant-trade",
+
+            SheetBackground: "#fcf9f3",
+
+            SheetPadding: new("0.74in", "0.78in", "0.66in", "0.78in"),
+
+            Body: new("1.13rem", "1.84", "1.35rem", "1em", "justify", "0.5rem", "1rem"),
+
+            Frame: new(
+
+                "linear-gradient(180deg, #ece4d8 0%, #e0d4c4 100%)",
+
+                "1px solid #c9b79f",
+
+                "1px solid #cfbea5",
+
+                "0 12px 40px -14px rgba(62, 47, 32, 0.22)",
+
+                "0 14px 42px -20px rgba(62, 47, 32, 0.34), 0 0 0 1px rgba(201, 184, 160, 0.35)",
+
+                "linear-gradient(165deg, #fffef8 0%, #f9f5ee 55%, #fffef8 100%)"),
+
+            TitleFontSizePt: "17",
+
+            TitleLetterSpacing: "0.06em",
+
+            TitleBorderBottom: "1px solid #c8b08e",
+
+            TitleUppercase: false,
+
+            TitleCentered: true)
+
+    };
+
+
+
+    /// <summary>Returns the layout spec for a normalized interior style key.</summary>
+
+    public static InteriorSpec Get(string? interiorStyle)
+
+    {
+
+        var key = InteriorExportTheme.NormalizeInteriorStyle(interiorStyle);
+
+        return Specs.TryGetValue(key, out var spec) ? spec : Specs["Novel"];
+
+    }
+
+
+
+    /// <summary>Exact line-height multiplier — same numeric string preview passes to <c>--fmt-line-height</c>.</summary>
+
+    public static string ResolveLineHeightExact(string? lineSpacing)
+
+    {
+
+        if (double.TryParse((lineSpacing ?? "").Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var lh))
+
+        {
+
+            if (lh <= 1.45) return "1.4";
+
+            if (lh <= 1.7) return "1.6";
+
+            if (lh <= 1.9) return "1.8";
+
+            return "2";
+
+        }
+
+
+
+        return "1.6";
+
+    }
+
+
+
+    /// <summary>Body font size for preview/PDF — px string matching <c>applyPreviewStyles</c>.</summary>
+
+    public static string ResolveBodyFontSizePx(BookPdfExportOptions opt) =>
+
+        InteriorExportTheme.ResolveBodyFontSizePx(opt.InteriorStyle, opt.TextSize);
+
+
+
+    /// <summary>Body font size in pt for print (px × 0.75).</summary>
+
+    public static string ResolveBodyFontSizePt(BookPdfExportOptions opt)
+
+    {
+
+        if (!double.TryParse(ResolveBodyFontSizePx(opt), NumberStyles.Integer, CultureInfo.InvariantCulture, out var px))
+
+            px = 16;
+
+        return (px * 0.75).ToString("0.##", CultureInfo.InvariantCulture);
+
+    }
+
+
+
+    /// <summary>CSS custom properties block — inject in formatter preview and PDF HTML.</summary>
+
+    public static string BuildCssCustomProperties(BookPdfExportOptions opt)
+
+    {
+
+        var interior = InteriorExportTheme.NormalizeInteriorStyle(opt.InteriorStyle);
+
+        var spec = Get(interior);
+
+        var lh = ResolveLineHeightExact(opt.LineSpacing);
+
+        var bodyPx = ResolveBodyFontSizePx(opt);
+
+        var bodyPt = ResolveBodyFontSizePt(opt);
+
+        var pageBg = opt.ResolvePageBackgroundColor();
+
+        var m = KdpTrim6x9Default;
+
+        var f = spec.Frame;
+
+
+
+        return string.Concat(
+
+            ":root { ",
+
+            "--ilt-page-bg: ", pageBg, "; ",
+
+            "--ilt-body-px: ", bodyPx, "px; ",
+
+            "--ilt-body-pt: ", bodyPt, "pt; ",
+
+            "--ilt-body-lh: ", lh, "; ",
+
+            "--ilt-sheet-bg: ", spec.SheetBackground, "; ",
+
+            "--ilt-pad-top: ", spec.SheetPadding.Top, "; ",
+
+            "--ilt-pad-right: ", spec.SheetPadding.Right, "; ",
+
+            "--ilt-pad-bottom: ", spec.SheetPadding.Bottom, "; ",
+
+            "--ilt-pad-left: ", spec.SheetPadding.Left, "; ",
+
+            "--ilt-text-indent: ", spec.Body.TextIndent, "; ",
+
+            "--ilt-para-space: ", spec.Body.ParagraphSpacing, "; ",
+
+            "--ilt-text-align: ", spec.Body.TextAlign, "; ",
+
+            "--ilt-title-mb: ", spec.Body.TitleMarginBottom, "; ",
+
+            "--ilt-title-pb: ", spec.Body.TitlePaddingBottom, "; ",
+
+            "--ilt-text-max: ", TextBlockMaxWidth, "; ",
+
+            "--ilt-chapter-drop: ", ChapterDrop, "; ",
+
+            "--ilt-front-pad-top: ", FrontMatterPadTop, "; ",
+
+            "--ilt-title-page-pad-top: ", TitlePagePadTop, "; ",
+
+            "--ilt-margin-top: ", m.Top, "; ",
+
+            "--ilt-margin-bottom: ", m.Bottom, "; ",
+
+            "--ilt-margin-inside: ", m.Inside, "; ",
+
+            "--ilt-margin-outside: ", m.Outside, "; ",
+
+            "--ilt-mat-bg: ", f.MatBackground, "; ",
+
+            "--ilt-mat-border: ", f.MatBorder, "; ",
+
+            "--ilt-sheet-border: ", f.SheetBorder, "; ",
+
+            "--ilt-sheet-shadow: ", f.SheetShadow, "; ",
+
+            "--ilt-container-shadow: ", f.ContainerShadow, "; ",
+
+            "--ilt-page-surface: ", f.PageBackground, "; ",
+
+            "} ");
+
+    }
+
+
+
+    /// <summary>Shared reader layout rules — used by PDF export and formatter token sync.</summary>
+
+    public static string BuildSharedReaderLayoutCss()
+
+    {
+
+        var sb = new System.Text.StringBuilder(4096);
+
+        sb.Append(".book-preview-sheet { width:100%; box-sizing:border-box; background:var(--ilt-sheet-bg); ");
+
+        sb.Append("padding:var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); ");
+
+        sb.Append("-webkit-print-color-adjust:exact; print-color-adjust:exact; border:var(--ilt-sheet-border, none); ");
+
+        sb.Append("box-shadow:var(--ilt-sheet-shadow, none); } ");
+
+        sb.Append(".book-page-content-wrap { ");
+
+        sb.Append("padding:var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); ");
+
+        sb.Append("box-sizing:border-box; background:var(--ilt-page-bg, var(--ilt-sheet-bg)); } ");
+
+        sb.Append(".book-page-content { background:transparent; overflow:hidden; } ");
+
+        sb.Append(".book-page-background { background:var(--ilt-page-surface, var(--ilt-page-bg)); ");
+
+        sb.Append("-webkit-print-color-adjust:exact; print-color-adjust:exact; } ");
+
+        sb.Append(".reader-page-body { max-width:var(--ilt-text-max); margin-inline:auto; width:100%; } ");
+
+        sb.Append(".reader-page-body,.reader-page-body p,.reader-page-body .manuscript-p { ");
+
+        sb.Append("font-size:var(--ilt-body-pt); line-height:var(--ilt-body-lh); text-align:var(--ilt-text-align); } ");
+
+        sb.Append(".reader-page-body p,.reader-page-body .manuscript-p { ");
+
+        sb.Append("text-indent:var(--ilt-text-indent); margin:0 0 var(--ilt-para-space); orphans:3; widows:3; ");
+
+        sb.Append("hyphens:auto; -webkit-hyphens:auto; } ");
+
+        sb.Append(".reader-page-body p:first-of-type,.reader-page-title + .reader-page-body p:first-of-type { text-indent:0; } ");
+
+        sb.Append(".reader-chapter-block { margin:0; padding:0; } ");
+
+        sb.Append(".reader-page-title { margin:0 0 var(--ilt-title-mb); padding-bottom:var(--ilt-title-pb); max-width:var(--ilt-text-max); ");
+
+        sb.Append("margin-inline:auto; width:100%; box-sizing:border-box; } ");
+
+        sb.Append(".manuscript-root > section.chapter { padding-top:var(--ilt-chapter-drop); padding-bottom:0; min-height:auto; } ");
+
+        sb.Append(".front-matter-page { padding-top:var(--ilt-front-pad-top); } ");
+
+        sb.Append("img { max-width:100%; height:auto; page-break-inside:avoid; break-inside:avoid; display:block; margin:0.75rem auto; } ");
+
+        return sb.ToString();
+
+    }
+
+
+
+    private static string MatClassForKey(string key) => key switch
+    {
+        "elegant-trade" => "fmt-mat-elegant-trade",
+        _ => "fmt-mat-" + key
+    };
+
+    /// <summary>Frame, mat, and container chrome — identical in formatter preview and PDF body.</summary>
+
+    public static string BuildFrameAndSheetCss()
+
+    {
+
+        var sb = new System.Text.StringBuilder(8192);
+
+        foreach (var spec in Specs.Values)
+
+        {
+
+            var k = spec.Key;
+
+            var f = spec.Frame;
+
+            var wrap = "interior-" + k;
+
+            var mat = MatClassForKey(k);
+
+
+
+            sb.Append("#book-formatter-root #fmt-book-result.").Append(mat).Append(" { ");
+
+            sb.Append("background:").Append(f.MatBackground).Append("; border:").Append(f.MatBorder).Append("; } ");
+
+
+
+            sb.Append("#book-formatter-root #paginatedReaderShell.").Append(wrap).Append(", ");
+
+            sb.Append("#book-formatter-root .paginated-reader-shell.").Append(wrap).Append(" { ");
+
+            sb.Append("background:").Append(f.MatBackground).Append("; border:").Append(f.MatBorder).Append("; ");
+
+            sb.Append("box-shadow:").Append(f.SheetShadow).Append("; } ");
+
+
+
+            sb.Append("#book-formatter-root #bookContainer.").Append(wrap).Append(", ");
+
+            sb.Append("#book-formatter-root #paginatedReaderShell.").Append(wrap).Append(" #bookContainer, ");
+
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .book-preview-sheet { ");
+
+            sb.Append("background:var(--ilt-page-bg, ").Append(spec.SheetBackground).Append("); ");
+
+            sb.Append("border:").Append(f.SheetBorder).Append("; ");
+
+            sb.Append("box-shadow:").Append(f.ContainerShadow).Append("; } ");
+
+
+
+            sb.Append("#book-formatter-root .").Append(wrap).Append(" .book-page-background, ");
+
+            sb.Append("#book-formatter-root .book-page-background.").Append(wrap).Append(" { ");
+
+            sb.Append("background:").Append(f.PageBackground).Append("; } ");
+
+
+
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" { background:var(--page-bg); } ");
+
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .book-preview-sheet { ");
+
+            sb.Append("background:var(--ilt-page-bg, ").Append(spec.SheetBackground).Append("); ");
+
+            sb.Append("border:").Append(f.SheetBorder).Append("; } ");
+
+        }
+
+
+
+        sb.Append("#book-formatter-root #bookContainer { border-radius:4px; overflow:hidden; width:100%; height:100%; ");
+
+        sb.Append("background:var(--ilt-page-bg, var(--ilt-sheet-bg)); border:var(--ilt-sheet-border); ");
+
+        sb.Append("box-shadow:var(--ilt-container-shadow); transition:background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease; } ");
+
+        sb.Append("#book-formatter-root .book-page-content-wrap { overflow:hidden; } ");
+
+
+
+        return sb.ToString();
+
+    }
+
+
+
+    /// <summary>Per-interior title + body font overrides for print/preview parity.</summary>
+
+    public static string BuildPerInteriorCss(string interior)
+
+    {
+
+        var spec = Get(interior);
+
+        var align = spec.TitleCentered ? "center" : "left";
+
+        var uppercase = spec.TitleUppercase ? "text-transform:uppercase; " : "";
+
+        var sb = new System.Text.StringBuilder(4096);
+
+
+
+        sb.Append(".interior-").Append(spec.Key).Append(" .reader-page-title,");
+
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-title,");
+
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-title,");
+
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-title { ");
+
+        sb.Append("font-size:").Append(spec.TitleFontSizePt).Append("pt; ");
+
+        sb.Append("letter-spacing:").Append(spec.TitleLetterSpacing).Append("; ");
+
+        sb.Append("text-align:").Append(align).Append("; ");
+
+        sb.Append(uppercase);
+
+        if (!string.IsNullOrEmpty(spec.TitleBorderBottom))
+
+            sb.Append("border-bottom:").Append(spec.TitleBorderBottom).Append("; ");
+
+        sb.Append("margin-bottom:").Append(spec.Body.TitleMarginBottom).Append("; ");
+
+        sb.Append("padding-bottom:").Append(spec.Body.TitlePaddingBottom).Append("; } ");
+
+
+
+        var pad = spec.SheetPadding;
+
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content-wrap,");
+
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content-wrap,");
+
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key);
+
+        sb.Append(" .book-preview-sheet { ");
+
+        sb.Append("padding:").Append(pad.Top).Append(' ').Append(pad.Right).Append(' ')
+
+            .Append(pad.Bottom).Append(' ').Append(pad.Left).Append(" !important; } ");
+
+
+
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-body,");
+
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-body,");
+
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-body p,");
+
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-body p,");
+
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-body p { ");
+
+        sb.Append("font-size:var(--fmt-font-size, var(--ilt-body-px)) !important; ");
+
+        sb.Append("line-height:var(--fmt-line-height, var(--ilt-body-lh)) !important; ");
+
+        sb.Append("text-align:var(--ilt-text-align) !important; } ");
+
+
+
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-body p,");
+
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key);
+
+        sb.Append(" .book-page-content .reader-page-body p,");
+
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-body p { ");
+
+        sb.Append("text-indent:").Append(spec.Body.TextIndent).Append(" !important; ");
+
+        sb.Append("margin-bottom:").Append(spec.Body.ParagraphSpacing).Append(" !important; } ");
+
+
+
+        if (interior == "Modern")
+
+        {
+
+            sb.Append("#book-formatter-root #paginatedReaderShell.interior-modern .book-page-content .reader-page-body p,");
+
+            sb.Append(".paginated-reader-shell.interior-modern .book-page-content .reader-page-body p { ");
+
+            sb.Append("text-indent:0 !important; border-left:3px solid var(--fmt-accent, #6366f1); padding-left:0.9rem !important; } ");
+
+            sb.Append(".book-pdf-body.interior-modern .reader-page-body p { ");
+
+            sb.Append("text-indent:0; border-left:3px solid var(--fmt-accent, #6366f1); padding-left:0.9rem; margin-bottom:0.85rem; } ");
+
+        }
+
+
+
+        if (interior == "Minimalist")
+
+        {
+
+            sb.Append("#book-formatter-root #paginatedReaderShell.interior-minimalist .book-page-content .reader-page-body p,");
+
+            sb.Append(".book-pdf-body.interior-minimalist .reader-page-body p { text-indent:0 !important; text-indent:0; } ");
+
+        }
+
+
+
+        if (interior == "Classic")
+
+        {
+
+            sb.Append(".book-pdf-body.tpl-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter, ");
+
+            sb.Append("#book-formatter-root #paginatedReaderShell.interior-classic .reader-page-body.classic-body p.classic-first-para::first-letter { ");
+
+            sb.Append("float:left; font-size:3.2em; line-height:0.85; padding-right:0.08em; font-weight:600; color:#78350f; } ");
+
+        }
+
+
+
+        return sb.ToString();
+
+    }
+
+
+
+    /// <summary>Full CSS block for formatter preview — include once in Book Formatting view.</summary>
+
+    public static string BuildFormatterSyncCss(BookPdfExportOptions? opt = null)
+
+    {
+
+        opt ??= new BookPdfExportOptions();
+
+        var sb = new System.Text.StringBuilder(16384);
+
+        sb.Append(BuildCssCustomProperties(opt));
+
+        sb.Append(BuildSharedReaderLayoutCss());
+
+        sb.Append(BuildFrameAndSheetCss());
+
+        sb.Append(BuildWebPreviewModeCss());
+
+        foreach (var key in Specs.Keys)
+
+            sb.Append(BuildPerInteriorCss(key));
+
+        sb.Append(InteriorExportTheme.BuildFormatterInteriorCss());
+
+        return sb.ToString();
+
+    }
+
+
+
+    /// <summary>JSON specs for live token sync in formatter preview (matches C# values).</summary>
+
+    public static string BuildClientSpecsJson()
+
+    {
+
+        var payload = Specs.ToDictionary(
+
+            kv => kv.Key,
+
+            kv => new
+
+            {
+
+                sheetBg = kv.Value.SheetBackground,
+
+                padTop = kv.Value.SheetPadding.Top,
+
+                padRight = kv.Value.SheetPadding.Right,
+
+                padBottom = kv.Value.SheetPadding.Bottom,
+
+                padLeft = kv.Value.SheetPadding.Left,
+
+                pageBg = kv.Value.Frame.PageBackground
+
+            });
+
+        return JsonSerializer.Serialize(payload);
+
+    }
+
+
+
+    /// <summary>
+
+    /// Web preview — 6×9 sheet; frame/mat from <see cref="BuildFrameAndSheetCss"/>.
+
+    /// PDF export uses the same tokens via <see cref="InteriorExportTheme.BuildPdfThemeCss"/>.
+
+    /// </summary>
+
+    public static string BuildWebPreviewModeCss()
+
+    {
+
+        return string.Concat(
+
+            "[data-interior-mode=\"web\"] { --preview-page-max: 6in; --preview-page-min-h: 9in; } ",
+
+            "[data-interior-mode=\"web\"] .book-preview-sheet, ",
+
+            "[data-interior-mode=\"web\"] .book-page-content-wrap { ",
+
+            "background: var(--ilt-page-bg, var(--ilt-sheet-bg, #fffdf8)); ",
+
+            "border: var(--ilt-sheet-border, none); ",
+
+            "border-radius: 2px; ",
+
+            "-webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
+
+            "[data-interior-mode=\"web\"] .paginated-reader-shell { padding: clamp(0.45rem, 1.2vw, 0.75rem); } ",
+
+            "[data-interior-mode=\"web\"] section.chapter { position: relative; } ",
+
+            "[data-interior-mode=\"web\"] section.chapter::before { ",
+
+            "content: attr(data-running-head); display: block; text-align: center; ",
+
+            "font-family: Georgia, 'Times New Roman', serif; font-size: 0.62rem; ",
+
+            "letter-spacing: 0.22em; text-transform: uppercase; color: #7c7368; ",
+
+            "margin: 0 0 1.1rem; padding-top: 0.15rem; overflow: hidden; ",
+
+            "text-overflow: ellipsis; white-space: nowrap; } ",
+
+            "[data-interior-mode=\"web\"] .title-page, [data-interior-mode=\"web\"] .front-matter-page { ",
+
+            "min-height: var(--preview-page-min-h); display: flex; flex-direction: column; ",
+
+            "justify-content: center; text-align: center; padding: 3rem 2rem 2rem; } ",
+
+            "[data-interior-mode=\"web\"] .title-page h1 { font-size: 1.65rem; letter-spacing: 0.03em; margin-bottom: 0.75rem; } ",
+
+            "[data-interior-mode=\"web\"] .title-page .subtitle, [data-interior-mode=\"web\"] .title-page-genre { ",
+
+            "text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; color: #8a8175; } ",
+
+            "[data-interior-mode=\"web\"] .toc-page { padding: var(--ilt-front-pad-top) 2rem 2rem; min-height: auto; display: block; } ",
+
+            "[data-interior-mode=\"web\"] .toc-link { color: #0f172a; text-decoration: none; cursor: pointer; } ",
+
+            "[data-interior-mode=\"web\"] .toc-link:hover { text-decoration: underline; } ",
+
+            "[data-interior-mode=\"web\"] .toc-subheading-item { cursor: default; } ");
+
+    }
+
+}
+
+

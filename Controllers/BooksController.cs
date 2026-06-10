@@ -3615,6 +3615,7 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null) return Unauthorized();
 
             var books = await _context.Books
+                .AsNoTracking()
                 .Where(b => b.UserId == sessionUserId.Value)
                 .OrderByDescending(b => b.isActive)
                 .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
@@ -3626,10 +3627,10 @@ namespace EBookDashboard.Controllers
             {
                 $"book:{id}:aiCoverPrompt",
                 $"book:{id}:aiCoverLastPreview",
-                $"book:{id}:printReadyCoverFront",
-                $"book:{id}:printReadyCoverWrap"
+                $"book:{id}:printReadyCoverFront"
             }).ToList();
             var promptRows = await _context.Settings
+                .AsNoTracking()
                 .Where(s => promptKeys.Contains(s.Key))
                 .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
 
@@ -3637,24 +3638,25 @@ namespace EBookDashboard.Controllers
             // Display name for cover only — do not use email as default author text (wrong UX on preview).
             var authorDisplayName = (coverUser?.FullName ?? "").Trim();
 
+            var titleByBook = await BookTitleResolver.ResolveDisplayTitlesBatchAsync(
+                _context,
+                sessionUserId.Value,
+                books.Select(b => (b.BookId, (string?)b.Title)).ToList());
+
             var result = new List<object>();
             foreach (var b in books)
             {
                 var pKey = $"book:{b.BookId}:aiCoverPrompt";
                 var lastKey = $"book:{b.BookId}:aiCoverLastPreview";
                 var frontKey = $"book:{b.BookId}:printReadyCoverFront";
-                var wrapKey = $"book:{b.BookId}:printReadyCoverWrap";
                 var frontPreview = (promptRows.GetValueOrDefault(frontKey, "") ?? "").Trim();
                 var lastPreview = (promptRows.GetValueOrDefault(lastKey, "") ?? "").Trim();
-                var wrapPreview = (promptRows.GetValueOrDefault(wrapKey, "") ?? "").Trim();
-                var resolvedPreview = BookCoverRefResolver.NormalizeCoverUrlRef(
-                    BookCoverRefResolver.ResolveEbookFrontCoverRef(frontPreview, lastPreview, b.CoverImagePath, wrapPreview));
-                var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
-                    _context, sessionUserId.Value, b.BookId, b.Title);
+                var resolvedPreview = BookCoverRefResolver.ForListPayloadCoverRef(
+                    BookCoverRefResolver.ResolveEbookFrontCoverRef(frontPreview, lastPreview, b.CoverImagePath, wrap: ""));
                 result.Add(new
                 {
                     bookId = b.BookId,
-                    title = displayTitle,
+                    title = titleByBook.GetValueOrDefault(b.BookId, b.Title ?? "Untitled Book"),
                     subtitle = b.Subtitle ?? "",
                     coverImagePath = b.CoverImagePath ?? "",
                     description = b.Description ?? "",

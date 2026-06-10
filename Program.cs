@@ -230,6 +230,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<BookPublishReadinessService>();
 builder.Services.AddScoped<BookFlowStateService>();
+builder.Services.AddScoped<IEditorDraftResetService, EditorDraftResetService>();
 builder.Services.AddScoped<ISpineCalculatorService, SpineCalculatorService>();
 // Add PlanService
 builder.Services.AddScoped<IPlansService, PlansService>();

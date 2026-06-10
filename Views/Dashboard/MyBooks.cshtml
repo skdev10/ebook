@@ -430,7 +430,7 @@
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl tracking-tight font-semibold text-slate-900">Recommended</h2>
                 <div class="flex items-center gap-2">
-                    <a href="/Dashboard/StartNewBook" class="text-violet-800 bg-violet-100 hover:bg-violet-200 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
+                    <a href="/Dashboard/StartNewBook?writer=1" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="text-violet-800 bg-violet-100 hover:bg-violet-200 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
                         <i class="fas fa-plus"></i> New Book
                     </a>
                     @if (books.Any())
@@ -546,7 +546,7 @@
                     <i class="fas fa-book-open text-6xl text-violet-200 mb-4"></i>
                     <h3 class="text-xl font-semibold text-slate-700 mb-2">No books yet</h3>
                     <p class="text-slate-500 mb-6">Create your first book with AI Writer.</p>
-                    <a href="@Url.Action("StartNewBook", "Dashboard", new { create = 1 })" class="bg-violet-700 hover:bg-violet-800 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2">
+                    <a href="@Url.Action("StartNewBook", "Dashboard", new { writer = 1 })" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="bg-violet-700 hover:bg-violet-800 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2">
                         <i class="fas fa-plus"></i> Create Book
                     </a>
                 </div>
@@ -974,16 +974,19 @@
     }
 
     function downloadBlobAsFile(blob, filename) {
-        var url = URL.createObjectURL(blob);
+        var safeName = String(filename || 'book.epub').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-');
+        var typed = blob.type ? blob : new Blob([blob], { type: safeName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream' });
+        var url = URL.createObjectURL(typed);
         var a = document.createElement('a');
         a.href = url;
-        a.download = filename || 'book.epub';
+        a.download = safeName;
+        a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         setTimeout(function () {
             a.remove();
             URL.revokeObjectURL(url);
-        }, 400);
+        }, 300000);
     }
 
     function runMyBooksExport(bookId, title, genre, format, triggerBtn) {

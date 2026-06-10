@@ -1,0 +1,10 @@
+@*
+    Editor draft reset — loaded via _DashboardLayout.
+    Back buttons (data-flow-back) handle reset via confirmFlowBack:
+      - AI Writer → Dashboard: full wipe including chapters
+      - Formatter → AI Writer: full project reset (chapters kept)
+      - Cover / Publish → previous step: step reset
+
+    New book only:
+      <a href="/Dashboard/StartNewBook?writer=1" data-editor-reset-new="1" data-book-id="@ViewBag.FlowBookId">Start New eBook</a>
+*@

@@ -46,6 +46,7 @@ namespace EBookDashboard.Controllers
         private readonly BookPublishReadinessService _publishReadiness;
         private readonly IKdpCoverDimensionService _kdpCoverDimensions;
         private readonly BookFlowStateService _bookFlow;
+        private readonly IEditorDraftResetService _draftReset;
         private readonly ICurrentUserAccessor _currentUser;
 
         public DashboardController(
@@ -63,6 +64,7 @@ namespace EBookDashboard.Controllers
             BookPublishReadinessService publishReadiness,
             IKdpCoverDimensionService kdpCoverDimensions,
             BookFlowStateService bookFlow,
+            IEditorDraftResetService draftReset,
             ICurrentUserAccessor currentUser)
         {
             _featureCartService = featureCartService;
@@ -79,6 +81,7 @@ namespace EBookDashboard.Controllers
             _publishReadiness = publishReadiness;
             _kdpCoverDimensions = kdpCoverDimensions;
             _bookFlow = bookFlow;
+            _draftReset = draftReset;
             _currentUser = currentUser;
         }
 
@@ -135,6 +138,7 @@ namespace EBookDashboard.Controllers
                     HttpContext.Session.SetInt32("LastSelectedBookId", inProgress.BookId);
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, inProgress.BookId);
                     var flow = await _bookFlow.GetStepAsync(inProgress.BookId);
+                    BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
                     var resumeUrl = _bookFlow.BuildResumeUrl(inProgress.BookId, flow.Step, flow.Path);
                     if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
                         return Redirect(resumeUrl);
@@ -258,11 +262,29 @@ namespace EBookDashboard.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            await SetActiveBookForUserAsync(userId.Value, bookId);
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
             var flow = await _bookFlow.GetStepAsync(bookId);
-            var resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
+            BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
+
+            string resumeUrl;
+            var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(bookId);
+            var perBookUrl = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == perBookKey)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+            if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
+                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId)
+            {
+                resumeUrl = perBookUrl!.Trim();
+            }
+            else
+            {
+                resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
+            }
+
             if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
                 return Redirect(resumeUrl);
             return RedirectToAction("AIGenerateBook", "Books", new { bookId });
@@ -1060,11 +1082,18 @@ namespace EBookDashboard.Controllers
             }
 
             var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId.Value);
+            if (BookFlowStateService.SessionEntryMatches(HttpContext, bookId.Value)
+                || BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepFormat))
+            {
+                BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, savedFlowStep);
+                formattingDone = HttpContext.Session.GetString("FormattingDone") == "1";
+                hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
+            }
+
             var savedRank = BookFlowStateService.StepRank(savedFlowStep);
             var formatRank = BookFlowStateService.StepRank(BookFlowStateService.StepFormat);
-            var canOpenCover = formattingDone
-                && (BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepCover)
-                    || savedRank == formatRank);
+            var canOpenCover = BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepCover)
+                || (formattingDone && savedRank == formatRank);
             if (!canOpenCover)
             {
                 TempData["InfoMessage"] = savedRank < formatRank
@@ -1074,21 +1103,27 @@ namespace EBookDashboard.Controllers
             }
 
             if (user != null)
-                await BookTitleResolver.SyncBookTitleAsync(_context, user.UserId, bookId.Value,
-                    await BookTitleResolver.ResolveDisplayTitleAsync(_context, user.UserId, bookId.Value,
-                        (await _context.Books.AsNoTracking()
-                            .Where(b => b.BookId == bookId.Value && b.UserId == user.UserId)
-                            .Select(b => b.Title)
-                            .FirstOrDefaultAsync()) ?? ""));
+            {
+                var bookTitle = await _context.Books.AsNoTracking()
+                    .Where(b => b.BookId == bookId.Value && b.UserId == user.UserId)
+                    .Select(b => b.Title)
+                    .FirstOrDefaultAsync() ?? "";
+                if (BookTitleResolver.IsPlaceholderTitle(bookTitle))
+                {
+                    var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                        _context, user.UserId, bookId.Value, bookTitle);
+                    await BookTitleResolver.SyncBookTitleAsync(_context, user.UserId, bookId.Value, displayTitle);
+                }
+            }
 
-            var (_, coverPath) = await _bookFlow.GetStepAsync(bookId.Value);
-            await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepCover, coverPath);
+            if (!string.Equals(savedFlowStep, BookFlowStateService.StepCover, StringComparison.OrdinalIgnoreCase))
+                await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepCover, savedFlowPath);
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId.Value);
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
             ViewBag.FlowBookId = bookId.Value;
             ViewBag.FlowStep = BookFlowStateService.StepCover;
-            ViewBag.FlowPath = coverPath;
-            ViewBag.FlowBackUrl = coverPath.Equals("print", StringComparison.OrdinalIgnoreCase)
+            ViewBag.FlowPath = savedFlowPath;
+            ViewBag.FlowBackUrl = savedFlowPath.Equals("print", StringComparison.OrdinalIgnoreCase)
                 ? $"/BookDesign/CoverDesignCalculatorFixing?bookId={bookId.Value}&format=Paperback"
                 : $"/BookDesign/CoverDesignCalculatorFixing?bookId={bookId.Value}&format=Ebook";
 
@@ -1114,7 +1149,7 @@ namespace EBookDashboard.Controllers
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
-            await ClearStoredCoverAssetsAsync(req.BookId, cancellationToken);
+            await _draftReset.ClearCoverAssetsAsync(req.BookId, cancellationToken);
 
             var description = (req.Description ?? "").Trim();
             // Stored prompt must fit legacy VARCHAR(1000); full description still drives MapCoverStyleForExternalApi below.
@@ -1867,7 +1902,7 @@ namespace EBookDashboard.Controllers
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
-            await ClearStoredCoverAssetsAsync(req.BookId, dbCancel);
+            await _draftReset.ClearCoverAssetsAsync(req.BookId, dbCancel);
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
@@ -2081,7 +2116,7 @@ namespace EBookDashboard.Controllers
             if (book == null)
                 return Json(new { success = false, message = "Book not found." });
 
-            await ClearStoredCoverAssetsAsync(req.BookId, cancellationToken);
+            await _draftReset.ClearCoverAssetsAsync(req.BookId, cancellationToken);
 
             var wrapRef = (req.WrapImageDataUrl ?? req.WrapImageBase64 ?? "").Trim();
             if (string.IsNullOrWhiteSpace(wrapRef))
@@ -2229,26 +2264,6 @@ namespace EBookDashboard.Controllers
             if ((paperType ?? "").Contains("cream", StringComparison.OrdinalIgnoreCase))
                 return "cream";
             return "white";
-        }
-
-        /// <summary>Removes prior cover Settings so the latest generation replaces old assets (no stale wrap/front).</summary>
-        private async Task ClearStoredCoverAssetsAsync(int bookId, CancellationToken cancellationToken)
-        {
-            var suffixes = new[]
-            {
-                "aiCoverLastPreview",
-                "printReadyCoverFront",
-                "printReadyCoverWrap",
-                "printReadyCoverWrapApi",
-                "printReadyCoverBack",
-                "printReadyCoverSpine",
-                "printReadySpineInches"
-            };
-            var keys = suffixes.Select(s => $"book:{bookId}:{s}").ToList();
-            var rows = await _context.Settings.Where(s => keys.Contains(s.Key)).ToListAsync(cancellationToken);
-            if (rows.Count == 0) return;
-            _context.Settings.RemoveRange(rows);
-            await _context.SaveChangesAsync(cancellationToken);
         }
 
         /// <summary>Writes <see cref="Settings"/> rows. Values are clamped to <see cref="Settings.DbCompatMaxValueLength"/> until MySQL column is LONGTEXT.</summary>
@@ -2661,7 +2676,7 @@ namespace EBookDashboard.Controllers
             return View();
         }
 
-        /// <summary>Soft or hard flow step reset when user navigates back.</summary>
+        /// <summary>Soft or hard flow step reset when user navigates back (legacy API — delegates to <see cref="IEditorDraftResetService"/>).</summary>
         [HttpPost]
         [IgnoreAntiforgeryToken]
         [Route("Dashboard/ResetFlowStep")]
@@ -2673,85 +2688,97 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0 || string.IsNullOrWhiteSpace(req.Step))
                 return Json(new { success = false, message = "Invalid request." });
 
-            var owns = await _context.Books.AsNoTracking()
-                .AnyAsync(b => b.BookId == req.BookId && b.UserId == userId.Value);
-            if (!owns)
-                return Json(new { success = false, message = "Book not found." });
-
-            var step = req.Step.Trim().ToLowerInvariant();
-
+            EditorDraftResetScope scope;
             if (req.WipeAllWork)
+                scope = EditorDraftResetScope.BackToWriter;
+            else if (req.DestructiveBack)
+                scope = EditorDraftResetScope.StepBack;
+            else
             {
-                await _bookFlow.ResetStepAsync(req.BookId, BookFlowStateService.StepCover);
-                await _bookFlow.ResetStepAsync(req.BookId, BookFlowStateService.StepFormat);
-                await ClearStoredCoverAssetsAsync(req.BookId, HttpContext.RequestAborted);
-                await ClearBookCoverImagePathAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
-                await ClearBookFormattingRowAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
-                var (_, path) = await _bookFlow.GetStepAsync(req.BookId);
-                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepGenerate, path);
-                HttpContext.Session.SetString("FormattingDone", "0");
-                HttpContext.Session.Remove("CoverFinalized");
+                await _bookFlow.RegressStepAsync(req.BookId, req.Step.Trim().ToLowerInvariant());
+                var (fallbackStep, fallbackPath) = await _bookFlow.GetStepAsync(req.BookId);
                 return Json(new
                 {
                     success = true,
-                    step = BookFlowStateService.StepGenerate,
-                    wiped = true,
-                    resumeUrl = $"/Books/AIGenerateBook?bookId={req.BookId}"
+                    step = fallbackStep,
+                    wiped = false,
+                    resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, fallbackStep, fallbackPath)
                 });
             }
 
-            if (req.DestructiveBack)
-            {
-                await _bookFlow.RegressAndResetAsync(req.BookId, step);
-                if (step == BookFlowStateService.StepCover)
-                {
-                    await ClearStoredCoverAssetsAsync(req.BookId, HttpContext.RequestAborted);
-                    await ClearBookCoverImagePathAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
-                    HttpContext.Session.Remove("CoverFinalized");
-                }
-                if (step == BookFlowStateService.StepFormat)
-                {
-                    await ClearBookFormattingRowAsync(req.BookId, userId.Value, HttpContext.RequestAborted);
-                    HttpContext.Session.SetString("FormattingDone", "0");
-                }
+            var result = await _draftReset.ResetAsync(
+                req.BookId,
+                userId.Value,
+                scope,
+                req.Step,
+                HttpContext,
+                HttpContext.RequestAborted);
 
-                var (newStep, newPath) = await _bookFlow.GetStepAsync(req.BookId);
-                return Json(new
-                {
-                    success = true,
-                    step = newStep,
-                    wiped = true,
-                    resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, newStep, newPath)
-                });
-            }
-
-            // Fallback: non-destructive step regress (should not be used from UI).
-            await _bookFlow.RegressStepAsync(req.BookId, step);
-            var (fallbackStep, fallbackPath) = await _bookFlow.GetStepAsync(req.BookId);
-            return Json(new
-            {
-                success = true,
-                step = fallbackStep,
-                wiped = false,
-                resumeUrl = _bookFlow.BuildResumeUrl(req.BookId, fallbackStep, fallbackPath)
-            });
+            if (result.Success) ClearEditorTempData();
+            return Json(ToResetJson(result));
         }
 
-        private async Task ClearBookFormattingRowAsync(int bookId, int userId, CancellationToken cancellationToken)
+        /// <summary>Resets temporary editor draft data (back, start over, new project, full reset).</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Route("ResetEditorDraft")]
+        public async Task<IActionResult> ResetEditorDraft([FromBody] EditorDraftResetRequest req)
         {
-            var row = await _context.BookFormatting
-                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
-            if (row == null) return;
-            _context.BookFormatting.Remove(row);
-            await _context.SaveChangesAsync(cancellationToken);
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Json(new { success = false, message = "Please sign in." });
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, message = "BookId is required." });
+
+            if (!TryParseResetScope(req.Scope, out var scope))
+                return Json(new { success = false, message = "Invalid reset scope." });
+
+            var result = await _draftReset.ResetAsync(
+                req.BookId,
+                userId.Value,
+                scope,
+                req.CurrentStep,
+                HttpContext,
+                HttpContext.RequestAborted);
+
+            if (result.Success) ClearEditorTempData();
+            return Json(ToResetJson(result));
         }
 
-        private async Task ClearBookCoverImagePathAsync(int bookId, int userId, CancellationToken cancellationToken)
+        private void ClearEditorTempData()
         {
-            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
-            if (book == null || string.IsNullOrWhiteSpace(book.CoverImagePath)) return;
-            book.CoverImagePath = "";
-            await _context.SaveChangesAsync(cancellationToken);
+            foreach (var key in TempData.Keys.ToList())
+                TempData.Remove(key);
+        }
+
+        private static object ToResetJson(EditorDraftResetResult result) => new
+        {
+            success = result.Success,
+            message = result.Message,
+            bookId = result.BookId,
+            step = result.Step,
+            wiped = result.Wiped,
+            resumeUrl = result.ResumeUrl
+        };
+
+        private static bool TryParseResetScope(string? raw, out EditorDraftResetScope scope)
+        {
+            scope = EditorDraftResetScope.FullProject;
+            if (string.IsNullOrWhiteSpace(raw)) return false;
+            return raw.Trim().ToLowerInvariant() switch
+            {
+                "stepback" or "step_back" => Assign(EditorDraftResetScope.StepBack, out scope),
+                "backtowriter" or "back_to_writer" or "back" => Assign(EditorDraftResetScope.BackToWriter, out scope),
+                "fullproject" or "full_project" or "reset" or "startover" or "start_over" => Assign(EditorDraftResetScope.FullProject, out scope),
+                "fullprojectwithchapters" or "full_with_chapters" or "nuclear" => Assign(EditorDraftResetScope.FullProjectWithChapters, out scope),
+                _ => false
+            };
+        }
+
+        private static bool Assign(EditorDraftResetScope value, out EditorDraftResetScope scope)
+        {
+            scope = value;
+            return true;
         }
 
         [Route("EditingFormatting")]

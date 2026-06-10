@@ -52,6 +52,73 @@ public static class BookTitleResolver
         return string.IsNullOrWhiteSpace(t) ? "Untitled Book" : t;
     }
 
+    /// <summary>Resolves display titles for many books in two batched queries instead of N+1.</summary>
+    public static async Task<Dictionary<int, string>> ResolveDisplayTitlesBatchAsync(
+        ApplicationDbContext context,
+        int userId,
+        IReadOnlyList<(int BookId, string? StoredTitle)> books,
+        CancellationToken ct = default)
+    {
+        var result = new Dictionary<int, string>();
+        var pending = new List<(int BookId, string Fallback)>();
+        foreach (var (bookId, storedTitle) in books)
+        {
+            var t = (storedTitle ?? "").Trim();
+            if (!IsPlaceholderTitle(t))
+            {
+                result[bookId] = t;
+                continue;
+            }
+            pending.Add((bookId, string.IsNullOrWhiteSpace(t) ? "Untitled Book" : t));
+        }
+
+        if (pending.Count == 0) return result;
+
+        var writerKeys = pending.Select(p => $"book:{p.BookId}:writerBookTitle").ToList();
+        var writerRows = await context.Settings.AsNoTracking()
+            .Where(s => writerKeys.Contains(s.Key))
+            .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", ct);
+
+        var stillPending = new List<(int BookId, string Fallback)>();
+        foreach (var (bookId, fallback) in pending)
+        {
+            var writerKey = $"book:{bookId}:writerBookTitle";
+            if (writerRows.TryGetValue(writerKey, out var writerTitle)
+                && !string.IsNullOrWhiteSpace(writerTitle)
+                && !IsPlaceholderTitle(writerTitle))
+            {
+                result[bookId] = writerTitle.Trim();
+                continue;
+            }
+            stillPending.Add((bookId, fallback));
+        }
+
+        if (stillPending.Count == 0) return result;
+
+        var bookIds = stillPending.Select(p => p.BookId).Distinct().ToList();
+        var apiRows = await context.APIRawResponse.AsNoTracking()
+            .Where(r => r.UserId == userId && r.BookId.HasValue && bookIds.Contains(r.BookId.Value) && r.Title != null && r.Title != "")
+            .OrderBy(r => r.BookId)
+            .ThenBy(r => r.Chapter)
+            .ThenByDescending(r => r.CreatedAt)
+            .Select(r => new { BookId = r.BookId!.Value, r.Title })
+            .ToListAsync(ct);
+
+        var apiTitleByBook = new Dictionary<int, string>();
+        foreach (var row in apiRows)
+        {
+            if (apiTitleByBook.ContainsKey(row.BookId)) continue;
+            var c = row.Title!.Trim();
+            if (IsPlaceholderTitle(c) || c.StartsWith("Chapter ", StringComparison.OrdinalIgnoreCase)) continue;
+            apiTitleByBook[row.BookId] = c;
+        }
+
+        foreach (var (bookId, fallback) in stillPending)
+            result[bookId] = apiTitleByBook.GetValueOrDefault(bookId, fallback);
+
+        return result;
+    }
+
     /// <summary>Persists a user-facing title to Settings and the Books row when still a placeholder.</summary>
     public static async Task SyncBookTitleAsync(
         ApplicationDbContext context,

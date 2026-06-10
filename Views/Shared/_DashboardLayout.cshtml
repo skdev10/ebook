@@ -158,6 +158,8 @@
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="~/js/unsaved-changes-guard.js" asp-append-version="true"></script>
+    <script src="~/js/editor-draft-reset.js" asp-append-version="true"></script>
+    <partial name="_BookInteriorPreviewAssets" />
     <style>
         /* All your CSS styles remain exactly the same */
         /* Prevent layout shift and page shake */
@@ -5256,42 +5258,10 @@
                     window.location.replace(target + (target.indexOf('?') >= 0 ? '&' : '?') + '_r=' + Date.now());
                 }
 
-                function clearStepLocalState(step) {
-                    try {
-                        if (step === 'generate') localStorage.removeItem('ebook_ai_reader_state_v2_' + flowBookId);
-                        if (step === 'format') localStorage.removeItem('formatter_draft_v2_' + flowBookId);
-                    } catch (_) {}
-                }
-
                 function clearAllFlowClientState() {
-                    ['generate', 'format', 'cover', 'publish'].forEach(clearStepLocalState);
-                    clearCoverClientState(flowBookId);
-                }
-
-                function clearCoverClientState(bookId) {
-                    var bid = bookId || flowBookId;
-                    if (!bid) return;
-                    try {
-                        sessionStorage.removeItem('coverDesign_selectedUrl_' + bid);
-                        sessionStorage.removeItem('coverDesign_selectedUrl');
-                        sessionStorage.removeItem('coverDesign_hasGenerated');
-                        sessionStorage.removeItem('coverDesign_lastBookId');
-                        sessionStorage.removeItem('cover_design_draft_' + bid);
-                        var cacheRaw = sessionStorage.getItem('cover_design_books_cache_v1');
-                        if (cacheRaw) {
-                            var cache = JSON.parse(cacheRaw);
-                            if (cache && Array.isArray(cache.books)) {
-                                cache.books = cache.books.map(function (b) {
-                                    if (b && (b.bookId === bid || b.BookId === bid)) {
-                                        b.coverImagePath = '';
-                                        b.aiCoverLastPreview = '';
-                                    }
-                                    return b;
-                                });
-                                sessionStorage.setItem('cover_design_books_cache_v1', JSON.stringify(cache));
-                            }
-                        }
-                    } catch (_) {}
+                    if (window.EditorDraftReset && typeof window.EditorDraftReset.clearAllClientState === 'function') {
+                        window.EditorDraftReset.clearAllClientState(flowBookId);
+                    }
                 }
 
                 function showFlowBlockedAlert() {
@@ -5306,53 +5276,57 @@
 
                 function destructiveBackMessage(targetUrl) {
                     var path = normalizePath(targetUrl || flowBackUrl || '/Dashboard');
-                    var savedNote = ' Your chapter text already saved in AI Writer will <strong>not</strong> be removed.';
+                    if (isDashboardPath(path) && flowStep === 'generate') {
+                        return 'Leaving <strong>AI Writer</strong> will <strong>delete all draft work for this book</strong>, including chapters, formatting, and cover assets.';
+                    }
                     if (isAiWriterPath(path)) {
-                        return 'Going back to <strong>AI Writer</strong> will <strong>reset formatting, cover assets, and later-step progress</strong> for this book.' + savedNote;
+                        return 'Going back to <strong>AI Writer</strong> will <strong>clear formatting, cover assets, and saved layout</strong> for this book. Chapter text will be kept.';
                     }
                     if (flowStep === 'cover') {
-                        return 'Going back to <strong>Book Formatting</strong> will <strong>clear your cover design</strong> for this book (you can regenerate it later).' + savedNote;
+                        return 'Going back to <strong>Book Formatting</strong> will <strong>clear your cover design</strong> for this book (you can regenerate it later).';
                     }
                     if (flowStep === 'publish') {
                         return 'Going back to <strong>Cover Design</strong> will return you to the previous step. Publish/export settings on this screen may need to be reviewed again.';
                     }
-                    if (flowStep === 'format') {
-                        return 'Going back now will <strong>reset saved formatting choices and cover work</strong> for this book.' + savedNote;
-                    }
-                    return 'Going back will <strong>reset progress on later workflow steps</strong> for this book.' + savedNote;
+                    return 'Going back will <strong>reset progress on later workflow steps</strong> for this book.';
+                }
+
+                function resolveBackResetScope(targetUrl) {
+                    var path = normalizePath(targetUrl || flowBackUrl || '/Dashboard');
+                    if (isDashboardPath(path) && flowStep === 'generate') return 'fullprojectwithchapters';
+                    if (isAiWriterPath(path)) return 'fullproject';
+                    return '';
                 }
 
                 function runDestructiveBack(targetUrl, options) {
                     var opts = options || {};
                     var target = targetUrl || flowBackUrl || '/Dashboard';
-                    var path = normalizePath(target);
-                    var body = { bookId: flowBookId, step: flowStep };
-                    if (opts.wipeAllWork || isAiWriterPath(path)) body.wipeAllWork = true;
-                    else body.destructiveBack = true;
-                    return fetch('/Dashboard/ResetFlowStep', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    }).then(function () {
-                        clearAllFlowClientState();
-                        hardNavigate(target);
-                        return true;
-                    }).catch(function () {
-                        clearAllFlowClientState();
-                        hardNavigate(target);
-                        return true;
-                    });
+                    var scope = resolveBackResetScope(target);
+                    if (window.EditorDraftReset && typeof window.EditorDraftReset.resetFlowBack === 'function') {
+                        if (scope) {
+                            return window.EditorDraftReset.resetFlowBack(flowBookId, flowStep, target, { scope: scope });
+                        }
+                        return window.EditorDraftReset.resetFlowBack(flowBookId, flowStep, target, {
+                            wipeAllWork: !!(opts.wipeAllWork || isAiWriterPath(normalizePath(target))),
+                            destructiveBack: true
+                        });
+                    }
+                    return Promise.resolve(false);
                 }
 
                 function confirmDestructiveFlowBack(targetUrl, options) {
                     function showDestructiveConfirm() {
+                        var resetHtml = (window.EditorDraftReset && window.EditorDraftReset.CONFIRM_HTML)
+                            ? window.EditorDraftReset.CONFIRM_HTML
+                            : 'All unsaved work will be permanently deleted. Continue?';
+                        var detail = destructiveBackMessage(targetUrl);
                         return Swal.fire({
-                            title: 'Go back and reset workflow?',
-                            html: destructiveBackMessage(targetUrl),
+                            title: (window.EditorDraftReset && window.EditorDraftReset.CONFIRM_TITLE) || 'Reset editor?',
+                            html: resetHtml + '<p class="text-sm text-slate-500 mt-3">' + detail + '</p>',
                             icon: 'warning',
                             showCancelButton: true,
-                            confirmButtonText: 'Yes, reset and go back',
-                            cancelButtonText: 'Stay here',
+                            confirmButtonText: 'Yes, delete everything',
+                            cancelButtonText: 'Cancel',
                             confirmButtonColor: '#dc2626',
                             cancelButtonColor: '#64748b',
                             allowOutsideClick: false
@@ -5406,7 +5380,7 @@
                         window.addEventListener('popstate', function () {
                             history.pushState({ flowGuard: true }, '');
                             if (flowStep === 'generate') {
-                                showFlowBlockedAlert();
+                                window.confirmFlowBack('/Dashboard');
                                 return;
                             }
                             window.confirmFlowBack(flowBackUrl);

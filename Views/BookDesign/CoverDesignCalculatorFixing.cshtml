@@ -73,14 +73,14 @@
             padding-right: 0.5rem;
         }
         #book-formatter-root #fmt-right-preview-column {
-            overflow-y: auto;
-            gap: 0.75rem;
+            overflow: hidden;
+            gap: 0.5rem;
         }
         #book-formatter-root #fmt-right-preview-column #fmt-studio-stage.fmt-studio-stage {
             flex: 1 1 auto;
             min-height: 0;
             width: 100%;
-            max-width: min(100%, 42rem);
+            max-width: 100%;
         }
     }
     .formatter-ui-radius { border-radius: var(--fmt-radius) !important; }
@@ -794,9 +794,9 @@
         user-select: none;
         -webkit-touch-callout: none;
     }
-    #fmt-preview-scroll-host .reader-page-body {
-        padding: clamp(1.25rem, 3.5vw, 2.25rem) clamp(1.5rem, 4.5vw, 2.75rem);
-        margin: 0 auto;
+    #fmt-preview-scroll-host .book-page-content .reader-page-body {
+        padding: 0;
+        margin: 0;
         pointer-events: none;
     }
     #fmt-preview-scroll-host .chapter-preview-viewport.book-page-preview-content {
@@ -871,9 +871,9 @@
     .reader-chrome-row label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
     /* ----- Ebook-style preview column: title, byline, and page preview share one left edge ----- */
     .fmt-preview-stack {
-        --fmt-preview-pad-x: clamp(1.5rem, 4vw, 2.5rem);
+        --fmt-preview-pad-x: clamp(1rem, 2.5vw, 1.75rem);
         width: 100%;
-        max-width: min(100%, 42rem);
+        max-width: 100%;
         margin-inline: 0;
         margin-right: auto;
         display: flex;
@@ -1044,195 +1044,7 @@
     #preview-single .reader-page-footer ::selection,
     #preview-single .book-page-footer ::selection { background: #D4E8F5; color: #0f172a; }
     #preview-single section ::selection { background: #F0D878; color: #1a1200; }
-    /* Paginated live preview: warm mat + paper page per interior (do not flatten .book-page-background) */
-    #book-formatter-root #paginatedReaderShell.interior-preview-novel .book-container {
-        box-shadow: 0 18px 44px -24px rgba(120, 72, 32, 0.36), 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 0 0 1px rgba(212, 176, 138, 0.45);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-preview-modern .book-container {
-        box-shadow: 0 20px 50px -30px rgba(51, 65, 85, 0.42), 0 2px 0 rgba(255, 255, 255, 0.9) inset, 0 0 0 1px rgba(159, 177, 201, 0.55);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-preview-classic .book-container {
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.11), 0 0 0 1px rgba(255, 255, 255, 0.9) inset, 0 0 0 1px rgba(214, 196, 168, 0.5);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-preview-minimalist .book-container {
-        box-shadow: 0 0 0 1px #e4e4e7;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-preview-elegant .book-container {
-        box-shadow: 0 14px 42px -20px rgba(62, 47, 32, 0.34), 0 0 0 1px rgba(201, 184, 160, 0.35);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-novel #bookContainer {
-        background: #fffdf8;
-        border: 1px solid #d4b08a;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-modern #bookContainer {
-        background: #ffffff;
-        border: 1px solid #9fb1c9;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-classic #bookContainer {
-        background: #fdfcfa;
-        border: 1px solid #ddd2c4;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-minimalist #bookContainer {
-        background: #ffffff;
-        border: 1px solid #e4e4e7;
-        box-shadow: none;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-elegant-trade #bookContainer,
-    #book-formatter-root #bookContainer.interior-elegant-trade {
-        background: #fcf9f3;
-        border: 1px solid #cfbea5;
-    }
-    #book-formatter-root #bookContainer.interior-novel {
-        background: #fffdf8;
-        border: 1px solid #d4b08a;
-    }
-    #book-formatter-root #bookContainer.interior-modern {
-        background: #ffffff;
-        border: 1px solid #9fb1c9;
-    }
-    #book-formatter-root #bookContainer.interior-classic {
-        background: #fdfcfa;
-        border: 1px solid #ddd2c4;
-    }
-    #book-formatter-root #bookContainer.interior-minimalist {
-        background: #ffffff;
-        border: 1px solid #e4e4e7;
-        box-shadow: none;
-    }
-    #book-formatter-root #bookContainer.interior-elegant-trade {
-        background: #fcf9f3;
-        border: 1px solid #cfbea5;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-novel .book-page-content-wrap {
-        padding: clamp(1.1rem, 2.8vw, 1.9rem) clamp(1.2rem, 3vw, 2rem) clamp(0.85rem, 2vw, 1.2rem);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-modern .book-page-content-wrap {
-        padding: clamp(1rem, 2.5vw, 1.7rem) clamp(1.1rem, 2.8vw, 1.8rem) clamp(0.75rem, 2vw, 1.1rem);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-classic .book-page-content-wrap {
-        padding: clamp(1rem, 2.5vw, 1.55rem) clamp(1.05rem, 2.6vw, 1.65rem) clamp(0.75rem, 2vw, 1rem);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-minimalist .book-page-content-wrap {
-        padding: clamp(1.4rem, 3.2vw, 2.4rem) clamp(1.45rem, 3.4vw, 2.45rem) clamp(1rem, 2.4vw, 1.5rem);
-    }
-    #book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content-wrap {
-        padding: clamp(1.2rem, 2.8vw, 2.2rem) clamp(1.25rem, 3vw, 2.3rem) clamp(0.9rem, 2.2vw, 1.3rem);
-    }
-    /* Live preview typography beats export pt rules on screen */
-    #book-formatter-root #paginatedReaderShell.interior-novel .book-page-content .reader-page-title {
-        font-family: 'Playfair Display', serif !important;
-        color: #6f2f10 !important;
-        font-weight: 700 !important;
-        font-size: clamp(1.2rem, 1.15rem + 0.5vw, 1.6rem) !important;
-        letter-spacing: 0.015em !important;
-        text-align: center !important;
-        margin-bottom: 0.8rem !important;
-        padding-bottom: 0.55rem !important;
-        border-bottom: 1px solid rgba(111, 47, 16, 0.18) !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-novel .book-page-content .reader-page-body,
-    #book-formatter-root #paginatedReaderShell.interior-novel .book-page-content .reader-page-body p {
-        font-family: 'Merriweather', serif !important;
-        color: #2c2118 !important;
-        font-size: var(--fmt-font-size, 1.03rem) !important;
-        line-height: var(--fmt-line-height, 1.88) !important;
-        text-align: justify !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-novel .book-page-content .reader-page-body p {
-        text-indent: 1.5rem !important;
-        margin-bottom: 0.95rem !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-modern .book-page-content .reader-page-title {
-        font-family: 'Inter', sans-serif !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.18em !important;
-        font-size: 0.96rem !important;
-        font-weight: 800 !important;
-        color: #334155 !important;
-        text-align: left !important;
-        margin-bottom: 0.9rem !important;
-        border-bottom: none !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-modern .book-page-content .reader-page-body,
-    #book-formatter-root #paginatedReaderShell.interior-modern .book-page-content .reader-page-body p {
-        font-family: 'Inter', sans-serif !important;
-        color: #334155 !important;
-        font-size: var(--fmt-font-size, 0.97rem) !important;
-        line-height: var(--fmt-line-height, 1.74) !important;
-        text-align: left !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-modern .book-page-content .reader-page-body p {
-        text-indent: 0 !important;
-        border-left: 3px solid #6366f1 !important;
-        padding-left: 0.9rem !important;
-        margin-bottom: 0.85rem !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-classic .book-page-content .reader-page-title {
-        font-family: 'Cormorant Garamond', 'Times New Roman', serif !important;
-        font-style: italic !important;
-        font-size: clamp(1.35rem, 2.5vw, 1.5rem) !important;
-        color: #1a1a1a !important;
-        text-align: center !important;
-        border-bottom: 1px solid #d4cfc4 !important;
-        margin-bottom: 1rem !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-classic .book-page-content .reader-page-body,
-    #book-formatter-root #paginatedReaderShell.interior-classic .book-page-content .reader-page-body p {
-        font-family: 'Cormorant Garamond', 'Times New Roman', serif !important;
-        font-size: var(--fmt-font-size, 1.125rem) !important;
-        line-height: var(--fmt-line-height, 1.95) !important;
-        text-align: justify !important;
-        color: #252525 !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-classic .book-page-content .reader-page-body p {
-        text-indent: 1.25rem !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-minimalist .book-page-content .reader-page-title {
-        font-family: 'Inter', sans-serif !important;
-        font-size: 1rem !important;
-        font-weight: 600 !important;
-        color: #111827 !important;
-        letter-spacing: -0.01em !important;
-        text-align: left !important;
-        border-bottom: 1px solid #ececec !important;
-        margin-bottom: 1.1rem !important;
-        padding-bottom: 0.55rem !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-minimalist .book-page-content .reader-page-body,
-    #book-formatter-root #paginatedReaderShell.interior-minimalist .book-page-content .reader-page-body p {
-        font-family: 'Inter', sans-serif !important;
-        font-size: var(--fmt-font-size, 0.96rem) !important;
-        line-height: var(--fmt-line-height, 1.86) !important;
-        color: #3f3f46 !important;
-        text-align: left !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-minimalist .book-page-content .reader-page-body p {
-        text-indent: 0 !important;
-        margin-bottom: 1.1rem !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content .reader-page-title {
-        font-family: 'Lora', 'Times New Roman', serif !important;
-        font-weight: 600 !important;
-        font-size: clamp(1.15rem, 2vw, 1.35rem) !important;
-        letter-spacing: 0.06em !important;
-        color: #3d2914 !important;
-        text-align: center !important;
-        border-bottom: 1px solid #c8b08e !important;
-        margin-bottom: 0.45rem !important;
-        padding-bottom: 0.95rem !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content .reader-page-body,
-    #book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content .reader-page-body p {
-        font-family: 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif !important;
-        font-size: var(--fmt-font-size, 1.13rem) !important;
-        line-height: var(--fmt-line-height, 1.84) !important;
-        color: #29211b !important;
-        text-align: justify !important;
-    }
-    #book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content .reader-page-body p {
-        text-indent: 1.35rem !important;
-        margin-bottom: 0.95em !important;
-    }
+    /* Frame, padding, margins, typography: InteriorLayoutTokens.cs (#interior-layout-tokens). */
     #book-formatter-root #btnAiWriterPrevSide,
     #book-formatter-root #btnAiWriterNextSide { display: none !important; }
     #book-formatter-root .fmt-float-nav {
@@ -1272,7 +1084,9 @@
         width: 100%;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
         position: relative;
     }
     #preview-single,
@@ -1283,6 +1097,9 @@
         width: 100%;
         display: flex;
         flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
     }
     #preview-both .preview-split {
         flex: 1 1 0%;
@@ -1301,93 +1118,24 @@
     #fmt-book-result .paginated-reader-shell {
         position: relative;
         width: 100%;
-        max-width: min(100%, 36rem);
+        max-width: 100%;
         margin-left: auto;
         margin-right: auto;
-        flex: 1 1 0%;
+        flex: 0 0 auto;
         min-height: 0;
         aspect-ratio: 6 / 9;
         overflow: hidden;
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
-        padding: clamp(0.65rem, 2.2vw, 1.15rem) !important;
+        padding: clamp(0.5rem, 1.5vw, 0.85rem) !important;
         border-radius: 14px;
         background: transparent;
         border: none;
         box-shadow: none;
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
     }
-    /* Full preview canvas: outer mat + scroll host follow selected interior style */
-    #book-formatter-root #fmt-book-result.fmt-mat-novel {
-        background: linear-gradient(180deg, #f7eee2 0%, #f3e4d3 100%);
-        border-color: #d7bf9f;
-    }
-    #book-formatter-root #fmt-book-result.fmt-mat-modern {
-        background: linear-gradient(180deg, #eceff5 0%, #e2e8f0 100%);
-        border-color: #c6d2e2;
-    }
-    #book-formatter-root #fmt-book-result.fmt-mat-classic {
-        background: linear-gradient(180deg, #e8e2d8 0%, #d8d1c6 100%);
-        border-color: #bcae99;
-    }
-    #book-formatter-root #fmt-book-result.fmt-mat-minimalist {
-        background: linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%);
-        border-color: #e4e4e7;
-    }
-    #book-formatter-root #fmt-book-result.fmt-mat-elegant-trade {
-        background: linear-gradient(180deg, #ece4d8 0%, #e0d4c4 100%);
-        border-color: #c9b79f;
-    }
-    #book-formatter-root #fmt-preview-scroll-host.interior-novel { background: transparent; }
-    #book-formatter-root #fmt-preview-scroll-host.interior-classic { background: transparent; }
-    #book-formatter-root #fmt-preview-scroll-host.interior-minimalist { background: transparent; }
-    #book-formatter-root #fmt-preview-scroll-host.interior-elegant-trade { background: transparent; }
-    #book-formatter-root #bookStage.interior-novel #bookContainer,
-    #book-formatter-root #bookContainer.interior-novel {
-        background: #fffdf8 !important;
-        border-color: #d4b08a !important;
-    }
-    #book-formatter-root #bookStage.interior-classic #bookContainer,
-    #book-formatter-root #bookContainer.interior-classic {
-        background: #fdfcfa !important;
-        border-color: #ddd2c4 !important;
-    }
-    #book-formatter-root #bookStage.interior-minimalist #bookContainer,
-    #book-formatter-root #bookContainer.interior-minimalist {
-        background: #ffffff !important;
-        border-color: #e4e4e7 !important;
-        box-shadow: none !important;
-    }
-    #book-formatter-root #bookStage.interior-elegant-trade #bookContainer,
-    #book-formatter-root #bookContainer.interior-elegant-trade {
-        background: #fcf9f3 !important;
-        border-color: #cfbea5 !important;
-    }
-    #fmt-book-result .paginated-reader-shell.interior-novel {
-        background: linear-gradient(180deg, #f7eee2 0%, #f3e4d3 100%);
-        border: 1px solid #d7bf9f;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 12px 40px -12px rgba(91, 33, 182, 0.35);
-    }
-    #fmt-book-result .paginated-reader-shell.interior-modern {
-        background: linear-gradient(180deg, #eceff5 0%, #e2e8f0 100%);
-        border: 1px solid #c6d2e2;
-        box-shadow: 0 12px 40px -12px rgba(51, 65, 85, 0.28);
-    }
-    #fmt-book-result .paginated-reader-shell.interior-classic {
-        background: #d8d1c6;
-        border: 1px solid #bcae99;
-        box-shadow: 0 12px 36px -14px rgba(0, 0, 0, 0.18);
-    }
-    #fmt-book-result .paginated-reader-shell.interior-minimalist {
-        background: #f7f7f7;
-        border: 1px solid #e4e4e7;
-        box-shadow: 0 8px 28px -16px rgba(15, 23, 42, 0.12);
-    }
-    #fmt-book-result .paginated-reader-shell.interior-elegant-trade {
-        background: linear-gradient(180deg, #ece4d8 0%, #e0d4c4 100%);
-        border: 1px solid #c9b79f;
-        box-shadow: 0 12px 40px -14px rgba(62, 47, 32, 0.22);
+    /* Mat/frame/chrome: InteriorLayoutTokens.BuildFrameAndSheetCss */
     }
     .paginated-reader-shell.reader-content-wrap {
         min-height: 0;
@@ -1451,28 +1199,8 @@
         font-size: 0.78rem;
         color: #78716c;
     }
-    #book-formatter-root .book-page-background.interior-traditional-novel {
-        background: linear-gradient(180deg, #fffef9 0%, #faf8f2 100%);
-    }
-    #book-formatter-root .book-page-background.interior-contemporary-modern {
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-        border-left: 3px solid #e2e8f0;
-    }
-    #book-formatter-root .book-page-background.interior-finebook-classic {
-        background: #fdfcf8 url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0' stroke='%23ebe6dc' stroke-width='0.5' fill='none'/%3E%3C/svg%3E");
-    }
-    #book-formatter-root .book-page-background.interior-minimalist-clean {
-        background: #ffffff;
-        box-shadow: inset 0 0 0 1px #f1f5f9;
-    }
-    #book-formatter-root .book-page-background.interior-pod-elegant {
-        background: linear-gradient(165deg, #fffef8 0%, #f9f5ee 55%, #fffef8 100%);
-        box-shadow: inset 0 0 0 1px rgba(201, 184, 160, 0.25);
-    }
+    /* Page surface gradients: InteriorLayoutTokens.BuildFrameAndSheetCss */
     @@media (max-width: 640px) {
-        #book-formatter-root .book-page-content-wrap {
-            padding: 6px 12px 10px;
-        }
         #book-formatter-root .fmt-float-nav {
             width: 36px;
             height: 36px;
@@ -1601,12 +1329,14 @@
     @@media (min-width: 1280px) {
         #fmt-book-result.fmt-book-result { min-height: 0; height: 100%; }
     }
-    /* AI Writer `.chapter-preview-scroll-host` */
+    /* Preview scroll host — page-fit layout, no nested scroll */
     .fmt-chapter-preview-scroll-host {
         min-height: 0;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
         position: relative;
     }
     #fmt-book-result .fmt-chapter-preview-scroll-host {
@@ -1614,7 +1344,7 @@
         min-height: 0;
         height: 100%;
     }
-    /* Flex column between chrome + preview-wrapper; min height guarantees space for inner scroll region */
+    /* Flex column: center the 6×9 page shell — no nested scroll */
     #fmt-preview-scroll-host {
         flex: 1 1 0%;
         min-width: 0;
@@ -1622,7 +1352,9 @@
         position: relative;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        align-items: center;
+        justify-content: center;
+        overflow: visible;
     }
     /*
      * Manuscript strip: grows with chapter HTML (no nested scroll). Matches AI Writer leaving scroll on the outer viewport.
@@ -1682,26 +1414,19 @@
         max-width: 100%;
         box-sizing: border-box;
     }
-    /* ===== Match AI Book Writer preview exactly ===== */
+    /* ===== Book preview studio: fill preview column, page-fit via BookInteriorPreview ===== */
     #fmt-right-preview-column .fmt-preview-stack {
-        max-width: min(100%, 42rem) !important;
+        max-width: 100% !important;
         width: 100% !important;
         margin-inline: 0 !important;
-        margin-right: auto !important;
-    }
-
-    @@media (min-width: 1024px) {
-        #book-formatter-root #fmt-right-preview-column #fmt-studio-stage.fmt-studio-stage {
-            max-width: min(100%, 42rem) !important;
-        }
     }
 
     #fmt-studio-stage.fmt-studio-stage {
-        max-width: min(100%, 42rem) !important;
+        max-width: 100% !important;
     }
 
     #fmt-book-result.fmt-book-result {
-        width: min(100%, 42rem) !important;
+        width: 100% !important;
         max-width: 100% !important;
     }
     @@media (min-width: 1024px) {
@@ -1709,14 +1434,11 @@
     }
 
     #fmt-book-result .paginated-reader-shell {
-        width: 100% !important;
-        max-width: min(100%, 6in) !important;
         margin-left: auto !important;
         margin-right: auto !important;
         aspect-ratio: 6 / 9 !important;
-        max-height: min(9in, calc(100dvh - 12rem)) !important;
-        height: auto !important;
         overflow: hidden !important;
+        flex: 0 0 auto !important;
         flex-shrink: 0;
     }
 
@@ -1727,6 +1449,8 @@
         padding-bottom: clamp(0.65rem, 1.8vw, 0.85rem) !important;
     }
 </style>
+<partial name="_InteriorLayoutTokens" />
+<partial name="_BookInteriorPreviewAssets" />
 
 @{
     var formatFromUrl = Model?.Format ?? "Ebook";
@@ -1886,7 +1610,7 @@
                 </div>
 
                 <!-- Right: studio preview — aligned with AI Book Writer preview column -->
-                <div id="fmt-right-preview-column" class="flex-1 flex flex-col min-w-[300px] min-h-0 overflow-y-auto overflow-x-hidden items-stretch">
+                <div id="fmt-right-preview-column" class="flex-1 flex flex-col min-w-[300px] min-h-0 overflow-hidden items-stretch">
                     <div class="fmt-preview-stack flex-1 flex flex-col min-h-0 w-full">
                     <div class="mb-3 fmt-preview-header shrink-0" id="fmt-preview-accent-host">
                         <div class="flex items-center gap-2 mb-2">
@@ -1921,10 +1645,10 @@
                                     </button>
                                 </div>
                                 <!-- Match AI Book Writer `#bookResult` lavender panel + scroll host -->
-                                <div id="fmt-book-result" class="fmt-book-result fmt-mat-novel relative rounded-2xl py-6 md:py-8 lg:py-10 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg">
-                                    <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview">
+                                <div id="fmt-book-result" class="fmt-book-result fmt-mat-novel relative rounded-2xl py-4 md:py-5 lg:py-6 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg">
+                                    <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host book-interior-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview" data-book-interior-root="1">
                                         <div id="preview-single" class="preview-panel-single flex flex-1 flex-col min-h-0 w-full" tabindex="0">
-                                            <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell reader-content-wrap interior-novel interior-preview-novel relative w-full flex-1 min-h-0 flex flex-col">
+                                            <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell reader-content-wrap interior-novel interior-preview-novel relative w-full flex-shrink-0 flex flex-col">
                                                 <div id="bookStage" class="book-stage" style="display:none;">
                                                     <div id="bookContainer" class="book-container">
                                                         <div id="pageLayerA" class="book-page-layer" aria-hidden="false">
@@ -2292,6 +2016,7 @@
         syncFmtInteriorCardsFromSelect();
         syncFmtTypographyPillsFromSelects();
         applyFmtStudioAccent();
+        syncInteriorTokenVars();
         syncFormatterNextActionUi();
     }
 
@@ -2313,6 +2038,27 @@
         var hex = (input && input.value) ? input.value.trim() : '#5b21b6';
         if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) hex = '#5b21b6';
         host.style.setProperty('--fmt-preview-accent', hex);
+        document.documentElement.style.setProperty('--fmt-accent', hex);
+    }
+
+    /** Keep preview CSS vars in sync with InteriorLayoutTokens (same values as PDF export). */
+    function syncInteriorTokenVars() {
+        var specsEl = document.getElementById('ilt-specs');
+        if (!specsEl) return;
+        var specs;
+        try { specs = JSON.parse(specsEl.textContent || '{}'); } catch (e) { return; }
+        var styleEl = document.getElementById('style-select');
+        var interior = styleEl ? (styleEl.value || 'Novel') : 'Novel';
+        var spec = specs[interior] || specs['Novel'];
+        if (!spec) return;
+        var root = document.documentElement;
+        root.style.setProperty('--ilt-sheet-bg', spec.sheetBg || '');
+        root.style.setProperty('--ilt-page-bg', spec.sheetBg || '');
+        root.style.setProperty('--ilt-pad-top', spec.padTop || '');
+        root.style.setProperty('--ilt-pad-right', spec.padRight || '');
+        root.style.setProperty('--ilt-pad-bottom', spec.padBottom || '');
+        root.style.setProperty('--ilt-pad-left', spec.padLeft || '');
+        if (spec.pageBg) root.style.setProperty('--ilt-page-surface', spec.pageBg);
     }
 
     function syncFmtInteriorCardsFromSelect() {
@@ -2599,8 +2345,10 @@
         return (shell && shell.clientWidth > 48) ? shell.clientWidth : 0;
     }
 
-    /** Usable inner height for one 6×9 page (viewport padding subtracted — no scroll). */
+    /** Usable inner height for one 6×9 page (content box — no scroll). */
     function getFmtContentAreaHeightPx() {
+        var contentEl = document.getElementById('bookPageContentA');
+        if (contentEl && contentEl.clientHeight >= 80) return contentEl.clientHeight;
         var viewport = document.getElementById('preview-content')
             || document.getElementById('preview-content-ebook')
             || document.getElementById('preview-content-paperback');
@@ -2619,8 +2367,6 @@
             var usable = Math.max(0, viewport.clientHeight - padY - blockPad - 8);
             if (usable >= 48) return usable;
         }
-        var contentEl = document.getElementById('bookPageContentA');
-        if (contentEl && contentEl.clientHeight >= 80) return contentEl.clientHeight;
         if (shell && shell.clientHeight >= 80) {
             var padY2 = 20;
             var footerReserve = 34;
@@ -2694,7 +2440,7 @@
         mh.innerHTML =
             '<div class="paginated-reader-shell reader-content-wrap ' + shellCls + '" style="width:' + w + 'px;padding:0;border:0;box-shadow:none;aspect-ratio:auto;height:' + wrapH + 'px;min-height:0;display:flex;flex-direction:column">' +
             '<div class="book-container" style="width:100%;height:100%;display:flex;flex-direction:column">' +
-            '<div class="book-page-content-wrap" style="padding:8px 18px 12px;box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column">' +
+            '<div class="book-page-content-wrap" style="box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column">' +
             '<div class="book-page-content ' + contentCls + '" style="overflow:hidden;flex:1;min-height:0">' +
             (blockInnerHtml || '') +
             '</div><div class="book-page-footer" style="flex-shrink:0;height:' + footerH + 'px"></div></div></div></div>';
@@ -2704,8 +2450,14 @@
         if (stage) {
             var fs = stage.style.getPropertyValue('--fmt-font-size') || window.getComputedStyle(stage).getPropertyValue('--fmt-font-size');
             var lh = stage.style.getPropertyValue('--fmt-line-height') || window.getComputedStyle(stage).getPropertyValue('--fmt-line-height');
-            if (fs && fs.trim()) contentEl.style.setProperty('--fmt-font-size', fs.trim());
-            if (lh && lh.trim()) contentEl.style.setProperty('--fmt-line-height', lh.trim());
+            if (fs && fs.trim()) {
+                contentEl.style.setProperty('--fmt-font-size', fs.trim());
+                contentEl.style.setProperty('--ilt-body-px', fs.trim());
+            }
+            if (lh && lh.trim()) {
+                contentEl.style.setProperty('--fmt-line-height', lh.trim());
+                contentEl.style.setProperty('--ilt-body-lh', lh.trim());
+            }
         }
         applyPreviewStyles(contentEl);
         return contentEl;
@@ -3187,7 +2939,26 @@
 
     function fmtScheduleRepaginateAfterLayout() {
         requestAnimationFrame(function() {
+            syncFmtPreviewLayout();
             requestAnimationFrame(fmtScheduleRepaginate);
+        });
+    }
+
+    /** Fit the 6×9 preview shell to the studio column (no internal scroll). */
+    function syncFmtPreviewLayout() {
+        if (!window.BookInteriorPreview || typeof window.BookInteriorPreview.fitShellToHost !== 'function') return false;
+        var scrollHost = document.getElementById('fmt-preview-scroll-host');
+        var shell = document.getElementById('paginatedReaderShell');
+        var measureHost = document.getElementById('fmt-preview-measure-host');
+        var chrome = document.getElementById('reader-chrome-main');
+        var reserve = 0;
+        if (chrome && !chrome.classList.contains('hidden')) reserve += chrome.offsetHeight + 10;
+        return window.BookInteriorPreview.fitShellToHost(shell, scrollHost, {
+            aspectRatio: 6 / 9,
+            widthFactor: 1,
+            reserveBottomPx: reserve,
+            preferHeight: true,
+            measureHost: measureHost
         });
     }
 
@@ -4552,8 +4323,8 @@
             if (wrapCls) container.classList.add(wrapCls);
         }
         document.querySelectorAll('#book-formatter-root .book-page-background').forEach(function(bg) {
-            bg.classList.remove(...allInteriorStyleClasses);
-            if (cls) bg.classList.add(cls);
+            bg.classList.remove(...allInteriorWrapClasses, ...allInteriorStyleClasses);
+            if (wrapCls) bg.classList.add(wrapCls);
         });
         var matHost = document.getElementById('fmt-book-result');
         if (matHost) {
@@ -4565,6 +4336,7 @@
             scrollHost.classList.remove(...allInteriorWrapClasses);
             if (wrapCls) scrollHost.classList.add(wrapCls);
         }
+        syncInteriorTokenVars();
     }
 
     function applyPreviewStyles(el) {
@@ -4598,6 +4370,8 @@
         if (stage) {
             stage.style.setProperty('--fmt-font-size', fontSize);
             stage.style.setProperty('--fmt-line-height', previewLineSp);
+            stage.style.setProperty('--ilt-body-lh', previewLineSp);
+            stage.style.setProperty('--ilt-body-px', fontSize);
             stage.classList.remove('fmt-style-traditional', 'fmt-style-modern', 'fmt-style-classic', 'fmt-style-clean-minimalist', 'fmt-style-minimalist', 'fmt-style-elegant-trade');
             var stageClass = 'fmt-style-traditional';
             if (interior === 'Modern') stageClass = 'fmt-style-modern';
@@ -4609,6 +4383,8 @@
         if (shell) {
             shell.style.setProperty('--fmt-font-size', fontSize);
             shell.style.setProperty('--fmt-line-height', previewLineSp);
+            shell.style.setProperty('--ilt-body-lh', previewLineSp);
+            shell.style.setProperty('--ilt-body-px', fontSize);
         }
 
         var bodies = el.querySelectorAll('.reader-page-body');
@@ -4625,6 +4401,7 @@
         });
 
         applyInteriorStyleClasses(interior);
+        syncInteriorTokenVars();
     }
 
     function showLoadingState(show) {
@@ -4921,6 +4698,26 @@
         syncFormatterSideNavVisibility();
     }
 
+    function initBookInteriorPreviewShell() {
+        if (!window.BookInteriorPreview) return;
+        var scrollHost = document.getElementById('fmt-preview-scroll-host');
+        var shell = document.getElementById('paginatedReaderShell');
+        if (!scrollHost || !shell) return;
+        syncFmtPreviewLayout();
+        window.BookInteriorPreview.init(scrollHost, {
+            bookTitle: (bookPreviewContext && bookPreviewContext.bookTitle) || '',
+            mode: 'web',
+            shell: shell,
+            host: scrollHost,
+            fitOptions: {
+                aspectRatio: 6 / 9,
+                widthFactor: 1,
+                preferHeight: true,
+                measureHost: document.getElementById('fmt-preview-measure-host')
+            }
+        });
+    }
+
     function renderPreviewContent(animDir) {
         const stage = document.getElementById('bookStage');
         const viewport = document.getElementById('preview-content');
@@ -4943,6 +4740,7 @@
         setTimeout(function() {
             updatePageIndicator();
             scrollReaderPanelsToTop();
+            initBookInteriorPreviewShell();
         }, animDir ? 40 : 0);
     }
 
@@ -5727,14 +5525,19 @@
             if (fmtResizeTimer) clearTimeout(fmtResizeTimer);
             fmtResizeTimer = setTimeout(function() {
                 fmtResizeTimer = null;
+                syncFmtPreviewLayout();
                 if (bookChapters.length) fmtScheduleRepaginate();
             }, 180);
         });
 
         FmtBookStageReader.ensureDom();
+        syncInteriorTokenVars();
         window.addEventListener('load', function onFormatterBoot() {
             window.removeEventListener('load', onFormatterBoot);
-            requestAnimationFrame(function() { initFormatterBook(); });
+            requestAnimationFrame(function() {
+                syncInteriorTokenVars();
+                initFormatterBook();
+            });
         });
     });
 })();
@@ -5750,13 +5553,12 @@
         display: none !important;
     }
     #book-formatter-root #fmt-book-result .paginated-reader-shell {
-        width: 100% !important;
-        max-width: min(100%, 36rem) !important;
         margin-inline: auto !important;
         min-height: 0 !important;
         aspect-ratio: 6 / 9 !important;
         overflow: hidden !important;
-        padding: clamp(0.65rem, 2.2vw, 1.15rem) !important;
+        flex: 0 0 auto !important;
+        padding: clamp(0.5rem, 1.5vw, 0.85rem) !important;
     }
     #book-formatter-root #bookStage {
         width: 100%;
@@ -5779,11 +5581,9 @@
         height: 100%;
         overflow: hidden;
         border-radius: 4px;
-        box-shadow:
-            0 2px 0 rgba(255, 255, 255, 0.85) inset,
-            0 14px 40px -12px rgba(91, 33, 182, 0.22),
-            0 4px 16px rgba(15, 23, 42, 0.12);
-        background: #fffdf8;
+        background: var(--ilt-page-bg, var(--ilt-sheet-bg));
+        border: var(--ilt-sheet-border);
+        box-shadow: var(--ilt-container-shadow);
         transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
     }
     #book-formatter-root .book-page-layer {
@@ -5811,17 +5611,17 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
-        padding: 12px 20px 16px;
+        padding: var(--ilt-pad-top, 1.9rem) var(--ilt-pad-right, 2rem) var(--ilt-pad-bottom, 1.2rem) var(--ilt-pad-left, 2rem);
         box-sizing: border-box;
-        overflow: visible;
+        overflow: hidden;
     }
     #book-formatter-root .book-page-content {
         flex: 1 1 auto;
-        min-height: auto;
+        min-height: 0;
         height: auto;
         overflow-x: hidden;
-        overflow-y: visible;
-        -webkit-overflow-scrolling: touch;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: auto;
         color: #1c1917;
         font-size: var(--fmt-font-size, 16px);
         line-height: var(--fmt-line-height, 1.6);
@@ -5831,13 +5631,12 @@
     }
     #book-formatter-root .book-page-content .reader-page-body,
     #book-formatter-root .book-page-content .reader-page-body p {
-        font-size: var(--fmt-font-size, 16px);
-        line-height: var(--fmt-line-height, 1.6);
+        font-size: var(--fmt-font-size, var(--ilt-body-px, 16px));
+        line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.6));
+        text-align: var(--ilt-text-align, justify);
         orphans: 3;
         widows: 3;
     }
-    #book-formatter-root .book-page-content p { margin: 0 0 1em 0; text-indent: 1.1rem; }
-    #book-formatter-root .book-page-content p:last-child { margin-bottom: 0; }
     #book-formatter-root .book-page-footer {
         flex-shrink: 0;
         margin-top: auto;
@@ -5907,200 +5706,5 @@
         color: #1e293b;
         background: #fff;
     }
-    #book-formatter-root .book-page-content.interior-minimalist-clean {
-        font-family: 'Lato', sans-serif !important;
-        font-size: 11pt;
-        line-height: 1.6;
-        color: #1a1a1a;
-        background: #ffffff;
-    }
-    #book-formatter-root .book-page-content.interior-minimalist-clean .reader-page-title,
-    #book-formatter-root .book-page-content.interior-minimalist-clean h1,
-    #book-formatter-root .book-page-content.interior-minimalist-clean h2,
-    #book-formatter-root .book-page-content.interior-minimalist-clean h3,
-    #book-formatter-root .book-page-content.interior-minimalist-clean h4 {
-        font-family: 'Lato', sans-serif !important;
-        font-weight: 700;
-        font-size: 1.4em;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        margin-top: 2em;
-        margin-bottom: 1em;
-        color: #111111;
-        text-align: left;
-    }
-    #book-formatter-root .book-page-content.interior-minimalist-clean .reader-page-body p {
-        margin-top: 0;
-        margin-bottom: 0.8em;
-        text-indent: 0;
-    }
-    #book-formatter-root .book-page-content.interior-traditional-novel {
-        font-family: 'EB Garamond', serif !important;
-        font-size: 11.5pt;
-        line-height: 1.55;
-        color: #1a1a1a;
-        background: #fffef9;
-    }
-    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-title,
-    #book-formatter-root .book-page-content.interior-traditional-novel h1,
-    #book-formatter-root .book-page-content.interior-traditional-novel h2,
-    #book-formatter-root .book-page-content.interior-traditional-novel h3,
-    #book-formatter-root .book-page-content.interior-traditional-novel h4 {
-        font-family: 'EB Garamond', serif !important;
-        font-weight: 700;
-        font-size: 1.5em;
-        text-align: center;
-        letter-spacing: 0.02em;
-        margin-top: 2.5em;
-        margin-bottom: 1.5em;
-        color: #111111;
-    }
-    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-body p {
-        text-indent: 2em;
-        margin-top: 0;
-        margin-bottom: 0;
-    }
-    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-body p:first-of-type,
-    #book-formatter-root .book-page-content.interior-traditional-novel .reader-page-title + .reader-page-body p:first-of-type {
-        text-indent: 0;
-    }
-    #book-formatter-root .book-page-content.interior-contemporary-modern {
-        font-family: 'Source Serif 4', serif !important;
-        font-size: 11pt;
-        line-height: 1.55;
-        color: #1a1a1a;
-        background: #ffffff;
-    }
-    #book-formatter-root .book-page-content.interior-contemporary-modern .reader-page-title,
-    #book-formatter-root .book-page-content.interior-contemporary-modern h1,
-    #book-formatter-root .book-page-content.interior-contemporary-modern h2,
-    #book-formatter-root .book-page-content.interior-contemporary-modern h3,
-    #book-formatter-root .book-page-content.interior-contemporary-modern h4 {
-        font-family: 'Source Serif 4', serif !important;
-        font-weight: 700;
-        font-size: 1.35em;
-        border-bottom: 2px solid #e0e0e0;
-        padding-bottom: 0.4em;
-        margin-top: 2em;
-        margin-bottom: 1.2em;
-        color: #111111;
-        text-align: left;
-    }
-    #book-formatter-root .book-page-content.interior-contemporary-modern .reader-page-body p {
-        margin-bottom: 0.9em;
-        text-indent: 0;
-    }
-    #book-formatter-root .book-page-content.interior-finebook-classic {
-        font-family: 'EB Garamond', serif !important;
-        font-size: 10.5pt;
-        line-height: 1.65;
-        color: #111111;
-        background: #fdfcf8;
-    }
-    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-title,
-    #book-formatter-root .book-page-content.interior-finebook-classic h1,
-    #book-formatter-root .book-page-content.interior-finebook-classic h2,
-    #book-formatter-root .book-page-content.interior-finebook-classic h3,
-    #book-formatter-root .book-page-content.interior-finebook-classic h4 {
-        font-family: 'Playfair Display', serif !important;
-        font-weight: 400;
-        font-size: 1.5em;
-        text-align: center;
-        font-style: italic;
-        letter-spacing: 0.03em;
-        margin-top: 3em;
-        margin-bottom: 2em;
-        color: #111111;
-    }
-    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-body p {
-        text-indent: 2em;
-        margin-top: 0;
-        margin-bottom: 0;
-    }
-    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-body p:first-of-type,
-    #book-formatter-root .book-page-content.interior-finebook-classic .reader-page-title + .reader-page-body p:first-of-type {
-        text-indent: 0;
-    }
-    #book-formatter-root .book-page-content.interior-pod-elegant {
-        font-family: 'Merriweather', serif !important;
-        font-size: 10.5pt;
-        line-height: 1.5;
-        color: #1a1a1a;
-        background: #ffffff;
-    }
-    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-title,
-    #book-formatter-root .book-page-content.interior-pod-elegant h1,
-    #book-formatter-root .book-page-content.interior-pod-elegant h2,
-    #book-formatter-root .book-page-content.interior-pod-elegant h3,
-    #book-formatter-root .book-page-content.interior-pod-elegant h4 {
-        font-family: 'Merriweather', serif !important;
-        font-weight: 700;
-        font-size: 1.3em;
-        letter-spacing: 0.04em;
-        margin-top: 2em;
-        margin-bottom: 1.2em;
-        color: #111111;
-        text-align: left;
-    }
-    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-body p {
-        text-indent: 1.5em;
-        margin-top: 0;
-        margin-bottom: 0;
-    }
-    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-body p:first-of-type,
-    #book-formatter-root .book-page-content.interior-pod-elegant .reader-page-title + .reader-page-body p:first-of-type {
-        text-indent: 0;
-    }
-    #book-formatter-root #bookStage.fmt-style-minimalist .book-page-content,
-    #book-formatter-root #bookStage.fmt-style-clean-minimalist .book-page-content {
-        font-family: 'Inter', 'Lato', sans-serif !important;
-        font-size: 10.5pt;
-        line-height: 1.75;
-        text-align: left;
-    }
-    #book-formatter-root #bookStage.fmt-style-traditional .book-page-content {
-        font-family: 'Merriweather', 'EB Garamond', Garamond, 'Times New Roman', serif !important;
-        font-size: 11.2pt;
-        line-height: 1.82;
-        text-align: justify;
-    }
-    #book-formatter-root #bookStage.fmt-style-modern .book-page-content {
-        font-family: 'Inter', 'Source Sans Pro', Arial, sans-serif !important;
-        font-size: 10.6pt;
-        line-height: 1.68;
-        letter-spacing: 0.01em;
-        text-align: left;
-    }
-    #book-formatter-root #bookStage.fmt-style-classic .book-page-content {
-        font-family: 'Palatino Linotype', Palatino, Georgia, serif !important;
-        font-size: 10.8pt;
-        line-height: 1.76;
-        text-align: justify;
-    }
-    #book-formatter-root #bookStage.fmt-style-elegant-trade .book-page-content {
-        font-family: 'EB Garamond', 'Merriweather', Georgia, serif !important;
-        font-size: 11.1pt;
-        line-height: 1.8;
-        text-align: justify;
-    }
-    #book-formatter-root #bookStage.fmt-style-minimalist .book-page-content-wrap,
-    #book-formatter-root #bookStage.fmt-style-clean-minimalist .book-page-content-wrap,
-    #book-formatter-root #bookStage.fmt-style-traditional .book-page-content-wrap,
-    #book-formatter-root #bookStage.fmt-style-modern .book-page-content-wrap,
-    #book-formatter-root #bookStage.fmt-style-classic .book-page-content-wrap,
-    #book-formatter-root #bookStage.fmt-style-elegant-trade .book-page-content-wrap {
-        padding: 8px 18px 12px;
-    }
-    #book-formatter-root #bookStage .reader-page-title,
-    #book-formatter-root #bookStage .manuscript-chapter-heading {
-        font-size: 1.4em;
-        font-weight: 700;
-        margin-top: 0;
-        margin-bottom: 0.9em;
-    }
-    #book-formatter-root #bookStage .reader-page-body p:first-child,
-    #book-formatter-root #bookStage .manuscript-p:first-of-type {
-        text-indent: 0 !important;
-        margin-top: 1em;
-    }
+    /* Typography/padding: InteriorLayoutTokens + InteriorExportTheme.BuildFormatterInteriorCss */
 </style>

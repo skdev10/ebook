@@ -71,7 +71,8 @@ public class BookPdfService : IBookPdfService
         var html = BookPreviewPrintHtmlBuilder.Build(
             title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
             copyrightHtml, tocHtml, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
-            _env.WebRootPath);
+            _env.WebRootPath,
+            ComputeContentHeightPx(layout));
 
         if (ChapterContentNormalizer.LooksLikeJsonEnvelope(html))
             _logger.LogWarning("Export HTML still contains JSON wrapper after normalization for book {BookId}.", details.BookId);
@@ -126,6 +127,29 @@ public class BookPdfService : IBookPdfService
                 "PDF generation failed. Install Google Chrome on the server (apt install google-chrome-stable) and set Puppeteer:ExecutablePath, or run Scripts/download-export-fonts.sh for PdfSharp.",
                 sharpEx);
         }
+    }
+
+    /// <summary>Flowed content height per printed page (page height minus top/bottom print margins) at 96 dpi.</summary>
+    private static double? ComputeContentHeightPx(BookPdfPlatformLayout.PdfLayoutSpec layout)
+    {
+        var pageIn = layout.PdfHeight != null && layout.PdfHeight.Contains("in", StringComparison.OrdinalIgnoreCase)
+            ? ParseInches(layout.PdfHeight)
+            : (layout.UseBuiltInFormat ? 11.69 : 9.0); // A4 height fallback
+        var top = ParseInches(layout.MarginTop);
+        var bottom = ParseInches(layout.MarginBottom);
+        if (pageIn is null || top is null || bottom is null) return null;
+        var content = (pageIn.Value - top.Value - bottom.Value) * 96.0;
+        return content > 100 ? content : null;
+    }
+
+    private static double? ParseInches(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var s = value.Trim().ToLowerInvariant();
+        if (s.EndsWith("in", StringComparison.Ordinal)) s = s[..^2];
+        else if (s.EndsWith("mm", StringComparison.Ordinal))
+            return double.TryParse(s[..^2], NumberStyles.Any, CultureInfo.InvariantCulture, out var mm) ? mm / 25.4 : null;
+        return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var inches) ? inches : null;
     }
 
     private static void EnsureValidPdf(byte[]? pdfBytes)
@@ -225,27 +249,27 @@ public class BookPdfService : IBookPdfService
         return sb.ToString();
     }
 
+    /// <summary>
+    /// Book-style running head: small letterspaced caps, centered, floated into the top margin
+    /// with breathing room above and below — no web-style rule line.
+    /// </summary>
     private static string BuildHeaderTemplate(string title, string author)
     {
-        var t = WebUtility.HtmlEncode(TruncateForHeader(title, 48));
-        var a = WebUtility.HtmlEncode(TruncateForHeader(author, 36));
-        return "<div style=\"width:100%;font-size:9px;color:#475569;padding:0 8mm;box-sizing:border-box;" +
-               "display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e2e8f0;\">" +
-               "<span style=\"font-weight:600;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\">" + t + "</span>" +
-               "<span style=\"max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;\">" + a + "</span>" +
-               "</div>";
+        var t = WebUtility.HtmlEncode(TruncateForHeader(title, 52));
+        return "<div style=\"width:100%;box-sizing:border-box;padding:" + InteriorLayoutTokens.RunningHeadPadTop +
+               " " + InteriorLayoutTokens.RunningHeadPadSides + " 0 " + InteriorLayoutTokens.RunningHeadPadInside + ";" +
+               "font-family:Georgia,'Times New Roman',serif;font-size:7.5px;color:#7c7368;" +
+               "letter-spacing:0.22em;text-transform:uppercase;text-align:center;" +
+               "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\">" + t + "</div>";
     }
 
+    /// <summary>Folio only (centered page number) — “Page X of Y” reads like a report, not a book.</summary>
     private static string BuildFooterTemplate()
     {
-        return """
-            <div style="width:100%;font-size:9px;color:#64748b;padding:0 8mm;box-sizing:border-box;display:flex;justify-content:center;align-items:center;gap:4px;">
-              <span>Page</span>
-              <span class="pageNumber"></span>
-              <span>of</span>
-              <span class="totalPages"></span>
-            </div>
-            """;
+        return "<div style=\"width:100%;box-sizing:border-box;padding:0 " + InteriorLayoutTokens.RunningHeadPadSides +
+               " " + InteriorLayoutTokens.FolioPadBottom + " " + InteriorLayoutTokens.RunningHeadPadInside + ";" +
+               "font-family:Georgia,'Times New Roman',serif;font-size:8.5px;color:#7c7368;" +
+               "letter-spacing:0.12em;text-align:center;\"><span class=\"pageNumber\"></span></div>";
     }
 
     private static string TruncateForHeader(string s, int max)

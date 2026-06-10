@@ -45,4 +45,14 @@ public static class BookCoverRefResolver
             return p;
         return p.StartsWith("/") ? p : ("/" + p.TrimStart('/'));
     }
+
+    /// <summary>Strips inline blobs from list payloads — keeps paths/URLs only.</summary>
+    public static string ForListPayloadCoverRef(string? path)
+    {
+        var p = NormalizeCoverUrlRef(path);
+        if (string.IsNullOrEmpty(p)) return "";
+        if (p.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return "";
+        if (p.Length > 512) return "";
+        return p;
+    }
 }

@@ -88,6 +88,15 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void BuildFormatterSyncCss_uses_kdp_inch_padding_and_text_measure()
+    {
+        var css = InteriorLayoutTokens.BuildFormatterSyncCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.Contains("--ilt-pad-top: 0.72in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-text-max: 4.35in", css, StringComparison.Ordinal);
+        Assert.Contains("fmt-mat-novel", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NormalizeForManuscript_strips_status_data_string_wrapper()
     {
         var raw = """{"status":"success","data":"<p class=\"manuscript-p\">Drop zone secured.</p>"}""";

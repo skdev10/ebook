@@ -22,13 +22,12 @@
     overflow-y: hidden;
 }
 
-/* Formatter: paginated shell inside #fmt-book-result (same pattern as AI Writer) */
+/* Formatter: paginated shell inside #fmt-book-result — dimensions set by BookInteriorPreview.fitShellToHost */
 #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
-    flex: 1 1 0%;
+    flex: 0 0 auto;
     min-height: 0;
     max-height: none;
-    aspect-ratio: 6 / 9;
-    max-width: min(100%, 42rem);
+    max-width: 100%;
     background: transparent;
     border: none;
     box-shadow: none;
@@ -93,3 +92,4 @@
     break-before: avoid;
     page-break-before: avoid;
 }
+

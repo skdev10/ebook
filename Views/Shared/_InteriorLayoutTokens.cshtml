@@ -1,0 +1,15 @@
+@using EBookDashboard.Models.DTO
+@* Shared layout tokens — same numbers drive Book Formatter preview and PDF export. *@
+@{
+    var layoutOpt = new BookPdfExportOptions
+    {
+        InteriorStyle = (Model as EBookDashboard.Models.ViewModels.CoverDesignCalculatorVM)?.InteriorStyle ?? "Novel",
+        TextSize = (Model as EBookDashboard.Models.ViewModels.CoverDesignCalculatorVM)?.TextSize ?? "Medium",
+        LineSpacing = (Model as EBookDashboard.Models.ViewModels.CoverDesignCalculatorVM)?.LineSpacing ?? "1.6"
+    };
+}
+<style id="interior-layout-tokens">
+@Html.Raw(EBookDashboard.Services.InteriorLayoutTokens.BuildFormatterSyncCss(layoutOpt))
+</style>
+<script id="ilt-specs" type="application/json">@Html.Raw(EBookDashboard.Services.InteriorLayoutTokens.BuildClientSpecsJson())</script>
+

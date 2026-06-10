@@ -1290,7 +1290,7 @@
                     </div>
                     <div class="flex flex-wrap items-center gap-2 shrink-0">
                         <button type="button" data-flow-back="/Dashboard" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Dashboard</button>
-                        <a href="@Url.Action("Index", "Dashboard")" class="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 transition-colors">My projects</a>
+                        <a href="@Url.Action("Index", "Dashboard")" data-unsaved-ignore="true" class="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 transition-colors">My projects</a>
                     </div>
                 </div>
                 <div class="hidden-fields sr-only" aria-hidden="true">
@@ -2816,6 +2816,16 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
         });
 };
 document.addEventListener('DOMContentLoaded', function() {
+    try {
+        var freshQp = new URLSearchParams(window.location.search);
+        if (freshQp.get('fresh') === '1' && window.EditorDraftReset) {
+            var bid = parseInt(document.getElementById('BookId')?.value || '0', 10);
+            if (bid > 0) window.EditorDraftReset.clearAllClientState(bid);
+            freshQp.delete('fresh');
+            var clean = window.location.pathname + (freshQp.toString() ? '?' + freshQp.toString() : '');
+            window.history.replaceState({}, '', clean);
+        }
+    } catch (_) { /* no-op */ }
     var userId = @userId;
     if (typeof window.syncAiWriterPreviewLayout === 'function') {
         window.syncAiWriterPreviewLayout();

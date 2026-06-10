@@ -78,18 +78,35 @@ public static class BookPdfPlatformLayout
         MarginRight: "16mm",
         PreferCssPageSize: false);
 
-    /// <summary>KDP 6×9 — inside gutter ~0.375in, outside/top/bottom ≥0.25in (we use 0.5in top/bottom for readability).</summary>
-    private static PdfLayoutSpec Trim6x9Print(bool bleedHeavy) => new(
-        PageSizeCss: "6in 9in",
-        PdfWidth: "6in",
-        PdfHeight: "9in",
-        UseBuiltInFormat: false,
-        BuiltInFormat: PaperFormat.A4,
-        MarginTop: bleedHeavy ? "0.55in" : "0.5in",
-        MarginBottom: bleedHeavy ? "0.55in" : "0.5in",
-        MarginLeft: bleedHeavy ? "0.5in" : "0.375in",
-        MarginRight: bleedHeavy ? "0.375in" : "0.25in",
-        PreferCssPageSize: true);
+    /// <summary>
+    /// 6×9 print margins from <see cref="InteriorLayoutTokens"/> — Chromium header/footer zone;
+    /// inner text inset comes from <c>--ilt-pad-*</c> on <c>.book-preview-sheet</c> (preview parity).
+    /// </summary>
+    private static PdfLayoutSpec Trim6x9Print(bool bleedHeavy)
+    {
+        var m = InteriorLayoutTokens.KdpTrim6x9Default;
+        var bleedBump = bleedHeavy ? 0.05 : 0.0;
+        return new PdfLayoutSpec(
+            PageSizeCss: "6in 9in",
+            PdfWidth: "6in",
+            PdfHeight: "9in",
+            UseBuiltInFormat: false,
+            BuiltInFormat: PaperFormat.A4,
+            MarginTop: InchesWithBump(m.Top, bleedBump),
+            MarginBottom: InchesWithBump(m.Bottom, bleedBump),
+            MarginLeft: InchesWithBump(m.Inside, bleedBump * 0.6),
+            MarginRight: InchesWithBump(m.Outside, bleedBump * 0.4),
+            PreferCssPageSize: true);
+    }
+
+    private static string InchesWithBump(string inches, double bump)
+    {
+        if (bump <= 0 || !inches.EndsWith("in", StringComparison.OrdinalIgnoreCase)) return inches;
+        if (!double.TryParse(inches[..^2], System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var v))
+            return inches;
+        return FormattableString.Invariant($"{v + bump:0.##}in");
+    }
 
     private static string NormalizePlatform(string? raw)
     {

@@ -302,4 +302,13 @@ namespace EBookDashboard.Models
         /// <summary>When true (confirmed back within flow), wipe the step being left and move one step backward.</summary>
         public bool DestructiveBack { get; set; }
     }
+
+    /// <summary>Request body for <c>POST /Dashboard/ResetEditorDraft</c>.</summary>
+    public class EditorDraftResetRequest
+    {
+        public int BookId { get; set; }
+        /// <summary>StepBack | BackToWriter | FullProject | FullProjectWithChapters</summary>
+        public string? Scope { get; set; }
+        public string? CurrentStep { get; set; }
+    }
 }

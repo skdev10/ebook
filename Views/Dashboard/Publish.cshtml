@@ -1206,7 +1206,10 @@
                 var ct = (res.headers.get('Content-Type') || '').toLowerCase();
                 if (!res.ok) return parseExportErrorResponse(res, 'Could not generate PDF.');
                 if (ct.indexOf('application/pdf') < 0) return parseExportErrorResponse(res, 'Server did not return a PDF file.');
-                return res.blob().then(validatePdfBlob);
+                var serverName = parseFilenameFromDisposition(res.headers.get('Content-Disposition'));
+                return res.blob().then(validatePdfBlob).then(function (blob) {
+                    return { blob: blob, fileName: serverName };
+                });
             });
         });
     }
@@ -1337,26 +1340,34 @@
         }
     }
 
+    function sanitizeDownloadFilename(name, fallback) {
+        var base = String(name || fallback || 'book').trim();
+        base = base.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        return base || 'book';
+    }
+
     function downloadBlobAsFile(blob, filename) {
+        var safeName = sanitizeDownloadFilename(filename, 'book.pdf');
         var typed = (blob && blob.type === 'application/pdf')
             ? blob
-            : new Blob([blob], { type: filename && filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : (blob.type || 'application/octet-stream') });
+            : new Blob([blob], { type: safeName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : (blob.type || 'application/octet-stream') });
         if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === 'function' && typed.type === 'application/pdf') {
-            window.navigator.msSaveOrOpenBlob(typed, filename || 'book.pdf');
+            window.navigator.msSaveOrOpenBlob(typed, safeName);
             return;
         }
         var url = URL.createObjectURL(typed);
         var a = document.createElement('a');
         a.href = url;
-        a.download = filename || 'book.epub';
+        a.download = safeName;
         a.rel = 'noopener';
+        a.style.display = 'none';
         document.body.appendChild(a);
         a.click();
         // Revoke only after the browser finishes writing the file — early revoke corrupts PDFs on Windows.
         setTimeout(function () {
             a.remove();
             URL.revokeObjectURL(url);
-        }, 120000);
+        }, 300000);
     }
 
     function safeBookSlug() {
@@ -1534,9 +1545,10 @@
             bookFormat: publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
             publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
         }))
-            .then(function (blob) {
-                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-interior.pdf');
-                showTransientMessage('success', 'Print-ready interior PDF download started.');
+            .then(function (result) {
+                var fname = (result && result.fileName) ? result.fileName : (safeBookSlug() + '-' + bookId + '-interior.pdf');
+                downloadBlobAsFile(result.blob, fname);
+                showTransientMessage('success', 'PDF saved to Downloads — open it from your Downloads folder when the download finishes.');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'PDF download failed.');
@@ -1564,9 +1576,10 @@
             bookFormat: fmtSnap.bookFormat || publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
             publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
         }))
-            .then(function (blob) {
-                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-interior.pdf');
-                redirectToDashboardAfterExport('Print-ready interior PDF downloaded — returning to Dashboard…');
+            .then(function (result) {
+                var fname = (result && result.fileName) ? result.fileName : (safeBookSlug() + '-' + bookId + '-interior.pdf');
+                downloadBlobAsFile(result.blob, fname);
+                showTransientMessage('success', 'Interior PDF saved to Downloads — wait for the download to finish before opening the file.');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Interior PDF download failed.');

@@ -79,8 +79,9 @@ public static class InteriorExportTheme
         return pt.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
+    /// <summary>Exact multiplier shared with formatter <c>--fmt-line-height</c> (1.4 / 1.6 / 1.8 / 2).</summary>
     public static string ResolveLineHeight(string? lineSpacing) =>
-        NormalizeLineSpacing(lineSpacing);
+        InteriorLayoutTokens.ResolveLineHeightExact(lineSpacing);
 
     public static string PdfBodyTemplateClass(string? interiorStyle) =>
         NormalizeInteriorStyle(interiorStyle) switch
@@ -163,44 +164,38 @@ public static class InteriorExportTheme
             ".chapter-body h4 + *, .chapter-body h5 + *, .chapter-body h6 + * { ",
             "break-before: avoid !important; page-break-before: avoid !important; } ");
 
-    /// <summary>PDF interior CSS (embedded in print HTML).</summary>
+    /// <summary>PDF interior CSS (embedded in print HTML) — layout numbers from <see cref="InteriorLayoutTokens"/>.</summary>
     public static string BuildPdfThemeCss(BookPdfExportOptions opt)
     {
         var interior = NormalizeInteriorStyle(opt.InteriorStyle);
-        var pt = ResolveBodyFontSizePt(interior, opt.TextSize);
-        var lh = ResolveLineHeight(opt.LineSpacing);
         var pageBg = opt.ResolvePageBackgroundColor();
         var theme = ResolveTheme(interior) with { PageBackground = pageBg };
-        var tpl = PdfBodyTemplateClass(interior);
-        var justify = interior is "Modern" or "Minimalist" ? "text-align:left;" : "text-align:justify;";
-        var chapterAlign = interior is "Classic" or "Novel" or "ElegantTrade" ? "text-align:center;" : "text-align:left;";
-
         var accent = NormalizeAccentHex(opt.PreviewAccent);
         var accentCss = string.IsNullOrEmpty(accent)
             ? ""
             : string.Concat("--fmt-accent: ", accent, "; ");
 
-        var baseCss = string.Concat(
-            ":root { ",
-            "--body-pt: ", pt, "pt; ",
-            "--body-lh: ", lh, "; ",
+        var fontVars = string.Concat(
             "--body-font: ", theme.BodyFont, "; ",
             "--heading-font: ", theme.HeadingFont, "; ",
             "--heading-color: ", theme.HeadingColor, "; ",
             "--body-color: ", theme.BodyColor, "; ",
-            "--page-bg: ", theme.PageBackground, "; ",
-            accentCss,
-            "} ",
+            "--page-bg: ", pageBg, "; ",
+            accentCss);
+
+        var baseCss = string.Concat(
+            InteriorLayoutTokens.BuildCssCustomProperties(opt),
+            ":root { ", fontVars, "} ",
             "html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             "@page { background-color: var(--page-bg); } ",
             "html { background-color: var(--page-bg); margin: 0; padding: 0; } ",
-            ".book-pdf-body { font-family: var(--body-font); font-size: var(--body-pt); line-height: var(--body-lh); color: var(--body-color); background: var(--page-bg); margin: 0; min-height: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
+            ".book-pdf-body { font-family: var(--body-font); font-size: var(--ilt-body-pt); line-height: var(--ilt-body-lh); ",
+            "color: var(--body-color); background: var(--page-bg); margin: 0; min-height: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             ".front-matter-page, .title-page, .copyright-page, .manuscript-root > section.chapter, ",
             ".reader-chapter-block, .reader-page-title, .reader-page-body { background-color: var(--page-bg) !important; box-sizing: border-box; } ",
-            ".manuscript-root > section.chapter { box-sizing: border-box; } ",
-            ".manuscript-root > section.chapter { min-height: auto; padding-top: 2mm; padding-bottom: 2mm; } ",
-            ".front-matter-page { page-break-after: always; padding-top: 8mm; background: var(--page-bg); min-height: 100vh; } ",
-            ".title-page { min-height: 100vh; background: var(--page-bg); } ",
+            InteriorLayoutTokens.BuildSharedReaderLayoutCss(),
+            ".front-matter-page { page-break-after: always; background: var(--page-bg); min-height: 100vh; } ",
+            ".title-page { min-height: 100vh; background: var(--page-bg); padding-top: var(--ilt-title-page-pad-top); } ",
             ".copyright-page .cr-meta { font-size: 12pt; margin: 0 0 4mm; } ",
             ".copyright-page .cr-legal { font-size: 10pt; margin: 6mm 0 3mm; line-height: 1.5; } ",
             ".copyright-page .cr-small { font-size: 9pt; color: #64748b; margin-top: 4mm; line-height: 1.45; } ",
@@ -216,15 +211,12 @@ public static class InteriorExportTheme
             ".toc-heading-prefix { font-weight: 600; color: #0f172a; margin-right: 2mm; } ",
             ".toc-link { color: #0f172a; text-decoration: none; } ",
             ".title-page .subtitle { font-size: 12pt; color: #64748b; margin-top: 4mm; } ",
-            ".chapter-heading { font-family: var(--heading-font); font-size: 15pt; margin: 0 0 6mm; color: var(--heading-color); padding-bottom: 2mm; ",
-            chapterAlign, " ", theme.ChapterHeadingExtra, " } ",
+            ".reader-page-title { font-family: var(--heading-font); color: var(--heading-color); font-weight: 600; } ",
             ".export-meta { font-size: 9pt; color: #64748b; margin: 0 0 4mm; line-height: 1.45; } ",
-            ".chapter-body { ", justify, " } ",
             ".manuscript-h1 { font-size: 16pt; margin: 5mm 0 3mm; font-family: var(--heading-font); color: var(--heading-color); } ",
             ".manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; font-family: var(--heading-font); color: var(--heading-color); } ",
             ".manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; font-family: var(--heading-font); color: var(--heading-color); } ",
             ".manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; font-family: var(--heading-font); color: var(--heading-color); } ",
-            ".manuscript-p { margin: 0 0 3mm; orphans: 3; widows: 3; page-break-inside: avoid; ", theme.ParagraphRules, " } ",
             ".manuscript-hr { border: none; border-top: 1px solid #cbd5e1; margin: 6mm 0; } ",
             "blockquote { ", theme.BlockquoteRules, " } ",
             ".chapter-body h1, .chapter-body h2, .chapter-body h3, .chapter-body h4, .chapter-body h5, .chapter-body h6, ",
@@ -235,55 +227,34 @@ public static class InteriorExportTheme
             ".manuscript-root > section.chapter ~ section.chapter { break-before: page; page-break-before: always; } ",
             ".manuscript-root > section.chapter:last-of-type { break-after: auto; page-break-after: auto; } ",
             ".chapter-body .manuscript-chapter-heading, .chapter-body .manuscript-heading { font-family: var(--heading-font); color: var(--heading-color); } ",
-            ".chapter-body .manuscript-h1 { font-size: 16pt; margin: 5mm 0 3mm; } ",
-            ".chapter-body .manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; } ",
-            ".chapter-body .manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; } ",
-            ".chapter-body .manuscript-h4 { font-size: 11pt; margin: 2mm 0 1mm; } ",
             "img { max-width: 100%; height: auto; page-break-inside: avoid; break-inside: avoid; } ",
             "[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             ".book-pdf-body.interior-modern .reader-page-body p { border-left-color: var(--fmt-accent, #6366f1); } ",
             ".book-pdf-body blockquote { border-left-color: var(--fmt-accent, #c4b5fd); } ",
-            BuildPreviewMatchedReaderCss(interior, justify, chapterAlign, theme));
+            ".reader-content-wrap { background: var(--page-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; } ");
 
         var tplCss = interior switch
         {
-            "Modern" => ".book-pdf-body.tpl-modern .reader-page-title { font-size: 11pt; font-weight: 800; text-transform: uppercase; letter-spacing: 0.18em; border-bottom: none; border-left: 4px solid #6366f1; padding-left: 4mm; text-align: left; } ",
-            "Minimalist" => ".book-pdf-body.tpl-minimalist .reader-page-title { font-size: 13pt; font-weight: 600; border-bottom: 1px solid #e5e5e5; letter-spacing: -0.02em; text-align: left; } ",
-            "Classic" => ".book-pdf-body.tpl-classic .reader-page-title { font-size: 17pt; font-variant: small-caps; font-style: italic; letter-spacing: 0.12em; border-bottom: 3px double #d6c4a8; padding-bottom: 5mm; text-align: center; } ",
-            "ElegantTrade" => ".book-pdf-body.tpl-elegant-trade .reader-page-title { font-size: 16pt; font-weight: 600; letter-spacing: 0.04em; color: #3d2914; border-bottom: 1px solid #c9b8a0; padding-bottom: 5mm; text-align: center; } ",
-            _ => ".book-pdf-body.tpl-novel .reader-page-title { font-size: 16pt; font-weight: 700; letter-spacing: 0.015em; border-bottom: 1px solid rgba(111, 47, 16, 0.18); color: #6f2f10; padding-bottom: 3mm; text-align: center; } "
+            "Modern" => ".book-pdf-body.tpl-modern .reader-page-title { font-weight: 800; border-left: 4px solid #6366f1; padding-left: 4mm; } ",
+            "Classic" => ".book-pdf-body.tpl-classic .reader-page-title { font-variant: small-caps; font-style: italic; letter-spacing: 0.12em; border-bottom: 3px double #d6c4a8; } ",
+            _ => ""
         };
 
-        return baseCss + tplCss + BuildFormatterInteriorCss() + BuildBookPreviewSheetPrintCss(interior, pageBg) + BuildHeadingKeepWithNextCss();
+        return baseCss + tplCss + InteriorLayoutTokens.BuildFrameAndSheetCss()
+               + InteriorLayoutTokens.BuildPerInteriorCss(interior)
+               + BuildFormatterInteriorCss() + BuildHeadingKeepWithNextCss();
     }
 
-    /// <summary>book-preview-sheet backgrounds — matches Book Formatter preview per interior style.</summary>
-    public static string BuildBookPreviewSheetPrintCss(string interior, string pageBg)
-    {
-        var sheetBg = ResolveDefaultPageBackground(interior);
-        var baseRules = string.Concat(
-            ".book-preview-sheet { width: 100%; box-sizing: border-box; background: ", sheetBg,
-            "; -webkit-print-color-adjust: exact; print-color-adjust: exact; padding: 6mm 7mm; } ",
-            ".reader-content-wrap { background: var(--page-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; } ");
-
-        var perInterior = interior switch
-        {
-            "Classic" => ".reader-content-wrap.interior-classic .book-preview-sheet { background: #fdfcfa; border: 1px solid #ddd2c4; } ",
-            "Modern" => ".reader-content-wrap.interior-modern .book-preview-sheet { background: #ffffff; border: 1px solid #9fb1c9; } ",
-            "Minimalist" => ".reader-content-wrap.interior-minimalist .book-preview-sheet { background: #ffffff; border: 1px solid #e4e4e7; } ",
-            "ElegantTrade" => ".reader-content-wrap.interior-elegant-trade .book-preview-sheet { background: #fcf9f3; border: 1px solid #cfbea5; } ",
-            _ => ".reader-content-wrap.interior-novel .book-preview-sheet { background: #fffdf8; border: 1px solid #d4b08a; } "
-        };
-
-        return baseRules + perInterior;
-    }
+    /// <summary>Legacy hook — sheet padding now lives in <see cref="InteriorLayoutTokens"/>.</summary>
+    public static string BuildBookPreviewSheetPrintCss(string interior, string pageBg) =>
+        InteriorLayoutTokens.BuildSharedReaderLayoutCss();
 
     /// <summary>Interior shell rules — mirrors Book Formatter preview (<c>interior-*</c> on body).</summary>
     public static string BuildFormatterInteriorCss() =>
         string.Concat(
             ".book-pdf-body.interior-novel .reader-page-title { font-family: 'Playfair Display', Georgia, serif; color: #6f2f10; font-weight: 700; text-align: center; border-bottom: 1px solid rgba(111, 47, 16, 0.18); } ",
             ".book-pdf-body.interior-novel .reader-page-body { font-family: 'Merriweather', Georgia, serif; color: #2c2118; } ",
-            ".book-pdf-body.interior-novel .reader-page-body p { text-indent: 1.5em; margin-bottom: 0.95em; } ",
+            ".book-pdf-body.interior-novel .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
             ".book-pdf-body.interior-modern .reader-page-title { font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 800; color: #334155; text-align: left; border-bottom: none; } ",
             ".book-pdf-body.interior-modern .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #334155; } ",
             ".book-pdf-body.interior-modern .reader-page-body p { text-indent: 0; border-left: 3px solid #6366f1; padding-left: 0.9em; margin-bottom: 0.85em; } ",
@@ -295,21 +266,8 @@ public static class InteriorExportTheme
             ".book-pdf-body.interior-minimalist .reader-page-body p { text-indent: 0; margin-bottom: 1.1em; } ",
             ".book-pdf-body.interior-elegant-trade .reader-page-title { font-family: 'Lora', 'Times New Roman', serif; font-weight: 600; letter-spacing: 0.06em; color: #3d2914; text-align: center; border-bottom: 1px solid #c8b08e; } ",
             ".book-pdf-body.interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
-            ".book-pdf-body.interior-elegant-trade .reader-page-body p { text-indent: 1.35em; margin-bottom: 0.95em; } ",
+            ".book-pdf-body.interior-elegant-trade .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
             ".book-pdf-body.interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ");
-
-    private static string BuildPreviewMatchedReaderCss(string interior, string justify, string chapterAlign, ThemeSpec theme) =>
-        string.Concat(
-            ".reader-chapter-block { margin: 0; padding: 0; } ",
-            ".reader-page-title { font-family: var(--heading-font); color: var(--heading-color); margin: 0 0 6mm; padding-bottom: 2mm; ",
-            chapterAlign, " ", theme.ChapterHeadingExtra, " } ",
-            ".reader-page-body { ", justify, " margin: 0; padding: 0; } ",
-            ".reader-page-body p, .reader-page-body .manuscript-p { margin: 0 0 3mm; orphans: 3; widows: 3; ",
-            theme.ParagraphRules, " } ",
-            ".reader-page-body p:first-of-type, .reader-page-title + .reader-page-body p:first-of-type { text-indent: 0; } ",
-            interior == "Classic"
-                ? ".book-pdf-body.tpl-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 600; color: #78350f; } "
-                : "");
 
     private static string? NormalizeAccentHex(string? raw)
     {

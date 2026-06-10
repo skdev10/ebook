@@ -1,5 +1,6 @@
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
+using EBookDashboard.Services;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Models.ViewModels;
 using Humanizer;
@@ -1143,14 +1144,9 @@ namespace EBookDashboard.Controllers
                 var key = $"user:{userId}:lastBookWorkUrl";
                 var row = _context.Settings.AsNoTracking().FirstOrDefault(s => s.Key == key);
                 var path = row?.Value?.Trim();
-                if (string.IsNullOrEmpty(path) || path.Length > 600) return null;
-                if (!path.StartsWith('/') || path.StartsWith("//", StringComparison.Ordinal)) return null;
-                if (path.Contains("://", StringComparison.Ordinal) || path.Contains('\\')) return null;
-                // After login, only resume within Dashboard (book writer URLs can crash on partial DB state).
-                var pathOnly = path.Split('?', 2)[0];
-                if (!pathOnly.StartsWith("/Dashboard", StringComparison.OrdinalIgnoreCase))
+                if (!BookResumeUrlHelper.IsAllowedLoginResumePath(path ?? ""))
                     return null;
-                return LocalRedirect(path);
+                return LocalRedirect(path!);
             }
             catch (Exception ex)
             {

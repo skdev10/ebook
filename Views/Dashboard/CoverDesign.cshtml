@@ -1310,6 +1310,8 @@
         refreshLucide();
     }
 
+    var booksRendered = false;
+
     function loadBooks() {
         if (initialBookId > 0) {
             try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(initialBookId)); } catch (_) {}
@@ -1328,11 +1330,28 @@
                     if (sess) b.aiCoverLastPreview = sess;
                 }
             });
+            booksRendered = true;
             renderBooks(cached);
         }
-        fetch('/Books/GetUserBooksForCoverDesign')
+
+        if (initialBookId > 0 && !booksRendered) {
+            fetch('/Books/GetBookForCoverDesign?bookId=' + encodeURIComponent(initialBookId))
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d && d.success && d.book) {
+                        booksRendered = true;
+                        renderBooks({ success: true, books: [d.book] });
+                    }
+                })
+                .catch(function () { /* full list fetch is fallback */ });
+        }
+
+        var listController = new AbortController();
+        var listTimeout = setTimeout(function () { listController.abort(); }, 20000);
+        fetch('/Books/GetUserBooksForCoverDesign', { signal: listController.signal })
             .then(function (r) { return r.json(); })
             .then(function (d) {
+                clearTimeout(listTimeout);
                 if (initialBookId > 0 && d && d.success && d.books && d.books.length) {
                     d.books.sort(function (a, b) {
                         if (a.bookId === initialBookId) return -1;
@@ -1341,11 +1360,19 @@
                     });
                 }
                 try { sessionStorage.setItem(booksCacheKey, JSON.stringify(d)); } catch (_) {}
-                renderBooks(d);
+                if (d && d.success && d.books && d.books.length) {
+                    booksRendered = true;
+                    renderBooks(d);
+                } else if (!booksRendered) {
+                    screenLoading.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                    emptyState.textContent = 'No books found. Create a book from the Dashboard first.';
+                }
             })
             .catch(function () {
+                clearTimeout(listTimeout);
                 screenLoading.classList.add('hidden');
-                if (!cached) {
+                if (!booksRendered) {
                     emptyState.classList.remove('hidden');
                     emptyState.textContent = 'Failed to load books. Please refresh.';
                 }
