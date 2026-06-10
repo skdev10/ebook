@@ -91,8 +91,9 @@ public class ManuscriptExportPrepTests
     public void BuildFormatterSyncCss_uses_kdp_inch_padding_and_text_measure()
     {
         var css = InteriorLayoutTokens.BuildFormatterSyncCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
-        Assert.Contains("--ilt-pad-top: 0.72in", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-text-max: 4.35in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-top: 0.78in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-text-max: 4.2in", css, StringComparison.Ordinal);
+        Assert.Contains(".toc-leader", css, StringComparison.Ordinal);
         Assert.Contains("fmt-mat-novel", css, StringComparison.Ordinal);
     }
 
@@ -157,5 +158,22 @@ public class ManuscriptExportPrepTests
 
         Assert.Contains("tpl-classic", css, StringComparison.Ordinal);
         Assert.Contains("small-caps", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildTocHtml_uses_professional_print_structure()
+    {
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Test Book", null, null, "Fiction", "Author");
+        var chapters = new List<ChapterDto>
+        {
+            new() { ChapterNumber = 1, Title = "Opening", Content = "<p class=\"manuscript-p\">Body</p><h2 class=\"manuscript-h2\">Scene</h2>" }
+        };
+        var html = InteriorFrontMatterBuilder.BuildTocHtml(chapters, ph);
+
+        Assert.Contains("toc-block", html, StringComparison.Ordinal);
+        Assert.Contains("toc-leader", html, StringComparison.Ordinal);
+        Assert.Contains("toc-sub-text", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("toc-hint", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Heading:", html, StringComparison.Ordinal);
     }
 }

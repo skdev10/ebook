@@ -100,7 +100,7 @@ public static class InteriorLayoutTokens
 
     /// <summary>Optimal reading measure — centered text block inside padded page (≈65 characters at 11pt).</summary>
 
-    public const string TextBlockMaxWidth = "4.35in";
+    public const string TextBlockMaxWidth = "4.2in";
 
 
 
@@ -118,11 +118,11 @@ public static class InteriorLayoutTokens
 
 
 
-    public const string ChapterDrop = "2.5rem";
+    public const string ChapterDrop = "1.85rem";
 
-    public const string FrontMatterPadTop = "2.1rem";
+    public const string FrontMatterPadTop = "1.15in";
 
-    public const string TitlePagePadTop = "3.75rem";
+    public const string TitlePagePadTop = "3.25in";
 
     public const string RunningHeadPadTop = "0.32in";
 
@@ -144,7 +144,7 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#fffdf8",
 
-            SheetPadding: new("0.72in", "0.76in", "0.68in", "0.76in"),
+            SheetPadding: new("0.78in", "0.84in", "0.72in", "0.84in"),
 
             Body: new("1.03rem", "1.88", "1.5rem", "1.05rem", "justify", "1.1rem", "0.7rem"),
 
@@ -528,6 +528,80 @@ public static class InteriorLayoutTokens
 
 
 
+    /// <summary>Front matter + table of contents — identical in formatter preview and PDF export.</summary>
+
+    public static string BuildTocCss()
+
+    {
+
+        return string.Concat(
+
+            ".front-matter-page { box-sizing: border-box; page-break-after: always; break-after: page; } ",
+
+            ".copyright-page, .toc-page { display: block; text-align: left; min-height: auto; justify-content: flex-start; } ",
+
+            ".copyright-block, .toc-block { max-width: var(--ilt-text-max); margin-inline: auto; width: 100%; box-sizing: border-box; } ",
+
+            ".copyright-page .cr-meta { font-size: 11pt; margin: 0 0 0.35in; line-height: 1.45; } ",
+
+            ".copyright-page .cr-legal { font-size: 9.5pt; margin: 0.28in 0 0.18in; line-height: 1.55; color: #3f3a34; } ",
+
+            ".copyright-page .cr-small { font-size: 8.5pt; color: #64748b; margin-top: 0.22in; } ",
+
+            ".toc-title { font-family: var(--heading-font, Georgia, serif); font-size: 17pt; font-weight: 600; ",
+
+            "letter-spacing: 0.06em; text-transform: uppercase; text-align: center; color: var(--heading-color, #1c1917); ",
+
+            "margin: 0 0 0.55in; padding-bottom: 0.22in; border-bottom: 1px solid rgba(120, 96, 72, 0.28); } ",
+
+            ".toc-nav { margin: 0; } ",
+
+            ".toc-list { list-style: none; margin: 0; padding: 0; } ",
+
+            ".toc-item { margin: 0 0 0.38in; font-size: 10.5pt; line-height: 1.4; } ",
+
+            ".toc-item-empty { color: #64748b; font-style: italic; } ",
+
+            ".toc-chapter-line { display: flex; align-items: baseline; gap: 0.12in; font-weight: 600; color: #1c1917; } ",
+
+            ".toc-entry-text { flex: 0 1 auto; min-width: 0; } ",
+
+            ".toc-leader { flex: 1 1 auto; min-width: 0.35in; border-bottom: 1px dotted rgba(100, 116, 139, 0.65); ",
+
+            "transform: translateY(-0.14em); margin: 0 0.08in; } ",
+
+            ".toc-page-ref { flex: 0 0 auto; min-width: 0.35in; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: #334155; } ",
+
+            ".toc-subheadings { list-style: none; margin: 0.14in 0 0; padding: 0 0 0 0.28in; } ",
+
+            ".toc-subheading-item { font-size: 9.5pt; font-weight: 400; color: #475569; margin: 0 0 0.12in; line-height: 1.38; } ",
+
+            ".toc-sub-text { display: block; padding-left: 0.12in; border-left: 1px solid rgba(148, 163, 184, 0.45); } ",
+
+            ".toc-link { color: inherit; text-decoration: none; } ",
+
+            ".toc-link:hover { text-decoration: underline; } ",
+
+            "[data-interior-mode=\"web\"] .toc-page { padding-top: var(--ilt-front-pad-top); min-height: auto; display: block; } ",
+
+            "[data-interior-mode=\"web\"] .copyright-page { padding-top: var(--ilt-front-pad-top); } ",
+
+            "[data-interior-mode=\"web\"] .title-page { padding: var(--ilt-title-page-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); ",
+
+            "min-height: var(--preview-page-min-h, 9in); display: flex; flex-direction: column; justify-content: center; text-align: center; } ",
+
+            "[data-interior-mode=\"web\"] .title-page h1 { font-size: 1.65rem; letter-spacing: 0.03em; margin: 0 0 0.75rem; max-width: var(--ilt-text-max); margin-inline: auto; } ",
+
+            "[data-interior-mode=\"web\"] .title-page-author { font-size: 0.95rem; letter-spacing: 0.06em; margin: 1rem 0 0.35rem; } ",
+
+            "[data-interior-mode=\"web\"] .title-page-genre, [data-interior-mode=\"web\"] .title-page .subtitle { ",
+
+            "text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; color: #8a8175; margin-top: 0.35rem; } ");
+
+    }
+
+
+
     private static string MatClassForKey(string key) => key switch
     {
         "elegant-trade" => "fmt-mat-elegant-trade",
@@ -794,6 +868,8 @@ public static class InteriorLayoutTokens
 
         sb.Append(BuildSharedReaderLayoutCss());
 
+        sb.Append(BuildTocCss());
+
         sb.Append(BuildFrameAndSheetCss());
 
         sb.Append(BuildWebPreviewModeCss());
@@ -834,7 +910,17 @@ public static class InteriorLayoutTokens
 
                 padLeft = kv.Value.SheetPadding.Left,
 
-                pageBg = kv.Value.Frame.PageBackground
+                pageBg = kv.Value.Frame.PageBackground,
+
+                matBg = kv.Value.Frame.MatBackground,
+
+                matBorder = kv.Value.Frame.MatBorder,
+
+                sheetBorder = kv.Value.Frame.SheetBorder,
+
+                sheetShadow = kv.Value.Frame.SheetShadow,
+
+                containerShadow = kv.Value.Frame.ContainerShadow
 
             });
 
@@ -888,25 +974,7 @@ public static class InteriorLayoutTokens
 
             "text-overflow: ellipsis; white-space: nowrap; } ",
 
-            "[data-interior-mode=\"web\"] .title-page, [data-interior-mode=\"web\"] .front-matter-page { ",
-
-            "min-height: var(--preview-page-min-h); display: flex; flex-direction: column; ",
-
-            "justify-content: center; text-align: center; padding: 3rem 2rem 2rem; } ",
-
-            "[data-interior-mode=\"web\"] .title-page h1 { font-size: 1.65rem; letter-spacing: 0.03em; margin-bottom: 0.75rem; } ",
-
-            "[data-interior-mode=\"web\"] .title-page .subtitle, [data-interior-mode=\"web\"] .title-page-genre { ",
-
-            "text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; color: #8a8175; } ",
-
-            "[data-interior-mode=\"web\"] .toc-page { padding: var(--ilt-front-pad-top) 2rem 2rem; min-height: auto; display: block; } ",
-
-            "[data-interior-mode=\"web\"] .toc-link { color: #0f172a; text-decoration: none; cursor: pointer; } ",
-
-            "[data-interior-mode=\"web\"] .toc-link:hover { text-decoration: underline; } ",
-
-            "[data-interior-mode=\"web\"] .toc-subheading-item { cursor: default; } ");
+            "[data-interior-mode=\"web\"] .toc-link { cursor: pointer; } ");
 
     }
 

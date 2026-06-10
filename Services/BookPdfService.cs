@@ -1,10 +1,8 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
-using System.Text.RegularExpressions;
 using EBookDashboard.Interfaces;
 using EBookDashboard.Services.PdfExport;
-using HtmlAgilityPack;
 using EBookDashboard.Models.DTO;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
@@ -61,8 +59,8 @@ public class BookPdfService : IBookPdfService
         // One DB chapter = one PDF chapter. Do not split on in-body <h2> — those are section headings (##), not new chapters.
         var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
         var sections = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(chapters, phBase, opt);
-        var tocHtml = BuildTocHtml(chapters, phBase);
-        var copyrightHtml = BuildCopyrightPageHtml(title, author, publisherDisplayName);
+        var tocHtml = InteriorFrontMatterBuilder.BuildTocHtml(chapters, phBase);
+        var copyrightHtml = InteriorFrontMatterBuilder.BuildCopyrightPageHtml(title, author, publisherDisplayName);
         var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
         var shellCls = InteriorPrintDocumentBuilder.PreviewShellClass(opt.InteriorStyle);
         var wrapCls = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(opt.InteriorStyle);
@@ -158,95 +156,6 @@ public class BookPdfService : IBookPdfService
             throw new InvalidOperationException("PDF generation produced an empty document.");
         if (pdfBytes[0] != (byte)'%' || pdfBytes[1] != (byte)'P' || pdfBytes[2] != (byte)'D' || pdfBytes[3] != (byte)'F')
             throw new InvalidOperationException("PDF generation produced invalid output.");
-    }
-
-    private static string CultureInvariant(FormattableString fs) => FormattableString.Invariant(fs);
-
-    private static string BuildCopyrightPageHtml(string title, string author, string? publisherDisplayName)
-    {
-        var y = DateTime.UtcNow.Year;
-        var sb = new StringBuilder();
-        sb.AppendLine("""<div class="front-matter-page copyright-page">""");
-        sb.AppendLine($"""<p class="cr-meta"><strong>{WebUtility.HtmlEncode(title)}</strong></p>""");
-        if (!string.IsNullOrEmpty(author))
-            sb.AppendLine($"""<p class="cr-meta">{WebUtility.HtmlEncode(author)}</p>""");
-        sb.AppendLine($"""<p class="cr-legal">Copyright © {y.ToString(CultureInfo.InvariantCulture)} {WebUtility.HtmlEncode(author)}. All rights reserved.</p>""");
-        if (!string.IsNullOrEmpty(publisherDisplayName))
-            sb.AppendLine($"""<p class="cr-legal">Prepared for publication by {WebUtility.HtmlEncode(publisherDisplayName)}.</p>""");
-        sb.AppendLine("</div>");
-        return sb.ToString();
-    }
-
-    /// <summary>
-    /// Pulls in-chapter headings (h1–h6) from formatted body HTML in document order for PDF table of contents.
-    /// </summary>
-    private static List<string> ExtractHeadingsFromChapterBodyHtml(string bodyHtml)
-    {
-        var headings = new List<string>();
-        if (string.IsNullOrWhiteSpace(bodyHtml)) return headings;
-        try
-        {
-            var doc = new HtmlDocument();
-            doc.OptionFixNestedTags = true;
-            doc.LoadHtml(bodyHtml);
-            var nodes = doc.DocumentNode.SelectNodes("//h1|//h2|//h3|//h4|//h5|//h6");
-            if (nodes == null) return headings;
-            foreach (var node in nodes)
-            {
-                var text = HtmlEntity.DeEntitize(node.InnerText ?? "");
-                text = Regex.Replace(text.Replace('\n', ' '), @"\s+", " ").Trim();
-                if (text.Length == 0) continue;
-                headings.Add(text);
-            }
-        }
-        catch
-        {
-            // Malformed chapter HTML should not block export.
-        }
-
-        return headings;
-    }
-
-    private static string BuildTocHtml(List<ChapterDto> chapters, BookManuscriptHtmlFormatter.PlaceholderContext phBase)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("""<div class="front-matter-page toc-page">""");
-        sb.AppendLine("""<h1 class="toc-title">Contents</h1>""");
-        sb.AppendLine("""<p class="toc-hint">Chapter titles and in-chapter headings (print-style contents) with clickable chapter links and page references.</p>""");
-        sb.AppendLine("""<ol class="toc-list">""");
-        var tocNarrative = 0;
-        for (var i = 0; i < chapters.Count; i++)
-        {
-            var ch = chapters[i];
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
-                tocNarrative++;
-            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : tocNarrative;
-            var sectionId = i + 1;
-            var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
-            var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
-            var chapterLine = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
-            var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, chapterLine);
-            var subHeadings = ExtractHeadingsFromChapterBodyHtml(bodyHtml);
-
-            sb.AppendLine("""<li class="toc-item">""");
-            sb.AppendLine(CultureInvariant(
-                $"""<div class="toc-chapter-line"><a href="#ch-{sectionId}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a><span class="toc-page-ref" data-target="ch-{sectionId}">…</span></div>"""));
-            if (subHeadings.Count > 0)
-            {
-                sb.AppendLine("""<ul class="toc-subheadings">""");
-                foreach (var h in subHeadings)
-                    sb.AppendLine(CultureInvariant(
-                        $"""<li class="toc-subheading-item"><span class="toc-heading-prefix">Heading:</span> {WebUtility.HtmlEncode(h)}</li>"""));
-                sb.AppendLine("</ul>");
-            }
-
-            sb.AppendLine("</li>");
-        }
-
-        if (chapters.Count == 0)
-            sb.AppendLine("""<li class="toc-item">No chapters yet.</li>""");
-        sb.AppendLine("</ol></div>");
-        return sb.ToString();
     }
 
     /// <summary>

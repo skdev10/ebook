@@ -42,7 +42,35 @@
 
     function wireTocLinks(root) {
 
+        root.querySelectorAll('.toc-link[data-goto-page]').forEach(function (anchor) {
+
+            anchor.addEventListener('click', function (e) {
+
+                e.preventDefault();
+
+                var page = parseInt(anchor.getAttribute('data-goto-page') || '', 10);
+
+                if (!Number.isFinite(page) || page < 1) return;
+
+                if (typeof global.FmtBookStageReader !== 'undefined' && global.FmtBookStageReader.goToPage) {
+
+                    global.FmtBookStageReader.goToPage(page - 1);
+
+                    if (typeof global.updatePageIndicator === 'function') global.updatePageIndicator();
+
+                    if (typeof global.persistReaderPageBookmark === 'function') global.persistReaderPageBookmark();
+
+                    return;
+
+                }
+
+            });
+
+        });
+
         root.querySelectorAll('.toc-link[href^="#"]').forEach(function (anchor) {
+
+            if (anchor.getAttribute('data-goto-page')) return;
 
             anchor.addEventListener('click', function (e) {
 

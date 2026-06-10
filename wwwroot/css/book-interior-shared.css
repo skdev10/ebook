@@ -1,112 +1,137 @@
-/**
- * Shared interior layout: web preview + print PDF parity.
- * Tokens: InteriorLayoutTokens.cs / _InteriorLayoutTokens.cshtml
- * PDF HTML: BookPreviewPrintHtmlBuilder.cs → ChromiumPdfExporter
- */
-
-[data-interior-mode="web"] .book-interior-scroll-host {
-    max-height: none;
-    overflow: visible;
-    overscroll-behavior: auto;
-    padding: 0;
-}
-
-[data-interior-mode="web"] .book-page-preview-shell {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    aspect-ratio: 6 / 9;
-    max-height: none;
-    flex-shrink: 0;
-}
-
-[data-interior-mode="web"] .chapter-preview-viewport.book-page-preview-content {
-    overflow: hidden !important;
-    height: 100%;
-    min-height: 0;
-}
-
-#book-formatter-root #fmt-preview-scroll-host.book-interior-scroll-host {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
-    max-height: none;
-    padding: 0;
-    min-height: 0;
-    flex: 1 1 auto;
-}
-
-#book-formatter-root #fmt-preview-scroll-host .preview-panel-single {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow: visible;
-}
-
-#book-formatter-root #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
-    margin-inline: auto;
-    overflow: hidden !important;
-    flex: 0 0 auto !important;
-}
-
-#book-formatter-root .book-page-content {
-    overflow: hidden !important;
-    -webkit-overflow-scrolling: auto;
-}
-
-#book-formatter-root .book-page-content-wrap {
-    padding: var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left);
-}
-
-#book-formatter-root .reader-page-body,
-#book-formatter-root .reader-page-title {
-    max-width: var(--ilt-text-max, 4.35in);
-    margin-inline: auto;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-#book-formatter-root .book-page-content img,
-[data-interior-mode="web"] .reader-page-body img {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    margin: 0.75rem auto;
-    page-break-inside: avoid;
-    break-inside: avoid;
-}
-
-[data-interior-mode="print"] .book-preview-sheet {
-    page-break-after: always;
-    break-after: page;
-}
-
-[data-interior-mode="print"] .manuscript-root > section.chapter ~ section.chapter {
-    break-before: page;
-    page-break-before: always;
-}
-
-[data-interior-mode="web"] .reader-page-body .manuscript-h2,
-[data-interior-mode="web"] .reader-page-body h2 {
-    font-size: 1.05em;
-    margin-top: 1.35em;
-    margin-bottom: 0.45em;
-}
-
-[data-interior-mode="web"] .reader-page-body .manuscript-h3,
-[data-interior-mode="web"] .reader-page-body h3 {
-    font-size: 1em;
-    margin-top: 1.1em;
-    margin-bottom: 0.35em;
-}
-
-[data-interior-mode="web"] .reader-page-title + .reader-page-body p:first-of-type {
-    margin-top: 0.65rem;
-}
+/**
+ * Shared interior layout: web preview + print PDF parity.
+ * Tokens: InteriorLayoutTokens.cs / _InteriorLayoutTokens.cshtml
+ * PDF HTML: BookPreviewPrintHtmlBuilder.cs → ChromiumPdfExporter
+ */
+
+[data-interior-mode="web"] .book-interior-scroll-host {
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    padding: 0;
+}
+
+[data-interior-mode="web"] .book-page-preview-shell {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    aspect-ratio: 6 / 9;
+    max-height: none;
+    flex-shrink: 0;
+}
+
+[data-interior-mode="web"] .chapter-preview-viewport.book-page-preview-content {
+    overflow: hidden !important;
+    height: 100%;
+    min-height: 0;
+}
+
+#book-formatter-root #fmt-preview-scroll-host.book-interior-scroll-host {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    max-height: none;
+    padding: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+}
+
+#book-formatter-root #fmt-preview-scroll-host .preview-panel-single {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: visible;
+}
+
+#book-formatter-root #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
+    margin-inline: auto;
+    overflow: hidden !important;
+    flex: 0 0 auto !important;
+}
+
+#book-formatter-root .book-page-content {
+    overflow: hidden !important;
+    -webkit-overflow-scrolling: auto;
+}
+
+#book-formatter-root .book-page-content-wrap {
+    padding: var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left);
+}
+
+#book-formatter-root .reader-page-body,
+#book-formatter-root .reader-page-title {
+    max-width: var(--ilt-text-max, 4.35in);
+    margin-inline: auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#book-formatter-root .book-page-content img,
+[data-interior-mode="web"] .reader-page-body img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0.75rem auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+[data-interior-mode="print"] .book-preview-sheet {
+    page-break-after: always;
+    break-after: page;
+}
+
+[data-interior-mode="print"] .manuscript-root > section.chapter ~ section.chapter {
+    break-before: page;
+    page-break-before: always;
+}
+
+[data-interior-mode="web"] .reader-page-body .manuscript-h2,
+[data-interior-mode="web"] .reader-page-body h2 {
+    font-size: 1.05em;
+    margin-top: 1.35em;
+    margin-bottom: 0.45em;
+}
+
+[data-interior-mode="web"] .reader-page-body .manuscript-h3,
+[data-interior-mode="web"] .reader-page-body h3 {
+    font-size: 1em;
+    margin-top: 1.1em;
+    margin-bottom: 0.35em;
+}
+
+[data-interior-mode="web"] .reader-page-title + .reader-page-body p:first-of-type {
+    margin-top: 0.65rem;
+}
+
+#book-formatter-root .book-page-content .front-matter-page {
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#book-formatter-root .book-page-content .toc-page,
+#book-formatter-root .book-page-content .copyright-page {
+    justify-content: flex-start;
+    overflow: hidden;
+}
+
+#book-formatter-root .book-page-content .title-page h1 {
+    font-family: var(--heading-font, 'Playfair Display', Georgia, serif);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+#book-formatter-root .book-page-content .toc-title {
+    font-family: var(--heading-font, 'Playfair Display', Georgia, serif);
+}
 
