@@ -94,6 +94,7 @@ public class ManuscriptExportPrepTests
         Assert.Contains("--ilt-pad-top: 0.78in", css, StringComparison.Ordinal);
         Assert.Contains("--ilt-text-max: 4.2in", css, StringComparison.Ordinal);
         Assert.Contains(".toc-leader", css, StringComparison.Ordinal);
+        Assert.Contains("book-page-running-head", css, StringComparison.Ordinal);
         Assert.Contains("fmt-mat-novel", css, StringComparison.Ordinal);
     }
 

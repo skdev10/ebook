@@ -462,6 +462,10 @@ public static class InteriorLayoutTokens
 
             "--ilt-page-surface: ", f.PageBackground, "; ",
 
+            "--ilt-running-head-h: ", RunningHeadPadTop, "; ",
+
+            "--ilt-folio-h: ", FolioPadBottom, "; ",
+
             "} ");
 
     }
@@ -523,6 +527,72 @@ public static class InteriorLayoutTokens
         sb.Append("img { max-width:100%; height:auto; page-break-inside:avoid; break-inside:avoid; display:block; margin:0.75rem auto; } ");
 
         return sb.ToString();
+
+    }
+
+
+
+    /// <summary>Running head + folio chrome — formatter paginated preview matches PDF margin box.</summary>
+
+    public static string BuildPreviewPageChromeCss()
+
+    {
+
+        return string.Concat(
+
+            "#book-formatter-root #paginatedReaderShell { display:flex; flex-direction:column; padding:0 !important; } ",
+
+            "#book-formatter-root #bookStage { display:flex; flex-direction:column; width:100%; height:100%; min-height:0; flex:1 1 auto; } ",
+
+            "#book-formatter-root #bookContainer { display:flex; flex-direction:column; width:100%; height:100%; min-height:0; flex:1 1 auto; } ",
+
+            "#book-formatter-root .book-page-layer { display:flex; flex-direction:column; height:100%; min-height:0; } ",
+
+            "#book-formatter-root .book-page-content-wrap { display:flex; flex-direction:column; height:100%; min-height:0; flex:1 1 auto; ",
+
+            "padding:var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); box-sizing:border-box; } ",
+
+            "#book-formatter-root .book-page-running-head { flex-shrink:0; text-align:center; font-family:Georgia,'Times New Roman',serif; ",
+
+            "font-size:7.5pt; letter-spacing:0.22em; text-transform:uppercase; color:#7c7368; line-height:1.35; ",
+
+            "min-height:var(--ilt-running-head-h,0.32in); padding:0.06in 0 0.1in; margin:0; overflow:hidden; ",
+
+            "text-overflow:ellipsis; white-space:nowrap; box-sizing:border-box; } ",
+
+            "#book-formatter-root .book-page-running-head.is-empty { min-height:0; padding:0; visibility:hidden; } ",
+
+            "#book-formatter-root .book-page-content { flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; } ",
+
+            "#book-formatter-root .book-page-footer { flex-shrink:0; margin-top:auto; padding:0.1in 0 var(--ilt-folio-h,0.32in); ",
+
+            "text-align:center; font-family:Georgia,'Times New Roman',serif; font-size:7.5pt; letter-spacing:0.12em; color:#7c7368; } ",
+
+            "#book-formatter-root #paginatedReaderShell .reader-page-title, ",
+
+            "#book-formatter-root #paginatedReaderShell .reader-page-body, ",
+
+            "#book-formatter-root #paginatedReaderShell .reader-page-body p { ",
+
+            "font-size:var(--fmt-font-size,var(--ilt-body-px)) !important; ",
+
+            "line-height:var(--fmt-line-height,var(--ilt-body-lh)) !important; ",
+
+            "text-align:var(--ilt-text-align,justify) !important; } ",
+
+            "#book-formatter-root #paginatedReaderShell .reader-page-body p { ",
+
+            "text-indent:var(--ilt-text-indent,0) !important; margin:0 0 var(--ilt-para-space,1em) !important; ",
+
+            "border-left:none !important; padding-left:0 !important; } ",
+
+            "#book-formatter-root #paginatedReaderShell.interior-modern .reader-page-body p { ",
+
+            "text-indent:0 !important; border-left:3px solid var(--fmt-accent,#6366f1) !important; padding-left:0.9rem !important; } ",
+
+            "#book-formatter-root #paginatedReaderShell.interior-minimalist .reader-page-body p { text-indent:0 !important; } ",
+
+            "#book-formatter-root #fmt-preview-measure-host { padding:0 !important; font-size:inherit; line-height:inherit; } ");
 
     }
 
@@ -869,6 +939,8 @@ public static class InteriorLayoutTokens
         sb.Append(BuildSharedReaderLayoutCss());
 
         sb.Append(BuildTocCss());
+
+        sb.Append(BuildPreviewPageChromeCss());
 
         sb.Append(BuildFrameAndSheetCss());
 

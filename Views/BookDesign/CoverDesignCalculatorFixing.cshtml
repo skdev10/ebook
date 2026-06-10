@@ -1654,6 +1654,7 @@
                                                         <div id="pageLayerA" class="book-page-layer" aria-hidden="false">
                                                             <div class="book-page-background"></div>
                                                             <div class="book-page-content-wrap">
+                                                                <div id="bookPageRunningHeadA" class="book-page-running-head is-empty" aria-hidden="true"></div>
                                                                 <div id="bookPageContentA" class="book-page-content" role="article"></div>
                                                                 <div id="bookPageFooterA" class="book-page-footer"></div>
                                                             </div>
@@ -1661,6 +1662,7 @@
                                                         <div id="pageLayerB" class="book-page-layer book-page-layer-off" aria-hidden="true">
                                                             <div class="book-page-background"></div>
                                                             <div class="book-page-content-wrap">
+                                                                <div id="bookPageRunningHeadB" class="book-page-running-head is-empty" aria-hidden="true"></div>
                                                                 <div id="bookPageContentB" class="book-page-content" role="article"></div>
                                                                 <div id="bookPageFooterB" class="book-page-footer"></div>
                                                             </div>
@@ -2479,6 +2481,28 @@
         return (shell && shell.clientWidth > 48) ? shell.clientWidth : 0;
     }
 
+    function syncPageRunningHead(headEl, pageIdx) {
+        if (!headEl) return;
+        var ci = readerPageChapterIdx.length > pageIdx ? readerPageChapterIdx[pageIdx] : -1;
+        if (ci < 0) {
+            headEl.textContent = '';
+            headEl.classList.add('is-empty');
+            headEl.setAttribute('aria-hidden', 'true');
+            return;
+        }
+        var title = (bookPreviewContext && bookPreviewContext.bookTitle) || '';
+        title = String(title).trim();
+        if (!title) {
+            headEl.textContent = '';
+            headEl.classList.add('is-empty');
+            headEl.setAttribute('aria-hidden', 'true');
+            return;
+        }
+        headEl.textContent = title.length > 52 ? title.substring(0, 49) + '\u2026' : title;
+        headEl.classList.remove('is-empty');
+        headEl.setAttribute('aria-hidden', 'false');
+    }
+
     /** Usable inner height for one 6×9 page (content box — no scroll). */
     function getFmtContentAreaHeightPx() {
         var contentEl = document.getElementById('bookPageContentA');
@@ -2562,22 +2586,28 @@
         var styleEl = document.getElementById('style-select');
         var interior = styleEl ? String(styleEl.value || 'Novel') : 'Novel';
         var contentCls = interiorStyleClassMap[interior] || interiorStyleClassMap['Novel'];
-        var shellCls = interiorPreviewShellMap[interior] || interiorPreviewShellMap['Novel'];
+        var wrapCls = interiorWrapClassMap[interior] || interiorWrapClassMap['Novel'];
         var stage = document.getElementById('bookStage');
-        var maxH = getFmtPageMaxHeightPx();
-        var footerH = 28;
-        var wrapH = maxH + footerH + 20;
+        var shellH = document.getElementById('paginatedReaderShell');
+        var shellHeight = (shellH && shellH.clientHeight >= 80) ? shellH.clientHeight : Math.floor(w * (9 / 6));
+        var runTitle = (bookPreviewContext && bookPreviewContext.bookTitle) || '';
+        runTitle = String(runTitle).trim();
+        var showHead = runTitle.length > 0 && !(blockInnerHtml || '').match(/front-matter-page|title-page|copyright-page|toc-page/);
+        var headHtml = showHead
+            ? '<div class="book-page-running-head">' + escapeHtml(runTitle.length > 52 ? runTitle.substring(0, 49) + '\u2026' : runTitle) + '</div>'
+            : '<div class="book-page-running-head is-empty" aria-hidden="true"></div>';
 
         mh.style.width = w + 'px';
         mh.style.padding = '0';
         mh.style.boxSizing = 'border-box';
         mh.innerHTML =
-            '<div class="paginated-reader-shell reader-content-wrap ' + shellCls + '" style="width:' + w + 'px;padding:0;border:0;box-shadow:none;aspect-ratio:auto;height:' + wrapH + 'px;min-height:0;display:flex;flex-direction:column">' +
-            '<div class="book-container" style="width:100%;height:100%;display:flex;flex-direction:column">' +
-            '<div class="book-page-content-wrap" style="box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column">' +
+            '<div class="paginated-reader-shell reader-content-wrap ' + wrapCls + '" style="width:' + w + 'px;height:' + shellHeight + 'px;padding:0;border:0;box-shadow:none;aspect-ratio:auto;min-height:0;display:flex;flex-direction:column">' +
+            '<div class="book-container" style="width:100%;height:100%;display:flex;flex-direction:column;min-height:0">' +
+            '<div class="book-page-content-wrap" style="box-sizing:border-box;flex:1;min-height:0;height:100%;display:flex;flex-direction:column">' +
+            headHtml +
             '<div class="book-page-content ' + contentCls + '" style="overflow:hidden;flex:1;min-height:0">' +
             (blockInnerHtml || '') +
-            '</div><div class="book-page-footer" style="flex-shrink:0;height:' + footerH + 'px"></div></div></div></div>';
+            '</div><div class="book-page-footer book-page-footer-novel">&mdash; 1 &mdash;</div></div></div></div>';
 
         var contentEl = mh.querySelector('.book-page-content');
         if (!contentEl) return null;
@@ -3087,13 +3117,15 @@
         var chrome = document.getElementById('reader-chrome-main');
         var reserve = 0;
         if (chrome && !chrome.classList.contains('hidden')) reserve += chrome.offsetHeight + 10;
-        return window.BookInteriorPreview.fitShellToHost(shell, scrollHost, {
+        var changed = window.BookInteriorPreview.fitShellToHost(shell, scrollHost, {
             aspectRatio: 6 / 9,
             widthFactor: 1,
             reserveBottomPx: reserve,
             preferHeight: true,
             measureHost: measureHost
         });
+        if (changed && bookChapters.length) fmtScheduleRepaginate();
+        return changed;
     }
 
     function scrollReaderPanelsToTop() {
@@ -4664,7 +4696,7 @@
         var currentIndex = 0;
         var isAnimating = false;
         var SLIDE_DURATION = 350;
-        var contentA = null, footerA = null, contentB = null, footerB = null;
+        var contentA = null, footerA = null, headA = null, contentB = null, footerB = null, headB = null;
         var layerA = null, layerB = null;
         var stage = null;
         function syncPageFooterStyle(footerEl) {
@@ -4678,10 +4710,11 @@
             else if (interior === 'ElegantTrade') footerEl.classList.add('book-page-footer-elegant');
             else footerEl.classList.add('book-page-footer-novel');
         }
-        function fillLayer(contentEl, footerEl, pageIdx) {
+        function fillLayer(contentEl, footerEl, headEl, pageIdx) {
             if (!contentEl) return;
             var html = pages[pageIdx] || '<div class="reader-chapter-block"><p class="preview-state-message">No content.</p></div>';
             contentEl.innerHTML = stripEmbeddedPageFooters(html);
+            syncPageRunningHead(headEl, pageIdx);
             if (footerEl) {
                 footerEl.innerHTML = formatBookPageNumber(pageIdx + 1);
                 syncPageFooterStyle(footerEl);
@@ -4694,8 +4727,10 @@
             stage = document.getElementById('bookStage');
             contentA = document.getElementById('bookPageContentA');
             footerA = document.getElementById('bookPageFooterA');
+            headA = document.getElementById('bookPageRunningHeadA');
             contentB = document.getElementById('bookPageContentB');
             footerB = document.getElementById('bookPageFooterB');
+            headB = document.getElementById('bookPageRunningHeadB');
             layerA = document.getElementById('pageLayerA');
             layerB = document.getElementById('pageLayerB');
             if (layerB) { layerB.classList.add('book-page-layer-off'); }
@@ -4712,7 +4747,7 @@
             if (!stage) ensureDom();
             pages = (Array.isArray(nextPages) && nextPages.length) ? nextPages.slice() : ['<div class="reader-chapter-block"><p class="preview-state-message">No content.</p></div>'];
             currentIndex = Math.min(currentIndex, Math.max(0, pages.length - 1));
-            fillLayer(contentA, footerA, currentIndex);
+            fillLayer(contentA, footerA, headA, currentIndex);
             var ind = document.getElementById('bookPageIndicator');
             if (ind) ind.textContent = (currentIndex + 1) + ' / ' + pages.length;
         }
@@ -4721,7 +4756,7 @@
             if (!pages.length) return;
             nextIndex = Math.max(0, Math.min(nextIndex, pages.length - 1));
             currentIndex = nextIndex;
-            fillLayer(contentA, footerA, currentIndex);
+            fillLayer(contentA, footerA, headA, currentIndex);
             var ind = document.getElementById('bookPageIndicator');
             if (ind) ind.textContent = (currentIndex + 1) + ' / ' + pages.length;
         }
@@ -4858,6 +4893,9 @@
                 widthFactor: 1,
                 preferHeight: true,
                 measureHost: document.getElementById('fmt-preview-measure-host')
+            },
+            onLayoutChange: function() {
+                if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
             }
         });
     }
@@ -5703,7 +5741,7 @@
         aspect-ratio: 6 / 9 !important;
         overflow: hidden !important;
         flex: 0 0 auto !important;
-        padding: clamp(0.5rem, 1.5vw, 0.85rem) !important;
+        padding: 0 !important;
     }
     #book-formatter-root #bookStage {
         width: 100%;
@@ -5785,9 +5823,10 @@
     #book-formatter-root .book-page-footer {
         flex-shrink: 0;
         margin-top: auto;
-        padding-top: 0.75rem;
-        font-size: 0.8rem;
-        color: #78716c;
+        padding: 0.1in 0 var(--ilt-folio-h, 0.32in);
+        font-size: 7.5pt;
+        letter-spacing: 0.12em;
+        color: #7c7368;
         text-align: center;
     }
     #book-formatter-root .book-nav-zone {
@@ -5844,12 +5883,9 @@
         pointer-events: none;
         overflow: visible;
         box-sizing: border-box;
-        padding: 1.5rem;
+        padding: 0;
         margin: 0;
-        font-size: 1.0625rem;
-        line-height: 1.85;
-        color: #1e293b;
-        background: #fff;
+        background: transparent;
     }
     /* Typography/padding: InteriorLayoutTokens + InteriorExportTheme.BuildFormatterInteriorCss */
 </style>
