@@ -122,6 +122,27 @@
     var sidebarFormatUrl = sidebarFlowEntryUrl;
     var sidebarCoverUrl = sidebarFlowEntryUrl;
     var sidebarPublishUrl = sidebarFlowEntryUrl;
+    var bookFlowNav = new BookFlowStateService(DbContext);
+    if (sidebarActiveBookId > 0)
+    {
+        try
+        {
+            var flowStepKey = $"book:{sidebarActiveBookId}:flowStep";
+            var flowPathKey = $"book:{sidebarActiveBookId}:flowPath";
+            var flowRows = DbContext.Settings.AsNoTracking()
+                .Where(s => s.Key == flowStepKey || s.Key == flowPathKey)
+                .ToDictionary(s => s.Key, s => s.Value ?? "");
+            var activeStep = flowRows.GetValueOrDefault(flowStepKey, "").Trim();
+            if (string.IsNullOrEmpty(activeStep)) activeStep = BookFlowStateService.StepGenerate;
+            var activePath = flowRows.GetValueOrDefault(flowPathKey, "").Trim();
+            if (string.IsNullOrEmpty(activePath)) activePath = "ebook";
+            sidebarAiWriterUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepGenerate, activePath);
+            sidebarFormatUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepFormat, activePath);
+            sidebarCoverUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepCover, activePath);
+            sidebarPublishUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepPublish, activePath);
+        }
+        catch { }
+    }
 
     bool coverNavUnlocked = false;
     if (sidebarActiveBookId > 0 && coverUnlocked)
@@ -430,6 +451,10 @@
                 .sidebar-menu a .sidebar-lucide-icon svg {
                     width: 100%;
                     height: 100%;
+                    stroke: currentColor;
+                    stroke-width: 1.75;
+                    shape-rendering: geometricPrecision;
+                    -webkit-font-smoothing: antialiased;
                 }
                 .sidebar-menu a:hover {
                     background: #f9fafb;
@@ -444,8 +469,12 @@
                 }
 
                 .sidebar-menu a.active i { color: #7c3aed; }
-        .sidebar-menu a.sidebar-locked-feature { opacity: 0.6; cursor: not-allowed; pointer-events: auto; }
-        .sidebar-menu a.sidebar-locked-feature:hover { background: transparent; color: inherit; }
+        .sidebar-menu a.sidebar-locked-feature { opacity: 1; cursor: not-allowed; pointer-events: auto; color: #9ca3af; }
+        .sidebar-menu a.sidebar-locked-feature .sidebar-lucide-icon,
+        .sidebar-menu a.sidebar-locked-feature .sidebar-lucide-icon svg { opacity: 1; filter: none; color: #6b7280; }
+        .sidebar-menu a.sidebar-locked-feature .nav-text { opacity: 0.72; }
+        .sidebar-menu a.sidebar-locked-feature:hover { background: #f9fafb; color: #6b7280; }
+        .sidebar-menu a.sidebar-locked-feature:hover .sidebar-lucide-icon svg { color: #7c3aed; }
         .main-content.locked-blur { filter: blur(4px); pointer-events: none; user-select: none; }
         .locked-page-overlay { position: fixed; inset: 0; z-index: 9998; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); padding: 20px; }
         .locked-page-overlay .locked-modal { background: #fff; border-radius: 16px; padding: 28px; max-width: 420px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); text-align: center; }
@@ -3409,12 +3438,12 @@
                 
                 <li>
                     @if (coverNavUnlocked) {
-                        <a href="@sidebarFlowEntryUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
-                            <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                        <a href="@sidebarCoverUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
+                            <i data-lucide="palette" class="sidebar-lucide-icon" stroke-width="1.75"></i><span class="nav-text">AI Cover Design</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="AI Cover Design" data-unlock-step="2" data-goto="/Dashboard" title="Select a book from the Dashboard and complete formatting first">
-                            <i data-lucide="wand-2" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                        <a href="#" class="sidebar-locked-feature" data-locked="AI Cover Design" data-unlock-step="2" data-goto="@(formattingUnlocked ? sidebarFormatUrl : sidebarAiWriterUrl)" title="Complete Book Formatting first, then Cover Design unlocks">
+                            <i data-lucide="palette" class="sidebar-lucide-icon" stroke-width="1.75"></i><span class="nav-text">AI Cover Design</span>
                         </a>
                     }
                 </li>
@@ -3497,17 +3526,23 @@
                             const name = this.getAttribute("data-locked") || "This feature";
                             const goto = this.getAttribute("data-goto") || "/Dashboard";
                             const step = this.getAttribute("data-unlock-step") || "1";
-                            let msg = "Please complete the previous step before accessing this section.<br><br><b>" + name + "</b> will unlock when you finish the required step.";
-                            let btn = "Go to AI Writer";
-                            if (step === "2") { msg = "Complete <b>Book Formatting</b> first, then <b>AI Cover Design</b> will unlock."; btn = "Go to Formatting"; }
-                            else if (step === "3") { msg = "Finalize your <b>Cover Design</b> first, then <b>My Books / Publish</b> will unlock."; btn = "Go to Cover Design"; }
-                            else { msg = "Please generate your AI book first before accessing this section.<br><br>Go to <b>AI Writer</b> to unlock formatting and more."; }
+                            const stepsOrder = "<ol style=\"text-align:left;margin:12px auto 0;max-width:320px;padding-left:1.25rem;line-height:1.65;font-size:0.92rem;\"><li><b>AI Writer</b> — write chapters</li><li><b>Book Formatting</b> — interior layout</li><li><b>AI Cover Design</b> — cover artwork</li><li><b>Publish / My Books</b> — export &amp; share</li></ol>";
+                            let msg = "Please follow the steps in order. Pick a book on the <b>Dashboard</b>, then complete each stage before opening the next.<br><br><b>" + name + "</b> unlocks after the previous step." + stepsOrder;
+                            let btn = "Go to Dashboard";
+                            let title = "Follow the publishing steps";
+                            if (step === "1") { msg = "Start with <b>AI Writer</b> — generate your chapters first. Then <b>Book Formatting</b> and other tools will unlock." + stepsOrder; btn = "Go to AI Writer"; }
+                            else if (step === "2") { msg = "Finish <b>Book Formatting</b> for your selected book first. After that, <b>AI Cover Design</b> will unlock." + stepsOrder; btn = "Go to Formatting"; }
+                            else if (step === "3") { msg = "Complete <b>AI Cover Design</b> before opening <b>My Books / Publish</b>." + stepsOrder; btn = "Go to Cover Design"; }
+                            else if (name.indexOf("Publish") >= 0 || name.indexOf("My Books") >= 0) { btn = "Go to Dashboard"; }
                             Swal.fire({
-                                title: "Complete Previous Step",
+                                title: title,
                                 html: msg,
                                 icon: "info",
                                 confirmButtonText: btn,
-                                confirmButtonColor: "#7c3aed"
+                                confirmButtonColor: "#7c3aed",
+                                showCancelButton: true,
+                                cancelButtonText: "Stay here",
+                                cancelButtonColor: "#94a3b8"
                             }).then((result) => {
                                 if (result.isConfirmed) window.location.href = goto;
                             });
