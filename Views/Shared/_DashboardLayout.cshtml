@@ -451,10 +451,8 @@
                 .sidebar-menu a .sidebar-lucide-icon svg {
                     width: 100%;
                     height: 100%;
+                    display: block;
                     stroke: currentColor;
-                    stroke-width: 1.75;
-                    shape-rendering: geometricPrecision;
-                    -webkit-font-smoothing: antialiased;
                 }
                 .sidebar-menu a:hover {
                     background: #f9fafb;
@@ -469,12 +467,34 @@
                 }
 
                 .sidebar-menu a.active i { color: #7c3aed; }
-        .sidebar-menu a.sidebar-locked-feature { opacity: 1; cursor: not-allowed; pointer-events: auto; color: #9ca3af; }
+        .sidebar-menu a.sidebar-locked-feature {
+            opacity: 1;
+            cursor: pointer;
+            pointer-events: auto;
+            color: #6b7280;
+            filter: none;
+        }
         .sidebar-menu a.sidebar-locked-feature .sidebar-lucide-icon,
-        .sidebar-menu a.sidebar-locked-feature .sidebar-lucide-icon svg { opacity: 1; filter: none; color: #6b7280; }
-        .sidebar-menu a.sidebar-locked-feature .nav-text { opacity: 0.72; }
-        .sidebar-menu a.sidebar-locked-feature:hover { background: #f9fafb; color: #6b7280; }
+        .sidebar-menu a.sidebar-locked-feature .sidebar-lucide-icon svg,
+        .sidebar-menu a.sidebar-locked-feature .nav-text {
+            opacity: 1;
+            filter: none;
+            color: inherit;
+        }
+        .sidebar-menu a.sidebar-locked-feature:hover {
+            background: #f9fafb;
+            color: #111827;
+        }
+        .sidebar-menu a.sidebar-locked-feature:hover i,
         .sidebar-menu a.sidebar-locked-feature:hover .sidebar-lucide-icon svg { color: #7c3aed; }
+        @@media (min-width: 769px) {
+            .sidebar:hover .sidebar-menu a.sidebar-locked-feature .nav-text {
+                opacity: 1 !important;
+                visibility: visible !important;
+                color: inherit;
+                font-weight: 500;
+            }
+        }
         .main-content.locked-blur { filter: blur(4px); pointer-events: none; user-select: none; }
         .locked-page-overlay { position: fixed; inset: 0; z-index: 9998; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); padding: 20px; }
         .locked-page-overlay .locked-modal { background: #fff; border-radius: 16px; padding: 28px; max-width: 420px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); text-align: center; }
@@ -3439,11 +3459,11 @@
                 <li>
                     @if (coverNavUnlocked) {
                         <a href="@sidebarCoverUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
-                            <i data-lucide="palette" class="sidebar-lucide-icon" stroke-width="1.75"></i><span class="nav-text">AI Cover Design</span>
+                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
                         </a>
                     } else {
                         <a href="#" class="sidebar-locked-feature" data-locked="AI Cover Design" data-unlock-step="2" data-goto="@(formattingUnlocked ? sidebarFormatUrl : sidebarAiWriterUrl)" title="Complete Book Formatting first, then Cover Design unlocks">
-                            <i data-lucide="palette" class="sidebar-lucide-icon" stroke-width="1.75"></i><span class="nav-text">AI Cover Design</span>
+                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
                         </a>
                     }
                 </li>
