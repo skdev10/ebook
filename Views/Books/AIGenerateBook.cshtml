@@ -1283,12 +1283,9 @@
         <div class="ai-writer-page-wrap max-w-[1600px] mx-auto w-full flex flex-col min-h-0" data-aos="fade-up" data-aos-duration="500">
         <div class="ai-writer-main-layout w-full flex flex-col lg:flex-row gap-12 lg:gap-24 min-h-0">
         <!-- Left Column: Forms -->
-        <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-10 shrink-0">
+        <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-5 shrink-0">
             <section class="flex flex-col gap-5" data-guided-tour="ai-book-picker">
-                <div class="flex flex-wrap items-center gap-2 mb-1">
-                    <span class="inline-flex items-center rounded-full bg-violet-100 text-violet-800 text-xs font-semibold px-3 py-1">Step 1 of 4 · AI Writer</span>
-                    <span class="text-xs text-slate-500">Generate → Format → Cover → Publish</span>
-                </div>
+                @await Html.PartialAsync("_FlowStepper", 1)
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">AI Book Writer</h2>
                 <div class="rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div class="min-w-0">

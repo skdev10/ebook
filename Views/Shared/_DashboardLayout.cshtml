@@ -4976,19 +4976,22 @@
                 { sel: '#sidebar', title: 'Sidebar navigation', body: 'Use the left rail to open AI Writer, Book Formatting, AI Cover Design, and My Books in order.' }
             ],
             'ai-writer': [
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Your 3-step flow', body: 'You are on Step 1 — AI Book Writer. Next comes Step 2: Ebook Formatting, then Step 3: Ebook Cover Design. This bar always shows where you are.' },
                 { sel: '[data-guided-tour="ai-book-picker"]', title: 'Choose your book', body: 'Pick an existing book from the list or tap + to create a new one.' },
                 { sel: '[data-guided-tour="ai-write-section"]', title: 'Title & chapter', body: 'Set the book title, chapter number, and chapter title before generating.' },
                 { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Topic & generate', body: 'Write your chapter topic or notes, then use Generate to call the AI. Edit in the modal when you need fine control.' },
                 { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Protected preview', body: 'Generated text appears here in a book-style view. Selection and copy are limited to protect your draft until you finalize.' },
-                { sel: '[data-guided-tour="ai-next-step"]', title: 'Next step', body: 'When you are happy with the chapter flow, use Next Step to open Book Formatting and interior styling.' }
+                { sel: '[data-guided-tour="ai-next-step"]', title: 'Next: Ebook Formatting', body: 'When you are happy with the chapter flow, use Next Step to move to Step 2 — Ebook Formatting (interior styles, text size, line spacing), then Step 3 — Ebook Cover Design.' }
             ],
             'formatter': [
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 2 — Ebook Formatting', body: 'Step 1 (AI Book Writer) is done. You are now on Step 2: choose interior style, text size, and line spacing. After this comes Step 3 — Ebook Cover Design.' },
                 { sel: '[data-guided-tour="fmt-book"]', title: 'Select book', body: 'Choose which book you are formatting. The preview loads from your saved manuscript.' },
                 { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Novel, Classic, Minimalist, and Elegant trade change colors, headings, and paragraph treatment in the live preview and in PDF/EPUB export.' },
                 { sel: '[data-guided-tour="fmt-preview"]', title: 'Live preview', body: 'This frame simulates a real book page. Use the page controls to flip through.' },
                 { sel: '[data-guided-tour="fmt-actions"]', title: 'Auto-save & continue', body: 'Formatting changes save automatically. Use Next to continue to AI Cover Design.' }
             ],
             'cover-design': [
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 3 — Ebook Cover Design', body: 'Steps 1 and 2 are done. This is the final design step: generate your AI cover here, then continue to Publish for downloads.' },
                 { sel: '[data-guided-tour="cov-book"]', title: 'Select book', body: 'Pick the book this cover belongs to. Title and author can sync from your library.' },
                 { sel: '[data-guided-tour="cov-fields"]', title: 'Cover details', body: 'Genre and cover style are sent to the AI cover API together with your title and author.' },
                 { sel: '[data-guided-tour="cov-prompt"]', title: 'Image direction', body: 'Describe mood, palette, and imagery. Generate Cover runs the preview API and fills the thumbnails below.' },

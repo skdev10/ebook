@@ -233,6 +233,7 @@
             <div class="mb-4">
                 <button type="button" data-flow-back="@(ViewBag.FlowBackUrl ?? $"/BookDesign/CoverDesignCalculatorFixing?bookId={ViewBag.BookId ?? 0}")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Back</button>
             </div>
+            <div class="mb-4">@await Html.PartialAsync("_FlowStepper", 3)</div>
             <div class="flex items-center gap-2 mb-2">
                 <i data-lucide="sparkles" class="w-5 h-5 text-violet-600" stroke-width="1.5"></i>
                 <span class="text-xs font-semibold uppercase tracking-wide text-violet-600">Ebook AI</span>

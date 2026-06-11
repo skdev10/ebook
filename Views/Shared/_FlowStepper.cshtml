@@ -1,0 +1,88 @@
+@model int
+@* Flow stepper — numbered circles + progress line (weForms-style).
+   Model = current step: 1 AI Book Writer, 2 Ebook Formatting, 3 Ebook Cover Design. *@
+@{
+    var current = Model < 1 ? 1 : (Model > 3 ? 3 : Model);
+    var steps = new[] { "AI Book Writer", "Ebook Formatting", "Ebook Cover Design" };
+}
+<style>
+    .ai-flow-stepper {
+        display: flex;
+        align-items: flex-start;
+        width: 100%;
+        max-width: 430px;
+        background: #fff;
+        border: 1px solid #ede9fe;
+        border-radius: 14px;
+        padding: 14px 18px 12px;
+        box-shadow: 0 4px 14px -8px rgba(91, 33, 182, 0.18);
+    }
+    .ai-flow-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        flex: 0 0 auto;
+        min-width: 64px;
+    }
+    .ai-flow-dot {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 700;
+        background: #f1f5f9;
+        color: #94a3b8;
+        border: 2px solid #e2e8f0;
+        box-sizing: border-box;
+        transition: all 0.2s ease;
+    }
+    .ai-flow-step.is-current .ai-flow-dot {
+        background: #7c3aed;
+        border-color: #7c3aed;
+        color: #fff;
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.18);
+    }
+    .ai-flow-step.is-done .ai-flow-dot {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+        color: #6d28d9;
+    }
+    .ai-flow-label {
+        font-size: 0.66rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        color: #94a3b8;
+        text-align: center;
+        line-height: 1.25;
+        max-width: 5.6rem;
+    }
+    .ai-flow-step.is-current .ai-flow-label { color: #5b21b6; }
+    .ai-flow-step.is-done .ai-flow-label { color: #7c3aed; }
+    .ai-flow-line {
+        flex: 1 1 auto;
+        height: 3px;
+        border-radius: 999px;
+        background: #e2e8f0;
+        margin-top: 14px;
+        min-width: 18px;
+    }
+    .ai-flow-line.is-done { background: linear-gradient(90deg, #7c3aed 0%, #c4b5fd 100%); }
+</style>
+<div class="ai-flow-stepper" data-guided-tour="ai-flow-steps" role="list" aria-label="Book creation steps">
+    @for (var i = 1; i <= steps.Length; i++)
+    {
+        if (i > 1)
+        {
+            <span class="ai-flow-line @(i <= current ? "is-done" : "")" aria-hidden="true"></span>
+        }
+        var cls = i == current ? "is-current" : (i < current ? "is-done" : "");
+        <div class="ai-flow-step @cls" role="listitem" @(i == current ? Html.Raw("aria-current=\"step\"") : Html.Raw(""))>
+            <span class="ai-flow-dot">@(i < current ? Html.Raw("&#10003;") : Html.Raw(i.ToString()))</span>
+            <span class="ai-flow-label">@steps[i - 1]</span>
+        </div>
+    }
+</div>
