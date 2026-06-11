@@ -37,7 +37,8 @@ public static class BookUpstreamHttpClientExtensions
             .AddHttpMessageHandler<BookApiAuthenticationHandler>()
             .AddStandardResilienceHandler(options =>
             {
-                options.Retry.MaxRetryAttempts = maxRetries;
+                // Standard resilience requires MaxRetryAttempts >= 1 (0 crashes on startup).
+                options.Retry.MaxRetryAttempts = Math.Max(1, maxRetries);
                 options.Retry.Delay = TimeSpan.FromSeconds(1);
                 options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
                 options.Retry.MaxDelay = TimeSpan.FromSeconds(20);

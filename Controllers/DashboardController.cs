@@ -995,8 +995,9 @@ namespace EBookDashboard.Controllers
             var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserEmail == userEmail);
             if (user == null)
                 return Json(new { success = false, hasCompletedTour = true });
-            // NULL = user has never seen the tour (new accounts) → auto-start it once.
-            return Json(new { success = true, hasCompletedTour = user.HasCompletedTour == true });
+            // false = brand-new account (DB default 0) → auto-start tour once.
+            // true or NULL = existing/legacy users → skip auto-start.
+            return Json(new { success = true, hasCompletedTour = user.HasCompletedTour != false });
         }
 
         [HttpPost]
