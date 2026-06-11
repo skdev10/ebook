@@ -1547,6 +1547,7 @@ namespace EBookDashboard.Controllers
                 var fileName = $"{safe}-{req.BookId}.pdf";
                 await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", metrics.PageCount.ToString(), "Book", cancellationToken);
                 Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
+                Response.Headers["X-Pdf-Interior"] = $"{exportOpt.InteriorStyle}|{exportOpt.TextSize}|{exportOpt.LineSpacing}";
                 return File(pdfBytes, "application/pdf", fileName);
             }
             catch (Exception ex)
@@ -1618,6 +1619,7 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(safe)) safe = "book-interior";
                 var fileName = $"{safe}-{req.BookId}-interior.pdf";
                 Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
+                Response.Headers["X-Pdf-Interior"] = $"{exportOpt.InteriorStyle}|{exportOpt.TextSize}|{exportOpt.LineSpacing}";
                 return File(pdfBytes, "application/pdf", fileName);
             }
             catch (InvalidOperationException ex)

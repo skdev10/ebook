@@ -1604,6 +1604,9 @@
                         <button type="button" id="btn-next-cover" class="formatter-ui-radius w-full border-2 border-violet-300 text-violet-800 hover:bg-violet-50 font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
                             Next: AI Cover Design <i class="fas fa-arrow-right"></i>
                         </button>
+                        <button type="button" id="fmt-btn-reset-formatting" class="formatter-ui-radius w-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 text-sm font-medium py-2 px-6 transition-all inline-flex items-center justify-center gap-2" title="Reset Interior style, Text size, and Line spacing to defaults">
+                            <i class="fas fa-rotate-left text-xs" aria-hidden="true"></i> Reset formatting
+                        </button>
                         <p id="fmt-next-hint" class="text-xs text-gray-500 leading-relaxed">Ebook: open AI Cover Design. Publishable Book: open the KDP-style print designer here.</p>
                         <p id="formatter-save-status" class="text-xs text-gray-400 min-h-[1.25rem] leading-relaxed" aria-live="polite"></p>
                     </div>
@@ -3124,8 +3127,29 @@
             preferHeight: true,
             measureHost: measureHost
         });
+        syncFormatterChromeWidth();
         if (changed && bookChapters.length) fmtScheduleRepaginate();
         return changed;
+    }
+
+    /** Align the chapter bar + page nav with the centered book page (no overhang past the page edges). */
+    function syncFormatterChromeWidth() {
+        var shell = document.getElementById('paginatedReaderShell');
+        var shellW = shell ? parseInt(shell.style.width || '0', 10) : 0;
+        ['reader-chrome-main', 'fmt-chapter-nav-below'].forEach(function(id) {
+            var bar = document.getElementById(id);
+            if (!bar) return;
+            if (!shellW || bar.classList.contains('hidden')) {
+                bar.style.width = '';
+                bar.style.marginLeft = '';
+                bar.style.marginRight = '';
+                return;
+            }
+            bar.style.width = shellW + 'px';
+            bar.style.maxWidth = '100%';
+            bar.style.marginLeft = 'auto';
+            bar.style.marginRight = 'auto';
+        });
     }
 
     function scrollReaderPanelsToTop() {
@@ -4784,9 +4808,11 @@
         sel.innerHTML = '';
         if (!bookChapters.length) {
             if (chrome) chrome.classList.add('hidden');
+            syncFormatterChromeWidth();
             return;
         }
         if (chrome) chrome.classList.remove('hidden');
+        syncFormatterChromeWidth();
         updateFmtChapterNavBelow();
         bookChapters.forEach(function(ch, idx) {
             const t = (ch && ch.chapterTitle) || ('Chapter ' + (idx + 1));
@@ -5637,6 +5663,35 @@
             if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
+        });
+
+        // Explicit reset only — back/normal navigation never shows this prompt.
+        document.getElementById('fmt-btn-reset-formatting')?.addEventListener('click', function() {
+            var doReset = function() {
+                var styleSel = document.getElementById('style-select');
+                var sizeSel = document.getElementById('text-size-select');
+                var lineSel = document.getElementById('line-spacing-select');
+                if (styleSel) { styleSel.value = 'Novel'; styleSel.dispatchEvent(new Event('change', { bubbles: true })); }
+                if (sizeSel) { sizeSel.value = 'Medium'; sizeSel.dispatchEvent(new Event('change', { bubbles: true })); }
+                if (lineSel) { lineSel.value = '1.6'; lineSel.dispatchEvent(new Event('change', { bubbles: true })); }
+                syncFmtInteriorCardsFromSelect();
+                syncFmtTypographyPillsFromSelects();
+                showToast('Formatting reset to defaults.');
+            };
+            if (window.Swal) {
+                Swal.fire({
+                    title: 'Keep writing or reset your work?',
+                    text: 'Reset returns Interior style, Text size, and Line spacing to their defaults. Your chapters are not touched.',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Reset my work',
+                    cancelButtonText: 'Keep writing',
+                    confirmButtonColor: '#7c3aed',
+                    focusCancel: true
+                }).then(function(r) { if (r.isConfirmed) doReset(); });
+            } else if (window.confirm('Keep writing or reset your work? OK resets formatting options to their defaults.')) {
+                doReset();
+            }
         });
 
         window.addEventListener('beforeunload', function() {

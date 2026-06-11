@@ -161,6 +161,58 @@ public class ManuscriptExportPrepTests
         Assert.Contains("small-caps", css, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("Novel", "Small", "1.4", "10.5pt", "1.4")]
+    [InlineData("Novel", "Medium", "1.6", "12pt", "1.6")]
+    [InlineData("Novel", "Large", "2", "15pt", "2")]
+    [InlineData("Classic", "Medium", "1.8", "12.75pt", "1.8")]
+    [InlineData("Classic", "Large", "1.6", "14.25pt", "1.6")]
+    [InlineData("Minimalist", "Small", "1.6", "10.5pt", "1.6")]
+    [InlineData("ElegantTrade", "Medium", "1.4", "12pt", "1.4")]
+    [InlineData("ElegantTrade", "Large", "2", "14.25pt", "2")]
+    public void BuildPdfThemeCss_maps_text_size_and_line_spacing_to_pdf_tokens(
+        string interiorStyle, string textSize, string lineSpacing, string expectedPt, string expectedLh)
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions
+        {
+            InteriorStyle = interiorStyle,
+            TextSize = textSize,
+            LineSpacing = lineSpacing
+        });
+
+        Assert.Contains($"--ilt-body-pt: {expectedPt}", css, StringComparison.Ordinal);
+        Assert.Contains($"--ilt-body-lh: {expectedLh}", css, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Traditional", "Novel")]
+    [InlineData("Fine book", "Classic")]
+    [InlineData("Clean", "Minimalist")]
+    [InlineData("POD", "ElegantTrade")]
+    [InlineData("Elegant trade", "ElegantTrade")]
+    [InlineData("", "Novel")]
+    public void NormalizeInteriorStyle_maps_ui_badge_labels_to_canonical_styles(string uiValue, string expected)
+    {
+        Assert.Equal(expected, InteriorExportTheme.NormalizeInteriorStyle(uiValue));
+    }
+
+    [Fact]
+    public void ApplyRequestOverrides_request_values_win_over_db_defaults()
+    {
+        var opt = new BookPdfExportOptions { InteriorStyle = "Novel", TextSize = "Medium", LineSpacing = "1.6" };
+        opt.ApplyRequestOverrides(new ExportBookPdfRequest
+        {
+            BookId = 1,
+            InteriorStyle = "Classic",
+            TextSize = "Large",
+            LineSpacing = "2"
+        });
+
+        Assert.Equal("Classic", opt.InteriorStyle);
+        Assert.Equal("Large", opt.TextSize);
+        Assert.Equal("2", opt.LineSpacing);
+    }
+
     [Fact]
     public void BuildTocHtml_uses_professional_print_structure()
     {
