@@ -71,18 +71,31 @@
         min-width: 18px;
     }
     .ai-flow-line.is-done { background: linear-gradient(90deg, #7c3aed 0%, #c4b5fd 100%); }
-</style>
-<div class="ai-flow-stepper" data-guided-tour="ai-flow-steps" role="list" aria-label="Book creation steps">
-    @for (var i = 1; i <= steps.Length; i++)
-    {
-        if (i > 1)
-        {
-            <span class="ai-flow-line @(i <= current ? "is-done" : "")" aria-hidden="true"></span>
-        }
-        var cls = i == current ? "is-current" : (i < current ? "is-done" : "");
-        <div class="ai-flow-step @cls" role="listitem" @(i == current ? Html.Raw("aria-current=\"step\"") : Html.Raw(""))>
-            <span class="ai-flow-dot">@(i < current ? Html.Raw("&#10003;") : Html.Raw(i.ToString()))</span>
-            <span class="ai-flow-label">@steps[i - 1]</span>
-        </div>
+    .ai-flow-hint {
+        margin: 0.5rem 0 0 0.2rem;
+        font-size: 0.78rem;
+        color: #64748b;
+        line-height: 1.5;
+        max-width: 430px;
     }
+    .ai-flow-hint strong { color: #5b21b6; font-weight: 600; }
+</style>
+<div data-guided-tour="ai-flow-steps">
+    <div class="ai-flow-stepper" role="list" aria-label="Book creation steps">
+        @for (var i = 1; i <= steps.Length; i++)
+        {
+            if (i > 1)
+            {
+                <span class="ai-flow-line @(i <= current ? "is-done" : "")" aria-hidden="true"></span>
+            }
+            var cls = i == current ? "is-current" : (i < current ? "is-done" : "");
+            <div class="ai-flow-step @cls" role="listitem" @(i == current ? Html.Raw("aria-current=\"step\"") : Html.Raw(""))>
+                <span class="ai-flow-dot">@(i < current ? Html.Raw("&#10003;") : Html.Raw(i.ToString()))</span>
+                <span class="ai-flow-label">@steps[i - 1]</span>
+            </div>
+        }
+    </div>
+    <p class="ai-flow-hint">
+        You're on <strong>Step @current — @steps[current - 1]</strong>@(current < steps.Length ? Html.Raw($", next: <strong>{string.Join("</strong> &rarr; <strong>", steps.Skip(current))}</strong>") : Html.Raw(" — the final design step")).
+    </p>
 </div>

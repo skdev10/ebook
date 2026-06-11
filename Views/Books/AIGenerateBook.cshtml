@@ -624,15 +624,17 @@
     #preview-content.hidden { display: none !important; }
     #chatContainer .message-content { color: #1e293b !important; font-size: 1rem; line-height: 1.75; background: rgba(255,255,255,0.9) !important; padding: 1rem 1.25rem; border-radius: 12px; margin-bottom: 1rem; }
     .chat-intro-highlight { margin-bottom: 0; }
+    /* Intro tip: slim info strip — not a chat bubble (no avatar, no bubble look) */
     .chat-intro-message {
-        background: #ede9fe !important;
-        color: #334155 !important;
-        font-size: 0.9375rem !important;
-        line-height: 1.6 !important;
-        padding: 1rem 1.25rem !important;
-        border-radius: 1rem !important;
-        border: 1px solid rgba(124, 58, 237, 0.2);
-        box-shadow: 0 2px 12px rgba(124, 58, 237, 0.08);
+        background: #f5f3ff !important;
+        color: #475569 !important;
+        font-size: 0.875rem !important;
+        line-height: 1.55 !important;
+        padding: 0.65rem 0.9rem !important;
+        border-radius: 0.65rem !important;
+        border: 1px solid rgba(124, 58, 237, 0.16);
+        box-shadow: none;
+        margin-bottom: 0 !important;
     }
     .reader-footer .reader-nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     /* Sticky chapter chrome: stays visible while the preview column scrolls */
@@ -1281,9 +1283,9 @@
 <div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
     <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
         <div class="ai-writer-page-wrap max-w-[1600px] mx-auto w-full flex flex-col min-h-0" data-aos="fade-up" data-aos-duration="500">
-        <div class="ai-writer-main-layout w-full flex flex-col lg:flex-row gap-12 lg:gap-24 min-h-0">
+        <div class="ai-writer-main-layout w-full flex flex-col lg:flex-row gap-10 lg:gap-16 min-h-0">
         <!-- Left Column: Forms -->
-        <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-5 shrink-0">
+        <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-4 shrink-0">
             <section class="flex flex-col gap-5" data-guided-tour="ai-book-picker">
                 @await Html.PartialAsync("_FlowStepper", 1)
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">AI Book Writer</h2>
@@ -1424,10 +1426,10 @@
                     Your manuscript appears as a paginated ebook page. Use the side arrows or buttons below to turn pages.
                 </p>
                 <div id="chatContainer" class="chat-container flex flex-col gap-4 flex-shrink-0">
-                    <div class="message message-ai flex gap-3 chat-intro-highlight">
-                        <div class="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-semibold shrink-0">AI</div>
+                    <div class="message message-ai chat-intro-highlight">
                         <div class="message-content chat-intro-message">
-                            Hello! Enter a topic and click Generate, or load a chapter from the dropdown. Your manuscript preview appears below as you work.
+                            <i class="fas fa-lightbulb text-violet-500 mr-1.5" aria-hidden="true"></i>
+                            Enter a topic and click Generate, or load a chapter from the dropdown — your manuscript preview appears below as you work.
                         </div>
                     </div>
                 </div>
