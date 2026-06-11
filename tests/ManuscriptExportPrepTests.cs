@@ -91,7 +91,7 @@ public class ManuscriptExportPrepTests
     public void BuildFormatterSyncCss_uses_kdp_inch_padding_and_text_measure()
     {
         var css = InteriorLayoutTokens.BuildFormatterSyncCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
-        Assert.Contains("--ilt-pad-top: 0.78in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-top: 0.85in", css, StringComparison.Ordinal);
         Assert.Contains("--ilt-text-max: 4.2in", css, StringComparison.Ordinal);
         Assert.Contains(".toc-leader", css, StringComparison.Ordinal);
         Assert.Contains("book-page-running-head", css, StringComparison.Ordinal);
@@ -211,6 +211,24 @@ public class ManuscriptExportPrepTests
         Assert.Equal("Classic", opt.InteriorStyle);
         Assert.Equal("Large", opt.TextSize);
         Assert.Equal("2", opt.LineSpacing);
+    }
+
+    [Theory]
+    [InlineData("Novel")]
+    [InlineData("Classic")]
+    [InlineData("Minimalist")]
+    [InlineData("ElegantTrade")]
+    public void Interior_specs_keep_binding_gutter_wider_than_outside_edge(string style)
+    {
+        static double Inches(string v) =>
+            double.Parse(v.Replace("in", ""), System.Globalization.CultureInfo.InvariantCulture);
+
+        var spec = InteriorLayoutTokens.Get(style);
+        Assert.True(Inches(spec.SheetPadding.Left) > Inches(spec.SheetPadding.Right),
+            $"{style}: left (gutter) padding should exceed right padding.");
+
+        var m = InteriorLayoutTokens.KdpTrim6x9Default;
+        Assert.True(Inches(m.Inside) > Inches(m.Outside), "Print margin box: inside should exceed outside.");
     }
 
     [Fact]

@@ -104,15 +104,15 @@ public static class InteriorLayoutTokens
 
 
 
-    /// <summary>KDP-style print margin box for 6×9 trim.</summary>
+    /// <summary>KDP-style print margin box for 6×9 trim — inside is wider for the binding gutter.</summary>
 
     public static readonly PrintMarginSpec KdpTrim6x9Default = new(
 
-        Top: "0.55in",
+        Top: "0.62in",
 
-        Bottom: "0.5in",
+        Bottom: "0.58in",
 
-        Inside: "0.38in",
+        Inside: "0.42in",
 
         Outside: "0.32in");
 
@@ -124,13 +124,21 @@ public static class InteriorLayoutTokens
 
     public const string TitlePagePadTop = "3.25in";
 
-    public const string RunningHeadPadTop = "0.32in";
+    public const string RunningHeadPadTop = "0.4in";
 
     public const string RunningHeadPadSides = "0.58in";
 
     public const string RunningHeadPadInside = "0.52in";
 
-    public const string FolioPadBottom = "0.32in";
+    public const string FolioPadBottom = "0.38in";
+
+    /// <summary>Clear air between the running head and the first body line (preview + PDF).</summary>
+
+    public const string RunningHeadGapBelow = "0.18in";
+
+    /// <summary>Clear air between the last body line and the folio (page number).</summary>
+
+    public const string FolioGapAbove = "0.16in";
 
 
 
@@ -144,9 +152,9 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#fffdf8",
 
-            SheetPadding: new("0.78in", "0.84in", "0.72in", "0.84in"),
+            SheetPadding: new("0.85in", "0.72in", "0.78in", "0.84in"),
 
-            Body: new("1.03rem", "1.88", "1.5rem", "1.05rem", "justify", "1.1rem", "0.7rem"),
+            Body: new("1.03rem", "1.88", "1.5rem", "0.3rem", "justify", "1.1rem", "0.7rem"),
 
             Frame: new(
 
@@ -178,7 +186,7 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#ffffff",
 
-            SheetPadding: new("0.65in", "0.82in", "0.58in", "0.68in"),
+            SheetPadding: new("0.72in", "0.68in", "0.66in", "0.8in"),
 
             Body: new("0.97rem", "1.74", "0", "0.9rem", "left", "1rem", "0"),
 
@@ -212,9 +220,9 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#fdfcfa",
 
-            SheetPadding: new("0.7in", "0.74in", "0.62in", "0.74in"),
+            SheetPadding: new("0.8in", "0.72in", "0.7in", "0.84in"),
 
-            Body: new("1.125rem", "1.95", "1.25rem", "0.42em", "justify", "1.1rem", "0.55rem"),
+            Body: new("1.125rem", "1.95", "1.25rem", "0.28em", "justify", "1.1rem", "0.55rem"),
 
             Frame: new(
 
@@ -246,7 +254,7 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#ffffff",
 
-            SheetPadding: new("0.85in", "0.88in", "0.75in", "0.88in"),
+            SheetPadding: new("0.88in", "0.78in", "0.8in", "0.9in"),
 
             Body: new("0.96rem", "1.86", "0", "1.15rem", "left", "1.15rem", "0.6rem"),
 
@@ -280,9 +288,9 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#fcf9f3",
 
-            SheetPadding: new("0.74in", "0.78in", "0.66in", "0.78in"),
+            SheetPadding: new("0.82in", "0.72in", "0.72in", "0.84in"),
 
-            Body: new("1.13rem", "1.84", "1.35rem", "1em", "justify", "0.5rem", "1rem"),
+            Body: new("1.13rem", "1.84", "1.35rem", "0.35em", "justify", "0.5rem", "1rem"),
 
             Frame: new(
 
@@ -556,7 +564,7 @@ public static class InteriorLayoutTokens
 
             "font-size:7.5pt; letter-spacing:0.22em; text-transform:uppercase; color:#7c7368; line-height:1.35; ",
 
-            "min-height:var(--ilt-running-head-h,0.32in); padding:0.06in 0 0.1in; margin:0; overflow:hidden; ",
+            "min-height:var(--ilt-running-head-h,0.4in); padding:0.08in 0 ", RunningHeadGapBelow, "; margin:0; overflow:hidden; ",
 
             "text-overflow:ellipsis; white-space:nowrap; box-sizing:border-box; } ",
 
@@ -564,7 +572,7 @@ public static class InteriorLayoutTokens
 
             "#book-formatter-root .book-page-content { flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; } ",
 
-            "#book-formatter-root .book-page-footer { flex-shrink:0; margin-top:auto; padding:0.1in 0 var(--ilt-folio-h,0.32in); ",
+            "#book-formatter-root .book-page-footer { flex-shrink:0; margin-top:auto; padding:", FolioGapAbove, " 0 var(--ilt-folio-h,0.38in); ",
 
             "text-align:center; font-family:Georgia,'Times New Roman',serif; font-size:7.5pt; letter-spacing:0.12em; color:#7c7368; } ",
 
