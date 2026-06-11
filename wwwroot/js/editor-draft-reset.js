@@ -5,8 +5,8 @@
 (function (global) {
     'use strict';
 
-    var CONFIRM_TITLE = 'Reset editor?';
-    var CONFIRM_HTML = 'All unsaved work will be permanently deleted. Continue?';
+    var CONFIRM_TITLE = 'Keep writing or reset your work?';
+    var CONFIRM_HTML = 'Resetting clears the current draft for this book so you can start fresh.';
     var FORMATTER_BOOK_KEY = 'ebook_formatter_book_id';
     var DASH_BOOK_KEY = 'ebook_dashboard_selected_book';
 
@@ -111,23 +111,19 @@
         return Swal.fire({
             title: CONFIRM_TITLE,
             html: customHtml || CONFIRM_HTML,
-            icon: 'warning',
+            icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Yes, delete everything',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'Reset my work',
+            cancelButtonText: 'Keep writing',
+            confirmButtonColor: '#7c3aed',
             cancelButtonColor: '#64748b',
+            focusCancel: true,
             allowOutsideClick: false
         }).then(function (r) { return !!r.isConfirmed; });
     }
 
+    /* Explicit reset asks once — the reset confirm already covers unsaved work. */
     function guardUnsavedThenConfirm(customHtml) {
-        if (global.EbookUnsavedGuard && global.EbookUnsavedGuard.isDirty && global.EbookUnsavedGuard.isDirty()) {
-            return global.EbookUnsavedGuard.confirmLeave().then(function (ok) {
-                if (!ok) return false;
-                return confirmReset(customHtml);
-            });
-        }
         return confirmReset(customHtml);
     }
 

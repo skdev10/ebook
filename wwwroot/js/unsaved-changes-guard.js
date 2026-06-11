@@ -66,16 +66,16 @@
         if (!dirty) return Promise.resolve(true);
 
         if (typeof Swal === 'undefined') {
-            var ok = global.confirm('You have unsaved changes on ' + contextLabel + '. Leave anyway?');
+            var ok = global.confirm('Leave this page? Your current draft won\'t be saved.');
             if (ok) markSaved();
             return Promise.resolve(ok);
         }
 
         var buttons = {
             showCancelButton: true,
-            confirmButtonText: 'Leave without saving',
-            cancelButtonText: 'Stay on page',
-            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'Leave',
+            cancelButtonText: 'Stay',
+            confirmButtonColor: '#7c3aed',
             cancelButtonColor: '#64748b',
             allowOutsideClick: false
         };
@@ -83,13 +83,13 @@
         if (pendingSaveFn) {
             buttons.showDenyButton = true;
             buttons.denyButtonText = 'Save first';
-            buttons.denyButtonColor = '#7c3aed';
+            buttons.denyButtonColor = '#16a34a';
         }
 
         return Swal.fire(Object.assign({
-            title: 'Unsaved changes',
-            html: 'Your latest edits on <strong>' + contextLabel + '</strong> may not be saved if you leave now.',
-            icon: 'warning'
+            title: 'Leave this page?',
+            html: 'Your current draft won\'t be saved.',
+            icon: 'question'
         }, buttons)).then(function (result) {
             if (result.isDenied) {
                 return runPendingSave().then(function (saved) {

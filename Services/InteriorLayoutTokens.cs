@@ -700,9 +700,12 @@ public static class InteriorLayoutTokens
 
 
 
+            // Preview shows only the book page itself — no mat panel behind the sheet
+            // (the mat looked like an extra page/cover stacked behind the preview).
+
             sb.Append("#book-formatter-root #fmt-book-result.").Append(mat).Append(" { ");
 
-            sb.Append("background:").Append(f.MatBackground).Append("; border:").Append(f.MatBorder).Append("; } ");
+            sb.Append("background:transparent; border:none; } ");
 
 
 
@@ -710,9 +713,9 @@ public static class InteriorLayoutTokens
 
             sb.Append("#book-formatter-root .paginated-reader-shell.").Append(wrap).Append(" { ");
 
-            sb.Append("background:").Append(f.MatBackground).Append("; border:").Append(f.MatBorder).Append("; ");
+            sb.Append("background:transparent; border:none; ");
 
-            sb.Append("box-shadow:").Append(f.SheetShadow).Append("; } ");
+            sb.Append("box-shadow:none; } ");
 
 
 

@@ -79,8 +79,8 @@
         }
         #bookResult .paginated-reader-shell.book-page-preview-shell {
             flex: 0 0 auto;
-            width: 62%;
-            max-width: 62%;
+            width: auto;
+            max-width: 100%;
             height: auto;
             max-height: none;
             margin-inline: auto;
@@ -123,7 +123,36 @@
     } */
     /* Preview card: fixed reading viewport (paginated); no growth from chapter length */
    
-    /* Preview card wraps a fixed 6×9 paginated page (see book-page-preview.css) */
+    /* Book page card: matches the reference design — soft lavender gradient page,
+       chapter title inside the page, no border, deep soft shadow. */
+    #bookResult .paginated-reader-shell.book-page-preview-shell {
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(135deg, #eef1fc 0%, #ebe4fa 55%, #e7daf8 100%);
+        border: none;
+        border-radius: 18px;
+        box-shadow: 0 30px 60px -30px rgba(91, 33, 182, 0.30);
+    }
+    #bookResult #preview-chapter-header {
+        flex: 0 0 auto;
+        margin: 0;
+        padding: clamp(1.4rem, 3.2vw, 2.4rem) clamp(1.4rem, 3vw, 2.2rem) 0.65rem;
+        font-size: clamp(1.45rem, 2.4vw, 1.95rem);
+        font-weight: 700;
+        line-height: 1.2;
+        color: #9aa3b2;
+        position: relative;
+        z-index: 2;
+    }
+    #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto;
+        position: relative;
+        z-index: 1;
+        padding: 0.35rem clamp(1.4rem, 3vw, 2.2rem) clamp(1.35rem, 2.8vw, 2.1rem);
+    }
+    /* Preview wrap: transparent — the 6×9 page itself is the visible card (no mat behind it) */
     #bookResult {
         width: 100%;
         max-width: 100%;
@@ -134,15 +163,12 @@
         flex-shrink: 0;
         overflow: hidden;
         position: relative;
-        border: 1px solid #ddd6fe;
-        box-shadow: 0 16px 32px -22px rgba(91, 33, 182, 0.22);
-        background: #f5f3ff;
+        border: none;
+        box-shadow: none;
+        background: transparent;
         border-radius: 12px;
         box-sizing: border-box;
-        padding: 1.25rem 1rem 1.5rem;
-    }
-    @@media (min-width: 768px) {
-        #bookResult { padding: 1.5rem 1.25rem 1.75rem; }
+        padding: 0;
     }
     #bookResultContent {
         display: flex;
@@ -1255,24 +1281,6 @@
 <div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
     <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
         <div class="ai-writer-page-wrap max-w-[1600px] mx-auto w-full flex flex-col min-h-0" data-aos="fade-up" data-aos-duration="500">
-        <div class="ai-writer-preview-meta flex flex-col gap-4 mb-6 lg:mb-5 shrink-0">
-            <div class="flex items-center gap-3 text-base font-medium text-purple-600">
-                <span class="h-[1.5px] w-5 bg-purple-600"></span>
-                Ebook AI
-            </div>
-            <h1 id="preview-book-title" class="font-serif-custom text-4xl font-medium tracking-tight text-slate-900 transition-all duration-300">Your Chapter's Preview</h1>
-            <p class="preview-intro-desc text-base text-slate-500 max-w-lg leading-relaxed">
-                Your manuscript appears as a paginated ebook page. Use the side arrows or buttons below to turn pages.
-            </p>
-            <div id="chatContainer" class="chat-container flex flex-col gap-4 flex-shrink-0">
-                <div class="message message-ai flex gap-3 chat-intro-highlight">
-                    <div class="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-semibold shrink-0">AI</div>
-                    <div class="message-content chat-intro-message">
-                        Hello! Enter a topic and click Generate, or load a chapter from the dropdown. Your manuscript preview appears below as you work.
-                    </div>
-                </div>
-            </div>
-        </div>
         <div class="ai-writer-main-layout w-full flex flex-col lg:flex-row gap-12 lg:gap-24 min-h-0">
         <!-- Left Column: Forms -->
         <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-10 shrink-0">
@@ -1409,6 +1417,24 @@
         </div>
 
         <div class="ai-writer-preview-stack flex flex-col min-w-[300px] min-h-0 flex-1 w-full">
+            <div class="ai-writer-preview-meta flex flex-col gap-4 mb-6 lg:mb-5 shrink-0">
+                <div class="flex items-center gap-3 text-base font-medium text-purple-600">
+                    <span class="h-[1.5px] w-5 bg-purple-600"></span>
+                    Ebook AI
+                </div>
+                <h1 id="preview-book-title" class="font-serif-custom text-4xl font-medium tracking-tight text-slate-900 transition-all duration-300">Your Chapter's Preview</h1>
+                <p class="preview-intro-desc text-base text-slate-500 max-w-lg leading-relaxed">
+                    Your manuscript appears as a paginated ebook page. Use the side arrows or buttons below to turn pages.
+                </p>
+                <div id="chatContainer" class="chat-container flex flex-col gap-4 flex-shrink-0">
+                    <div class="message message-ai flex gap-3 chat-intro-highlight">
+                        <div class="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-semibold shrink-0">AI</div>
+                        <div class="message-content chat-intro-message">
+                            Hello! Enter a topic and click Generate, or load a chapter from the dropdown. Your manuscript preview appears below as you work.
+                        </div>
+                    </div>
+                </div>
+            </div>
             <!-- Side-by-side preview (edit mode: Original | Regenerated) -->
             <div id="sideBySidePreview" class="preview-side-by-side hidden mb-6">
                 <div class="preview-side-panel">
@@ -1420,21 +1446,21 @@
                     <div id="sideBySideNew" class="preview-side-body"></div>
                 </div>
             </div>
-            <div id="bookResult" class="relative rounded-xl shadow-sm border flex flex-col min-h-0 flex-1 ai-writer-ebook-preview-wrap" style="background-color:#f5f3ff;border-color:#ddd6fe;" data-guided-tour="ai-preview-panel">
+            <div id="bookResult" class="relative flex flex-col min-h-0 flex-1 ai-writer-ebook-preview-wrap" data-guided-tour="ai-preview-panel">
                 <div id="chapterGenerationOverlay" class="chapter-generation-overlay hidden" role="status" aria-live="polite">
                     <div class="animate-spin rounded-full h-12 w-12 border-4 border-violet-200 border-t-violet-600"></div>
                     <p id="chapterGenerationOverlayText" class="text-slate-800 font-semibold text-center">Writing…</p>
                 </div>
                 <div id="bookResultStatusBanner" class="hidden mb-4 rounded-xl border border-violet-300/80 bg-violet-50/95 px-4 py-3 text-sm text-slate-800 shadow-sm leading-relaxed" role="status" aria-live="polite"></div>
                 <div id="bookResultContent" class="book-result-content flex flex-col flex-1 min-h-0">
-                    <h3 id="preview-chapter-header" class="text-2xl font-medium text-slate-700 tracking-tight mb-3 shrink-0 flex items-center gap-2 group">
+                    <div id="chapterPreviewScrollHost" class="chapter-preview-scroll-host min-h-0 flex-1 flex flex-col">
+                    <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell">
+                    <h3 id="preview-chapter-header" class="tracking-tight shrink-0 flex items-center gap-2 group">
                         <span id="preview-chapter-header-text" class="min-w-0 truncate">Chapter 1</span>
                         <button type="button" id="btnRenameChapterFromPreview" class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-violet-700 hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-colors opacity-80 hover:opacity-100" title="Rename chapter" aria-label="Rename chapter">
                             <i class="fas fa-pen text-xs" aria-hidden="true"></i>
                         </button>
                     </h3>
-                    <div id="chapterPreviewScrollHost" class="chapter-preview-scroll-host min-h-0 flex-1 flex flex-col">
-                    <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell">
                     <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col text-base text-slate-700 leading-relaxed"></div>
                     <button type="button" id="btnAiWriterPrevSide" class="ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
                     <button type="button" id="btnAiWriterNextSide" class="ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page"><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
@@ -1981,32 +2007,39 @@ window.syncAiWriterPreviewLayout = function () {
         return;
     }
 
-    var targetH = sidebar.offsetHeight;
+    /* Right column = meta heading + preview card. The card height fills whatever is left
+       so the whole right column matches the left form column height. */
+    var stack = document.querySelector('.ai-writer-preview-stack');
+    var usedAbove = 0;
+    if (stack) {
+        var brRect = bookResult.getBoundingClientRect();
+        var stackRect = stack.getBoundingClientRect();
+        usedAbove = Math.max(0, Math.round(brRect.top - stackRect.top));
+    }
+    var targetH = Math.max(360, sidebar.offsetHeight - usedAbove);
     bookResult.style.minHeight = targetH + 'px';
     bookResult.style.height = targetH + 'px';
 
     var availW = scrollHost.clientWidth || bookResult.clientWidth;
     var availH = scrollHost.clientHeight;
     if (availH < 80) {
-        var header = document.getElementById('preview-chapter-header');
         var nav = document.getElementById('chapterPreviewNav');
         var banner = document.getElementById('bookResultStatusBanner');
         var brStyles = window.getComputedStyle(bookResult);
         var padY = parseFloat(brStyles.paddingTop) + parseFloat(brStyles.paddingBottom);
-        var headerH = header ? header.offsetHeight : 0;
         var navH = nav && !nav.classList.contains('hidden') ? nav.offsetHeight : 0;
         var bannerH = banner && !banner.classList.contains('hidden') ? banner.offsetHeight : 0;
         var contentStyles = window.getComputedStyle(document.getElementById('bookResultContent') || bookResult);
         var contentGap = parseFloat(contentStyles.gap || '0') || 12;
-        availH = Math.max(120, targetH - padY - headerH - navH - bannerH - contentGap);
+        availH = Math.max(120, targetH - padY - navH - bannerH - contentGap);
     }
 
-    /* 6×9 page at 62% of preview column width; shrink if taller than available slot */
-    var shellW = Math.floor(Math.max(0, availW * 0.62));
-    var shellH = Math.floor(shellW * (9 / 6));
-    if (shellH > availH && availH > 48) {
-        shellH = Math.floor(availH);
-        shellW = Math.floor(shellH * (6 / 9));
+    /* 6×9 page fills the available preview height (matches left column); clamp by column width */
+    var shellH = Math.floor(Math.max(0, availH));
+    var shellW = Math.floor(shellH * (6 / 9));
+    if (shellW > availW && availW > 48) {
+        shellW = Math.floor(availW);
+        shellH = Math.floor(shellW * (9 / 6));
     }
 
     shellW = Math.max(0, shellW);
@@ -2016,7 +2049,7 @@ window.syncAiWriterPreviewLayout = function () {
     shell.style.width = shellW + 'px';
     shell.style.height = shellH + 'px';
     shell.style.maxHeight = 'none';
-    shell.style.maxWidth = '62%';
+    shell.style.maxWidth = '100%';
     shell.style.aspectRatio = '6 / 9';
 
     if (viewport && shellW > 0 && shellH > 0) {
@@ -2842,6 +2875,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.syncAiWriterPreviewLayout();
             });
             sidebarRo.observe(sidebarEl);
+            var metaEl = document.querySelector('.ai-writer-preview-meta');
+            if (metaEl) sidebarRo.observe(metaEl);
         }
         var bookResultEl = document.getElementById('bookResult');
         if (bookResultEl && typeof ResizeObserver !== 'undefined') {

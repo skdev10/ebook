@@ -162,6 +162,12 @@
         }
         catch { coverNavUnlocked = coverUnlocked; }
     }
+
+    // Dashboard home: sidebar opens fully expanded by default (other pages keep the hover-rail behavior).
+    var sidebarRouteController = ViewContext.RouteData.Values["Controller"]?.ToString() ?? "";
+    var sidebarRouteAction = ViewContext.RouteData.Values["Action"]?.ToString() ?? "";
+    bool sidebarPinnedOpen = string.Equals(sidebarRouteController, "Dashboard", StringComparison.OrdinalIgnoreCase)
+        && (string.IsNullOrEmpty(sidebarRouteAction) || string.Equals(sidebarRouteAction, "Index", StringComparison.OrdinalIgnoreCase));
 }
 
 <!DOCTYPE html>
@@ -312,6 +318,72 @@
                     color 0.2s ease;
             }
 
+        }
+
+        /* Dashboard home: sidebar pinned fully open by default (no auto-collapse; main content shifts to fit). */
+        @@media (min-width: 769px) {
+            .sidebar.sidebar-pinned-open {
+                width: var(--dash-sidebar-w-expanded);
+            }
+
+            .sidebar.sidebar-pinned-open .sidebar-header {
+                justify-content: flex-start;
+                padding-left: 14px;
+                padding-right: 14px;
+            }
+
+            .sidebar.sidebar-pinned-open .sidebar-header .logo-link {
+                justify-content: flex-start;
+                width: 100%;
+            }
+
+            .sidebar.sidebar-pinned-open .sidebar-header .logo-link .sidebar-logo-icon {
+                display: none;
+            }
+
+            .sidebar.sidebar-pinned-open .sidebar-header .logo-link .sidebar-logo-img {
+                display: block;
+            }
+
+            .sidebar.sidebar-pinned-open .sidebar-menu a,
+            .sidebar.sidebar-pinned-open .sidebar-footer a {
+                justify-content: flex-start;
+            }
+
+            .sidebar.sidebar-pinned-open .nav-text,
+            .sidebar.sidebar-pinned-open .sidebar-menu a:hover .nav-text,
+            .sidebar.sidebar-pinned-open .sidebar-menu a:focus-visible .nav-text,
+            .sidebar.sidebar-pinned-open .sidebar-footer a:hover .nav-text,
+            .sidebar.sidebar-pinned-open .sidebar-footer a:focus-visible .nav-text {
+                position: static;
+                opacity: 1;
+                visibility: visible;
+                transform: none;
+                left: auto;
+                top: auto;
+                margin-left: 12px;
+                max-width: min(200px, 36vw);
+                padding: 0;
+                background: transparent;
+                color: inherit;
+                font-size: 0.9375rem;
+                font-weight: 500;
+                box-shadow: none;
+                pointer-events: auto;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .main-content.main-content-pinned {
+                margin-left: var(--dash-sidebar-w-expanded);
+                width: calc(100% - var(--dash-sidebar-w-expanded));
+                /* Fixed viewport height so the dashboard scrolls inside its own column —
+                   no document scroll, so no empty space above the header while scrolling. */
+                height: 100vh;
+                height: 100dvh;
+                overflow: hidden;
+            }
         }
 
         /* Book Formatting nav: hide "No Book Selected" / "Format: Ebook" subtext (details remain on formatter screen) */
@@ -3417,7 +3489,7 @@
     </div>
     <div class="dashboard-container">
         <!-- Sidebar: collapsed = icons only; hover = expand to show labels -->
-        <nav class="sidebar" id="sidebar">
+        <nav class="sidebar @(sidebarPinnedOpen ? "sidebar-pinned-open" : "")" id="sidebar">
             <div class="sidebar-header">
                 <a href="/Dashboard" class="logo-link">
                     <i data-lucide="sparkles" class="sidebar-logo-icon sidebar-lucide-icon" stroke-width="1.5"></i>
@@ -3537,35 +3609,67 @@
             </script>
             <!-- ✅ SweetAlert Script -->
             <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+            <style>
+                /* Simple bootstrap-style top alert for "follow the steps" (no SweetAlert popups for flow) */
+                .flow-steps-top-alert {
+                    position: fixed;
+                    top: 16px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 10050;
+                    max-width: min(560px, calc(100vw - 32px));
+                    background: #fff3cd;
+                    color: #664d03;
+                    border: 1px solid #ffe69c;
+                    border-radius: 10px;
+                    padding: 12px 40px 12px 16px;
+                    font-size: 0.9rem;
+                    line-height: 1.5;
+                    box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.25);
+                    transition: opacity 0.3s ease;
+                }
+                .flow-steps-top-alert .btn-close-alert {
+                    position: absolute;
+                    top: 6px;
+                    right: 10px;
+                    border: none;
+                    background: transparent;
+                    color: inherit;
+                    font-size: 1.2rem;
+                    line-height: 1;
+                    cursor: pointer;
+                    opacity: 0.6;
+                }
+                .flow-steps-top-alert .btn-close-alert:hover { opacity: 1; }
+            </style>
             <script>
+                /* Top-of-screen "follow steps" alert — replaces SweetAlert for flow/locked navigation. */
+                window.showFollowStepsAlert = function (message) {
+                    var text = message || 'Please follow the steps in order: <b>AI Writer → Book Formatting → AI Cover Design → Publish</b>. Complete your current step first.';
+                    var existing = document.getElementById('flowStepsTopAlert');
+                    if (existing) existing.remove();
+                    var div = document.createElement('div');
+                    div.id = 'flowStepsTopAlert';
+                    div.className = 'flow-steps-top-alert';
+                    div.setAttribute('role', 'alert');
+                    div.innerHTML = '<i class="fas fa-info-circle" style="margin-right:8px;"></i>' + text +
+                        '<button type="button" class="btn-close-alert" aria-label="Close">&times;</button>';
+                    document.body.appendChild(div);
+                    div.querySelector('.btn-close-alert').addEventListener('click', function () { div.remove(); });
+                    setTimeout(function () {
+                        if (div.parentNode) {
+                            div.style.opacity = '0';
+                            setTimeout(function () { div.remove(); }, 320);
+                        }
+                    }, 6000);
+                };
                 document.addEventListener("DOMContentLoaded", function () {
                     const sidebarLocked = document.querySelectorAll(".sidebar-locked-feature");
                     sidebarLocked.forEach(link => {
                         link.addEventListener("click", function (e) {
                             e.preventDefault();
                             const name = this.getAttribute("data-locked") || "This feature";
-                            const goto = this.getAttribute("data-goto") || "/Dashboard";
-                            const step = this.getAttribute("data-unlock-step") || "1";
-                            const stepsOrder = "<ol style=\"text-align:left;margin:12px auto 0;max-width:320px;padding-left:1.25rem;line-height:1.65;font-size:0.92rem;\"><li><b>AI Writer</b> — write chapters</li><li><b>Book Formatting</b> — interior layout</li><li><b>AI Cover Design</b> — cover artwork</li><li><b>Publish / My Books</b> — export &amp; share</li></ol>";
-                            let msg = "Please follow the steps in order. Pick a book on the <b>Dashboard</b>, then complete each stage before opening the next.<br><br><b>" + name + "</b> unlocks after the previous step." + stepsOrder;
-                            let btn = "Go to Dashboard";
-                            let title = "Follow the publishing steps";
-                            if (step === "1") { msg = "Start with <b>AI Writer</b> — generate your chapters first. Then <b>Book Formatting</b> and other tools will unlock." + stepsOrder; btn = "Go to AI Writer"; }
-                            else if (step === "2") { msg = "Finish <b>Book Formatting</b> for your selected book first. After that, <b>AI Cover Design</b> will unlock." + stepsOrder; btn = "Go to Formatting"; }
-                            else if (step === "3") { msg = "Complete <b>AI Cover Design</b> before opening <b>My Books / Publish</b>." + stepsOrder; btn = "Go to Cover Design"; }
-                            else if (name.indexOf("Publish") >= 0 || name.indexOf("My Books") >= 0) { btn = "Go to Dashboard"; }
-                            Swal.fire({
-                                title: title,
-                                html: msg,
-                                icon: "info",
-                                confirmButtonText: btn,
-                                confirmButtonColor: "#7c3aed",
-                                showCancelButton: true,
-                                cancelButtonText: "Stay here",
-                                cancelButtonColor: "#94a3b8"
-                            }).then((result) => {
-                                if (result.isConfirmed) window.location.href = goto;
-                            });
+                            window.showFollowStepsAlert('<b>' + name + '</b> is locked — please follow the steps: <b>AI Writer → Book Formatting → AI Cover Design → Publish</b>.');
                         });
                     });
                     const lockedLinks = document.querySelectorAll(".locked-feature");
@@ -3730,7 +3834,7 @@
         <!-- Cart removed per project requirement -->
 
         <!-- Main Content -->
-        <main class="main-content @(ViewBag.LockMessage != null ? "locked-blur" : "")">
+        <main class="main-content @(sidebarPinnedOpen ? "main-content-pinned" : "") @(ViewBag.LockMessage != null ? "locked-blur" : "")">
             @Html.AntiForgeryToken()
             @if (ViewBag.LockMessage != null)
             {
@@ -5320,90 +5424,42 @@
                 }
 
                 function showFlowBlockedAlert() {
-                    return Swal.fire({
-                        title: 'Follow the step-by-step flow',
-                        html: 'Please complete each step in order for this book. You can open <strong>Profile Settings</strong> anytime, or return to the <strong>Dashboard</strong> to switch projects after finishing this step.',
-                        icon: 'info',
-                        confirmButtonText: 'Got it',
-                        confirmButtonColor: '#7c3aed'
-                    });
+                    if (typeof window.showFollowStepsAlert === 'function') {
+                        window.showFollowStepsAlert();
+                    }
+                    return Promise.resolve();
                 }
 
-                function destructiveBackMessage(targetUrl) {
-                    var path = normalizePath(targetUrl || flowBackUrl || '/Dashboard');
-                    if (isDashboardPath(path) && flowStep === 'generate') {
-                        return 'Leaving <strong>AI Writer</strong> will <strong>delete all draft work for this book</strong>, including chapters, formatting, and cover assets.';
-                    }
-                    if (isAiWriterPath(path)) {
-                        return 'Going back to <strong>AI Writer</strong> will <strong>clear formatting, cover assets, and saved layout</strong> for this book. Chapter text will be kept.';
-                    }
-                    if (flowStep === 'cover') {
-                        return 'Going back to <strong>Book Formatting</strong> will <strong>clear your cover design</strong> for this book (you can regenerate it later).';
-                    }
-                    if (flowStep === 'publish') {
-                        return 'Going back to <strong>Cover Design</strong> will return you to the previous step. Publish/export settings on this screen may need to be reviewed again.';
-                    }
-                    return 'Going back will <strong>reset progress on later workflow steps</strong> for this book.';
-                }
-
-                function resolveBackResetScope(targetUrl) {
-                    var path = normalizePath(targetUrl || flowBackUrl || '/Dashboard');
-                    if (isDashboardPath(path) && flowStep === 'generate') return 'fullprojectwithchapters';
-                    if (isAiWriterPath(path)) return 'fullproject';
-                    return '';
-                }
-
-                function runDestructiveBack(targetUrl, options) {
-                    var opts = options || {};
+                /*
+                 * Back navigation is plain navigation — no destructive reset, no scary popup.
+                 * Silent when there is nothing unsaved; a soft "Leave this page?" prompt only when dirty.
+                 * Destructive resets only happen from explicit Reset buttons (EditorDraftReset).
+                 */
+                function confirmFlowLeave(targetUrl) {
                     var target = targetUrl || flowBackUrl || '/Dashboard';
-                    var scope = resolveBackResetScope(target);
-                    if (window.EditorDraftReset && typeof window.EditorDraftReset.resetFlowBack === 'function') {
-                        if (scope) {
-                            return window.EditorDraftReset.resetFlowBack(flowBookId, flowStep, target, { scope: scope });
-                        }
-                        return window.EditorDraftReset.resetFlowBack(flowBookId, flowStep, target, {
-                            wipeAllWork: !!(opts.wipeAllWork || isAiWriterPath(normalizePath(target))),
-                            destructiveBack: true
-                        });
+                    var isDirty = !!(window.EbookUnsavedGuard
+                        && typeof window.EbookUnsavedGuard.isDirty === 'function'
+                        && window.EbookUnsavedGuard.isDirty());
+                    if (!isDirty) {
+                        window.location.href = target;
+                        return Promise.resolve(true);
                     }
-                    return Promise.resolve(false);
-                }
-
-                function confirmDestructiveFlowBack(targetUrl, options) {
-                    function showDestructiveConfirm() {
-                        var resetHtml = (window.EditorDraftReset && window.EditorDraftReset.CONFIRM_HTML)
-                            ? window.EditorDraftReset.CONFIRM_HTML
-                            : 'All unsaved work will be permanently deleted. Continue?';
-                        var detail = destructiveBackMessage(targetUrl);
-                        return Swal.fire({
-                            title: (window.EditorDraftReset && window.EditorDraftReset.CONFIRM_TITLE) || 'Reset editor?',
-                            html: resetHtml + '<p class="text-sm text-slate-500 mt-3">' + detail + '</p>',
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Yes, delete everything',
-                            cancelButtonText: 'Cancel',
-                            confirmButtonColor: '#dc2626',
-                            cancelButtonColor: '#64748b',
-                            allowOutsideClick: false
-                        }).then(function (result) {
-                            if (!result.isConfirmed) return false;
-                            return runDestructiveBack(targetUrl, options);
-                        });
-                    }
-                    if (window.EbookUnsavedGuard && window.EbookUnsavedGuard.isDirty()) {
-                        return window.EbookUnsavedGuard.confirmLeave(targetUrl).then(function (ok) {
+                    if (window.EbookUnsavedGuard && typeof window.EbookUnsavedGuard.confirmLeave === 'function') {
+                        return window.EbookUnsavedGuard.confirmLeave(target).then(function (ok) {
                             if (!ok) return false;
-                            return showDestructiveConfirm();
+                            window.location.href = target;
+                            return true;
                         });
                     }
-                    return showDestructiveConfirm();
+                    window.location.href = target;
+                    return Promise.resolve(true);
                 }
 
                 function confirmLeaveToAiWriter(targetUrl) {
-                    return confirmDestructiveFlowBack(targetUrl, { wipeAllWork: true });
+                    return confirmFlowLeave(targetUrl);
                 }
                 window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
-                window.confirmFlowBack = confirmDestructiveFlowBack;
+                window.confirmFlowBack = confirmFlowLeave;
 
                 document.addEventListener('DOMContentLoaded', function () {
                     document.querySelectorAll('.sidebar-menu a[href], .sidebar-footer a[href]').forEach(function (a) {

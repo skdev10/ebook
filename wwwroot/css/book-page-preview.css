@@ -54,8 +54,8 @@
 
 @media (min-width: 1024px) {
     #bookResult .paginated-reader-shell.book-page-preview-shell {
-        width: 62%;
-        max-width: 62%;
+        width: auto;
+        max-width: 100%;
         max-height: none;
         aspect-ratio: 6 / 9;
     }
