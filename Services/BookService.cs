@@ -2,6 +2,7 @@ using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Models.ViewModels;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -13,11 +14,13 @@ namespace EBookDashboard.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IChapterIterationService _chapterIterations;
+        private readonly IWebHostEnvironment _env;
 
-        public BookService(ApplicationDbContext context, IChapterIterationService chapterIterations)
+        public BookService(ApplicationDbContext context, IChapterIterationService chapterIterations, IWebHostEnvironment env)
         {
             _context = context;
             _chapterIterations = chapterIterations;
+            _env = env;
         }
 
         public async Task<Books?> GetBookByIdAsync(int bookId)
@@ -238,6 +241,73 @@ namespace EBookDashboard.Services
 
             _context.Books.Remove(book);
             return await _context.SaveChangesAsync() > 0;
+        }
+
+        /// <inheritdoc />
+        public async Task<bool> DeleteBookForUserAsync(int bookId, int userId)
+        {
+            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
+            if (book == null) return false;
+
+            var settingsKeys = new List<string>
+            {
+                BookResumeUrlHelper.PerBookSettingsKey(bookId),
+                $"user:{userId}:lastBookId"
+            };
+            var prefixed = await _context.Settings
+                .Where(s => s.Key.StartsWith($"book:{bookId}:"))
+                .ToListAsync();
+            var extra = await _context.Settings
+                .Where(s => settingsKeys.Contains(s.Key))
+                .ToListAsync();
+
+            _context.Settings.RemoveRange(prefixed);
+            _context.Settings.RemoveRange(extra);
+            _context.Books.Remove(book);
+            await _context.SaveChangesAsync();
+
+            TryDeleteBookUploadFolder(userId, bookId);
+            return true;
+        }
+
+        /// <inheritdoc />
+        public async Task<bool> MarkPublishedAsync(int bookId, int userId, CancellationToken cancellationToken = default)
+        {
+            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+            if (book == null) return false;
+            var dirty = false;
+            if (!BookFlowStateService.IsPublishedStatus(book.Status))
+            {
+                book.Status = "Published";
+                dirty = true;
+            }
+            if (book.isActive != 0)
+            {
+                book.isActive = 0;
+                dirty = true;
+            }
+            if (dirty)
+            {
+                book.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            return true;
+        }
+
+        private void TryDeleteBookUploadFolder(int userId, int bookId)
+        {
+            try
+            {
+                var root = _env.WebRootPath ?? "";
+                if (string.IsNullOrEmpty(root)) return;
+                var dir = Path.Combine(root, "uploads", userId.ToString(), "books", bookId.ToString());
+                if (Directory.Exists(dir))
+                    Directory.Delete(dir, recursive: true);
+            }
+            catch
+            {
+                /* best-effort file cleanup */
+            }
         }
 
         // ----- Categories -----

@@ -244,25 +244,31 @@ public static class InteriorExportTheme
     public static string BuildBookPreviewSheetPrintCss(string interior, string pageBg) =>
         InteriorLayoutTokens.BuildSharedReaderLayoutCss();
 
-    /// <summary>Interior shell rules — mirrors Book Formatter preview (<c>interior-*</c> on body).</summary>
+    /// <summary>Interior typography — identical in Book Formatter preview and PDF export.</summary>
     public static string BuildFormatterInteriorCss() =>
         string.Concat(
-            ".book-pdf-body.interior-novel .reader-page-title { font-family: 'Playfair Display', Georgia, serif; color: #6f2f10; font-weight: 700; text-align: center; border-bottom: 1px solid rgba(111, 47, 16, 0.18); } ",
-            ".book-pdf-body.interior-novel .reader-page-body { font-family: 'Merriweather', Georgia, serif; color: #2c2118; } ",
-            ".book-pdf-body.interior-novel .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
-            ".book-pdf-body.interior-modern .reader-page-title { font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 800; color: #334155; text-align: left; border-bottom: none; } ",
-            ".book-pdf-body.interior-modern .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #334155; } ",
-            ".book-pdf-body.interior-modern .reader-page-body p { text-indent: 0; border-left: 3px solid #6366f1; padding-left: 0.9em; margin-bottom: 0.85em; } ",
-            ".book-pdf-body.interior-classic .reader-page-title { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; font-style: italic; font-variant: small-caps; letter-spacing: 0.12em; text-align: center; border-bottom: 3px double #d6c4a8; } ",
-            ".book-pdf-body.interior-classic .reader-page-body { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; text-align: justify; color: #231f1a; } ",
-            ".book-pdf-body.interior-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.4em; line-height: 0.8; padding-right: 0.1em; font-weight: 600; color: #111; font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; } ",
-            ".book-pdf-body.interior-minimalist .reader-page-title { font-family: 'Inter', system-ui, sans-serif; font-weight: 600; color: #111827; text-align: left; border-bottom: 1px solid #ececec; } ",
-            ".book-pdf-body.interior-minimalist .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #3f3f46; } ",
-            ".book-pdf-body.interior-minimalist .reader-page-body p { text-indent: 0; margin-bottom: 1.1em; } ",
-            ".book-pdf-body.interior-elegant-trade .reader-page-title { font-family: 'Lora', 'Times New Roman', serif; font-weight: 600; letter-spacing: 0.06em; color: #3d2914; text-align: center; border-bottom: 1px solid #c8b08e; } ",
-            ".book-pdf-body.interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
-            ".book-pdf-body.interior-elegant-trade .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
-            ".book-pdf-body.interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ");
+            BuildInteriorTypographyCss(".book-pdf-body"),
+            BuildInteriorTypographyCss("#book-formatter-root #paginatedReaderShell"));
+
+    private static string BuildInteriorTypographyCss(string scope) =>
+        string.Concat(
+            scope, ".interior-novel .reader-page-title { font-family: 'Playfair Display', Georgia, serif; color: #6f2f10; font-weight: 700; text-align: center; border-bottom: 1px solid rgba(111, 47, 16, 0.18); } ",
+            scope, ".interior-novel .reader-page-body { font-family: 'Merriweather', Georgia, serif; color: #2c2118; } ",
+            scope, ".interior-novel .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
+            scope, ".interior-modern .reader-page-title { font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 800; color: #334155; text-align: left; border-bottom: none; } ",
+            scope, ".interior-modern .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #334155; } ",
+            scope, ".interior-modern .reader-page-body p { text-indent: 0; border-left: 3px solid #6366f1; padding-left: 0.9em; margin-bottom: 0.85em; } ",
+            scope, ".interior-classic .reader-page-title { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; font-style: italic; font-variant: small-caps; letter-spacing: 0.12em; text-align: center; border-bottom: 3px double #d6c4a8; } ",
+            scope, ".interior-classic .reader-page-body { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; text-align: justify; color: #231f1a; } ",
+            scope, ".interior-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter, ",
+            scope, ".interior-classic .reader-page-body p.classic-first-para::first-letter { float: left; font-size: 3.4em; line-height: 0.8; padding-right: 0.1em; font-weight: 600; color: #111; font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; } ",
+            scope, ".interior-minimalist .reader-page-title { font-family: 'Inter', system-ui, sans-serif; font-weight: 600; color: #111827; text-align: left; border-bottom: 1px solid #ececec; } ",
+            scope, ".interior-minimalist .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #3f3f46; } ",
+            scope, ".interior-minimalist .reader-page-body p { text-indent: 0; margin-bottom: 1.1em; } ",
+            scope, ".interior-elegant-trade .reader-page-title { font-family: 'Lora', 'Times New Roman', serif; font-weight: 600; letter-spacing: 0.06em; color: #3d2914; text-align: center; border-bottom: 1px solid #c8b08e; } ",
+            scope, ".interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
+            scope, ".interior-elegant-trade .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
+            scope, ".interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ");
 
     private static string? NormalizeAccentHex(string? raw)
     {

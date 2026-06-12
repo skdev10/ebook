@@ -400,6 +400,25 @@
         padding: 0 0.35rem;
         line-height: 1.2;
     }
+    #book-formatter-root .manuscript-chapter-heading {
+        color: #0f172a;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 1.35rem;
+        font-weight: 600;
+        margin: 0 0 1rem 0;
+        letter-spacing: -0.02em;
+        text-indent: 0;
+        text-align: left;
+        line-height: 1.25;
+    }
+    #book-formatter-root .reader-page-body .manuscript-p {
+        margin: 0 0 1rem 0;
+        color: #334155;
+        text-indent: 0;
+    }
+    #book-formatter-root .reader-page-body .manuscript-p:last-child {
+        margin-bottom: 0;
+    }
     .reader-page-body {
         font-family: 'Merriweather', serif;
         text-align: left;
@@ -1077,33 +1096,57 @@
     #book-formatter-root .fmt-float-nav {
         position: absolute;
         top: 50%;
-        transform: translateY(-50%);
         z-index: 12;
         width: 2.25rem;
         height: 2.25rem;
         border-radius: 999px;
-        border: none;
-        background: rgba(15, 23, 42, 0.18);
-        color: #fff;
+        border: 1px solid rgba(196, 181, 253, 0.65);
+        background: #fff;
+        color: #5b21b6;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+        transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         padding: 0;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+        box-shadow: 0 4px 14px rgba(91, 33, 182, 0.12);
     }
     #book-formatter-root .fmt-float-nav:hover:not(:disabled) {
-        background: rgba(15, 23, 42, 0.32);
-        transform: translateY(-50%) scale(1.08);
+        background: #f5f3ff;
+        border-color: #a78bfa;
+        transform: translateY(-50%) scale(1.06);
+        box-shadow: 0 8px 22px rgba(91, 33, 182, 0.18);
     }
     #book-formatter-root .fmt-float-nav:disabled {
         opacity: 0.28;
         cursor: default;
         pointer-events: none;
     }
-    #book-formatter-root .fmt-float-nav-prev { left: 6px; }
-    #book-formatter-root .fmt-float-nav-next { right: 6px; }
+    #book-formatter-root #paginatedReaderShell {
+        position: relative;
+        padding-inline: 0;
+        box-sizing: border-box;
+        margin-inline: auto;
+    }
+    #fmt-preview-scroll-host .preview-panel-single {
+        position: relative;
+        padding-inline: clamp(1.75rem, 4vw, 2.5rem);
+        box-sizing: border-box;
+    }
+    #book-formatter-root .fmt-float-nav-prev {
+        left: 0;
+        transform: translateY(-50%);
+    }
+    #book-formatter-root .fmt-float-nav-prev:hover:not(:disabled) {
+        transform: translateY(-50%) scale(1.06);
+    }
+    #book-formatter-root .fmt-float-nav-next {
+        right: 0;
+        transform: translateY(-50%);
+    }
+    #book-formatter-root .fmt-float-nav-next:hover:not(:disabled) {
+        transform: translateY(-50%) scale(1.06);
+    }
     /* ----- AI Book Writer paginated preview: scroll host → 6×9 shell → viewport (flat DOM) ----- */
     #fmt-book-result .chapter-preview-scroll-host {
         flex: 1 1 0%;
@@ -1385,9 +1428,17 @@
         justify-content: flex-start;
     }
     #fmt-preview-scroll-host .paginated-reader-shell.book-page-preview-shell {
-        margin-inline: 0;
+        margin-inline: auto;
         width: 100%;
         max-width: 100%;
+    }
+    #book-formatter-root #fmt-book-result.fmt-book-result {
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
+    #book-formatter-root #bookContainer {
+        border-radius: 2px;
+        box-shadow: var(--ilt-container-shadow, 0 8px 30px rgba(0, 0, 0, 0.11));
     }
     /*
      * Manuscript strip: grows with chapter HTML (no nested scroll). Matches AI Writer leaving scroll on the outer viewport.
@@ -1498,6 +1549,7 @@
     var prBleed = ViewBag.PrintReadyBleedInches as double? ?? 0.125;
     var prTrimW = ViewBag.PrintReadyDefaultTrimWidthInches as double? ?? 6.0;
     var prTrimH = ViewBag.PrintReadyDefaultTrimHeightInches as double? ?? 9.0;
+    var initialBookPayloadJson = ViewBag.InitialBookPayloadJson as string ?? "null";
 }
 <div class="dash-flow-page antialiased" id="book-formatter-root" data-user-id="@uid" data-book-id="@bookId" data-format="@formatFromUrl" data-pr-white="@prWhite.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-cream="@prCream.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-color="@prColor.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-bleed="@prBleed.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-trim-w="@prTrimW.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-pr-trim-h="@prTrimH.ToString(System.Globalization.CultureInfo.InvariantCulture)">
 @Html.AntiForgeryToken()
@@ -1711,14 +1763,14 @@
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <button type="button" id="bookNavPrev" class="fmt-float-nav fmt-float-nav-prev" aria-label="Previous page" title="Previous page">
-                                                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
-                                                    </button>
-                                                    <button type="button" id="bookNavNext" class="fmt-float-nav fmt-float-nav-next" aria-label="Next page" title="Next page">
-                                                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                                                    </button>
                                                     <div id="bookPageIndicator" class="book-page-indicator" aria-live="polite">1 / 1</div>
                                                 </div>
+                                                <button type="button" id="bookNavPrev" class="fmt-float-nav fmt-float-nav-prev" aria-label="Previous page" title="Previous page">
+                                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                                                </button>
+                                                <button type="button" id="bookNavNext" class="fmt-float-nav fmt-float-nav-next" aria-label="Next page" title="Next page">
+                                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                                                </button>
                                                 <button type="button" id="btnAiWriterPrevSide" class="ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page">
                                                     <i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i>
                                                 </button>
@@ -1868,6 +1920,7 @@
     const root = document.getElementById('book-formatter-root');
     /* Read from data-* only (no Razor tokens in this script; user/book ids come from #book-formatter-root). */
     const userId = parseInt((root && root.getAttribute('data-user-id')) || '0', 10);
+    const serverBookPayload = @Html.Raw(initialBookPayloadJson);
     let initialBookId = parseInt((root && root.getAttribute('data-book-id')) || '0', 10);
     let formatFromUrl = (root && root.getAttribute('data-format')) || 'Ebook';
     function parseRootFloat(name, fallback) {
@@ -1931,12 +1984,13 @@
     let readerPageChapterIdx = [];
     let currentPageIdx = 0;
 
+    /* Typography comes from InteriorExportTheme.BuildFormatterInteriorCss on #paginatedReaderShell.interior-* */
     var interiorStyleClassMap = {
-        'Minimalist': 'interior-minimalist-clean',
-        'Novel': 'interior-traditional-novel',
-        'Modern': 'interior-contemporary-modern',
-        'Classic': 'interior-finebook-classic',
-        'ElegantTrade': 'interior-pod-elegant'
+        'Minimalist': '',
+        'Novel': '',
+        'Modern': '',
+        'Classic': '',
+        'ElegantTrade': ''
     };
     var interiorPreviewShellMap = {
         'Minimalist': 'interior-preview-minimalist',
@@ -2098,7 +2152,13 @@
         var interiors = specs.interiors || specs;
         var spec = interiors[interior] || interiors['Novel'];
         if (!spec) return;
-        var root = document.documentElement;
+        var targets = [
+            document.documentElement,
+            document.getElementById('paginatedReaderShell'),
+            document.getElementById('bookStage'),
+            document.getElementById('bookContainer')
+        ].filter(Boolean);
+        targets.forEach(function(root) {
         var sp = specs.spacing;
         if (sp) {
             if (sp.chapterDrop) root.style.setProperty('--ilt-chapter-drop', sp.chapterDrop);
@@ -2120,9 +2180,11 @@
         if (spec.sheetBorder) root.style.setProperty('--ilt-sheet-border', spec.sheetBorder);
         if (spec.sheetShadow) root.style.setProperty('--ilt-sheet-shadow', spec.sheetShadow);
         if (spec.containerShadow) root.style.setProperty('--ilt-container-shadow', spec.containerShadow);
+        });
         var pageBgInput = document.getElementById('fmt-page-background');
         if (pageBgInput && /^#[0-9A-Fa-f]{6}$/.test(String(pageBgInput.value || '').trim())) {
-            root.style.setProperty('--ilt-page-bg', String(pageBgInput.value).trim());
+            var pageBg = String(pageBgInput.value).trim();
+            targets.forEach(function(root) { root.style.setProperty('--ilt-page-bg', pageBg); });
         }
     }
 
@@ -2367,6 +2429,69 @@
         return out.length ? out : [s];
     }
 
+    /** Split plain text on blank lines (same rules as AI Book Writer preview). */
+    function splitPlainTextIntoParagraphs(text) {
+        var lines = String(text || '').split('\n');
+        var out = [];
+        var buf = [];
+        function flush() {
+            if (!buf.length) return;
+            out.push(buf.join('\n').trim());
+            buf = [];
+        }
+        for (var i = 0; i < lines.length; i++) {
+            var t = lines[i].trim();
+            if (!t) { flush(); continue; }
+            buf.push(lines[i]);
+        }
+        flush();
+        return out.length ? out : (String(text || '').trim() ? [String(text).trim()] : []);
+    }
+
+    /** Unwrap a single &lt;p&gt; that contains multiple logical paragraphs. */
+    function expandMonolithicChapterHtml(html) {
+        var s = String(html || '').trim();
+        if (!s) return s;
+        try {
+            var doc = new DOMParser().parseFromString(s, 'text/html');
+            var body = doc.body;
+            if (!body) return s;
+            var ps = body.querySelectorAll('p');
+            if (ps.length === 1) {
+                var lone = ps[0];
+                var inner = (lone.innerHTML || '').trim();
+                var text = (lone.textContent || '').trim();
+                if (/\n\s*\n/.test(text)) {
+                    return formatManuscriptPlainToHtml(text);
+                }
+                if (/<br\s*\/?>/i.test(inner)) {
+                    var parts = inner.split(/<br\s*\/?>/i).map(function(x) {
+                        return x.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+                    }).filter(Boolean);
+                    if (parts.length > 1) {
+                        return parts.map(function(t) {
+                            return '<p class="manuscript-p">' + escapeHtml(t) + '</p>';
+                        }).join('');
+                    }
+                }
+            }
+            if (ps.length === 0 && textLooksPlainWithBreaks(s)) {
+                return formatManuscriptPlainToHtml(s.replace(/<[^>]+>/g, '\n'));
+            }
+        } catch (e) { /* ignore */ }
+        return s;
+    }
+
+    function textLooksPlainWithBreaks(s) {
+        return !/<\s*(p|div|h[1-6]|ul|ol|blockquote)\b/i.test(s) && /\n/.test(s);
+    }
+
+    function buildFmtChapterHeading(chapterNo, chapterTitle) {
+        var n = parseInt(chapterNo, 10);
+        if (!Number.isFinite(n) || n <= 0) n = 1;
+        return '<h4 class="manuscript-chapter-heading">Chapter ' + n + '</h4>';
+    }
+
     /** Top-level block nodes from parsed HTML (avoids breaking tags mid-chapter). */
     function splitHtmlChapterIntoBlocks(html) {
         var s = String(html || '').trim();
@@ -2420,11 +2545,9 @@
                 }
             }
         } else {
-            paras = content.split(/\n\n+/).filter(Boolean);
+            paras = splitPlainTextIntoParagraphs(content);
             if (paras.length === 1 && paras[0].length > CONTENT_CHARS_SOFT_LIMIT) {
                 paras = splitLongText(paras[0], CONTENT_CHARS_SOFT_LIMIT);
-            } else if (paras.length === 1 && /\n/.test(paras[0])) {
-                paras = [paras[0].replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim()];
             }
         }
         // Keep headings attached to following text block so preview never shows heading-only pages.
@@ -2644,8 +2767,8 @@
 
         var styleEl = document.getElementById('style-select');
         var interior = styleEl ? String(styleEl.value || 'Novel') : 'Novel';
-        var contentCls = interiorStyleClassMap[interior] || interiorStyleClassMap['Novel'];
-        var wrapCls = interiorWrapClassMap[interior] || interiorWrapClassMap['Novel'];
+        var contentCls = interiorWrapClassMap[interior] || interiorWrapClassMap['Novel'];
+        var wrapCls = contentCls;
         var stage = document.getElementById('bookStage');
         var shellH = document.getElementById('paginatedReaderShell');
         var shellHeight = (shellH && shellH.clientHeight >= 80) ? shellH.clientHeight : Math.floor(w * (9 / 6));
@@ -2925,9 +3048,12 @@
 
     function buildReaderPageBlockHtml(bodyHtml, opts) {
         opts = opts || {};
-        var titleBlock = (opts.includeTitle && !opts.hasBodyLeadingHeading)
-            ? ('<article class="reader-page-title">' + escapeHtml(opts.title || '') + '</article>')
-            : '';
+        var titleBlock = '';
+        if (opts.includeTitle && !opts.hasBodyLeadingHeading) {
+            titleBlock = opts.chapterHeadingHtml
+                ? String(opts.chapterHeadingHtml)
+                : ('<article class="reader-page-title">' + escapeHtml(opts.title || '') + '</article>');
+        }
         var bodyClass = opts.isClassic ? 'reader-page-body classic-body' : 'reader-page-body';
         var chapterAttr = opts.chapterStart ? ' data-chapter-start="1"' : '';
         return '<div class="reader-chapter-block"' + chapterAttr + '>' + titleBlock +
@@ -2991,6 +3117,7 @@
                 includeTitle: includeTitle,
                 hasBodyLeadingHeading: opts.hasBodyLeadingHeading,
                 title: opts.title,
+                chapterHeadingHtml: opts.chapterHeadingHtml,
                 isClassic: opts.isClassic,
                 chapterStart: chapterStart
             };
@@ -3211,7 +3338,7 @@
         var measureHost = document.getElementById('fmt-preview-measure-host');
         if (!scrollHost || !shell) return false;
         if (scrollHost.clientHeight < 120) {
-            scrollHost.style.minHeight = Math.max(440, Math.floor(window.innerHeight * 0.62)) + 'px';
+            scrollHost.style.minHeight = Math.max(520, Math.floor(window.innerHeight * 0.68)) + 'px';
         }
         var changed = false;
         if (window.BookInteriorPreview && typeof window.BookInteriorPreview.fitShellToHost === 'function') {
@@ -4368,16 +4495,17 @@
             const ch = bookChapters[ci];
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
             const content = (ch && ch.content && String(ch.content).trim()) || '';
-            const normalizedContent = stripRedundantChapterOpenings(title, content);
+            const normalizedContent = expandMonolithicChapterHtml(stripRedundantChapterOpenings(title, content));
             const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
             const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
+            const chapterNo = (ch && ch.chapterNo != null) ? ch.chapterNo : (ci + 1);
+            const chapterHeadingHtml = buildFmtChapterHeading(chapterNo, title);
 
             if (paras.length === 0) {
                 var emptyBody = isClassic
                     ? '<section class="reader-page-body classic-body"><p class="text-gray-500">No content.</p></section>'
                     : '<section class="reader-page-body"><p class="text-gray-500">No content.</p></section>';
-                pages.push('<div class="reader-chapter-block" data-chapter-start="1"><article class="reader-page-title">' +
-                    escapeHtml(title) + '</article>' + emptyBody + '</div>');
+                pages.push('<div class="reader-chapter-block" data-chapter-start="1">' + chapterHeadingHtml + emptyBody + '</div>');
                 readerPageChapterIdx.push(ci);
                 continue;
             }
@@ -4391,6 +4519,7 @@
                 }
                 var chapterPages = paginateChapterFlow(segments, {
                     title: title,
+                    chapterHeadingHtml: chapterHeadingHtml,
                     hasBodyLeadingHeading: hasBodyLeadingHeading,
                     isClassic: isClassic,
                     chapterStart: true
@@ -4404,7 +4533,7 @@
                 for (let pi = 0; pi < pageChunks.length; pi++) {
                     const chunk = pageChunks[pi];
                     const titleBlock = (pi === 0 && !hasBodyLeadingHeading)
-                        ? ('<article class="reader-page-title">' + escapeHtml(title) + '</article>')
+                        ? chapterHeadingHtml
                         : '';
                     const chunkText = chunk.join('\n\n');
                     const body = isClassic
@@ -4583,17 +4712,14 @@
     }
 
     function applyInteriorStyleClasses(interior) {
-        var cls = interiorStyleClassMap[interior] || interiorStyleClassMap['Novel'];
         var shellCls = interiorPreviewShellMap[interior] || interiorPreviewShellMap['Novel'];
         var wrapCls = interiorWrapClassMap[interior] || interiorWrapClassMap['Novel'];
         var matCls = fmtMatClassMap[interior] || fmtMatClassMap['Novel'];
         [document.getElementById('bookPageContentA'), document.getElementById('bookPageContentB')].filter(Boolean).forEach(function(el) {
             el.classList.remove(...allInteriorStyleClasses);
-            if (cls) el.classList.add(cls);
         });
         document.querySelectorAll('#book-formatter-root .book-page-content').forEach(function(el) {
             el.classList.remove(...allInteriorStyleClasses);
-            if (cls) el.classList.add(cls);
         });
         var shells = getFmtPaginatedShells();
         if (!shells.length) {
@@ -5159,8 +5285,8 @@
     }
 
     function resolveFormatterBookId() {
-        var bid = initialBookId;
-        if (!bid || bid <= 0) bid = getBookIdFromUrl();
+        var bid = getBookIdFromUrl();
+        if (!bid || bid <= 0) bid = initialBookId;
         if (!bid || bid <= 0) {
             try { bid = parseInt((document.getElementById('selected-book-id') && document.getElementById('selected-book-id').value) || '0', 10); } catch (e) { bid = 0; }
         }
@@ -5268,6 +5394,11 @@
         }
 
         try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (e) {}
+
+        if (serverBookPayload && serverBookPayload.success) {
+            writeCachedBookPayload(bid, serverBookPayload);
+            hydrateBookFromPayload(serverBookPayload, bid, { force: true, resetPage: true });
+        }
 
         await loadBookContent(bid);
         await refreshFormattingPrefsForBook(bid);

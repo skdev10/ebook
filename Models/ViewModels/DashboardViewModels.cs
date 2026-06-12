@@ -260,6 +260,8 @@ namespace EBookDashboard.Models
         public string Author { get; set; } = string.Empty;
         public string? Subtitle { get; set; }
         public string CoverUrl { get; set; } = string.Empty;
+        /// <summary>Relative web path to saved EPUB when export completed (e.g. /uploads/…/book.epub).</summary>
+        public string? EpubUrl { get; set; }
         public int BookId { get; set; }
         public string Status { get; set; } = string.Empty;
         public string LastEditedText { get; set; } = string.Empty;

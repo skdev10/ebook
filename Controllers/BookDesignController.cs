@@ -21,14 +21,22 @@ namespace EBookDashboard.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IBookDesignService _bookDesignService;
+        private readonly IBookService _bookService;
         private readonly IWebHostEnvironment _env;
         private readonly IConfiguration _configuration;
         private readonly BookFlowStateService _bookFlow;
 
-        public BookDesignController(ApplicationDbContext context, IBookDesignService bookDesignService, IWebHostEnvironment env, IConfiguration configuration, BookFlowStateService bookFlow)
+        public BookDesignController(
+            ApplicationDbContext context,
+            IBookDesignService bookDesignService,
+            IBookService bookService,
+            IWebHostEnvironment env,
+            IConfiguration configuration,
+            BookFlowStateService bookFlow)
         {
             _context = context;
             _bookDesignService = bookDesignService ?? throw new ArgumentNullException(nameof(bookDesignService));
+            _bookService = bookService ?? throw new ArgumentNullException(nameof(bookService));
             _env = env;
             _configuration = configuration;
             _bookFlow = bookFlow;
@@ -613,23 +621,33 @@ namespace EBookDashboard.Controllers
                     return RedirectToAction("Index", "Dashboard");
                 }
 
-                if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId))
+                var bookRow = await _context.Books.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
+                if (bookRow == null)
                 {
-                    TempData["InfoMessage"] = "Select a book from the Dashboard first, then continue your project.";
+                    TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                     return RedirectToAction("Index", "Dashboard");
                 }
 
-                var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId);
-                // Allow format + cover steps (soft back from Cover Design may briefly still show cover).
-                if (BookFlowStateService.StepRank(savedFlowStep) > BookFlowStateService.StepRank(BookFlowStateService.StepCover))
+                if (BookFlowStateService.IsPublishedStatus(bookRow.Status))
                 {
-                    TempData["InfoMessage"] = "Continue your project from the Dashboard.";
+                    TempData["InfoMessage"] = "This book is already published. Find it under Published Books on the dashboard.";
+                    return RedirectToAction("Index", "Dashboard");
+                }
+
+                if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId))
+                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
+
+                var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId);
+                if (BookFlowStateService.StepRank(savedFlowStep) < BookFlowStateService.StepRank(BookFlowStateService.StepFormat))
+                {
+                    TempData["InfoMessage"] = "Finish AI Writer first, then open Book Formatting.";
                     return Redirect(_bookFlow.BuildResumeUrl(bookId, savedFlowStep, savedFlowPath));
                 }
 
                 HttpContext.Session.SetString("HasGeneratedBook", "1");
-                if (bookId > 0)
-                    HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+                HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
                 // Get format from query (PDF/EPUB/MOBI from AIGenerateBook format buttons)
                 var formatQuery = Request.Query["format"].FirstOrDefault();
                 if (!string.IsNullOrWhiteSpace(formatQuery))
@@ -665,16 +683,35 @@ namespace EBookDashboard.Controllers
 
                 // Get book title when we have a book. Do not force payment here:
                 // this screen is for formatting/cover preparation and should remain accessible.
-                string bookTitle = "No Book Selected";
-                if (bookId > 0)
+                var bookTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                    _context, userId, bookRow.BookId, bookRow.Title);
+                if (string.IsNullOrWhiteSpace(bookTitle))
+                    bookTitle = "No Book Selected";
+
+                var previewDetails = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
+                if (previewDetails is { Success: true })
                 {
-                    var book = await _context.Books.AsNoTracking()
-                        .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
-                    if (book != null)
+                    ViewBag.InitialBookPayloadJson = JsonSerializer.Serialize(new
                     {
-                        bookTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
-                            _context, userId, book.BookId, book.Title);
-                    }
+                        success = true,
+                        bookId = previewDetails.BookId,
+                        bookTitle = previewDetails.BookTitle,
+                        subtitle = previewDetails.Subtitle ?? "",
+                        description = previewDetails.Description ?? "",
+                        genre = previewDetails.Genre ?? "",
+                        authorName = previewDetails.AuthorName ?? "",
+                        coverImagePath = previewDetails.CoverImagePath ?? "",
+                        totalChapters = previewDetails.TotalChapters,
+                        chapters = previewDetails.Chapters
+                            .OrderBy(c => c.ChapterNumber)
+                            .Select(c => new
+                            {
+                                chapterNo = c.ChapterNumber,
+                                chapterTitle = c.Title,
+                                content = c.Content ?? ""
+                            })
+                            .ToList()
+                    });
                 }
 
                 // Get data from service (may be null if no record saved yet)

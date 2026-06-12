@@ -1,3 +1,4 @@
+@using EBookDashboard.Services
 @{
     ViewData["Title"] = "My Books";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -24,7 +25,7 @@
     string AsString(object? v) => v?.ToString() ?? "";
     string CoverUrl(string? path)
     {
-        if (string.IsNullOrWhiteSpace(path)) return "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop";
+        if (string.IsNullOrWhiteSpace(path)) return "";
         if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || path.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             return path;
         return path.StartsWith("/") ? path : "/" + path;
@@ -43,6 +44,8 @@
         Description = AsString(Prop(b, "Description")),
         CoverImagePath = AsString(Prop(b, "CoverImagePath"))
     }).ToList();
+    var firstBook = books.FirstOrDefault();
+    var firstBookExportReady = firstBook != null && BookFlowStateService.IsPublishedStatus(firstBook.Status);
 }
 @Html.AntiForgeryToken()
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -88,6 +91,17 @@
     .book-card-selected {
         border: 1.5px solid #7c3aed !important;
         box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15), 0 12px 24px rgba(91, 33, 182, 0.14) !important;
+    }
+    #btn-top-publish.mybooks-export-disabled,
+    #btn-download-publish.mybooks-export-disabled {
+        background: #cbd5e1 !important;
+        color: #64748b !important;
+        border-color: #cbd5e1 !important;
+        cursor: not-allowed !important;
+        pointer-events: none;
+        box-shadow: none !important;
+        transform: none !important;
+        opacity: 0.92;
     }
     #modalBookContent .modal-chapter-html { font-size: 1.0625rem; line-height: 1.85; color: #1e293b; }
     #modalBookContent .modal-chapter-html img { max-width: 100%; height: auto; border-radius: 8px; }
@@ -435,9 +449,17 @@
                     </a>
                     @if (books.Any())
                     {
-                        <a id="btn-top-publish" href="/Dashboard/Publish?bookId=@books.First().BookId" class="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);">
+                        <a id="btn-top-publish"
+                           href="@(firstBookExportReady ? $"/Dashboard/Publish?bookId={firstBook!.BookId}" : "")"
+                           class="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all flex items-center gap-2 shadow-md hover:shadow-lg hover:-translate-y-0.5 @(firstBookExportReady ? "" : "mybooks-export-disabled")"
+                           @(firstBookExportReady ? null : "aria-disabled=\"true\"")
+                           title="@(firstBookExportReady ? "Download export pack for this book" : "Finish Writer → Format → Cover → Publish and download once to unlock Export Pack")"
+                           style="@(firstBookExportReady ? "background:linear-gradient(135deg,#7c3aed,#4f46e5);" : "")">
                             <i class="fas fa-download"></i> Export Pack
                         </a>
+                        <button type="button" id="btn-delete-book-top" class="hidden px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 border border-red-200 bg-red-50 text-red-800 hover:bg-red-100" title="Delete selected book permanently">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
                     }
                     else
                     {
@@ -473,7 +495,11 @@
                             <div class="aspect-[2/3] rounded-2xl mb-3 shadow-sm bg-violet-100 p-4 flex flex-col justify-center items-center text-center border border-violet-200">
                                 @if (!string.IsNullOrEmpty(book.CoverImagePath))
                                 {
-                                    <img src="@CoverUrl(book.CoverImagePath)" alt="@title" class="w-full h-full object-cover rounded-xl" loading="eager" decoding="async" fetchpriority="high" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop';" />
+                                    <img src="@CoverUrl(book.CoverImagePath)" alt="@title" class="w-full h-full object-cover rounded-xl" loading="eager" decoding="async" fetchpriority="high" onerror="this.style.display='none';this.nextElementSibling?.classList.remove('hidden');" />
+                                    <div class="hidden w-full h-full flex flex-col justify-center items-center text-center">
+                                        <span class="font-serif text-lg text-slate-700 leading-tight">@(title.Length > 20 ? title.Substring(0, 18) + "…" : title)</span>
+                                        <i class="fas fa-book-open text-violet-600 mt-2 text-2xl"></i>
+                                    </div>
                                 }
                                 else
                                 {
@@ -519,7 +545,11 @@
                                 <div class="aspect-[2/3] rounded-2xl mb-2 overflow-hidden shadow-sm bg-violet-100 border border-violet-200 book-card-mybooks relative">
                                     @if (!string.IsNullOrEmpty(book.CoverImagePath))
                                     {
-                                        <img src="@CoverUrl(book.CoverImagePath)" alt="@title" class="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&amp;w=600&amp;auto=format&amp;fit=crop';" />
+                                        <img src="@CoverUrl(book.CoverImagePath)" alt="@title" class="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling?.classList.remove('hidden');" />
+                                        <div class="hidden absolute inset-0 flex flex-col justify-center items-center text-center p-3">
+                                            <span class="font-serif text-sm text-slate-700 leading-tight">@(title.Length > 18 ? title.Substring(0, 16) + "…" : title)</span>
+                                            <i class="fas fa-book-open text-violet-600 mt-2 text-xl"></i>
+                                        </div>
                                     }
                                     else
                                     {
@@ -554,7 +584,7 @@
         </div>
 
         <!-- Right: Detail Panel (full width on small screens, fixed width on lg+) -->
-        <aside class="w-full lg:w-[min(420px,38vw)] lg:max-w-[420px] lg:min-w-[300px] aside-panel-mybooks rounded-2xl lg:rounded-[1.5rem] flex flex-col text-white px-5 py-8 sm:px-8 sm:py-10 relative overflow-hidden shadow-xl shrink-0 order-2 lg:order-2 min-h-[min(520px,70vh)]" aria-label="Selected book details">
+        <aside class="w-full lg:w-[min(420px,38vw)] lg:max-w-[420px] lg:min-w-[300px] aside-panel-mybooks rounded-2xl lg:rounded-[1.5rem] flex flex-col text-white px-5 py-8 sm:px-8 sm:py-10 relative overflow-y-auto overflow-x-hidden shadow-xl shrink-0 order-2 lg:order-2 min-h-[min(520px,70vh)]" aria-label="Selected book details">
             <div class="flex-1 flex flex-col items-stretch relative z-10 w-full max-w-md mx-auto lg:max-w-none">
                 <p class="mybooks-aside-kicker">Your library</p>
                 <div class="mybooks-aside-divider"></div>
@@ -595,8 +625,8 @@
                     <a id="btn-edit-book" href="#" class="w-full text-white py-3 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#4c1d95;">
                         <i class="fas fa-edit"></i> Edit
                     </a>
-                    <button type="button" id="btn-delete-book" class="w-full py-3 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#7f1d1d;color:#fecaca;">
-                        <i class="fas fa-trash"></i> Delete
+                    <button type="button" id="btn-delete-book" class="w-full py-3 px-6 rounded-xl text-sm font-semibold flex justify-center items-center gap-2 cursor-pointer border border-red-300/40" style="background-color:#991b1b;color:#fff;">
+                        <i class="fas fa-trash"></i> Delete book
                     </button>
                 </div>
             </div>
@@ -633,7 +663,6 @@
         if (s === undefined || s === null) return '';
         return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
-    var FALLBACK_COVER = 'https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop';
     function resolveCoverUrl(path) {
         if (path == null || path === '') return '';
         var p = String(path).trim();
@@ -651,7 +680,10 @@
             img.className = 'w-full max-w-[192px] aspect-[2/3] object-cover rounded-xl shadow-lg border-2 border-violet-900 mx-auto';
             img.loading = 'eager';
             img.decoding = 'async';
-            img.onerror = function() { this.onerror = null; this.src = FALLBACK_COVER; };
+            img.onerror = function() {
+                this.onerror = null;
+                setAsideCover(coverWrap, '', titleText);
+            };
             coverWrap.appendChild(img);
         } else {
             var safe = escapeHtmlText((titleText || '').substring(0, 24));
@@ -731,6 +763,34 @@
     function normalizeGenre(s) {
         return (s == null ? '' : String(s)).trim().toLowerCase();
     }
+    function isBookPublished(status) {
+        var s = (status == null ? '' : String(status)).trim().toLowerCase();
+        return s === 'published' || s === 'finalized' || s === 'final' || s === 'paid';
+    }
+    function setExportPackButtonState(btn, book, options) {
+        if (!btn || !book) return;
+        options = options || {};
+        var published = isBookPublished(book.status);
+        if (published) {
+            btn.href = '/Dashboard/Publish?bookId=' + book.bookId;
+            btn.removeAttribute('aria-disabled');
+            btn.classList.remove('mybooks-export-disabled');
+            btn.title = options.label === 'aside'
+                ? 'Open professional export page'
+                : 'Download export pack for this book';
+            if (options.isTop) {
+                btn.style.background = 'linear-gradient(135deg,#7c3aed,#4f46e5)';
+            }
+        } else {
+            btn.removeAttribute('href');
+            btn.setAttribute('aria-disabled', 'true');
+            btn.classList.add('mybooks-export-disabled');
+            btn.title = 'Finish Writer → Format → Cover → Publish and download once to unlock Export Pack';
+            if (options.isTop) {
+                btn.style.background = '';
+            }
+        }
+    }
     function getBook(book) {
         return {
             bookId: bookIdFrom(book),
@@ -793,19 +853,26 @@
         document.getElementById('btn-view-book').classList.remove('hidden');
         document.getElementById('btn-edit-book').href = '/Dashboard/SelectBook?bookId=' + book.bookId;
         document.getElementById('btn-edit-book').classList.remove('hidden');
-        document.getElementById('btn-delete-book').classList.remove('hidden');
+        var deleteTop = document.getElementById('btn-delete-book-top');
+        if (deleteTop) deleteTop.classList.remove('hidden');
         var hasChapters = (book.chapterCount || 0) > 0;
+        var published = isBookPublished(book.status);
         var dlBtn = document.getElementById('btn-download-publish');
         var dlLabel = document.getElementById('btn-download-label');
         if (dlBtn && dlLabel) {
             dlBtn.classList.remove('hidden');
-            dlBtn.href = '/Dashboard/Publish?bookId=' + book.bookId;
-            dlBtn.title = 'Open professional export page';
-            dlLabel.textContent = hasChapters ? 'Open export page' : 'Add chapters to export';
+            setExportPackButtonState(dlBtn, book, { label: 'aside' });
+            if (!published) {
+                dlLabel.textContent = 'Publish to unlock exports';
+            } else if (!hasChapters) {
+                dlLabel.textContent = 'Add chapters to export';
+            } else {
+                dlLabel.textContent = 'Open export page';
+            }
         }
         var publishBtn = document.getElementById('btn-top-publish');
-        if (publishBtn && !publishBtn.disabled) {
-            publishBtn.href = '/Dashboard/Publish?bookId=' + book.bookId;
+        if (publishBtn) {
+            setExportPackButtonState(publishBtn, book, { isTop: true });
         }
         var coverWrap = document.getElementById('aside-cover-wrapper');
         setAsideCover(coverWrap, book.cover, book.title);
@@ -940,7 +1007,7 @@
             });
     });
 
-    document.getElementById('btn-delete-book').addEventListener('click', function() {
+    function triggerDeleteBook() {
         if (!selectedBookId) return;
         if (typeof Swal === 'undefined') {
             if (confirm('Delete this book permanently?')) doDelete(selectedBookId);
@@ -948,7 +1015,10 @@
         }
         Swal.fire({ title: 'Delete Book?', text: 'This cannot be undone.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', cancelButtonColor: '#6b7280', confirmButtonText: 'Yes, Delete' })
             .then(function(r) { if (r.isConfirmed) doDelete(selectedBookId); });
-    });
+    }
+
+    document.getElementById('btn-delete-book').addEventListener('click', triggerDeleteBook);
+    document.getElementById('btn-delete-book-top')?.addEventListener('click', triggerDeleteBook);
 
     function doDelete(id) {
         const token = document.querySelector('input[name="__RequestVerificationToken"]').value;

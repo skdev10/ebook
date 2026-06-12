@@ -1,8 +1,11 @@
 @model EBookDashboard.Models.DashboardIndexViewModel
+@using EBookDashboard.Services
 @{
     ViewData["Title"] = "Dashboard";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
-    var draftBooks = Model.CurrentProjects?.Where(p => p.Status != "Published" && p.Status != "Finalized").ToList() ?? new List<EBookDashboard.Models.ProjectViewModel>();
+    var draftBooks = Model.CurrentProjects?.Where(p => !BookFlowStateService.IsPublishedStatus(p.Status)).ToList() ?? new List<EBookDashboard.Models.ProjectViewModel>();
+    var publishedBooks = Model.DemoPublishedBooks ?? new List<EBookDashboard.Models.DemoPublishedBookViewModel>();
+    var epubLibrary = publishedBooks.Where(p => !string.IsNullOrWhiteSpace(p.EpubUrl)).ToList();
     var draftBooksShow = draftBooks.Take(8).ToList();
     var hasMoreDrafts = draftBooks.Count > 8;
     var demoDraftsShow = (Model.DemoDrafts ?? new List<EBookDashboard.Models.DemoDraftViewModel>()).Take(8).ToList();
@@ -41,6 +44,45 @@
     .dash-book-card .dash-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); }
     .dash-book-card .dash-progress-pct { font-size: 0.7rem; font-weight: 700; color: #7c3aed; letter-spacing: 0.02em; }
     .dashboard-cover-img.is-wrap-cover { object-position: right center; }
+    .dash-published-card { cursor: default; pointer-events: none; }
+    .dash-epub-carousel {
+        display: flex; gap: 1.25rem; overflow-x: auto; scroll-behavior: smooth;
+        padding: 0.25rem 0 1rem; scrollbar-width: thin;
+    }
+    .dash-epub-carousel::-webkit-scrollbar { height: 6px; }
+    .dash-epub-carousel::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 999px; }
+    .dash-epub-item {
+        flex: 0 0 auto; width: 10rem; text-align: center;
+    }
+    .dash-epub-cover {
+        width: 10rem; height: 15rem; border-radius: 0.5rem;
+        object-fit: cover; background: #f3f4f6;
+        box-shadow: 0 8px 24px -8px rgba(15, 23, 42, 0.35), 0 2px 6px rgba(15, 23, 42, 0.12);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .dash-epub-item:hover .dash-epub-cover {
+        transform: scale(1.04) translateY(-2px);
+        box-shadow: 0 14px 32px -10px rgba(91, 33, 182, 0.35);
+    }
+    .dash-epub-link {
+        display: block; text-decoration: none; color: inherit;
+        border-radius: 0.75rem; padding: 0.25rem;
+        transition: background 0.15s ease;
+    }
+    .dash-epub-link:hover { background: rgba(245, 243, 255, 0.85); }
+    .dash-epub-download {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        margin-top: 0.5rem; font-size: 0.7rem; font-weight: 600;
+        color: #6d28d9; letter-spacing: 0.02em;
+    }
+    .dash-epub-link:hover .dash-epub-download { color: #5b21b6; }
+    .dash-carousel-nav {
+        width: 2.25rem; height: 2.25rem; border-radius: 999px;
+        border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .dash-carousel-nav:hover { background: #f5f3ff; border-color: #c4b5fd; color: #6d28d9; }
 </style>
 @functions {
     string DashCoverSrc(string? path)
@@ -201,6 +243,73 @@
                 </div>
                 <div id="no-books-msg" class="hidden py-8 text-center text-gray-400"><p>No books found matching your search.</p></div>
             </div>
+
+            @if (publishedBooks.Any())
+            {
+                <div class="mb-10">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="font-serif text-2xl font-semibold text-gray-900 tracking-tight">Published Books</h2>
+                        <span class="text-xs font-semibold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">@publishedBooks.Count published</span>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                        @foreach (var pub in publishedBooks.Take(8))
+                        {
+                            var pubCover = DashCoverSrc(pub.CoverUrl);
+                            if (string.IsNullOrEmpty(pubCover)) pubCover = defaultCoverPlaceholder;
+                            var pubTitle = string.IsNullOrWhiteSpace(pub.Title) ? "Untitled Book" : pub.Title;
+                            <div class="book-item dash-book-card dash-published-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm" data-title="@pubTitle" aria-label="@pubTitle — published">
+                                <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
+                                    <img src="@pubCover" alt="@pubTitle" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover dash-placeholder-cover" loading="lazy" />
+                                    <span class="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-sm">Published</span>
+                                </div>
+                                <div class="p-3.5 flex flex-col flex-1 min-w-0">
+                                    <h3 class="font-semibold text-gray-900 text-sm truncate" title="@pubTitle">@pubTitle</h3>
+                                    <p class="text-gray-400 text-[11px] mt-1 truncate">@(pub.LastEditedText ?? "Ready for readers")</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (epubLibrary.Any())
+                {
+                <div class="mb-10">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="font-serif text-2xl font-semibold text-gray-900 tracking-tight">Your EPUB Library</h2>
+                            <p class="text-sm text-gray-500 mt-1">Download-ready editions from your published books</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="dash-carousel-nav" id="epubCarouselPrev" aria-label="Previous"><i class="fas fa-chevron-left text-xs"></i></button>
+                            <button type="button" class="dash-carousel-nav" id="epubCarouselNext" aria-label="Next"><i class="fas fa-chevron-right text-xs"></i></button>
+                        </div>
+                    </div>
+                    <div id="epubCarousel" class="dash-epub-carousel">
+                        @foreach (var pub in epubLibrary)
+                        {
+                            var epubCover = DashCoverSrc(pub.CoverUrl);
+                            if (string.IsNullOrEmpty(epubCover)) epubCover = defaultCoverPlaceholder;
+                            var epubTitle = string.IsNullOrWhiteSpace(pub.Title) ? "Untitled Book" : pub.Title;
+                            var epubHref = DashCoverSrc(pub.EpubUrl);
+                            var epubFileName = System.IO.Path.GetFileName(pub.EpubUrl ?? "book.epub");
+                            <div class="dash-epub-item">
+                                <a href="@epubHref" download="@epubFileName" class="dash-epub-link" title="Download @epubTitle EPUB">
+                                    <img src="@epubCover" alt="@epubTitle cover" class="dash-epub-cover dash-placeholder-cover" loading="lazy" />
+                                    <p class="text-sm font-medium text-gray-900 mt-2 line-clamp-2 leading-snug" title="@epubTitle">@epubTitle</p>
+                                    <span class="dash-epub-download"><i class="fas fa-download text-[10px]"></i> Download EPUB</span>
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </div>
+                }
+                else if (publishedBooks.Any())
+                {
+                <div class="mb-10 rounded-2xl border border-dashed border-violet-200 bg-violet-50/40 px-6 py-5 text-center">
+                    <p class="text-sm text-gray-600">Export an EPUB from <strong class="text-gray-800">Publish</strong> to add books to your EPUB library.</p>
+                </div>
+                }
+            }
         </div>
     </main>
 
@@ -218,7 +327,7 @@
                 }
                 else
                 {
-                    <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-semibold">@(Model.UserName?.Length > 0 ? Model.UserName.Substring(0, 1).ToUpper() : "U")</div>
+                    <img src="@Url.Content("~/images/default-avatar.svg")" alt="@Model.UserName" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm bg-violet-50">
                 }
             </a>
 
@@ -504,5 +613,14 @@
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) closeModal();
         });
+    })();
+
+    (function () {
+        var epubCarousel = document.getElementById('epubCarousel');
+        var epubPrev = document.getElementById('epubCarouselPrev');
+        var epubNext = document.getElementById('epubCarouselNext');
+        if (!epubCarousel || !epubPrev || !epubNext) return;
+        epubPrev.addEventListener('click', function () { epubCarousel.scrollBy({ left: -220, behavior: 'smooth' }); });
+        epubNext.addEventListener('click', function () { epubCarousel.scrollBy({ left: 220, behavior: 'smooth' }); });
     })();
 </script>

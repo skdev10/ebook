@@ -2037,13 +2037,15 @@ namespace EBookDashboard.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var book = await _context.Books.FindAsync(id);
-            if (book != null)
-            {
-                _context.Books.Remove(book);
-                await _context.SaveChangesAsync();
-            }
-            return RedirectToAction(nameof(Index));
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return RedirectToAction("UserLogin", "Account");
+
+            var deleted = await _bookService.DeleteBookForUserAsync(id, sessionUserId.Value);
+            if (!deleted)
+                return NotFound();
+
+            return RedirectToAction("MyBooks", "Dashboard");
         }
 
         // POST: Books/Publish/5
@@ -2613,7 +2615,13 @@ namespace EBookDashboard.Controllers
                 var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
                 safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
                 if (string.IsNullOrEmpty(safe)) safe = "book";
-                return File(bytes, "application/epub+zip", $"{safe}-{req.BookId}.epub");
+                var epubFileName = $"{safe}-{req.BookId}.epub";
+
+                await SavePublishedEpubAsync(sessionUserId.Value, req.BookId, epubFileName, bytes, cancellationToken);
+                await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
+                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, exportOpt.Format?.Equals("Paperback", StringComparison.OrdinalIgnoreCase) == true ? "print" : "ebook", cancellationToken);
+
+                return File(bytes, "application/epub+zip", epubFileName);
             }
             catch (InvalidOperationException ex)
             {
@@ -2659,6 +2667,8 @@ namespace EBookDashboard.Controllers
                 var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
                 safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
                 if (string.IsNullOrEmpty(safe)) safe = "book";
+                await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
+                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, "ebook", cancellationToken);
                 return File(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", $"{safe}-{req.BookId}.docx");
             }
             catch (Exception ex)
@@ -2773,6 +2783,8 @@ namespace EBookDashboard.Controllers
                 var safe = Regex.Replace(title, @"[^\w\-\s]", "");
                 safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
                 if (string.IsNullOrEmpty(safe)) safe = "book";
+                await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
+                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, "print", cancellationToken);
                 return File(zipMs.ToArray(), "application/zip", $"{safe}-print-ready-{req.BookId}.zip");
             }
             catch (Exception ex)
@@ -2845,6 +2857,8 @@ namespace EBookDashboard.Controllers
             safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
             if (string.IsNullOrEmpty(safe)) safe = "book";
             fileName = $"{safe}-cover-wrap-{req.BookId}.png";
+            await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
+            await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, "print", cancellationToken);
             return File(wrapBytes, "image/png", fileName);
         }
 
@@ -4446,6 +4460,27 @@ namespace EBookDashboard.Controllers
                 _context.Settings.Update(setting);
             }
             await _context.SaveChangesAsync();
+        }
+
+        /// <summary>Persist EPUB under uploads/{userId}/books/{bookId}/epub for the published carousel.</summary>
+        private async Task SavePublishedEpubAsync(int userId, int bookId, string fileName, byte[] bytes, CancellationToken ct)
+        {
+            var webRoot = _hostEnvironment.WebRootPath ?? "";
+            if (string.IsNullOrEmpty(webRoot) || bytes.Length == 0) return;
+
+            var epubDir = Path.Combine(webRoot, "uploads", userId.ToString(), "books", bookId.ToString(), "epub");
+            Directory.CreateDirectory(epubDir);
+
+            foreach (var old in Directory.EnumerateFiles(epubDir, "*.epub"))
+            {
+                try { System.IO.File.Delete(old); } catch { /* replace prior export */ }
+            }
+
+            var fullPath = Path.Combine(epubDir, fileName);
+            await System.IO.File.WriteAllBytesAsync(fullPath, bytes, ct);
+
+            var rel = $"/uploads/{userId}/books/{bookId}/epub/{fileName}";
+            await UpsertSettingAsync($"book:{bookId}:epubFilePath", rel, "Book");
         }
 
     }

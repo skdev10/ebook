@@ -296,6 +296,25 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void BuildFormatterInteriorCss_targets_formatter_preview_and_pdf()
+    {
+        var css = InteriorExportTheme.BuildFormatterInteriorCss();
+        Assert.Contains("#book-formatter-root #paginatedReaderShell.interior-elegant-trade .reader-page-body", css, StringComparison.Ordinal);
+        Assert.Contains(".book-pdf-body.interior-elegant-trade .reader-page-body", css, StringComparison.Ordinal);
+        Assert.Contains("EB Garamond", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildPerInteriorCss_formatter_wrap_keeps_kdp_page_padding()
+    {
+        var css = InteriorLayoutTokens.BuildPerInteriorCss("ElegantTrade");
+        Assert.Contains("#book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content-wrap", css, StringComparison.Ordinal);
+        Assert.Contains("0.82in", css, StringComparison.Ordinal);
+        Assert.Contains("0.84in", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".book-page-content-wrap, .book-pdf-body.interior-elegant-trade .book-preview-sheet { padding: 0 !important; }", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void BuildPdfThemeCss_zeros_sheet_padding_so_margins_apply_on_every_page()
     {
         var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });

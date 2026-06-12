@@ -255,10 +255,15 @@ namespace EBookDashboard.Controllers
             }
 
             var ownsBook = await _context.Books.AsNoTracking()
-                .AnyAsync(b => b.BookId == bookId && b.UserId == userId.Value);
-            if (!ownsBook)
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId.Value);
+            if (ownsBook == null)
             {
                 TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
+                return RedirectToAction(nameof(Index));
+            }
+            if (BookFlowStateService.IsPublishedStatus(ownsBook.Status))
+            {
+                TempData["InfoMessage"] = "This book is already published. Find it under Published Books on the dashboard.";
                 return RedirectToAction(nameof(Index));
             }
 
@@ -304,15 +309,47 @@ namespace EBookDashboard.Controllers
 
             var book = await _context.Books.AsNoTracking()
                 .Where(b => b.BookId == bookId && b.UserId == userId.Value)
-                .Select(b => new { b.BookId, b.Title })
+                .Select(b => new { b.BookId, b.Title, b.Status })
                 .FirstOrDefaultAsync();
             if (book == null)
                 return Json(new { ok = false, message = "Book not found." });
 
             await SetActiveBookForUserAsync(userId.Value, bookId);
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+            HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
-            return Json(new { ok = true, bookId = book.BookId, title = book.Title ?? "Untitled" });
+            string? resumeUrl = null;
+            string flowStep = BookFlowStateService.StepGenerate;
+            if (!BookFlowStateService.IsPublishedStatus(book.Status))
+            {
+                var flow = await _bookFlow.GetStepAsync(bookId);
+                flowStep = flow.Step;
+                BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
+
+                var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(bookId);
+                var perBookUrl = await _context.Settings.AsNoTracking()
+                    .Where(s => s.Key == perBookKey)
+                    .Select(s => s.Value)
+                    .FirstOrDefaultAsync();
+                if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
+                    && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId)
+                {
+                    resumeUrl = perBookUrl!.Trim();
+                }
+                else
+                {
+                    resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
+                }
+            }
+
+            return Json(new
+            {
+                ok = true,
+                bookId = book.BookId,
+                title = book.Title ?? "Untitled",
+                flowStep,
+                resumeUrl
+            });
         }
 
         /// <summary>Every book needs a valid Authors row (AuthorId ≠ UserId). Creates author on first book for new users.</summary>
@@ -486,7 +523,7 @@ namespace EBookDashboard.Controllers
             // For now, return 0 if no ratings exist
             var averageRating = 0m; // Replace with actual rating calculation when Ratings table exists
 
-            totalBooksPublished = books.Count(b => b.Status == "Published" || b.Status == "Finalized");
+            totalBooksPublished = books.Count(b => BookFlowStateService.IsPublishedStatus(b.Status));
             totalBooksGenerated = books.Count(b => b.Status == "Finalized");
 
             // Resolve AI-generated covers from Settings (exact preview URLs — no stock fallbacks)
@@ -531,15 +568,26 @@ namespace EBookDashboard.Controllers
                 return (b.CoverImagePath ?? "").Trim();
             }
 
+            string ResolveContinueEditingCover(Books b)
+            {
+                aiCoverByBookId.TryGetValue(b.BookId, out var ai);
+                return BookCoverResolver.ResolveContinueEditingCoverUrl(b.CoverImagePath, ai);
+            }
+
             // Dashboard display data — exclude seeded demo placeholders from user drafts.
             var userDraftBooks = books
                 .Where(b => !BookFlowStateService.IsPublishedStatus(b.Status) && !IsDemoSeedTitle(b.Title))
                 .ToList();
+            var publishedBooks = books
+                .Where(b => BookFlowStateService.IsPublishedStatus(b.Status) && !IsDemoSeedTitle(b.Title))
+                .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .ToList();
             var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, userDraftBooks);
             var pendingBooks = userDraftBooks;
             var flowMap = await LoadBookFlowMapAsync(pendingBooks.Select(b => b.BookId).ToList());
-            var demoPublished = new List<DemoPublishedBookViewModel>();
-            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(userDraftBooks, ResolveBookCover), flowMap, _bookFlow);
+            var epubByBookId = await LoadEpubPathsByBookIdAsync(publishedBooks.Select(b => b.BookId).ToList());
+            var demoPublished = GetDemoPublishedBooks(publishedBooks, ResolveBookCover, epubByBookId);
+            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(userDraftBooks, aiCoverByBookId), flowMap, _bookFlow);
             var demoHero = BuildHeroFromBook(lastWorkedBook, ResolveBookCover);
             var demoCurrentRead = BuildCurrentReadFromBook(lastWorkedBook, chaptersGeneratedByBookId, ResolveBookCover);
             var hasAnyBooks = books.Count > 0;
@@ -577,7 +625,7 @@ namespace EBookDashboard.Controllers
                         ProgressText = progressText,
                         FlowStepLabel = stepLabel,
                         ResumeUrl = _bookFlow.BuildResumeUrl(b.BookId, flow.Step, flow.Path),
-                        CoverImagePath = ResolveBookCover(b),
+                        CoverImagePath = ResolveContinueEditingCover(b),
                         LastEditedAt = b.UpdatedAt ?? b.CreatedAt,
                         LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
                     };
@@ -744,10 +792,38 @@ namespace EBookDashboard.Controllers
             return map;
         }
 
-        private static List<DemoPublishedBookViewModel> GetDemoPublishedBooks(List<Books> books, Func<Books, string> resolveCover)
+        private async Task<Dictionary<int, string>> LoadEpubPathsByBookIdAsync(IReadOnlyList<int> bookIds)
+        {
+            var map = new Dictionary<int, string>();
+            if (bookIds.Count == 0) return map;
+            try
+            {
+                var keys = bookIds.Select(id => $"book:{id}:epubFilePath").ToList();
+                var rows = await _context.Settings.AsNoTracking()
+                    .Where(s => keys.Contains(s.Key))
+                    .ToListAsync();
+                foreach (var row in rows)
+                {
+                    if (string.IsNullOrWhiteSpace(row.Value)) continue;
+                    var parts = row.Key.Split(':');
+                    if (parts.Length < 2 || !int.TryParse(parts[1], out var bid)) continue;
+                    map[bid] = row.Value.Trim();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "LoadEpubPathsByBookIdAsync skipped.");
+            }
+            return map;
+        }
+
+        private static List<DemoPublishedBookViewModel> GetDemoPublishedBooks(
+            List<Books> books,
+            Func<Books, string> resolveCover,
+            IReadOnlyDictionary<int, string> epubByBookId)
         {
             var published = books
-                .Where(b => b.Status == "Published" || b.Status == "Finalized")
+                .Where(b => BookFlowStateService.IsPublishedStatus(b.Status))
                 .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
             return published.Select(b => new DemoPublishedBookViewModel
@@ -755,17 +831,18 @@ namespace EBookDashboard.Controllers
                 Title = b.Title,
                 Author = string.Empty,
                 Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? null : b.Subtitle,
-                CoverUrl = resolveCover(b),
+                CoverUrl = BookCoverResolver.ResolveDisplayUrl(resolveCover(b)),
+                EpubUrl = epubByBookId.TryGetValue(b.BookId, out var epub) ? epub : null,
                 BookId = b.BookId,
                 Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
                 LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
             }).ToList();
         }
 
-        private static List<DemoDraftViewModel> GetDemoDrafts(List<Books> books, Func<Books, string> resolveCover)
+        private static List<DemoDraftViewModel> GetDemoDrafts(List<Books> books, IReadOnlyDictionary<int, string> aiCoverByBookId)
         {
             var drafts = books
-                .Where(b => b.Status != "Published" && b.Status != "Finalized")
+                .Where(b => !BookFlowStateService.IsPublishedStatus(b.Status))
                 .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
             return drafts.Select(b => new DemoDraftViewModel
@@ -773,7 +850,9 @@ namespace EBookDashboard.Controllers
                 Title = b.Title,
                 Subtitle = string.IsNullOrWhiteSpace(b.Subtitle) ? "Continue writing your manuscript" : b.Subtitle!,
                 Volumes = "Draft",
-                CoverUrl = resolveCover(b),
+                CoverUrl = BookCoverResolver.ResolveContinueEditingCoverUrl(
+                    b.CoverImagePath,
+                    aiCoverByBookId.TryGetValue(b.BookId, out var ai) ? ai : null),
                 BookId = b.BookId,
                 Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
                 LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
@@ -1548,6 +1627,8 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(safe)) safe = "book";
                 var fileName = $"{safe}-{req.BookId}.pdf";
                 await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", metrics.PageCount.ToString(), "Book", cancellationToken);
+                await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
+                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, exportOpt.Format?.Equals("Paperback", StringComparison.OrdinalIgnoreCase) == true ? "print" : "ebook");
                 Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
                 Response.Headers["X-Pdf-Interior"] = $"{exportOpt.InteriorStyle}|{exportOpt.TextSize}|{exportOpt.LineSpacing}";
                 return File(pdfBytes, "application/pdf", fileName);
@@ -1557,6 +1638,38 @@ namespace EBookDashboard.Controllers
                 _logger.LogError(ex, "DownloadBookPdf failed for book {BookId}", req.BookId);
                 return StatusCode(500, new { success = false, message = "PDF generation failed. If this persists, verify Chromium (Puppeteer) can run on this server." });
             }
+        }
+
+        /// <summary>Marks a book published after a successful export (used when download is client-side only).</summary>
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Route("MarkBookPublished")]
+        public async Task<IActionResult> MarkBookPublished([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            var flowPath = req.BookFormat?.Equals("Paperback", StringComparison.OrdinalIgnoreCase) == true
+                || (req.PublishingPlatform ?? "").Contains("print", StringComparison.OrdinalIgnoreCase)
+                ? "print"
+                : "ebook";
+            await FinalizeBookAsPublishedAfterExportAsync(req.BookId, sessionUserId.Value, flowPath, cancellationToken);
+            return Json(new { success = true });
+        }
+
+        private async Task FinalizeBookAsPublishedAfterExportAsync(int bookId, int userId, string flowPath, CancellationToken cancellationToken = default)
+        {
+            await _bookService.MarkPublishedAsync(bookId, userId, cancellationToken);
+            await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepPublish, flowPath, cancellationToken);
         }
 
         [HttpPost]
@@ -1620,6 +1733,8 @@ namespace EBookDashboard.Controllers
                 safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
                 if (string.IsNullOrEmpty(safe)) safe = "book-interior";
                 var fileName = $"{safe}-{req.BookId}-interior.pdf";
+                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", metrics.PageCount.ToString(), "Book", cancellationToken);
+                await FinalizeBookAsPublishedAfterExportAsync(req.BookId, sessionUserId.Value, "print", cancellationToken);
                 Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
                 Response.Headers["X-Pdf-Interior"] = $"{exportOpt.InteriorStyle}|{exportOpt.TextSize}|{exportOpt.LineSpacing}";
                 return File(pdfBytes, "application/pdf", fileName);
@@ -1808,6 +1923,8 @@ namespace EBookDashboard.Controllers
 
             if (string.IsNullOrWhiteSpace(refValue))
                 return NotFound("Cover asset not found.");
+
+            await FinalizeBookAsPublishedAfterExportAsync(bookId, sessionUserId.Value, "print", cancellationToken);
 
             if (refValue.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
             {
@@ -2910,8 +3027,8 @@ namespace EBookDashboard.Controllers
             // Compute profile metrics from DB where possible
             var userBooks = await _context.Books.Where(b => b.UserId == user.UserId).ToListAsync();
             var totalBooks = userBooks.Count;
-            var booksRead = userBooks.Count(b => b.Status == "Published");
-            var booksReading = userBooks.Count(b => b.Status != "Published");
+            var booksRead = userBooks.Count(b => BookFlowStateService.IsPublishedStatus(b.Status));
+            var booksReading = userBooks.Count(b => !BookFlowStateService.IsPublishedStatus(b.Status));
 
             // Create view model
             var viewModel = new DashboardProfileViewModel
@@ -3795,35 +3912,67 @@ namespace EBookDashboard.Controllers
                 return RedirectToAction("UserLogin", "Account");
             }
 
-            // Load all user's books; assign rotating theme covers when missing so nothing stays blank
+            // Load all user's books; resolve display covers at render time (no DB placeholder writes)
             var bookEntities = await _context.Books
                 .Where(b => b.UserId == user.UserId)
                 .OrderByDescending(b => b.CreatedAt)
                 .ToListAsync();
 
-            var fallbackCovers = new[]
+            var bookIds = bookEntities.Select(b => b.BookId).ToList();
+            var aiCoverByBookId = new Dictionary<int, string>();
+            if (bookIds.Count > 0)
             {
-                "/images/books/the-bird.png",
-                "/images/books/good-things-are-up-ahead.png",
-                "/images/books/fairy-tale.png",
-                "/images/books/the-wizarding-chronicles.png",
-                "/images/books/the-cambers-of-secrets.png"
-            };
-            var coverDirty = false;
-            foreach (var b in bookEntities)
-            {
-                if (string.IsNullOrWhiteSpace(b.CoverImagePath))
+                try
                 {
-                    b.CoverImagePath = fallbackCovers[(b.BookId % fallbackCovers.Length + fallbackCovers.Length) % fallbackCovers.Length];
-                    b.UpdatedAt = DateTime.UtcNow;
-                    coverDirty = true;
+                    var coverKeys = bookIds.SelectMany(id => new[]
+                    {
+                        $"book:{id}:printReadyCoverFront",
+                        $"book:{id}:aiCoverLastPreview"
+                    }).ToList();
+                    var coverRows = await _context.Settings.AsNoTracking()
+                        .Where(s => coverKeys.Contains(s.Key))
+                        .ToListAsync();
+                    var frontCoverByBookId = new Dictionary<int, string>();
+                    foreach (var row in coverRows)
+                    {
+                        var parts = row.Key.Split(':');
+                        if (parts.Length < 2 || !int.TryParse(parts[1], out var bid) || string.IsNullOrWhiteSpace(row.Value))
+                            continue;
+                        var val = row.Value.Trim();
+                        if (row.Key.EndsWith(":printReadyCoverFront", StringComparison.Ordinal))
+                            frontCoverByBookId[bid] = val;
+                        else
+                            aiCoverByBookId[bid] = val;
+                    }
+                    foreach (var kv in frontCoverByBookId)
+                        aiCoverByBookId[kv.Key] = kv.Value;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "MyBooks: ai cover settings skipped for user {UserId}", user.UserId);
                 }
             }
-            if (coverDirty) await _context.SaveChangesAsync();
 
-            var userBooks = bookEntities.Select(b => new { b.BookId, b.Title, b.Status, b.CreatedAt, b.UpdatedAt, b.CoverImagePath, b.Description, b.Genre, b.WordCount }).ToList();
+            string ResolveBookCover(int bookId, string? coverPath)
+            {
+                aiCoverByBookId.TryGetValue(bookId, out var ai);
+                return BookCoverResolver.ResolveMyBooksCoverUrl(coverPath, ai);
+            }
 
-            var bookIds = userBooks.Select(b => b.BookId).ToList();
+            var userBooks = bookEntities.Select(b => new
+            {
+                b.BookId,
+                b.Title,
+                b.Status,
+                b.CreatedAt,
+                b.UpdatedAt,
+                CoverImagePath = ResolveBookCover(b.BookId, b.CoverImagePath),
+                b.Description,
+                b.Genre,
+                b.WordCount
+            }).ToList();
+
+            bookIds = userBooks.Select(b => b.BookId).ToList();
             var exportableChaptersByBookId = bookIds.ToDictionary(id => id, _ => 0);
             if (bookIds.Count > 0)
             {

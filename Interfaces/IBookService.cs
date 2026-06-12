@@ -15,6 +15,10 @@ namespace EBookDashboard.Interfaces
         Task<bool> UpdateBookAsync(Books book);
         Task<bool> UpdateBookCoverImagePathAsync(int bookId, int userId, string coverImagePath);
         Task<bool> DeleteBookAsync(int bookId);
+        /// <summary>Hard-delete a book for the owning user — DB row, settings keys, and upload files.</summary>
+        Task<bool> DeleteBookForUserAsync(int bookId, int userId);
+        /// <summary>Mark book as Published after final download/export.</summary>
+        Task<bool> MarkPublishedAsync(int bookId, int userId, CancellationToken cancellationToken = default);
 
         // Categories
         Task<IEnumerable<Categories>> GetAllCategoriesAsync();

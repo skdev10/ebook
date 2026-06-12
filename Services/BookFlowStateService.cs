@@ -23,6 +23,7 @@ public sealed class BookFlowStateService
         var s = (status ?? "").Trim();
         return s.Equals("Published", StringComparison.OrdinalIgnoreCase)
                || s.Equals("Finalized", StringComparison.OrdinalIgnoreCase)
+               || s.Equals("Final", StringComparison.OrdinalIgnoreCase)
                || s.Equals("Paid", StringComparison.OrdinalIgnoreCase);
     }
 

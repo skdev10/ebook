@@ -820,7 +820,11 @@ public static class InteriorLayoutTokens
 
         sb.Append(".paginated-reader-shell.interior-").Append(spec.Key);
 
-        sb.Append(" .book-page-content-wrap,");
+        sb.Append(" .book-page-content-wrap { padding:");
+
+        sb.Append(pad.Top).Append(' ').Append(pad.Right).Append(' ').Append(pad.Bottom).Append(' ').Append(pad.Left);
+
+        sb.Append(" !important; box-sizing:border-box; } ");
 
         sb.Append(".book-pdf-body.interior-").Append(spec.Key);
 
