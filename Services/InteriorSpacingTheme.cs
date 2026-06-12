@@ -115,13 +115,24 @@ public static class InteriorSpacingTheme
             MmToIn(PageBottomPaddingMm),
             MmToIn(PageInsideMarginMm));
 
-    /// <summary>KDP 6×9 Chromium margin box.</summary>
+    /// <summary>KDP 6×9 Chromium margin box (header/footer band outside the text block).</summary>
     public static InteriorLayoutTokens.PrintMarginSpec KdpPrintMarginBox =>
         new(
             MmToIn(PrintMarginTopMm),
             MmToIn(PrintMarginBottomMm),
             MmToIn(PrintMarginInsideMm),
             MmToIn(PrintMarginOutsideMm));
+
+    /// <summary>
+    /// Chromium/Puppeteer margins for PDF export — matches Book Formatter preview on <b>every</b> page:
+    /// top pad + running head + gap; bottom pad + folio gap + folio; gutter/outside sheet padding.
+    /// </summary>
+    public static InteriorLayoutTokens.PrintMarginSpec PdfExportChromiumMargins =>
+        new(
+            MmToIn(PageTopPaddingMm + RunningHeadHeightMm + RunningHeadGapBelowMm),
+            MmToIn(PageBottomPaddingMm + FolioHeightMm + FolioGapAboveMm),
+            MmToIn(PageInsideMarginMm),
+            MmToIn(PageOutsideMarginMm));
 
     /// <summary>Shared spacing block for client-side token sync (formatter JS).</summary>
     public static object ClientSpacingPayload() => new

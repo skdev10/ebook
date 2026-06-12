@@ -222,7 +222,11 @@ public static class InteriorExportTheme
             "[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             ".book-pdf-body.interior-modern .reader-page-body p { border-left-color: var(--fmt-accent, #6366f1); } ",
             ".book-pdf-body blockquote { border-left-color: var(--fmt-accent, #c4b5fd); } ",
-            ".reader-content-wrap { background: var(--page-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; } ");
+            ".reader-content-wrap { background: var(--page-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
+            /* Sheet padding is folded into Chromium margins — must not apply only on the first page fragment. */
+            ".book-pdf-body .book-preview-sheet { padding: 0 !important; } ",
+            ".book-pdf-body .title-page { padding-left: 0; padding-right: 0; } ",
+            ".book-pdf-body .copyright-page, .book-pdf-body .toc-page { padding-left: 0; padding-right: 0; } ");
 
         var tplCss = interior switch
         {

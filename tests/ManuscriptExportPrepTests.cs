@@ -286,10 +286,31 @@ public class ManuscriptExportPrepTests
     public void BookPdfPlatformLayout_ebook_uses_6x9_kdp_trim_like_preview()
     {
         var spec = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions { Format = "Ebook" });
+        var pdfMargins = InteriorLayoutTokens.PdfExportChromiumMargins;
         Assert.Contains("6in", spec.PageSizeCss, StringComparison.Ordinal);
         Assert.False(spec.UseBuiltInFormat);
-        Assert.Equal(InteriorLayoutTokens.KdpTrim6x9Default.Top, spec.MarginTop);
-        Assert.Equal(InteriorLayoutTokens.KdpTrim6x9Default.Inside, spec.MarginLeft);
+        Assert.Equal(pdfMargins.Top, spec.MarginTop);
+        Assert.Equal(pdfMargins.Inside, spec.MarginLeft);
+        Assert.Equal(pdfMargins.Outside, spec.MarginRight);
+        Assert.Equal(pdfMargins.Bottom, spec.MarginBottom);
+    }
+
+    [Fact]
+    public void BuildPdfThemeCss_zeros_sheet_padding_so_margins_apply_on_every_page()
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.Contains(".book-pdf-body .book-preview-sheet { padding: 0 !important; }", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Pdf_export_top_margin_includes_page_pad_and_running_head()
+    {
+        static double Inches(string v) =>
+            double.Parse(v.Replace("in", ""), System.Globalization.CultureInfo.InvariantCulture);
+
+        var top = Inches(InteriorLayoutTokens.PdfExportChromiumMargins.Top);
+        Assert.True(top >= 1.35, $"PDF top margin should include 0.85in pad + running head; got {top:0.####}in");
+        Assert.True(Inches(InteriorLayoutTokens.PdfExportChromiumMargins.Inside) >= 0.74);
     }
 
     [Fact]

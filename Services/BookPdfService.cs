@@ -165,18 +165,21 @@ public class BookPdfService : IBookPdfService
     private static string BuildHeaderTemplate(string title, string author)
     {
         var t = WebUtility.HtmlEncode(TruncateForHeader(title, 52));
-        return "<div style=\"width:100%;box-sizing:border-box;padding:" + InteriorLayoutTokens.RunningHeadPadTop +
+        var pagePadTop = InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.PageTopPaddingMm);
+        return "<div style=\"width:100%;box-sizing:border-box;padding:" + pagePadTop +
                " " + InteriorLayoutTokens.RunningHeadPadSides + " 0 " + InteriorLayoutTokens.RunningHeadPadInside + ";" +
                "font-family:Georgia,'Times New Roman',serif;font-size:7.5px;color:#7c7368;" +
                "letter-spacing:0.22em;text-transform:uppercase;text-align:center;" +
+               "min-height:" + InteriorLayoutTokens.RunningHeadPadTop + ";line-height:1.35;" +
                "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\">" + t + "</div>";
     }
 
     /// <summary>Folio only (centered page number) — “Page X of Y” reads like a report, not a book.</summary>
     private static string BuildFooterTemplate()
     {
-        return "<div style=\"width:100%;box-sizing:border-box;padding:0 " + InteriorLayoutTokens.RunningHeadPadSides +
-               " " + InteriorLayoutTokens.FolioPadBottom + " " + InteriorLayoutTokens.RunningHeadPadInside + ";" +
+        return "<div style=\"width:100%;box-sizing:border-box;padding:" + InteriorLayoutTokens.FolioGapAbove +
+               " " + InteriorLayoutTokens.RunningHeadPadSides + " " + InteriorLayoutTokens.FolioPadBottom + " " +
+               InteriorLayoutTokens.RunningHeadPadInside + ";" +
                "font-family:Georgia,'Times New Roman',serif;font-size:8.5px;color:#7c7368;" +
                "letter-spacing:0.12em;text-align:center;\"><span class=\"pageNumber\"></span></div>";
     }

@@ -108,7 +108,8 @@ public static class InteriorLayoutTokens
 
     public static PrintMarginSpec KdpTrim6x9Default => InteriorSpacingTheme.KdpPrintMarginBox;
 
-
+    /// <summary>PDF export margins — preview page inset on every printed page via Chromium.</summary>
+    public static PrintMarginSpec PdfExportChromiumMargins => InteriorSpacingTheme.PdfExportChromiumMargins;
 
     public static string ChapterDrop => InteriorSpacingTheme.Mm(InteriorSpacingTheme.ChapterDropMm);
 
@@ -823,11 +824,7 @@ public static class InteriorLayoutTokens
 
         sb.Append(".book-pdf-body.interior-").Append(spec.Key);
 
-        sb.Append(" .book-preview-sheet { ");
-
-        sb.Append("padding:").Append(pad.Top).Append(' ').Append(pad.Right).Append(' ')
-
-            .Append(pad.Bottom).Append(' ').Append(pad.Left).Append(" !important; } ");
+        sb.Append(" .book-preview-sheet { padding: 0 !important; } ");
 
 
 

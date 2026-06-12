@@ -889,6 +889,7 @@
                     <button type="button" data-flow-back="@(ViewBag.FlowBackUrl ?? $"/Dashboard/CoverDesign?bookId={bookId}")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Back to Cover Design</button>
                 </div>
             }
+            <div class="mb-2">@await Html.PartialAsync("_FlowStepper", 4)</div>
         <div>
             <p class="publish-kicker">Distribution Console</p>
             <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Export your book</h1>

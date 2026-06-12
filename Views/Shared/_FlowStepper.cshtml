@@ -1,20 +1,19 @@
 @model int
-@* Flow stepper — numbered circles + progress line (weForms-style).
-   Model = current step: 1 AI Book Writer, 2 Ebook Formatting, 3 Ebook Cover Design. *@
+@* Flow stepper — 1 AI Book Writer, 2 Ebook Formatting, 3 Cover Design, 4 Publish. *@
 @{
-    var current = Model < 1 ? 1 : (Model > 3 ? 3 : Model);
-    var steps = new[] { "AI Book Writer", "Ebook Formatting", "Ebook Cover Design" };
+    var current = Model < 1 ? 1 : (Model > 4 ? 4 : Model);
+    var steps = new[] { "AI Book Writer", "Ebook Formatting", "Cover Design", "Publish" };
 }
 <style>
     .ai-flow-stepper {
         display: flex;
         align-items: flex-start;
         width: 100%;
-        max-width: 430px;
+        max-width: 100%;
         background: #fff;
         border: 1px solid #ede9fe;
         border-radius: 14px;
-        padding: 14px 18px 12px;
+        padding: 14px 14px 12px;
         box-shadow: 0 4px 14px -8px rgba(91, 33, 182, 0.18);
     }
     .ai-flow-step {
@@ -23,16 +22,16 @@
         align-items: center;
         gap: 6px;
         flex: 0 0 auto;
-        min-width: 64px;
+        min-width: 52px;
     }
     .ai-flow-dot {
-        width: 30px;
-        height: 30px;
+        width: 28px;
+        height: 28px;
         border-radius: 999px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: 700;
         background: #f1f5f9;
         color: #94a3b8;
@@ -52,13 +51,13 @@
         color: #6d28d9;
     }
     .ai-flow-label {
-        font-size: 0.66rem;
+        font-size: 0.62rem;
         font-weight: 600;
         letter-spacing: 0.01em;
         color: #94a3b8;
         text-align: center;
-        line-height: 1.25;
-        max-width: 5.6rem;
+        line-height: 1.2;
+        max-width: 4.8rem;
     }
     .ai-flow-step.is-current .ai-flow-label { color: #5b21b6; }
     .ai-flow-step.is-done .ai-flow-label { color: #7c3aed; }
@@ -67,8 +66,8 @@
         height: 3px;
         border-radius: 999px;
         background: #e2e8f0;
-        margin-top: 14px;
-        min-width: 18px;
+        margin-top: 13px;
+        min-width: 10px;
     }
     .ai-flow-line.is-done { background: linear-gradient(90deg, #7c3aed 0%, #c4b5fd 100%); }
     .ai-flow-hint {
@@ -76,9 +75,15 @@
         font-size: 0.78rem;
         color: #64748b;
         line-height: 1.5;
-        max-width: 430px;
+        max-width: 100%;
     }
     .ai-flow-hint strong { color: #5b21b6; font-weight: 600; }
+    @@media (min-width: 640px) {
+        .ai-flow-stepper { padding: 14px 18px 12px; max-width: 720px; }
+        .ai-flow-step { min-width: 64px; }
+        .ai-flow-dot { width: 30px; height: 30px; font-size: 0.8rem; }
+        .ai-flow-label { font-size: 0.66rem; max-width: 5.4rem; }
+    }
 </style>
 <div data-guided-tour="ai-flow-steps">
     <div class="ai-flow-stepper" role="list" aria-label="Book creation steps">
@@ -96,6 +101,13 @@
         }
     </div>
     <p class="ai-flow-hint">
-        You're on <strong>Step @current — @steps[current - 1]</strong>@(current < steps.Length ? Html.Raw($", next: <strong>{string.Join("</strong> &rarr; <strong>", steps.Skip(current))}</strong>") : Html.Raw(" — the final design step")).
+        @if (current < steps.Length)
+        {
+            @Html.Raw($"You're on <strong>Step {current} — {steps[current - 1]}</strong>, next: <strong>{steps[current]}</strong>.")
+        }
+        else
+        {
+            @Html.Raw($"You're on <strong>Step {current} — {steps[current - 1]}</strong> — export and distribute your book.")
+        }
     </p>
 </div>

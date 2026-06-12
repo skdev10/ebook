@@ -79,12 +79,11 @@ public static class BookPdfPlatformLayout
         PreferCssPageSize: false);
 
     /// <summary>
-    /// 6×9 print margins from <see cref="InteriorLayoutTokens"/> — Chromium header/footer zone;
-    /// inner text inset comes from <c>--ilt-pad-*</c> on <c>.book-preview-sheet</c> (preview parity).
+    /// 6×9 print margins — same inset as Book Formatter preview on every page (pad + running head + folio).
     /// </summary>
     private static PdfLayoutSpec Trim6x9Print(bool bleedHeavy)
     {
-        var m = InteriorLayoutTokens.KdpTrim6x9Default;
+        var m = InteriorLayoutTokens.PdfExportChromiumMargins;
         var bleedBump = bleedHeavy ? 0.05 : 0.0;
         return new PdfLayoutSpec(
             PageSizeCss: "6in 9in",
