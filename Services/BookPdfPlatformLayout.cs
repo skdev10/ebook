@@ -25,10 +25,10 @@ public static class BookPdfPlatformLayout
         var platform = NormalizePlatform(opt.PrimaryPlatformToken());
         var fmt = (opt.Format ?? "Ebook").Trim();
 
-        // Ebook-only workflow without a print distributor → screen-friendly A4.
+        // Ebook-only workflow → same 6×9 KDP trim as formatter preview (preview ≡ PDF).
         if (string.IsNullOrEmpty(platform) &&
             fmt.Equals("Ebook", StringComparison.OrdinalIgnoreCase))
-            return A4ScreenLayout();
+            return ApplyMarginOverrides(Trim6x9Print(bleedHeavy: false), marginOverrides);
 
         // Print / dual format without explicit platform → standard 6×9 interior.
         if (string.IsNullOrEmpty(platform) &&
@@ -46,7 +46,7 @@ public static class BookPdfPlatformLayout
             "bn" => Trim6x9Print(bleedHeavy: false),
             "kdp" => Trim6x9Print(bleedHeavy: false),
             _ => fmt.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
-                ? A4ScreenLayout()
+                ? Trim6x9Print(bleedHeavy: false)
                 : Trim6x9Print(bleedHeavy: false)
         };
         return spec.PageSizeCss.Contains("6in", StringComparison.Ordinal)

@@ -20,6 +20,7 @@
     window.__chapterGenFetchTimeoutMs = @chapterGenFetchTimeoutMs;
 </script>
 <link rel="stylesheet" href="~/css/book-page-preview.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
 <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <style>
 
@@ -28,32 +29,36 @@
     @@media (min-width: 1024px) {
         .ai-writer-main-layout {
             display: grid !important;
-            grid-template-columns: minmax(0, 38%) minmax(0, 62%);
-            gap: 2rem;
-            align-items: start;
+            grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+            gap: 1.75rem !important;
+            align-items: stretch;
             min-height: 0;
         }
         .ai-writer-main-layout .ai-writer-sidebar {
-            height: auto;
+            height: 100%;
             min-height: 0;
             overflow-y: auto;
-            padding-right: 0.25rem;
-            align-self: start;
+            padding-right: 0;
+            align-self: stretch;
         }
         .ai-writer-main-layout .ai-writer-preview-stack {
             grid-column: 2;
             min-width: 0;
             min-height: 0;
+            height: 100%;
             width: 100%;
             display: flex;
             flex-direction: column;
+            align-self: stretch;
+            box-sizing: border-box;
         }
         .ai-writer-main-layout #bookResult.ai-writer-ebook-preview-wrap {
             grid-column: auto;
-            align-self: start;
+            align-self: stretch;
             width: 100%;
             max-width: 100%;
             min-height: 0;
+            flex: 1 1 auto;
             display: flex;
             flex-direction: column;
             box-sizing: border-box;
@@ -63,31 +68,60 @@
             flex: 1 1 auto;
             min-height: 0;
             max-width: 100%;
-            width: 100%;
+            width: 78%;
             display: flex;
             flex-direction: column;
+        }
+        .ai-writer-preview-meta {
+            width: 78%;
+            max-width: 78%;
+            margin-bottom: 1rem;
         }
         #chapterPreviewScrollHost {
             flex: 1 1 auto;
             min-height: 0;
             width: 100%;
+            height: 100%;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
+            align-items: stretch;
+            justify-content: stretch;
             overflow: hidden;
         }
         #bookResult .paginated-reader-shell.book-page-preview-shell {
-            flex: 0 0 auto;
-            width: auto;
+            flex: 1 1 auto;
+            width: 100%;
             max-width: 100%;
-            height: auto;
+            min-height: 0;
+            height: 100%;
             max-height: none;
-            margin-inline: auto;
-            aspect-ratio: 6 / 9;
+            margin-inline: 0;
+            aspect-ratio: auto;
         }
-        .ai-writer-preview-meta {
-            margin-bottom: 1.5rem;
+        .ai-writer-preview-stack {
+            align-items: flex-start;
+        }
+        .ai-writer-preview-pane {
+            width: 100%;
+            max-width: 100%;
+            margin-inline: 0;
+            flex: 1 1 auto;
+            min-height: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .ai-writer-tip-box {
+            border-color: #c4b5fd !important;
+            background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%) !important;
+            color: #475569;
+            line-height: 1.55;
+        }
+        .ai-writer-tip-box .ai-writer-tip-icon {
+            color: #7c3aed;
+            font-size: 1rem;
+            line-height: 1.25;
         }
         .ai-writer-preview-meta .preview-intro-desc { display: none; }
         .ai-writer-preview-meta #preview-book-title { font-size: 1.5rem; line-height: 1.25; }
@@ -96,6 +130,17 @@
     /* 6×9 in ebook page — fixed trim, paginated (no inner scroll trap) */
     .ai-writer-preview-stack {
         overflow: visible;
+        width: 100%;
+        align-items: flex-start;
+    }
+    .ai-writer-preview-pane {
+        width: 100%;
+        max-width: 100%;
+        margin-inline: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        box-sizing: border-box;
     }
     .ai-writer-ebook-preview-wrap {
         width: 100%;
@@ -208,7 +253,7 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
         overflow: hidden;
         position: relative;
     }
@@ -230,11 +275,12 @@
     }
     @@media (min-width: 1024px) {
         #bookResult .paginated-reader-shell.book-page-preview-shell {
-            width: 62%;
-            max-width: 62%;
+            width: 100%;
+            max-width: 100%;
             height: auto;
             max-height: none;
-            aspect-ratio: 6 / 9;
+            aspect-ratio: auto;
+            margin-inline: 0;
         }
     }
     /* Match Book Formatting / CoverDesignCalculator side chevrons */
@@ -624,15 +670,15 @@
     #preview-content.hidden { display: none !important; }
     #chatContainer .message-content { color: #1e293b !important; font-size: 1rem; line-height: 1.75; background: rgba(255,255,255,0.9) !important; padding: 1rem 1.25rem; border-radius: 12px; margin-bottom: 1rem; }
     .chat-intro-highlight { margin-bottom: 0; }
-    /* Intro tip: slim info strip — not a chat bubble (no avatar, no bubble look) */
+    /* Intro tip: slim line under heading — aligned with preview card, not a chat bubble */
     .chat-intro-message {
-        background: #f5f3ff !important;
-        color: #475569 !important;
-        font-size: 0.875rem !important;
-        line-height: 1.55 !important;
-        padding: 0.65rem 0.9rem !important;
-        border-radius: 0.65rem !important;
-        border: 1px solid rgba(124, 58, 237, 0.16);
+        background: transparent !important;
+        color: #64748b !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.5 !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        border: none !important;
         box-shadow: none;
         margin-bottom: 0 !important;
     }
@@ -1171,6 +1217,70 @@
         padding-top: 0.875rem;
         padding-bottom: 0.875rem;
     }
+    /* Choose version — custom chevron aligned inside the field */
+    .iteration-select-wrap {
+        position: relative;
+        width: 100%;
+    }
+    .iteration-select-wrap select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        padding-right: 2.75rem !important;
+        cursor: pointer;
+    }
+    .iteration-select-chevron {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 2.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+    .iteration-select-wrap select:focus + .iteration-select-chevron,
+    .iteration-select-wrap:focus-within .iteration-select-chevron {
+        color: #7c3aed;
+    }
+    /* Tighter spacing above Book formatting button */
+    .ai-writer-sidebar #writerAutoSaveStatus {
+        margin: 0.25rem 0 0;
+        min-height: 1rem;
+    }
+    .ai-writer-sidebar #nextStepSection {
+        margin-top: 0.25rem !important;
+        padding-top: 0.5rem !important;
+    }
+    #chapterTopicBox > div:last-child {
+        margin-top: 0;
+    }
+    /* Left form: compact vertical rhythm (label→field ~12px, groups ~20px) */
+    .ai-writer-sidebar {
+        gap: 0.5rem !important;
+    }
+    .ai-writer-sidebar > section {
+        gap: 0.75rem !important;
+    }
+    .ai-writer-sidebar > hr {
+        margin: 0.375rem 0 !important;
+    }
+    .ai-writer-sidebar .flex.flex-col.gap-2 {
+        gap: 0.375rem !important;
+    }
+    .ai-writer-sidebar [data-guided-tour="ai-write-section"] > h2,
+    .ai-writer-sidebar [data-guided-tour="ai-book-picker"] > h2 {
+        margin-bottom: 0 !important;
+    }
+    .ai-writer-sidebar label.text-sm {
+        margin-bottom: 0;
+    }
+    .ai-writer-sidebar #iterationPickerWrap {
+        gap: 0.5rem !important;
+        padding-top: 0 !important;
+    }
     .ai-writer-sidebar #bookSelectionPreviewBtn {
         min-height: 3.25rem;
     }
@@ -1280,16 +1390,16 @@
 
 
 
-<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
-    <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
-        <div class="ai-writer-page-wrap max-w-[1600px] mx-auto w-full flex flex-col min-h-0" data-aos="fade-up" data-aos-duration="500">
-        <div class="ai-writer-main-layout w-full flex flex-col lg:flex-row gap-10 lg:gap-16 min-h-0">
+<div class="dash-flow-page">
+    <main class="dash-flow-main">
+        <div class="ai-writer-page-wrap dash-flow-inner flex flex-col min-h-0" data-aos="fade-up" data-aos-duration="500">
+        <div class="ai-writer-main-layout dash-flow-grid dash-flow-grid--writer w-full flex flex-col lg:flex-row min-h-0">
         <!-- Left Column: Forms -->
-        <div class="ai-writer-sidebar w-full lg:w-[550px] flex flex-col gap-4 shrink-0">
-            <section class="flex flex-col gap-5" data-guided-tour="ai-book-picker">
+        <div class="ai-writer-sidebar w-full flex flex-col gap-2 shrink-0 min-h-0">
+            <section class="flex flex-col gap-3" data-guided-tour="ai-book-picker">
                 @await Html.PartialAsync("_FlowStepper", 1)
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">AI Book Writer</h2>
-                <div class="rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="rounded-xl border border-violet-200 bg-violet-50/80 px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div class="min-w-0">
                         <p class="text-xs font-semibold uppercase tracking-wide text-violet-700 mb-1">Working on</p>
                         <p class="text-base font-semibold text-slate-900 truncate" id="aiWriterSelectedBookTitle">@selectedBookTitle</p>
@@ -1317,10 +1427,10 @@
             </section>
 
 
-            <hr class="border-slate-200/80">
+            <hr class="border-slate-200/80 my-1">
 
-            <section class="flex flex-col gap-5" data-guided-tour="ai-write-section">
-                <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800 mb-1">Write a New Book</h2>
+            <section class="flex flex-col gap-3" data-guided-tour="ai-write-section">
+                <h2 class="font-serif-custom text-xl font-medium tracking-tight text-slate-800">Write a New Book</h2>
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Book Title</label>
                     <input type="text" id="BookTitle" value="@initialBookTitle" placeholder="Enter Book Title" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
@@ -1340,9 +1450,12 @@
                             <span id="chapterVersionsSummaryText"></span>
                         </div>
                         <label class="text-sm font-medium text-slate-500">Choose version</label>
-                        <select id="IterationDropdown" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-800 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 shadow-sm" onchange="onChapterIterationSelected(this.value)" title="Draft versions (newest at bottom)">
-                            <option value="">— Load chapter first —</option>
-                        </select>
+                        <div class="iteration-select-wrap">
+                            <select id="IterationDropdown" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-base text-slate-800 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 shadow-sm" onchange="onChapterIterationSelected(this.value)" title="Draft versions (newest at bottom)">
+                                <option value="">— Load chapter first —</option>
+                            </select>
+                            <span class="iteration-select-chevron" aria-hidden="true"><i class="fas fa-chevron-down text-sm"></i></span>
+                        </div>
                         <button type="button" id="btnFinalizeCurrentVersion" class="w-full inline-flex items-center justify-center gap-2 font-semibold py-2.5 px-4 rounded-xl text-sm text-white border-0 cursor-pointer hover:opacity-95 active:scale-[0.99] bg-violet-600 hover:bg-violet-700 disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none">
                             <i class="fas fa-lock text-xs"></i>
                             <span>Finalize</span>
@@ -1364,11 +1477,11 @@
                 </div>
             </section>
 
-            <section class="flex flex-col gap-5" data-guided-tour="ai-topic-generate">
+            <section class="flex flex-col gap-2" data-guided-tour="ai-topic-generate">
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">Chapter Topic</h2>
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
-                    <textarea id="UserInput" placeholder="If you want peace, work for justice" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-4 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]">If you want peace, work for justice</textarea>
-                    <div class="bg-slate-50/80 p-2 mx-2 mb-2 rounded-xl flex items-center justify-between border border-slate-100">
+                    <textarea id="UserInput" placeholder="If you want peace, work for justice" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-3 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]">If you want peace, work for justice</textarea>
+                    <div class="bg-slate-50/80 p-1.5 mx-1 mb-1 rounded-xl flex items-center justify-between border border-slate-100">
                         <div class="flex items-center gap-3 pl-2">
                             <button type="button" id="EditBtn" class="text-slate-400 hover:text-blue-500 transition-colors text-xl p-1.5 rounded-lg hover:bg-blue-50" title="Edit chapter (modal)" onclick="openChapterEditModal()"><i class="fas fa-pen"></i></button>
                         </div>
@@ -1406,7 +1519,7 @@
                 <p id="writerAutoSaveStatus" class="text-xs text-slate-400 min-h-[1.25rem] leading-relaxed" aria-live="polite"></p>
                 <input type="hidden" id="APIRawResponse">
 
-                <div id="nextStepSection" class="mt-4 pt-4 border-t border-slate-200 flex flex-col gap-2 w-full" data-guided-tour="ai-next-step">
+                <div id="nextStepSection" class="mt-1 pt-2 border-t border-slate-200 flex flex-col gap-2 w-full" data-guided-tour="ai-next-step">
                     <button type="button" id="btnNextStep" class="w-full inline-flex items-center justify-center gap-2 font-semibold py-3 px-5 rounded-xl shadow-md transition-all text-sm text-white border-0 cursor-pointer hover:opacity-95 active:scale-[0.98]" style="background-color:#6d28d9;">
                         <span>Book formatting</span>
                         <i class="fas fa-arrow-right text-xs"></i>
@@ -1416,23 +1529,24 @@
         </div>
 
         <div class="ai-writer-preview-stack flex flex-col min-w-[300px] min-h-0 flex-1 w-full">
-            <div class="ai-writer-preview-meta flex flex-col gap-4 mb-6 lg:mb-5 shrink-0">
-                <div class="flex items-center gap-3 text-base font-medium text-purple-600">
-                    <span class="h-[1.5px] w-5 bg-purple-600"></span>
+            <div class="ai-writer-preview-pane">
+            <div class="ai-writer-preview-meta flex flex-col gap-2 mb-4 shrink-0">
+                <div class="flex items-center gap-2 text-sm font-semibold text-violet-600 tracking-wide">
+                    <span class="h-px w-4 bg-violet-500 shrink-0"></span>
                     Ebook AI
                 </div>
-                <h1 id="preview-book-title" class="font-serif-custom text-4xl font-medium tracking-tight text-slate-900 transition-all duration-300">Your Chapter's Preview</h1>
-                <p class="preview-intro-desc text-base text-slate-500 max-w-lg leading-relaxed">
+                <h1 id="preview-book-title" class="font-serif-custom text-2xl lg:text-[1.65rem] font-medium tracking-tight text-slate-900 transition-all duration-300 m-0">Your Chapter's Preview</h1>
+                <p class="preview-intro-desc text-sm text-slate-500 leading-relaxed m-0">
                     Your manuscript appears as a paginated ebook page. Use the side arrows or buttons below to turn pages.
                 </p>
-                <div id="chatContainer" class="chat-container flex flex-col gap-4 flex-shrink-0">
-                    <div class="message message-ai chat-intro-highlight">
-                        <div class="message-content chat-intro-message">
-                            <i class="fas fa-lightbulb text-violet-500 mr-1.5" aria-hidden="true"></i>
-                            Enter a topic and click Generate, or load a chapter from the dropdown — your manuscript preview appears below as you work.
-                        </div>
-                    </div>
+                <div class="alert alert-light border ai-writer-tip-box d-flex align-items-start gap-2 py-2 px-3 mb-0 rounded-3 shadow-sm" role="note">
+                    <i class="fas fa-lightbulb ai-writer-tip-icon flex-shrink-0 mt-1" aria-hidden="true"></i>
+                    <p class="mb-0 small">
+                        <strong class="text-primary">Tip:</strong>
+                        Write and finalize one chapter at a time before moving to the next for better structure and consistency.
+                    </p>
                 </div>
+                <div id="chatContainer" class="chat-container hidden flex-col flex-shrink-0" aria-live="polite"></div>
             </div>
             <!-- Side-by-side preview (edit mode: Original | Regenerated) -->
             <div id="sideBySidePreview" class="preview-side-by-side hidden mb-6">
@@ -1510,6 +1624,7 @@
                         </button>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
         </div>
@@ -1958,13 +2073,29 @@ window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
 
 window.syncAiWriterPreviewLayout = function () {
     var sidebar = document.querySelector('.ai-writer-sidebar');
+    var previewPane = document.querySelector('.ai-writer-preview-pane');
     var bookResult = document.getElementById('bookResult');
     var scrollHost = document.getElementById('chapterPreviewScrollHost');
     var shell = document.getElementById('paginatedReaderShell');
     var viewport = document.getElementById('preview-content');
     if (!bookResult || !scrollHost || !shell) return;
 
+    function syncPreviewPaneWidth(w) {
+        if (!previewPane) return;
+        if (window.innerWidth >= 1024) {
+            previewPane.style.width = '';
+            previewPane.style.maxWidth = '';
+            return;
+        }
+        if (!(w > 0)) return;
+        previewPane.style.width = Math.floor(w) + 'px';
+        previewPane.style.maxWidth = '100%';
+    }
+
     if (window.innerWidth < 1024 || !sidebar) {
+        var stackMob = document.querySelector('.ai-writer-preview-stack');
+        if (stackMob) { stackMob.style.minHeight = ''; stackMob.style.height = ''; }
+        if (previewPane) { previewPane.style.minHeight = ''; previewPane.style.height = ''; }
         bookResult.style.minHeight = '';
         bookResult.style.height = '';
         var mobW = scrollHost.clientWidth || bookResult.clientWidth || 320;
@@ -1975,7 +2106,8 @@ window.syncAiWriterPreviewLayout = function () {
             mobShellH = mobMaxH;
             mobShellW = Math.floor(mobShellH * (6 / 9));
         }
-        shell.style.width = mobShellW + 'px';
+        syncPreviewPaneWidth(mobShellW);
+        shell.style.width = '100%';
         shell.style.height = mobShellH + 'px';
         shell.style.maxHeight = mobShellH + 'px';
         shell.style.maxWidth = '100%';
@@ -2006,50 +2138,53 @@ window.syncAiWriterPreviewLayout = function () {
         return;
     }
 
-    /* Right column = meta heading + preview card. The card height fills whatever is left
-       so the whole right column matches the left form column height. */
+    /* Align preview card bottom with left Chapter Topic box bottom */
     var stack = document.querySelector('.ai-writer-preview-stack');
-    var usedAbove = 0;
-    if (stack) {
-        var brRect = bookResult.getBoundingClientRect();
-        var stackRect = stack.getBoundingClientRect();
-        usedAbove = Math.max(0, Math.round(brRect.top - stackRect.top));
-    }
-    var targetH = Math.max(360, sidebar.offsetHeight - usedAbove);
-    bookResult.style.minHeight = targetH + 'px';
-    bookResult.style.height = targetH + 'px';
+    var topicBox = document.getElementById('chapterTopicBox');
+    var metaEl = previewPane ? previewPane.querySelector('.ai-writer-preview-meta') : null;
+    var sideEl = document.getElementById('sideBySidePreview');
+    var sideH = (sideEl && !sideEl.classList.contains('hidden')) ? (sideEl.offsetHeight + 16) : 0;
+    var paneGap = 8;
+    var leftBottom = topicBox
+        ? topicBox.getBoundingClientRect().bottom
+        : (sidebar.getBoundingClientRect().top + sidebar.offsetHeight);
 
-    var availW = scrollHost.clientWidth || bookResult.clientWidth;
-    var availH = scrollHost.clientHeight;
-    if (availH < 80) {
-        var nav = document.getElementById('chapterPreviewNav');
-        var banner = document.getElementById('bookResultStatusBanner');
-        var brStyles = window.getComputedStyle(bookResult);
-        var padY = parseFloat(brStyles.paddingTop) + parseFloat(brStyles.paddingBottom);
-        var navH = nav && !nav.classList.contains('hidden') ? nav.offsetHeight : 0;
-        var bannerH = banner && !banner.classList.contains('hidden') ? banner.offsetHeight : 0;
-        var contentStyles = window.getComputedStyle(document.getElementById('bookResultContent') || bookResult);
-        var contentGap = parseFloat(contentStyles.gap || '0') || 12;
-        availH = Math.max(120, targetH - padY - navH - bannerH - contentGap);
+    if (stack) { stack.style.minHeight = ''; stack.style.height = ''; }
+    if (previewPane) { previewPane.style.minHeight = ''; previewPane.style.height = ''; }
+    bookResult.style.minHeight = '';
+    bookResult.style.height = '';
+    bookResult.style.flex = '0 0 auto';
+
+    var anchorBottom = metaEl ? metaEl.getBoundingClientRect().bottom : bookResult.getBoundingClientRect().top;
+    if (sideEl && !sideEl.classList.contains('hidden')) {
+        anchorBottom = sideEl.getBoundingClientRect().bottom;
+    }
+    var shellH = Math.floor(leftBottom - anchorBottom - paneGap);
+    shellH = Math.max(180, shellH);
+
+    var nav = document.getElementById('chapterPreviewNav');
+    var banner = document.getElementById('bookResultStatusBanner');
+    var navH = nav && !nav.classList.contains('hidden') ? nav.offsetHeight : 0;
+    var bannerH = banner && !banner.classList.contains('hidden') ? (banner.offsetHeight + 16) : 0;
+    if (navH > 0 || bannerH > 0) {
+        shellH = Math.max(180, shellH - navH - bannerH);
     }
 
-    /* 6×9 page fills the available preview height (matches left column); clamp by column width */
-    var shellH = Math.floor(Math.max(0, availH));
-    var shellW = Math.floor(shellH * (6 / 9));
-    if (shellW > availW && availW > 48) {
-        shellW = Math.floor(availW);
-        shellH = Math.floor(shellW * (9 / 6));
-    }
+    var paneW = previewPane ? previewPane.clientWidth : (stack ? stack.clientWidth : 320);
+    paneW = Math.max(200, paneW);
+    var shellW = paneW;
 
     shellW = Math.max(0, shellW);
     shellH = Math.max(0, shellH);
     var prevKey = shell.dataset.layoutKey || '';
-    var nextKey = shellW + 'x' + shellH + '@@' + targetH;
-    shell.style.width = shellW + 'px';
+    var nextKey = shellW + 'x' + shellH + '@@align';
+    syncPreviewPaneWidth(paneW);
+    shell.style.width = '100%';
     shell.style.height = shellH + 'px';
-    shell.style.maxHeight = 'none';
+    shell.style.minHeight = shellH + 'px';
+    shell.style.maxHeight = shellH + 'px';
     shell.style.maxWidth = '100%';
-    shell.style.aspectRatio = '6 / 9';
+    shell.style.aspectRatio = 'auto';
 
     if (viewport && shellW > 0 && shellH > 0) {
         void viewport.offsetHeight;
@@ -2874,8 +3009,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.syncAiWriterPreviewLayout();
             });
             sidebarRo.observe(sidebarEl);
-            var metaEl = document.querySelector('.ai-writer-preview-meta');
-            if (metaEl) sidebarRo.observe(metaEl);
+            var metaElRo = document.querySelector('.ai-writer-preview-meta');
+            if (metaElRo) sidebarRo.observe(metaElRo);
+            var stackEl = document.querySelector('.ai-writer-preview-stack');
+            if (stackEl) sidebarRo.observe(stackEl);
+            var topicBoxRo = document.getElementById('chapterTopicBox');
+            if (topicBoxRo) sidebarRo.observe(topicBoxRo);
         }
         var bookResultEl = document.getElementById('bookResult');
         if (bookResultEl && typeof ResizeObserver !== 'undefined') {

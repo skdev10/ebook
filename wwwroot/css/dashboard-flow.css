@@ -1,0 +1,73 @@
+/**
+ * Dashboard flow screens — AI Writer, Formatter, Cover Design, Publish.
+ * Tokens: Services/DashboardLayoutTokens.cs
+ */
+
+.dash-flow-page {
+    background: var(--dash-page-bg, #f5f7f9);
+    color: #0f172a;
+    min-height: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.dash-flow-main {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--dash-flow-pad, 2rem);
+    width: 100%;
+    min-height: 0;
+}
+
+@media (min-width: 1024px) {
+    .dash-flow-main {
+        padding: var(--dash-flow-pad-lg, 3rem);
+    }
+}
+
+.dash-flow-inner {
+    max-width: var(--dash-flow-max, 1600px);
+    margin-inline: auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.dash-flow-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dash-flow-gap, 2.75rem);
+    width: 100%;
+    min-height: 0;
+}
+
+@media (min-width: 1024px) {
+    .dash-flow-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+        align-items: stretch;
+    }
+
+    .dash-flow-grid--writer {
+        grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+    }
+}
+
+.dash-flow-preview-pane {
+    width: var(--dash-preview-pane-w, 68%);
+    max-width: var(--dash-preview-pane-w, 68%);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    box-sizing: border-box;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.dash-flow-card {
+    background: var(--dash-surface-bg, #fff);
+    border: 1px solid var(--dash-border, #e2e8f0);
+    border-radius: var(--dash-card-radius, 14px);
+    box-sizing: border-box;
+}

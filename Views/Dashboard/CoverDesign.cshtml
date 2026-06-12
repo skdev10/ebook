@@ -129,7 +129,7 @@
     #covPreviewShell.cov-style-vintage #covPreviewAuthor { font-family: Georgia, serif; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.72rem; opacity: 0.95; }
     .cov-preview-book-stage {
         perspective: 1200px;
-        padding: 0 0 1rem;
+        padding: 0;
         transform-style: preserve-3d;
         width: 100%;
         max-width: min(100%, 22rem);
@@ -154,6 +154,7 @@
     #covPreviewColumn #optionsWrap {
         align-self: flex-start;
         width: 100%;
+        max-width: min(100%, 22rem);
     }
     /* Premium export CTA */
     .cov-export-premium {
@@ -210,37 +211,53 @@
         display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 600;
         color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 999px; padding: 0.25rem 0.65rem;
     }
+    /* Main card — original white panel; height hugs content (no viewport stretch) */
+    #coverMain.cov-main-card {
+        align-items: stretch;
+    }
+    #covPreviewColumn {
+        align-self: flex-start;
+    }
+    .cov-state-panel {
+        width: 100%;
+        border-radius: 2rem;
+        border: 1px solid rgba(226, 232, 240, 0.6);
+        background: #fff;
+        padding: 2rem;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        min-height: 16rem;
+    }
 </style>
 
-<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
-    <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 lg:p-12 w-full min-h-0">
-        <div class="max-w-[1600px] mx-auto w-full flex flex-col min-h-0">
-<div class="cover-design-page antialiased w-full flex justify-center items-start py-0 px-0 md:px-0">
+<div class="dash-flow-page">
+    <main class="dash-flow-main">
+        <div class="dash-flow-inner flex flex-col min-h-0">
+<div class="cover-design-page antialiased w-full">
     <!-- Loading -->
-    <div id="screenLoading" class="bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full max-w-[1600px] min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-8 lg:p-12 flex flex-col gap-3 animate-pulse">
+    <div id="screenLoading" class="cov-state-panel rounded-[32px] flex flex-col gap-3 animate-pulse">
         <div class="h-8 bg-slate-200 rounded-xl w-1/3"></div>
         <div class="h-4 bg-slate-200 rounded w-full"></div>
         <div class="h-4 bg-slate-200 rounded w-5/6"></div>
     </div>
 
-    <div id="emptyState" class="hidden bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full max-w-[1600px] min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-10 lg:p-12 flex flex-col items-center justify-center text-center text-slate-500">
+    <div id="emptyState" class="hidden cov-state-panel flex flex-col items-center justify-center text-center text-slate-500 min-h-[16rem]">
         You do not have any books yet. Create a book first, then return here to design your cover.
     </div>
 
-    <div id="coverMain" class="hidden bg-white rounded-[32px] shadow-sm w-full max-w-[1600px] min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] flex flex-col lg:flex-row gap-12 lg:gap-24 overflow-hidden border border-slate-200/60">
-        <!-- Form (full width with dashboard sidebar only — no duplicate inner nav) -->
-        <div class="w-full lg:w-5/12 p-6 md:p-10 lg:p-12 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
-            <div class="mb-4">
+    <div id="coverMain" class="hidden cov-main-card bg-white rounded-[32px] shadow-sm w-full border border-slate-200/60 flex flex-col lg:flex-row gap-8 lg:gap-12 overflow-hidden items-start">
+        <!-- Form -->
+        <div class="w-full lg:w-5/12 p-6 md:p-8 lg:p-10 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
+            <div class="mb-3">
                 <button type="button" data-flow-back="@(ViewBag.FlowBackUrl ?? $"/BookDesign/CoverDesignCalculatorFixing?bookId={ViewBag.BookId ?? 0}")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Back</button>
             </div>
-            <div class="mb-4">@await Html.PartialAsync("_FlowStepper", 3)</div>
-            <div class="flex items-center gap-2 mb-2">
+            <div class="mb-3">@await Html.PartialAsync("_FlowStepper", 3)</div>
+            <div class="flex items-center gap-2 mb-1">
                 <i data-lucide="sparkles" class="w-5 h-5 text-violet-600" stroke-width="1.5"></i>
                 <span class="text-xs font-semibold uppercase tracking-wide text-violet-600">Ebook AI</span>
             </div>
-            <h1 class="font-serif text-2xl md:text-[1.65rem] text-slate-900 font-medium tracking-tight mb-2">AI Book Cover Creator</h1>
-            <p class="text-sm text-slate-500 mb-6">Uses the same book as in AI Writer / Book Formatting. Adjust details, then generate.</p>
-            <div class="h-px w-full bg-slate-100 mb-8"></div>
+            <h1 class="font-serif text-2xl md:text-[1.65rem] text-slate-900 font-medium tracking-tight mb-1">AI Book Cover Creator</h1>
+            <p class="text-sm text-slate-500 mb-4">Uses the same book as in AI Writer / Book Formatting. Adjust details, then generate.</p>
+            <div class="h-px w-full bg-slate-100 mb-5"></div>
 
             <div class="flex flex-col gap-2 flex-1">
                 <div class="hidden" data-guided-tour="cov-book" aria-hidden="true">
@@ -248,15 +265,15 @@
                 </div>
                 <div class="flex flex-col gap-3" data-guided-tour="cov-fields">
                 <div>
-                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Title <span class="text-slate-400 font-normal">(from your book)</span></label>
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book Title <span class="text-slate-400 font-normal">(from your book)</span></label>
                     <input type="text" id="bookTitle" readonly tabindex="-1" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-slate-50 cursor-default outline-none transition-all duration-200" title="Loaded from your book; edit in AI Writer" />
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-600 mb-2 font-medium">Author Name <span class="text-slate-400 font-normal">(from your account / book)</span></label>
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Author Name <span class="text-slate-400 font-normal">(from your account / book)</span></label>
                     <input type="text" id="authorName" readonly tabindex="-1" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-slate-50 cursor-default outline-none transition-all duration-200" title="Loaded from your profile or book" />
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-600 mb-2 font-medium">Book Category / Genre <span class="text-slate-400 font-normal">(from your book)</span></label>
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book Category / Genre <span class="text-slate-400 font-normal">(from your book)</span></label>
                     <select id="bookCategory" disabled class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 outline-none bg-slate-50 cursor-default appearance-none opacity-100" style="background-image:url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e\");background-repeat:no-repeat;background-position:right 1rem center;background-size:1rem;padding-right:2.5rem;">
                         <option value="">Loading from your library…</option>
                     </select>
@@ -265,9 +282,9 @@
                 </div>
             </div>
 
-            <div class="mt-0 pt-1" data-guided-tour="cov-prompt">
+            <div data-guided-tour="cov-prompt">
                 <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Image Direction</h2>
-                <p class="text-sm text-slate-500 mb-3 leading-snug">Mood, palette, main subject, and style references—the clearer you are, the stronger the cover.</p>
+                <p class="text-sm text-slate-500 mb-2 leading-snug">Mood, palette, main subject, and style references—the clearer you are, the stronger the cover.</p>
                 <div class="cov-image-direction-shell border border-slate-200 rounded-[20px] p-1.5 flex flex-col focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200 bg-white">
                     <textarea id="imageDirection" rows="10" placeholder="Example: Warm twilight over a quiet city skyline, deep indigo and amber, lone figure in silhouette, cinematic depth—no text on the image, no cluttered collage…" class="cov-image-direction-textarea w-full px-4 py-4 text-base text-slate-800 outline-none resize-none bg-slate-50/40 focus:bg-white transition-colors"></textarea>
                     <div class="bg-slate-50 rounded-[14px] flex flex-wrap justify-end items-center p-2.5 mt-1 border border-slate-100/90 gap-2">
@@ -285,21 +302,21 @@
                 </div>
             </div>
 
-            <a href="#" id="btnGoToPublish" class="mt-3 w-full rounded-[14px] bg-violet-700 text-white py-3.5 text-sm font-semibold shadow-lg shadow-violet-500/25 hover:bg-violet-800 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book">
+            <a href="#" id="btnGoToPublish" class="mt-1 w-full rounded-[14px] bg-violet-700 text-white py-3 text-sm font-semibold shadow-md shadow-violet-500/20 hover:bg-violet-800 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book">
                 <i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i>
                 Continue to Publish
             </a>
-            <p class="mt-2 text-[11px] text-slate-400 text-center leading-snug">Uses the book loaded here (same as AI Writer / Formatting). You can finish cover later and return anytime.</p>
+            <p class="mt-1 text-[11px] text-slate-400 text-center leading-snug">Uses the book loaded here (same as AI Writer / Formatting). You can finish cover later and return anytime.</p>
         </div>
 
-        <!-- Preview: live book only — no form labels on the cover art -->
-        <div id="covPreviewColumn" class="w-full lg:w-7/12 flex-1 min-h-0 p-6 md:p-10 lg:p-12 flex flex-col items-stretch bg-white">
+        <!-- Preview -->
+        <div id="covPreviewColumn" class="w-full lg:w-7/12 p-6 md:p-8 lg:p-10 flex flex-col items-stretch bg-white shrink-0">
             <div class="flex items-center gap-3 mb-2 shrink-0">
                 <span class="w-5 h-0.5 bg-violet-500 rounded-full"></span>
                 <span class="text-violet-600 font-medium text-sm tracking-wide">Ebook AI</span>
             </div>
             <h2 class="font-serif text-2xl md:text-3xl text-slate-900 font-medium tracking-tight mb-1 shrink-0">Cover preview</h2>
-            <p class="text-sm text-slate-500 leading-relaxed max-w-lg mb-6 shrink-0">Cover preview shows only the AI-generated artwork — no title or author overlay.</p>
+            <p class="text-sm text-slate-500 leading-relaxed max-w-lg mb-4 shrink-0">Cover preview shows only the AI-generated artwork — no title or author overlay.</p>
 
             <div class="cov-preview-book-stage">
                     <div id="covPreviewShell" class="cov-preview-3d w-full aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
@@ -320,7 +337,7 @@
 
             <input type="hidden" id="coverGeneratedPayload" value="" />
 
-            <div id="optionsWrap" class="mt-8 hidden w-full max-w-2xl">
+            <div id="optionsWrap" class="mt-6 hidden w-full max-w-2xl">
                 <h3 class="text-sm font-semibold text-slate-800 mb-3">Recent covers <span class="text-slate-400 font-normal">(tap to select)</span></h3>
                 <div id="optionsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
             </div>

@@ -92,10 +92,61 @@ public class ManuscriptExportPrepTests
     {
         var css = InteriorLayoutTokens.BuildFormatterSyncCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
         Assert.Contains("--ilt-pad-top: 0.85in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-right: 0.55in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-bottom: 0.8in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-left: 0.75in", css, StringComparison.Ordinal);
         Assert.Contains("--ilt-text-max: 4.2in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-chapter-drop: 26mm", css, StringComparison.Ordinal);
         Assert.Contains(".toc-leader", css, StringComparison.Ordinal);
         Assert.Contains("book-page-running-head", css, StringComparison.Ordinal);
         Assert.Contains("fmt-mat-novel", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Preview_and_pdf_css_share_identical_layout_custom_properties()
+    {
+        var opt = new BookPdfExportOptions
+        {
+            InteriorStyle = "Novel",
+            TextSize = "Medium",
+            LineSpacing = "1.8",
+            PageBackgroundColor = "#fffdf8"
+        };
+        var previewCss = InteriorLayoutTokens.BuildFormatterSyncCss(opt);
+        var pdfCss = InteriorExportTheme.BuildPdfThemeCss(opt);
+        var props = InteriorLayoutTokens.BuildCssCustomProperties(opt);
+        foreach (var token in new[]
+        {
+            "--ilt-pad-top:", "--ilt-pad-right:", "--ilt-pad-bottom:", "--ilt-pad-left:",
+            "--ilt-text-max:", "--ilt-chapter-drop:", "--ilt-body-lh:", "--ilt-body-pt:",
+            "--ilt-para-space:", "--ilt-text-indent:"
+        })
+        {
+            Assert.Contains(token, previewCss, StringComparison.Ordinal);
+            Assert.Contains(token, pdfCss, StringComparison.Ordinal);
+            Assert.Contains(token, props, StringComparison.Ordinal);
+        }
+        Assert.Contains("--ilt-body-lh: 1.8", props, StringComparison.Ordinal);
+        Assert.Contains("font-size:var(--ilt-body-pt) !important", pdfCss, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DashboardLayoutTokens_emits_unified_page_background_and_preview_pane_width()
+    {
+        var css = DashboardLayoutTokens.BuildCssCustomProperties();
+        Assert.Contains("--dash-page-bg: #f5f7f9", css, StringComparison.Ordinal);
+        Assert.Contains("--dash-preview-pane-w: 68%", css, StringComparison.Ordinal);
+        Assert.Contains("--dash-flow-gap: 2.75rem", css, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(24.0)]
+    [InlineData(26.0)]
+    [InlineData(28.0)]
+    public void Chapter_drop_mm_converts_to_css_length(double mm)
+    {
+        Assert.Equal($"{mm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}mm",
+            InteriorSpacingTheme.Mm(mm));
     }
 
     [Fact]
@@ -229,6 +280,16 @@ public class ManuscriptExportPrepTests
 
         var m = InteriorLayoutTokens.KdpTrim6x9Default;
         Assert.True(Inches(m.Inside) > Inches(m.Outside), "Print margin box: inside should exceed outside.");
+    }
+
+    [Fact]
+    public void BookPdfPlatformLayout_ebook_uses_6x9_kdp_trim_like_preview()
+    {
+        var spec = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions { Format = "Ebook" });
+        Assert.Contains("6in", spec.PageSizeCss, StringComparison.Ordinal);
+        Assert.False(spec.UseBuiltInFormat);
+        Assert.Equal(InteriorLayoutTokens.KdpTrim6x9Default.Top, spec.MarginTop);
+        Assert.Equal(InteriorLayoutTokens.KdpTrim6x9Default.Inside, spec.MarginLeft);
     }
 
     [Fact]

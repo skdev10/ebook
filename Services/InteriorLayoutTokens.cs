@@ -100,45 +100,37 @@ public static class InteriorLayoutTokens
 
     /// <summary>Optimal reading measure — centered text block inside padded page (≈65 characters at 11pt).</summary>
 
-    public const string TextBlockMaxWidth = "4.2in";
+    public static string TextBlockMaxWidth => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.TextColumnWidthMm);
 
 
 
     /// <summary>KDP-style print margin box for 6×9 trim — inside is wider for the binding gutter.</summary>
 
-    public static readonly PrintMarginSpec KdpTrim6x9Default = new(
-
-        Top: "0.62in",
-
-        Bottom: "0.58in",
-
-        Inside: "0.42in",
-
-        Outside: "0.32in");
+    public static PrintMarginSpec KdpTrim6x9Default => InteriorSpacingTheme.KdpPrintMarginBox;
 
 
 
-    public const string ChapterDrop = "1.85rem";
+    public static string ChapterDrop => InteriorSpacingTheme.Mm(InteriorSpacingTheme.ChapterDropMm);
 
-    public const string FrontMatterPadTop = "1.15in";
+    public static string FrontMatterPadTop => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.FrontMatterPadTopMm);
 
-    public const string TitlePagePadTop = "3.25in";
+    public static string TitlePagePadTop => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.TitlePagePadTopMm);
 
-    public const string RunningHeadPadTop = "0.4in";
+    public static string RunningHeadPadTop => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.RunningHeadHeightMm);
 
-    public const string RunningHeadPadSides = "0.58in";
+    public static string RunningHeadPadSides => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.HeaderFooterOutsideInsetMm);
 
-    public const string RunningHeadPadInside = "0.52in";
+    public static string RunningHeadPadInside => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.HeaderFooterInsideInsetMm);
 
-    public const string FolioPadBottom = "0.38in";
+    public static string FolioPadBottom => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.FolioHeightMm);
 
     /// <summary>Clear air between the running head and the first body line (preview + PDF).</summary>
 
-    public const string RunningHeadGapBelow = "0.18in";
+    public static string RunningHeadGapBelow => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.RunningHeadGapBelowMm);
 
     /// <summary>Clear air between the last body line and the folio (page number).</summary>
 
-    public const string FolioGapAbove = "0.16in";
+    public static string FolioGapAbove => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.FolioGapAboveMm);
 
 
 
@@ -152,9 +144,9 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#fffdf8",
 
-            SheetPadding: new("0.85in", "0.72in", "0.78in", "0.84in"),
+            SheetPadding: InteriorSpacingTheme.TradePaperbackPagePadding,
 
-            Body: new("1.03rem", "1.88", "1.5rem", "0.3rem", "justify", "1.1rem", "0.7rem"),
+            Body: new("1.03rem", "1.88", InteriorSpacingTheme.Mm(InteriorSpacingTheme.FirstLineIndentMm), InteriorSpacingTheme.Mm(InteriorSpacingTheme.ParagraphSpacingMm), "justify", "1.1rem", "0.7rem"),
 
             Frame: new(
 
@@ -344,19 +336,19 @@ public static class InteriorLayoutTokens
 
         {
 
-            if (lh <= 1.45) return "1.4";
+            if (lh <= 1.45) return InteriorSpacingTheme.LineHeightTight.ToString("0.#", CultureInfo.InvariantCulture);
 
-            if (lh <= 1.7) return "1.6";
+            if (lh <= 1.7) return InteriorSpacingTheme.LineHeightNormal.ToString("0.#", CultureInfo.InvariantCulture);
 
-            if (lh <= 1.9) return "1.8";
+            if (lh <= 1.9) return InteriorSpacingTheme.LineHeightRelaxed.ToString("0.#", CultureInfo.InvariantCulture);
 
-            return "2";
+            return InteriorSpacingTheme.LineHeightLoose.ToString("0.#", CultureInfo.InvariantCulture);
 
         }
 
 
 
-        return "1.6";
+        return InteriorSpacingTheme.LineHeightNormal.ToString("0.#", CultureInfo.InvariantCulture);
 
     }
 
@@ -496,11 +488,7 @@ public static class InteriorLayoutTokens
 
         sb.Append("box-shadow:var(--ilt-sheet-shadow, none); } ");
 
-        sb.Append(".book-page-content-wrap { ");
-
-        sb.Append("padding:var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); ");
-
-        sb.Append("box-sizing:border-box; background:var(--ilt-page-bg, var(--ilt-sheet-bg)); } ");
+        sb.Append(".book-page-content-wrap { box-sizing:border-box; background:var(--ilt-page-bg, var(--ilt-sheet-bg)); } ");
 
         sb.Append(".book-page-content { background:transparent; overflow:hidden; } ");
 
@@ -857,13 +845,21 @@ public static class InteriorLayoutTokens
 
         sb.Append(".paginated-reader-shell.interior-").Append(spec.Key);
 
-        sb.Append(" .book-page-content .reader-page-body p,");
-
-        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-body p { ");
+        sb.Append(" .book-page-content .reader-page-body p { ");
 
         sb.Append("font-size:var(--fmt-font-size, var(--ilt-body-px)) !important; ");
 
         sb.Append("line-height:var(--fmt-line-height, var(--ilt-body-lh)) !important; ");
+
+        sb.Append("text-align:var(--ilt-text-align) !important; } ");
+
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-body,");
+
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-body p { ");
+
+        sb.Append("font-size:var(--ilt-body-pt) !important; ");
+
+        sb.Append("line-height:var(--ilt-body-lh) !important; ");
 
         sb.Append("text-align:var(--ilt-text-align) !important; } ");
 
@@ -975,7 +971,7 @@ public static class InteriorLayoutTokens
 
     {
 
-        var payload = Specs.ToDictionary(
+        var interiors = Specs.ToDictionary(
 
             kv => kv.Key,
 
@@ -1006,6 +1002,8 @@ public static class InteriorLayoutTokens
                 containerShadow = kv.Value.Frame.ContainerShadow
 
             });
+
+        var payload = new { spacing = InteriorSpacingTheme.ClientSpacingPayload(), interiors };
 
         return JsonSerializer.Serialize(payload);
 

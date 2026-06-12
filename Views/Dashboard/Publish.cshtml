@@ -48,7 +48,7 @@
 
 <style>
     .publish-page {
-        --pub-bg: #f5f7fb;
+        --pub-bg: var(--dash-page-bg, #f5f7f9);
         --pub-surface: #ffffff;
         --pub-border: #e2e8f0;
         --pub-text: #0f172a;
@@ -877,8 +877,9 @@
     }
 </style>
 
-<div class="bg-[#f5f7f9] min-h-full flex text-slate-900 flex-1">
-<div class="max-w-[1600px] mx-auto w-full flex flex-col min-h-0">
+<div class="dash-flow-page">
+<main class="dash-flow-main">
+<div class="dash-flow-inner flex flex-col min-h-0">
 <div class="publish-page publish-page-shell bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-6 md:p-10 lg:p-12 text-slate-800">
     <section class="publish-hero mb-6 sm:mb-8 lg:mb-10">
         <div class="flex flex-col gap-4">
@@ -1094,6 +1095,7 @@
 
 </div>
 </div>
+</main>
 </div>
 
 <div id="publishDetailOverlay" class="publish-detail-overlay" role="dialog" aria-modal="true">

@@ -187,7 +187,9 @@
     <script src="~/js/unsaved-changes-guard.js" asp-append-version="true"></script>
     <script src="~/js/editor-draft-reset.js" asp-append-version="true"></script>
     <partial name="_BookInteriorPreviewAssets" />
+    <link rel="stylesheet" href="~/css/dashboard-flow.css" asp-append-version="true" />
     <style>
+        @Html.Raw(EBookDashboard.Services.DashboardLayoutTokens.BuildCssCustomProperties())
         /* All your CSS styles remain exactly the same */
         /* Prevent layout shift and page shake */
         html {
@@ -203,7 +205,7 @@
         }
 
         :root {
-            --app-page-bg: #f5f7f9;
+            --app-page-bg: var(--dash-page-bg, #f5f7f9);
             --dash-sidebar-w: 72px;
             --dash-sidebar-w-expanded: 252px;
             --dash-sidebar-ease: cubic-bezier(0.22, 1, 0.36, 1);
