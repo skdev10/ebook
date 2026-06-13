@@ -1386,7 +1386,7 @@
             position: relative;
             outline: none;
             border-radius: 16px;
-            z-index: 100003 !important;
+            z-index: 100001 !important;
             transition: box-shadow 0.35s ease, transform 0.3s ease;
             box-shadow:
                 0 0 0 1px rgba(255, 255, 255, 0.92),
@@ -1397,8 +1397,9 @@
         }
         #guidedTourPopover {
             position: fixed;
-            z-index: 100002;
+            z-index: 100010;
             max-width: min(360px, calc(100vw - 32px));
+            pointer-events: auto;
             background: #1e1b4b;
             color: #fff;
             border-radius: 16px;
@@ -1429,7 +1430,7 @@
             position: fixed;
             right: 22px;
             bottom: 22px;
-            z-index: 9980;
+            z-index: 100009;
             display: inline-flex;
             align-items: center;
             gap: 8px;
@@ -5040,14 +5041,26 @@
             if (!popover || !target) return;
             var rect = target.getBoundingClientRect();
             var margin = 16;
-            var gap = 24;
+            var gap = 20;
             var pw = popover.offsetWidth || 320;
             var ph = popover.offsetHeight || 160;
-            var left = rect.left + rect.width / 2 - pw / 2;
+            var left;
+            var top;
+            var isSidebar = target.id === 'sidebar' || (target.classList && target.classList.contains('sidebar'));
+            if (isSidebar) {
+                left = rect.right + gap;
+                top = Math.max(margin, rect.top + margin);
+                if (left + pw > window.innerWidth - margin) {
+                    left = rect.left + gap;
+                    top = rect.bottom + gap;
+                }
+            } else {
+                left = rect.left + rect.width / 2 - pw / 2;
+                top = rect.bottom + gap;
+                if (top + ph > window.innerHeight - margin) top = rect.top - ph - gap;
+            }
             left = Math.max(margin, Math.min(left, window.innerWidth - pw - margin));
-            var top = rect.bottom + gap;
-            if (top + ph > window.innerHeight - margin) top = rect.top - ph - gap;
-            if (top < margin) top = margin;
+            top = Math.max(margin, Math.min(top, window.innerHeight - ph - margin));
             popover.style.left = left + 'px';
             popover.style.top = top + 'px';
         }
