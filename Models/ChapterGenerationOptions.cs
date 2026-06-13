@@ -17,6 +17,9 @@ public class ChapterGenerationOptions
     /// <summary>Browser fetch() abort timeout for POST /Books/AIGenerateBook (ms budget so UI cannot spin forever if proxy/server stalls).</summary>
     public int BrowserFetchTimeoutMinutes { get; set; } = 55;
 
+    /// <summary>Typical chapter generation time shown to users as a countdown (minutes).</summary>
+    public int TypicalGenerationMinutes { get; set; } = 5;
+
     /// <summary>When true, only one in-flight generation per (book, chapter); different chapters on the same book may run concurrently.</summary>
     public bool SerializeSameChapterOnly { get; set; } = true;
 }

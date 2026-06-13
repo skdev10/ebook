@@ -15,9 +15,17 @@
         int parsedMs;
         if (int.TryParse(ViewBag.ChapterGenerateFetchTimeoutMs.ToString(), out parsedMs)) { chapterGenFetchTimeoutMs = parsedMs; }
     }
+    var chapterGenEstimatedSeconds = 300;
+    if (ViewBag.ChapterGenerateEstimatedSeconds is int tes) { chapterGenEstimatedSeconds = tes; }
+    else if (ViewBag.ChapterGenerateEstimatedSeconds != null)
+    {
+        int parsedSec;
+        if (int.TryParse(ViewBag.ChapterGenerateEstimatedSeconds.ToString(), out parsedSec)) { chapterGenEstimatedSeconds = parsedSec; }
+    }
 }
 <script>
     window.__chapterGenFetchTimeoutMs = @chapterGenFetchTimeoutMs;
+    window.__chapterGenEstimatedSeconds = @chapterGenEstimatedSeconds;
 </script>
 <link rel="stylesheet" href="~/css/book-page-preview.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
@@ -1433,7 +1441,6 @@
                     <label for="ChapterNo">ChapterNo:</label>
                     <input type="text" id="ChapterNo" value="1">
                     <select id="savedResponsesDropdown" tabindex="-1"><option value="@(selectedBookId ?? 0)" selected>@selectedBookTitle</option></select>
-                    <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain" tabindex="-1" />
                     <button type="button" id="bookSelectionPreviewBtn" tabindex="-1"></button>
                     <button type="button" id="createBookBtn" tabindex="-1"></button>
                 </div>
@@ -1494,29 +1501,20 @@
                 <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800">Chapter Topic</h2>
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
                     <textarea id="UserInput" placeholder="If you want peace, work for justice" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-3 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]">If you want peace, work for justice</textarea>
-                    <div class="bg-slate-50/80 p-1.5 mx-1 mb-1 rounded-xl flex items-center justify-between border border-slate-100">
-                        <div class="flex items-center gap-3 pl-2">
-                            <button type="button" id="EditBtn" class="text-slate-400 hover:text-blue-500 transition-colors text-xl p-1.5 rounded-lg hover:bg-blue-50" title="Edit chapter (modal)" onclick="openChapterEditModal()"><i class="fas fa-pen"></i></button>
-                        </div>
-                        <div class="flex items-center gap-2 pr-1">
-                            <span id="voiceControlWrap" class="flex items-center gap-2">
-                                <button id="startRecBtn" type="button" class="bg-slate-200 hover:bg-green-500 hover:text-white text-slate-600 p-2 rounded-full shadow-sm transition-all flex items-center justify-center w-9 h-9" title="Speak: text appears live in Chapter Topic (Chrome, Edge, Safari). Stop when done."><i class="fas fa-microphone text-sm"></i></button>
-                                <input type="file" id="voiceFileUpload" accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm,audio/*" class="hidden" aria-label="Upload audio file for transcription" />
-                                <button type="button" id="voiceUploadBtn" aria-label="Upload audio file for transcription" class="inline-flex items-center justify-center text-xs font-semibold text-slate-700 hover:text-violet-900 px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm" title="Upload an audio file instead of recording">
-                                    <i class="fas fa-cloud-upload-alt text-violet-600 text-sm" aria-hidden="true"></i>
-                                </button>
-                                <span id="recordingStripArea" class="hidden items-center gap-2">
-                                    <span id="voiceRecordingStatusText" class="text-xs font-medium text-red-600" aria-live="polite">Listening…</span>
-                                    <button id="stopRecBtn" type="button" disabled class="px-2 py-1 rounded-lg bg-red-400 hover:bg-red-500 text-white text-xs font-medium">Stop</button>
-                                </span>
-                            </span>
-                            <button type="button" id="GenerateBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-full shadow-md transition-all hover:scale-105 flex items-center justify-center w-9 h-9" title="Generate chapter" onclick="confirmGenerateChapter()"><i class="fas fa-arrow-up w-4 h-4"></i></button>
-                        </div>
+                    <div class="bg-slate-50/80 p-1.5 mx-1 mb-1 rounded-xl flex items-center justify-end gap-2 border border-slate-100">
+                        <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain" class="hidden" aria-label="Upload document (PDF, TXT, or Markdown)" />
+                        <button type="button" id="chapterDocUploadBtn" class="inline-flex items-center justify-center text-xs font-semibold text-slate-700 hover:text-violet-900 px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Upload PDF, TXT, or Markdown — preview updates automatically" aria-label="Upload document">
+                            <i class="fas fa-cloud-upload-alt text-violet-600 text-sm" aria-hidden="true"></i>
+                        </button>
+                        <button type="button" id="GenerateBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-full shadow-md transition-all hover:scale-105 flex items-center justify-center w-9 h-9 shrink-0" title="Generate chapter" aria-label="Generate chapter" onclick="confirmGenerateChapter()">
+                            <i id="GenerateBtnIcon" class="fas fa-arrow-up w-4 h-4" aria-hidden="true"></i>
+                        </button>
                     </div>
+                    <button type="button" id="EditBtn" class="hidden" tabindex="-1" aria-hidden="true" onclick="openChapterEditModal()"></button>
                 </div>
-                <div id="processingMessage" class="hidden items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm font-medium my-2">
-                    <span class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></span>
-                    Processing, please wait... This may take up to 5 minutes.
+                <div id="processingMessage" class="hidden items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm font-medium my-2" role="status" aria-live="polite">
+                    <span class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent shrink-0"></span>
+                    <span id="processingMessageText">Generating your ebook chapter…</span>
                 </div>
                 <div id="chapterEditPanel" class="chapter-edit-panel" style="display: none;">
                     <div id="chapterEditHelp" class="chapter-edit-help">
@@ -1696,6 +1694,7 @@
         </div>
         <div class="generate-confirm-modal-body">
             <p>Do you want to generate this chapter with AI?</p>
+            <p id="generateConfirmEtaHint" class="text-sm text-violet-700 mt-2 mb-0 font-medium"></p>
         </div>
         <div class="generate-confirm-modal-actions">
             <button type="button" id="generateConfirmCancel" class="btn btn-generate-cancel">Cancel</button>
@@ -2523,6 +2522,45 @@ window.setBookResultStatusBanner = function (text, visible) {
         b.textContent = '';
     }
 };
+window.isGenerateRegenerateMode = function () {
+    var rid = parseInt((document.getElementById('ResponseId') && document.getElementById('ResponseId').value) || '0', 10) || 0;
+    if (rid > 0) return true;
+    var list = window._previewChaptersMeta || [];
+    if (list.length && list.some(function (m) { return m && !m.loading && m.html && String(m.html).trim(); })) return true;
+    var raw = document.getElementById('APIRawResponse') && document.getElementById('APIRawResponse').value;
+    return !!(raw && String(raw).trim().length > 2);
+};
+window.updateGenerateBtnMode = function () {
+    var btn = document.getElementById('GenerateBtn');
+    var icon = document.getElementById('GenerateBtnIcon');
+    if (!btn || !icon) return;
+    var regen = typeof window.isGenerateRegenerateMode === 'function' && window.isGenerateRegenerateMode();
+    if (regen) {
+        icon.className = 'fas fa-redo w-4 h-4';
+        btn.title = 'Regenerate chapter';
+        btn.setAttribute('aria-label', 'Regenerate chapter');
+    } else {
+        icon.className = 'fas fa-arrow-up w-4 h-4';
+        btn.title = 'Generate chapter';
+        btn.setAttribute('aria-label', 'Generate chapter');
+    }
+};
+window.formatChapterGenCountdown = function (totalSeconds) {
+    var s = Math.max(0, Math.floor(totalSeconds));
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ':' + (r < 10 ? '0' : '') + r;
+};
+window.updateChapterGenEtaUI = function (remainingSeconds) {
+    var rem = Math.max(0, remainingSeconds);
+    var fmt = window.formatChapterGenCountdown(rem);
+    var procText = document.getElementById('processingMessageText');
+    if (procText) {
+        procText.textContent = rem > 0
+            ? 'Generating your ebook chapter… About ' + fmt + ' remaining. Keep this tab open.'
+            : 'Almost there… your chapter is still generating. Keep this tab open.';
+    }
+};
 window.showChapterGenerationOverlay = function (message) {
     var o = document.getElementById('chapterGenerationOverlay');
     var tx = document.getElementById('chapterGenerationOverlayText');
@@ -2531,26 +2569,39 @@ window.showChapterGenerationOverlay = function (message) {
     if (o) o.classList.remove('hidden');
     var bid = (document.getElementById('BookId') && document.getElementById('BookId').value) || '0';
     var ch = (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '?';
-    if (typeof window.setBookResultStatusBanner === 'function') {
-        window.setBookResultStatusBanner(
-            shortMsg + ' — Chapter ' + ch + (bid !== '0' ? (' · Book ID ' + bid) : ' · new book') + '. Large chapters often take 2–5 minutes; keep this tab open. Text will appear in the preview below when ready.',
-            true
-        );
-    }
-    var br = document.getElementById('bookResult');
-    if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    var estimated = (typeof window.__chapterGenEstimatedSeconds === 'number' && window.__chapterGenEstimatedSeconds > 0)
+        ? window.__chapterGenEstimatedSeconds
+        : 300;
+    window._chapterGenEstimatedSeconds = estimated;
     if (window._chapterGenTimer) { clearInterval(window._chapterGenTimer); window._chapterGenTimer = null; }
     window._chapterGenStartedAt = Date.now();
-    window._chapterGenTimer = setInterval(function () {
+    var tickChapterGenEta = function () {
         var elapsed = Math.max(0, Math.floor((Date.now() - (window._chapterGenStartedAt || Date.now())) / 1000));
-        var mins = Math.floor(elapsed / 60);
-        var secs = elapsed % 60;
-        var clock = mins > 0 ? (mins + 'm ' + secs + 's') : (secs + 's');
-        if (tx) tx.textContent = shortMsg + ' (' + clock + ')';
-        if (elapsed > 0 && elapsed % 30 === 0) {
-            console.log('⏳ Chapter generation still in progress… ' + clock);
+        var remaining = Math.max(0, estimated - elapsed);
+        var fmt = window.formatChapterGenCountdown(remaining);
+        if (tx) {
+            tx.textContent = remaining > 0
+                ? (shortMsg + ' — about ' + fmt + ' left')
+                : (shortMsg + ' — almost ready…');
         }
-    }, 1000);
+        if (typeof window.updateChapterGenEtaUI === 'function') window.updateChapterGenEtaUI(remaining);
+        if (typeof window.setBookResultStatusBanner === 'function') {
+            window.setBookResultStatusBanner(
+                (remaining > 0
+                    ? (shortMsg + ' — about ' + fmt + ' remaining')
+                    : (shortMsg + ' — almost ready, please wait')) +
+                ' — Chapter ' + ch + (bid !== '0' ? (' · Book ID ' + bid) : ' · new book') + '. Keep this tab open; text will appear in the preview when ready.',
+                true
+            );
+        }
+        if (elapsed > 0 && elapsed % 30 === 0) {
+            console.log('⏳ Chapter generation still in progress… ' + (remaining > 0 ? (fmt + ' left') : 'almost ready'));
+        }
+    };
+    tickChapterGenEta();
+    var br = document.getElementById('bookResult');
+    if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+    window._chapterGenTimer = setInterval(tickChapterGenEta, 1000);
 };
 window.hideChapterGenerationOverlay = function () {
     var o = document.getElementById('chapterGenerationOverlay');
@@ -3118,11 +3169,75 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     var importInput = document.getElementById('chapterImportFileInput');
-    window._pendingImportText = null;
+    var docUploadBtn = document.getElementById('chapterDocUploadBtn');
+    window.applyImportedChapterDocument = function (txt, meta) {
+        meta = meta || {};
+        if (!txt || !String(txt).trim()) return false;
+        var bid = parseInt(getCurrentBookId(), 10) || 0;
+        var ch = parseInt(String(meta.suggestedChapterNo), 10);
+        if (!ch || ch < 1) ch = parseInt(document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value, 10) || 1;
+        if (typeof ensureChapterDropdownOption === 'function') ensureChapterDropdownOption(ch);
+        else {
+            var chEl = document.getElementById('ChapterNo');
+            if (chEl) chEl.value = String(ch);
+            var ddlImp = document.getElementById('ChapterDropdown');
+            if (ddlImp) {
+                var s = String(ch), found = false, k;
+                for (k = 0; k < ddlImp.options.length; k++) {
+                    if (ddlImp.options[k].value === s) { found = true; break; }
+                }
+                if (!found) {
+                    var o = document.createElement('option');
+                    o.value = s;
+                    o.textContent = 'Chapter ' + ch;
+                    ddlImp.appendChild(o);
+                }
+                ddlImp.value = s;
+            }
+        }
+        if (typeof window.resetWriterPreviewForContextChange === 'function') {
+            window.resetWriterPreviewForContextChange(bid, ch, 0, true);
+        }
+        var btEl = document.getElementById('BookTitle');
+        if (meta.suggestedBookTitle && btEl) btEl.value = meta.suggestedBookTitle;
+        var titleEl = document.getElementById('Title');
+        var title = meta.suggestedChapterTitle || ((titleEl && titleEl.value) ? titleEl.value.trim() : 'Imported chapter');
+        if (titleEl) titleEl.value = title;
+        if (typeof window.showBookContent !== 'function') return false;
+        var btitle = (btEl && btEl.value) ? btEl.value.trim() : (meta.suggestedBookTitle || '');
+        window.showBookContent({
+            bookTitle: btitle,
+            chapters: [{ chapterNo: ch, chapterTitle: title, title: title, content: txt }]
+        });
+        var previewTitle = document.getElementById('preview-book-title');
+        if (previewTitle && btitle) previewTitle.textContent = btitle;
+        var br = document.getElementById('bookResult');
+        if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+        if (typeof showNotification === 'function') {
+            showNotification('Document loaded in book preview.', 'success');
+        }
+        if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+        return true;
+    };
+    function setDocUploadBusy(busy) {
+        if (docUploadBtn) {
+            docUploadBtn.disabled = !!busy;
+            docUploadBtn.setAttribute('aria-busy', busy ? 'true' : 'false');
+        }
+        if (importInput) importInput.disabled = !!busy;
+    }
+    if (docUploadBtn && importInput) {
+        docUploadBtn.addEventListener('click', function () {
+            if (importInput.disabled) return;
+            importInput.click();
+        });
+    }
     if (importInput) {
         importInput.addEventListener('change', function () {
             var f = importInput.files && importInput.files[0];
             if (!f) return;
+            setDocUploadBusy(true);
+            if (typeof showNotification === 'function') showNotification('Reading document…', 'info');
             var fd = new FormData();
             fd.append('file', f);
             fetch('/Books/ImportChapterFile', { method: 'POST', body: fd, credentials: 'same-origin' })
@@ -3133,69 +3248,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (typeof showNotification === 'function') showNotification((data && data.message) || 'Import failed', 'error');
                         return;
                     }
-                    window._pendingImportText = data.text;
-                    window._pendingImportMeta = {
+                    window.applyImportedChapterDocument(data.text, {
                         suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
                         suggestedChapterTitle: (data.suggestedChapterTitle || '').trim(),
                         suggestedChapterNo: data.suggestedChapterNo
-                    };
-                    var applyImport = function () {
-                        var txt = window._pendingImportText;
-                        var meta = window._pendingImportMeta || {};
-                        window._pendingImportText = null;
-                        window._pendingImportMeta = null;
-                        if (!txt) return;
-                        var bid = parseInt(getCurrentBookId(), 10) || 0;
-                        var ch = parseInt(String(meta.suggestedChapterNo), 10);
-                        if (!ch || ch < 1) ch = parseInt(document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value, 10) || 1;
-                        if (typeof ensureChapterDropdownOption === 'function') ensureChapterDropdownOption(ch);
-                        else {
-                            document.getElementById('ChapterNo').value = String(ch);
-                            var ddlImp = document.getElementById('ChapterDropdown');
-                            if (ddlImp) {
-                                var s = String(ch), found = false, k;
-                                for (k = 0; k < ddlImp.options.length; k++) {
-                                    if (ddlImp.options[k].value === s) { found = true; break; }
-                                }
-                                if (!found) {
-                                    var o = document.createElement('option');
-                                    o.value = s;
-                                    o.textContent = 'Chapter ' + ch;
-                                    ddlImp.appendChild(o);
-                                }
-                                ddlImp.value = s;
-                            }
-                        }
-                        if (typeof window.resetWriterPreviewForContextChange === 'function') {
-                            window.resetWriterPreviewForContextChange(bid, ch, 0, true);
-                        }
-                        var btEl = document.getElementById('BookTitle');
-                        if (meta.suggestedBookTitle && btEl) btEl.value = meta.suggestedBookTitle;
-                        var titleEl = document.getElementById('Title');
-                        var title = meta.suggestedChapterTitle || ((titleEl && titleEl.value) ? titleEl.value.trim() : 'Imported chapter');
-                        if (titleEl) titleEl.value = title;
-                        if (typeof showBookContent !== 'function') return;
-                        var btitle = (btEl && btEl.value) ? btEl.value.trim() : (meta.suggestedBookTitle || '');
-                        showBookContent({
-                            bookTitle: btitle,
-                            chapters: [{ chapterNo: ch, chapterTitle: title, title: title, content: txt }]
-                        });
-                        if (typeof showNotification === 'function') showNotification('Imported — preview updated. Generate uses your topic below.', 'success');
-                    };
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            title: 'Import file?',
-                            text: (data.characterCount || 0) + ' characters — load into preview?',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Load',
-                            cancelButtonText: 'Cancel'
-                        }).then(function (res) { if (res.isConfirmed) applyImport(); });
-                    } else if (confirm('Load imported text into preview?')) applyImport();
+                    });
                 })
                 .catch(function (err) {
                     if (typeof showNotification === 'function') showNotification(err.message || 'Import failed', 'error');
-                });
+                })
+                .finally(function () { setDocUploadBusy(false); });
         });
     }
     (function lockBookPreviewInteractions() {
@@ -3215,6 +3277,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (t && t.closest && t.closest('#chapterEditModal')) return;
         if (t && t.closest && t.closest('#bookResult')) e.preventDefault();
     });
+    if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
 });
 </script>
 <script>
@@ -4100,6 +4163,7 @@ document.addEventListener('DOMContentLoaded', function() {
                // Full book preview: user clicks Preview next to Book Selection
                showNotification("Book loaded. Click Preview to see the full book below, or edit chapters and Generate.", "success");
                if (typeof window.syncCoverFormFromBook === 'function') window.syncCoverFormFromBook(bookId);
+               if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
                } else {
                     // clearBookForm();
                     showNotification("Error: " + result.message, "error");
@@ -4315,6 +4379,11 @@ document.addEventListener('DOMContentLoaded', function() {
            opt.selected = true;
 
            chapterDropdown.insertBefore(opt, chapterDropdown.options[0]); // Add on top
+           document.getElementById("ResponseId").value = "0";
+           if (typeof window.resetWriterPreviewForContextChange === 'function') {
+               window.resetWriterPreviewForContextChange(parseInt(bookId, 10) || 0, parseInt(data.lastChapter + 1, 10) || 1, 0, true);
+           }
+           if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
 
       }
       //=================================================100% OK
@@ -4400,6 +4469,7 @@ document.addEventListener('DOMContentLoaded', function() {
                       refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value);
                   }
                   if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+                  if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
               } else {
                    // clearBookForm();
                    showNotification("Error: " + result.message, "error");
@@ -4924,6 +4994,23 @@ document.addEventListener('DOMContentLoaded', function() {
      //=============================================
      function confirmGenerateChapter() {
          var genModal = document.getElementById('generateConfirmModal');
+         var etaHint = document.getElementById('generateConfirmEtaHint');
+         var isRegen = typeof window.isGenerateRegenerateMode === 'function' && window.isGenerateRegenerateMode();
+         var modalTitle = document.querySelector('#generateConfirmModal .generate-confirm-modal-title');
+         var modalBody = document.querySelector('#generateConfirmModal .generate-confirm-modal-body > p:first-child');
+         if (modalTitle) modalTitle.textContent = isRegen ? 'Regenerate Chapter' : 'Generate Chapter';
+         if (modalBody) modalBody.textContent = isRegen
+             ? 'Regenerate this chapter with AI? A new draft version will be saved.'
+             : 'Do you want to generate this chapter with AI?';
+         if (etaHint) {
+             var secs = (typeof window.__chapterGenEstimatedSeconds === 'number' && window.__chapterGenEstimatedSeconds > 0)
+                 ? window.__chapterGenEstimatedSeconds
+                 : 300;
+             var fmt = (typeof window.formatChapterGenCountdown === 'function')
+                 ? window.formatChapterGenCountdown(secs)
+                 : (Math.ceil(secs / 60) + ':00');
+             etaHint.textContent = 'Estimated time: about ' + fmt + '. A live countdown starts when you confirm.';
+         }
          if (genModal) genModal.style.display = 'flex';
      }
      function closeGenerateConfirmModal() {
@@ -5029,10 +5116,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
           const generateBtn = document.getElementById("GenerateBtn");
           const messageElement = document.getElementById('processingMessage');
-          // Show processing message
+          // Show processing message with countdown
             if (messageElement) {
                 messageElement.classList.remove('hidden');
                 messageElement.classList.add('flex');
+                if (typeof window.updateChapterGenEtaUI === 'function') {
+                    var est = (typeof window.__chapterGenEstimatedSeconds === 'number' && window.__chapterGenEstimatedSeconds > 0)
+                        ? window.__chapterGenEstimatedSeconds
+                        : 300;
+                    window.updateChapterGenEtaUI(est);
+                }
             }
             if (generateBtn) { generateBtn.disabled = true; }
 
@@ -5139,6 +5232,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      document.getElementById('ResponseId').value = bookData.responseId || bookData.response_id || savedResponseIdHeader || '';
                      if (bookData && bookData.bookId) document.getElementById('BookId').value = bookData.bookId;
                      if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+                     if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
 
                      if (typeof showGeneratedChapterWithTyping === 'function') {
                          showGeneratedChapterWithTyping(bookData, function() {
@@ -5207,6 +5301,7 @@ document.addEventListener('DOMContentLoaded', function() {
                      : ('Something went wrong: ' + (error && error.message ? error.message : 'unknown'));
                  addMessage(msg, false);
                  showNotification(aborted ? 'Generation timed out' : 'Generation failed', 'error');
+                 if (typeof window.setBookResultStatusBanner === 'function') window.setBookResultStatusBanner('', false);
              } finally {
                  hideGenerateLoading();
                  if (typeof window.hideChapterGenerationOverlay === 'function') window.hideChapterGenerationOverlay();
@@ -5927,6 +6022,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get all button references
         const buttons = {
             generateBtn: document.getElementById("GenerateBtn"),
+            docUploadBtn: document.getElementById("chapterDocUploadBtn"),
             editBtn: document.getElementById("EditBtn"),
             // savedResponsesDropdown: document.getElementById("savedResponsesDropdown"),
             // createBookBtn: document.getElementById("createBookBtn"),
@@ -6535,6 +6631,8 @@ document.addEventListener('DOMContentLoaded', function() {
               var bookResultEl = document.getElementById("bookResult");
               if (bookResultEl) bookResultEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
          }
+         window.showBookContent = showBookContent;
+         if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
 
          function activateChapterTopicEdit() {
              var box = document.getElementById('chapterTopicBox');

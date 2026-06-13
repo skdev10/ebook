@@ -1,8 +1,8 @@
 @model int
-@* Flow stepper — 1 AI Book Writer, 2 Ebook Formatting, 3 Cover Design, 4 Publish. *@
+@* Flow stepper — 1 AI Book Writer, 2 Book Formatting, 3 Cover Design, 4 Publish. *@
 @{
     var current = Model < 1 ? 1 : (Model > 4 ? 4 : Model);
-    var steps = new[] { "AI Book Writer", "Ebook Formatting", "Cover Design", "Publish" };
+    var steps = new[] { "AI Book Writer", "Book Formatting", "Cover Design", "Publish" };
 }
 <style>
     .ai-flow-stepper {

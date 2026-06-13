@@ -198,6 +198,9 @@ namespace EBookDashboard.Controllers
             var fetchMins = int.TryParse(_configuration["ChapterGeneration:BrowserFetchTimeoutMinutes"], out var fm) ? fm : 55;
             fetchMins = Math.Clamp(fetchMins, 5, 180);
             ViewBag.ChapterGenerateFetchTimeoutMs = fetchMins * 60 * 1000;
+            var typicalMins = int.TryParse(_configuration["ChapterGeneration:TypicalGenerationMinutes"], out var tm) ? tm : 5;
+            typicalMins = Math.Clamp(typicalMins, 1, 30);
+            ViewBag.ChapterGenerateEstimatedSeconds = typicalMins * 60;
             return View(model);
         }
 
