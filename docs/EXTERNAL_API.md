@@ -1,128 +1,152 @@
-# External Book API — Documentation
+# Book API — Simple Guide
 
-Python **FastAPI** upstream used by EbookAI for chapter generation, editing, audio transcription, cover images, and queue monitoring.
-
-| Item | Value |
-|------|--------|
-| **Base URL** | `http://162.229.248.26:8001` |
-| **Authentication** | Header `X-API-Key: <your-key>` on every request |
-| **Content-Type** | `application/json` for JSON endpoints; `multipart/form-data` for audio file upload (recommended) |
-
-> **Security:** Never commit API keys to git. On the ASP.NET server set `ExternalApi__ApiKey` in `/etc/default/ebookai`.  
-> If a key was shared in chat or email, **rotate it** on the upstream service.
+This guide explains all APIs used by the EbookAI app.  
+Written in plain English so anyone can read and understand it.
 
 ---
 
-## Quick test
+## Two servers — know the difference
 
-```bash
-curl -s -H "X-API-Key: $API_KEY" http://162.229.248.26:8001/api/queue-data
-```
+| What | Address | Who uses it |
+|------|---------|-------------|
+| **Website (EbookAI)** | `http://138.197.76.70:5000` | You in the browser — login required |
+| **Book API (AI backend)** | `http://162.229.248.26:8001` | The website talks to this in the background |
 
-Interactive examples: [`smoke-tests.http`](../smoke-tests.http) (VS Code REST Client) or:
-
-```bash
-python Scripts/smoke_test.py --base-url http://162.229.248.26:8001 --api-key "$API_KEY"
-```
-
-Sample payloads: [`Scripts/smoke-payloads/`](../Scripts/smoke-payloads/)
+You normally use the **website**. You only call the **Book API** directly if you are testing or building integrations.
 
 ---
 
-## How this connects to the live app
+## Password / API Key
 
-| Layer | URL | Auth |
-|-------|-----|------|
-| **Upstream (this doc)** | `http://162.229.248.26:8001/api/...` | `X-API-Key` |
-| **EbookAI web app (BFF)** | `http://138.197.76.70:5000/Books/...` | User login cookie + session |
-| **API catalog (JSON)** | `GET /Books/ApiDocumentation` | Public — full endpoint list |
-| **API diagnostics** | `GET /Books/ExternalApiStatus` | Public — key configured + queue |
+Every call to the Book API needs this header:
 
-The browser calls the **ASP.NET app**, which forwards requests to the upstream with `X-API-Key`.  
-Diagnostics on production:
+```
+X-API-Key: your-secret-key
+```
 
-- `GET /health` — app + upstream probe  
-- `GET /Books/ExternalApiStatus` — key configured, queue probe (no secret returned)  
-- `GET /Books/DeploymentStatus` — DB, uploads, OAuth, env hints  
+- The key is like a password. Do not share it in chat or commit it to git.
+- On the live server it is saved in `/etc/default/ebookai` as `ExternalApi__ApiKey`.
+- No spaces before or after the key.
 
-### BFF → upstream route map (browser never calls upstream directly)
+**Your server file should look like this:**
 
-| User action (AI Writer / app) | ASP.NET endpoint (session cookie) | Upstream |
-|-------------------------------|-----------------------------------|----------|
-| Generate chapter | `POST /Books/AIGenerateBook` | `POST /api/generate_chapter` |
-| Edit chapter | `POST /Books/AIEditBook` | `POST /api/edit` |
-| Approve / finalize | `POST /Books/ApproveChapter` (and related) | `POST /api/approve` |
-| Audio → text | `POST /Books/TranscribeAudio` (multipart) | `POST /api/audio` |
-| Queue status | `GET /Books/ExternalApiStatus` | `GET /api/queue-data` |
-| Generate cover | Cover API controllers / BookDesign | `POST /api/generate-cover` |
-| Edit cover | Cover API | `POST /api/edit-cover` |
-| Refine cover prompt | BookDesign | `POST /api/refine_cover_prompt` |
-| Suggest chapter names | Books pipeline | `POST /api/book_chapters_name` |
-| Suggest cover from highlights | BookDesign | `POST /api/suggest-cover-prompt-from-highlights` |
-
-**Configure the key on the server only** (never in git or this doc):
-
-```bash
-# /etc/default/ebookai
-ExternalApi__ApiKey="<your-secret-key>"
-ExternalApi__BaseUrl="http://162.229.248.26:8001"
+```
+ExternalApi__ApiKey=your-key-here
+App__PublicBaseUrl=http://138.197.76.70:5000
 ```
 
 ---
 
-## Endpoints
+## All APIs at a glance
 
-### 1. Generate chapter
+| # | What it does | URL | Fast or slow? |
+|---|--------------|-----|---------------|
+| 1 | Write a new chapter with AI | `POST /api/generate_chapter` | Slow (minutes) |
+| 2 | Change / fix a chapter | `POST /api/edit` | Slow (minutes) |
+| 3 | Turn audio file into text | `POST /api/audio` | Medium |
+| 4 | User confirms a chapter | `POST /api/approve` | Fast |
+| 5 | See how many jobs are waiting | `GET /api/queue-data` | Fast |
+| 6 | Make a book cover image | `POST /api/generate-cover` | Slow (minutes) |
+| 7 | Change a cover image | `POST /api/edit-cover` | Slow (minutes) |
+| 8 | Suggest chapter names | `POST /api/book_chapters_name` | Fast |
+| 9 | Improve a cover prompt | `POST /api/refine_cover_prompt` | Fast |
+| 10 | Cover idea from chapter notes | `POST /api/suggest-cover-prompt-from-highlights` | Fast |
+| 11 | Full print cover (spine + back + front) | `POST /api/generate-spine-book-cover` | Slow (minutes) |
 
-Creates AI chapter prose. Result is stored in **Temporary_database** until approved.
+**Full base address for all:** `http://162.229.248.26:8001`
 
-**`POST /api/generate_chapter`**
+**Cover image sizes you can use:**
+- `1024x1024`
+- `1536x1024`
+- `1024x1536`
+- `auto`
 
-**Request body**
+**Cover quality you can use:**
+- `low`
+- `medium`
+- `high`
+- `auto`
+
+**Audio file types you can use:**
+`.mp3` `.mp4` `.mpeg` `.mpga` `.m4a` `.wav` `.webm`
+
+---
+
+## How a chapter moves through the system
+
+```
+Step 1: Generate  →  saved in Temporary_database (draft)
+Step 2: Edit      →  still in Temporary_database (updated)
+Step 3: Approve   →  moved to User_confirm (final)
+```
+
+Simple picture:
+
+1. User asks AI to write chapter → **generate**
+2. User wants changes → **edit**
+3. User is happy → **approve** → chapter is final
+
+---
+
+# API Details (one by one)
+
+---
+
+## 1. Generate chapter
+
+**What it does:** AI writes a new chapter for a book.
+
+**URL:** `http://162.229.248.26:8001/api/generate_chapter`  
+**Method:** POST  
+**Header:** `X-API-Key: your-key`  
+**Body type:** JSON
+
+**Send this:**
 
 ```json
 {
   "user_id": "u123",
   "book_id": "b456",
   "chapter": "18",
-  "user_input": "how gravity was discovered"
+  "user_input": "how gravity descover"
 }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `user_id` | string | Your user identifier |
-| `book_id` | string | Book/project identifier |
-| `chapter` | string | Chapter number (upstream expects string, e.g. `"18"`) |
-| `user_input` | string | Topic / brief for the chapter |
+| Field | Meaning |
+|-------|---------|
+| `user_id` | User ID (example: u123) |
+| `book_id` | Book ID (example: b456) |
+| `chapter` | Chapter number as text (example: "18") |
+| `user_input` | What you want the chapter to be about |
 
-**Example result (illustrative)**
+**Example result:**  
+The heading might come back like: *"The gravitational force is invented in 8790"*
 
-Generated heading might read like: *"The gravitational force is invented in 8790"* — exact wording depends on the model.
-
-**cURL**
-
-```bash
-curl -X POST http://162.229.248.26:8001/api/generate_chapter \
-  -H "X-API-Key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d @Scripts/smoke-payloads/generate-chapter.json
-```
-
-**Notes**
-
-- Long-running (often 2–8+ minutes). Queue may delay start — check `/api/queue-data` first.
-- EbookAI app timeout: configurable via `ChapterGeneration:BrowserFetchTimeoutMinutes` (default ~55 min).
+**Important:**
+- This takes **several minutes**. Do not refresh the page too early.
+- Data is saved in table **Temporary_database** until the user approves.
 
 ---
 
-### 2. Edit chapter
+## 2. Edit chapter
 
-Applies text changes to a draft chapter in **Temporary_database**.
+**What it does:** Change text in a chapter that is still a draft.
 
-**`POST /api/edit`**
+**URL:** `http://162.229.248.26:8001/api/edit`  
+**Method:** POST
 
-**Request body**
+**Send this:**
+
+```json
+{
+  "user_id": "u123",
+  "book_id": "b456",
+  "chapter": "18",
+  "changes": "change the title something else"
+}
+```
+
+**Example — change 8790 to 6789 in the heading:**
 
 ```json
 {
@@ -133,27 +157,20 @@ Applies text changes to a draft chapter in **Temporary_database**.
 }
 ```
 
-**Example:** If the heading contains `8790` and you want `6789`, set `changes` to something like:  
-`"replace in heading 8790 with 6789"` or `"change the title something else"`.
-
-**cURL**
-
-```bash
-curl -X POST http://162.229.248.26:8001/api/edit \
-  -H "X-API-Key: $API_KEY" \
-  -H "Content-Type: application/json" \
-  -d @Scripts/smoke-payloads/edit.json
-```
+| Field | Meaning |
+|-------|---------|
+| `changes` | Tell the AI what to change in plain English |
 
 ---
 
-### 3. Audio transcription
+## 3. Audio to text
 
-Transcribes voice/audio into chapter text. Stored in **audio_transcriptions** table.
+**What it does:** Upload or point to an audio file. AI turns speech into text.
 
-**`POST /api/audio`**
+**URL:** `http://162.229.248.26:8001/api/audio`  
+**Method:** POST
 
-#### Mode A — JSON with server-local path (upstream worker must read the path)
+**Option A — send file path (path must exist on the API server):**
 
 ```json
 {
@@ -164,32 +181,25 @@ Transcribes voice/audio into chapter text. Stored in **audio_transcriptions** ta
 }
 ```
 
-> Path must exist on the **upstream server**, not the user's PC, unless you use Mode B.
+**Option B — upload file through the website (recommended)**  
+Use the EbookAI app screen. The website sends the file for you.
 
-#### Mode B — Multipart upload (recommended via EbookAI app)
+**Supported files:** `.mp3` `.mp4` `.mpeg` `.mpga` `.m4a` `.wav` `.webm`
 
-Supported formats: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
-
-Form fields (typical):
-
-| Field | Description |
-|-------|-------------|
-| `user_id` | User id |
-| `book_id` | Book id |
-| `chapter` | Chapter number |
-| `audio` / `audio_file` / `file` | Binary audio file |
-
-The .NET app tries multiple field names automatically (`ExternalApi:AudioMultipartFieldNames`).
+**Saved in table:** `audio_transcriptions`
 
 ---
 
-### 4. Approve chapter (confirm / finalize draft)
+## 4. Approve chapter
 
-Moves confirmed content from **Temporary_database** → **User_confirm**.
+**What it does:** User says "yes, this chapter is final."  
+Draft moves from **Temporary_database** → **User_confirm**.
 
-**`POST /api/approve`**
+**URL:** `http://162.229.248.26:8001/api/approve`  
+**Method:** POST  
+**Speed:** Fast (seconds)
 
-**Request body** (valid JSON — no trailing spaces in keys)
+**Correct body:**
 
 ```json
 {
@@ -200,53 +210,59 @@ Moves confirmed content from **Temporary_database** → **User_confirm**.
 }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `chapter` | number or string | Use `18` or `"18"` — **not** `"chapter "` with a space |
-| `approve` | boolean | `true` to confirm |
+**Wrong — do NOT do this (space in key name breaks JSON):**
+
+```json
+{
+  "chapter ": 18
+}
+```
+
+Use `chapter` not `chapter ` (no space after the word).
 
 ---
 
-### 5. Queue status
+## 5. Queue status
 
-**`GET /api/queue-data`**
+**What it does:** Shows how many jobs are running and how many people are waiting.
 
-No body. Returns concurrency and backlog.
+**URL:** `http://162.229.248.26:8001/api/queue-data`  
+**Method:** GET  
+**Body:** None  
+**Speed:** Fast
 
-**Example response**
+**Example answer:**
 
 ```json
 {
   "status": {
-    "running": 0,
-    "waiting": 57,
+    "running": 2,
+    "waiting": 10,
     "max_concurrent": 20,
-    "total_requests": 77
-  },
-  "logs": [
-    "[18:56:37] 📥 Request added to queue",
-    "[19:00:00] ✅ Request finished. Running now: 0"
-  ]
+    "total_requests": 50
+  }
 }
 ```
 
 | Field | Meaning |
 |-------|---------|
-| `running` | Requests currently processing |
-| `waiting` | Requests queued |
-| `max_concurrent` | Worker concurrency limit |
-| `total_requests` | Total tracked requests |
-| `logs` | Recent queue events |
+| `running` | Jobs working right now |
+| `waiting` | Jobs in line |
+| `max_concurrent` | Max jobs at same time |
+| `total_requests` | Total jobs tracked |
 
-If `waiting` is high, POST endpoints may **time out** until the queue drains.
+**Tip:** If `waiting` is very high, generate/edit may take longer.
 
 ---
 
-### 6. Generate cover (front)
+## 6. Generate cover
 
-**`POST /api/generate-cover`**
+**What it does:** AI makes a front cover image for a book.
 
-**Request body**
+**URL:** `http://162.229.248.26:8001/api/generate-cover`  
+**Method:** POST
+
+**Send this:**
 
 ```json
 {
@@ -259,16 +275,123 @@ If `waiting` is high, POST endpoints may **time out** until the queue drains.
 }
 ```
 
-**Valid `size`:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`  
-**Valid `quality`:** `low`, `medium`, `high`, `auto`
+| Field | Meaning |
+|-------|---------|
+| `title` | Book title |
+| `author_name` | Author name |
+| `category` | Book category |
+| `cover_style` | Art style you want |
+| `size` | Image size (see list at top) |
+| `quality` | low / medium / high / auto |
 
 ---
 
-### 7. Generate print-ready wrap (spine + back + front)
+## 7. Edit cover
 
-**`POST /api/generate-spine-book-cover`**
+**What it does:** Change an existing cover image using AI.
 
-Used for KDP paperback wrap. Extra fields vs front-only cover:
+**URL:** `http://162.229.248.26:8001/api/edit-cover`  
+**Method:** POST
+
+**Send this:**
+
+```json
+{
+  "encoded_image": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "image_direction": "make the sky brighter and add more stars",
+  "size": "1024x1536"
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `encoded_image` | The image as base64 text (the image you want to edit) |
+| `image_direction` | Tell AI what to change |
+| `size` | Output size |
+
+---
+
+## 8. Suggest chapter names
+
+**What it does:** AI suggests names for the next chapter based on past chapters.
+
+**URL:** `http://162.229.248.26:8001/api/book_chapters_name`  
+**Method:** POST
+
+**Send this:**
+
+```json
+{
+  "user_id": "u1",
+  "book_id": "b1",
+  "highlights": [
+    {
+      "chapter_name": "Chapter 1",
+      "detailed_bullet_summary": "Hero learns about gravity."
+    }
+  ]
+}
+```
+
+AI may return about **5 name ideas**. User picks one.  
+Saved in **Temporary_database** column `suggest_chapter_name`.
+
+---
+
+## 9. Refine cover prompt
+
+**What it does:** Takes your rough cover idea and makes a better prompt for the AI.
+
+**URL:** `http://162.229.248.26:8001/api/refine_cover_prompt`  
+**Method:** POST  
+**Speed:** Fast
+
+**Send this:**
+
+```json
+{
+  "user_prompt": "here is the prompt"
+}
+```
+
+---
+
+## 10. Suggest cover prompt from highlights
+
+**What it does:** Builds a cover prompt from your chapter summaries.
+
+**URL:** `http://162.229.248.26:8001/api/suggest-cover-prompt-from-highlights`  
+**Method:** POST
+
+**Send this:**
+
+```json
+{
+  "user_id": "u1",
+  "book_id": "b1",
+  "highlights": [
+    {
+      "chapter_name": "Chapter 1",
+      "detailed_bullet_summary": "A boy discovers a hidden world."
+    },
+    {
+      "chapter_name": "Chapter 2",
+      "detailed_bullet_summary": "He learns to fly for the first time."
+    }
+  ]
+}
+```
+
+---
+
+## 11. Generate full print cover (spine + back + front)
+
+**What it does:** Makes a full wrap cover for paperback printing (KDP).
+
+**URL:** `http://162.229.248.26:8001/api/generate-spine-book-cover`  
+**Method:** POST
+
+**Send this:**
 
 ```json
 {
@@ -286,241 +409,165 @@ Used for KDP paperback wrap. Extra fields vs front-only cover:
 
 ---
 
-### 8. Edit cover image
+# Database tables (where data is saved)
 
-**`POST /api/edit-cover`**
-
-**Request body**
-
-```json
-{
-  "encoded_image": "iVBORw0KGgoAAAANSUhEUgAA...",
-  "image_direction": "brighter foreground, warmer lighting",
-  "size": "1024x1536"
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `encoded_image` | Base64 PNG/JPEG (no `data:image/...` prefix) |
-| `image_direction` | Natural-language edit instructions |
-| `size` | One of the valid sizes above |
+These tables live on the Book API server (MySQL).
 
 ---
 
-### 9. Suggest chapter names from highlights
+## Table 1: Temporary_database
 
-**`POST /api/book_chapters_name`**
+**Purpose:** Stores draft chapters before the user approves them.
 
-```json
-{
-  "user_id": "u1",
-  "book_id": "b1",
-  "highlights": [
-    {
-      "chapter_name": "Chapter 1",
-      "detailed_bullet_summary": "Hero discovers gravity and questions the old laws."
-    }
-  ]
-}
-```
-
-Upstream may return suggested names; **`suggest_chapter_name`** column in **Temporary_database** stores up to ~5 suggestions before the user picks a final name.
-
----
-
-### 10. Refine cover prompt
-
-**`POST /api/refine_cover_prompt`**
-
-```json
-{
-  "user_prompt": "mystical forest at dawn"
-}
-```
-
-Returns an improved cover-generation prompt.
+| Column | What it stores |
+|--------|----------------|
+| `id` | Row number (auto) |
+| `user_id` | User |
+| `book_id` | Book |
+| `chapter` | Chapter number |
+| `chapter_name` | Chapter title |
+| `user_input` | What user asked for |
+| `content` | Full chapter text |
+| `suggest_chapter_name` | AI suggests ~5 names; user picks one |
+| `highlight_of_previous_chapter` | Short summary of last chapter |
+| `date` | Date saved |
+| `time` | Time saved |
 
 ---
 
-### 11. Suggest cover prompt from highlights
+## Table 2: User_confirm
 
-**`POST /api/suggest-cover-prompt-from-highlights`**
+**Purpose:** Stores chapters the user has approved (final).
 
-```json
-{
-  "user_id": "u1",
-  "book_id": "b1",
-  "highlights": [
-    {
-      "chapter_name": "Chapter 1",
-      "detailed_bullet_summary": "Hero discovers gravity."
-    }
-  ]
-}
-```
+Same columns as Temporary_database, **except** no `suggest_chapter_name`.
 
 ---
 
-## HTTP status codes
+## Table 3: audio_transcriptions
 
-| Code | Meaning |
-|------|---------|
-| `200` | Success |
-| `401` / `403` | Missing or invalid `X-API-Key` |
-| `422` | Invalid JSON or validation error |
-| `400` | Bad request (e.g. audio path not found) |
-| Timeout | Queue backlog or upstream overload — check `/api/queue-data` |
+**Purpose:** Stores audio-to-text results.
 
----
-
-## Upstream database tables
-
-### 1. `Temporary_database`
-
-Draft chapters before user approval.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INT PK | Auto increment |
-| `user_id` | VARCHAR(255) | User |
-| `book_id` | VARCHAR(255) | Book |
-| `chapter` | INT | Chapter number |
-| `chapter_name` | VARCHAR(255) | Title |
-| `user_input` | TEXT | Original prompt |
-| `content` | LONGTEXT | Generated body |
-| `suggest_chapter_name` | TEXT | Up to ~5 AI-suggested names (user picks one) |
-| `highlight_of_previous_chapter` | LONGTEXT | Continuity context |
-| `date` | DATE | Default today |
-| `time` | TIME | Default now |
-
-### 2. `User_confirm`
-
-Approved / finalized chapters.
-
-| Column | Type |
-|--------|------|
-| `id`, `user_id`, `book_id`, `chapter`, `chapter_name`, `user_input`, `content`, `highlight_of_previous_chapter`, `date`, `time` | Same pattern as temporary (no `suggest_chapter_name`) |
-
-### 3. `audio_transcriptions`
-
-| Column | Type |
-|--------|------|
-| `id` | INT PK |
-| `date`, `time` | DATE, TIME |
-| `user_input` | TEXT — transcription result |
-| `book_id` | VARCHAR(50) |
-| `chapter` | INT |
-| `user_id` | VARCHAR(50) |
-| `audio_file_path` | VARCHAR(255) |
-
-### 4. `queue_monitor`
-
-| Column | Type |
-|--------|------|
-| `id` | INT PK |
-| `status_running` | INT |
-| `status_waiting` | INT |
-| `status_max_concurrent` | INT |
-| `status_total_requests` | INT |
-| `logs` | TEXT |
-| `user_id`, `book_id` | VARCHAR(50) |
-| `chapter` | INT |
-| `log_date`, `log_time` | DATE, TIME |
-
-### 5. `error_logs`
-
-| Column | Type |
-|--------|------|
-| `id` | INT PK |
-| `line_number` | INT |
-| `error` | TEXT |
-| `filename` | VARCHAR(255) |
-| `error_date`, `error_time` | DATE, TIME |
+| Column | What it stores |
+|--------|----------------|
+| `id` | Row number |
+| `date`, `time` | When saved |
+| `user_input` | Transcribed text |
+| `book_id` | Book |
+| `chapter` | Chapter |
+| `user_id` | User |
+| `audio_file_path` | Path to audio file |
 
 ---
 
-## Typical chapter workflow
+## Table 4: queue_monitor
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant EbookAI as EbookAI (ASP.NET)
-    participant API as FastAPI upstream
-    participant Temp as Temporary_database
-    participant Confirm as User_confirm
+**Purpose:** Tracks how busy the API is.
 
-    User->>EbookAI: Write chapter (AI Writer)
-    EbookAI->>API: POST /api/generate_chapter
-    API->>Temp: Save draft
-    API-->>EbookAI: Chapter JSON/text
-    User->>EbookAI: Edit instructions
-    EbookAI->>API: POST /api/edit
-    API->>Temp: Update draft
-    User->>EbookAI: Approve chapter
-    EbookAI->>API: POST /api/approve
-    API->>Confirm: Move finalized row
-```
+| Column | What it stores |
+|--------|----------------|
+| `status_running` | Jobs running now |
+| `status_waiting` | Jobs waiting in line |
+| `status_max_concurrent` | Max parallel jobs |
+| `status_total_requests` | Total requests |
+| `logs` | Text log messages |
+| `user_id`, `book_id`, `chapter` | Which job |
+| `log_date`, `log_time` | When logged |
 
 ---
 
-## Troubleshooting “APIs not working”
+## Table 5: error_logs
 
-### Diagnosis flow (run in order)
+**Purpose:** Stores errors when something goes wrong.
 
-1. **BFF health** — `curl http://138.197.76.70:5000/health` → JSON with `status: ok`.
-2. **Key configured** — `curl http://138.197.76.70:5000/Books/ExternalApiStatus` → `apiKeyConfigured: true`.
-3. **Upstream reachable** — from a host that can reach `162.229.248.26`:
-   ```bash
-   export API_KEY="your-key-from-/etc/default/ebookai"
-   curl -s --max-time 20 -H "X-API-Key: $API_KEY" http://162.229.248.26:8001/api/queue-data
-   ```
-4. **Queue** — if `waiting` is high and `running` is `0` for several minutes, LLM workers are stuck → restart FastAPI on upstream.
-5. **Generate smoke** — `POST /api/generate_chapter` with a short `user_input`; expect **minutes**, not seconds.
+| Column | What it stores |
+|--------|----------------|
+| `line_number` | Line in code |
+| `error` | Error message |
+| `filename` | File name |
+| `error_date`, `error_time` | When it happened |
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| Empty response / JSON parse error in browser | Session expired after deploy | Log in again; ensure deploy uses `deploy/link-persistent.sh` |
-| `Server configuration error: no API key` | `ExternalApi__ApiKey` missing on server | Set in `/etc/default/ebookai`, restart app |
-| Requests hang then fail | Large `waiting` queue on upstream | `GET /api/queue-data`; retry later or scale upstream workers |
-| **`waiting` > 0 and `running` = 0** | Workers not processing LLM jobs | SSH to `162.229.248.26`, restart API; inspect `queue_monitor` + `error_logs` |
-| `approve` fast but `generate`/`edit` hang | Approve is lightweight; generate/edit wait on LLM queue | Same worker restart |
-| `401` on upstream | Wrong or missing `X-API-Key` | Match server env with upstream; **rotate key** if exposed in chat |
-| Upstream timeout from your PC | Firewall / server down | On upstream: `curl http://127.0.0.1:8001/api/queue-data` |
-| Audio fails with JSON path | Path is on client PC, not server | Use multipart upload through EbookAI |
-| Cover edit fails | Invalid base64 or size | Valid `size`; strip `data:image/...` prefix from base64 |
+---
 
-**Production checklist**
+# Website screens → which API they use
+
+You use the website. The website calls the Book API for you.
+
+| Screen / action | Website does this |
+|-----------------|---------------------|
+| AI Writer → Generate | Calls `/api/generate_chapter` |
+| AI Writer → Edit | Calls `/api/edit` |
+| Approve chapter | Calls `/api/approve` |
+| Upload audio | Calls `/api/audio` |
+| Cover Design → Generate | Calls `/api/generate-cover` |
+| Cover Design → Edit | Calls `/api/edit-cover` |
+| Cover prompt help | Calls `/api/refine_cover_prompt` |
+| Chapter name ideas | Calls `/api/book_chapters_name` |
+
+**Live website:** http://138.197.76.70:5000
+
+---
+
+# Quick test (on the server)
+
+Run these on the server console after deploy:
 
 ```bash
-# On EbookAI server — one-shot verify (fast endpoints)
+# Is the website running?
+curl -s http://127.0.0.1:5000/health
+
+# Is the API key set?
+curl -s http://127.0.0.1:5000/Books/ExternalApiStatus
+
+# Is the Book API reachable?
+curl -s -H "X-API-Key: YOUR_KEY" http://162.229.248.26:8001/api/queue-data
+```
+
+Replace `YOUR_KEY` with the key from `/etc/default/ebookai`.
+
+**One command to test everything:**
+
+```bash
 cd /opt/EbookAI && bash deploy/verify-all-apis.sh
 ```
 
-```bash
-curl -s http://127.0.0.1:5000/Books/ExternalApiStatus
+---
 
-# On upstream (from a machine that can reach 162.229.248.26)
-curl -s -H "X-API-Key: $API_KEY" http://162.229.248.26:8001/api/queue-data
+# Common problems and fixes
+
+| Problem | What to do |
+|---------|------------|
+| "No API key" error | Add `ExternalApi__ApiKey` in `/etc/default/ebookai`, restart app |
+| Generate takes very long | Normal — wait 5+ minutes. Check queue with `/api/queue-data` |
+| Many people waiting in queue | Wait and try again later |
+| Login stops working after deploy | Log in again once |
+| Audio fails | Upload file through website, do not use a path on your PC |
+| Cover edit fails | Check image is valid base64 and size is correct |
+| 401 error | Wrong API key — fix key in `/etc/default/ebookai` |
+
+---
+
+# Deploy (keep the app updated)
+
+On the server:
+
+```bash
+cd /opt/EbookAI
+git pull origin Clean_Code
+bash deploy/do-deploy.sh
 ```
 
 ---
 
-## EbookAI configuration reference
+# More files in this project
 
-`appsettings.Production.json` / environment variables:
+| File | What it is |
+|------|------------|
+| `smoke-tests.http` | Click-to-test all APIs in VS Code |
+| `Scripts/smoke_test.py` | Test script |
+| `Scripts/smoke-payloads/` | Sample JSON files |
+| `deploy/etc-default-ebookai.example` | Server settings example |
+| `http://138.197.76.70:5000/Books/ApiDocumentation` | Live JSON list of all APIs |
 
-| Setting | Env variable | Example |
-|---------|--------------|---------|
-| Base URL | `ExternalApi__BaseUrl` | `http://162.229.248.26:8001` |
-| API key | `ExternalApi__ApiKey` | *(secret — not in git)* |
-| Generate | `ExternalApi__GenerateUrl` | `.../api/generate_chapter` |
-| Edit | `ExternalApi__EditUrl` | `.../api/edit` |
-| Approve | `ExternalApi__ApproveUrl` | `.../api/approve` |
-| Audio | `ExternalApi__AudioUrl` | `.../api/audio` |
-| Queue | `ExternalApi__QueueDataUrl` | `.../api/queue-data` |
-| Cover | `ExternalApi__GenerateCoverUrl` | `.../api/generate-cover` |
-| Edit cover | `ExternalApi__EditCoverUrl` | `.../api/edit-cover` |
-| Spine wrap | `ExternalApi__GenerateSpineBookCoverUrl` | `.../api/generate-spine-book-cover` |
+---
 
-See also: [`DEPLOYMENT.md`](../DEPLOYMENT.md), [`DigitalOcean-EnvironmentVariables.txt`](../DigitalOcean-EnvironmentVariables.txt).
+*Last updated for Clean_Code branch. Keep your API key secret.*

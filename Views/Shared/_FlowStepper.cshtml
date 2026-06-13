@@ -103,11 +103,11 @@
     <p class="ai-flow-hint">
         @if (current < steps.Length)
         {
-            @Html.Raw($"You're on <strong>Step {current} — {steps[current - 1]}</strong>, next: <strong>{steps[current]}</strong>.")
+            @Html.Raw($"Step {current}: <strong>{steps[current - 1]}</strong>. Next up: <strong>{steps[current]}</strong>.")
         }
         else
         {
-            @Html.Raw($"You're on <strong>Step {current} — {steps[current - 1]}</strong> — export and distribute your book.")
+            @Html.Raw($"Step {current}: <strong>{steps[current - 1]}</strong> — download your book files here.")
         }
     </p>
 </div>

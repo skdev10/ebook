@@ -692,8 +692,14 @@ namespace EBookDashboard.Controllers
                     Console.WriteLine($"📥 Raw Response saved with ID: {rawResponseId}");
 
 
-                    if (!response.IsSuccessStatusCode)
-                        return Json(new { error = true, message = $"API error: {response.StatusCode}", detail = responseData?.Length > 200 ? responseData.Substring(0, 200) + "..." : responseData });
+                if (!response.IsSuccessStatusCode)
+                {
+                    var shortDetail = responseData?.Length > 200 ? responseData.Substring(0, 200) + "..." : responseData;
+                    var hint = (int)response.StatusCode == 401 || (int)response.StatusCode == 403
+                        ? " Check ExternalApi__ApiKey on the server matches the upstream API key."
+                        : "";
+                    return Json(new { error = true, message = $"AI service returned {(int)response.StatusCode}.{hint}", detail = shortDetail });
+                }
                     // Parse and save to database only when not preview-only (dashboard: save on Finalize)
                     if (!model.PreviewOnly)
                     {

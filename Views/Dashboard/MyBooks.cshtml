@@ -441,7 +441,7 @@
                     Payments are not active until Stripe keys are configured (<code class="text-xs">Stripe:PublishableKey</code> and <code class="text-xs">Stripe:SecretKey</code> in configuration or environment). Checkout links will remind you until then.
                 </div>
             }
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex justify-between items-center mb-6" data-guided-tour="mb-actions">
                 <h2 class="text-xl tracking-tight font-semibold text-slate-900">Recommended</h2>
                 <div class="flex items-center gap-2">
                     <a href="/Dashboard/StartNewBook?writer=1" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="text-violet-800 bg-violet-100 hover:bg-violet-200 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
@@ -472,7 +472,7 @@
 
             @if (books != null && books.Any())
             {
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10" id="recommendedGrid">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-10" id="recommendedGrid" data-guided-tour="mb-books">
                     @foreach (var book in books.Take(8))
                     {
                         var title = string.IsNullOrWhiteSpace(book.Title) ? "Untitled" : book.Title;
@@ -584,7 +584,7 @@
         </div>
 
         <!-- Right: Detail Panel (full width on small screens, fixed width on lg+) -->
-        <aside class="w-full lg:w-[min(420px,38vw)] lg:max-w-[420px] lg:min-w-[300px] aside-panel-mybooks rounded-2xl lg:rounded-[1.5rem] flex flex-col text-white px-5 py-8 sm:px-8 sm:py-10 relative overflow-y-auto overflow-x-hidden shadow-xl shrink-0 order-2 lg:order-2 min-h-[min(520px,70vh)]" aria-label="Selected book details">
+        <aside class="w-full lg:w-[min(420px,38vw)] lg:max-w-[420px] lg:min-w-[300px] aside-panel-mybooks rounded-2xl lg:rounded-[1.5rem] flex flex-col text-white px-5 py-8 sm:px-8 sm:py-10 relative overflow-y-auto overflow-x-hidden shadow-xl shrink-0 order-2 lg:order-2 min-h-[min(520px,70vh)]" aria-label="Selected book details" data-guided-tour="mb-detail">
             <div class="flex-1 flex flex-col items-stretch relative z-10 w-full max-w-md mx-auto lg:max-w-none">
                 <p class="mybooks-aside-kicker">Your library</p>
                 <div class="mybooks-aside-divider"></div>

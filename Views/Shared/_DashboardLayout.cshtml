@@ -4085,7 +4085,7 @@
     <div id="howToStartModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>🚀 How To Get Started</h3>
+                <h3>How to get started</h3>
                 <span class="close">&times;</span>
             </div>
             <div class="modal-body" style="padding: 2rem;">
@@ -4093,34 +4093,34 @@
                     <div class="step-item">
                         <div class="step-number">1</div>
                         <div class="step-content">
-                            <h4>Upload Your Manuscript</h4>
-                            <p>Start by uploading your book manuscript in PDF, DOC, or TXT format.</p>
+                            <h4>AI Book Writer</h4>
+                            <p>Write chapters with AI. Type your topic and tap Generate.</p>
                         </div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">2</div>
                         <div class="step-content">
-                            <h4>Design Your Cover</h4>
-                            <p>Use our AI-powered cover design tool to create a professional book cover.</p>
+                            <h4>Book Formatting</h4>
+                            <p>Pick ebook or paperback and choose how the inside pages look.</p>
                         </div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">3</div>
                         <div class="step-content">
-                            <h4>Format & Edit</h4>
-                            <p>Format your book for different platforms and use AI proofreading.</p>
+                            <h4>Cover Design</h4>
+                            <p>Make a cover with AI. Describe the look you want.</p>
                         </div>
                     </div>
                     <div class="step-item">
                         <div class="step-number">4</div>
                         <div class="step-content">
-                            <h4>Publish & Market</h4>
-                            <p>Publish to multiple platforms and use our marketing tools to promote your book.</p>
+                            <h4>Publish</h4>
+                            <p>Download your book as EPUB, PDF, Word, or print files.</p>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn-primary" id="getStartedBtn">Get Started Now</button>
+                    <button class="btn-primary" id="getStartedBtn">Let's go</button>
                 </div>
             </div>
         </div>
@@ -4964,6 +4964,8 @@
             if (p.indexOf('/books/aigeneratebook') >= 0) return 'ai-writer';
             if (p.indexOf('coverdesigncalculatorfixing') >= 0) return 'formatter';
             if (p.indexOf('/dashboard/coverdesign') >= 0) return 'cover-design';
+            if (p.indexOf('/dashboard/publish') >= 0) return 'publish';
+            if (p.indexOf('/dashboard/mybooks') >= 0) return 'my-books';
             if (p === '/dashboard' || p === '/dashboard/index' || p === '') return 'dashboard';
             return 'default';
         }
@@ -4972,38 +4974,46 @@
 
         const GUIDED_TOUR_ROUTES = {
             'dashboard': [
-                { sel: '.stat-card[data-target="manuscript"]', title: 'Manuscript', body: 'Upload and manage your manuscript from the dashboard hub.' },
-                { sel: '.stat-card[data-target="formatting"]', title: 'Formatting', body: 'Style and layout your ebook before publishing.' },
-                { sel: '.stat-card[data-target="cover-design"]', title: 'Cover design', body: 'Create a professional cover with AI-assisted tools.' },
-                { sel: '#uploadArea', title: 'Quick upload', body: 'Drop a document here when you want to start from a file.' },
-                { sel: '#sidebar', title: 'Sidebar navigation', body: 'Use the left rail to open AI Writer, Book Formatting, AI Cover Design, and My Books in order.' }
+                { sel: '#dash-hero-cta', title: 'Start a new book', body: 'Click Write Now to make a new book and open AI Writer.' },
+                { sel: '#drafts-list', title: 'Continue your books', body: 'Books you are still working on show here. Click one to pick up where you stopped.' },
+                { sel: '#sidebar', title: 'Main menu', body: 'Use this menu on the left. Go to AI Writer, Book Formatting, Cover Design, My Books, or Publish.' }
             ],
             'ai-writer': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Your 4-step flow', body: 'You are on Step 1 — AI Book Writer. Next: Book Formatting, then Cover Design, then Publish. This bar shows where you are in the workflow.' },
-                { sel: '[data-guided-tour="ai-book-picker"]', title: 'Your active book', body: 'The book you chose on the Dashboard is shown here. Use Dashboard or My projects to switch to a different book.' },
-                { sel: '[data-guided-tour="ai-write-section"]', title: 'Title & chapter', body: 'Set the book title, pick the chapter number (or tap + for a new chapter), and enter the chapter title before generating.' },
-                { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Topic & generate', body: 'Type your chapter topic, upload a PDF/TXT/Markdown with the cloud icon (preview updates automatically), then press the purple arrow to generate. After the first generation the arrow becomes a regenerate icon.' },
-                { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Chapter preview', body: 'Generated text appears here as paginated ebook pages. Use the side arrows or page controls to flip through your chapter.' },
-                { sel: '[data-guided-tour="ai-next-step"]', title: 'Next: Book Formatting', body: 'When your chapters are ready, tap Book formatting to move to Step 2 — choose interior style, text size, and line spacing.' }
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: '4 easy steps', body: 'You are on Step 1 — AI Book Writer. Next: Book Formatting, then Cover Design, then Publish. This bar shows your place.' },
+                { sel: '[data-guided-tour="ai-book-picker"]', title: 'Your book', body: 'This is the book you picked on the Dashboard. To change books, go back to Dashboard or My Books.' },
+                { sel: '[data-guided-tour="ai-write-section"]', title: 'Book & chapter info', body: 'Type the book title, pick the chapter number (or tap + for a new chapter), and add the chapter title.' },
+                { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Write with AI', body: 'Type what the chapter should be about. You can upload a file with the cloud button. Then tap the purple button to generate. The first time it says Generate. After that it says Regenerate.' },
+                { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Read your chapter', body: 'Your chapter shows up here like book pages. Use the arrows to turn pages.' },
+                { sel: '[data-guided-tour="ai-next-step"]', title: 'Go to Step 2', body: 'When this chapter looks good, tap Book Formatting to set fonts, size, and page style.' }
             ],
             'formatter': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 2 — Book Formatting', body: 'Step 1 (AI Book Writer) is done. You are on Step 2: set format, interior style, text size, and line spacing. Next comes Cover Design, then Publish.' },
-                { sel: '[data-guided-tour="fmt-format"]', title: 'Book format', body: 'Choose Ebook, Paperback, or Both. This shapes your preview layout and export options.' },
-                { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Novel, Classic, Minimalist, and Elegant trade change colors, headings, and paragraph treatment in the live preview and in PDF/EPUB export.' },
-                { sel: '[data-guided-tour="fmt-preview"]', title: 'Live preview', body: 'Your manuscript appears here as real book pages. Use the page controls to flip through chapters.' },
-                { sel: '[data-guided-tour="fmt-actions"]', title: 'Auto-save & continue', body: 'Formatting changes save automatically. Use Next to continue to Cover Design.' }
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 2 — Book Formatting', body: 'Step 1 is done. You are on Step 2. Pick how the inside of the book should look. Next is Cover Design, then Publish.' },
+                { sel: '[data-guided-tour="fmt-format"]', title: 'Ebook or paperback?', body: 'Choose Ebook, Paperback, or Both. This changes your preview and download options.' },
+                { sel: '[data-guided-tour="fmt-style"]', title: 'Inside style', body: 'Pick a look — Novel, Classic, Minimalist, or Elegant. The preview on the right updates as you choose.' },
+                { sel: '[data-guided-tour="fmt-preview"]', title: 'See your book', body: 'Your chapters show here as real pages. Flip through to check how it looks.' },
+                { sel: '[data-guided-tour="fmt-actions"]', title: 'Save & go on', body: 'Your choices save automatically. Tap Next when you are ready for Cover Design.' }
             ],
             'cover-design': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 3 — Cover Design', body: 'Steps 1 and 2 are done. You are on Step 3: design your AI cover, then continue to Publish for downloads.' },
-                { sel: '[data-guided-tour="cov-book"]', title: 'Select book', body: 'Pick the book this cover belongs to. Title and author can sync from your library.' },
-                { sel: '[data-guided-tour="cov-fields"]', title: 'Cover details', body: 'Genre and cover style are sent to the AI cover API together with your title and author.' },
-                { sel: '[data-guided-tour="cov-prompt"]', title: 'Image direction', body: 'Describe mood, palette, and imagery. Generate Cover runs the preview API and fills the thumbnails below.' },
-                { sel: '[data-guided-tour="cov-preview"]', title: 'Preview', body: 'Typography updates live; chosen artwork appears on the mock cover.' },
-                { sel: '[data-guided-tour="cov-publish"]', title: 'Continue to Publish', body: 'When your cover looks good, open Publish to download EPUB, Word, PDF, or a print-ready ZIP — all exports live there, not on this page.' },
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 3 — Cover Design', body: 'Steps 1 and 2 are done. You are on Step 3. Make your cover here, then go to Publish to download files.' },
+                { sel: '[data-guided-tour="cov-book"]', title: 'Your book', body: 'This cover is for the book you selected. Title and author can come from your library.' },
+                { sel: '[data-guided-tour="cov-fields"]', title: 'Cover info', body: 'Pick genre and cover style. These go to the AI with your title and author name.' },
+                { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Tell the AI what you want — colors, mood, pictures. Tap Generate Cover to make images.' },
+                { sel: '[data-guided-tour="cov-preview"]', title: 'Cover preview', body: 'See your cover here. Title and author text update on the mock book.' },
+                { sel: '[data-guided-tour="cov-publish"]', title: 'Go to Publish', body: 'Happy with the cover? Tap here to open Publish and download EPUB, PDF, Word, or print files.' }
+            ],
+            'publish': [
+                { sel: '[data-guided-tour="pub-hero"]', title: 'Step 4 — Publish', body: 'This is the last step. Download your finished book files here.' },
+                { sel: '[data-guided-tour="pub-status"]', title: 'Book status', body: 'See if your book is ready. You need chapters from AI Writer and a cover from Cover Design.' },
+                { sel: '[data-guided-tour="pub-export"]', title: 'Download files', body: 'Tap a button to download. You can get EPUB, PDF, Word, cover images, or a print-ready ZIP for Amazon KDP.' }
+            ],
+            'my-books': [
+                { sel: '[data-guided-tour="mb-books"]', title: 'All your books', body: 'Every book you made is here. Click a card to see details on the right.' },
+                { sel: '[data-guided-tour="mb-actions"]', title: 'Quick buttons', body: 'New Book starts a fresh project. Export Pack downloads files when your book is finished.' },
+                { sel: '[data-guided-tour="mb-detail"]', title: 'Book details', body: 'After you pick a book, see the cover, stats, and buttons to preview, edit, or delete.' }
             ],
             'default': [
-                { sel: '#sidebar', title: 'Workflow', body: 'From here: AI Writer → Book Formatting (interior) → AI Cover Design → My Books / publish.' },
-                { sel: '.main-content', title: 'Workspace', body: 'Each screen has a short guided tour—use the Tour button (bottom-right) anytime.' }
+                { sel: '#sidebar', title: 'How to make a book', body: 'Follow these steps: AI Writer → Book Formatting → Cover Design → Publish.' },
+                { sel: '.main-content', title: 'Need help?', body: 'Tap the Tour button at the bottom-right on any page for a quick guide.' }
             ]
         };
 
@@ -5073,7 +5083,7 @@
             if (pop) pop.remove();
             __guidedTourActive = null;
             if (showToast && typeof Swal !== 'undefined') {
-                Swal.fire({ title: 'Tour complete', text: 'You can replay anytime from the Tour button.', icon: 'success', timer: 2200, showConfirmButton: false, toast: true, position: 'bottom-end' });
+                Swal.fire({ title: 'Tour done!', text: 'Tap the Tour button anytime to see this again.', icon: 'success', timer: 2200, showConfirmButton: false, toast: true, position: 'bottom-end' });
             }
         }
 
@@ -5129,11 +5139,12 @@
                         pop.id = 'guidedTourPopover';
                         document.body.appendChild(pop);
                     }
+                    var isLast = (i >= steps.length - 1);
                     pop.innerHTML =
                         '<div class="gt-title"></div><div class="gt-body"></div><div class="gt-actions">' +
                         '<span class="gt-stepcount"></span>' +
                         '<button type="button" class="gt-skip" data-gt="skip">Skip</button>' +
-                        '<button type="button" class="gt-next" data-gt="next">Next</button></div>';
+                        '<button type="button" class="gt-next" data-gt="next">' + (isLast ? 'Done' : 'Next') + '</button></div>';
                     pop.querySelector('.gt-title').textContent = steps[i].title;
                     pop.querySelector('.gt-body').textContent = steps[i].body;
                     pop.querySelector('.gt-stepcount').textContent = (i + 1) + ' / ' + steps.length;

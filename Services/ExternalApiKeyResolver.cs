@@ -9,8 +9,18 @@ public static class ExternalApiKeyResolver
 {
     public static string Resolve(IConfiguration? configuration)
     {
-        if (configuration == null) return "";
-        var raw = (configuration["ExternalApi:ApiKey"] ?? "").Trim();
+        var raw = ReadKey(configuration?["ExternalApi:ApiKey"]);
+        if (!string.IsNullOrEmpty(raw))
+            return raw;
+
+        // Fallback when env is set but not merged into IConfiguration (some nohup/systemd setups).
+        raw = ReadKey(Environment.GetEnvironmentVariable("ExternalApi__ApiKey"));
+        return raw;
+    }
+
+    private static string ReadKey(string? value)
+    {
+        var raw = (value ?? "").Trim();
         if (raw.Length >= 2 && raw[0] == '"' && raw[^1] == '"')
             raw = raw[1..^1].Trim();
         if (raw.Length >= 2 && raw[0] == '\'' && raw[^1] == '\'')

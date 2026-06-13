@@ -43,19 +43,8 @@ if systemctl list-unit-files ebookai.service >/dev/null 2>&1 && systemctl is-ena
   sleep 2
   systemctl status ebookai --no-pager -l || true
 else
-  if command -v ss >/dev/null 2>&1; then
-    OLD_PID=$(ss -tlnp "sport = :$PORT" 2>/dev/null | awk 'NR>1 {print $NF}' | sed -n 's/.*pid=\([0-9]*\).*/\1/p' | head -1)
-  elif command -v netstat >/dev/null 2>&1; then
-    OLD_PID=$(netstat -tpln 2>/dev/null | awk -v p=":$PORT" '$4 ~ p {print $7}' | sed 's/.*\///' | cut -d, -f1 | head -1)
-  fi
-  if [[ -n "${OLD_PID:-}" && "$OLD_PID" =~ ^[0-9]+$ ]]; then
-    echo "Stopping PID $OLD_PID on port $PORT"
-    kill -9 "$OLD_PID" || true
-    sleep 2
-  fi
-  cd "$APP_DIR/$OUT_DIR"
-  nohup ./EBookDashboard --urls "http://0.0.0.0:${PORT}" > "$APP_DIR/nohup.out" 2>&1 &
-  echo "Started PID $! (nohup)"
+  chmod +x deploy/start-app-out.sh 2>/dev/null || true
+  bash deploy/start-app-out.sh
   sleep 2
 fi
 

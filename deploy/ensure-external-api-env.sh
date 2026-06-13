@@ -17,9 +17,9 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-# Add missing ExternalApi / App URL lines from example (never overwrite existing values).
+# Add missing ExternalApi / App URL / chapter timeout lines from example (never overwrite existing values).
 while IFS= read -r line; do
-  [[ "$line" =~ ^ExternalApi__ ]] || [[ "$line" =~ ^App__PublicBaseUrl= ]] || continue
+  [[ "$line" =~ ^ExternalApi__ ]] || [[ "$line" =~ ^App__PublicBaseUrl= ]] || [[ "$line" =~ ^ChapterGeneration__ ]] || continue
   key="${line%%=*}"
   if ! grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
     echo "$line" >> "$ENV_FILE"
