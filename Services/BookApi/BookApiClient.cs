@@ -22,9 +22,12 @@ public sealed class BookApiClient : IBookApiClient
         BookApiCallTimeoutKind timeoutKind,
         CancellationToken cancellationToken = default)
     {
-        var name = timeoutKind == BookApiCallTimeoutKind.LongRunning
-            ? BookApiConstants.HttpClientNameLong
-            : BookApiConstants.HttpClientNameShort;
+        var name = timeoutKind switch
+        {
+            BookApiCallTimeoutKind.LongRunning => BookApiConstants.HttpClientNameLong,
+            BookApiCallTimeoutKind.QueueProbe => BookApiConstants.HttpClientNameQueue,
+            _ => BookApiConstants.HttpClientNameShort
+        };
         var client = _httpClientFactory.CreateClient(name);
         return client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
     }

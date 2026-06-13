@@ -10,8 +10,20 @@ EBOOKAI_PERSIST_DIR=/root/latest/EbookAI/persistent
 # Public URL (Stripe redirects, absolute links) — must match how users open the site
 App__PublicBaseUrl=http://138.197.76.70:5000
 
-# Required — Python upstream X-API-Key
+# Required — Python upstream X-API-Key (no leading/trailing spaces)
 ExternalApi__ApiKey=PASTE_YOUR_KEY_HERE
+ExternalApi__BaseUrl=http://162.229.248.26:8001
+ExternalApi__GenerateUrl=http://162.229.248.26:8001/api/generate_chapter
+ExternalApi__EditUrl=http://162.229.248.26:8001/api/edit
+ExternalApi__ApproveUrl=http://162.229.248.26:8001/api/approve
+ExternalApi__AudioUrl=http://162.229.248.26:8001/api/audio
+ExternalApi__QueueDataUrl=http://162.229.248.26:8001/api/queue-data
+ExternalApi__GenerateCoverUrl=http://162.229.248.26:8001/api/generate-cover
+ExternalApi__EditCoverUrl=http://162.229.248.26:8001/api/edit-cover
+ExternalApi__GenerateSpineBookCoverUrl=http://162.229.248.26:8001/api/generate-spine-book-cover
+ExternalApi__BookChaptersNameUrl=http://162.229.248.26:8001/api/book_chapters_name
+ExternalApi__RefineCoverPromptUrl=http://162.229.248.26:8001/api/refine_cover_prompt
+ExternalApi__SuggestCoverPromptFromHighlightsUrl=http://162.229.248.26:8001/api/suggest-cover-prompt-from-highlights
 
 # MySQL on this VM — MUST quote; semicolons break unquoted bash source
 # Use 127.0.0.1 (not localhost) — avoids Unix socket auth mismatch on Ubuntu.

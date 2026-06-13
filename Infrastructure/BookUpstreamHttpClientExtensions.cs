@@ -19,6 +19,7 @@ public static class BookUpstreamHttpClientExtensions
         services.AddTransient<BookApiLoggingHandler>();
 
         AddClient(services, BookApiConstants.HttpClientNameShort, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(48), maxRetries: 2);
+        AddClient(services, BookApiConstants.HttpClientNameQueue, TimeSpan.FromSeconds(90), TimeSpan.FromSeconds(120), maxRetries: 2);
 
         var longMins = BookApiUpstreamCancellation.ResolveTimeoutMinutes(configuration);
         var longAttempt = TimeSpan.FromMinutes(longMins);

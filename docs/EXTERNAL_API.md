@@ -35,6 +35,8 @@ Sample payloads: [`Scripts/smoke-payloads/`](../Scripts/smoke-payloads/)
 |-------|-----|------|
 | **Upstream (this doc)** | `http://162.229.248.26:8001/api/...` | `X-API-Key` |
 | **EbookAI web app (BFF)** | `http://138.197.76.70:5000/Books/...` | User login cookie + session |
+| **API catalog (JSON)** | `GET /Books/ApiDocumentation` | Public — full endpoint list |
+| **API diagnostics** | `GET /Books/ExternalApiStatus` | Public — key configured + queue |
 
 The browser calls the **ASP.NET app**, which forwards requests to the upstream with `X-API-Key`.  
 Diagnostics on production:
@@ -491,8 +493,11 @@ sequenceDiagram
 **Production checklist**
 
 ```bash
-# On EbookAI server
-curl -s http://127.0.0.1:5000/health
+# On EbookAI server — one-shot verify (fast endpoints)
+cd /opt/EbookAI && bash deploy/verify-all-apis.sh
+```
+
+```bash
 curl -s http://127.0.0.1:5000/Books/ExternalApiStatus
 
 # On upstream (from a machine that can reach 162.229.248.26)

@@ -33,7 +33,7 @@ public sealed class UpstreamQueueProbe : IUpstreamQueueProbe
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
-            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.Standard, cancellationToken);
+            using var resp = await _bookApiClient.SendAsync(req, BookApiCallTimeoutKind.QueueProbe, cancellationToken);
             var json = await resp.Content.ReadAsStringAsync(cancellationToken);
             if (!resp.IsSuccessStatusCode)
             {
@@ -56,15 +56,42 @@ public sealed class UpstreamQueueProbe : IUpstreamQueueProbe
         {
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            if (!root.TryGetProperty("status", out var status))
-                return null;
-            return new UpstreamQueueSnapshot
+
+            if (root.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.Object)
             {
-                Running = ReadInt(status, "running"),
-                Waiting = ReadInt(status, "waiting"),
-                MaxConcurrent = ReadInt(status, "max_concurrent"),
-                TotalRequests = ReadInt(status, "total_requests")
-            };
+                return new UpstreamQueueSnapshot
+                {
+                    Running = ReadInt(status, "running"),
+                    Waiting = ReadInt(status, "waiting"),
+                    MaxConcurrent = ReadInt(status, "max_concurrent"),
+                    TotalRequests = ReadInt(status, "total_requests")
+                };
+            }
+
+            // Alternate upstream shapes (queue_monitor column names or flat counters)
+            if (root.TryGetProperty("status_running", out _) || root.TryGetProperty("status_waiting", out _))
+            {
+                return new UpstreamQueueSnapshot
+                {
+                    Running = ReadInt(root, "status_running"),
+                    Waiting = ReadInt(root, "status_waiting"),
+                    MaxConcurrent = ReadInt(root, "status_max_concurrent"),
+                    TotalRequests = ReadInt(root, "status_total_requests")
+                };
+            }
+
+            if (root.TryGetProperty("running", out _) || root.TryGetProperty("waiting", out _))
+            {
+                return new UpstreamQueueSnapshot
+                {
+                    Running = ReadInt(root, "running"),
+                    Waiting = ReadInt(root, "waiting"),
+                    MaxConcurrent = ReadInt(root, "max_concurrent"),
+                    TotalRequests = ReadInt(root, "total_requests")
+                };
+            }
+
+            return null;
         }
         catch
         {

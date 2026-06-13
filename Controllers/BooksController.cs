@@ -4024,6 +4024,20 @@ namespace EBookDashboard.Controllers
             return View();
         }
 
+        /// <summary>Full API catalog (upstream + BFF). Markdown: docs/EXTERNAL_API.md</summary>
+        [AllowAnonymous]
+        [HttpGet]
+        [Route("Books/ApiDocumentation")]
+        public IActionResult ApiDocumentation()
+        {
+            var opt = _externalApiOptions.Value;
+            var baseUrl = string.IsNullOrWhiteSpace(opt.BaseUrl)
+                ? BookApiConstants.DefaultUpstreamBaseUrl
+                : opt.BaseUrl.TrimEnd('/');
+            var bff = (_configuration["App:PublicBaseUrl"] ?? $"{Request.Scheme}://{Request.Host}").TrimEnd('/');
+            return Json(ApiDocumentationCatalog.Build(baseUrl, bff));
+        }
+
         /// <summary>Diagnostics: upstream base URL, key configured, queue probe (no secret returned).</summary>
         [AllowAnonymous]
         [HttpGet]
@@ -4234,7 +4248,7 @@ namespace EBookDashboard.Controllers
             try
             {
                 using var httpReq = new HttpRequestMessage(HttpMethod.Get, apiUrl);
-                using var response = await _bookApiClient.SendAsync(httpReq, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
+                using var response = await _bookApiClient.SendAsync(httpReq, BookApiCallTimeoutKind.QueueProbe, HttpContext.RequestAborted);
                 var json = await response.Content.ReadAsStringAsync();
                 if (response.IsSuccessStatusCode)
                     return Content(json, "application/json");
@@ -4243,7 +4257,7 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Queue data API failed.");
-                return Ok(new { status_running = 0, status_waiting = 0, status_max_concurrent = 0, status_total_requests = 0 });
+                return StatusCode(503, new { success = false, message = "Upstream queue API unreachable. Check ExternalApi__ApiKey and network to 162.229.248.26:8001.", detail = ex.Message });
             }
         }
 
