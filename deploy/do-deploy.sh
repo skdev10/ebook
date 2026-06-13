@@ -17,6 +17,12 @@ git checkout "$BRANCH"
 git pull origin "$BRANCH"
 echo "    HEAD: $(git log -1 --oneline)"
 
+echo "==> External API env"
+chmod +x deploy/ensure-external-api-env.sh 2>/dev/null || true
+if [[ -f deploy/ensure-external-api-env.sh ]]; then
+  bash deploy/ensure-external-api-env.sh
+fi
+
 echo "==> Publish"
 chmod +x deploy/vm-deploy.sh
 DEPLOY_SKIP_GIT=1 BRANCH="$BRANCH" OUT_DIR="$OUT_DIR" ./deploy/vm-deploy.sh
@@ -75,6 +81,12 @@ if command -v nginx >/dev/null 2>&1; then
   if [[ -f deploy/apply-nginx-timeouts.sh ]]; then
     bash deploy/apply-nginx-timeouts.sh || echo "    nginx patch skipped (run: sudo bash deploy/apply-nginx-timeouts.sh)"
   fi
+fi
+
+echo "==> API verify (fast endpoints)"
+chmod +x deploy/verify-all-apis.sh 2>/dev/null || true
+if [[ -f deploy/verify-all-apis.sh ]]; then
+  bash deploy/verify-all-apis.sh || echo "    API verify had warnings — check ExternalApi__ApiKey and upstream 162.229.248.26:8001"
 fi
 
 echo "Deploy complete. App: http://138.197.76.70:${PORT}"
