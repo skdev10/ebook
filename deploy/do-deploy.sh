@@ -14,6 +14,11 @@ cd "$APP_DIR"
 echo "==> Git pull ($BRANCH)"
 git fetch origin "$BRANCH"
 git checkout "$BRANCH"
+# Server-side edits to deploy/*.sh block pull — reset so repo scripts always win.
+if ! git diff --quiet -- deploy/ 2>/dev/null || ! git diff --cached --quiet -- deploy/ 2>/dev/null; then
+  echo "    Resetting local deploy/ changes so pull can proceed..."
+  git checkout -- deploy/ 2>/dev/null || git restore --source=HEAD --staged --worktree deploy/ 2>/dev/null || true
+fi
 git pull origin "$BRANCH"
 echo "    HEAD: $(git log -1 --oneline)"
 
