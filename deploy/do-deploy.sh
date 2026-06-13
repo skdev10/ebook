@@ -53,7 +53,28 @@ else
   sleep 2
 fi
 
-echo "==> Health check"
-curl -sf "http://127.0.0.1:${PORT}/health" | head -c 400 || { echo "Health check failed"; tail -30 "$APP_DIR/nohup.out" 2>/dev/null || journalctl -u ebookai -n 30 --no-pager; exit 1; }
-echo ""
+echo "==> Health check (retry up to 60s)"
+HEALTH_OK=0
+for _ in $(seq 1 30); do
+  if curl -sf "http://127.0.0.1:${PORT}/health" | head -c 400; then
+    echo ""
+    HEALTH_OK=1
+    break
+  fi
+  sleep 2
+done
+if [[ "$HEALTH_OK" -ne 1 ]]; then
+  echo "Health check failed — last log lines:"
+  tail -n 40 "$APP_DIR/nohup.out" 2>/dev/null || journalctl -u ebookai -n 40 --no-pager 2>/dev/null || true
+  exit 1
+fi
+
+if command -v nginx >/dev/null 2>&1; then
+  echo "==> Nginx AI timeout patch (optional)"
+  chmod +x deploy/apply-nginx-timeouts.sh 2>/dev/null || true
+  if [[ -f deploy/apply-nginx-timeouts.sh ]]; then
+    bash deploy/apply-nginx-timeouts.sh || echo "    nginx patch skipped (run: sudo bash deploy/apply-nginx-timeouts.sh)"
+  fi
+fi
+
 echo "Deploy complete. App: http://138.197.76.70:${PORT}"

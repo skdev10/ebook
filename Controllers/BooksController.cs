@@ -10,7 +10,7 @@ using static EBookDashboard.Services.CoverExternalApiHelper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Recommendations;
@@ -608,6 +608,7 @@ namespace EBookDashboard.Controllers
         // Generate Book via API
         [HttpPost]
         [IgnoreAntiforgeryToken]
+        [DisableRequestTimeout]
         [Route("Books/AIGenerateBook")]
         public async Task<IActionResult> AIGenerateBook()
         {
@@ -810,6 +811,7 @@ namespace EBookDashboard.Controllers
         // Generate Book via API
         [HttpPost]
         [IgnoreAntiforgeryToken]
+        [DisableRequestTimeout]
         [Route("Books/AIEditBook")]
         public async Task<IActionResult> AIEditBook([FromBody] AIBookRequestEdit model)
         {
@@ -2100,6 +2102,7 @@ namespace EBookDashboard.Controllers
         // Additional actions for managing chapters can be added here
         [AllowAnonymous]
         [HttpPost]
+        [DisableRequestTimeout]
         [Route("Books/EditChapter")]
         public async Task<IActionResult> EditChapter([FromBody] APIEditChapterRequest model)
         {
@@ -3605,6 +3608,7 @@ namespace EBookDashboard.Controllers
         }
 
         [HttpPost]
+        [DisableRequestTimeout]
         public async Task<IActionResult> GenerateAICover(int bookId, [FromBody] IDictionary<string, string> body)
         {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
@@ -3743,6 +3747,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Generate AI cover preview via external POST /api/generate-cover. Returns { success, options[] }.</summary>
         [HttpPost]
+        [DisableRequestTimeout]
         public async Task<IActionResult> GenerateAICoverPreview(int bookId, [FromBody] IDictionary<string, string> body)
         {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
@@ -3843,6 +3848,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Edit an existing cover image via POST /api/edit-cover (base64 + direction).</summary>
         [HttpPost]
+        [DisableRequestTimeout]
         public async Task<IActionResult> EditAICoverPreview([FromBody] JObject body)
         {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");

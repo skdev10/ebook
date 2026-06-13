@@ -5035,6 +5035,9 @@ document.addEventListener('DOMContentLoaded', function() {
      function parseApiErrorMessage(raw) {
          if (raw == null || raw === '') return 'Request failed';
          var t = String(raw).trim();
+         if (/504\s+Gateway\s+Time-?out/i.test(t) || /Gateway Time-out/i.test(t)) {
+             return 'The server gateway timed out before chapter generation finished. Wait a minute and try again — if this repeats, ask support to run: sudo bash deploy/apply-nginx-timeouts.sh on the server.';
+         }
          if (t.charAt(0) === '{') {
              try {
                  var j = JSON.parse(t);
@@ -5289,6 +5292,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     addMessage(loginMsg, false);
                     showNotification(loginMsg, 'error');
                     setTimeout(function () { window.location.href = '/Account/UserLogin'; }, 2500);
+                } else if (response.status === 504) {
+                    var gwMsg = parseApiErrorMessage(responseText) || 'Gateway timed out — chapter generation needs longer proxy timeouts on the server.';
+                    addMessage(gwMsg, false);
+                    showNotification(gwMsg, 'error');
                 } else {
                     console.error("❌ Server error:", responseText);
                     throw new Error(parseApiErrorMessage(responseText) || 'Failed to generate book');
