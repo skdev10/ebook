@@ -58,10 +58,10 @@ builder.Services.AddRequestTimeouts(options =>
 {
     options.DefaultPolicy = new Microsoft.AspNetCore.Http.Timeouts.RequestTimeoutPolicy
     {
-        Timeout = TimeSpan.FromMinutes(60)
+        Timeout = TimeSpan.FromMinutes(120)
     };
-    options.AddPolicy("CoverGeneration", TimeSpan.FromMinutes(60));
-    options.AddPolicy("AiGeneration", TimeSpan.FromMinutes(60));
+    options.AddPolicy("CoverGeneration", TimeSpan.FromMinutes(120));
+    options.AddPolicy("AiGeneration", TimeSpan.FromMinutes(120));
 });
 
 // ✅ Add services to the container.

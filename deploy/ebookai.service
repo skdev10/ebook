@@ -12,8 +12,8 @@ EnvironmentFile=-/etc/default/ebookai
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
 
-# Bind on port 5000 (change or add URLs in /etc/default/ebookai: ASPNETCORE_URLS=http://0.0.0.0:5000)
-ExecStart=/opt/EbookAI/app-out/EBookDashboard --urls http://0.0.0.0:5000
+# Kestrel :5050 when nginx fronts public :5000 (see deploy/resolve-app-ports.sh).
+ExecStart=/opt/EbookAI/app-out/EBookDashboard --urls http://0.0.0.0:5050
 Restart=always
 RestartSec=5
 User=www-data

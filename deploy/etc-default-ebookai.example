@@ -41,6 +41,6 @@ ConnectionStrings__DefaultConnection='Server=127.0.0.1;Port=3306;Database=ebookp
 Authentication__CookieSecurePolicy=SameAsRequest
 
 # AI chapter generation — upstream + browser wait (minutes)
-ChapterGeneration__HttpTimeoutMinutes=55
-ChapterGeneration__BrowserFetchTimeoutMinutes=55
+ChapterGeneration__HttpTimeoutMinutes=90
+ChapterGeneration__BrowserFetchTimeoutMinutes=90
 ChapterGeneration__TypicalGenerationMinutes=5
