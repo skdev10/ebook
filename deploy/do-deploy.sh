@@ -17,12 +17,20 @@ PUBLIC_PORT="${PUBLIC_PORT:-5000}"
 echo "==> Git pull ($BRANCH)"
 git fetch origin "$BRANCH"
 git checkout "$BRANCH"
-# Server-side edits to deploy/*.sh block pull — reset so repo scripts always win.
-if ! git diff --quiet -- deploy/ 2>/dev/null || ! git diff --cached --quiet -- deploy/ 2>/dev/null; then
+# Server-side edits to deploy/*.sh often block pull — always take remote deploy/ before merge.
+if [[ -n "$(git status --porcelain deploy/ 2>/dev/null || true)" ]]; then
   echo "    Resetting local deploy/ changes so pull can proceed..."
-  git checkout -- deploy/ 2>/dev/null || git restore --source=HEAD --staged --worktree deploy/ 2>/dev/null || true
 fi
-git pull origin "$BRANCH"
+git checkout "origin/${BRANCH}" -- deploy/ 2>/dev/null \
+  || git checkout -- deploy/ 2>/dev/null \
+  || git restore --source=HEAD --staged --worktree deploy/ 2>/dev/null \
+  || true
+if ! git pull --ff-only origin "$BRANCH" 2>/dev/null; then
+  echo "    Pull still blocked — force-syncing deploy/ from origin/${BRANCH} and retrying..."
+  git fetch origin "$BRANCH"
+  git checkout "origin/${BRANCH}" -- deploy/
+  git pull --ff-only origin "$BRANCH"
+fi
 echo "    HEAD: $(git log -1 --oneline)"
 
 echo "==> External API env"
@@ -32,7 +40,11 @@ if [[ -f deploy/ensure-external-api-env.sh ]]; then
 fi
 
 echo "==> Email SMTP env"
-chmod +x deploy/ensure-email-env.sh 2>/dev/null || true
+chmod +x deploy/ensure-email-env.sh deploy/set-smtp-credentials.sh 2>/dev/null || true
+if [[ -n "${GMAIL_USER:-}" && -n "${GMAIL_APP_PASSWORD:-}" && -f deploy/set-smtp-credentials.sh ]]; then
+  echo "    Applying GMAIL_USER from environment..."
+  bash deploy/set-smtp-credentials.sh "$GMAIL_USER" "$GMAIL_APP_PASSWORD"
+fi
 if [[ -f deploy/ensure-email-env.sh ]]; then
   bash deploy/ensure-email-env.sh
 fi

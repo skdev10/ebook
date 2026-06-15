@@ -16,9 +16,14 @@ SENDER_NAME="${SENDER_NAME:-eBook Publisher}"
 if [[ -z "$SMTP_USER" || -z "$SMTP_PASS" ]]; then
   echo "Usage: bash deploy/set-smtp-credentials.sh 'email@example.com' 'smtp-password-or-app-password'"
   echo ""
-  echo "Gmail example:"
-  echo "  bash deploy/set-smtp-credentials.sh 'you@gmail.com' 'abcd efgh ijkl mnop'"
+  echo "Gmail example (16-character App Password, NOT your normal Gmail password):"
+  echo "  bash deploy/set-smtp-credentials.sh 'you@gmail.com' 'abcdefghijklmnop'"
   exit 1
+fi
+
+# Gmail App Passwords are 16 chars (spaces optional). Normal passwords will fail SMTP auth.
+if [[ "$SMTP_HOST" == "smtp.gmail.com" && "${#SMTP_PASS}" -lt 8 ]]; then
+  echo "WARN: Password looks too short for Gmail. Use a Google App Password (16 characters), not your login password."
 fi
 
 if [[ ! -f "$ENV_FILE" ]]; then
