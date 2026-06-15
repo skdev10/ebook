@@ -30,7 +30,6 @@
     var publishStateText = canExport
         ? (publishReady && (ViewBag.PublishBookStatus as string ?? "").Equals("Finalized", StringComparison.OrdinalIgnoreCase) ? "Finalized — ready to export" : "Ready to export")
         : (bookId > 0 ? "Add chapters in AI Writer" : "No book selected");
-    var isPrintReadyFlow = ViewBag.PublishPrintReadyMode as bool? ?? false;
     var publishBookFormat = (ViewBag.PublishBookFormat as string ?? "Ebook").Trim();
     var publishFormatterSnapshotJson = ViewBag.PublishFormatterSnapshot as string ?? "{}";
     if (!publishBookFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
@@ -40,10 +39,13 @@
         publishBookFormat = "Ebook";
     }
     var isBothFormat = publishBookFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
-    var showPrintExports = isPrintReadyFlow || isBothFormat;
-    var showEbookExports = isBothFormat || (!isPrintReadyFlow && publishBookFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase));
-    var displayCoverUrl = CoverUrl(isPrintReadyFlow && hasSavedCoverWrap ? pbCoverWrap : pbCover);
-    var displayCoverIsWrap = isPrintReadyFlow && hasSavedCoverWrap;
+    var isPaperbackFormat = publishBookFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase);
+    var isEbookFormat = publishBookFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase);
+    var isPrintReadyFlow = isPaperbackFormat;
+    var showPrintExports = isPaperbackFormat || isBothFormat;
+    var showEbookExports = isEbookFormat || isBothFormat;
+    var displayCoverUrl = CoverUrl((isPaperbackFormat || isBothFormat) && hasSavedCoverWrap ? pbCoverWrap : pbCover);
+    var displayCoverIsWrap = (isPaperbackFormat || isBothFormat) && hasSavedCoverWrap;
 }
 
 <style>
@@ -1128,6 +1130,7 @@
     var isPrintReadyFlow = @(isPrintReadyFlow.ToString().ToLowerInvariant());
     var isBothFormat = @(isBothFormat.ToString().ToLowerInvariant());
     var showPrintExports = @(showPrintExports.ToString().ToLowerInvariant());
+    var showEbookExports = @(showEbookExports.ToString().ToLowerInvariant());
     var publishableKey = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishableKey));
     var pbTitle = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbTitle));
     var pbGenre = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(pbGenre));
@@ -1219,10 +1222,9 @@
 
     function draftIndicatesPrintReady() {
         var draft = getFormatterDraftSnapshot();
-        var plats = ((draft.publishingPlatform || '') + ',' + (draft.publishingPlatforms || '')).toLowerCase();
         var fmt = (draft.bookFormat || publishBookFormat || '').trim();
         if (fmt === 'Print') fmt = 'Paperback';
-        return plats.indexOf('print ready') >= 0 || fmt === 'Paperback';
+        return fmt === 'Paperback' || fmt === 'Both';
     }
 
     function redirectToDashboardAfterExport(message, flowPath) {
@@ -1283,19 +1285,12 @@
     }
 
     function syncPublishModeFromContext() {
-        try {
-            var qp = new URLSearchParams(window.location.search);
-            if (qp.get('flow') === 'printready' && publishBookFormat !== 'Both') {
-                isPrintReadyFlow = true;
-                showPrintExports = true;
-                showEbookExports = false;
-            }
-        } catch (_) { /* no-op */ }
-        if (publishBookFormat !== 'Both' && draftIndicatesPrintReady()) {
-            isPrintReadyFlow = true;
-            showPrintExports = true;
-            showEbookExports = false;
-        }
+        var fmt = (publishBookFormat || 'Ebook').trim();
+        if (fmt === 'Print') fmt = 'Paperback';
+        isBothFormat = fmt === 'Both';
+        isPrintReadyFlow = fmt === 'Paperback';
+        showPrintExports = fmt === 'Paperback' || fmt === 'Both';
+        showEbookExports = fmt === 'Ebook' || fmt === 'Both';
         applyPublishExportModeUi();
     }
 

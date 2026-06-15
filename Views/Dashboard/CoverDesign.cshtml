@@ -133,10 +133,10 @@
         padding: 0;
         transform-style: preserve-3d;
         width: 100%;
-        max-width: min(100%, 22rem);
-        margin-left: 0;
-        margin-right: 0;
-        align-self: flex-start;
+        max-width: min(100%, 26rem);
+        margin-left: auto;
+        margin-right: auto;
+        align-self: center;
     }
     /* Preview: no zoom wrapper — 3D tilt on the shell only */
     #covPreviewShell.cov-preview-3d {
@@ -224,14 +224,15 @@
         overflow: hidden;
     }
     #covPreviewColumn {
-        align-self: flex-start;
+        align-self: stretch;
         background: #fff;
+        justify-content: center;
     }
     #covPreviewColumn .cov-preview-book-stage {
         align-self: center;
         margin-left: auto;
         margin-right: auto;
-        max-width: min(100%, 20rem);
+        max-width: min(100%, 26rem);
     }
     #covPreviewPlaceholderImg {
         object-fit: cover;
@@ -265,9 +266,9 @@
         You do not have any books yet. Create a book first, then return here to design your cover.
     </div>
 
-    <div id="coverMain" class="hidden cov-main-card bg-white rounded-[32px] shadow-sm w-full border border-slate-200/60 flex flex-col lg:flex-row gap-8 lg:gap-12 overflow-hidden items-start">
+    <div id="coverMain" class="hidden cov-main-card bg-white rounded-[32px] shadow-sm w-full border border-slate-200/60 flex flex-col lg:flex-row gap-4 lg:gap-6 overflow-hidden items-stretch">
         <!-- Form -->
-        <div class="w-full lg:w-5/12 p-6 md:p-8 lg:p-10 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
+        <div class="w-full lg:w-[42%] xl:w-[40%] p-4 md:p-6 lg:p-7 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
             <div class="mb-4">@await Html.PartialAsync("_FlowStepper", 3)</div>
             <h1 class="font-serif text-2xl md:text-[1.65rem] text-slate-900 font-medium tracking-tight mb-1">AI Book Cover Creator</h1>
             <p class="text-sm text-slate-500 mb-4">Uses the same book as in AI Writer and Book Formatting. Adjust details, then generate your cover.</p>
@@ -324,15 +325,15 @@
         </div>
 
         <!-- Preview -->
-        <div id="covPreviewColumn" class="w-full lg:w-7/12 p-6 md:p-8 lg:p-10 flex flex-col items-center bg-white shrink-0">
-            <div class="flex items-center gap-3 mb-2 shrink-0 w-full max-w-md">
+        <div id="covPreviewColumn" class="w-full lg:flex-1 p-4 md:p-6 lg:p-7 flex flex-col items-center justify-center bg-white min-h-0">
+            <div class="flex items-center gap-3 mb-2 shrink-0 w-full max-w-[26rem]">
                 <span class="w-5 h-0.5 bg-violet-500 rounded-full"></span>
                 <span class="text-violet-600 font-medium text-sm tracking-wide">Cover preview</span>
             </div>
-            <h2 id="covPreviewHeaderTitle" class="font-serif text-xl md:text-2xl text-slate-900 font-medium tracking-tight mb-4 shrink-0 w-full max-w-md text-center lg:text-left">Your book</h2>
+            <h2 id="covPreviewHeaderTitle" class="font-serif text-xl md:text-2xl text-slate-900 font-medium tracking-tight mb-3 shrink-0 w-full max-w-[26rem] text-center lg:text-left">Your book</h2>
 
-            <div class="cov-preview-book-stage w-full flex justify-center">
-                    <div id="covPreviewShell" class="cov-preview-3d w-full max-w-[20rem] aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
+            <div class="cov-preview-book-stage w-full flex justify-center items-center flex-1 min-h-[280px]">
+                    <div id="covPreviewShell" class="cov-preview-3d w-full max-w-[26rem] aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
                         <img id="covPreviewBgImg" src="" alt="" class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500 pointer-events-none" />
                         <img id="covPreviewPlaceholderImg" src="@coverProgressPlaceholder" alt="Cover design in progress" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" />
                         <div class="absolute inset-0 flex flex-col items-center justify-between pt-[12%] pb-[14%] px-5 sm:px-7 text-center z-10 cov-preview-typography">

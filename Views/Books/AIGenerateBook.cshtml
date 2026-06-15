@@ -307,41 +307,10 @@
             margin-inline: 0;
         }
     }
-    /* Match Book Formatting / CoverDesignCalculator side chevrons */
-    .ai-writer-preview-side-nav {
-        position: absolute;
-        top: 50%;
-        z-index: 24;
-        pointer-events: auto;
-        width: 2.5rem;
-        height: 3.5rem;
-        border-radius: 0.75rem;
-        border: 1px solid #e2e8f0;
-        background: #fff;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        color: #64748b;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-        padding: 0;
-    }
-    .ai-writer-preview-side-nav:hover:not(:disabled) {
-        transform: translateY(-50%) scale(1.04);
-        border-color: #c4b5fd;
-        color: #5b21b6;
-        box-shadow: 0 8px 22px rgba(91, 33, 182, 0.18);
-    }
-    .ai-writer-preview-side-nav:disabled {
-        opacity: 0.32;
-        cursor: not-allowed;
-        box-shadow: none;
-    }
-    .ai-writer-preview-side-prev { left: 0; transform: translate(-42%, -50%); }
-    .ai-writer-preview-side-prev:hover:not(:disabled) { transform: translate(-42%, -50%) scale(1.04); }
-    .ai-writer-preview-side-next { right: 0; transform: translate(42%, -50%); }
-    .ai-writer-preview-side-next:hover:not(:disabled) { transform: translate(42%, -50%) scale(1.04); }
+    /* Hide preview page navigation — side zones and bottom prev/next */
+    #chapterPreviewNav { display: none !important; }
+    .ai-writer-preview-side-nav { display: none !important; }
+    .book-nav-zone { display: none !important; }
     #preview-content.chapter-preview-viewport,
     #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
         position: relative;

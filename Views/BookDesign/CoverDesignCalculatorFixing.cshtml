@@ -1562,16 +1562,9 @@
                 <!-- Left: AI Book Formatter (your design) -->
                 <div id="fmt-left-config-column" class="w-full lg:w-[480px] flex-shrink-0 flex flex-col">
                     <div class="mb-4">@await Html.PartialAsync("_FlowStepper", 2)</div>
-                    <h1 class="font-serif text-3xl font-medium text-gray-900 mb-3 tracking-tight">AI Book Formatter</h1>
-                    <div class="mb-8">
-                        <label for="formatter-display-author" class="block text-xs font-semibold text-gray-500 mb-2.5">Author (matches your account &amp; export)</label>
-                        <div id="formatter-display-author" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-medium text-gray-900 min-h-[2.75rem] flex items-center" role="status">@((ViewBag.DisplayAuthorName as string) ?? "")</div>
-                    </div>
-                    <div class="fmt-workflow-hint" role="note">
-                        <p>Continue writing in <a href="@(bookId > 0 ? $"/Books/AIGenerateBook?bookId={bookId}" : "/Dashboard")">AI Book Writer</a>. When your draft is ready, move to <strong>Next: AI Cover Design</strong>. Your formatted manuscript preview appears on the right.</p>
-                    </div>
                     <div class="space-y-6 flex-1 overflow-y-auto pr-2 pb-20">
                         <input type="hidden" id="selected-book-id" value="@bookId" />
+                        <div id="formatter-display-author" class="hidden" aria-hidden="true">@((ViewBag.DisplayAuthorName as string) ?? "")</div>
 
                         <div class="group" data-guided-tour="fmt-format">
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5" id="format-field-label">What format will your book be?</label>
@@ -1660,32 +1653,12 @@
 
                         <div>
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Publishing Platforms</label>
-                            <p class="text-xs text-gray-400 mb-2">Select where you plan to publish.</p>
-                            <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm" id="platforms-container">
-                                <div class="platform-block border-b border-gray-50">
-                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Amazon KDP" />
-                                        <span class="text-sm flex-1">Amazon Kindle Publishing (KDP)</span>
-                                    </label>
-                                </div>
-                                <div class="platform-block border-b border-gray-50">
-                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="IngramSpark" />
-                                        <span class="text-sm flex-1">IngramSpark</span>
-                                    </label>
-                                </div>
-                                <div class="platform-block border-b border-gray-50">
-                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Barnes & Noble" />
-                                        <span class="text-sm flex-1">Barnes &amp; Noble Press</span>
-                                    </label>
-                                </div>
-                                <div class="platform-block">
-                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
-                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Just Print Ready File" />
-                                        <span class="text-sm flex-1">Publishable Book</span>
-                                    </label>
-                                </div>
+                            <p class="text-xs text-gray-400 mb-2">Where you may publish — for reference only.</p>
+                            <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm" id="platforms-container" aria-hidden="true">
+                                <div class="platform-block border-b border-gray-50 px-4 py-3.5 text-sm text-slate-700">Amazon Kindle Publishing (KDP)</div>
+                                <div class="platform-block border-b border-gray-50 px-4 py-3.5 text-sm text-slate-700">IngramSpark</div>
+                                <div class="platform-block border-b border-gray-50 px-4 py-3.5 text-sm text-slate-700">Barnes &amp; Noble Press</div>
+                                <div class="platform-block px-4 py-3.5 text-sm text-slate-700">Other ebook &amp; print stores</div>
                             </div>
                         </div>
 
@@ -1698,7 +1671,7 @@
                         <button type="button" id="fmt-btn-reset-formatting" class="formatter-ui-radius w-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 text-sm font-medium py-2 px-6 transition-all inline-flex items-center justify-center gap-2" title="Reset Interior style, Text size, and Line spacing to defaults">
                             <i class="fas fa-rotate-left text-xs" aria-hidden="true"></i> Reset formatting
                         </button>
-                        <p id="fmt-next-hint" class="text-xs text-gray-500 leading-relaxed">Ebook: open AI Cover Design. Publishable Book: open the KDP-style print designer here.</p>
+                        <p id="fmt-next-hint" class="text-xs text-gray-500 leading-relaxed">Ebook: front cover + EPUB on Publish. Paperback: full wrap + interior PDF on Publish.</p>
                         <p id="formatter-save-status" class="text-xs text-gray-400 min-h-[1.25rem] leading-relaxed" aria-live="polite"></p>
                     </div>
                 </div>
@@ -1713,7 +1686,7 @@
                             <span class="text-purple-700 font-bold text-xs uppercase tracking-wide">Ebook preview</span>
                         </div>
                         <h2 id="formatting-preview-title" class="font-serif text-2xl sm:text-3xl text-gray-900 mb-0.5 tracking-tight leading-tight">@(bookId > 0 && !string.IsNullOrWhiteSpace(displayTitle) && !displayTitle.Equals("No Book Selected", StringComparison.OrdinalIgnoreCase) ? displayTitle : "Formatting studio")</h2>
-                        <p id="fmt-preview-byline" class="text-sm text-slate-600 mb-0 @(string.IsNullOrWhiteSpace(bylineText) ? "hidden" : "")" @(string.IsNullOrWhiteSpace(bylineText) ? "aria-hidden=\"true\"" : "")>@bylineText</p>
+                        <p id="fmt-preview-byline" class="hidden text-sm text-slate-600 mb-0" aria-hidden="true"></p>
                     </div>
 
                     <div id="fmt-studio-stage" class="fmt-studio-stage flex flex-col flex-1 min-h-0">
@@ -2073,16 +2046,15 @@
     }
 
     function getFormatterStateFromUi() {
-        var platStr = getSelectedPlatforms();
-        var primaryPlat = platStr ? platStr.split(',')[0].trim() : '';
         var accentEl = document.getElementById('fmt-preview-accent');
+        var fmt = (document.getElementById('format-select') && document.getElementById('format-select').value) || 'Ebook';
         return {
-            format: (document.getElementById('format-select') && document.getElementById('format-select').value) || 'Ebook',
+            format: fmt,
             interiorStyle: (document.getElementById('style-select') && document.getElementById('style-select').value) || 'Novel',
             textSize: (document.getElementById('text-size-select') && document.getElementById('text-size-select').value) || 'Medium',
             lineSpacing: (document.getElementById('line-spacing-select') && document.getElementById('line-spacing-select').value) || '1.6',
-            publishingPlatforms: platStr,
-            publishingPlatform: primaryPlat,
+            publishingPlatforms: '',
+            publishingPlatform: '',
             previewAccent: (accentEl && accentEl.value) ? accentEl.value : '#5b21b6',
             previewPageCount: getFormatterPreviewPageCount(),
             savedAtUtc: new Date().toISOString()
@@ -2111,8 +2083,6 @@
         }
         if (sizeEl && state.textSize) sizeEl.value = state.textSize;
         if (lineEl && state.lineSpacing) lineEl.value = state.lineSpacing;
-        if (typeof state.publishingPlatforms === 'string') setSelectedPlatforms(state.publishingPlatforms);
-        else if (typeof state.publishingPlatform === 'string' && state.publishingPlatform) setSelectedPlatforms(state.publishingPlatform);
         selectedFormat = (fmtEl && fmtEl.value) || selectedFormat;
         var accentIn = document.getElementById('fmt-preview-accent');
         if (accentIn && state.previewAccent && /^#[0-9A-Fa-f]{6}$/.test(String(state.previewAccent).trim())) {
@@ -4028,38 +3998,27 @@
 
     var PRINT_READY_PLATFORM = 'Just Print Ready File';
 
-    function getSelectedPlatformsArray() {
-        const sel = [];
-        document.querySelectorAll('#platforms-container .platform-check:checked').forEach(function(cb) {
-            const p = (cb.getAttribute('data-platform') || '').trim();
-            if (p) sel.push(p);
-        });
-        return sel;
-    }
-
-    function getSelectedPlatforms() {
-        return getSelectedPlatformsArray().join(', ');
-    }
-
+    function getSelectedPlatformsArray() { return []; }
+    function getSelectedPlatforms() { return ''; }
     function hasPrintReadyPlatformSelected() {
-        return getSelectedPlatformsArray().indexOf(PRINT_READY_PLATFORM) >= 0;
+        var fmtEl = document.getElementById('format-select');
+        var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
+        return fmt === 'Paperback' || fmt === 'Both';
     }
 
-    var coverDesignAutoNavTimer = null;
-    var coverDesignAutoNavInFlight = false;
-
-    function buildCoverDesignUrl(bid, fmt, hasPrintReady) {
+    function buildCoverDesignUrl(bid, fmt) {
         var url = '/Dashboard/CoverDesign?bookId=' + encodeURIComponent(bid);
         if (fmt === 'Both') url += '&coverType=both';
-        else if (fmt === 'Paperback' && hasPrintReady) url += '&flow=printready';
+        else if (fmt === 'Paperback') url += '&flow=printready';
         return url;
     }
 
     function shouldAutoNavigateToCoverDesign() {
-        var fmtEl = document.getElementById('format-select');
-        var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
-        return fmt === 'Paperback' && hasPrintReadyPlatformSelected();
+        return false;
     }
+
+    var coverDesignAutoNavTimer = null;
+    var coverDesignAutoNavInFlight = false;
 
     function navigateToCoverDesignFromFormatter(options) {
         var opts = options || {};
@@ -4072,7 +4031,6 @@
         }
         var fmtEl = document.getElementById('format-select');
         var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
-        var hasPrintReady = hasPrintReadyPlatformSelected();
 
         coverDesignAutoNavInFlight = true;
         saveFormatting(function (ok) {
@@ -4082,7 +4040,7 @@
                 return;
             }
             try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (e) {}
-            window.location.href = buildCoverDesignUrl(bid, fmt, hasPrintReady);
+            window.location.href = buildCoverDesignUrl(bid, fmt);
         });
     }
 
@@ -4112,70 +4070,27 @@
         var hint = document.getElementById('fmt-next-hint');
         var fmtEl = document.getElementById('format-select');
         var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
-        var hasPrintReady = hasPrintReadyPlatformSelected();
         selectedFormat = fmt;
         if (btn) {
-            if (fmt === 'Paperback' && hasPrintReady) {
-                btn.innerHTML = 'Next: AI Cover Design <i class="fas fa-arrow-right"></i>';
-            } else if (fmt === 'Both' && hasPrintReady) {
-                btn.innerHTML = 'Generate Print Wrap, Then Ebook Cover <i class="fas fa-arrow-right"></i>';
-            } else {
-                btn.innerHTML = 'Next: AI Cover Design <i class="fas fa-arrow-right"></i>';
-            }
+            btn.innerHTML = 'Next: AI Cover Design <i class="fas fa-arrow-right"></i>';
         }
         if (btnStudio) {
-            if (fmt === 'Paperback' && hasPrintReady) {
-                btnStudio.innerHTML = 'Print-Ready Designer <i class="fas fa-arrow-right" aria-hidden="true"></i>';
-                btnStudio.title = 'Open the KDP-style print-ready designer';
-            } else if (fmt === 'Both' && hasPrintReady) {
-                btnStudio.innerHTML = 'Print Wrap, Then Cover <i class="fas fa-arrow-right" aria-hidden="true"></i>';
-                btnStudio.title = 'Generate the print-ready wrap first, then continue to AI Cover Design';
-            } else {
-                btnStudio.innerHTML = 'Next <i class="fas fa-arrow-right" aria-hidden="true"></i>';
-                btnStudio.title = 'Continue to AI Cover Design';
-            }
+            btnStudio.innerHTML = 'Next <i class="fas fa-arrow-right" aria-hidden="true"></i>';
+            btnStudio.title = 'Continue to AI Cover Design';
         }
         if (hint) {
-            if (fmt === 'Paperback' && hasPrintReady) {
-                hint.textContent = 'Print-ready mode: continue to AI Cover Design to generate front, spine, and back cover panels.';
-            } else if (fmt === 'Both' && hasPrintReady) {
-                hint.textContent = 'Both mode with Publishable Book: continue to AI Cover Design for print wrap and ebook cover.';
+            if (fmt === 'Paperback') {
+                hint.textContent = 'Paperback: design your full wrap in Cover Design; Publish offers wrap PNG + interior PDF.';
             } else if (fmt === 'Both') {
-                hint.textContent = 'Both mode without Publishable Book: continue to AI Cover Design for the shared front cover workflow.';
+                hint.textContent = 'Both: ebook front cover + EPUB and paperback full wrap + PDF on Publish.';
             } else {
-                hint.textContent = 'Ebook or standard cover flow: continue to AI Cover Design for the front cover.';
+                hint.textContent = 'Ebook: front cover + EPUB on Publish after Cover Design.';
             }
         }
     }
 
-    function setNonPrintPlatformsDisabled(disabled) {
-        document.querySelectorAll('#platforms-container .platform-block').forEach(function(block) {
-            var cb = block.querySelector('.platform-check');
-            if (!cb) return;
-            var p = cb.getAttribute('data-platform');
-            if (p === PRINT_READY_PLATFORM) {
-                cb.disabled = false;
-                block.classList.remove('platform-option-disabled');
-            } else {
-                cb.disabled = !!disabled;
-                if (disabled) block.classList.add('platform-option-disabled');
-                else block.classList.remove('platform-option-disabled');
-            }
-        });
-    }
-
-    function setSelectedPlatforms(str) {
-        let arr = (str || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        if (arr.indexOf(PRINT_READY_PLATFORM) >= 0)
-            arr = [PRINT_READY_PLATFORM];
-        document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
-            const p = cb.getAttribute('data-platform');
-            cb.checked = arr.indexOf(p) >= 0;
-            syncPlatformBlockUi(cb);
-        });
-        setNonPrintPlatformsDisabled(arr.indexOf(PRINT_READY_PLATFORM) >= 0);
-        syncFormatterNextActionUi();
-    }
+    function setSelectedPlatforms() { /* display-only list */ }
+    function applyPublishingPlatformRules() { /* display-only list */ }
 
     function getFormatterAntiForgeryToken() {
         var t = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -4251,31 +4166,7 @@
     }
 
     function applyPublishingPlatformRules(changedCb) {
-        var name = changedCb.getAttribute('data-platform');
-        if (!changedCb.checked) {
-            syncPlatformBlockUi(changedCb);
-            if (name === PRINT_READY_PLATFORM) {
-                setNonPrintPlatformsDisabled(false);
-                cancelAutoNavigateToCoverDesign();
-            }
-            return;
-        }
-        if (name === PRINT_READY_PLATFORM) {
-            document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
-                var cbName = cb.getAttribute('data-platform');
-                cb.checked = cbName === PRINT_READY_PLATFORM;
-                syncPlatformBlockUi(cb);
-            });
-            setNonPrintPlatformsDisabled(true);
-        } else {
-            var printReadyCb = document.querySelector('#platforms-container .platform-check[data-platform="' + PRINT_READY_PLATFORM + '"]');
-            if (printReadyCb) {
-                printReadyCb.checked = false;
-                syncPlatformBlockUi(printReadyCb);
-            }
-            setNonPrintPlatformsDisabled(false);
-        }
-        syncPlatformBlockUi(changedCb);
+        /* Publishing platforms are display-only — format select drives export on Publish. */
     }
 
     function escapeHtml(s) {
@@ -5718,22 +5609,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
-            cb.addEventListener('change', function() {
-                applyPublishingPlatformRules(this);
-                if (this.checked) showToast('Selected: ' + (this.getAttribute('data-platform') || ''));
-                persistFormatterDraftLocal(getFormatterStateFromUi());
-                syncFormatterNextActionUi();
-                queueAutosave(120);
-                if (this.getAttribute('data-platform') === PRINT_READY_PLATFORM && this.checked) {
-                    queueAutoNavigateToCoverDesign();
-                }
-            });
-        });
-
-        var platformsStr = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model?.PublishingPlatforms ?? string.Empty));
-        if (platformsStr) setSelectedPlatforms(platformsStr);
-
         const formatSelect = document.getElementById('format-select');
         if (formatSelect && formatFromUrl) {
             formatFromUrl = formatFromUrl === 'Print' ? 'Paperback' : formatFromUrl;
@@ -5750,15 +5625,7 @@
 
         if (formatSelect) formatSelect.addEventListener('change', function() {
             selectedFormat = formatSelect.value || 'Ebook';
-            if (selectedFormat !== 'Paperback') cancelAutoNavigateToCoverDesign();
-            if (selectedFormat === 'Ebook') {
-                var printReadyCb = document.querySelector('#platforms-container .platform-check[data-platform="' + PRINT_READY_PLATFORM + '"]');
-                if (printReadyCb && printReadyCb.checked) {
-                    printReadyCb.checked = false;
-                    syncPlatformBlockUi(printReadyCb);
-                    setNonPrintPlatformsDisabled(false);
-                }
-            }
+            cancelAutoNavigateToCoverDesign();
             updatePremiumFormatUi();
             var f = formatSelect.value;
             if (f === 'Both') {
@@ -5768,9 +5635,6 @@
             syncFormatterNextActionUi();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
-            if (selectedFormat === 'Paperback' && hasPrintReadyPlatformSelected()) {
-                queueAutoNavigateToCoverDesign();
-            }
         });
 
         (function initFormatPicker() {
