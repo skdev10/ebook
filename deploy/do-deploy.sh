@@ -62,6 +62,12 @@ if [[ -f deploy/ensure-users-schema.sh ]]; then
   bash deploy/ensure-users-schema.sh
 fi
 
+echo "==> Books DB schema (BookContentHtml for whole-book generation)"
+chmod +x deploy/ensure-books-schema.sh 2>/dev/null || true
+if [[ -f deploy/ensure-books-schema.sh ]]; then
+  bash deploy/ensure-books-schema.sh
+fi
+
 echo "==> Publish"
 chmod +x deploy/vm-deploy.sh
 DEPLOY_SKIP_GIT=1 BRANCH="$BRANCH" OUT_DIR="$OUT_DIR" ./deploy/vm-deploy.sh
