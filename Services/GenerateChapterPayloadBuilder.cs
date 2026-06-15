@@ -16,15 +16,16 @@ public static class GenerateChapterPayloadBuilder
 """;
 
     /// <summary>Upstream FastAPI expects only user_id, book_id, chapter, user_input (chapter as string in docs).</summary>
-    public static object BuildUpstreamGeneratePayload(AIBookRequest model)
+    public static object BuildUpstreamGeneratePayload(AIBookRequest model, string? augmentedUserInput = null)
     {
         var chapter = model.Chapter > 0 ? model.Chapter : 1;
+        var input = augmentedUserInput ?? model.UserInput ?? string.Empty;
         return new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["user_id"] = (model.UserId ?? "").Trim(),
             ["book_id"] = (model.BookId ?? "").Trim(),
             ["chapter"] = chapter.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["user_input"] = string.Concat(model.UserInput ?? "", NarrativeHint)
+            ["user_input"] = string.Concat(input, NarrativeHint)
         };
     }
 

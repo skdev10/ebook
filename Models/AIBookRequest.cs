@@ -25,6 +25,10 @@ namespace EBookDashboard.Models
         [JsonProperty("user_input")]
         public string UserInput { get; set; } = string.Empty;
 
+        /// <summary>Short user brief only (UI). When set, takes precedence over <see cref="UserInput"/> for storage.</summary>
+        [JsonProperty("chapter_topic")]
+        public string ChapterTopic { get; set; } = string.Empty;
+
         /// <summary>When true, generate API returns content only and does not save to database. Use with Finalize to save.</summary>
         [JsonProperty("preview_only")]
         public bool PreviewOnly { get; set; }

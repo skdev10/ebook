@@ -1,5 +1,6 @@
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
+using EBookDashboard.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -159,7 +160,9 @@ namespace EBookDashboard.Services
                 Endpoint = endpoint,
                 Chapter = request.Chapter,
                 Title = request.Title,
-                RequestData = JsonConvert.SerializeObject(request.UserInput),
+                RequestData = ChapterPromptComposer.SerializeStoredRequestData(
+                    ChapterPromptComposer.NormalizeUserBrief(
+                        !string.IsNullOrWhiteSpace(request.ChapterTopic) ? request.ChapterTopic : request.UserInput)),
                 ResponseData = dataToStore,
                 UserId = userId,
                 BookId = request.BookId != null && int.TryParse(request.BookId, out int bid) ? bid : generatedBookId,

@@ -594,6 +594,7 @@ namespace EBookDashboard.Controllers
                     Title = jo["Title"]?.ToString() ?? jo["title"]?.ToString() ?? string.Empty,
                     Chapter = chapterVal,
                     UserInput = jo["UserInput"]?.ToString() ?? jo["user_input"]?.ToString() ?? string.Empty,
+                    ChapterTopic = jo["ChapterTopic"]?.ToString() ?? jo["chapter_topic"]?.ToString() ?? string.Empty,
                     PreviewOnly = previewVal
                 };
             }
@@ -658,8 +659,21 @@ namespace EBookDashboard.Controllers
             int? rawResponseId = null;
             try
             {
+                var userBrief = ChapterPromptComposer.NormalizeUserBrief(
+                    !string.IsNullOrWhiteSpace(model.ChapterTopic) ? model.ChapterTopic : model.UserInput);
+                model.UserInput = userBrief;
+                model.ChapterTopic = userBrief;
+
+                var continuityPrefix = string.Empty;
+                if (int.TryParse(model.BookId, out var continuityBookId) && continuityBookId > 0 && model.Chapter > 1)
+                {
+                    continuityPrefix = await ChapterPromptComposer.BuildContinuityPrefixAsync(
+                        _context, continuityBookId, model.Chapter, CancellationToken.None);
+                }
+
+                var augmentedInput = ChapterPromptComposer.BuildAugmentedUserInput(userBrief, continuityPrefix);
                 var client = _bookApiClient;
-                var apiPayload = GenerateChapterPayloadBuilder.BuildUpstreamGeneratePayload(model);
+                var apiPayload = GenerateChapterPayloadBuilder.BuildUpstreamGeneratePayload(model, augmentedInput);
                 var json = JsonConvert.SerializeObject(apiPayload);
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
@@ -1503,6 +1517,50 @@ namespace EBookDashboard.Controllers
 
            return Json(result);
         }
+
+        /// <summary>Chapter finalize progress for AI writer workflow (enables Book formatting when all are locked).</summary>
+        [HttpGet]
+        public async Task<IActionResult> GetBookWritingProgress(int userId, int bookId)
+        {
+            if (userId <= 0 || bookId <= 0)
+                return Json(new { success = false, message = "Valid userId and bookId are required." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == userId);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var saved = (await _bookService.GetSavedBooksChaptersAsync(userId, bookId)).ToList();
+            var chapters = saved.Select(c =>
+            {
+                var status = (c.StatusCode ?? string.Empty).Trim();
+                var finalized = string.Equals(status, "ReadOnly", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(status, "Finalized", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(status, "Final", StringComparison.OrdinalIgnoreCase);
+                return new
+                {
+                    number = c.ChapterNumber,
+                    title = c.Title ?? string.Empty,
+                    topic = ChapterPromptComposer.ParseChapterTopicFromRequestData(c.RequestData),
+                    isFinalized = finalized,
+                    status = finalized ? "Finalized" : (string.IsNullOrEmpty(status) ? "Draft" : status),
+                    displayLabel = ChapterPromptComposer.FormatChapterLabel(c.ChapterNumber, c.Title)
+                };
+            }).OrderBy(c => c.number).ToList();
+
+            var total = chapters.Count;
+            var finalizedCount = chapters.Count(c => c.isFinalized);
+            return Json(new
+            {
+                success = true,
+                bookId,
+                totalChapters = total,
+                finalizedChapters = finalizedCount,
+                allFinalized = total > 0 && finalizedCount >= total,
+                chapters
+            });
+        }
+
         /// <summary>
         /// Get book details with chapters
         /// </summary>
@@ -1607,6 +1665,7 @@ namespace EBookDashboard.Controllers
                         responseId = c.ResponseId,
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
+                        chapterTopic = ChapterPromptComposer.ParseChapterTopicFromRequestData(c.RequestData),
                         requestData = c.RequestData,
                         content = c.Content,
                         statusCode = c.StatusCode
