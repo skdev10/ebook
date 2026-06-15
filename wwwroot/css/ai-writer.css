@@ -48,6 +48,10 @@
     border: 1px solid #86efac;
 }
 
+.chapter-finalized-badge.hidden {
+    display: none !important;
+}
+
 .chapter-topic-hint {
     font-size: 0.75rem;
     color: #64748b;
