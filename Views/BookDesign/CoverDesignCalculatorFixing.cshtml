@@ -1985,6 +1985,13 @@
     let currentPageIdx = 0;
 
     /* Typography comes from InteriorExportTheme.BuildFormatterInteriorCss on #paginatedReaderShell.interior-* */
+    function fmtValidClassTokens(list) {
+        return (list || []).filter(function(c) { return typeof c === 'string' && c.trim().length > 0; });
+    }
+    function fmtRemoveClasses(el, tokens) {
+        if (!el || !el.classList) return;
+        fmtValidClassTokens(tokens).forEach(function(c) { el.classList.remove(c); });
+    }
     var interiorStyleClassMap = {
         'Minimalist': '',
         'Novel': '',
@@ -2013,10 +2020,10 @@
         'Classic': 'fmt-mat-classic',
         'ElegantTrade': 'fmt-mat-elegant-trade'
     };
-    var allInteriorStyleClasses = Object.values(interiorStyleClassMap);
-    var allInteriorShellClasses = Object.values(interiorPreviewShellMap);
-    var allInteriorWrapClasses = Object.values(interiorWrapClassMap);
-    var allFmtMatClasses = Object.values(fmtMatClassMap);
+    var allInteriorStyleClasses = fmtValidClassTokens(Object.values(interiorStyleClassMap));
+    var allInteriorShellClasses = fmtValidClassTokens(Object.values(interiorPreviewShellMap));
+    var allInteriorWrapClasses = fmtValidClassTokens(Object.values(interiorWrapClassMap));
+    var allFmtMatClasses = fmtValidClassTokens(Object.values(fmtMatClassMap));
 
     /** 6×9 trim pagination: chars per preview page (not PARAS count). */
     const CONTENT_CHARS_SOFT_LIMIT = 5500;
@@ -4716,10 +4723,10 @@
         var wrapCls = interiorWrapClassMap[interior] || interiorWrapClassMap['Novel'];
         var matCls = fmtMatClassMap[interior] || fmtMatClassMap['Novel'];
         [document.getElementById('bookPageContentA'), document.getElementById('bookPageContentB')].filter(Boolean).forEach(function(el) {
-            el.classList.remove(...allInteriorStyleClasses);
+            fmtRemoveClasses(el, allInteriorStyleClasses);
         });
         document.querySelectorAll('#book-formatter-root .book-page-content').forEach(function(el) {
-            el.classList.remove(...allInteriorStyleClasses);
+            fmtRemoveClasses(el, allInteriorStyleClasses);
         });
         var shells = getFmtPaginatedShells();
         if (!shells.length) {
@@ -4727,33 +4734,33 @@
             if (mainShell) shells = [mainShell];
         }
         shells.forEach(function(shell) {
-            shell.classList.remove(...allInteriorShellClasses, ...allInteriorWrapClasses);
+            fmtRemoveClasses(shell, allInteriorShellClasses.concat(allInteriorWrapClasses));
             if (shellCls) shell.classList.add(shellCls);
             if (wrapCls) shell.classList.add(wrapCls);
         });
         var stage = document.getElementById('bookStage');
         if (stage) {
-            stage.classList.remove(...allInteriorShellClasses, ...allInteriorWrapClasses);
+            fmtRemoveClasses(stage, allInteriorShellClasses.concat(allInteriorWrapClasses));
             if (shellCls) stage.classList.add(shellCls);
             if (wrapCls) stage.classList.add(wrapCls);
         }
         var container = document.getElementById('bookContainer');
         if (container) {
-            container.classList.remove(...allInteriorWrapClasses);
+            fmtRemoveClasses(container, allInteriorWrapClasses);
             if (wrapCls) container.classList.add(wrapCls);
         }
         document.querySelectorAll('#book-formatter-root .book-page-background').forEach(function(bg) {
-            bg.classList.remove(...allInteriorWrapClasses, ...allInteriorStyleClasses);
+            fmtRemoveClasses(bg, allInteriorWrapClasses.concat(allInteriorStyleClasses));
             if (wrapCls) bg.classList.add(wrapCls);
         });
         var matHost = document.getElementById('fmt-book-result');
         if (matHost) {
-            matHost.classList.remove(...allFmtMatClasses);
+            fmtRemoveClasses(matHost, allFmtMatClasses);
             if (matCls) matHost.classList.add(matCls);
         }
         var scrollHost = document.getElementById('fmt-preview-scroll-host');
         if (scrollHost) {
-            scrollHost.classList.remove(...allInteriorWrapClasses);
+            fmtRemoveClasses(scrollHost, allInteriorWrapClasses);
             if (wrapCls) scrollHost.classList.add(wrapCls);
         }
         syncInteriorTokenVars();
