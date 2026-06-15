@@ -1653,12 +1653,32 @@
 
                         <div>
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Publishing Platforms</label>
-                            <p class="text-xs text-gray-400 mb-2">Where you may publish — for reference only.</p>
-                            <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm" id="platforms-container" aria-hidden="true">
-                                <div class="platform-block border-b border-gray-50 px-4 py-3.5 text-sm text-slate-700">Amazon Kindle Publishing (KDP)</div>
-                                <div class="platform-block border-b border-gray-50 px-4 py-3.5 text-sm text-slate-700">IngramSpark</div>
-                                <div class="platform-block border-b border-gray-50 px-4 py-3.5 text-sm text-slate-700">Barnes &amp; Noble Press</div>
-                                <div class="platform-block px-4 py-3.5 text-sm text-slate-700">Other ebook &amp; print stores</div>
+                            <p class="text-xs text-gray-400 mb-2">Mark where you plan to publish (for your reference — export uses Format above).</p>
+                            <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm" id="platforms-container">
+                                <div class="platform-block border-b border-gray-50">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Amazon KDP" />
+                                        <span class="text-sm flex-1">Amazon Kindle Publishing (KDP)</span>
+                                    </label>
+                                </div>
+                                <div class="platform-block border-b border-gray-50">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="IngramSpark" />
+                                        <span class="text-sm flex-1">IngramSpark</span>
+                                    </label>
+                                </div>
+                                <div class="platform-block border-b border-gray-50">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Barnes &amp; Noble" />
+                                        <span class="text-sm flex-1">Barnes &amp; Noble Press</span>
+                                    </label>
+                                </div>
+                                <div class="platform-block">
+                                    <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <input type="checkbox" class="platform-check mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0" data-platform="Other stores" />
+                                        <span class="text-sm flex-1">Other ebook &amp; print stores</span>
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -2053,8 +2073,8 @@
             interiorStyle: (document.getElementById('style-select') && document.getElementById('style-select').value) || 'Novel',
             textSize: (document.getElementById('text-size-select') && document.getElementById('text-size-select').value) || 'Medium',
             lineSpacing: (document.getElementById('line-spacing-select') && document.getElementById('line-spacing-select').value) || '1.6',
-            publishingPlatforms: '',
-            publishingPlatform: '',
+            publishingPlatforms: getSelectedPlatforms(),
+            publishingPlatform: (getSelectedPlatformsArray()[0] || ''),
             previewAccent: (accentEl && accentEl.value) ? accentEl.value : '#5b21b6',
             previewPageCount: getFormatterPreviewPageCount(),
             savedAtUtc: new Date().toISOString()
@@ -2083,6 +2103,7 @@
         }
         if (sizeEl && state.textSize) sizeEl.value = state.textSize;
         if (lineEl && state.lineSpacing) lineEl.value = state.lineSpacing;
+        if (state.publishingPlatforms) setSelectedPlatforms(state.publishingPlatforms);
         selectedFormat = (fmtEl && fmtEl.value) || selectedFormat;
         var accentIn = document.getElementById('fmt-preview-accent');
         if (accentIn && state.previewAccent && /^#[0-9A-Fa-f]{6}$/.test(String(state.previewAccent).trim())) {
@@ -3998,8 +4019,19 @@
 
     var PRINT_READY_PLATFORM = 'Just Print Ready File';
 
-    function getSelectedPlatformsArray() { return []; }
-    function getSelectedPlatforms() { return ''; }
+    function getSelectedPlatformsArray() {
+        const sel = [];
+        document.querySelectorAll('#platforms-container .platform-check:checked').forEach(function(cb) {
+            const p = (cb.getAttribute('data-platform') || '').trim();
+            if (p) sel.push(p);
+        });
+        return sel;
+    }
+
+    function getSelectedPlatforms() {
+        return getSelectedPlatformsArray().join(', ');
+    }
+
     function hasPrintReadyPlatformSelected() {
         var fmtEl = document.getElementById('format-select');
         var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
@@ -4089,8 +4121,19 @@
         }
     }
 
-    function setSelectedPlatforms() { /* display-only list */ }
-    function applyPublishingPlatformRules() { /* display-only list */ }
+    function setSelectedPlatforms(str) {
+        var arr = (str || '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+        document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
+            var p = cb.getAttribute('data-platform');
+            cb.checked = arr.indexOf(p) >= 0;
+            syncPlatformBlockUi(cb);
+        });
+    }
+
+    function applyPublishingPlatformRules(changedCb) {
+        if (!changedCb) return;
+        syncPlatformBlockUi(changedCb);
+    }
 
     function getFormatterAntiForgeryToken() {
         var t = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -4163,10 +4206,6 @@
                 showToast('Chapter name saved.');
             }).catch(function (err) { showToast((err && err.message) || 'Save failed.'); });
         });
-    }
-
-    function applyPublishingPlatformRules(changedCb) {
-        /* Publishing platforms are display-only — format select drives export on Publish. */
     }
 
     function escapeHtml(s) {
@@ -5609,6 +5648,18 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('#platforms-container .platform-check').forEach(function(cb) {
+            cb.addEventListener('change', function() {
+                applyPublishingPlatformRules(this);
+                if (this.checked) showToast('Selected: ' + (this.getAttribute('data-platform') || ''));
+                persistFormatterDraftLocal(getFormatterStateFromUi());
+                queueAutosave(120);
+            });
+        });
+
+        var platformsStr = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model?.PublishingPlatforms ?? string.Empty));
+        if (platformsStr) setSelectedPlatforms(platformsStr);
+
         const formatSelect = document.getElementById('format-select');
         if (formatSelect && formatFromUrl) {
             formatFromUrl = formatFromUrl === 'Print' ? 'Paperback' : formatFromUrl;
