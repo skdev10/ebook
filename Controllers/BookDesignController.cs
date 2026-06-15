@@ -1008,35 +1008,95 @@ namespace EBookDashboard.Controllers
             public string TrimSize { get; set; } = string.Empty;
             public string MeasurementUnits { get; set; } = string.Empty;
         }
-        //public IActionResult Index(int bookId, int totalPages)
-        //{
-        //    var designs = _context.BookDesign
-        //        .Where(d => d.IsActive)
-        //        .ToList();
 
-        //    return View(new BookDesignVM
-        //    {
-        //        BookId = bookId,
-        //        TotalPages = totalPages,
-        //        Designs = designs
-        //    });
-        //}
-        //[HttpPost]
-        //public IActionResult SaveSelection(int bookId, int designId)
-        //{
-        //    var userId = 1; // get from logged-in user
+        /// <summary>Interior design template picker (swiper) before Book Formatting.</summary>
+        [HttpGet]
+        [Route("BookDesign/SelectTemplate")]
+        public async Task<IActionResult> SelectTemplate(int bookId, int totalPages = 0)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            if (userId <= 0)
+                return RedirectToAction("UserLogin", "Account");
 
-        //    _context.BookSelectionsUser.Add(new BookSelectionsUser
-        //    {
-        //        BookId = bookId,
-        //        DesignId = designId,
-        //        UserId = userId
-        //    });
+            if (bookId > 0)
+            {
+                var owns = await _context.Books.AsNoTracking()
+                    .AnyAsync(b => b.BookId == bookId && b.UserId == userId);
+                if (!owns)
+                {
+                    TempData["InfoMessage"] = "That book was not found.";
+                    return RedirectToAction("Index", "Dashboard");
+                }
+            }
 
-        //    _context.SaveChanges();
+            if (totalPages <= 0 && bookId > 0)
+            {
+                var chapters = await _context.APIRawResponse.AsNoTracking()
+                    .Where(r => r.BookId == bookId)
+                    .Select(r => r.Chapter)
+                    .Distinct()
+                    .CountAsync();
+                totalPages = Math.Max(chapters * 10, 24);
+            }
+            if (totalPages <= 0)
+                totalPages = 100;
 
-        //    return Json(new { success = true });
-        //}
+            var designs = await _context.BookDesign
+                .AsNoTracking()
+                .Where(d => d.IsActive)
+                .OrderBy(d => d.DesignId)
+                .ToListAsync();
+
+            return View("Index", new BookDesignVM
+            {
+                BookId = bookId,
+                TotalPages = totalPages,
+                Designs = designs
+            });
+        }
+
+        /// <summary>Saves user's chosen interior design template for a book.</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Route("BookDesign/SaveSelection")]
+        public async Task<IActionResult> SaveSelection(int bookId, int designId)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            if (userId <= 0)
+                return Json(new { success = false, message = "Please sign in again." });
+            if (bookId <= 0 || designId <= 0)
+                return Json(new { success = false, message = "Book and design are required." });
+
+            var ownsBook = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == userId);
+            if (!ownsBook)
+                return Json(new { success = false, message = "Book not found." });
+
+            var designExists = await _context.BookDesign.AsNoTracking()
+                .AnyAsync(d => d.DesignId == designId && d.IsActive);
+            if (!designExists)
+                return Json(new { success = false, message = "Design not found." });
+
+            var row = await _context.BookSelectionsUser
+                .FirstOrDefaultAsync(s => s.BookId == bookId && s.UserId == userId);
+            if (row == null)
+            {
+                _context.BookSelectionsUser.Add(new BookSelectionsUser
+                {
+                    BookId = bookId,
+                    UserId = userId,
+                    DesignId = designId,
+                    CreatedDate = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                row.DesignId = designId;
+            }
+
+            await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
 
         private static int? ResolvePreviewPageCount(SaveBookFormattingRequest req, string statePayload)
         {

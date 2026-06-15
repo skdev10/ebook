@@ -15,6 +15,15 @@ public static class ExternalApiKeyResolver
 
         // Fallback when env is set but not merged into IConfiguration (some nohup/systemd setups).
         raw = ReadKey(Environment.GetEnvironmentVariable("ExternalApi__ApiKey"));
+        if (!string.IsNullOrEmpty(raw))
+            return raw;
+
+        // Documented fallback for legacy deployments.
+        raw = ReadKey(Environment.GetEnvironmentVariable("OpenAI__ApiKey"));
+        if (!string.IsNullOrEmpty(raw))
+            return raw;
+
+        raw = ReadKey(configuration?["OpenAI:ApiKey"]);
         return raw;
     }
 

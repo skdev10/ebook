@@ -3912,11 +3912,16 @@ namespace EBookDashboard.Controllers
                 return RedirectToAction("UserLogin", "Account");
             }
 
-            // Load all user's books; resolve display covers at render time (no DB placeholder writes)
+            // My Books library — published titles only (drafts resume from Dashboard modal)
             var bookEntities = await _context.Books
                 .Where(b => b.UserId == user.UserId)
-                .OrderByDescending(b => b.CreatedAt)
+                .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+                .ThenByDescending(b => b.CreatedAt)
                 .ToListAsync();
+
+            bookEntities = bookEntities
+                .Where(b => BookFlowStateService.IsPublishedStatus(b.Status))
+                .ToList();
 
             var bookIds = bookEntities.Select(b => b.BookId).ToList();
             var aiCoverByBookId = new Dictionary<int, string>();

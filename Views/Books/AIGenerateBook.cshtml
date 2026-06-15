@@ -77,14 +77,26 @@
             flex: 1 1 auto;
             min-height: 0;
             max-width: 100%;
-            width: 78%;
+            width: 100%;
             display: flex;
             flex-direction: column;
         }
         .ai-writer-preview-meta {
-            width: 78%;
-            max-width: 78%;
+            width: 100%;
+            max-width: 100%;
             margin-bottom: 1rem;
+            box-sizing: border-box;
+        }
+        .ai-writer-preview-pane > #bookResult.ai-writer-ebook-preview-wrap,
+        .ai-writer-preview-pane > #sideBySidePreview {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .ai-writer-preview-column {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
         }
         #chapterPreviewScrollHost {
             flex: 1 1 auto;
@@ -187,6 +199,9 @@
         border-radius: 18px;
         box-shadow: 0 30px 60px -30px rgba(91, 33, 182, 0.30);
     }
+    #bookResult #preview-chapter-header:not(.hidden) ~ #preview-content .manuscript-chapter-heading:first-child {
+        display: none;
+    }
     #bookResult #preview-chapter-header {
         flex: 0 0 auto;
         margin: 0;
@@ -194,7 +209,7 @@
         font-size: clamp(1.45rem, 2.4vw, 1.95rem);
         font-weight: 700;
         line-height: 1.2;
-        color: #9aa3b2;
+        color: #1e293b;
         position: relative;
         z-index: 2;
     }
@@ -1431,7 +1446,7 @@
                         <button type="button" data-flow-back="/Dashboard" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Dashboard</button>
                         <a href="@Url.Action("Index", "Dashboard")" data-unsaved-ignore="true" class="inline-flex items-center justify-center gap-2 rounded-xl border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-800 hover:bg-violet-50 transition-colors">My projects</a>
                     </div>
-                </div>
+                </div>Start a fresh project with AI Writer  write chapters, format the interior, design a cover, and publish.
                 <div class="hidden-fields sr-only" aria-hidden="true">
                     <label for="UserId">UserId:</label>
                     <input type="text" id="UserId" value="@ViewBag.UserId">
@@ -1451,7 +1466,7 @@
             <hr class="border-slate-200/80 my-1">
 
             <div id="chapterWorkflowProgress" class="chapter-workflow-progress" role="status" aria-live="polite">
-                <span id="chapterWorkflowProgressText"><strong>Chapter 1</strong> — Not started</span>
+                <span id="chapterWorkflowProgressText">Not started</span>
                 <span id="chapterFinalizedBadge" class="chapter-finalized-badge hidden" aria-hidden="true"><i class="fas fa-lock text-[9px]" aria-hidden="true"></i> Finalized</span>
             </div>
 
@@ -1550,7 +1565,8 @@
         </div>
 
         <div class="ai-writer-preview-stack flex flex-col min-w-[300px] min-h-0 flex-1 w-full">
-            <div class="ai-writer-preview-pane">
+            <div class="ai-writer-preview-pane w-full flex flex-col min-h-0 flex-1">
+            <div class="ai-writer-preview-column w-full flex flex-col gap-4 min-h-0 flex-1">
             <div class="ai-writer-preview-meta flex flex-col gap-2 mb-4 shrink-0">
                 <div class="flex items-center gap-2 text-sm font-semibold text-violet-600 tracking-wide">
                     <span class="h-px w-4 bg-violet-500 shrink-0"></span>
@@ -1645,6 +1661,7 @@
                         </button>
                     </div>
                 </div>
+            </div>
             </div>
             </div>
         </div>
@@ -1796,6 +1813,22 @@ window.persistFormatterBookId = function (bookId) {
     try { sessionStorage.setItem(window.EBOOK_FORMATTER_BOOK_KEY, String(bookId)); } catch (e) {}
 };
 
+/** JSON API fetch — sends auth-friendly headers so session expiry returns 401, not HTML login. */
+window.apiJsonFetch = function (url, opts) {
+    opts = opts || {};
+    opts.credentials = opts.credentials || 'same-origin';
+    var hdrs = Object.assign({}, opts.headers || {});
+    if (!hdrs.Accept) hdrs.Accept = 'application/json';
+    if (!hdrs['X-Requested-With']) hdrs['X-Requested-With'] = 'XMLHttpRequest';
+    opts.headers = hdrs;
+    return fetch(url, opts).then(function (res) {
+        if (res.status === 401) {
+            throw new Error('Session expired — please sign in again.');
+        }
+        return res;
+    });
+};
+
 /** Multi-chapter preview + paginated viewport: #preview-content is fixed size; overflow becomes next "page". */
 window._previewChaptersMeta = [];
 window._previewChapterIndex = 0;
@@ -1870,7 +1903,7 @@ window.syncChapterNoDropdownAndHidden = function (chapterNum) {
         if (!found) {
             var opt = document.createElement('option');
             opt.value = s;
-            opt.textContent = 'Chapter ' + n;
+            opt.textContent = String(n);
             ddl.appendChild(opt);
         }
         ddl.value = s;
@@ -2367,14 +2400,40 @@ window.setPreviewChapterHeaderText = function (text) {
     if (el) el.textContent = text || '';
 };
 
-/** Consistent label: Chapter {N}: {Title} */
-window.formatChapterDisplayName = function (chapterNo, title) {
+/** Strip auto-generated "Chapter N" labels — show only the user's title. */
+window.sanitizeChapterTitleForInput = function (title) {
+    var t = (title == null ? '' : String(title)).trim();
+    if (!t) return '';
+    t = t.replace(/^Chapter\s*\d+\s*[:\-–]\s*/i, '').trim();
+    if (/^Chapter\s*\d+$/i.test(t)) return '';
+    return t;
+};
+
+/** Dropdown label: chapter number + user title (no "Chapter N:" prefix). */
+window.formatChapterDropdownLabel = function (chapterNo, title) {
     var n = parseInt(String(chapterNo), 10);
     if (!Number.isFinite(n) || n < 1) n = 1;
-    var t = (title == null ? '' : String(title)).trim();
-    if (!t) return 'Chapter ' + n;
-    t = t.replace(/^Chapter\s*\d+\s*[:\-–]\s*/i, '').trim();
-    return t ? ('Chapter ' + n + ': ' + t) : ('Chapter ' + n);
+    var t = window.sanitizeChapterTitleForInput(title);
+    return t ? (n + ' — ' + t) : String(n);
+};
+
+/** Visible heading / nav label — user title only. */
+window.formatChapterDisplayName = function (chapterNo, title) {
+    var t = window.sanitizeChapterTitleForInput(title);
+    if (t) return t;
+    var titleEl = document.getElementById('Title');
+    if (titleEl && titleEl.value) {
+        t = window.sanitizeChapterTitleForInput(titleEl.value);
+        if (t) return t;
+    }
+    return '';
+};
+
+window.buildPreviewChapterHeadingHtml = function (titleRaw, escFn) {
+    var t = window.sanitizeChapterTitleForInput(titleRaw);
+    if (!t) return '';
+    var esc = escFn || function (x) { return String(x == null ? '' : x); };
+    return '<h4 class="manuscript-chapter-heading">' + esc(t) + '</h4>';
 };
 
 window.stripAugmentedTopicFromText = function (raw) {
@@ -2387,46 +2446,91 @@ window.stripAugmentedTopicFromText = function (raw) {
         '[Write ONLY the new chapter from this brief',
         '[Write ONLY the new chapter from the brief'
     ];
-    var i, m, idx, tail;
-    for (i = 0; i < markers.length; i++) {
-        m = markers[i];
-        idx = text.toLowerCase().indexOf(m.toLowerCase());
-        if (idx >= 0) {
-            tail = text.slice(idx + m.length).trim().replace(/^[:\s"]+/, '').trim();
-            if (tail) return tail.replace(/^"+|"+$/g, '');
+    function briefAfterMarker(src) {
+        var i, m, idx, tail;
+        for (i = 0; i < markers.length; i++) {
+            m = markers[i];
+            idx = src.toLowerCase().indexOf(m.toLowerCase());
+            if (idx >= 0) {
+                tail = src.slice(idx + m.length).trim().replace(/^[:\s"]+/, '').trim();
+                if (tail) return tail.replace(/^"+|"+$/g, '');
+            }
         }
+        return '';
     }
+    var fromMarkers = briefAfterMarker(text);
+    if (fromMarkers) return fromMarkers;
     if (text.indexOf('[Prior chapter') >= 0 && text.indexOf('---') >= 0) {
         var parts = text.split('---');
-        if (parts.length) return window.stripAugmentedTopicFromText(parts[parts.length - 1]);
+        var nonEmpty = [];
+        for (var p = 0; p < parts.length; p++) {
+            var seg = (parts[p] || '').trim();
+            if (seg) nonEmpty.push(seg);
+        }
+        if (nonEmpty.length > 0) {
+            var last = nonEmpty[nonEmpty.length - 1];
+            var fromLast = briefAfterMarker(last);
+            if (fromLast) return fromLast;
+            if (last.indexOf('[Prior chapter') < 0) return last.replace(/^"+|"+$/g, '');
+        }
     }
     return text;
 };
 
 /** User brief only — never show AI system/continuity instructions in the topic field. */
-window.getChapterTopicFromRequestData = function (requestData, chapterTopicField) {
-    if (chapterTopicField != null && String(chapterTopicField).trim())
-        return window.stripAugmentedTopicFromText(chapterTopicField);
-    if (!requestData) return '';
-    if (typeof requestData === 'object' && requestData.chapterTopic != null)
-        return window.stripAugmentedTopicFromText(requestData.chapterTopic);
-    var s = typeof requestData === 'string' ? requestData.trim() : '';
-    if (!s) return '';
-    if (s.charAt(0) === '{') {
-        try {
-            var o = JSON.parse(s);
-            var t = o.chapterTopic || o.chapter_topic || o.UserInput || o.user_input || o.topic || o.Topic || '';
-            if (t) return window.stripAugmentedTopicFromText(String(t));
-        } catch (e) { /* ignore */ }
+window.parseChapterTopicFromRequestData = function (requestData, chapterTopicField) {
+    try {
+        if (chapterTopicField != null && String(chapterTopicField).trim())
+            return window.stripAugmentedTopicFromText(chapterTopicField);
+        if (!requestData) return '';
+        if (typeof requestData === 'object' && requestData.chapterTopic != null)
+            return window.stripAugmentedTopicFromText(requestData.chapterTopic);
+        var s = typeof requestData === 'string' ? requestData.trim() : '';
+        if (!s) return '';
+        if (s.charAt(0) === '{') {
+            try {
+                var o = JSON.parse(s);
+                var t = o.chapterTopic || o.chapter_topic || o.UserInput || o.user_input || o.topic || o.Topic || '';
+                if (t) return window.stripAugmentedTopicFromText(String(t));
+            } catch (e) { /* ignore malformed JSON */ }
+        }
+        return window.stripAugmentedTopicFromText(s);
+    } catch (e) {
+        console.warn('parseChapterTopicFromRequestData failed', e);
+        return '';
     }
-    return window.stripAugmentedTopicFromText(s);
+};
+// Stable alias — do not redeclare a global function named getChapterTopicFromRequestData (it would shadow this).
+window.getChapterTopicFromRequestData = window.parseChapterTopicFromRequestData;
+
+window.getCurrentChapterNo = function () {
+    var hidden = document.getElementById('ChapterNo');
+    var ddl = document.getElementById('ChapterDropdown');
+    var raw = (hidden && hidden.value) || (ddl && ddl.value) || '1';
+    return parseInt(String(raw), 10) || 1;
+};
+
+/** True only when the *selected* chapter already has AI-generated/saved draft content. */
+window.currentChapterHasGeneratedContent = function () {
+    if (window._chapterDraftGenerated === true) return true;
+    var rid = parseInt((document.getElementById('ResponseId') && document.getElementById('ResponseId').value) || '0', 10) || 0;
+    if (rid > 0) return true;
+    var ch = window.getCurrentChapterNo();
+    var list = window._previewChaptersMeta || [];
+    return list.some(function (m) {
+        if (!m || m.loading) return false;
+        if (!String(m.html || '').trim()) return false;
+        var mCh = parseInt(m.chapterNo || m.chapter, 10) || 0;
+        return mCh > 0 && mCh === ch;
+    });
 };
 
 window.hasCurrentChapterGenerated = function () {
-    if (window._chapterDraftGenerated === true) return true;
-    if (window._previewChaptersMeta && window._previewChaptersMeta.length > 0) return true;
-    var raw = document.getElementById('APIRawResponse') && document.getElementById('APIRawResponse').value;
-    return !!(raw && String(raw).trim().length > 2);
+    return typeof window.currentChapterHasGeneratedContent === 'function' && window.currentChapterHasGeneratedContent();
+};
+
+window.isGenerateRegenerateMode = function () {
+    return typeof window.currentChapterHasGeneratedContent === 'function' && window.currentChapterHasGeneratedContent();
 };
 
 window.syncFinalizedBadge = function (show) {
@@ -2442,12 +2546,17 @@ window.syncFinalizedBadge = function (show) {
 };
 
 window.refreshChapterWorkflowProgress = async function () {
+    if (window._refreshWorkflowBusy) return;
+    window._refreshWorkflowBusy = true;
     var uid = parseInt(String((document.getElementById('UserId') && document.getElementById('UserId').value) || '0'), 10);
     var bid = parseInt(String((document.getElementById('BookId') && document.getElementById('BookId').value) || '0'), 10);
     var ch = parseInt(String((document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '1'), 10);
     var textEl = document.getElementById('chapterWorkflowProgressText');
     var hintEl = document.getElementById('bookFormattingHint');
-    if (!textEl || !uid || !bid) return;
+    if (!textEl || !uid || !bid) {
+        window._refreshWorkflowBusy = false;
+        return;
+    }
     var hasGenerated = typeof window.hasCurrentChapterGenerated === 'function' && window.hasCurrentChapterGenerated();
     try {
         var r = await fetch('/Books/GetBookWritingProgress?userId=' + uid + '&bookId=' + bid, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
@@ -2457,17 +2566,18 @@ window.refreshChapterWorkflowProgress = async function () {
         var fin = d.finalizedChapters || 0;
         var current = (d.chapters || []).find(function (c) { return c.number === ch; });
         var curLabel = current && current.displayLabel
-            ? current.displayLabel
-            : (typeof window.formatChapterDisplayName === 'function'
-                ? window.formatChapterDisplayName(ch, document.getElementById('Title') && document.getElementById('Title').value)
-                : ('Chapter ' + ch));
+            ? window.sanitizeChapterTitleForInput(current.displayLabel)
+            : '';
+        if (!curLabel && typeof window.formatChapterDisplayName === 'function') {
+            curLabel = window.formatChapterDisplayName(ch, document.getElementById('Title') && document.getElementById('Title').value);
+        }
         var statusField = document.getElementById('Status') && document.getElementById('Status').value;
         var isActuallyFinalized = hasGenerated && (
             statusField === 'ReadOnly' || (current && current.isFinalized));
         var curStatus = !hasGenerated
             ? 'Not started'
             : (isActuallyFinalized ? 'Finalized' : 'Ready');
-        textEl.innerHTML = '<strong>' + curLabel + '</strong> — ' + curStatus
+        textEl.innerHTML = (curLabel ? ('<strong>' + curLabel + '</strong> — ') : '') + curStatus
             + (fin > 0 && total > 0 ? (' <span class="text-violet-600/80">· ' + fin + ' of ' + total + ' finalized</span>') : '');
         if (typeof window.syncFinalizedBadge === 'function') window.syncFinalizedBadge(isActuallyFinalized);
         if (hintEl) {
@@ -2482,6 +2592,8 @@ window.refreshChapterWorkflowProgress = async function () {
         if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(d);
     } catch (e) {
         console.warn('refreshChapterWorkflowProgress', e);
+    } finally {
+        window._refreshWorkflowBusy = false;
     }
 };
 
@@ -2517,13 +2629,20 @@ window.showPreviewEmptyState = function () {
 window.showPreviewChapterChrome = function (chapterNo, title) {
     var previewHeader = document.getElementById('preview-chapter-header');
     if (!previewHeader) return;
+    var display = window.sanitizeChapterTitleForInput(title);
+    if (!display) {
+        var titleEl = document.getElementById('Title');
+        display = titleEl ? window.sanitizeChapterTitleForInput(titleEl.value) : '';
+    }
+    if (!display) {
+        previewHeader.classList.add('hidden');
+        previewHeader.setAttribute('aria-hidden', 'true');
+        return;
+    }
     previewHeader.classList.remove('hidden');
     previewHeader.setAttribute('aria-hidden', 'false');
     if (typeof window.setPreviewChapterHeaderText === 'function') {
-        window.setPreviewChapterHeaderText(
-            typeof window.formatChapterDisplayName === 'function'
-                ? window.formatChapterDisplayName(chapterNo, title)
-                : (title || ('Chapter ' + chapterNo)));
+        window.setPreviewChapterHeaderText(display);
     }
 };
 
@@ -2632,9 +2751,11 @@ window.rebuildChapterIndexFlyoutList = function () {
         btn.setAttribute('role', 'menuitem');
         var chNo = (ch && (ch.chapterNo || ch.chapter)) ? (ch.chapterNo || ch.chapter) : (i + 1);
         var t = (ch && ch.title) ? String(ch.title) : '';
-        btn.textContent = typeof window.formatChapterDisplayName === 'function'
-            ? window.formatChapterDisplayName(chNo, t)
-            : ((i + 1) + '. ' + (t || ('Chapter ' + (i + 1))));
+        btn.textContent = typeof window.formatChapterDropdownLabel === 'function'
+            ? window.formatChapterDropdownLabel(chNo, t)
+            : (typeof window.formatChapterDisplayName === 'function'
+                ? window.formatChapterDisplayName(chNo, t)
+                : ((t || '').trim() || String(chNo)));
         btn.addEventListener('click', function () {
             window.applyPreviewChapterIndex(i, { initialPage: 0 });
             window.closeChapterIndexFlyout();
@@ -2693,30 +2814,6 @@ window.setBookResultStatusBanner = function (text, visible) {
         b.classList.add('hidden');
         b.textContent = '';
     }
-};
-window.isGenerateRegenerateMode = function () {
-    if (window._chapterDraftGenerated === true) return true;
-    var rid = parseInt((document.getElementById('ResponseId') && document.getElementById('ResponseId').value) || '0', 10) || 0;
-    if (rid > 0) return true;
-    var list = window._previewChaptersMeta || [];
-    if (list.length && list.some(function (m) { return m && !m.loading && m.html && String(m.html).trim(); })) return true;
-    var raw = document.getElementById('APIRawResponse') && document.getElementById('APIRawResponse').value;
-    if (raw && String(raw).trim().length > 2) {
-        try {
-            var parsed = JSON.parse(raw);
-            var core = (parsed && parsed.data) ? parsed.data : (parsed || {});
-            if (core.content || core.Content || (core.chapters && core.chapters.length) || (core.Chapters && core.Chapters.length)) return true;
-            if (parsed.responseId || parsed.response_id || core.responseId || core.response_id) return true;
-        } catch (e) {
-            return true;
-        }
-    }
-    var preview = document.getElementById('preview-content');
-    if (preview && !preview.classList.contains('hidden')) {
-        var body = preview.querySelector('.reader-chapter-content, .reader-chapter-block, .manuscript-p');
-        if (body && String(body.textContent || '').trim().length > 20) return true;
-    }
-    return false;
 };
 window.markChapterAsGenerated = function () {
     window._chapterDraftGenerated = true;
@@ -2789,7 +2886,7 @@ window.showChapterGenerationOverlay = function (message) {
                 (remaining > 0
                     ? (shortMsg + ' — about ' + fmt + ' remaining')
                     : (shortMsg + ' — almost ready, please wait')) +
-                ' — Chapter ' + ch + (bid !== '0' ? (' · Book ID ' + bid) : ' · new book') + '. Keep this tab open; text will appear in the preview when ready.',
+                (bid !== '0' ? (' · Book ID ' + bid) : ' · new book') + '. Keep this tab open; text will appear in the preview when ready.',
                 true
             );
         }
@@ -2868,10 +2965,11 @@ window.updateChapterPreviewNavUI = function () {
         if (!Number.isFinite(chNum)) chNum = chIdx + 1;
         var displayTitle = (typeof window.formatChapterDisplayName === 'function')
             ? window.formatChapterDisplayName(chNum, ch.title)
-            : ('Chapter ' + chNum + (ch.title ? ': ' + ch.title : ''));
+            : window.sanitizeChapterTitleForInput(ch.title);
+        if (!displayTitle) displayTitle = 'Untitled';
         label.textContent = ch.loading
-            ? ('Loading… ' + displayTitle + ' (' + (chIdx + 1) + ' / ' + chCount + ')')
-            : (displayTitle + ' · Page ' + (pgIdx + 1) + ' / ' + pageCount + ' (' + (chIdx + 1) + ' of ' + chCount + ')');
+            ? ('Loading… ' + displayTitle)
+            : (displayTitle + ' · Page ' + (pgIdx + 1) + ' / ' + pageCount);
     }
     if (ch.loading) {
         if (prev) prev.disabled = true;
@@ -2948,7 +3046,9 @@ window.applyPreviewChapterIndex = function (idx, opts) {
         } else {
             previewHeader.classList.remove('hidden');
             previewHeader.setAttribute('aria-hidden', 'false');
-            window.setPreviewChapterHeaderText(ch.title || ('Chapter ' + (i + 1)));
+            window.setPreviewChapterHeaderText(
+                (typeof window.sanitizeChapterTitleForInput === 'function' ? window.sanitizeChapterTitleForInput(ch.title) : ch.title) || ''
+            );
         }
     }
     var chNoSync = (ch && ch.chapterNo != null && ch.chapterNo !== '') ? parseInt(ch.chapterNo, 10) : NaN;
@@ -3192,17 +3292,18 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                     displayChapterNumber: narrativeNum != null ? narrativeNum : ''
                 });
                 var title = typeof ap === 'function' ? ap(titleRaw, phCtx) : titleRaw;
-                var headText = narrativeNum != null
-                    ? ('Chapter ' + narrativeNum + (title ? ' – ' + esc(title) : ''))
-                    : esc(title || 'Front matter');
+                var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
+                    ? window.buildPreviewChapterHeadingHtml(title, esc)
+                    : '';
                 var bodyRaw = ch.content || '';
                 var body = typeof ap === 'function' ? ap(bodyRaw, phCtx) : bodyRaw;
                 body = typeof window.normalizeManuscriptEscapes === 'function' ? window.normalizeManuscriptEscapes(body) : body;
                 var bodyHtml = typeof fmt === 'function' ? fmt(body) : ('<p class="manuscript-p">' + esc(String(body)) + '</p>');
-                var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
+                var fragment = headingHtml + bodyHtml;
                 var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                 var wc = plain.split(/\s+/).filter(Boolean).length;
-                chaptersMeta.push({ html: fragment, title: title || headText, wordCount: wc, chapterNo: chNo });
+                var cleanTitle = window.sanitizeChapterTitleForInput ? window.sanitizeChapterTitleForInput(title) : title;
+                chaptersMeta.push({ html: fragment, title: cleanTitle || title || '', wordCount: wc, chapterNo: chNo });
             });
             var startIdx = 0;
             var startPg = 0;
@@ -3406,7 +3507,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!found) {
                     var o = document.createElement('option');
                     o.value = s;
-                    o.textContent = 'Chapter ' + ch;
+                    o.textContent = String(ch);
                     ddlImp.appendChild(o);
                 }
                 ddlImp.value = s;
@@ -3523,11 +3624,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var writerAutosaveQueued = false;
     var writerAutosaveStatusTimer = null;
 
-    function getChapterTopicFromRequestData(requestData, chapterTopicField) {
-        if (typeof window.getChapterTopicFromRequestData === 'function')
-            return window.getChapterTopicFromRequestData(requestData, chapterTopicField);
-        return (requestData && typeof requestData === 'string') ? requestData : '';
-    }
     function getContentFromPossibleJson(value) {
         if (value == null || value === '') return '';
         var s = (typeof value === 'string') ? value : JSON.stringify(value);
@@ -3635,9 +3731,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (ddl) {
                 Array.from(ddl.options).forEach(function (opt) {
                     if (parseInt(opt.value, 10) === chapterNo) {
-                        opt.textContent = typeof window.formatChapterDisplayName === 'function'
-                            ? window.formatChapterDisplayName(chapterNo, savedTitle)
-                            : (chapterNo + ' - ' + savedTitle);
+                        opt.textContent = typeof window.formatChapterDropdownLabel === 'function'
+                            ? window.formatChapterDropdownLabel(chapterNo, savedTitle)
+                            : String(chapterNo);
                         opt.setAttribute('data-title', savedTitle);
                     }
                 });
@@ -3903,12 +3999,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof window.resetWriterPreviewForContextChange === 'function') {
             window.resetWriterPreviewForContextChange(bookId, chapterNo, 0, true);
         }
-        fetch('/Books/GetBookChapterResponse?userId=' + userId + '&bookId=' + bookId + '&chapterNo=' + chapterNo)
+        var loadPreviewReq = typeof window.apiJsonFetch === 'function'
+            ? window.apiJsonFetch('/Books/GetBookChapterResponse?userId=' + userId + '&bookId=' + bookId + '&chapterNo=' + chapterNo)
+            : fetch('/Books/GetBookChapterResponse?userId=' + userId + '&bookId=' + bookId + '&chapterNo=' + chapterNo);
+        loadPreviewReq
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data && data.chapters && data.chapters.length > 0) {
                     var c = data.chapters[0];
-                    if (c.content) {
+                    var hadContent = !!(c.content && String(c.content).trim());
+                    if (hadContent) {
                         var txt = (typeof getContentFromPossibleJson === 'function' ? getContentFromPossibleJson(c.content) : c.content) || '';
                         var chNum = parseInt(c.chapterNumber || c.ChapterNumber || chapterNo, 10);
                         if (!Number.isFinite(chNum)) chNum = parseInt(String(chapterNo), 10) || 1;
@@ -3916,17 +4016,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         var escT = typeof window.escapeHtml === 'function' ? window.escapeHtml : function (s) {
                             return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         };
-                        var headText = 'Chapter ' + chNum + (titleRaw ? ' – ' + escT(titleRaw) : '');
+                        var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
+                            ? window.buildPreviewChapterHeadingHtml(titleRaw, escT)
+                            : '';
                         var bodyHtml;
                         if (String(txt).indexOf('<') >= 0) {
                             bodyHtml = typeof window.formatManuscriptBodyToHtml === 'function' ? window.formatManuscriptBodyToHtml(txt) : txt;
                         } else {
                             bodyHtml = '<p class="manuscript-p">' + String(txt).replace(/\n/g, '</p><p class="manuscript-p">') + '</p>';
                         }
-                        var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
+                        var fragment = headingHtml + bodyHtml;
                         var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                         var wc = plain.split(/\s+/).filter(Boolean).length;
-                        var meta = [{ html: fragment, title: titleRaw || headText, wordCount: wc, chapterNo: chNum }];
+                        var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
+                            ? window.sanitizeChapterTitleForInput(titleRaw) : titleRaw;
+                        var meta = [{ html: fragment, title: cleanTitle || titleRaw, wordCount: wc, chapterNo: chNum }];
                         if (typeof window.setPreviewChaptersFromList === 'function') {
                             window.setPreviewChaptersFromList(meta, 0, 0);
                         } else {
@@ -3935,7 +4039,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         previewContent.classList.remove('text-slate-400');
                         previewContent.classList.add('text-slate-800');
                         window._currentChapterContent = fragment;
-                        window._currentChapterTitle = titleRaw || headText;
+                        window._currentChapterTitle = cleanTitle || titleRaw;
                         window._currentChapterNo = chNum;
                         if (typeof window.syncChapterNoDropdownAndHidden === 'function') {
                             window.syncChapterNoDropdownAndHidden(chNum);
@@ -3947,6 +4051,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (inputBookTitle && !inputBookTitle.value.trim()) inputBookTitle.value = data.bookTitle;
                     }
                     if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+                    if (hadContent && typeof window.markChapterAsGenerated === 'function') {
+                        window.markChapterAsGenerated();
+                    } else {
+                        var apiRawPrev = document.getElementById('APIRawResponse');
+                        if (apiRawPrev) apiRawPrev.value = '';
+                        if (typeof window.showPreviewEmptyState === 'function') window.showPreviewEmptyState();
+                        if (typeof window.clearChapterDraftGenerated === 'function') window.clearChapterDraftGenerated();
+                        else if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+                    }
+                } else {
+                    var apiRawPrev = document.getElementById('APIRawResponse');
+                    if (apiRawPrev) apiRawPrev.value = '';
+                    if (typeof window.clearChapterDraftGenerated === 'function') window.clearChapterDraftGenerated();
+                    else if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
                 }
             })
             .catch(function() {});
@@ -4028,7 +4146,11 @@ document.addEventListener('DOMContentLoaded', function() {
             var current = (inputChapterTitle && inputChapterTitle.value) ? String(inputChapterTitle.value).trim() : '';
             if (!current) {
                 var meta = (window._previewChaptersMeta || [])[window._previewChapterIndex || 0];
-                current = (meta && (meta.chapterTitle || meta.title)) ? String(meta.chapterTitle || meta.title).trim() : ('Chapter ' + chNo);
+                current = (meta && (meta.chapterTitle || meta.title))
+                    ? String(meta.chapterTitle || meta.title).trim()
+                    : ((typeof window.sanitizeChapterTitleForInput === 'function' && inputChapterTitle && inputChapterTitle.value)
+                        ? window.sanitizeChapterTitleForInput(inputChapterTitle.value)
+                        : '');
             }
             var pIdx = typeof window._previewChapterIndex === 'number' ? window._previewChapterIndex : 0;
             if (typeof window.promptRenameChapter === 'function') {
@@ -4095,12 +4217,6 @@ document.addEventListener('DOMContentLoaded', function() {
           var t = document.querySelector('input[name="__RequestVerificationToken"]');
           return t ? t.value : '';
       }
-      // Global helper for loadSelectedResponse / loadBookChapterNos (topic from requestData JSON or string)
-      function getChapterTopicFromRequestData(requestData, chapterTopicField) {
-          if (typeof window.getChapterTopicFromRequestData === 'function')
-              return window.getChapterTopicFromRequestData(requestData, chapterTopicField);
-          return (requestData && typeof requestData === 'string') ? requestData : '';
-      }
       console.log("🔍 Logged-in User ID from ViewBag:", userId);
       //===(1)============================OK
       //  On Page Load -->Execution Step 3
@@ -4128,14 +4244,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
           // Load books immediately
           await loadSavedBooksDropdown();
-          await loadBookAllChaptersNumbers();
 
-          // When landing with ?bookId=X, load the book and show full page-flip preview
+          // When landing with ?bookId=X, load the book once (includes chapter list)
           if (selectedBookId && selectedBookId > 0) {
               var ddl = document.getElementById('savedResponsesDropdown');
               if (ddl) ddl.value = String(selectedBookId);
               document.getElementById('BookId').value = String(selectedBookId);
-              if (typeof loadSelectedResponse === 'function') loadSelectedResponse(String(selectedBookId));
+              if (typeof loadSelectedResponse === 'function') await loadSelectedResponse(String(selectedBookId));
+          } else {
+              await loadBookAllChaptersNumbers();
           }
 
            // Show debug info after delay
@@ -4290,7 +4407,9 @@ document.addEventListener('DOMContentLoaded', function() {
              //   console.log("🔍 Loading book details for user:", userId, "book:", bookId);
 
             // Load data from  Books + APIRawResponse
-            const response = await fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`);
+            const response = await (typeof window.apiJsonFetch === 'function'
+                ? window.apiJsonFetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`)
+                : fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`));
             //   console.log("📨 Get Json result:", response);
 
             if (!response.ok)
@@ -4310,7 +4429,7 @@ document.addEventListener('DOMContentLoaded', function() {
                        return (parseInt(a.chapterNo, 10) || 0) - (parseInt(b.chapterNo, 10) || 0);
                    })
                    : [];
-               const latestChapter = sortedCh.length > 0 ? sortedCh[0] : null;
+               const latestChapter = sortedCh.length > 0 ? sortedCh[sortedCh.length - 1] : null;
 
                window._aiBookPreviewContext = {
                    bookTitle: (result.bookTitle && String(result.bookTitle)) || '',
@@ -4331,8 +4450,12 @@ document.addEventListener('DOMContentLoaded', function() {
                // ✅ Fill the textarea or content field
                document.getElementById("Status").value = latestChapter ? latestChapter.statusCode : "Draft";
                // ✅ Fill the textarea or content field
-               document.getElementById("Title").value = latestChapter ? latestChapter.chapterTitle : "";
-               var topicText = getChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : "", latestChapter && latestChapter.chapterTopic);
+               document.getElementById("Title").value = latestChapter
+                   ? (typeof window.sanitizeChapterTitleForInput === 'function'
+                       ? window.sanitizeChapterTitleForInput(latestChapter.chapterTitle)
+                       : (latestChapter.chapterTitle || ""))
+                   : "";
+               var topicText = window.parseChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : "", latestChapter && latestChapter.chapterTopic);
                document.getElementById("UserInput").value = topicText;
 
                // ✅ Check if book is ReadOnly and disable buttons accordingly
@@ -4353,18 +4476,26 @@ document.addEventListener('DOMContentLoaded', function() {
                            displayChapterNumber: idx + 1
                        });
                        var body = ap((c.content || ''), phCtx);
-                       var head = 'Chapter ' + (idx + 1) + (st ? ' – ' + escapeHtml(ap(st, phCtx)) : '');
-                       return '<h4 class="manuscript-chapter-heading">' + head + '</h4>' + body;
+                       var cleanSt = typeof window.sanitizeChapterTitleForInput === 'function' ? window.sanitizeChapterTitleForInput(st) : st;
+                       var head = cleanSt
+                           ? ('<h4 class="manuscript-chapter-heading">' + escapeHtml(ap(cleanSt, phCtx)) + '</h4>')
+                           : '';
+                       return head + body;
                    }).join('');
                }
                window._editModeOriginalContent = origContent || null;
-               // Load chapter list and sync ChapterDropdown; use Preview to open full book in the panel
-               await loadBookAllChaptersNumbers()  // load All Chapter Numbers of this Book
+               // Sync chapter dropdown only — form fields already filled above
+               await loadBookAllChaptersNumbers(true);
                populateBookForm(result);   // Function to populate FORM's fields with book data
                // Full book preview: user clicks Preview next to Book Selection
                showNotification("Book loaded. Click Preview to see the full book below, or edit chapters and Generate.", "success");
                if (typeof window.syncCoverFormFromBook === 'function') window.syncCoverFormFromBook(bookId);
                if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+               if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
+                   window.markChapterAsGenerated();
+               } else if (typeof window.clearChapterDraftGenerated === 'function') {
+                   window.clearChapterDraftGenerated();
+               }
                } else {
                     // clearBookForm();
                     showNotification("Error: " + result.message, "error");
@@ -4581,6 +4712,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
            chapterDropdown.insertBefore(opt, chapterDropdown.options[0]); // Add on top
            document.getElementById("ResponseId").value = "0";
+           var apiRawEl = document.getElementById('APIRawResponse');
+           if (apiRawEl) apiRawEl.value = '';
            if (typeof window.clearChapterDraftGenerated === 'function') window.clearChapterDraftGenerated();
            if (typeof window.resetWriterPreviewForContextChange === 'function') {
                window.resetWriterPreviewForContextChange(parseInt(bookId, 10) || 0, parseInt(data.lastChapter + 1, 10) || 1, 0, true);
@@ -4635,7 +4768,9 @@ document.addEventListener('DOMContentLoaded', function() {
               // Fetch chapter data from API      GetSavedChapterNos
               //console.log("🔗 Calling URL:", `/Books/GetChapterData?userId=${userId}&bookId=${bookId}&chapterNo=${selectedValue}`);
 
-              const response = await fetch(`/Books/GetChapterData?userId=${userId}&bookId=${bookId}&chapterNo=${selectedValue}`);
+              const response = await (typeof window.apiJsonFetch === 'function'
+                  ? window.apiJsonFetch(`/Books/GetChapterData?userId=${userId}&bookId=${bookId}&chapterNo=${selectedValue}`)
+                  : fetch(`/Books/GetChapterData?userId=${userId}&bookId=${bookId}&chapterNo=${selectedValue}`));
               console.log("📨 Response status:", response.status);
 
               if (!response.ok) {
@@ -4660,8 +4795,12 @@ document.addEventListener('DOMContentLoaded', function() {
                   // ✅ Fill other fields
                   document.getElementById("BookTitle").value = result.bookTitle || "";
                   document.getElementById("Status").value = latestChapter ? latestChapter.statusCode : "Draft";
-                  document.getElementById("Title").value = latestChapter ? latestChapter.chapterTitle : "";
-                  var topicText = getChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : "", latestChapter && latestChapter.chapterTopic);
+                  document.getElementById("Title").value = latestChapter
+                   ? (typeof window.sanitizeChapterTitleForInput === 'function'
+                       ? window.sanitizeChapterTitleForInput(latestChapter.chapterTitle)
+                       : (latestChapter.chapterTitle || ""))
+                   : "";
+                  var topicText = window.parseChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : "", latestChapter && latestChapter.chapterTopic);
                   document.getElementById("UserInput").value = topicText;
                   const statusCode = latestChapter ? latestChapter.statusCode : "Draft";
                   checkAndDisableButtonsForReadOnly(statusCode);
@@ -4674,10 +4813,15 @@ document.addEventListener('DOMContentLoaded', function() {
                   if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                   if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
                       window.markChapterAsGenerated();
-                  } else if (typeof window.clearChapterDraftGenerated === 'function') {
-                      window.clearChapterDraftGenerated();
-                  } else if (typeof window.updateGenerateBtnMode === 'function') {
-                      window.updateGenerateBtnMode();
+                  } else {
+                      var apiRawCh = document.getElementById('APIRawResponse');
+                      if (apiRawCh) apiRawCh.value = '';
+                      if (typeof window.resetWriterPreviewForContextChange === 'function') {
+                          window.resetWriterPreviewForContextChange(parseInt(bookId, 10) || 0, parseInt(selectedValue, 10) || 1, 0, true);
+                      }
+                      if (typeof window.showPreviewEmptyState === 'function') window.showPreviewEmptyState();
+                      if (typeof window.clearChapterDraftGenerated === 'function') window.clearChapterDraftGenerated();
+                      else if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
                   }
               } else {
                    // clearBookForm();
@@ -4817,8 +4961,12 @@ document.addEventListener('DOMContentLoaded', function() {
               document.getElementById('ResponseId').value = latestChapter ? latestChapter.responseId : '0';
               document.getElementById('BookTitle').value = result.bookTitle || '';
               document.getElementById('Status').value = latestChapter ? latestChapter.statusCode : 'Draft';
-              document.getElementById('Title').value = latestChapter ? latestChapter.chapterTitle : '';
-              var topicText = getChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : '', latestChapter && latestChapter.chapterTopic);
+              document.getElementById('Title').value = latestChapter
+                  ? (typeof window.sanitizeChapterTitleForInput === 'function'
+                      ? window.sanitizeChapterTitleForInput(latestChapter.chapterTitle)
+                      : (latestChapter.chapterTitle || ''))
+                  : '';
+              var topicText = window.parseChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : '', latestChapter && latestChapter.chapterTopic);
               document.getElementById('UserInput').value = topicText;
               checkAndDisableButtonsForReadOnly(latestChapter ? latestChapter.statusCode : 'Draft');
               populateBookForm(result);
@@ -4941,7 +5089,9 @@ document.addEventListener('DOMContentLoaded', function() {
                  chapters = [{
                      chapterNumber: 1,
                      chapterNo: 1,
-                     title: suggested[0] || 'Chapter 1',
+                     title: (suggested[0] && typeof window.sanitizeChapterTitleForInput === 'function')
+                         ? window.sanitizeChapterTitleForInput(suggested[0])
+                         : (suggested[0] || ''),
                      content: core.content,
                      status: core.status || ''
                  }];
@@ -4959,7 +5109,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  authorName: String(core.author || core.authorName || bookData.authorName || ''),
                  chapters: chapters.map(function (ch, index) {
                      var chapterNumber = ch.chapterNumber ?? ch.ChapterNumber ?? ch.chapterNo ?? (index + 1);
-                     var titleRaw = ch.title ?? ch.Title ?? ch.chapterTitle ?? ('Chapter ' + chapterNumber);
+                     var titleRaw = ch.title ?? ch.Title ?? ch.chapterTitle ?? '';
                      var contentRaw = ch.content ?? ch.Content ?? ch.data ?? (ch.Data && ch.Data.content) ?? '';
                      return { chapterNo: chapterNumber, chapterTitle: titleRaw, content: contentRaw, status: ch.status ?? ch.Status };
                  })
@@ -5277,7 +5427,7 @@ document.addEventListener('DOMContentLoaded', function() {
          if (!found) {
              var opt = document.createElement('option');
              opt.value = s;
-             opt.textContent = 'Chapter ' + n;
+             opt.textContent = String(n);
              ddl.appendChild(opt);
          }
          ddl.value = s;
@@ -5456,7 +5606,15 @@ document.addEventListener('DOMContentLoaded', function() {
                          showGeneratedChapterWithTyping(bookData, function() {
                              var cn = (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || String(requestData.Chapter || '');
                              if (typeof window.setBookResultStatusBanner === 'function') {
-                                 window.setBookResultStatusBanner('Chapter ' + cn + ' is ready below (preview). Draft is saved — when the manuscript is ready, open Book formatting to lock chapters and export PDF.', true);
+                                 var readyTitle = (document.getElementById('Title') && document.getElementById('Title').value)
+                                     ? (typeof window.sanitizeChapterTitleForInput === 'function'
+                                         ? window.sanitizeChapterTitleForInput(document.getElementById('Title').value)
+                                         : document.getElementById('Title').value.trim())
+                                     : '';
+                                 window.setBookResultStatusBanner(
+                                     (readyTitle ? (readyTitle + ' is ready below (preview). ') : 'Your chapter is ready below (preview). ')
+                                     + 'Draft is saved — when the manuscript is ready, open Book formatting to lock chapters and export PDF.',
+                                     true);
                              }
                              loadSavedBooksDropdown();
                              var uid = document.getElementById('UserId') && document.getElementById('UserId').value;
@@ -5966,7 +6124,7 @@ document.addEventListener('DOMContentLoaded', function() {
      //===========================================100% OK
      //   Load Book's Chapters
      //===========================================
-     async function loadBookAllChaptersNumbers(){
+     async function loadBookAllChaptersNumbers(skipAutoLoadChapter){
          console.log("🔄 Loading loadBookAllChaptersNumbers Function");
 
          const userId = document.getElementById("UserId").value;
@@ -6018,8 +6176,8 @@ document.addEventListener('DOMContentLoaded', function() {
                   const chapterTitle = row.chapterTitle || row.title || row.Title || 'Untitled Chapter';
 
                   // Show both ChapterNo and ChapterTitle in dropdown
-                  const displayText = (typeof window.formatChapterDisplayName === 'function')
-                      ? window.formatChapterDisplayName(chapterNo, chapterTitle)
+                  const displayText = (typeof window.formatChapterDropdownLabel === 'function')
+                      ? window.formatChapterDropdownLabel(chapterNo, chapterTitle)
                       : (`${chapterNo} - ${chapterTitle}`);
 
                   ddl.innerHTML += `<option value="${chapterNo}" data-status="${row.chapterStatus || row.status || 'OK'}" data-title="${String(chapterTitle).replace(/"/g, '&quot;')}">${displayText.replace(/</g, '&lt;')}</option>`;
@@ -6028,10 +6186,15 @@ document.addEventListener('DOMContentLoaded', function() {
               // Select the first chapter and update status
               if (data.length > 0) {
                   const firstChapterNo = data[0].chapterNo || data[0].chapter || data[0].ChapterNumber;
-                  if (firstChapterNo) {
-                      ddl.value = firstChapterNo;
-                      // Auto-load the first chapter's data
-                      loadBookChapterNos(firstChapterNo);
+                  const currentChapterNo = document.getElementById("ChapterNo") && document.getElementById("ChapterNo").value;
+                  const chapterToSelect = (skipAutoLoadChapter && currentChapterNo && currentChapterNo !== "0")
+                      ? currentChapterNo
+                      : firstChapterNo;
+                  if (chapterToSelect) {
+                      ddl.value = String(chapterToSelect);
+                      if (!skipAutoLoadChapter) {
+                          loadBookChapterNos(chapterToSelect);
+                      }
                   }
               }
 
@@ -6738,14 +6901,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 displayChapterNumber: chNo
             });
             var title = ap ? ap(titleRaw, phCtx) : titleRaw;
-            var headText = 'Chapter ' + chNo + (title ? ' – ' + esc(title) : '');
+            var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
+                ? window.buildPreviewChapterHeadingHtml(title, esc)
+                : '';
             var body = ap ? ap(content, phCtx) : content;
             body = typeof normalizeManuscriptEscapes === 'function' ? normalizeManuscriptEscapes(body) : body;
             var bodyHtml = fmt ? fmt(body) : ((body + '').indexOf('<') >= 0 ? body : '<p class="manuscript-p">' + esc(String(body)) + '</p>');
-            var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
+            var fragment = headingHtml + bodyHtml;
             var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
             var wc = plain.split(/\s+/).filter(Boolean).length;
-            return { html: fragment, title: title || headText, wordCount: wc, chapterNo: chNo };
+            var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
+                ? window.sanitizeChapterTitleForInput(title) : title;
+            return { html: fragment, title: cleanTitle || title || '', wordCount: wc, chapterNo: chNo };
         };
         window.patchPreviewMetaArrayWithGeneration = function (chaptersMeta, bookData, phBase) {
             if (!chaptersMeta || !bookData) return 0;
@@ -6758,8 +6925,8 @@ document.addEventListener('DOMContentLoaded', function() {
             while (chaptersMeta.length < ix) {
                 var n = chaptersMeta.length + 1;
                 chaptersMeta.push({
-                    html: '<h4 class="manuscript-chapter-heading">Chapter ' + n + '</h4><p class="manuscript-p text-slate-500">No content for this chapter yet.</p>',
-                    title: 'Chapter ' + n,
+                    html: '<p class="manuscript-p text-slate-500">No content for this chapter yet.</p>',
+                    title: '',
                     wordCount: 0,
                     chapterNo: n
                 });
@@ -6842,7 +7009,9 @@ document.addEventListener('DOMContentLoaded', function() {
                      displayChapterNumber: idx + 1
                  });
                  var title = typeof applyTemplatePlaceholders === 'function' ? applyTemplatePlaceholders(titleRaw, phCtx) : titleRaw;
-                 var headText = 'Chapter ' + (idx + 1) + (title ? ' – ' + escapeHtml(title) : '');
+                 var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
+                     ? window.buildPreviewChapterHeadingHtml(title, escapeHtml)
+                     : '';
                  var raw = (ch.content != null && ch.content !== '') ? ch.content : (ch.Content != null && ch.Content !== '') ? ch.Content : (ch.responseData != null && ch.responseData !== '') ? ch.responseData : ((ch.data && ch.data.content) ? ch.data.content : (ch.requestData || ''));
                  var content = (typeof getContentFromPossibleJson === 'function' ? getContentFromPossibleJson(raw) : raw) || "No content available.";
                  if (typeof content !== 'string') content = String(content);
@@ -6851,8 +7020,10 @@ document.addEventListener('DOMContentLoaded', function() {
                  var text = content.indexOf('<') >= 0 ? content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : content;
                  var wc = text.split(/\s+/).filter(Boolean).length;
                  var contentHtml = typeof formatManuscriptBodyToHtml === 'function' ? formatManuscriptBodyToHtml(content) : ((content + '').indexOf('<') >= 0 ? content : '<p>' + (content + '').replace(/\n/g, '</p><p>') + '</p>');
-                 var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + contentHtml;
-                 chaptersMeta.push({ html: fragment, title: title || headText, wordCount: wc, chapterNo: chNo });
+                 var fragment = headingHtml + contentHtml;
+                 var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
+                     ? window.sanitizeChapterTitleForInput(title) : title;
+                 chaptersMeta.push({ html: fragment, title: cleanTitle || title || '', wordCount: wc, chapterNo: chNo });
               });
 
               if (previewContent) previewContent.classList.remove('hidden');
@@ -7254,7 +7425,10 @@ document.addEventListener('DOMContentLoaded', function() {
                      window.showPreviewChapterChrome(chNo, title);
                  } else {
                      previewHeader.classList.remove('hidden');
-                     window.setPreviewChapterHeaderText(title || ('Chapter ' + chNo));
+                     window.setPreviewChapterHeaderText(
+                         typeof window.sanitizeChapterTitleForInput === 'function'
+                             ? window.sanitizeChapterTitleForInput(title)
+                             : (title || ''));
                  }
              }
              window._currentChapterContent = content && content.indexOf('<') >= 0 ? content : '<p>' + String(content).replace(/\n/g, '</p><p>') + '</p>';
@@ -7304,10 +7478,14 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (typeof window.patchPreviewMetaArrayWithGeneration === 'function') {
                      ix = window.patchPreviewMetaArrayWithGeneration(list, bookData, phBase);
                  } else {
-                     var headText = 'Chapter ' + chNo + (title ? (' – ' + esc(String(title))) : '');
-                     var fragment = '<h4 class="manuscript-chapter-heading">' + headText + '</h4>' + bodyHtml;
+                     var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
+                         ? window.buildPreviewChapterHeadingHtml(title, esc)
+                         : '';
+                     var fragment = headingHtml + bodyHtml;
                      var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-                     list = [{ html: fragment, title: title || headText, wordCount: plain.split(/\s+/).filter(Boolean).length, chapterNo: chNo }];
+                     var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
+                         ? window.sanitizeChapterTitleForInput(title) : title;
+                     list = [{ html: fragment, title: cleanTitle || title || '', wordCount: plain.split(/\s+/).filter(Boolean).length, chapterNo: chNo }];
                      ix = 0;
                  }
                  if (typeof window.setPreviewChaptersFromList === 'function') {

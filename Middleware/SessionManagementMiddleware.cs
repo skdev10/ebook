@@ -297,8 +297,35 @@ namespace EBookDashboard.Middleware
 
         private static bool IsAjaxRequest(HttpContext context)
         {
-            return context.Request.Headers["X-Requested-With"] == "XMLHttpRequest" ||
-                   context.Request.Headers["Content-Type"].ToString().Contains("application/json");
+            if (context.Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return true;
+
+            var contentType = context.Request.Headers.ContentType.ToString();
+            if (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var accept = context.Request.Headers.Accept.ToString();
+            if (accept.Contains("application/json", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // fetch() GET calls to JSON endpoints (no Content-Type) — avoid HTML login page on session expiry
+            if (context.Request.Method.Equals("GET", StringComparison.OrdinalIgnoreCase))
+            {
+                var path = context.Request.Path.Value ?? "";
+                if (path.StartsWith("/Books/", StringComparison.OrdinalIgnoreCase)
+                    && !path.Equals("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase)
+                    && !path.Equals("/Books/AIGenerateBookFormat", StringComparison.OrdinalIgnoreCase)
+                    && !path.Equals("/Books/EBookHub", StringComparison.OrdinalIgnoreCase)
+                    && !path.Equals("/Books/CreateBook", StringComparison.OrdinalIgnoreCase)
+                    && !path.Contains("/Books/Create", StringComparison.OrdinalIgnoreCase))
+                    return true;
+                if (path.StartsWith("/BookDesign/", StringComparison.OrdinalIgnoreCase)
+                    && !path.Equals("/BookDesign/CoverDesignCalculatorFixing", StringComparison.OrdinalIgnoreCase)
+                    && !path.Equals("/BookDesign/Index", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         private static void IncrementPageView(HttpContext context, string page)

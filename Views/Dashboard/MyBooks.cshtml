@@ -43,7 +43,9 @@
         Genre = AsString(Prop(b, "Genre")),
         Description = AsString(Prop(b, "Description")),
         CoverImagePath = AsString(Prop(b, "CoverImagePath"))
-    }).ToList();
+    })
+    .Where(b => BookFlowStateService.IsPublishedStatus(b.Status))
+    .ToList();
     var firstBook = books.FirstOrDefault();
     var firstBookExportReady = firstBook != null && BookFlowStateService.IsPublishedStatus(firstBook.Status);
 }
@@ -574,10 +576,13 @@
             {
                 <div class="flex-1 flex flex-col items-center justify-center text-center py-12">
                     <i class="fas fa-book-open text-6xl text-violet-200 mb-4"></i>
-                    <h3 class="text-xl font-semibold text-slate-700 mb-2">No books yet</h3>
-                    <p class="text-slate-500 mb-6">Create your first book with AI Writer.</p>
-                    <a href="@Url.Action("StartNewBook", "Dashboard", new { writer = 1 })" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="bg-violet-700 hover:bg-violet-800 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2">
-                        <i class="fas fa-plus"></i> Create Book
+                    <h3 class="text-xl font-semibold text-slate-700 mb-2">No published books yet</h3>
+                    <p class="text-slate-500 mb-6 max-w-md">Finished books appear here after you publish. Continue your drafts from the Dashboard, or start a new project.</p>
+                    <a href="@Url.Action("Index", "Dashboard")" class="bg-violet-700 hover:bg-violet-800 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2 mr-3">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <a href="@Url.Action("StartNewBook", "Dashboard", new { writer = 1 })" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="inline-flex items-center gap-2 border border-violet-200 text-violet-800 bg-violet-50 hover:bg-violet-100 px-6 py-3 rounded-xl font-medium">
+                        <i class="fas fa-plus"></i> New Book
                     </a>
                 </div>
             }
@@ -613,18 +618,12 @@
                         <span class="text-[10px] uppercase tracking-wider font-medium" style="color:#c4b5fd;">Status</span>
                     </div>
                 </div>
-                <p id="aside-desc" class="text-xs sm:text-sm leading-relaxed text-center line-clamp-5 mb-4 sm:mb-6 flex-1 px-1" style="color:#ddd6fe;">Tap a book on the left to load details here, then open preview.</p>
+                    <p class="text-[11px] text-center leading-snug px-1" style="color:#c4b5fd;">Published titles only — open preview or export pack.</p>
                 <div class="w-full space-y-2.5 mt-auto">
                     <button type="button" id="btn-view-book" class="hidden w-full py-3.5 px-5 sm:px-6 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer shadow-lg border-2 min-h-[48px]" style="background-color:#ffffff;color:#4c1d95;border-color:#e9d5ff;">
                         <i class="fas fa-book-open" aria-hidden="true"></i> Preview full book
                     </button>
                     <p class="text-[11px] text-center leading-snug px-1" style="color:#c4b5fd;">Opens a print-style chapter preview (same data as your PDF export).</p>
-                    <a id="btn-download-publish" href="#" class="w-full py-2.5 px-6 rounded-xl text-xs font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:transparent;color:#c4b5fd;border:1px solid rgba(255,255,255,0.2);">
-                        <i class="fas fa-external-link-alt"></i> <span id="btn-download-label">Open export page</span>
-                    </a>
-                    <a id="btn-edit-book" href="#" class="w-full text-white py-3 px-6 rounded-xl text-sm font-medium flex justify-center items-center gap-2 cursor-pointer hidden" style="background-color:#4c1d95;">
-                        <i class="fas fa-edit"></i> Edit
-                    </a>
                     <button type="button" id="btn-delete-book" class="w-full py-3 px-6 rounded-xl text-sm font-semibold flex justify-center items-center gap-2 cursor-pointer border border-red-300/40" style="background-color:#991b1b;color:#fff;">
                         <i class="fas fa-trash"></i> Delete book
                     </button>
@@ -848,28 +847,11 @@
         document.getElementById('aside-meta').textContent = (book.genre || '') ? 'Genre: ' + book.genre : '';
         document.getElementById('aside-pages').textContent = book.wordCount != null ? book.wordCount.toLocaleString() : '—';
         document.getElementById('aside-chapters').textContent = book.chapterCount != null ? book.chapterCount : '—';
-        document.getElementById('aside-status').textContent = book.status || '—';
-        document.getElementById('aside-desc').textContent = book.desc || 'No description.';
+        document.getElementById('aside-status').textContent = book.status || 'Published';
         document.getElementById('btn-view-book').classList.remove('hidden');
-        document.getElementById('btn-edit-book').href = '/Dashboard/SelectBook?bookId=' + book.bookId;
-        document.getElementById('btn-edit-book').classList.remove('hidden');
         var deleteTop = document.getElementById('btn-delete-book-top');
         if (deleteTop) deleteTop.classList.remove('hidden');
         var hasChapters = (book.chapterCount || 0) > 0;
-        var published = isBookPublished(book.status);
-        var dlBtn = document.getElementById('btn-download-publish');
-        var dlLabel = document.getElementById('btn-download-label');
-        if (dlBtn && dlLabel) {
-            dlBtn.classList.remove('hidden');
-            setExportPackButtonState(dlBtn, book, { label: 'aside' });
-            if (!published) {
-                dlLabel.textContent = 'Publish to unlock exports';
-            } else if (!hasChapters) {
-                dlLabel.textContent = 'Add chapters to export';
-            } else {
-                dlLabel.textContent = 'Open export page';
-            }
-        }
         var publishBtn = document.getElementById('btn-top-publish');
         if (publishBtn) {
             setExportPackButtonState(publishBtn, book, { isTop: true });
@@ -892,7 +874,11 @@
         var card = e.target.closest('#recommendedGrid .book-card[data-book-id], #categoriesScroll .book-card[data-book-id]');
         if (!card) return;
         var bookId = parseInt(card.getAttribute('data-book-id'), 10);
-        if (bookId > 0) window.location.href = '/Dashboard/SelectBook?bookId=' + bookId;
+        if (bookId > 0) {
+            selectMyBook(bookId);
+            var previewBtn = document.getElementById('btn-view-book');
+            if (previewBtn) previewBtn.click();
+        }
     });
 
     function normalizeChaptersForModal(chData) {

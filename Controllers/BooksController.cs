@@ -1610,6 +1610,7 @@ namespace EBookDashboard.Controllers
                         responseId = c.ResponseId,
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
+                        chapterTopic = ChapterPromptComposer.ParseChapterTopicFromRequestData(c.RequestData),
                         requestData = c.RequestData,
                         content = c.Content,
                         statusCode = c.StatusCode

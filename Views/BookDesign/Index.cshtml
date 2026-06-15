@@ -94,16 +94,31 @@
     }
 
     document.getElementById("nextBtn").addEventListener("click", function () {
+        if (!selectedDesign) return;
         fetch('/BookDesign/SaveSelection', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin',
             body: `bookId=@Model.BookId&designId=${selectedDesign}`
         })
-        .then(res => res.json())
-        .then(r => {
+        .then(function (res) {
+            if (!res.ok) throw new Error('Save failed (' + res.status + ')');
+            return res.json();
+        })
+        .then(function (r) {
             if (r.success) {
-                window.location.href = '/Book/Format?bookId=@Model.BookId';
+                window.location.href = '/BookDesign/CoverDesignCalculatorFixing?bookId=@Model.BookId';
+            } else {
+                alert(r.message || 'Could not save design selection.');
             }
+        })
+        .catch(function (err) {
+            console.error('SaveSelection', err);
+            alert('Could not save design. Please sign in again and retry.');
         });
     });
 
