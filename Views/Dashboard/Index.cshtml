@@ -23,6 +23,9 @@
         : "Start a fresh project with AI Writer — write chapters, format the interior, design a cover, and publish.";
     var heroPrimaryUrl = startBookUrl;
     var heroPrimaryLabel = "Write Now";
+    var dashProfilePic = "";
+    if (!string.IsNullOrEmpty(ViewBag.ProfilePicturePath as string))
+        dashProfilePic = Url.Content((string)ViewBag.ProfilePicturePath) + "?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 }
 <style>
     body { font-family: 'Inter', sans-serif; }
@@ -107,6 +110,31 @@
         box-shadow: 0 12px 28px -14px rgba(91, 33, 182, 0.35);
         transform: translateY(-2px);
     }
+    .dash-draft-card-wrap { position: relative; }
+    .dash-delete-book-btn {
+        position: absolute;
+        top: 0.5rem;
+        left: 0.5rem;
+        z-index: 12;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #fecaca;
+        color: #dc2626;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        opacity: 0;
+        transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+    }
+    .dash-draft-card-wrap:hover .dash-delete-book-btn,
+    .drafts-modal-item:hover .dash-delete-book-btn { opacity: 1; }
+    .dash-delete-book-btn:hover { background: #fef2f2; color: #b91c1c; }
+    .dash-published-card { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+    .dash-published-card:hover { border-color: #c4b5fd; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1); }
 
     .mb-10.rounded-2xl.border.border-violet-200\/80.bg-gradient-to-br.from-violet-50.via-white.to-purple-50.p-6.sm\:p-8.shadow-sm {
         display: none;
@@ -209,7 +237,11 @@
                             var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
-                            <a href="@draftResume" class="book-item dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-title="@title" data-book-id="@draft.BookId" data-cover-url="@cardCover" data-resume-url="@draftResume">
+                            <div class="dash-draft-card-wrap book-item" data-title="@title" data-book-id="@draft.BookId">
+                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
                                     <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
@@ -222,7 +254,8 @@
                                     </div>
                                     <p class="text-gray-400 text-[11px] mt-2 truncate">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                 </div>
-                            </a>
+                                </a>
+                            </div>
                         }
                         if (hasMoreDrafts)
                         {
@@ -241,7 +274,11 @@
                             var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
-                            <a href="@draftResume" class="book-item dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-title="@title" data-book-id="@draft.BookId" data-cover-url="@cardCover" data-resume-url="@draftResume">
+                            <div class="dash-draft-card-wrap book-item" data-title="@title" data-book-id="@draft.BookId">
+                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
                                     <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
@@ -254,7 +291,8 @@
                                     </div>
                                     <p class="text-gray-400 text-[11px] mt-2 truncate">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                 </div>
-                            </a>
+                                </a>
+                            </div>
                         }
                         @if (hasMoreDemoDrafts)
                         {
@@ -292,16 +330,20 @@
                             var pubCover = DashCoverSrc(pub.CoverUrl);
                             if (string.IsNullOrEmpty(pubCover)) pubCover = defaultCoverPlaceholder;
                             var pubTitle = string.IsNullOrWhiteSpace(pub.Title) ? "Untitled Book" : pub.Title;
-                            <div class="book-item dash-book-card dash-published-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm" data-title="@pubTitle" aria-label="@pubTitle — published">
+                            var pubResume = !string.IsNullOrWhiteSpace(pub.ResumeUrl)
+                                ? pub.ResumeUrl
+                                : (Url.Action("SelectBook", "Dashboard", new { bookId = pub.BookId }) ?? $"/Dashboard/SelectBook?bookId={pub.BookId}");
+                            <a href="@pubResume" class="book-item dash-book-card dash-published-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-title="@pubTitle" title="Open @pubTitle to edit again">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
-                                    <img src="@pubCover" alt="@pubTitle" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover dash-placeholder-cover" loading="lazy" />
+                                    <img src="@pubCover" alt="@pubTitle" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
                                     <span class="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-sm">Published</span>
                                 </div>
                                 <div class="p-3.5 flex flex-col flex-1 min-w-0">
-                                    <h3 class="font-semibold text-gray-900 text-sm truncate" title="@pubTitle">@pubTitle</h3>
+                                    <h3 class="font-semibold text-gray-900 text-sm group-hover:text-purple-700 transition-colors truncate" title="@pubTitle">@pubTitle</h3>
+                                    <p class="text-purple-600 text-[11px] mt-1 truncate font-medium">Click to edit again</p>
                                     <p class="text-gray-400 text-[11px] mt-1 truncate">@(pub.LastEditedText ?? "Ready for readers")</p>
                                 </div>
-                            </div>
+                            </a>
                         }
                     </div>
                 </div>
@@ -356,13 +398,14 @@
                     <span class="block font-semibold text-gray-900 text-base leading-tight">@Model.UserName</span>
                     <span class="text-xs text-gray-500">Author</span>
                 </div>
-                @if (!string.IsNullOrEmpty(ViewBag.ProfilePicturePath as string))
+                @if (!string.IsNullOrEmpty(dashProfilePic))
                 {
-                    <img src="@ViewBag.ProfilePicturePath" alt="@Model.UserName" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
+                    <img id="dash-profile-avatar" src="@dashProfilePic" alt="@Model.UserName" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
                 }
                 else
                 {
-                    <img src="@Url.Content("~/images/default-avatar.svg")" alt="@Model.UserName" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm bg-violet-50">
+                    <img id="dash-profile-avatar-default" src="@Url.Content("~/images/default-avatar.svg")" alt="@Model.UserName" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm bg-violet-50">
+                    <img id="dash-profile-avatar" src="" alt="@Model.UserName" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm hidden">
                 }
             </a>
 
@@ -505,7 +548,11 @@
                             var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
-                            <a href="@draftResume" class="drafts-modal-item block overflow-hidden group" data-title="@title.ToLowerInvariant()">
+                            <div class="drafts-modal-item relative overflow-hidden group" data-title="@title.ToLowerInvariant()">
+                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
                                     <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
@@ -515,7 +562,8 @@
                                     <p class="text-gray-500 text-xs mt-0.5 truncate">@draft.ProgressText</p>
                                     <p class="text-gray-400 text-[11px] mt-1.5 truncate">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                 </div>
-                            </a>
+                                </a>
+                            </div>
                         }
                     }
                     else
@@ -529,7 +577,11 @@
                             var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
-                            <a href="@draftResume" class="drafts-modal-item block overflow-hidden group" data-title="@title.ToLowerInvariant()">
+                            <div class="drafts-modal-item relative overflow-hidden group" data-title="@title.ToLowerInvariant()">
+                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                                <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
                                     <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
@@ -539,7 +591,8 @@
                                     <p class="text-gray-500 text-xs mt-0.5 truncate">@(string.IsNullOrWhiteSpace(draft.Subtitle) ? draft.Status : draft.Subtitle)</p>
                                     <p class="text-gray-400 text-[11px] mt-1.5 truncate">@(string.IsNullOrWhiteSpace(draft.LastEditedText) ? "Edited recently" : draft.LastEditedText)</p>
                                 </div>
-                            </a>
+                                </a>
+                            </div>
                         }
                     }
                 </div>
@@ -782,6 +835,84 @@
         if (searchInput) searchInput.addEventListener('input', function (e) { filterDrafts(e.target.value); });
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && modal.classList.contains('is-open')) closeDraftsModal();
+        });
+    })();
+
+    (function () {
+        function getAntiForgeryToken() {
+            var t = document.querySelector('input[name="__RequestVerificationToken"]');
+            return t ? t.value : (document.querySelector('meta[name="RequestVerificationToken"]')?.getAttribute('content') || '');
+        }
+        function runDeleteBook(bookId) {
+            var token = getAntiForgeryToken();
+            fetch('/Books/Delete/' + bookId, {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': token, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: '__RequestVerificationToken=' + encodeURIComponent(token)
+            }).then(function (res) {
+                if (res.ok || res.redirected) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ title: 'Deleted', text: 'Book removed permanently.', icon: 'success', timer: 1500, showConfirmButton: false })
+                            .then(function () { window.location.reload(); });
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    return res.text().then(function (t) { throw new Error(t || 'Delete failed'); });
+                }
+            }).catch(function (e) {
+                if (typeof Swal !== 'undefined') Swal.fire({ title: 'Error', text: e.message || 'Could not delete book.', icon: 'error' });
+                else alert(e.message || 'Could not delete book.');
+            });
+        }
+        function confirmDeleteBook(bookId) {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Delete book permanently?',
+                    text: 'This removes the book and all chapters. This cannot be undone.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Yes, delete'
+                }).then(function (r) { if (r.isConfirmed) runDeleteBook(bookId); });
+            } else if (confirm('Delete this book permanently? This cannot be undone.')) {
+                runDeleteBook(bookId);
+            }
+        }
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.dash-delete-book-btn');
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var bookId = parseInt(btn.getAttribute('data-book-id'), 10);
+            if (!bookId) return;
+            confirmDeleteBook(bookId);
+        });
+    })();
+
+    (function () {
+        function applyDashProfile(src) {
+            if (!src) return;
+            var img = document.getElementById('dash-profile-avatar');
+            var fallback = document.getElementById('dash-profile-avatar-default');
+            if (!img) return;
+            var url = src + (src.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+            img.src = url;
+            img.classList.remove('hidden');
+            if (fallback) fallback.classList.add('hidden');
+        }
+        var cached = sessionStorage.getItem('newProfilePicture');
+        if (cached) applyDashProfile(cached);
+        fetch('/Dashboard/GetProfilePicture')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data && data.success && data.imagePath) applyDashProfile(data.imagePath);
+            })
+            .catch(function () { /* keep server-rendered avatar */ });
+        window.addEventListener('profilePictureUpdated', function () {
+            var pic = sessionStorage.getItem('newProfilePicture');
+            if (pic) applyDashProfile(pic);
         });
     })();
 </script>

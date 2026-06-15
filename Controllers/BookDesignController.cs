@@ -677,12 +677,6 @@ namespace EBookDashboard.Controllers
                     return RedirectToAction("Index", "Dashboard");
                 }
 
-                if (BookFlowStateService.IsPublishedStatus(bookRow.Status))
-                {
-                    TempData["InfoMessage"] = "This book is already published. Find it under Published Books on the dashboard.";
-                    return RedirectToAction("Index", "Dashboard");
-                }
-
                 if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId))
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 

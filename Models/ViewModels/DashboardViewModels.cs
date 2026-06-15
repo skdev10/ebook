@@ -265,6 +265,8 @@ namespace EBookDashboard.Models
         public int BookId { get; set; }
         public string Status { get; set; } = string.Empty;
         public string LastEditedText { get; set; } = string.Empty;
+        /// <summary>Opens the book workflow so a published title can be edited again.</summary>
+        public string ResumeUrl { get; set; } = string.Empty;
     }
 
     /// <summary>Demo display item for Drafts section.</summary>

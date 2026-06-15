@@ -262,12 +262,6 @@ namespace EBookDashboard.Controllers
                 TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                 return RedirectToAction(nameof(Index));
             }
-            if (BookFlowStateService.IsPublishedStatus(ownsBook.Status))
-            {
-                TempData["InfoMessage"] = "This book is already published. Find it under Published Books on the dashboard.";
-                return RedirectToAction(nameof(Index));
-            }
-
             await SetActiveBookForUserAsync(userId.Value, bookId);
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
@@ -320,27 +314,23 @@ namespace EBookDashboard.Controllers
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
             string? resumeUrl = null;
-            string flowStep = BookFlowStateService.StepGenerate;
-            if (!BookFlowStateService.IsPublishedStatus(book.Status))
-            {
-                var flow = await _bookFlow.GetStepAsync(bookId);
-                flowStep = flow.Step;
-                BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
+            var flow = await _bookFlow.GetStepAsync(bookId);
+            var flowStep = flow.Step;
+            BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
 
-                var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(bookId);
-                var perBookUrl = await _context.Settings.AsNoTracking()
-                    .Where(s => s.Key == perBookKey)
-                    .Select(s => s.Value)
-                    .FirstOrDefaultAsync();
-                if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
-                    && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId)
-                {
-                    resumeUrl = perBookUrl!.Trim();
-                }
-                else
-                {
-                    resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
-                }
+            var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(bookId);
+            var perBookUrl = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == perBookKey)
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+            if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
+                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId)
+            {
+                resumeUrl = perBookUrl!.Trim();
+            }
+            else
+            {
+                resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
             }
 
             return Json(new
@@ -585,9 +575,12 @@ namespace EBookDashboard.Controllers
                 .ToList();
             var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, userDraftBooks);
             var pendingBooks = userDraftBooks;
-            var flowMap = await LoadBookFlowMapAsync(pendingBooks.Select(b => b.BookId).ToList());
+            var allUserBookIds = books.Where(b => !IsDemoSeedTitle(b.Title)).Select(b => b.BookId).ToList();
+            var flowMap = await LoadBookFlowMapAsync(allUserBookIds);
             var epubByBookId = await LoadEpubPathsByBookIdAsync(publishedBooks.Select(b => b.BookId).ToList());
-            var demoPublished = GetDemoPublishedBooks(publishedBooks, ResolveBookCover, epubByBookId);
+            var demoPublished = EnrichPublishedWithResume(
+                GetDemoPublishedBooks(publishedBooks, ResolveBookCover, epubByBookId),
+                bookId => Url.Action(nameof(SelectBook), "Dashboard", new { bookId }) ?? $"/Dashboard/SelectBook?bookId={bookId}");
             var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(userDraftBooks, aiCoverByBookId), flowMap, _bookFlow);
             string? heroDisplayTitle = null;
             if (lastWorkedBook != null)
@@ -783,6 +776,15 @@ namespace EBookDashboard.Controllers
                 d.ResumeUrl = bookFlow.BuildResumeUrl(d.BookId, flow.Step, flow.Path);
             }
             return drafts;
+        }
+
+        private static List<DemoPublishedBookViewModel> EnrichPublishedWithResume(
+            List<DemoPublishedBookViewModel> published,
+            Func<int, string> selectBookUrl)
+        {
+            foreach (var p in published)
+                p.ResumeUrl = selectBookUrl(p.BookId);
+            return published;
         }
 
         private async Task<Dictionary<int, (string Step, string Path)>> LoadBookFlowMapAsync(List<int> bookIds)

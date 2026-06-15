@@ -5324,8 +5324,8 @@
                         sidebarImg.src = newProfilePic + '?t=' + new Date().getTime();
                     }
                 }
-                
-                // Clear sessionStorage
+
+                window.dispatchEvent(new CustomEvent('profilePictureUpdated'));
                 sessionStorage.removeItem('newProfilePicture');
             }
         }
