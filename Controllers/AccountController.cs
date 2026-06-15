@@ -135,11 +135,13 @@ namespace EBookDashboard.Controllers
 
         // GET: /Account/UserLogin - User login page
         [HttpGet]
-        public async Task<IActionResult> UserLogin()
+        public async Task<IActionResult> UserLogin(string? registered = null)
         {
             await SetOAuthLoginAvailabilityAsync();
             if (TempData["LoginSuccess"] is string success && !string.IsNullOrWhiteSpace(success))
                 ViewBag.Success = success;
+            else if (string.Equals(registered, "1", StringComparison.Ordinal))
+                ViewBag.Success = "Account created successfully. Please sign in with your email and password.";
             return View();
         }
 
@@ -656,6 +658,7 @@ namespace EBookDashboard.Controllers
 
         // POST: Registration
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> Register(Users model, string ConfirmPassword)
         {
             try
@@ -695,7 +698,7 @@ namespace EBookDashboard.Controllers
                 if (roleId == 0)
                 {
                     roleId = await _context.Roles.AsNoTracking()
-                        .OrderBy(r => r.RoleId)
+                        .Where(r => r.RoleName == "Reader")
                         .Select(r => r.RoleId)
                         .FirstOrDefaultAsync();
                 }
@@ -714,13 +717,20 @@ namespace EBookDashboard.Controllers
                 model.SecretQuestionAnswer = string.Empty;
                 model.AuthorCode = string.Empty;
                 model.ProfilePicturePath = null;
+                model.HasCompletedTour = false;
+
+                if (model.UserId <= 0)
+                {
+                    var maxId = await _context.Users.MaxAsync(u => (int?)u.UserId) ?? 0;
+                    model.UserId = maxId + 1;
+                }
 
                 _context.Users.Add(model);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("New user registered: {UserId} {Email}", model.UserId, model.UserEmail);
                 TempData["LoginSuccess"] = "Account created successfully. Please sign in with your email and password.";
-                return RedirectToAction(nameof(UserLogin));
+                return RedirectToAction(nameof(UserLogin), new { registered = "1" });
             }
             catch (DbUpdateException ex)
             {

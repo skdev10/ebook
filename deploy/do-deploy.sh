@@ -33,6 +33,13 @@ if ! git pull --ff-only origin "$BRANCH" 2>/dev/null; then
 fi
 echo "    HEAD: $(git log -1 --oneline)"
 
+# Fix /etc/default/ebookai before any script sources it (unquoted spaces break bash).
+if [[ -f "${APP_DIR}/deploy/lib-env.sh" ]]; then
+  # shellcheck disable=SC1091
+  source "${APP_DIR}/deploy/lib-env.sh"
+  fix_env_file_syntax "${ENV_FILE}"
+fi
+
 echo "==> External API env"
 chmod +x deploy/ensure-external-api-env.sh 2>/dev/null || true
 if [[ -f deploy/ensure-external-api-env.sh ]]; then
@@ -49,15 +56,27 @@ if [[ -f deploy/ensure-email-env.sh ]]; then
   bash deploy/ensure-email-env.sh
 fi
 
+echo "==> Users DB schema (HasCompletedTour for signup)"
+chmod +x deploy/ensure-users-schema.sh 2>/dev/null || true
+if [[ -f deploy/ensure-users-schema.sh ]]; then
+  bash deploy/ensure-users-schema.sh
+fi
+
 echo "==> Publish"
 chmod +x deploy/vm-deploy.sh
 DEPLOY_SKIP_GIT=1 BRANCH="$BRANCH" OUT_DIR="$OUT_DIR" ./deploy/vm-deploy.sh
 
 if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
+  if [[ -f "${APP_DIR}/deploy/lib-env.sh" ]]; then
+    # shellcheck disable=SC1091
+    source "${APP_DIR}/deploy/lib-env.sh"
+    safe_source_env "$ENV_FILE"
+  else
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+  fi
 fi
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://0.0.0.0:${PORT}}"

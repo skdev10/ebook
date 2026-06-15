@@ -46,7 +46,7 @@ Email__Port=587
 Email__Username=PASTE_GMAIL_ADDRESS_HERE
 Email__Password=PASTE_GMAIL_APP_PASSWORD_HERE
 Email__FromEmail=PASTE_GMAIL_ADDRESS_HERE
-Email__SenderName=eBook Publisher
+Email__SenderName='eBook Publisher'
 Email__EnableSSL=true
 
 # AI chapter generation — upstream + browser wait (minutes)

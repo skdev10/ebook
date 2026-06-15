@@ -27,12 +27,11 @@ while IFS= read -r line; do
   fi
 done < "$EXAMPLE"
 
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
+# shellcheck disable=SC1091
+source "${APP_DIR}/deploy/lib-env.sh"
+fix_env_file_syntax "$ENV_FILE"
 
-API_KEY="$(echo "${ExternalApi__ApiKey:-}" | tr -d '"' | sed "s/^[[:space:]]*//;s/[[:space:]]*$//")"
+API_KEY="$(env_file_get "$ENV_FILE" "ExternalApi__ApiKey" | tr -d '"' | sed "s/^[[:space:]]*//;s/[[:space:]]*$//")"
 if [[ -z "$API_KEY" || "$API_KEY" == "PASTE_YOUR_KEY_HERE" ]]; then
   echo ""
   echo "ERROR: ExternalApi__ApiKey is missing in $ENV_FILE"
@@ -43,4 +42,4 @@ if [[ -z "$API_KEY" || "$API_KEY" == "PASTE_YOUR_KEY_HERE" ]]; then
 fi
 
 echo "OK — ExternalApi__ApiKey configured ($(echo -n "$API_KEY" | wc -c | tr -d ' ') chars)"
-echo "    BaseUrl: ${ExternalApi__BaseUrl:-http://162.229.248.26:8001}"
+echo "    BaseUrl: $(env_file_get "$ENV_FILE" "ExternalApi__BaseUrl")"

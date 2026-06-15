@@ -64,8 +64,8 @@
         .ai-writer-main-layout #bookResult.ai-writer-ebook-preview-wrap {
             grid-column: auto;
             align-self: stretch;
-            width: 100%;
-            max-width: 100%;
+            width: 77%;
+            max-width: 77%;
             min-height: 0;
             flex: 1 1 auto;
             display: flex;
@@ -77,20 +77,20 @@
             flex: 1 1 auto;
             min-height: 0;
             max-width: 100%;
-            width: 100%;
+            width: 77%;
             display: flex;
             flex-direction: column;
         }
         .ai-writer-preview-meta {
-            width: 100%;
-            max-width: 100%;
+            width: 77%;
+            max-width: 77%;
             margin-bottom: 1rem;
             box-sizing: border-box;
         }
         .ai-writer-preview-pane > #bookResult.ai-writer-ebook-preview-wrap,
         .ai-writer-preview-pane > #sideBySidePreview {
-            width: 100%;
-            max-width: 100%;
+            width: 77%;
+            max-width: 77%;
             box-sizing: border-box;
         }
         .ai-writer-preview-column {
@@ -1555,8 +1555,8 @@
                 <input type="hidden" id="APIRawResponse">
 
                 <div class="ai-writer-sticky-actions" data-guided-tour="ai-next-step">
-                    <p id="bookFormattingHint" class="btn-book-formatting-hint">Finalize every chapter before opening Book formatting.</p>
-                    <button type="button" id="btnNextStep" class="btn-book-formatting" disabled title="Finalize all chapters first">
+                    <p id="bookFormattingHint" class="btn-book-formatting-hint">Open Book formatting when you are ready to set layout and export.</p>
+                    <button type="button" id="btnNextStep" class="btn-book-formatting" disabled title="Select a book first">
                         <span>Book formatting</span>
                         <i class="fas fa-arrow-right text-xs" aria-hidden="true"></i>
                     </button>
@@ -2583,11 +2583,7 @@ window.refreshChapterWorkflowProgress = async function () {
         if (hintEl) {
             hintEl.textContent = d.allFinalized
                 ? 'All chapters finalized — continue to layout and PDF export.'
-                : (hasGenerated
-                    ? (fin > 0 && total > fin
-                        ? ('Finalize ' + (total - fin) + ' more chapter(s) to unlock Book formatting.')
-                        : 'Generate and finalize every chapter to unlock Book formatting.')
-                    : 'Generate a chapter first, then finalize it to continue.');
+                : 'You can open Book formatting anytime; finalize chapters when you are ready.';
         }
         if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(d);
     } catch (e) {
@@ -2600,11 +2596,18 @@ window.refreshChapterWorkflowProgress = async function () {
 window.refreshBookFormattingButton = function (progressData) {
     var btn = document.getElementById('btnNextStep');
     if (!btn) return;
+    var bidEl = document.getElementById('BookId');
+    var fromField = (bidEl && bidEl.value) ? String(bidEl.value).trim() : '';
+    var ddl = document.getElementById('savedResponsesDropdown');
+    var fromDdl = (ddl && ddl.value && String(ddl.value).trim() !== '0') ? String(ddl.value).trim() : '';
+    var hasBook = parseInt(fromField || fromDdl || '0', 10) > 0;
     var allOk = progressData && progressData.allFinalized === true;
-    var hasBook = parseInt(String((document.getElementById('BookId') && document.getElementById('BookId').value) || '0'), 10) > 0;
-    var enable = allOk && hasBook;
-    btn.disabled = !enable;
-    btn.title = enable ? 'Open Book formatting to lock chapters and export PDF' : 'Finalize all chapters first';
+    btn.disabled = !hasBook;
+    btn.title = !hasBook
+        ? 'Select a book first'
+        : (allOk
+            ? 'Open Book formatting to lock chapters and export PDF'
+            : 'Open Book formatting (you can return to finalize chapters later)');
 };
 
 window.showPreviewEmptyState = function () {
@@ -3434,9 +3437,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.location.href = data.redirectUrl;
                 return;
             }
-            var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
-            if (fmt) url += '&format=' + encodeURIComponent(fmt);
-            window.location.href = url;
+            var msg = (data && data.message) ? data.message : 'Could not open Book formatting. Please sign in and try again.';
+            if (typeof showNotification === 'function') showNotification(msg, 'error');
+            else if (typeof Swal !== 'undefined') Swal.fire({ title: 'Book formatting', text: msg, icon: 'error', confirmButtonColor: '#7c3aed' });
+            else alert(msg);
         }).catch(function () {
             var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
             if (fmt) url += '&format=' + encodeURIComponent(fmt);
@@ -3444,13 +3448,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+
     if (nextBtn) {
         nextBtn.addEventListener('click', function(e) {
             if (e.preventDefault) e.preventDefault();
             if (nextBtn.disabled) {
                 if (typeof Swal !== 'undefined') {
-                    Swal.fire({ title: 'Not ready yet', text: 'Finalize every chapter before opening Book formatting.', icon: 'info', confirmButtonColor: '#7c3aed' });
-                } else { alert('Finalize every chapter before opening Book formatting.'); }
+                    Swal.fire({ title: 'Select your book', text: 'Go to the Dashboard and open your project first.', icon: 'info', confirmButtonColor: '#7c3aed' });
+                } else { alert('Select your book from the Dashboard first.'); }
                 return;
             }
             var bid = getCurrentBookId();
@@ -3988,6 +3994,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     selectBook.addEventListener('change', function() {
         var bookId = getBookId();
+        var bookIdInput = document.getElementById('BookId');
+        if (bookIdInput && bookId > 0) bookIdInput.value = String(bookId);
+        var savedDdlSync = document.getElementById('savedResponsesDropdown');
+        if (savedDdlSync && bookId > 0) savedDdlSync.value = String(bookId);
+        if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
         if (bookId > 0) {
             inputBookTitle.value = selectBook.options[selectBook.selectedIndex].text;
             fetch('/Books/GetSavedChapterNos?userId=' + userId + '&bookId=' + bookId)
@@ -4010,9 +4021,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         .then(function(r) { return r.json(); })
                         .then(function(d) {
                             if (d.nextChapterNumber) inputChapterNo.value = String(d.nextChapterNumber);
-    updatePreviewUI();
-    if (typeof window.refreshChapterWorkflowProgress === 'function') window.refreshChapterWorkflowProgress();
-});
+                            updatePreviewUI();
+                            if (typeof window.refreshChapterWorkflowProgress === 'function') window.refreshChapterWorkflowProgress();
+                        });
                 });
         } else {
             updatePreviewUI();

@@ -24,15 +24,14 @@ while IFS= read -r line; do
   fi
 done < "$EXAMPLE"
 
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
+# shellcheck disable=SC1091
+source "${APP_DIR}/deploy/lib-env.sh"
+fix_env_file_syntax "$ENV_FILE"
 
-SMTP_HOST="$(echo "${Email__SmtpServer:-}" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-FROM_EMAIL="$(echo "${Email__FromEmail:-}" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-SMTP_USER="$(echo "${Email__Username:-}" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-SMTP_PASS="$(echo "${Email__Password:-}" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+SMTP_HOST="$(env_file_get "$ENV_FILE" "Email__SmtpServer" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+FROM_EMAIL="$(env_file_get "$ENV_FILE" "Email__FromEmail" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+SMTP_USER="$(env_file_get "$ENV_FILE" "Email__Username" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+SMTP_PASS="$(env_file_get "$ENV_FILE" "Email__Password" | tr -d '"' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
 if [[ -z "$SMTP_HOST" || -z "$FROM_EMAIL" ]]; then
   echo "WARN — Email SMTP not fully configured in $ENV_FILE"
