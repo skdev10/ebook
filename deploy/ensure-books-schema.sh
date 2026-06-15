@@ -22,12 +22,15 @@ fi
 DB_NAME="${MYSQL_DATABASE:-ebookpublications}"
 DB_USER="${MYSQL_USER:-}"
 DB_PASS="${MYSQL_PASSWORD:-}"
+ROOT_PASS="${MYSQL_ROOT_PASSWORD:-Root@1234}"
 
 mysql_run() {
   if [[ -n "$DB_USER" && -n "$DB_PASS" ]]; then
     mysql -u "$DB_USER" -p"$DB_PASS" "$@"
   elif mysql -e "SELECT 1" >/dev/null 2>&1; then
     mysql "$@"
+  elif mysql -u root -p"${ROOT_PASS}" -e "SELECT 1" >/dev/null 2>&1; then
+    mysql -u root -p"${ROOT_PASS}" "$@"
   elif sudo mysql -e "SELECT 1" >/dev/null 2>&1; then
     sudo mysql "$@"
   else

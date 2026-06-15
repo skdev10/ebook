@@ -22,12 +22,15 @@ fi
 DB_NAME="${MYSQL_DATABASE:-ebookpublications}"
 DB_USER="${MYSQL_USER:-}"
 DB_PASS="${MYSQL_PASSWORD:-}"
+ROOT_PASS="${MYSQL_ROOT_PASSWORD:-Root@1234}"
 
 mysql_run() {
   if [[ -n "$DB_USER" && -n "$DB_PASS" ]]; then
     mysql -u "$DB_USER" -p"$DB_PASS" "$@"
   elif mysql -e "SELECT 1" >/dev/null 2>&1; then
     mysql "$@"
+  elif mysql -u root -p"${ROOT_PASS}" -e "SELECT 1" >/dev/null 2>&1; then
+    mysql -u root -p"${ROOT_PASS}" "$@"
   elif sudo mysql -e "SELECT 1" >/dev/null 2>&1; then
     sudo mysql "$@"
   else
@@ -37,6 +40,11 @@ mysql_run() {
 
 if ! mysql_run -e "USE \`${DB_NAME}\`; SELECT 1" >/dev/null 2>&1; then
   echo "    [users-schema] Cannot connect to MySQL database '${DB_NAME}' (skip — run SQL manually)"
+  exit 0
+fi
+
+if mysql_run -N -e "USE \`${DB_NAME}\`; SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='users' AND COLUMN_NAME='HasCompletedTour';" 2>/dev/null | grep -q '^1$'; then
+  echo "    [users-schema] HasCompletedTour column already present (skip)"
   exit 0
 fi
 

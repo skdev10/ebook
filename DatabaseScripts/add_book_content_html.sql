@@ -1,5 +1,5 @@
 -- Whole-book AI HTML fragment for formatter preview and PDF export.
--- Run on MySQL when upgrading an existing database (ebookpublications).
+-- Idempotency: deploy/ensure-books-schema.sh skips when column already exists.
 
 ALTER TABLE `books`
   ADD COLUMN `BookContentHtml` LONGTEXT NULL;
