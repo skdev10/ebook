@@ -1200,7 +1200,7 @@
         box-sizing: border-box;
     }
     .add-chapter-btn-inline {
-        min-width: 44px;
+        min-width: 5.5rem;
         align-self: stretch;
         height: auto !important;
         box-sizing: border-box;
@@ -1463,7 +1463,7 @@
                             <option value="0">Load previously generated...</option>
                         </select>
                         <span class="flex items-center px-2 text-slate-400 pointer-events-none"><i class="fas fa-chevron-down text-sm"></i></span>
-                        <button id="addChapterBtn" type="button" class="add-chapter-btn-inline flex items-center justify-center w-11 shrink-0 px-2 text-lg font-bold text-white bg-purple-600 hover:bg-purple-700 border-l border-slate-200 transition-colors" onclick="addNewChapter()" title="Add Chapter">+</button>
+                        <button id="addChapterBtn" type="button" class="add-chapter-btn-inline inline-flex items-center justify-center shrink-0 px-3 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 border-l border-slate-200 transition-colors whitespace-nowrap" onclick="addNewChapter()" title="Add a new chapter number" aria-label="Add chapter">Add chapter</button>
                     </div>
                     <div class="flex flex-col gap-2 pt-1" id="iterationPickerWrap">
                         <div id="chapterVersionsSummary" class="hidden rounded-lg border border-emerald-200/70 bg-emerald-50/90 px-2.5 py-2 text-xs text-emerald-900" role="status" aria-live="polite">
@@ -1503,11 +1503,11 @@
                     <textarea id="UserInput" placeholder="If you want peace, work for justice" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-3 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]">If you want peace, work for justice</textarea>
                     <div class="bg-slate-50/80 p-1.5 mx-1 mb-1 rounded-xl flex items-center justify-end gap-2 border border-slate-100">
                         <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain" class="hidden" aria-label="Upload document (PDF, TXT, or Markdown)" />
-                        <button type="button" id="chapterDocUploadBtn" class="inline-flex items-center justify-center text-xs font-semibold text-slate-700 hover:text-violet-900 px-2.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Upload PDF, TXT, or Markdown — preview updates automatically" aria-label="Upload document">
-                            <i class="fas fa-cloud-upload-alt text-violet-600 text-sm" aria-hidden="true"></i>
+                        <button type="button" id="chapterDocUploadBtn" class="inline-flex items-center justify-center text-xs font-semibold text-slate-700 hover:text-violet-900 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Upload PDF, TXT, or Markdown — preview updates automatically" aria-label="Upload docs">
+                            Upload docs
                         </button>
-                        <button type="button" id="GenerateBtn" class="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-full shadow-md transition-all hover:scale-105 flex items-center justify-center w-9 h-9 shrink-0" title="Generate chapter" aria-label="Generate chapter" onclick="confirmGenerateChapter()">
-                            <i id="GenerateBtnIcon" class="fas fa-arrow-up w-4 h-4" aria-hidden="true"></i>
+                        <button type="button" id="GenerateBtn" class="inline-flex items-center justify-center text-xs font-semibold text-white px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 shadow-sm transition-all hover:scale-[1.02] shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" title="Generate chapter" aria-label="Generate chapter" onclick="confirmGenerateChapter()">
+                            <span id="GenerateBtnLabel">Generate</span>
                         </button>
                     </div>
                     <button type="button" id="EditBtn" class="hidden" tabindex="-1" aria-hidden="true" onclick="openChapterEditModal()"></button>
@@ -1698,7 +1698,7 @@
         </div>
         <div class="generate-confirm-modal-actions">
             <button type="button" id="generateConfirmCancel" class="btn btn-generate-cancel">Cancel</button>
-            <button type="button" id="generateConfirmYes" class="btn btn-generate-yes"><i class="fas fa-arrow-up mr-1"></i> Generate</button>
+            <button type="button" id="generateConfirmYes" class="btn btn-generate-yes"><span id="generateConfirmYesLabel">Generate</span></button>
         </div>
     </div>
 </div>
@@ -2523,24 +2523,48 @@ window.setBookResultStatusBanner = function (text, visible) {
     }
 };
 window.isGenerateRegenerateMode = function () {
+    if (window._chapterDraftGenerated === true) return true;
     var rid = parseInt((document.getElementById('ResponseId') && document.getElementById('ResponseId').value) || '0', 10) || 0;
     if (rid > 0) return true;
     var list = window._previewChaptersMeta || [];
     if (list.length && list.some(function (m) { return m && !m.loading && m.html && String(m.html).trim(); })) return true;
     var raw = document.getElementById('APIRawResponse') && document.getElementById('APIRawResponse').value;
-    return !!(raw && String(raw).trim().length > 2);
+    if (raw && String(raw).trim().length > 2) {
+        try {
+            var parsed = JSON.parse(raw);
+            var core = (parsed && parsed.data) ? parsed.data : (parsed || {});
+            if (core.content || core.Content || (core.chapters && core.chapters.length) || (core.Chapters && core.Chapters.length)) return true;
+            if (parsed.responseId || parsed.response_id || core.responseId || core.response_id) return true;
+        } catch (e) {
+            return true;
+        }
+    }
+    var preview = document.getElementById('preview-content');
+    if (preview && !preview.classList.contains('hidden')) {
+        var body = preview.querySelector('.reader-chapter-content, .reader-chapter-block, .manuscript-p');
+        if (body && String(body.textContent || '').trim().length > 20) return true;
+    }
+    return false;
+};
+window.markChapterAsGenerated = function () {
+    window._chapterDraftGenerated = true;
+    if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+};
+window.clearChapterDraftGenerated = function () {
+    window._chapterDraftGenerated = false;
+    if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
 };
 window.updateGenerateBtnMode = function () {
     var btn = document.getElementById('GenerateBtn');
-    var icon = document.getElementById('GenerateBtnIcon');
-    if (!btn || !icon) return;
+    var label = document.getElementById('GenerateBtnLabel');
+    if (!btn || !label) return;
     var regen = typeof window.isGenerateRegenerateMode === 'function' && window.isGenerateRegenerateMode();
     if (regen) {
-        icon.className = 'fas fa-redo w-4 h-4';
+        label.textContent = 'Regenerate';
         btn.title = 'Regenerate chapter';
         btn.setAttribute('aria-label', 'Regenerate chapter');
     } else {
-        icon.className = 'fas fa-arrow-up w-4 h-4';
+        label.textContent = 'Generate';
         btn.title = 'Generate chapter';
         btn.setAttribute('aria-label', 'Generate chapter');
     }
@@ -4380,6 +4404,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
            chapterDropdown.insertBefore(opt, chapterDropdown.options[0]); // Add on top
            document.getElementById("ResponseId").value = "0";
+           if (typeof window.clearChapterDraftGenerated === 'function') window.clearChapterDraftGenerated();
            if (typeof window.resetWriterPreviewForContextChange === 'function') {
                window.resetWriterPreviewForContextChange(parseInt(bookId, 10) || 0, parseInt(data.lastChapter + 1, 10) || 1, 0, true);
            }
@@ -4469,7 +4494,13 @@ document.addEventListener('DOMContentLoaded', function() {
                       refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value);
                   }
                   if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
-                  if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+                  if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
+                      window.markChapterAsGenerated();
+                  } else if (typeof window.clearChapterDraftGenerated === 'function') {
+                      window.clearChapterDraftGenerated();
+                  } else if (typeof window.updateGenerateBtnMode === 'function') {
+                      window.updateGenerateBtnMode();
+                  }
               } else {
                    // clearBookForm();
                    showNotification("Error: " + result.message, "error");
@@ -4998,7 +5029,9 @@ document.addEventListener('DOMContentLoaded', function() {
          var isRegen = typeof window.isGenerateRegenerateMode === 'function' && window.isGenerateRegenerateMode();
          var modalTitle = document.querySelector('#generateConfirmModal .generate-confirm-modal-title');
          var modalBody = document.querySelector('#generateConfirmModal .generate-confirm-modal-body > p:first-child');
+         var yesLabel = document.getElementById('generateConfirmYesLabel');
          if (modalTitle) modalTitle.textContent = isRegen ? 'Regenerate Chapter' : 'Generate Chapter';
+         if (yesLabel) yesLabel.textContent = isRegen ? 'Regenerate' : 'Generate';
          if (modalBody) modalBody.textContent = isRegen
              ? 'Regenerate this chapter with AI? A new draft version will be saved.'
              : 'Do you want to generate this chapter with AI?';
@@ -5232,10 +5265,12 @@ document.addEventListener('DOMContentLoaded', function() {
                          showNotification(errMsg, 'error');
                          return;
                      }
-                     document.getElementById('ResponseId').value = bookData.responseId || bookData.response_id || savedResponseIdHeader || '';
+                     var coreData = (bookData && bookData.data) ? bookData.data : (bookData || {});
+                     var newResponseId = bookData.responseId || bookData.response_id || coreData.responseId || coreData.response_id || savedResponseIdHeader || '';
+                     document.getElementById('ResponseId').value = newResponseId;
                      if (bookData && bookData.bookId) document.getElementById('BookId').value = bookData.bookId;
                      if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
-                     if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+                     if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
 
                      if (typeof showGeneratedChapterWithTyping === 'function') {
                          showGeneratedChapterWithTyping(bookData, function() {
@@ -7085,6 +7120,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  }
                  if (typeof window.scrollAiWriterPreviewColumnToBottom === 'function') window.scrollAiWriterPreviewColumnToBottom();
                  try { streamEl.removeAttribute('aria-busy'); } catch (e) {}
+                 if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
                  if (typeof onDone === 'function') onDone();
              }
              if (chars.length > 4000) {
