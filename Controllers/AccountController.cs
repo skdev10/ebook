@@ -138,6 +138,8 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> UserLogin()
         {
             await SetOAuthLoginAvailabilityAsync();
+            if (TempData["LoginSuccess"] is string success && !string.IsNullOrWhiteSpace(success))
+                ViewBag.Success = success;
             return View();
         }
 
@@ -149,6 +151,7 @@ namespace EBookDashboard.Controllers
             try
             {
                 await SetOAuthLoginAvailabilityAsync();
+                UserEmail = (UserEmail ?? string.Empty).Trim().ToLowerInvariant();
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.UserEmail == UserEmail && u.Password == Password);
 
@@ -565,24 +568,22 @@ namespace EBookDashboard.Controllers
             }
         }
 
-        private async Task SendOtpEmail(string email, string otp)
+        private async Task<bool> SendOtpEmail(string email, string otp)
         {
             var subject = "Your eBook Publisher Login OTP";
             var body = $@"
-            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                <h2 style='color: #667eea;'>eBook Publisher - OTP Verification</h2>
-                <p>Dear User,</p>
-                <p>Your One-Time Password (OTP) for login is:</p>
-                <div style='text-align: center; margin: 30px 0;'>
-                    <span style='font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 10px;'>{otp}</span>
+            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #faf5ff;'>
+                <div style='background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e9d5ff;'>
+                    <h2 style='color: #7c3aed; margin-top: 0;'>Login Verification</h2>
+                    <p style='color: #374151; line-height: 1.6;'>Your one-time login code is:</p>
+                    <div style='text-align: center; margin: 28px 0;'>
+                        <span style='display: inline-block; font-size: 32px; font-weight: bold; color: #7c3aed; letter-spacing: 10px; padding: 12px 24px; background: #f5f3ff; border-radius: 12px;'>{otp}</span>
+                    </div>
+                    <p style='color: #6b7280; font-size: 14px;'>Valid for 5 minutes. If you did not request this, ignore this email.</p>
                 </div>
-                <p>This OTP is valid for 5 minutes. Please do not share this code with anyone.</p>
-                <p>If you didn't request this OTP, please ignore this email.</p>
-                <br>
-                <p>Best regards,<br>eBook Publisher Team</p>
             </div>";
 
-            await _emailService.SendEmailAsync(email, subject, body);
+            return await _emailService.SendEmailAsync(email, subject, body);
         }
 
         //---------------------------------------------------
@@ -657,36 +658,82 @@ namespace EBookDashboard.Controllers
         [HttpPost]
         public async Task<IActionResult> Register(Users model, string ConfirmPassword)
         {
-
-            // Check ConfirmPassword
-            if (model.Password != ConfirmPassword)
+            try
             {
-                ViewBag.Error = "Passwords do not match!";
+                if (model == null
+                    || string.IsNullOrWhiteSpace(model.FullName)
+                    || string.IsNullOrWhiteSpace(model.UserEmail)
+                    || string.IsNullOrWhiteSpace(model.Password))
+                {
+                    ViewBag.Error = "Please fill in all required fields.";
+                    return View("Registration", model ?? new Users());
+                }
+
+                model.FullName = model.FullName.Trim();
+                model.UserEmail = model.UserEmail.Trim().ToLowerInvariant();
+                ConfirmPassword = (ConfirmPassword ?? string.Empty).Trim();
+
+                if (model.Password != ConfirmPassword)
+                {
+                    ViewBag.Error = "Passwords do not match!";
+                    return View("Registration", model);
+                }
+
+                var existingUser = await _context.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserEmail == model.UserEmail);
+                if (existingUser != null)
+                {
+                    ViewBag.Error = "Email already registered!";
+                    return View("Registration", model);
+                }
+
+                var roleId = await _context.Roles.AsNoTracking()
+                    .Where(r => r.RoleId == 3)
+                    .Select(r => r.RoleId)
+                    .FirstOrDefaultAsync();
+                if (roleId == 0)
+                {
+                    roleId = await _context.Roles.AsNoTracking()
+                        .OrderBy(r => r.RoleId)
+                        .Select(r => r.RoleId)
+                        .FirstOrDefaultAsync();
+                }
+                if (roleId == 0)
+                {
+                    ViewBag.Error = "Registration is temporarily unavailable. Please contact support.";
+                    return View("Registration", model);
+                }
+
+                model.CreatedAt = DateTime.UtcNow;
+                model.LastLoginAt = DateTime.UtcNow;
+                model.Status = "Active";
+                model.RoleId = roleId;
+                model.ConfirmPassword = ConfirmPassword;
+                model.SecretQuestion = string.Empty;
+                model.SecretQuestionAnswer = string.Empty;
+                model.AuthorCode = string.Empty;
+                model.ProfilePicturePath = null;
+
+                _context.Users.Add(model);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("New user registered: {UserId} {Email}", model.UserId, model.UserEmail);
+                TempData["LoginSuccess"] = "Account created successfully. Please sign in with your email and password.";
+                return RedirectToAction(nameof(UserLogin));
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database error during registration for {Email}", model?.UserEmail);
+                ViewBag.Error = "Could not save your account. Please try again or use a different email.";
                 return View("Registration", model);
             }
-            // Check if email already exists
-            var existingUser = _context.Users.FirstOrDefault(u => u.UserEmail == model.UserEmail);
-            if (existingUser != null)
+            catch (Exception ex)
             {
-                ViewBag.Error = "Email already registered!";
+                _logger.LogError(ex, "Unexpected error during registration for {Email}", model?.UserEmail);
+                ViewBag.Error = "An error occurred while creating your account. Please try again.";
                 return View("Registration", model);
             }
-            // OK Save the Data
-
-            // Set default values
-            model.CreatedAt = DateTime.UtcNow;
-            model.LastLoginAt = DateTime.UtcNow;
-            model.Status = "Active";
-            model.RoleId = 3; // Default Reader Role
-
-            // Save to DB
-            _context.Users.Add(model);
-            await _context.SaveChangesAsync();
-
-            await HttpContext.SignOutAsync("UserCookie");
-            EstablishUserSession(model.UserId, model.FullName);
-            HttpContext.Session.SetString("OnboardingPending", "1");
-            return RedirectToAction("OnboardingProfile", "Account");
         }
 
         [HttpGet]
@@ -757,39 +804,23 @@ namespace EBookDashboard.Controllers
 
                     if (user != null)
                     {
-                        // Generate OTP for password reset
                         var otp = GenerateOtp();
-                        // Generate a random reset token (you can store it in DB with expiry)
                         var token = Guid.NewGuid().ToString();
 
-                        // Save OTP & token to database
-                        await SavePasswordResetOtp(model.UserEmail, otp, token);
-                        // Send OTP via email
-                        await SendPasswordResetOtpEmail(model.UserEmail, otp);
+                        await SavePasswordResetOtp(model.UserEmail.Trim().ToLowerInvariant(), otp, token);
 
-                        // Store email in TempData for OTP verification
-                        TempData["ResetEmail"] = model.UserEmail;
+                        var email = model.UserEmail.Trim().ToLowerInvariant();
+                        var sent = await SendPasswordResetOtpEmail(email, otp);
+                        if (!sent)
+                        {
+                            ViewBag.Error = "We could not send the reset email. Please check SMTP settings or try again later.";
+                            return View(model);
+                        }
+
+                        TempData["ResetEmail"] = email;
                         TempData["ResetToken"] = token;
 
                         return RedirectToAction("ResetPasswordOtp");
-
-                        //// Save token in DB (create a PasswordResetTokens table or add field in Users)
-                        //var resetLink = Url.Action(
-                        //    "ResetPassword",
-                        //    "Account",
-                        //    new { email = model.UserEmail, token = token },
-                        //    Request.Scheme
-                        //);
-
-                        //var emailBody = $@"
-                        //    <h2>Password Reset</h2>
-                        //    <p>Click the link below to reset your password:</p>
-                        //    <p><a href='{resetLink}'>Reset Password</a></p>
-                        //";
-
-                        //await _emailService.SendEmailAsync(model.UserEmail, "Password Reset Request", emailBody);
-                        //_logger.LogWarning(resetLink);
-                        //return RedirectToAction("ForgotPasswordConfirmation", "Account");
                     }
 
                     // Don’t reveal if email doesn’t exist (security best practice)
@@ -1042,7 +1073,13 @@ namespace EBookDashboard.Controllers
                 var token = Guid.NewGuid().ToString();
 
                 await SavePasswordResetOtp(userEmail, otp, token);
-                await SendPasswordResetOtpEmail(userEmail, otp);
+                var sent = await SendPasswordResetOtpEmail(userEmail, otp);
+                if (!sent)
+                {
+                    ViewBag.Error = "Could not send email. Please check SMTP settings or try again later.";
+                    ViewBag.ResetEmail = userEmail;
+                    return View("ResetPasswordOtp");
+                }
 
                 TempData["ResetEmail"] = userEmail;
                 TempData["ResetToken"] = token;
@@ -1115,24 +1152,23 @@ namespace EBookDashboard.Controllers
             return resetRecord != null;
         }
 
-        private async Task SendPasswordResetOtpEmail(string email, string otp)
+        private async Task<bool> SendPasswordResetOtpEmail(string email, string otp)
         {
             var subject = "eBook Publisher - Password Reset OTP";
             var body = $@"
-            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                <h2 style='color: #667eea;'>eBook Publisher - Password Reset</h2>
-                <p>Dear User,</p>
-                <p>You have requested to reset your password. Use the OTP below to verify your identity:</p>
-                <div style='text-align: center; margin: 30px 0;'>
-                    <span style='font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 10px;'>{otp}</span>
+            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; background: #faf5ff;'>
+                <div style='background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e9d5ff;'>
+                    <h2 style='color: #7c3aed; margin-top: 0;'>Password Reset</h2>
+                    <p style='color: #374151; line-height: 1.6;'>You requested to reset your eBook Publisher password. Enter this one-time code on the reset screen:</p>
+                    <div style='text-align: center; margin: 28px 0;'>
+                        <span style='display: inline-block; font-size: 32px; font-weight: bold; color: #7c3aed; letter-spacing: 10px; padding: 12px 24px; background: #f5f3ff; border-radius: 12px;'>{otp}</span>
+                    </div>
+                    <p style='color: #6b7280; font-size: 14px;'>This code expires in 10 minutes. If you did not request a reset, you can ignore this email.</p>
+                    <p style='color: #6b7280; font-size: 14px; margin-bottom: 0;'>— eBook Publisher Team</p>
                 </div>
-                <p>This OTP is valid for 10 minutes. Please do not share this code with anyone.</p>
-                <p>If you didn't request a password reset, please ignore this email.</p>
-                <br>
-                <p>Best regards,<br>eBook Publisher Team</p>
             </div>";
 
-            await _emailService.SendEmailAsync(email, subject, body);
+            return await _emailService.SendEmailAsync(email, subject, body);
         }
 
         /// <summary>Returns a redirect to the user's last book-design URL if it is safe, otherwise null.</summary>
