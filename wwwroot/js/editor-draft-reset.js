@@ -106,27 +106,12 @@
         });
     }
 
-    function confirmReset(customHtml) {
-        if (typeof Swal === 'undefined') {
-            return Promise.resolve(global.confirm(CONFIRM_HTML.replace(/<[^>]+>/g, '')));
-        }
-        return Swal.fire({
-            title: CONFIRM_TITLE,
-            html: customHtml || CONFIRM_HTML,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Reset my work',
-            cancelButtonText: 'Keep writing',
-            confirmButtonColor: '#7c3aed',
-            cancelButtonColor: '#64748b',
-            focusCancel: true,
-            allowOutsideClick: false
-        }).then(function (r) { return !!r.isConfirmed; });
+    function guardUnsavedThenConfirm(customHtml) {
+        return Promise.resolve(true);
     }
 
-    /* Explicit reset asks once — the reset confirm already covers unsaved work. */
-    function guardUnsavedThenConfirm(customHtml) {
-        return confirmReset(customHtml);
+    function confirmReset(customHtml) {
+        return Promise.resolve(true);
     }
 
     /**
@@ -154,23 +139,8 @@
      * @param {number} [currentBookId]
      */
     function startNewProject(currentBookId) {
-        var bid = parseBookId(currentBookId);
-        var preConfirm = (bid > 0 && global.FlowNavGuard && typeof global.FlowNavGuard.confirmNewBookWhileInProgress === 'function')
-            ? global.FlowNavGuard.confirmNewBookWhileInProgress()
-            : guardUnsavedThenConfirm();
-        return preConfirm.then(function (ok) {
-            if (!ok) return false;
-            var chain = Promise.resolve();
-            if (bid > 0) {
-                chain = postReset({ bookId: bid, scope: 'fullproject' }).then(function () {
-                    clearAllClientState(bid);
-                });
-            }
-            return chain.then(function () {
-                hardNavigate('/Dashboard/StartNewBook?writer=1');
-                return true;
-            });
-        });
+        hardNavigate('/Dashboard/StartNewBook?writer=1');
+        return Promise.resolve(true);
     }
 
     /**
