@@ -3423,9 +3423,25 @@ document.addEventListener('DOMContentLoaded', function() {
         var ddl = document.getElementById('savedResponsesDropdown');
         if (ddl) ddl.value = bid;
         if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(bid);
-        var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
-        if (format) url += '&format=' + encodeURIComponent(format);
-        window.location.href = url;
+        var fmt = format || 'Ebook';
+        fetch('/Books/EnterBookFormatting', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ bookId: parseInt(bid, 10) || 0, format: fmt })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (data && data.success && data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+                return;
+            }
+            var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
+            if (fmt) url += '&format=' + encodeURIComponent(fmt);
+            window.location.href = url;
+        }).catch(function () {
+            var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
+            if (fmt) url += '&format=' + encodeURIComponent(fmt);
+            window.location.href = url;
+        });
     }
 
     if (nextBtn) {

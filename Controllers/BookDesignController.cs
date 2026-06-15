@@ -639,10 +639,16 @@ namespace EBookDashboard.Controllers
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
                 var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId);
+                // User opened Book Formatting explicitly — do not bounce back to AI Writer when flow is still on generate.
                 if (BookFlowStateService.StepRank(savedFlowStep) < BookFlowStateService.StepRank(BookFlowStateService.StepFormat))
                 {
-                    TempData["InfoMessage"] = "Finish AI Writer first, then open Book Formatting.";
-                    return Redirect(_bookFlow.BuildResumeUrl(bookId, savedFlowStep, savedFlowPath));
+                    var earlyFormat = format;
+                    if (string.IsNullOrWhiteSpace(earlyFormat))
+                        earlyFormat = Request.Query["format"].FirstOrDefault();
+                    var earlyPath = ResolveFormatPath(earlyFormat, null, null);
+                    await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, earlyPath);
+                    savedFlowStep = BookFlowStateService.StepFormat;
+                    savedFlowPath = earlyPath;
                 }
 
                 HttpContext.Session.SetString("HasGeneratedBook", "1");

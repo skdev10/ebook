@@ -119,18 +119,19 @@ namespace EBookDashboard.Controllers
                 TempData["InfoMessage"] = "Select a book from the Dashboard to continue your project.";
                 return RedirectToAction("Index", "Dashboard");
             }
-            var entryBookId = HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
-            if (!entryBookId.HasValue || entryBookId.Value != bookId.Value)
-            {
-                TempData["InfoMessage"] = "Select a book from the Dashboard first, then continue your project.";
-                return RedirectToAction("Index", "Dashboard");
-            }
             var ownsBook = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == bookId.Value && b.UserId == userId.Value);
             if (!ownsBook)
             {
                 TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                 return RedirectToAction("Index", "Dashboard");
+            }
+            var entryBookId = HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
+            if (!entryBookId.HasValue || entryBookId.Value != bookId.Value)
+            {
+                // Allow direct navigation after Create Book or deep links when the user owns this book.
+                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
+                HttpContext.Session.SetInt32("LastSelectedBookId", bookId.Value);
             }
             try
             {
@@ -452,6 +453,21 @@ namespace EBookDashboard.Controllers
 
                 // Use service to create book - this should now work
                 var book = await _bookService.CreateBookFromRequestAsync(request);
+
+                var sessionUserId = HttpContext.Session.GetInt32("UserId");
+                if (sessionUserId.HasValue && sessionUserId.Value == book.UserId)
+                {
+                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, book.BookId);
+                    HttpContext.Session.SetInt32("LastSelectedBookId", book.BookId);
+                    try
+                    {
+                        await _bookFlow.SaveStepAsync(book.BookId, BookFlowStateService.StepGenerate);
+                    }
+                    catch (Exception flowEx)
+                    {
+                        _logger.LogWarning(flowEx, "CreateBook: flow step save failed for book {BookId}", book.BookId);
+                    }
+                }
 
                 return Ok(new
                 {
@@ -3261,6 +3277,43 @@ namespace EBookDashboard.Controllers
             return View();
         }
 
+        /// <summary>Advance book flow to Book Formatting before opening the formatter screen.</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Route("Books/EnterBookFormatting")]
+        public async Task<IActionResult> EnterBookFormatting([FromBody] EnterBookFormattingRequest? body)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (!userId.HasValue || userId.Value <= 0)
+                return Json(new { success = false, message = "Please sign in." });
+
+            var bookId = body?.BookId ?? 0;
+            if (bookId <= 0)
+                return Json(new { success = false, message = "BookId is required." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == userId.Value);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var fmt = (body?.Format ?? "Ebook").Trim();
+            var formatPath = fmt.Contains("paper", StringComparison.OrdinalIgnoreCase)
+                || fmt.Contains("print", StringComparison.OrdinalIgnoreCase)
+                || fmt.Equals("Both", StringComparison.OrdinalIgnoreCase)
+                ? "print"
+                : "ebook";
+
+            await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, formatPath);
+            HttpContext.Session.SetString("HasGeneratedBook", "1");
+            HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+            HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
+            if (!string.IsNullOrWhiteSpace(fmt))
+                HttpContext.Session.SetString("LastSelectedFormat", fmt);
+
+            var redirectUrl = _bookFlow.BuildResumeUrl(bookId, BookFlowStateService.StepFormat, formatPath);
+            return Json(new { success = true, redirectUrl });
+        }
+
         /// <summary>Redirects to the live Book Formatting workspace (interior + trim) for the selected book.</summary>
         [HttpGet]
         public IActionResult AIGenerateBookFormat(int? bookId = null)
@@ -3300,6 +3353,12 @@ namespace EBookDashboard.Controllers
         {
             public string Step { get; set; } = "";
             public int BookId { get; set; }
+        }
+
+        public class EnterBookFormattingRequest
+        {
+            public int BookId { get; set; }
+            public string? Format { get; set; }
         }
 
         // ========================== MANUSCRIPT UPLOAD ===========================
