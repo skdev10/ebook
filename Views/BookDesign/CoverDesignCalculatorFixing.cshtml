@@ -2022,7 +2022,7 @@
     const CONTENT_CHARS_SOFT_LIMIT = 5500;
     const FORMATTER_DRAFT_PREFIX = 'formatter_draft_v2_';
     const FORMATTER_BOOK_PAYLOAD_PREFIX = 'formatter_book_payload_v1_';
-    const FORMATTER_BOOK_PAYLOAD_MAX_AGE_MS = 3 * 60 * 1000;
+    const FORMATTER_BOOK_PAYLOAD_MAX_AGE_MS = 30 * 60 * 1000;
     let autosaveTimer = null;
     let autosaveInFlight = false;
     let autosaveQueued = false;
@@ -5542,8 +5542,18 @@
         if (!hadWarmCache) showLoadingState(true);
 
         try {
-            const url = '/Books/GetFullBookContent?bookId=' + encodeURIComponent(numId);
-            const response = await fetch(url);
+            const url = '/BookDesign/GetFormatterBookContent?bookId=' + encodeURIComponent(numId);
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' }
+            });
+
+            if (response.status === 401) {
+                console.warn('[Book Formatter] Session expired');
+                showErrorState(null, 'Please sign in again to load your book.');
+                showToast('Session expired. Please sign in.');
+                return;
+            }
 
             if (response.status === 404) {
                 console.warn('[Book Formatter] GetFullBookContent 404');

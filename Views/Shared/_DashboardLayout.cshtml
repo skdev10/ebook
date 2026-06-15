@@ -136,10 +136,12 @@
             if (string.IsNullOrEmpty(activeStep)) activeStep = BookFlowStateService.StepGenerate;
             var activePath = flowRows.GetValueOrDefault(flowPathKey, "").Trim();
             if (string.IsNullOrEmpty(activePath)) activePath = "ebook";
-            sidebarAiWriterUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepGenerate, activePath);
-            sidebarFormatUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepFormat, activePath);
-            sidebarCoverUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepCover, activePath);
-            sidebarPublishUrl = bookFlowNav.BuildResumeUrl(sidebarActiveBookId, BookFlowStateService.StepPublish, activePath);
+            // Dashboard-first: sidebar step links re-enter flow via SelectBook (resume at saved step).
+            var selectBookEntry = $"/Dashboard/SelectBook?bookId={sidebarActiveBookId}";
+            sidebarAiWriterUrl = selectBookEntry;
+            sidebarFormatUrl = selectBookEntry;
+            sidebarCoverUrl = selectBookEntry;
+            sidebarPublishUrl = selectBookEntry;
         }
         catch { }
     }
@@ -186,6 +188,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="~/js/unsaved-changes-guard.js" asp-append-version="true"></script>
     <script src="~/js/editor-draft-reset.js" asp-append-version="true"></script>
+    <script src="~/js/flow-navigation-guard.js" asp-append-version="true"></script>
     <partial name="_BookInteriorPreviewAssets" />
     <link rel="stylesheet" href="~/css/dashboard-flow.css" asp-append-version="true" />
     <style>
@@ -3672,7 +3675,12 @@
                         link.addEventListener("click", function (e) {
                             e.preventDefault();
                             const name = this.getAttribute("data-locked") || "This feature";
-                            window.showFollowStepsAlert('<b>' + name + '</b> is locked — please follow the steps: <b>AI Writer → Book Formatting → AI Cover Design → Publish</b>.');
+                            const goto = this.getAttribute("data-goto") || "/Dashboard";
+                            if (window.FlowNavGuard && typeof window.FlowNavGuard.showSkippedStepAlert === 'function') {
+                                window.FlowNavGuard.showSkippedStepAlert(name, goto);
+                            } else {
+                                window.showFollowStepsAlert('<b>' + name + '</b> is locked — please follow the steps: <b>AI Writer → Book Formatting → AI Cover Design → Publish</b>.');
+                            }
                         });
                     });
                     const lockedLinks = document.querySelectorAll(".locked-feature");
@@ -5431,8 +5439,9 @@
                     if (!href || href === '#' || href.indexOf('javascript:') === 0) return true;
                     var path = normalizePath(href);
                     if (!path) return true;
-                    if (isDashboardPath(path)) return true;
+                    if (isDashboardPath(path)) return false;
                     if (isLogoutPath(path)) return true;
+                    if (path.indexOf('/books/ebookhub') >= 0) return false;
                     if (profilePaths.some(function (p) { return path.indexOf(p.toLowerCase()) >= 0; })) return true;
                     if (path === currentPath.replace(/\/$/, '')) return true;
                     return false;
@@ -5453,19 +5462,22 @@
                 }
 
                 function showFlowBlockedAlert() {
+                    if (window.FlowNavGuard && typeof window.FlowNavGuard.showSkippedStepAlert === 'function') {
+                        return window.FlowNavGuard.showSkippedStepAlert('This menu item', '/Dashboard');
+                    }
                     if (typeof window.showFollowStepsAlert === 'function') {
                         window.showFollowStepsAlert();
                     }
                     return Promise.resolve();
                 }
 
-                /*
-                 * Back navigation is plain navigation — no destructive reset, no scary popup.
-                 * Silent when there is nothing unsaved; a soft "Leave this page?" prompt only when dirty.
-                 * Destructive resets only happen from explicit Reset buttons (EditorDraftReset).
-                 */
                 function confirmFlowLeave(targetUrl) {
                     var target = targetUrl || flowBackUrl || '/Dashboard';
+                    var path = (target.split('?')[0] || '').toLowerCase();
+                    var goingDashboard = path === '/dashboard' || path === '/dashboard/index';
+                    if (goingDashboard && window.FlowNavGuard && typeof window.FlowNavGuard.confirmLeaveToDashboard === 'function') {
+                        return window.FlowNavGuard.confirmLeaveToDashboard(target);
+                    }
                     var isDirty = !!(window.EbookUnsavedGuard
                         && typeof window.EbookUnsavedGuard.isDirty === 'function'
                         && window.EbookUnsavedGuard.isDirty());
@@ -5496,9 +5508,14 @@
                         if (a.classList.contains('logout-btn')) return;
                         a.addEventListener('click', function (e) {
                             var href = a.getAttribute('href') || '';
+                            var path = normalizePath(href);
+                            if (isDashboardPath(path)) {
+                                e.preventDefault();
+                                confirmFlowLeave(href || '/Dashboard');
+                                return;
+                            }
                             if (isAllowedHref(href)) return;
                             e.preventDefault();
-                            var path = normalizePath(href);
                             if ((flowStep === 'publish' || flowStep === 'format') && isAiWriterPath(path)) {
                                 confirmLeaveToAiWriter(href);
                                 return;

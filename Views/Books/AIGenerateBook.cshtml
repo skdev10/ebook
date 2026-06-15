@@ -64,8 +64,8 @@
         .ai-writer-main-layout #bookResult.ai-writer-ebook-preview-wrap {
             grid-column: auto;
             align-self: stretch;
-            width: 77%;
-            max-width: 77%;
+            width: 100%;
+            max-width: 100%;
             min-height: 0;
             flex: 1 1 auto;
             display: flex;
@@ -77,20 +77,20 @@
             flex: 1 1 auto;
             min-height: 0;
             max-width: 100%;
-            width: 77%;
+            width: 100%;
             display: flex;
             flex-direction: column;
         }
         .ai-writer-preview-meta {
-            width: 77%;
-            max-width: 77%;
+            width: 100%;
+            max-width: 100%;
             margin-bottom: 1rem;
             box-sizing: border-box;
         }
         .ai-writer-preview-pane > #bookResult.ai-writer-ebook-preview-wrap,
         .ai-writer-preview-pane > #sideBySidePreview {
-            width: 77%;
-            max-width: 77%;
+            width: 100%;
+            max-width: 100%;
             box-sizing: border-box;
         }
         .ai-writer-preview-column {
@@ -3414,6 +3414,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ddl && ddl.value && String(ddl.value).trim() !== '0') return String(ddl.value).trim();
         return '';
     }
+    function navigateToBookFormatting(bid, fmt) {
+        var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
+        if (fmt) url += '&format=' + encodeURIComponent(fmt);
+        window.location.href = url;
+    }
     function goToCoverDesign(bookId, format) {
         var bid = (bookId && String(bookId).trim() !== '0') ? String(bookId).trim() : getCurrentBookId();
         if (!bid || bid === '0') {
@@ -3432,19 +3437,24 @@ document.addEventListener('DOMContentLoaded', function() {
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ bookId: parseInt(bid, 10) || 0, format: fmt })
-        }).then(function (r) { return r.json(); }).then(function (data) {
+        }).then(function (r) {
+            if (r.status === 401) {
+                if (typeof showNotification === 'function') showNotification('Session expired. Please sign in again.', 'error');
+                else alert('Session expired. Please sign in again.');
+                return null;
+            }
+            return r.json().catch(function () { return null; });
+        }).then(function (data) {
             if (data && data.success && data.redirectUrl) {
                 window.location.href = data.redirectUrl;
                 return;
             }
-            var msg = (data && data.message) ? data.message : 'Could not open Book formatting. Please sign in and try again.';
-            if (typeof showNotification === 'function') showNotification(msg, 'error');
-            else if (typeof Swal !== 'undefined') Swal.fire({ title: 'Book formatting', text: msg, icon: 'error', confirmButtonColor: '#7c3aed' });
-            else alert(msg);
+            if (data && data.message && typeof showNotification === 'function') {
+                showNotification(data.message, 'warning');
+            }
+            navigateToBookFormatting(bid, fmt);
         }).catch(function () {
-            var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
-            if (fmt) url += '&format=' + encodeURIComponent(fmt);
-            window.location.href = url;
+            navigateToBookFormatting(bid, fmt);
         });
     }
 

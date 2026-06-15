@@ -88,8 +88,9 @@
 
         return Swal.fire(Object.assign({
             title: 'Leave this page?',
-            html: 'Your current draft won\'t be saved.',
-            icon: 'question'
+            html: 'Unsaved changes on this step may be <b>lost</b> if you leave without saving.<br><br>'
+                + 'To stay safe, use <b>Dashboard → Continue Editing</b> for your book.',
+            icon: 'warning'
         }, buttons)).then(function (result) {
             if (result.isDenied) {
                 return runPendingSave().then(function (saved) {

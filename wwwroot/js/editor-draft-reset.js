@@ -6,7 +6,9 @@
     'use strict';
 
     var CONFIRM_TITLE = 'Keep writing or reset your work?';
-    var CONFIRM_HTML = 'Resetting clears the current draft for this book so you can start fresh.';
+    var CONFIRM_HTML = 'Resetting clears drafts, formatting choices, and cover previews for this book. '
+        + '<b>This work can be deleted and cannot be undone.</b><br><br>'
+        + 'To continue your current book safely, use <b>Dashboard → Continue Editing</b> instead.';
     var FORMATTER_BOOK_KEY = 'ebook_formatter_book_id';
     var DASH_BOOK_KEY = 'ebook_dashboard_selected_book';
 
@@ -153,7 +155,10 @@
      */
     function startNewProject(currentBookId) {
         var bid = parseBookId(currentBookId);
-        return guardUnsavedThenConfirm().then(function (ok) {
+        var preConfirm = (bid > 0 && global.FlowNavGuard && typeof global.FlowNavGuard.confirmNewBookWhileInProgress === 'function')
+            ? global.FlowNavGuard.confirmNewBookWhileInProgress()
+            : guardUnsavedThenConfirm();
+        return preConfirm.then(function (ok) {
             if (!ok) return false;
             var chain = Promise.resolve();
             if (bid > 0) {

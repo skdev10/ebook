@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CognitiveServices.Speech.Transcription;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,6 +26,7 @@ namespace EBookDashboard.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly IConfiguration _configuration;
         private readonly BookFlowStateService _bookFlow;
+        private readonly ILogger<BookDesignController> _logger;
 
         public BookDesignController(
             ApplicationDbContext context,
@@ -32,7 +34,8 @@ namespace EBookDashboard.Controllers
             IBookService bookService,
             IWebHostEnvironment env,
             IConfiguration configuration,
-            BookFlowStateService bookFlow)
+            BookFlowStateService bookFlow,
+            ILogger<BookDesignController> logger)
         {
             _context = context;
             _bookDesignService = bookDesignService ?? throw new ArgumentNullException(nameof(bookDesignService));
@@ -40,6 +43,7 @@ namespace EBookDashboard.Controllers
             _env = env;
             _configuration = configuration;
             _bookFlow = bookFlow;
+            _logger = logger;
         }
         // GET: /BookDesign/CoverDesignCalculator
         public IActionResult Index(int bookId = 0)
@@ -170,6 +174,49 @@ namespace EBookDashboard.Controllers
             {
                 System.Diagnostics.Debug.WriteLine("GetMyBooks error: " + ex.Message);
                 return Json(new List<object>());
+            }
+        }
+
+        /// <summary>Loads full book chapters for the Book Formatter preview (session-scoped).</summary>
+        [HttpGet]
+        public async Task<IActionResult> GetFormatterBookContent(int bookId)
+        {
+            try
+            {
+                var userId = HttpContext.Session.GetInt32("UserId");
+                if (!userId.HasValue || userId.Value <= 0)
+                    return Unauthorized(new { success = false, message = "Please sign in." });
+
+                if (bookId <= 0)
+                    return Json(new { success = false, message = "Book ID is required." });
+
+                var result = await _bookService.GetBookDetailsForPreviewAsync(userId.Value, bookId);
+                if (result == null || !result.Success)
+                    return Json(new { success = false, message = result?.Message ?? "No book found." });
+
+                return Json(new
+                {
+                    success = true,
+                    bookId = result.BookId,
+                    bookTitle = result.BookTitle,
+                    subtitle = result.Subtitle ?? "",
+                    description = result.Description ?? "",
+                    genre = result.Genre ?? "",
+                    authorName = result.AuthorName ?? "",
+                    coverImagePath = result.CoverImagePath ?? "",
+                    totalChapters = result.TotalChapters,
+                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
+                    {
+                        chapterNo = c.ChapterNumber,
+                        chapterTitle = c.Title,
+                        content = c.Content ?? ""
+                    }).ToList()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetFormatterBookContent failed for book {BookId}", bookId);
+                return Json(new { success = false, message = "Could not load book content." });
             }
         }
 
@@ -646,7 +693,14 @@ namespace EBookDashboard.Controllers
                     if (string.IsNullOrWhiteSpace(earlyFormat))
                         earlyFormat = Request.Query["format"].FirstOrDefault();
                     var earlyPath = ResolveFormatPath(earlyFormat, null, null);
-                    await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, earlyPath);
+                    try
+                    {
+                        await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, earlyPath);
+                    }
+                    catch (Exception flowEx)
+                    {
+                        _logger.LogWarning(flowEx, "Early SaveStepAsync failed for book {BookId}", bookId);
+                    }
                     savedFlowStep = BookFlowStateService.StepFormat;
                     savedFlowPath = earlyPath;
                 }
@@ -802,7 +856,14 @@ namespace EBookDashboard.Controllers
                 ViewBag.PrintReadyDefaultTrimHeightInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimHeightInches", 9.0);
 
                 var formatPath = ResolveFormatPath(preferredFormat, viewModel.PublishingPlatform, viewModel.PublishingPlatforms);
-                await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, formatPath);
+                try
+                {
+                    await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, formatPath);
+                }
+                catch (Exception flowEx)
+                {
+                    _logger.LogWarning(flowEx, "SaveStepAsync failed for book {BookId}; formatter page still loads.", bookId);
+                }
                 ViewBag.FlowBookId = bookId;
                 ViewBag.FlowStep = BookFlowStateService.StepFormat;
                 ViewBag.FlowPath = formatPath;
@@ -812,14 +873,69 @@ namespace EBookDashboard.Controllers
             }
             catch (Exception ex)
             {
-                ViewBag.Error = ex.Message;
+                _logger.LogError(ex, "CoverDesignCalculatorFixing failed for bookId={BookId}", bookId);
                 var uid = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+                if (uid == 0)
+                    return RedirectToAction("UserLogin", "Account");
+
+                var recoveredBookId = bookId;
+                if (recoveredBookId <= 0)
+                    recoveredBookId = HttpContext.Session.GetInt32("LastSelectedBookId") ?? 0;
+                if (recoveredBookId <= 0)
+                {
+                    var q = Request.Query["bookId"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(q) && int.TryParse(q, out var qBookId))
+                        recoveredBookId = qBookId;
+                }
+
+                ViewBag.Error = "Some formatter settings could not load. Your book preview will still load.";
                 ViewBag.UserId = uid;
-                ViewBag.SelectedBookId = 0;
+                ViewBag.SelectedBookId = recoveredBookId;
+                ViewBag.FlowBackUrl = recoveredBookId > 0
+                    ? $"/Books/AIGenerateBook?bookId={recoveredBookId}"
+                    : "/Dashboard";
+
+                if (recoveredBookId > 0)
+                {
+                    try
+                    {
+                        var previewDetails = await _bookService.GetBookDetailsForPreviewAsync(uid, recoveredBookId);
+                        if (previewDetails is { Success: true })
+                        {
+                            ViewBag.InitialBookPayloadJson = JsonSerializer.Serialize(new
+                            {
+                                success = true,
+                                bookId = previewDetails.BookId,
+                                bookTitle = previewDetails.BookTitle,
+                                subtitle = previewDetails.Subtitle ?? "",
+                                description = previewDetails.Description ?? "",
+                                genre = previewDetails.Genre ?? "",
+                                authorName = previewDetails.AuthorName ?? "",
+                                coverImagePath = previewDetails.CoverImagePath ?? "",
+                                totalChapters = previewDetails.TotalChapters,
+                                chapters = previewDetails.Chapters
+                                    .OrderBy(c => c.ChapterNumber)
+                                    .Select(c => new
+                                    {
+                                        chapterNo = c.ChapterNumber,
+                                        chapterTitle = c.Title,
+                                        content = c.Content ?? ""
+                                    })
+                                    .ToList()
+                            });
+                        }
+                    }
+                    catch (Exception previewEx)
+                    {
+                        _logger.LogWarning(previewEx, "Could not preload book payload for book {BookId}", recoveredBookId);
+                    }
+                }
+
                 var fallbackModel = new CoverDesignCalculatorVM
                 {
                     UserId = uid,
-                    BookId = 0,
+                    BookId = recoveredBookId,
+                    Title = recoveredBookId > 0 ? $"Book #{recoveredBookId}" : "No Book Selected",
                     BookCoverPages = new List<BookCoverPages>()
                 };
                 return View("CoverDesignCalculatorFixing", fallbackModel);
