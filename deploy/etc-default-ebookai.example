@@ -40,6 +40,15 @@ ConnectionStrings__DefaultConnection='Server=127.0.0.1;Port=3306;Database=ebookp
 # Allow login over plain HTTP (IP:5000 testing)
 Authentication__CookieSecurePolicy=SameAsRequest
 
+# SMTP — forgot password + OTP emails (Gmail: use App Password, not normal password)
+Email__SmtpServer=smtp.gmail.com
+Email__Port=587
+Email__Username=PASTE_GMAIL_ADDRESS_HERE
+Email__Password=PASTE_GMAIL_APP_PASSWORD_HERE
+Email__FromEmail=PASTE_GMAIL_ADDRESS_HERE
+Email__SenderName=eBook Publisher
+Email__EnableSSL=true
+
 # AI chapter generation — upstream + browser wait (minutes)
 ChapterGeneration__HttpTimeoutMinutes=90
 ChapterGeneration__BrowserFetchTimeoutMinutes=90

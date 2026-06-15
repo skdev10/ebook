@@ -31,6 +31,12 @@ if [[ -f deploy/ensure-external-api-env.sh ]]; then
   bash deploy/ensure-external-api-env.sh
 fi
 
+echo "==> Email SMTP env"
+chmod +x deploy/ensure-email-env.sh 2>/dev/null || true
+if [[ -f deploy/ensure-email-env.sh ]]; then
+  bash deploy/ensure-email-env.sh
+fi
+
 echo "==> Publish"
 chmod +x deploy/vm-deploy.sh
 DEPLOY_SKIP_GIT=1 BRANCH="$BRANCH" OUT_DIR="$OUT_DIR" ./deploy/vm-deploy.sh

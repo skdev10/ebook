@@ -86,9 +86,14 @@ JWT (if used):
 
 SMTP:
   Email__SmtpServer
+  Email__Port
   Email__Username
   Email__Password
   Email__FromEmail
+  Email__SenderName
+  Email__EnableSSL
+  On server after deploy: bash deploy/set-smtp-credentials.sh 'you@gmail.com' 'gmail-app-password'
+  Verify: curl http://127.0.0.1:5000/Account/EmailStatus
 
 Managed MySQL CA (alternative to mounting file):
   Database__SslCaPem

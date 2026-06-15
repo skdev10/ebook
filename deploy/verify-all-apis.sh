@@ -27,6 +27,8 @@ curl -sf --max-time 30 "http://127.0.0.1:${BFF_PORT}/health" | head -c 600 || ec
 echo ""
 curl -sf --max-time 30 "http://127.0.0.1:${BFF_PORT}/Books/ExternalApiStatus" | head -c 800 || echo "FAIL ExternalApiStatus"
 echo ""
+curl -sf --max-time 15 "http://127.0.0.1:${BFF_PORT}/Account/EmailStatus" | head -c 400 || echo "WARN EmailStatus (SMTP may be unconfigured)"
+echo ""
 curl -sf --max-time 15 "http://127.0.0.1:${BFF_PORT}/Books/ApiDocumentation" | head -c 400 || echo "FAIL ApiDocumentation"
 echo ""
 

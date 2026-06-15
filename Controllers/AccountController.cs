@@ -781,6 +781,28 @@ namespace EBookDashboard.Controllers
             return RedirectToAction("Index", "Dashboard");
         }
         //--------------------------------------------------------------------------
+        //-----------------  Email diagnostics  ------------------------------------
+        //--------------------------------------------------------------------------
+        /// <summary>SMTP configuration probe for deploy scripts (no secrets returned).</summary>
+        [HttpGet]
+        [AllowAnonymous]
+        [Route("Account/EmailStatus")]
+        public IActionResult EmailStatus()
+        {
+            var status = _emailService.GetStatus();
+            return Json(new
+            {
+                success = true,
+                configured = status.Configured,
+                source = status.Source,
+                smtpServer = status.SmtpServer,
+                port = status.Port,
+                fromEmail = status.FromEmail,
+                hasPassword = status.HasPassword
+            });
+        }
+
+        //--------------------------------------------------------------------------
         //-----------------  Forgot Password   --------------------------------------
         //--------------------------------------------------------------------------
         // GET: ForgotPassword Action --> It will return Views\Account\ForgotPassword.cshtml page
