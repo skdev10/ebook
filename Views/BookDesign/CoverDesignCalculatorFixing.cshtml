@@ -1913,8 +1913,8 @@
 
     /* No client timeout: let the server finish loading from DB so the book always completes */
     const FORMATTER_BOOK_KEY = typeof window.EBOOK_FORMATTER_BOOK_KEY === 'string' ? window.EBOOK_FORMATTER_BOOK_KEY : 'ebook_formatter_book_id';
-    const PREVIEW_EMPTY_MSG = 'Select a book in AI Writer, then return here via Next Step to see your formatting preview.';
-    const PREVIEW_NO_DATA_MSG = 'No data available. Add chapters in AI Writer to see content here.';
+    const PREVIEW_EMPTY_MSG = 'Open your book from the Dashboard (Continue Editing), then return to Book Formatting to see your preview.';
+    const PREVIEW_NO_DATA_MSG = 'No chapters yet. Open AI Writer from the Dashboard, add chapters, then come back here.';
     const PREVIEW_ERROR_MSG = 'Something went wrong. Please try again or select another book.';
 
     const root = document.getElementById('book-formatter-root');
@@ -5172,7 +5172,9 @@
             FmtBookStageReader.hide();
             if (viewport) {
                 viewport.classList.remove('hidden');
-                viewport.innerHTML = '<p class="preview-state-message">' + escapeHtml(PREVIEW_EMPTY_MSG) + '</p>';
+                var activeBid = resolveFormatterBookId();
+                if (activeBid > 0) showNoDataState();
+                else showEmptyState();
             }
             setPageIndicatorsToZero();
             return;
@@ -5389,7 +5391,7 @@
         if (!bid || bid <= 0) {
             syncFormatterSwitchBookLink(0);
             showEmptyState();
-            showToast('Open AI Writer, select a book, then click Book formatting.');
+            showToast('Open your book from the Dashboard under Continue Editing.');
             return;
         }
 
@@ -5507,6 +5509,7 @@
             ensureReaderPages(true);
             populateChapterJump();
             if (!opts.skipRestorePosition) restoreReaderPosition(numId);
+            renderPreviewContent(0);
             togglePreviewMode();
             if (!opts.skipRepaginateAfterLayout) fmtScheduleRepaginateAfterLayout();
             syncFormatterPageCountUi();
@@ -6030,14 +6033,15 @@
             requestAnimationFrame(function() {
                 syncInteriorTokenVars();
                 syncFmtPreviewLayout();
-                initFormatterBook();
-                setTimeout(function() {
+                initFormatterBook().then(function() {
                     syncFmtPreviewLayout();
                     if (bookChapters.length) {
                         ensureReaderPages(true);
                         renderPreviewContent(0);
                     }
-                }, 280);
+                }).catch(function(err) {
+                    console.warn('[Book Formatter] initFormatterBook failed:', err);
+                });
             });
         });
     });

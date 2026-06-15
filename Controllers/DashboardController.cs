@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Crypto.Generators;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Security.Claims;
@@ -588,7 +589,18 @@ namespace EBookDashboard.Controllers
             var epubByBookId = await LoadEpubPathsByBookIdAsync(publishedBooks.Select(b => b.BookId).ToList());
             var demoPublished = GetDemoPublishedBooks(publishedBooks, ResolveBookCover, epubByBookId);
             var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(userDraftBooks, aiCoverByBookId), flowMap, _bookFlow);
-            var demoHero = BuildHeroFromBook(lastWorkedBook, ResolveBookCover);
+            string? heroDisplayTitle = null;
+            if (lastWorkedBook != null)
+            {
+                heroDisplayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                    _context, user.UserId, lastWorkedBook.BookId, lastWorkedBook.Title);
+            }
+            var demoHero = lastWorkedBook != null
+                ? (title: heroDisplayTitle ?? lastWorkedBook.Title ?? "Your Book",
+                    description: "Continue where you left off. Edit chapters, format pages, and get ready to publish.",
+                    coverUrl: ResolveBookCover(lastWorkedBook),
+                    book: (Books?)lastWorkedBook)
+                : BuildHeroFromBook(null, ResolveBookCover);
             var demoCurrentRead = BuildCurrentReadFromBook(lastWorkedBook, chaptersGeneratedByBookId, ResolveBookCover);
             var hasAnyBooks = books.Count > 0;
             var demoReaderFriends = hasAnyBooks ? GetDemoReaderFriends() : new List<DemoReaderFriendViewModel>();
@@ -716,10 +728,10 @@ namespace EBookDashboard.Controllers
             var statuses = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["The Wizarding Chronicles"] = "Draft",
-                ["The Bird"] = "Published",
-                ["SOUL"] = "Published",
-                ["Good Things Are Up Ahead"] = "Published",
-                ["Fairy Tale"] = "Published",
+                ["The Bird"] = "Draft",
+                ["SOUL"] = "Draft",
+                ["Good Things Are Up Ahead"] = "Draft",
+                ["Fairy Tale"] = "Draft",
                 ["Conquest of Flames"] = "Draft",
                 ["The Chambers of Secrets"] = "Draft"
             };
@@ -1670,6 +1682,21 @@ namespace EBookDashboard.Controllers
         {
             await _bookService.MarkPublishedAsync(bookId, userId, cancellationToken);
             await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepPublish, flowPath, cancellationToken);
+            try
+            {
+                var key = $"book:{bookId}:publishedAt";
+                var existing = await _context.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+                var stamp = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+                if (existing == null)
+                    _context.Settings.Add(new Settings { Key = key, Value = stamp });
+                else
+                    existing.Value = stamp;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not persist publishedAt for book {BookId}", bookId);
+            }
         }
 
         [HttpPost]
@@ -2963,11 +2990,18 @@ namespace EBookDashboard.Controllers
         [Route("Profile")]
         public async Task<IActionResult> Profile(PlanFeatures f)
         {
-            // Get user information
-            var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
-            var user = await _context.Users
-                .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            var user = await ResolveProfileUserAsync();
+            if (user == null)
+            {
+                var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
+                user = await _context.Users
+                    .Include(u => u.Role)
+                    .FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            }
+            else
+            {
+                await _context.Entry(user).Reference(u => u.Role).LoadAsync();
+            }
 
             if (user == null)
             {
@@ -3088,11 +3122,10 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                var user = await ResolveProfileUserAsync();
                 if (user == null)
                 {
-                    return Json(new { success = false, message = "User not found" });
+                    return Json(new { success = false, message = "User not found. Please sign in again." });
                 }
 
                 if (request == null)
@@ -3380,18 +3413,11 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                // Log for debugging
-                System.Diagnostics.Debug.WriteLine("UploadProfilePicture called");
-                
-                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
-                System.Diagnostics.Debug.WriteLine($"User email: {userEmail}");
-                
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                var user = await ResolveProfileUserAsync();
                 
                 if (user == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("User not found");
-                    return Json(new { success = false, message = "User not found" });
+                    return Json(new { success = false, message = "User not found. Please sign in again." });
                 }
 
                 if (profilePicture == null || profilePicture.Length == 0)
@@ -3470,12 +3496,11 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                var user = await ResolveProfileUserAsync();
                 
                 if (user == null)
                 {
-                    return Json(new { success = false, message = "User not found" });
+                    return Json(new { success = false, message = "User not found. Please sign in again." });
                 }
 
                 // Delete file if exists
@@ -3507,11 +3532,10 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                var user = await ResolveProfileUserAsync();
                 if (user == null)
                 {
-                    return Json(new { success = false, message = "User not found" });
+                    return Json(new { success = false, message = "User not found. Please sign in again." });
                 }
 
                 if (backgroundImage == null || backgroundImage.Length == 0)
@@ -3575,11 +3599,10 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
-                var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+                var user = await ResolveProfileUserAsync();
                 if (user == null)
                 {
-                    return Json(new { success = false, message = "User not found" });
+                    return Json(new { success = false, message = "User not found. Please sign in again." });
                 }
 
                 var existingBackground = await GetProfileSettingValueAsync(user.UserId, "background", HttpContext.RequestAborted);
@@ -4153,6 +4176,27 @@ namespace EBookDashboard.Controllers
             {
                 return Json(new { success = false, message = ex.Message });
             }
+        }
+
+        private async Task<Users?> ResolveProfileUserAsync()
+        {
+            var user = await _currentUser.GetUserAsync();
+            if (user != null)
+                return user;
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId is > 0)
+            {
+                var fromSession = await _context.Users.FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value);
+                if (fromSession != null)
+                    return fromSession;
+            }
+
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+            if (!string.IsNullOrWhiteSpace(userEmail))
+                return await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+
+            return null;
         }
 
         private static string BuildProfileSettingKey(int userId, string name)

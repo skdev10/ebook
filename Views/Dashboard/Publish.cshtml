@@ -1225,11 +1225,14 @@
         return plats.indexOf('print ready') >= 0 || fmt === 'Paperback';
     }
 
-    function redirectToDashboardAfterExport(message) {
-        showTransientMessage('success', message || 'Download complete — returning to Dashboard…');
-        setTimeout(function () {
-            window.location.href = '/Dashboard';
-        }, 1600);
+    function redirectToDashboardAfterExport(message, flowPath) {
+        var path = flowPath || (isPrintReadyFlow ? 'print' : 'ebook');
+        notifyBookPublishedAfterDownload(path).finally(function () {
+            showTransientMessage('success', message || 'Download complete — returning to Dashboard…');
+            setTimeout(function () {
+                window.location.href = '/Dashboard';
+            }, 1600);
+        });
     }
 
     function notifyBookPublishedAfterDownload(flowPath) {
@@ -1761,9 +1764,7 @@
             .then(function (assets) { return buildPrintWrapFromAssets(assets); })
             .then(function (out) {
                 downloadBlobAsFile(out.blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.png');
-                return notifyBookPublishedAfterDownload('print').then(function () {
-                    redirectToDashboardAfterExport('Full wrap cover downloaded — returning to Dashboard…');
-                });
+                redirectToDashboardAfterExport('Full wrap cover downloaded — returning to Dashboard…', 'print');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');

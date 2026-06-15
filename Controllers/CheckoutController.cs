@@ -323,7 +323,8 @@ namespace EBookDashboard.Controllers
                     return RedirectToAction("MyBooks", "Dashboard", new { payment = "incomplete" });
 
                 var publishIntent = session.Metadata.TryGetValue("publishIntent", out var pi) && pi == "1";
-                book.Status = publishIntent ? "Published" : "Paid";
+                // Payment unlocks the book; Published status is set only after Publish export + MarkBookPublished.
+                book.Status = "Paid";
                 book.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 return RedirectToAction("MyBooks", "Dashboard", new { payment = "success" });

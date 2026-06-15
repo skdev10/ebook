@@ -236,6 +236,7 @@ builder.Services.AddScoped<ICurrentUserAccessor, CurrentUserAccessor>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 // Add BookService
 builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<IBookGeneratorService, BookGeneratorService>();
 builder.Services.AddScoped<BookPublishReadinessService>();
 builder.Services.AddScoped<BookFlowStateService>();
 builder.Services.AddScoped<IEditorDraftResetService, EditorDraftResetService>();

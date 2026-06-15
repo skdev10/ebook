@@ -14,5 +14,6 @@ namespace EBookDashboard.Models.DTO
         public string? CoverImagePath { get; set; }
         public int TotalChapters { get; set; }
         public List<ChapterDto> Chapters { get; set; } = new List<ChapterDto>();
+        public string? BookContentHtml { get; set; }
     }
 }

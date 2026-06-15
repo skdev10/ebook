@@ -21,10 +21,8 @@ public sealed class BookFlowStateService
     public static bool IsPublishedStatus(string? status)
     {
         var s = (status ?? "").Trim();
-        return s.Equals("Published", StringComparison.OrdinalIgnoreCase)
-               || s.Equals("Finalized", StringComparison.OrdinalIgnoreCase)
-               || s.Equals("Final", StringComparison.OrdinalIgnoreCase)
-               || s.Equals("Paid", StringComparison.OrdinalIgnoreCase);
+        // Dashboard "Published Books" + flow lock: only after Publish screen export (MarkBookPublished).
+        return s.Equals("Published", StringComparison.OrdinalIgnoreCase);
     }
 
     public static int StepToPercent(string? step) => (step ?? "").Trim().ToLowerInvariant() switch

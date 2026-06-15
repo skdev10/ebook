@@ -205,6 +205,7 @@ namespace EBookDashboard.Controllers
                     authorName = result.AuthorName ?? "",
                     coverImagePath = result.CoverImagePath ?? "",
                     totalChapters = result.TotalChapters,
+                    bookContentHtml = result.BookContentHtml ?? "",
                     chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
                     {
                         chapterNo = c.ChapterNumber,
@@ -891,9 +892,30 @@ namespace EBookDashboard.Controllers
                 ViewBag.Error = "Some formatter settings could not load. Your book preview will still load.";
                 ViewBag.UserId = uid;
                 ViewBag.SelectedBookId = recoveredBookId;
+                ViewBag.FlowBookId = recoveredBookId;
+                ViewBag.FlowStep = BookFlowStateService.StepFormat;
                 ViewBag.FlowBackUrl = recoveredBookId > 0
                     ? $"/Books/AIGenerateBook?bookId={recoveredBookId}"
                     : "/Dashboard";
+
+                var recoveredTitle = recoveredBookId > 0 ? $"Book #{recoveredBookId}" : "No Book Selected";
+                if (recoveredBookId > 0)
+                {
+                    try
+                    {
+                        var bookRow = await _context.Books.AsNoTracking()
+                            .FirstOrDefaultAsync(b => b.BookId == recoveredBookId && b.UserId == uid);
+                        if (bookRow != null)
+                        {
+                            recoveredTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                                _context, uid, recoveredBookId, bookRow.Title);
+                        }
+                    }
+                    catch (Exception titleEx)
+                    {
+                        _logger.LogWarning(titleEx, "Could not resolve title for book {BookId}", recoveredBookId);
+                    }
+                }
 
                 if (recoveredBookId > 0)
                 {
@@ -935,7 +957,7 @@ namespace EBookDashboard.Controllers
                 {
                     UserId = uid,
                     BookId = recoveredBookId,
-                    Title = recoveredBookId > 0 ? $"Book #{recoveredBookId}" : "No Book Selected",
+                    Title = recoveredTitle,
                     BookCoverPages = new List<BookCoverPages>()
                 };
                 return View("CoverDesignCalculatorFixing", fallbackModel);

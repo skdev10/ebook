@@ -15,17 +15,14 @@
     var startBookUrl = Url.Action("StartNewBook", "Dashboard", new { writer = 1 }) ?? "/Dashboard/StartNewBook?writer=1";
     var newBookHeroCover = Url.Content("~/images/books/writing-new-book.png");
     var defaultCoverPlaceholder = Url.Content("~/images/books/cover-in-progress.png");
-    var hasInProgressDrafts = draftBooks.Any();
-    var heroResumeUrl = !string.IsNullOrWhiteSpace(Model.DemoHeroResumeUrl) ? Model.DemoHeroResumeUrl : null;
-    var heroBookId = Model.DemoHeroBookId ?? 0;
-    var heroTitle = heroBookId > 0 && !string.IsNullOrWhiteSpace(Model.DemoHeroTitle)
-        ? Model.DemoHeroTitle
-        : "Writing a New Book";
+    var hasInProgressDrafts = draftBooks.Any() || demoDrafts.Any();
+    var primaryDraft = draftBooks.OrderByDescending(d => d.LastEditedAt).FirstOrDefault();
+    var heroTitle = "Writing a New Book";
     var heroDesc = hasInProgressDrafts
-        ? "Continue from the Dashboard — pick your book under Continue Editing to write, format, design a cover, and publish. Skipping steps can lose unsaved work."
+        ? "Start a new project here with Write Now. To continue an existing book, open it from Continue Editing below."
         : "Start a fresh project with AI Writer — write chapters, format the interior, design a cover, and publish.";
-    var heroPrimaryUrl = heroResumeUrl ?? startBookUrl;
-    var heroPrimaryLabel = heroResumeUrl != null ? "Continue Editing" : "Write Now";
+    var heroPrimaryUrl = startBookUrl;
+    var heroPrimaryLabel = "Write Now";
 }
 <style>
     body { font-family: 'Inter', sans-serif; }
@@ -110,6 +107,10 @@
         box-shadow: 0 12px 28px -14px rgba(91, 33, 182, 0.35);
         transform: translateY(-2px);
     }
+
+    .mb-10.rounded-2xl.border.border-violet-200\/80.bg-gradient-to-br.from-violet-50.via-white.to-purple-50.p-6.sm\:p-8.shadow-sm {
+        display: none;
+    }
 </style>
 @functions {
     string DashCoverSrc(string? path)
@@ -139,22 +140,16 @@
                 <input id="search-input" type="text" placeholder="Search your books, drafts, or authors..." class="w-full pl-12 pr-4 py-3 rounded-full border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 transition-all placeholder:text-gray-400 text-gray-700">
             </div>
 
-            <!-- Hero: workspace — resume in-progress book or start new -->
+            <!-- Hero: always start a new book — continue existing drafts in Continue Editing below -->
             <div class="flex flex-col md:flex-row items-center gap-8 mb-12">
                 <div class="flex-1">
                     <p class="text-xs font-bold uppercase tracking-wider text-violet-600 mb-3">Your workspace</p>
                     <h1 id="dash-hero-title" class="font-serif text-4xl sm:text-5xl text-gray-900 mb-3 leading-tight tracking-tight">@heroTitle</h1>
                     <p id="dash-hero-desc" class="text-gray-500 text-base sm:text-lg mb-6 leading-relaxed max-w-lg">@heroDesc</p>
                     <div class="dash-hero-actions">
-                        <a id="dash-hero-cta" href="@heroPrimaryUrl" class="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-800 active:scale-95 text-white px-8 py-3.5 rounded-full font-semibold transition-all shadow-lg shadow-purple-200 text-base">
-                            <i class="fas @(heroResumeUrl != null ? "fa-book-open" : "fa-pen-nib") text-sm"></i> @heroPrimaryLabel
+                        <a id="dash-hero-cta" href="@heroPrimaryUrl" class="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-800 active:scale-95 text-white px-8 py-3.5 rounded-full font-semibold transition-all shadow-lg shadow-purple-200 text-base" data-editor-reset-new="1" data-book-id="0" data-unsaved-ignore="true">
+                            <i class="fas fa-pen-nib text-sm"></i> @heroPrimaryLabel
                         </a>
-                        @if (hasInProgressDrafts)
-                        {
-                            <a href="@startBookUrl" class="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-white text-violet-800 px-6 py-3.5 font-semibold text-sm hover:bg-violet-50 transition-colors" data-editor-reset-new="1" data-book-id="@heroBookId" data-unsaved-ignore="true">
-                                <i class="fas fa-plus text-xs"></i> New book
-                            </a>
-                        }
                     </div>
                 </div>
                 <div id="dash-hero-cover-wrap" class="relative group shrink-0">
@@ -269,7 +264,7 @@
                             <div class="col-span-2 md:col-span-4 pt-0 text-xs text-gray-400">Showing 8 of @demoDrafts.Count drafts</div>
                         }
                     }
-                    else
+                    else if (!Model.HasAnyBooks)
                     {
                         <div class="col-span-2 md:col-span-4 border border-dashed border-violet-200 rounded-2xl p-8 text-center bg-violet-50/40">
                             <img src="@defaultCoverPlaceholder" alt="" class="w-16 h-20 rounded-lg mx-auto mb-4 object-cover dash-placeholder-cover" />
@@ -622,7 +617,7 @@
     }
     (function () {
         var DASH_BOOK_KEY = 'ebook_dashboard_selected_book';
-        var serverHeroBookId = '@(heroBookId > 0 ? heroBookId.ToString() : "0")';
+        var defaultContinueBookId = '@(primaryDraft != null ? primaryDraft.BookId.ToString() : (demoDrafts.Any() ? demoDrafts.First().BookId.ToString() : "0"))';
         function markWrapCoverImage(img) {
             if (!img) return;
             function applyWrapClass() {
@@ -665,9 +660,9 @@
             });
         });
         var initial = null;
-        if (serverHeroBookId && serverHeroBookId !== '0') {
-            initial = document.querySelector('.book-item[data-book-id="' + serverHeroBookId + '"]');
-            try { sessionStorage.setItem(DASH_BOOK_KEY, String(serverHeroBookId)); } catch (_) {}
+        if (defaultContinueBookId && defaultContinueBookId !== '0') {
+            initial = document.querySelector('.book-item[data-book-id="' + defaultContinueBookId + '"]');
+            try { sessionStorage.setItem(DASH_BOOK_KEY, String(defaultContinueBookId)); } catch (_) {}
         }
         if (!initial) {
             var storedId = '';

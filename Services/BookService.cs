@@ -760,7 +760,8 @@ namespace EBookDashboard.Services
                     AuthorName = authorName,
                     CoverImagePath = book.CoverImagePath,
                     TotalChapters = chapters.Count,
-                    Chapters = chapters
+                    Chapters = chapters,
+                    BookContentHtml = book.BookContentHtml
                 };
             }
             catch (Exception ex)
@@ -913,6 +914,16 @@ namespace EBookDashboard.Services
                         });
                     }
                 }
+            }
+
+            if (result.Count == 0)
+            {
+                var storedHtml = await _context.Books.AsNoTracking()
+                    .Where(b => b.BookId == bookId && b.UserId == userId)
+                    .Select(b => b.BookContentHtml)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(storedHtml))
+                    result = BookContentHtmlParser.ToChapterDtos(storedHtml);
             }
 
             return result;

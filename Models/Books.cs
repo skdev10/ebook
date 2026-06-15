@@ -33,6 +33,10 @@ namespace EBookDashboard.Models
         public string? Description { get; set; } = string.Empty;
         public int WordCount { get; set; }
 
+        /// <summary>Whole-book AI HTML fragment (formatter preview + PDF export).</summary>
+        [Column(TypeName = "longtext")]
+        public string? BookContentHtml { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; } = new DateTime(1980, 1, 1);
         public string Status { get; set; } = string.Empty;

@@ -53,7 +53,39 @@
         border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
     }
     .profile-form-label { display: block; font-size: 0.875rem; font-weight: 500; color: #475569; margin-bottom: 0.375rem; }
+    .profile-avatar-wrap { position: relative; cursor: pointer; }
+    .profile-avatar-wrap .profile-avatar-overlay {
+        position: absolute; inset: 0; border-radius: 9999px;
+        background: rgba(15, 23, 42, 0.45); color: #fff;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 0.25rem; opacity: 0; transition: opacity 0.2s ease;
+        font-size: 0.7rem; font-weight: 600; text-align: center; padding: 0.5rem;
+    }
+    .profile-avatar-wrap:hover .profile-avatar-overlay,
+    .profile-avatar-wrap:focus-within .profile-avatar-overlay { opacity: 1; }
+    .profile-cover-banner { cursor: pointer; }
+    .profile-cover-banner:hover .profile-cover-actions { opacity: 1; }
+    .profile-cover-actions {
+        opacity: 0.92; transition: opacity 0.2s ease;
+    }
+    .profile-btn-ghost {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.5rem 0.85rem; border-radius: 0.5rem; font-size: 0.8125rem; font-weight: 600;
+        border: 1px solid rgba(255,255,255,0.35); background: rgba(0,0,0,0.35);
+        color: #fff; backdrop-filter: blur(8px); transition: background 0.2s;
+    }
+    .profile-btn-ghost:hover { background: rgba(0,0,0,0.55); }
+    .profile-btn-sm {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 600;
+        border: 1px solid #e2e8f0; background: #fff; color: #475569;
+    }
+    .profile-btn-sm:hover { border-color: #c4b5fd; color: #6d28d9; background: #faf5ff; }
+    .profile-btn-sm.danger:hover { border-color: #fecaca; color: #dc2626; background: #fef2f2; }
 </style>
+
+<input type="file" id="profileFileInput" accept="image/jpeg,image/png,image/jpg" class="hidden" aria-hidden="true" />
+<input type="file" id="profileBackgroundFileInput" accept="image/jpeg,image/png,image/jpg,image/webp" class="hidden" aria-hidden="true" />
 
 <div class="dash-flow-page">
 <main class="dash-flow-main">
@@ -78,23 +110,32 @@
 
         <div class="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-y-auto">
             <!-- Cover -->
-            <div class="h-52 md:h-64 relative bg-violet-600 overflow-hidden shrink-0">
-                <img id="profileCoverImage" src="@profileBackgroundImage" alt="" class="profile-media-img absolute inset-0 w-full h-full object-cover opacity-35 mix-blend-overlay" loading="lazy" decoding="async" />
-                <div class="absolute inset-0 bg-gradient-to-r from-violet-700/70 via-violet-600/40 to-transparent"></div>
-                <div class="absolute top-5 right-6">
-                    <span class="bg-black/15 text-white border border-white/25 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-medium inline-flex items-center gap-2 shadow-sm">
-                        <i data-lucide="lock" class="w-4 h-4" stroke-width="1.5"></i>
-                        Background locked
-                    </span>
+            <div id="profileCoverBanner" class="profile-cover-banner h-52 md:h-64 relative bg-violet-600 overflow-hidden shrink-0 group" role="button" tabindex="0" aria-label="Change profile background image">
+                <img id="profileCoverImage" src="@profileBackgroundImage" alt="" class="profile-media-img absolute inset-0 w-full h-full object-cover opacity-90" loading="lazy" decoding="async" />
+                <div class="absolute inset-0 bg-gradient-to-r from-violet-900/50 via-violet-700/25 to-transparent pointer-events-none"></div>
+                <div class="profile-cover-actions absolute top-4 right-4 flex flex-wrap items-center justify-end gap-2 z-10">
+                    <button type="button" id="btnChangeCover" class="profile-btn-ghost" title="Upload background">
+                        <i data-lucide="image-plus" class="w-4 h-4"></i> Change background
+                    </button>
+                    <button type="button" id="btnRemoveCover" class="profile-btn-ghost" title="Remove background">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Remove
+                    </button>
                 </div>
+                <p class="absolute bottom-4 left-6 text-xs text-white/80 hidden sm:block pointer-events-none">JPG, PNG or WEBP · max 5 MB</p>
             </div>
 
             <div class="px-4 sm:px-8 pb-12 md:pb-16 -mt-20 md:-mt-24 relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
 
                 <!-- Left: card -->
                 <div class="w-full lg:w-[320px] bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center shrink-0 mx-auto lg:mx-0">
-                    <div class="relative -mt-14 md:-mt-16 mb-4 group">
-                        <img id="profileImageMain" src="@avatar" alt="Profile" class="profile-media-img w-[108px] h-[108px] md:w-[120px] md:h-[120px] rounded-full object-cover border-4 border-white shadow-md bg-white" />
+                    <div class="relative -mt-14 md:-mt-16 mb-4">
+                        <button type="button" id="btnPickImage" class="profile-avatar-wrap rounded-full border-0 p-0 bg-transparent" title="Change profile photo" aria-label="Change profile photo">
+                            <img id="profileImageMain" src="@avatar" alt="Profile" class="profile-media-img w-[108px] h-[108px] md:w-[120px] md:h-[120px] rounded-full object-cover border-4 border-white shadow-md bg-white pointer-events-none" />
+                            <span class="profile-avatar-overlay rounded-full">
+                                <i data-lucide="camera" class="w-5 h-5"></i>
+                                Change photo
+                            </span>
+                        </button>
                     </div>
                     <h2 id="profileNameHeading" class="text-xl font-medium text-slate-900 tracking-tight text-center">@(Model?.UserName ?? "User")</h2>
                     <p class="text-sm text-slate-500 mt-1 text-center">@(Model?.UserRole ?? "Reader") · @planLabel</p>
@@ -125,7 +166,12 @@
                         </button>
                     </div>
 
-                    <p class="w-full mt-3 text-center text-xs text-slate-400 border border-slate-200 rounded-lg py-2 bg-slate-50">Profile photo is locked</p>
+                    <div class="w-full mt-3 flex flex-wrap items-center justify-center gap-2">
+                        <button type="button" id="btnRemoveImage" class="profile-btn-sm danger">
+                            <i data-lucide="user-x" class="w-3.5 h-3.5"></i> Remove photo
+                        </button>
+                    </div>
+                    <p class="w-full mt-2 text-center text-xs text-slate-400">JPG or PNG · max 2 MB · saved to your account</p>
                 </div>
 
                 <!-- Right: tabs + forms -->
@@ -469,13 +515,21 @@
 
     function pickProfileFile() { if (fileInput) fileInput.click(); }
     function pickBackgroundFile() { if (backgroundFileInput) backgroundFileInput.click(); }
-    btnPickImage?.addEventListener('click', pickProfileFile);
-    btnChangeCover?.addEventListener('click', pickBackgroundFile);
+    btnPickImage?.addEventListener('click', function (e) { e.preventDefault(); pickProfileFile(); });
+    btnChangeCover?.addEventListener('click', function (e) { e.stopPropagation(); pickBackgroundFile(); });
+    document.getElementById('profileCoverBanner')?.addEventListener('click', function (e) {
+        if (e.target.closest('#btnRemoveCover') || e.target.closest('#btnChangeCover')) return;
+        pickBackgroundFile();
+    });
+    document.getElementById('profileCoverBanner')?.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickBackgroundFile(); }
+    });
 
     fileInput?.addEventListener('change', async function () {
         if (!fileInput.files || !fileInput.files[0]) return;
         var fd = new FormData();
         fd.append('profilePicture', fileInput.files[0]);
+        fd.append('__RequestVerificationToken', token);
         var res = await fetch('/Dashboard/UploadProfilePicture', {
             method: 'POST',
             headers: { 'RequestVerificationToken': token },
@@ -483,21 +537,23 @@
         });
         var data = await res.json().catch(function () { return null; });
         if (!data || !data.success) return notify('error', (data && data.message) ? data.message : 'Image upload failed.');
-        var src = data.imagePath;
+        var src = data.imagePath + (data.imagePath.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
         imageMain.src = src;
         if (headerAvatar) headerAvatar.src = src;
         try {
-            sessionStorage.setItem('newProfilePicture', src);
+            sessionStorage.setItem('newProfilePicture', data.imagePath);
             localStorage.setItem('profilePictureUpdated', Date.now().toString());
         } catch (e) {}
-        notify('success', 'Profile photo updated.');
+        notify('success', 'Profile photo saved to your account.');
         fileInput.value = '';
+        lucideInit();
     });
 
     backgroundFileInput?.addEventListener('change', async function () {
         if (!backgroundFileInput.files || !backgroundFileInput.files[0]) return;
         var fd = new FormData();
         fd.append('backgroundImage', backgroundFileInput.files[0]);
+        fd.append('__RequestVerificationToken', token);
         var res = await fetch('/Dashboard/UploadProfileBackground', {
             method: 'POST',
             headers: { 'RequestVerificationToken': token },
@@ -506,10 +562,10 @@
         var data = await res.json().catch(function () { return null; });
         if (!data || !data.success) return notify('error', (data && data.message) ? data.message : 'Background upload failed.');
         if (coverImage) {
-            coverImage.src = data.imagePath;
+            coverImage.src = data.imagePath + (data.imagePath.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
             coverImage.setAttribute('data-fallback-applied', '0');
         }
-        notify('success', 'Background image updated.');
+        notify('success', 'Background image saved to your account.');
         backgroundFileInput.value = '';
     });
 
@@ -526,7 +582,8 @@
         notify('success', 'Profile photo removed.');
     });
 
-    btnRemoveCover?.addEventListener('click', async function () {
+    btnRemoveCover?.addEventListener('click', async function (e) {
+        e.stopPropagation();
         var res = await fetch('/Dashboard/RemoveProfileBackground', {
             method: 'POST',
             headers: { 'RequestVerificationToken': token }

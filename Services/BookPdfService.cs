@@ -127,6 +127,80 @@ public class BookPdfService : IBookPdfService
         }
     }
 
+    /// <inheritdoc />
+    public async Task<byte[]> RenderStoredBookHtmlPdfAsync(
+        string bookContentHtml,
+        string displayTitle,
+        string? displayAuthor,
+        int bookId,
+        CancellationToken cancellationToken = default)
+    {
+        var title = (displayTitle ?? "").Trim();
+        if (string.IsNullOrEmpty(title)) title = "Untitled";
+        var author = (displayAuthor ?? "").Trim();
+        var css = await LoadBookPageCssAsync(cancellationToken);
+        var safeTitle = WebUtility.HtmlEncode(title);
+        var safeAuthor = WebUtility.HtmlEncode(author);
+        var body = BookGenerationHtmlSanitizer.Sanitize(bookContentHtml);
+
+        var html = new StringBuilder();
+        html.Append("<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>");
+        html.Append(css);
+        html.Append("</style></head><body><div class=\"book-page\">");
+        if (!body.Contains("<h1", StringComparison.OrdinalIgnoreCase))
+        {
+            html.Append("<h1>").Append(safeTitle).Append("</h1>");
+            if (!string.IsNullOrEmpty(author))
+                html.Append("<p>by ").Append(safeAuthor).Append("</p>");
+        }
+        html.Append(body);
+        html.Append("</div></body></html>");
+
+        var layout = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions(), BookPdfLayoutOptions.FromConfiguration(_configuration));
+        var headerTemplate = BuildHeaderTemplate(title, author);
+        var footerTemplate = BuildFooterTemplate();
+
+        try
+        {
+            var htmlEngine = _pdfEngineResolver.ResolvePrimary();
+            var pdfBytes = await htmlEngine.ExportHtmlAsync(new PdfHtmlExportRequest
+            {
+                Html = html.ToString(),
+                Layout = layout,
+                HeaderTemplate = headerTemplate,
+                FooterTemplate = footerTemplate,
+                BookId = bookId
+            }, cancellationToken);
+            EnsureValidPdf(pdfBytes);
+            return pdfBytes;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Stored HTML PDF via Chromium failed for book {BookId}; using chapter PDF pipeline.", bookId);
+            var chapters = BookContentHtmlParser.ToChapterDtos(body);
+            var details = new BookDetailsResponseDto
+            {
+                Success = true,
+                BookId = bookId,
+                BookTitle = title,
+                AuthorName = author,
+                Chapters = chapters,
+                TotalChapters = chapters.Count,
+                BookContentHtml = body
+            };
+            return await RenderFullBookPdfAsync(
+                details, null, title, author, null, new BookPdfExportOptions(), null, cancellationToken);
+        }
+    }
+
+    private async Task<string> LoadBookPageCssAsync(CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(_env.WebRootPath ?? "", "css", "book-page-preview.css");
+        if (!File.Exists(path))
+            return "body{font-family:Georgia,serif;margin:1in;line-height:1.6;} h1,h2,h3{font-family:Georgia,serif;}";
+        return await File.ReadAllTextAsync(path, cancellationToken);
+    }
+
     /// <summary>Flowed content height per printed page (page height minus top/bottom print margins) at 96 dpi.</summary>
     private static double? ComputeContentHeightPx(BookPdfPlatformLayout.PdfLayoutSpec layout)
     {

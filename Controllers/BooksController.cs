@@ -62,6 +62,7 @@ namespace EBookDashboard.Controllers
         private readonly IWebHostEnvironment _hostEnvironment;
         private readonly BookFlowStateService _bookFlow;
         private readonly IUpstreamQueueProbe _queueProbe;
+        private readonly IBookGeneratorService _bookGeneratorService;
 
         public BooksController(
             IBookService bookService,
@@ -80,7 +81,8 @@ namespace EBookDashboard.Controllers
             IBookPageMetricsService bookPageMetricsService,
             BookPublishReadinessService publishReadiness,
             IWebHostEnvironment hostEnvironment,
-            BookFlowStateService bookFlow)
+            BookFlowStateService bookFlow,
+            IBookGeneratorService bookGeneratorService)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -100,6 +102,7 @@ namespace EBookDashboard.Controllers
             _publishReadiness = publishReadiness;
             _hostEnvironment = hostEnvironment;
             _bookFlow = bookFlow;
+            _bookGeneratorService = bookGeneratorService;
         }
         //===========================================
         //           On Page Load 
@@ -2133,17 +2136,19 @@ namespace EBookDashboard.Controllers
             return RedirectToAction("MyBooks", "Dashboard");
         }
 
-        // POST: Books/Publish/5
+        // POST: Books/Publish/5 — legacy; real publish happens on Dashboard Publish after export download.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Publish(int id)
         {
-            var book = await _context.Books.FindAsync(id);
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (!sessionUserId.HasValue)
+                return RedirectToAction("UserLogin", "Account");
+
+            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == id && b.UserId == sessionUserId.Value);
             if (book != null)
             {
-                book.Status = "Published";
-                book.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+                return RedirectToAction("Publish", "Dashboard", new { bookId = id });
             }
             return RedirectToAction(nameof(Index));
         }
@@ -3359,6 +3364,122 @@ namespace EBookDashboard.Controllers
         {
             public int BookId { get; set; }
             public string? Format { get; set; }
+        }
+
+        /// <summary>Generate whole-book HTML via AI prompt template and save to <c>BookContentHtml</c>.</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [RequestTimeout("AiGeneration")]
+        [Route("Books/GenerateBookHtml")]
+        public async Task<IActionResult> GenerateBookHtml([FromBody] GenerateBookHtmlRequest? body, CancellationToken cancellationToken)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (!userId.HasValue || userId.Value <= 0)
+                return Json(new { success = false, message = "Please sign in." });
+
+            if (body == null || body.BookId <= 0)
+                return Json(new { success = false, message = "BookId is required." });
+
+            var request = new BookRequest
+            {
+                BookTitle = body.BookTitle ?? "",
+                AuthorName = body.AuthorName ?? "",
+                Language = body.Language ?? "English",
+                ChaptersCount = body.ChaptersCount > 0 ? body.ChaptersCount : 5,
+                MinWordsPerChapter = body.MinWordsPerChapter > 0 ? body.MinWordsPerChapter : 800,
+                ToneDescription = body.ToneDescription ?? "descriptive"
+            };
+
+            if (string.IsNullOrWhiteSpace(request.BookTitle))
+            {
+                var bookRow = await _context.Books.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.BookId == body.BookId && b.UserId == userId.Value, cancellationToken);
+                if (bookRow != null)
+                    request.BookTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                        _context, userId.Value, bookRow.BookId, bookRow.Title);
+            }
+
+            if (string.IsNullOrWhiteSpace(request.AuthorName))
+            {
+                var userRow = await _context.Users.AsNoTracking()
+                    .Where(u => u.UserId == userId.Value)
+                    .Select(u => new { u.FullName, u.UserEmail })
+                    .FirstOrDefaultAsync(cancellationToken);
+                request.AuthorName = !string.IsNullOrWhiteSpace(userRow?.FullName)
+                    ? userRow!.FullName!.Trim()
+                    : (userRow?.UserEmail ?? "").Trim();
+            }
+
+            var result = await _bookGeneratorService.GenerateAndSaveHtmlAsync(
+                userId.Value, body.BookId, request, cancellationToken);
+
+            if (!result.Success)
+                return Json(new { success = false, message = result.Message ?? "Generation failed." });
+
+            return Json(new
+            {
+                success = true,
+                message = result.Message,
+                bookId = body.BookId,
+                chapterCount = result.ChapterCount,
+                htmlLength = result.Html?.Length ?? 0
+            });
+        }
+
+        /// <summary>PDF export from stored <c>BookContentHtml</c> (falls back to chapter pipeline when empty).</summary>
+        [HttpGet]
+        [Route("Books/{bookId:int}/Pdf")]
+        public async Task<IActionResult> DownloadBookHtmlPdf(int bookId, CancellationToken cancellationToken)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (!userId.HasValue || userId.Value <= 0)
+                return Unauthorized();
+
+            var book = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId.Value, cancellationToken);
+            if (book == null)
+                return NotFound();
+
+            var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
+                _context, userId.Value, book.BookId, book.Title);
+            var authorRow = await _context.Users.AsNoTracking()
+                .Where(u => u.UserId == userId.Value)
+                .Select(u => new { u.FullName, u.UserEmail })
+                .FirstOrDefaultAsync(cancellationToken);
+            var author = !string.IsNullOrWhiteSpace(authorRow?.FullName)
+                ? authorRow!.FullName!.Trim()
+                : (authorRow?.UserEmail ?? "").Trim();
+
+            byte[] pdfBytes;
+            var safeFileName = string.IsNullOrWhiteSpace(displayTitle) ? "book" : displayTitle.Trim();
+
+            if (!string.IsNullOrWhiteSpace(book.BookContentHtml))
+            {
+                pdfBytes = await _bookPdfService.RenderStoredBookHtmlPdfAsync(
+                    book.BookContentHtml, displayTitle, author, bookId, cancellationToken);
+            }
+            else
+            {
+                var details = await _bookService.GetBookDetailsForPreviewAsync(userId.Value, bookId);
+                if (details is not { Success: true } || details.Chapters.Count == 0)
+                    return BadRequest("No book content to export. Generate chapters or run whole-book HTML generation first.");
+
+                pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
+                    details, null, displayTitle, author, details.Genre, new BookPdfExportOptions(), null, cancellationToken);
+            }
+
+            return File(pdfBytes, "application/pdf", $"{safeFileName}.pdf");
+        }
+
+        public sealed class GenerateBookHtmlRequest
+        {
+            public int BookId { get; set; }
+            public string? BookTitle { get; set; }
+            public string? AuthorName { get; set; }
+            public string? Language { get; set; }
+            public int ChaptersCount { get; set; }
+            public int MinWordsPerChapter { get; set; }
+            public string? ToneDescription { get; set; }
         }
 
         // ========================== MANUSCRIPT UPLOAD ===========================

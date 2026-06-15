@@ -117,6 +117,10 @@ namespace EBookDashboard.Models
                 .Property(p => p.TotalAmount)
                 .HasPrecision(10, 2);
 
+            modelBuilder.Entity<Books>()
+                .Property(b => b.BookContentHtml)
+                .HasColumnType("longtext");
+
             // ✅ Example: Unique constraint on AuthorCode
             modelBuilder.Entity<Authors>()
                 .HasIndex(a => a.AuthorCode)

@@ -15,6 +15,8 @@ public class ExternalApiOptions
     public string ApiKey { get; set; } = "";
 
     public string GenerateUrl { get; set; } = "";
+    /// <summary>Optional dedicated whole-book HTML endpoint; falls back to <see cref="GenerateUrl"/>.</summary>
+    public string GenerateBookUrl { get; set; } = "";
     public string EditUrl { get; set; } = "";
     public string ApproveUrl { get; set; } = "";
     public string GenerateCoverUrl { get; set; } = "";

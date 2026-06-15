@@ -16,4 +16,12 @@ public interface IBookPdfService
         BookPdfExportOptions exportOptions,
         string? publisherDisplayName,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Renders <paramref name="bookContentHtml"/> fragment to PDF (book-page CSS wrapper).</summary>
+    Task<byte[]> RenderStoredBookHtmlPdfAsync(
+        string bookContentHtml,
+        string displayTitle,
+        string? displayAuthor,
+        int bookId,
+        CancellationToken cancellationToken = default);
 }

@@ -139,7 +139,7 @@
             // Dashboard-first: sidebar step links re-enter flow via SelectBook (resume at saved step).
             var selectBookEntry = $"/Dashboard/SelectBook?bookId={sidebarActiveBookId}";
             sidebarAiWriterUrl = selectBookEntry;
-            sidebarFormatUrl = selectBookEntry;
+            sidebarFormatUrl = $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}";
             sidebarCoverUrl = selectBookEntry;
             sidebarPublishUrl = selectBookEntry;
         }
