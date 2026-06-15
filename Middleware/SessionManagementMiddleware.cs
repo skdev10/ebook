@@ -303,6 +303,12 @@ namespace EBookDashboard.Middleware
             var contentType = context.Request.Headers.ContentType.ToString();
             if (contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase))
                 return true;
+            if (contentType.Contains("multipart/form-data", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            var path = context.Request.Path.Value ?? "";
+            if (path.Equals("/Books/ImportChapterFile", StringComparison.OrdinalIgnoreCase))
+                return true;
 
             var accept = context.Request.Headers.Accept.ToString();
             if (accept.Contains("application/json", StringComparison.OrdinalIgnoreCase))
@@ -311,7 +317,6 @@ namespace EBookDashboard.Middleware
             // fetch() GET calls to JSON endpoints (no Content-Type) — avoid HTML login page on session expiry
             if (context.Request.Method.Equals("GET", StringComparison.OrdinalIgnoreCase))
             {
-                var path = context.Request.Path.Value ?? "";
                 if (path.StartsWith("/Books/", StringComparison.OrdinalIgnoreCase)
                     && !path.Equals("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase)
                     && !path.Equals("/Books/AIGenerateBookFormat", StringComparison.OrdinalIgnoreCase)

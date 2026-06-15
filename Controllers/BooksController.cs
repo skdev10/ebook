@@ -37,8 +37,6 @@ using System.Threading.Tasks;
 using System.Xml.Linq;  
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using Newtonsoft.Json.Linq;
-using UglyToad.PdfPig;
-using UglyToad.PdfPig.Content;
 
 namespace EBookDashboard.Controllers
 {
@@ -2956,18 +2954,7 @@ namespace EBookDashboard.Controllers
             }
 
             if (file == null || file.Length == 0)
-                return Json(new { success = false, message = "Select a PDF or text file." });
-
-            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (string.IsNullOrEmpty(ext))
-            {
-                var ct = file.ContentType ?? "";
-                if (ct.Contains("pdf", StringComparison.OrdinalIgnoreCase)) ext = ".pdf";
-                else if (ct.StartsWith("text/", StringComparison.OrdinalIgnoreCase)) ext = ".txt";
-            }
-
-            if (ext != ".pdf" && ext != ".txt" && ext != ".md" && ext != ".markdown")
-                return Json(new { success = false, message = "Supported formats: PDF, Plain text (.txt), Markdown (.md)." });
+                return Json(new { success = false, message = "Select a PDF, Word, or text file." });
 
             byte[] bytes;
             await using (var ms = new MemoryStream())
@@ -2979,23 +2966,23 @@ namespace EBookDashboard.Controllers
             if (bytes.Length == 0)
                 return Json(new { success = false, message = "This file appears empty." });
 
+            var ext = ChapterDocumentImportService.ResolveExtension(file.FileName, file.ContentType, bytes);
+            if (ext == ".doc")
+                return Json(new { success = false, message = "Old Word .doc files are not supported. Save as .docx and upload again." });
+
+            if (!ChapterDocumentImportService.IsSupportedExtension(ext))
+                return Json(new { success = false, message = ChapterDocumentImportService.SupportedFormatsMessage() });
+
             try
             {
-                string text;
-                if (ext == ".pdf")
-                    text = ExtractPdfTextAsPlain(bytes, cancellationToken);
-                else
-                    text = DecodeTextFile(bytes);
-
-                text = (text ?? string.Empty).Trim();
-                if (text.Length > 2_000_000)
-                    text = text.Substring(0, 2_000_000) + "\n...[truncated]";
+                var text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
+                text = ChapterDocumentImportService.SanitizeImportedText(text);
 
                 if (string.IsNullOrWhiteSpace(text))
                     return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR). Paste the text instead." });
 
-                var suggestedBookTitle = SuggestBookTitleFromFileName(file.FileName);
-                var (suggestedChapterNo, suggestedChapterTitle) = SuggestChapterFromBodyText(text);
+                var suggestedBookTitle = ChapterDocumentImportService.SuggestBookTitleFromFileName(file.FileName);
+                var (suggestedChapterNo, suggestedChapterTitle) = ChapterDocumentImportService.SuggestChapterFromBodyText(text);
 
                 return Json(new
                 {
@@ -3011,115 +2998,8 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "ImportChapterFile failed for {Name}", file.FileName);
-                return Json(new { success = false, message = "Could not read this file. Please try uploading a different export or paste the text instead." });
+                return Json(new { success = false, message = ChapterDocumentImportService.MapImportExceptionMessage(ex) });
             }
-        }
-
-        private static string ExtractPdfTextAsPlain(byte[] bytes, CancellationToken cancellationToken)
-        {
-            using var document = PdfDocument.Open(new MemoryStream(bytes, writable: false), new ParsingOptions { UseLenientParsing = true });
-            var sb = new StringBuilder();
-            foreach (var page in document.GetPages())
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                try
-                {
-                    var words = page.GetWords();
-                    if (words != null && words.Any())
-                    {
-                        var line = string.Join(" ", words.Select(w => w.Text));
-                        if (!string.IsNullOrWhiteSpace(line))
-                            sb.AppendLine(line);
-                    }
-                    else if (page.Letters != null && page.Letters.Count > 0)
-                    {
-                        foreach (var letter in page.Letters)
-                            sb.Append(letter.Value);
-                        sb.AppendLine();
-                    }
-                }
-                catch (Exception)
-                {
-                    /* skip unreadable page */
-                }
-            }
-
-            return sb.ToString();
-        }
-
-        private static string DecodeTextFile(byte[] bytes)
-        {
-            if (bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF)
-                return Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
-
-            try
-            {
-                return Encoding.UTF8.GetString(bytes);
-            }
-            catch
-            {
-                return Encoding.Latin1.GetString(bytes);
-            }
-        }
-
-        private static string SuggestBookTitleFromFileName(string? fileName)
-        {
-            if (string.IsNullOrWhiteSpace(fileName)) return string.Empty;
-            var baseName = Path.GetFileNameWithoutExtension(fileName.Trim());
-            if (string.IsNullOrWhiteSpace(baseName)) return string.Empty;
-            baseName = Regex.Replace(baseName.Replace('_', ' '), @"\s+", " ").Trim();
-            return baseName.Length > 200 ? baseName.Substring(0, 197) + "..." : baseName;
-        }
-
-        /// <summary>First heading, "Chapter N: Title", or short first line → chapter no + title for import UI.</summary>
-        private static (int chapterNo, string chapterTitle) SuggestChapterFromBodyText(string text)
-        {
-            var chapterNo = 1;
-            var chapterTitle = string.Empty;
-            if (string.IsNullOrWhiteSpace(text)) return (chapterNo, "Imported chapter");
-
-            var lines = text.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
-            foreach (var raw in lines)
-            {
-                var line = raw.Trim();
-                if (line.Length == 0) continue;
-
-                var hm = Regex.Match(line, @"^(#{1,6})\s+(.+)$");
-                if (hm.Success)
-                {
-                    chapterTitle = TruncateSuggestedTitle(hm.Groups[2].Value.Trim());
-                    break;
-                }
-
-                var chMatch = Regex.Match(line, @"^(?:Chapter|CHAPTER)\s+(\d+)\s*[:\.\-]?\s*(.*)$", RegexOptions.IgnoreCase);
-                if (chMatch.Success)
-                {
-                    if (int.TryParse(chMatch.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n > 0)
-                        chapterNo = n;
-                    var rest = chMatch.Groups[2].Value.Trim();
-                    if (!string.IsNullOrEmpty(rest))
-                        chapterTitle = TruncateSuggestedTitle(rest);
-                    break;
-                }
-
-                if (line.Length <= 120)
-                {
-                    chapterTitle = TruncateSuggestedTitle(line);
-                    break;
-                }
-
-                break;
-            }
-
-            if (string.IsNullOrEmpty(chapterTitle))
-                chapterTitle = "Imported chapter";
-            return (chapterNo, chapterTitle);
-        }
-
-        private static string TruncateSuggestedTitle(string s, int max = 150)
-        {
-            if (string.IsNullOrEmpty(s)) return string.Empty;
-            return s.Length <= max ? s : s.Substring(0, max - 3) + "...";
         }
 
         //================== Load Books on Dropdown ==================

@@ -17,6 +17,9 @@ using EBookDashboard.Health;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.DataProtection;
+using System.Text;
+
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
 // Optional local overrides (secrets); never commit — see DigitalOcean-EnvironmentVariables.txt for production env vars.
