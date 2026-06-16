@@ -125,12 +125,11 @@ namespace EBookDashboard.Controllers
             if (user == null)
                 return RedirectToAction("UserLogin", "Account");
 
-            // Dashboard "New Book" always opens a fresh Untitled Book in AI Writer (never resume demo/old drafts).
-            if (writer == 1)
-                return await CreateUntitledBookAndOpenWriterAsync(user, title);
+            // Dashboard "New Book" / Write Now — explicit create=1 (legacy writer=1). Reuses near-empty Untitled when possible.
+            var explicitNewBook = create == 1 || writer == 1;
 
-            // Resume latest real draft unless explicitly creating another book (?create=1).
-            if (create != 1)
+            // Default navigation: resume latest real draft — never auto-create on load.
+            if (!explicitNewBook)
             {
                 var inProgress = await FindLatestUserDraftAsync(user.UserId);
                 if (inProgress != null)
@@ -145,12 +144,14 @@ namespace EBookDashboard.Controllers
                         return Redirect(resumeUrl);
                     return RedirectToAction("AIGenerateBook", "Books", new { bookId = inProgress.BookId });
                 }
+
+                return RedirectToAction(nameof(Index));
             }
 
             return await CreateUntitledBookAndOpenWriterAsync(user, title);
         }
 
-        /// <summary>Creates (or reuses) an Untitled Book and redirects to AI Writer.</summary>
+        /// <summary>Opens AI Writer with an Untitled draft — reuses a near-empty placeholder when one exists.</summary>
         private async Task<IActionResult> CreateUntitledBookAndOpenWriterAsync(Users user, string? title)
         {
             var trimmedTitle = string.IsNullOrWhiteSpace(title) ? "Untitled Book" : title.Trim();

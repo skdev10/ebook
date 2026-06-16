@@ -1189,7 +1189,7 @@
     #fmt-book-result .paginated-reader-shell {
         position: relative;
         width: auto;
-        max-width: min(100%, 26rem);
+        max-width: min(100%, 100%);
         margin-left: auto;
         margin-right: auto;
         flex: 0 0 auto;
@@ -1431,7 +1431,7 @@
     #fmt-preview-scroll-host .paginated-reader-shell.book-page-preview-shell {
         margin-inline: auto;
         width: auto;
-        max-width: min(100%, 26rem);
+        max-width: min(100%, 100%);
     }
     #book-formatter-root #fmt-book-result.fmt-book-result {
         padding-top: 0.25rem;
@@ -1537,7 +1537,7 @@
         flex: 0 0 auto !important;
         min-height: 0 !important;
         width: auto;
-        max-width: min(100%, 26rem);
+        max-width: min(100%, 100%);
     }
 
     #fmt-book-result #preview-content.chapter-preview-viewport,
@@ -1744,7 +1744,7 @@
                                 </div>
                                 <!-- Match AI Book Writer `#bookResult` lavender panel + scroll host -->
                                 <div id="fmt-book-result" class="fmt-book-result fmt-mat-novel relative rounded-2xl py-2 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg">
-                                    <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host book-interior-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview" data-book-interior-root="1">
+                                    <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host book-preview-stage book-interior-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview" data-book-interior-root="1">
                                         <div id="preview-single" class="preview-panel-single flex flex-1 flex-col min-h-0 w-full" tabindex="0">
                                             <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell reader-content-wrap interior-novel interior-preview-novel relative w-full flex-shrink-0 flex flex-col">
                                                 <div id="bookStage" class="book-stage" style="display:none;">
@@ -3356,7 +3356,7 @@
             scrollHost.style.minHeight = availH + 'px';
         }
         var ratio = 6 / 9;
-        var maxShellW = Math.min(416, availW);
+        var maxShellW = Math.floor(availW * 0.94);
         var shellH = Math.floor(availH);
         var shellW = Math.floor(shellH * ratio);
         if (shellW > maxShellW) {
@@ -3392,10 +3392,9 @@
             if (chrome && !chrome.classList.contains('hidden')) reserve += chrome.offsetHeight + 10;
             changed = window.BookInteriorPreview.fitShellToHost(shell, scrollHost, {
                 aspectRatio: 6 / 9,
-                widthFactor: 1,
-                maxWidthPx: 416,
+                widthFactor: 0.94,
                 reserveBottomPx: reserve,
-                preferHeight: true,
+                preferHeight: false,
                 measureHost: measureHost
             });
         }
@@ -3435,7 +3434,7 @@
                 bar.style.marginRight = 'auto';
             } else {
                 bar.style.width = '100%';
-                bar.style.maxWidth = 'min(100%, 26rem)';
+                bar.style.maxWidth = '100%';
                 bar.style.marginLeft = 'auto';
                 bar.style.marginRight = 'auto';
             }
@@ -6112,7 +6111,7 @@
         overflow: hidden !important;
         flex: 0 0 auto !important;
         width: auto !important;
-        max-width: min(100%, 26rem) !important;
+        max-width: min(100%, 100%) !important;
         padding: 0 !important;
     }
     #book-formatter-root .fmt-export-preview-wrap {

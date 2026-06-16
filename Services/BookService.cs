@@ -176,6 +176,18 @@ namespace EBookDashboard.Services
         //=============================================
         public async Task<Books> CreateBookFromRequestAsync(CreateBookRequest request)
         {
+            if (BookDraftGuard.IsPlaceholderTitle(request.Title))
+            {
+                var reusable = await BookDraftGuard.FindReusableEmptyUntitledAsync(_context, request.UserId);
+                if (reusable != null)
+                {
+                    reusable.UpdatedAt = DateTime.UtcNow;
+                    _context.Books.Update(reusable);
+                    await _context.SaveChangesAsync();
+                    return reusable;
+                }
+            }
+
             var book = new Books
             {
                 AuthorId = request.AuthorId,

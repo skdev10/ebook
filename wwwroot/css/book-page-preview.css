@@ -1,47 +1,71 @@
+/**
+ * Shared 6×9 book page preview — fit-to-width, centered stage, print trim aspect ratio.
+ * Used by AI Writer, Book Formatting, and export preview iframe.
+ */
+
+.book-preview-stage,
+#chapterPreviewScrollHost,
+#fmt-preview-scroll-host {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 1rem 1.25rem 1.25rem;
+    background: linear-gradient(180deg, #eef1f5 0%, #e6eaef 100%);
+    border-radius: 12px;
+    min-height: 0;
+}
+
 .book-page-preview-shell {
     width: 100%;
-    max-width: 6in;
+    max-width: 100%;
     margin-inline: auto;
     aspect-ratio: 6 / 9;
-    max-height: min(9in, calc(100dvh - 12rem));
     background: #fff;
-    border: 1px solid rgba(196, 181, 253, 0.65);
-    border-radius: 14px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 4px 20px -8px rgba(91, 33, 182, 0.15);
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 4px;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.95) inset,
+        0 2px 4px rgba(15, 23, 42, 0.06),
+        0 12px 32px -8px rgba(15, 23, 42, 0.18);
     overflow: hidden;
     flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .book-page-preview-content {
     width: 100%;
     height: 100%;
-    padding: clamp(0.75rem, 2.2vw, 1.25rem);
-    padding-bottom: clamp(0.65rem, 1.8vw, 0.85rem);
+    padding: clamp(0.65rem, 1.6vw, 1rem);
+    padding-bottom: clamp(0.55rem, 1.4vw, 0.75rem);
     box-sizing: border-box;
     overflow-x: hidden;
     overflow-y: hidden;
+    font-size: clamp(0.75rem, 1.05vw, 0.875rem);
+    line-height: 1.55;
 }
 
-/* Formatter: paginated shell inside #fmt-book-result — dimensions set by BookInteriorPreview.fitShellToHost */
+/* Formatter: paginated shell — dimensions set by BookInteriorPreview.fitShellToHost */
 #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
     flex: 0 0 auto;
     min-height: 0;
-    max-height: none;
     max-width: 100%;
-    background: transparent;
-    border: none;
-    box-shadow: none;
+    width: auto;
+    margin-inline: auto;
 }
 
 #fmt-book-result .chapter-preview-viewport.book-page-preview-content {
     overflow-y: hidden;
 }
 
-/* AI Writer: shell size driven by syncAiWriterPreviewLayout on desktop */
+/* AI Writer: shell size driven by syncAiWriterPreviewLayout */
 #bookResult .paginated-reader-shell.book-page-preview-shell {
     flex: 0 0 auto;
     margin-inline: auto;
     max-width: 100%;
+    width: auto;
     box-sizing: border-box;
     overflow: hidden;
 }
@@ -52,25 +76,49 @@
     overscroll-behavior: contain;
 }
 
-@media (min-width: 1024px) {
-    #bookResult .paginated-reader-shell.book-page-preview-shell {
-        width: auto;
-        max-width: 100%;
-        max-height: none;
-        aspect-ratio: 6 / 9;
-    }
-}
-
 .book-page-preview-measure {
     padding: 0;
     box-sizing: border-box;
 }
 
+.book-preview-fit-toolbar {
+    display: flex;
+    justify-content: center;
+    gap: 0.35rem;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.book-preview-fit-toolbar button {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #64748b;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.25rem 0.65rem;
+    cursor: pointer;
+}
+
+.book-preview-fit-toolbar button.is-active {
+    color: #5b21b6;
+    border-color: #c4b5fd;
+    background: #f5f3ff;
+}
+
 @media (max-width: 767px) {
-    .book-page-preview-shell {
-        max-width: min(100%, 6in);
-        max-height: min(calc(100vw * 1.5), calc(100dvh - 14rem));
+    .book-preview-stage,
+    #chapterPreviewScrollHost,
+    #fmt-preview-scroll-host {
+        padding: 0.75rem 0.85rem 1rem;
     }
+
+    .book-page-preview-shell {
+        max-width: 100%;
+    }
+
     .book-page-preview-content,
     .book-page-preview-measure {
         padding: clamp(0.75rem, 3vw, 1rem);
@@ -92,4 +140,3 @@
     break-before: avoid;
     page-break-before: avoid;
 }
-

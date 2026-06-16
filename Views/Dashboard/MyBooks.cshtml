@@ -446,7 +446,7 @@
             <div class="flex justify-between items-center mb-6" data-guided-tour="mb-actions">
                 <h2 class="text-xl tracking-tight font-semibold text-slate-900">Recommended</h2>
                 <div class="flex items-center gap-2">
-                    <a href="/Dashboard/StartNewBook?writer=1" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="text-violet-800 bg-violet-100 hover:bg-violet-200 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
+                    <a href="/Dashboard/StartNewBook?create=1" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="text-violet-800 bg-violet-100 hover:bg-violet-200 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-1">
                         <i class="fas fa-plus"></i> New Book
                     </a>
                     @if (books.Any())
@@ -581,7 +581,7 @@
                     <a href="@Url.Action("Index", "Dashboard")" class="bg-violet-700 hover:bg-violet-800 text-white px-6 py-3 rounded-xl font-medium inline-flex items-center gap-2 mr-3">
                         <i class="fas fa-arrow-left"></i> Back to Dashboard
                     </a>
-                    <a href="@Url.Action("StartNewBook", "Dashboard", new { writer = 1 })" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="inline-flex items-center gap-2 border border-violet-200 text-violet-800 bg-violet-50 hover:bg-violet-100 px-6 py-3 rounded-xl font-medium">
+                    <a href="@Url.Action("StartNewBook", "Dashboard", new { create = 1 })" data-editor-reset-new="1" data-book-id="@(ViewBag.ActiveBookId ?? 0)" class="inline-flex items-center gap-2 border border-violet-200 text-violet-800 bg-violet-50 hover:bg-violet-100 px-6 py-3 rounded-xl font-medium">
                         <i class="fas fa-plus"></i> New Book
                     </a>
                 </div>

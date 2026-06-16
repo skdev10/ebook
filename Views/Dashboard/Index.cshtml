@@ -12,7 +12,7 @@
     var demoDraftsShow = demoDrafts.Take(8).ToList();
     var hasMoreDemoDrafts = demoDrafts.Count > 8;
     var hasDraftModal = draftBooks.Any() || demoDrafts.Any();
-    var startBookUrl = Url.Action("StartNewBook", "Dashboard", new { writer = 1 }) ?? "/Dashboard/StartNewBook?writer=1";
+    var startBookUrl = Url.Action("StartNewBook", "Dashboard", new { create = 1 }) ?? "/Dashboard/StartNewBook?create=1";
     var newBookHeroCover = Url.Content("~/images/books/writing-new-book.png");
     var defaultCoverPlaceholder = Url.Content("~/images/books/cover-in-progress.png");
     var hasInProgressDrafts = draftBooks.Any() || demoDrafts.Any();
@@ -808,7 +808,7 @@
             if (searchInput) {
                 searchInput.value = '';
                 filterDrafts('');
-                searchInput.focus();
+                searchInput.focus(); 
             }
         }
         function closeDraftsModal() {

@@ -139,7 +139,7 @@
      * @param {number} [currentBookId]
      */
     function startNewProject(currentBookId) {
-        hardNavigate('/Dashboard/StartNewBook?writer=1');
+        hardNavigate('/Dashboard/StartNewBook?create=1');
         return Promise.resolve(true);
     }
 

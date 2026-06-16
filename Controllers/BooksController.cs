@@ -2133,6 +2133,11 @@ namespace EBookDashboard.Controllers
             if (!deleted)
                 return NotFound();
 
+            if (HttpContext.Session.GetInt32("LastSelectedBookId") == id)
+                HttpContext.Session.Remove("LastSelectedBookId");
+            if (HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey) == id)
+                HttpContext.Session.Remove(BookFlowStateService.SessionEntryBookIdKey);
+
             return RedirectToAction("MyBooks", "Dashboard");
         }
 

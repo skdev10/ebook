@@ -12,9 +12,6 @@
 }
 
 [data-interior-mode="web"] .book-page-preview-shell {
-    background: transparent;
-    border: none;
-    box-shadow: none;
     aspect-ratio: 6 / 9;
     max-height: none;
     flex-shrink: 0;
@@ -29,22 +26,22 @@
 #book-formatter-root #fmt-preview-scroll-host.book-interior-scroll-host {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     justify-content: flex-start;
     overflow: visible;
     max-height: none;
     padding: 0;
-    min-height: clamp(22rem, 58dvh, 48rem);
+    min-height: 0;
     flex: 1 1 auto;
 }
 
 #book-formatter-root #fmt-preview-scroll-host .preview-panel-single {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     justify-content: flex-start;
     width: 100%;
-    min-height: clamp(20rem, 55dvh, 46rem);
+    min-height: 0;
     flex: 1 1 auto;
     overflow: visible;
 }
@@ -52,11 +49,11 @@
 #book-formatter-root #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
     margin-inline: auto;
     overflow: hidden !important;
-    flex: 1 1 auto !important;
+    flex: 0 0 auto !important;
     padding: 0;
-    width: 100%;
+    width: auto;
     max-width: 100%;
-    min-height: clamp(20rem, 52dvh, 44rem);
+    min-height: 0;
     aspect-ratio: 6 / 9;
 }
 
@@ -150,4 +147,3 @@
 #book-formatter-root .book-page-content .toc-title {
     font-family: var(--heading-font, 'Playfair Display', Georgia, serif);
 }
-
