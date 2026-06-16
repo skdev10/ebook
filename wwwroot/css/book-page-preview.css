@@ -1,7 +1,39 @@
 /**
- * Shared 6×9 book page preview — fit-to-width, centered stage, print trim aspect ratio.
+ * Shared 6×9 book page preview — fit-to-width, centered stage, premium nav, no inner scroll.
  * Used by AI Writer, Book Formatting, and export preview iframe.
  */
+
+:root {
+    --book-preview-accent: #7c3aed;
+    --book-preview-accent-hover: #6d28d9;
+    --book-preview-accent-soft: #f5f3ff;
+    --book-preview-accent-border: #c4b5fd;
+    --book-preview-stage-bg: linear-gradient(180deg, #eef1f5 0%, #e6eaef 100%);
+    --book-preview-page-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.95) inset,
+        0 2px 4px rgba(15, 23, 42, 0.06),
+        0 12px 32px -8px rgba(15, 23, 42, 0.18);
+}
+
+/* Equal-height two-column writer / formatter layout */
+.book-preview-layout-row {
+    display: grid;
+    align-items: stretch;
+    min-height: 0;
+}
+
+@media (min-width: 1024px) {
+    .book-preview-layout-row {
+        min-height: calc(100dvh - 7.5rem);
+    }
+
+    .book-preview-layout-row > .book-preview-layout-sidebar,
+    .book-preview-layout-row > .book-preview-layout-preview {
+        min-height: 100%;
+        height: auto;
+        align-self: stretch;
+    }
+}
 
 .book-preview-stage,
 #chapterPreviewScrollHost,
@@ -13,9 +45,11 @@
     width: 100%;
     box-sizing: border-box;
     padding: 1rem 1.25rem 1.25rem;
-    background: linear-gradient(180deg, #eef1f5 0%, #e6eaef 100%);
+    background: var(--book-preview-stage-bg);
     border-radius: 12px;
     min-height: 0;
+    overflow: hidden !important;
+    position: relative;
 }
 
 .book-page-preview-shell {
@@ -26,13 +60,11 @@
     background: #fff;
     border: 1px solid rgba(148, 163, 184, 0.45);
     border-radius: 4px;
-    box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.95) inset,
-        0 2px 4px rgba(15, 23, 42, 0.06),
-        0 12px 32px -8px rgba(15, 23, 42, 0.18);
+    box-shadow: var(--book-preview-page-shadow);
     overflow: hidden;
     flex-shrink: 0;
     box-sizing: border-box;
+    position: relative;
 }
 
 .book-page-preview-content {
@@ -41,44 +73,163 @@
     padding: clamp(0.65rem, 1.6vw, 1rem);
     padding-bottom: clamp(0.55rem, 1.4vw, 0.75rem);
     box-sizing: border-box;
-    overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    overscroll-behavior: none;
     font-size: clamp(0.75rem, 1.05vw, 0.875rem);
     line-height: 1.55;
-}
-
-/* Formatter: paginated shell — dimensions set by BookInteriorPreview.fitShellToHost */
-#fmt-book-result .paginated-reader-shell.book-page-preview-shell {
-    flex: 0 0 auto;
-    min-height: 0;
-    max-width: 100%;
-    width: auto;
-    margin-inline: auto;
-}
-
-#fmt-book-result .chapter-preview-viewport.book-page-preview-content {
-    overflow-y: hidden;
-}
-
-/* AI Writer: shell size driven by syncAiWriterPreviewLayout */
-#bookResult .paginated-reader-shell.book-page-preview-shell {
-    flex: 0 0 auto;
-    margin-inline: auto;
-    max-width: 100%;
-    width: auto;
-    box-sizing: border-box;
-    overflow: hidden;
-}
-
-#bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
-    overflow-x: hidden;
-    overflow-y: hidden !important;
-    overscroll-behavior: contain;
 }
 
 .book-page-preview-measure {
     padding: 0;
     box-sizing: border-box;
+}
+
+/* Loading overlay — immediate feedback while book/pagination loads */
+.book-preview-loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: rgba(245, 243, 255, 0.92);
+    backdrop-filter: blur(2px);
+    border-radius: inherit;
+}
+
+.book-preview-loading-overlay.hidden {
+    display: none !important;
+}
+
+.book-preview-loading-spinner {
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 3px solid #e9d5ff;
+    border-top-color: var(--book-preview-accent);
+    border-radius: 50%;
+    animation: book-preview-spin 0.75s linear infinite;
+}
+
+.book-preview-loading-skeleton {
+    width: min(94%, 420px);
+    aspect-ratio: 6 / 9;
+    border-radius: 4px;
+    background: linear-gradient(110deg, #f1f5f9 8%, #e2e8f0 18%, #f1f5f9 33%);
+    background-size: 200% 100%;
+    animation: book-preview-shimmer 1.2s ease-in-out infinite;
+    box-shadow: var(--book-preview-page-shadow);
+}
+
+.book-preview-loading-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #5b21b6;
+    letter-spacing: 0.02em;
+}
+
+@keyframes book-preview-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes book-preview-shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+/* Premium prev/next — side chevrons on the page shell */
+.book-preview-nav-side,
+.ai-writer-preview-side-nav,
+.fmt-float-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 12;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border-radius: 999px;
+    border: 2px solid var(--book-preview-accent-border);
+    background: linear-gradient(180deg, #fff 0%, var(--book-preview-accent-soft) 100%);
+    color: var(--book-preview-accent);
+    box-shadow: 0 4px 14px rgba(109, 40, 217, 0.18);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.book-preview-nav-side-prev,
+.ai-writer-preview-side-prev,
+.fmt-float-nav-prev {
+    left: 0.35rem;
+}
+
+.book-preview-nav-side-next,
+.ai-writer-preview-side-next,
+.fmt-float-nav-next {
+    right: 0.35rem;
+}
+
+.book-preview-nav-side:hover:not(:disabled),
+.ai-writer-preview-side-nav:hover:not(:disabled),
+.fmt-float-nav:hover:not(:disabled) {
+    background: var(--book-preview-accent);
+    color: #fff;
+    border-color: var(--book-preview-accent-hover);
+    box-shadow: 0 6px 18px rgba(109, 40, 217, 0.32);
+    transform: translateY(calc(-50% - 1px));
+}
+
+.book-preview-nav-side:disabled,
+.ai-writer-preview-side-nav:disabled,
+.fmt-float-nav:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Bottom dock nav — chapter/page controls */
+.book-preview-nav-dock,
+.chapter-reader-nav-dock {
+    flex-shrink: 0;
+    margin-top: auto;
+    padding-top: 0.85rem;
+    padding-bottom: 0.25rem;
+    background: linear-gradient(to top, #f5f3ff 70%, rgba(245, 243, 255, 0.92) 90%, transparent);
+    border-top: 1px solid rgba(196, 181, 253, 0.55);
+    box-shadow: 0 -8px 24px -12px rgba(91, 33, 182, 0.18);
+}
+
+.book-preview-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-width: 6.5rem;
+    padding: 0.55rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--book-preview-accent-hover);
+    background: #fff;
+    border: 2px solid var(--book-preview-accent-border);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.book-preview-nav-btn:hover:not(:disabled) {
+    background: var(--book-preview-accent-soft);
+    border-color: #a78bfa;
+    color: #5b21b6;
+}
+
+.book-preview-nav-btn:disabled {
+    opacity: 0.4;
+    pointer-events: none;
 }
 
 .book-preview-fit-toolbar {
@@ -108,6 +259,42 @@
     background: #f5f3ff;
 }
 
+/* Formatter: paginated shell — dimensions set by BookInteriorPreview */
+#fmt-book-result .paginated-reader-shell.book-page-preview-shell {
+    flex: 0 0 auto;
+    min-height: 0;
+    max-width: 100%;
+    width: auto;
+    margin-inline: auto;
+}
+
+#fmt-book-result .chapter-preview-viewport.book-page-preview-content,
+#fmt-book-result .book-page-content {
+    overflow: hidden !important;
+}
+
+#fmt-book-result #bookStage,
+#fmt-book-result .book-page-content-wrap,
+#fmt-book-result .book-page-content {
+    overflow: hidden !important;
+}
+
+/* AI Writer: shell size driven by syncPreviewLayout */
+#bookResult .paginated-reader-shell.book-page-preview-shell {
+    flex: 0 0 auto;
+    margin-inline: auto;
+    max-width: 100%;
+    width: auto;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    overscroll-behavior: contain;
+}
+
 @media (max-width: 767px) {
     .book-preview-stage,
     #chapterPreviewScrollHost,
@@ -122,6 +309,13 @@
     .book-page-preview-content,
     .book-page-preview-measure {
         padding: clamp(0.75rem, 3vw, 1rem);
+    }
+
+    .book-preview-nav-side,
+    .ai-writer-preview-side-nav,
+    .fmt-float-nav {
+        width: 2rem;
+        height: 2rem;
     }
 }
 

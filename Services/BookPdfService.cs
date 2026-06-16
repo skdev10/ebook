@@ -228,7 +228,7 @@ public class BookPdfService : IBookPdfService
         var t = WebUtility.HtmlEncode(TruncateForHeader(title, 52));
         var pagePadTop = InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.PageTopPaddingMm);
         return "<div style=\"width:100%;box-sizing:border-box;padding:" + pagePadTop +
-               " " + InteriorLayoutTokens.RunningHeadPadSides + " 0 " + InteriorLayoutTokens.RunningHeadPadInside + ";" +
+               " " + InteriorLayoutTokens.RunningHeadPadSides + " " + InteriorLayoutTokens.RunningHeadGapBelow + " " + InteriorLayoutTokens.RunningHeadPadInside + ";" +
                "font-family:Georgia,'Times New Roman',serif;font-size:7.5px;color:#7c7368;" +
                "letter-spacing:0.22em;text-transform:uppercase;text-align:center;" +
                "min-height:" + InteriorLayoutTokens.RunningHeadPadTop + ";line-height:1.35;" +

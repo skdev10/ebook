@@ -1,17 +1,23 @@
 /**
- * Web preview parity with print PDF: running heads, TOC scroll links, fit-to-width 6×9 layout.
- * Pairs with InteriorLayoutTokens CSS and BookPreviewPrintHtmlBuilder HTML shape.
+ * Web preview parity with print PDF: fit-to-width 6×9 layout, loading shell, page preload hooks.
+ * Pairs with book-page-preview.css and InteriorLayoutTokens.
  */
 (function (global) {
     'use strict';
 
     var DEFAULT_RATIO = 6 / 9;
     var DEFAULT_WIDTH_FACTOR = 0.94;
+    var LOADING_OVERLAY_CLASS = 'book-preview-loading-overlay';
 
     function resolveRoot(rootOrSelector) {
         if (!rootOrSelector) return document.querySelector('[data-book-interior-root]');
         if (typeof rootOrSelector === 'string') return document.querySelector(rootOrSelector);
         return rootOrSelector;
+    }
+
+    function resolveEl(ref, fallbackId) {
+        if (ref) return typeof ref === 'string' ? document.getElementById(ref) : ref;
+        return fallbackId ? document.getElementById(fallbackId) : null;
     }
 
     function setRunningHeads(root, bookTitle) {
@@ -57,10 +63,6 @@
 
     /**
      * Size a 6×9 preview shell: fit to host width (default), lock aspect ratio, optional height cap.
-     * @param {Element} shell
-     * @param {Element} host
-     * @param {{ aspectRatio?: number, widthFactor?: number, maxWidthPx?: number, reserveBottomPx?: number, measureHost?: Element, preferHeight?: boolean }} [options]
-     * @returns {boolean} true when dimensions changed
      */
     function fitShellToHost(shell, host, options) {
         if (!shell || !host) return false;
@@ -110,6 +112,12 @@
         if (opts.measureHost) {
             opts.measureHost.style.width = shellW + 'px';
             opts.measureHost.style.boxSizing = 'border-box';
+            if (opts.syncMeasureTypography && opts.viewport) {
+                var vpStyles = global.getComputedStyle(opts.viewport);
+                opts.measureHost.style.padding = vpStyles.padding;
+                opts.measureHost.style.fontSize = vpStyles.fontSize;
+                opts.measureHost.style.lineHeight = vpStyles.lineHeight;
+            }
         }
 
         shell.dataset.layoutKey = nextKey;
@@ -117,8 +125,101 @@
     }
 
     /**
-     * Initialize web preview shell (call after preview HTML is injected).
+     * Unified preview layout sync for AI Writer + Book Formatting.
+     * @param {{ host?: Element|string, hostId?: string, shell?: Element|string, shellId?: string, measureHost?: Element, viewport?: Element, navDock?: Element|string, minHostHeightPx?: number, widthFactor?: number, onLayoutChange?: function }} config
      */
+    function syncPreviewLayout(config) {
+        var cfg = config || {};
+        var scrollHost = resolveEl(cfg.host, cfg.hostId);
+        var shell = resolveEl(cfg.shell, cfg.shellId || 'paginatedReaderShell');
+        if (!scrollHost || !shell) return false;
+
+        if (scrollHost.clientHeight < 120 && cfg.minHostHeightPx > 0) {
+            scrollHost.style.minHeight = Math.floor(cfg.minHostHeightPx) + 'px';
+        }
+
+        var reserve = cfg.reserveBottomPx > 0 ? cfg.reserveBottomPx : 0;
+        var navDock = resolveEl(cfg.navDock, null);
+        if (navDock && !navDock.classList.contains('hidden')) {
+            reserve += navDock.offsetHeight + 8;
+        }
+        var chromeReserve = cfg.chromeReservePx > 0 ? cfg.chromeReservePx : 0;
+        reserve += chromeReserve;
+
+        var measureHost = cfg.measureHost || document.getElementById('fmt-preview-measure-host') || document.getElementById('previewMeasureHost');
+        var viewport = cfg.viewport || document.getElementById('preview-content');
+
+        var changed = fitShellToHost(shell, scrollHost, {
+            aspectRatio: cfg.aspectRatio || DEFAULT_RATIO,
+            widthFactor: cfg.widthFactor || DEFAULT_WIDTH_FACTOR,
+            maxWidthPx: cfg.maxWidthPx || 0,
+            reserveBottomPx: reserve,
+            preferHeight: cfg.preferHeight === true,
+            measureHost: measureHost,
+            viewport: viewport,
+            syncMeasureTypography: !!cfg.syncMeasureTypography
+        });
+
+        if (typeof cfg.onLayoutChange === 'function') {
+            cfg.onLayoutChange(changed, shell, scrollHost);
+        }
+        return changed;
+    }
+
+    function ensureLoadingOverlay(host) {
+        if (!host) return null;
+        var existing = host.querySelector('.' + LOADING_OVERLAY_CLASS);
+        if (existing) return existing;
+        var overlay = document.createElement('div');
+        overlay.className = LOADING_OVERLAY_CLASS;
+        overlay.setAttribute('role', 'status');
+        overlay.setAttribute('aria-live', 'polite');
+        overlay.innerHTML =
+            '<div class="book-preview-loading-skeleton" aria-hidden="true"></div>' +
+            '<div class="book-preview-loading-spinner" aria-hidden="true"></div>' +
+            '<span class="book-preview-loading-label">Loading preview…</span>';
+        host.appendChild(overlay);
+        return overlay;
+    }
+
+    function showLoadingOverlay(hostOrId, label) {
+        var host = resolveEl(hostOrId, typeof hostOrId === 'string' ? hostOrId : null);
+        if (!host) return;
+        var overlay = ensureLoadingOverlay(host);
+        if (label) {
+            var lbl = overlay.querySelector('.book-preview-loading-label');
+            if (lbl) lbl.textContent = label;
+        }
+        overlay.classList.remove('hidden');
+    }
+
+    function hideLoadingOverlay(hostOrId) {
+        var host = resolveEl(hostOrId, typeof hostOrId === 'string' ? hostOrId : null);
+        if (!host) return;
+        var overlay = host.querySelector('.' + LOADING_OVERLAY_CLASS);
+        if (overlay) overlay.classList.add('hidden');
+    }
+
+    /**
+     * Pre-render adjacent page HTML into a hidden layer for instant page turns.
+     * @param {{ pages: string[], currentIndex: number, fill: function(number, Element), hiddenTarget?: Element }} opts
+     */
+    function preloadAdjacentPage(opts) {
+        if (!opts || !Array.isArray(opts.pages) || typeof opts.fill !== 'function') return;
+        var nextIdx = (opts.currentIndex || 0) + 1;
+        if (nextIdx >= opts.pages.length) return;
+        var run = function () {
+            if (opts.hiddenTarget) {
+                opts.fill(nextIdx, opts.hiddenTarget);
+            }
+        };
+        if (typeof global.requestIdleCallback === 'function') {
+            global.requestIdleCallback(run, { timeout: 400 });
+        } else {
+            global.setTimeout(run, 0);
+        }
+    }
+
     function init(rootOrSelector, options) {
         var root = resolveRoot(rootOrSelector);
         if (!root) return;
@@ -129,17 +230,15 @@
         if (mode === 'web') {
             setRunningHeads(root, opts.bookTitle || root.getAttribute('data-book-title') || '');
             wireTocLinks(root);
-            var shell = opts.shell || root.querySelector('.paginated-reader-shell, .book-page-preview-shell');
-            var host = opts.host || root;
-            if (shell && host) {
-                var fitOpts = opts.fitOptions || {};
-                if (fitOpts.preferHeight === undefined) fitOpts.preferHeight = false;
-                if (fitOpts.widthFactor === undefined) fitOpts.widthFactor = DEFAULT_WIDTH_FACTOR;
-                fitShellToHost(shell, host, fitOpts);
-                if (typeof opts.onLayoutChange === 'function' && shell.dataset.layoutKey) {
-                    opts.onLayoutChange(shell.dataset.layoutKey);
-                }
-            }
+            syncPreviewLayout({
+                host: opts.host || root,
+                shell: opts.shell || root.querySelector('.paginated-reader-shell, .book-page-preview-shell'),
+                measureHost: opts.measureHost,
+                viewport: opts.viewport,
+                widthFactor: (opts.fitOptions && opts.fitOptions.widthFactor) || DEFAULT_WIDTH_FACTOR,
+                preferHeight: false,
+                onLayoutChange: opts.onLayoutChange
+            });
         }
     }
 
@@ -147,6 +246,10 @@
         init: init,
         wireTocLinks: wireTocLinks,
         setRunningHeads: setRunningHeads,
-        fitShellToHost: fitShellToHost
+        fitShellToHost: fitShellToHost,
+        syncPreviewLayout: syncPreviewLayout,
+        showLoadingOverlay: showLoadingOverlay,
+        hideLoadingOverlay: hideLoadingOverlay,
+        preloadAdjacentPage: preloadAdjacentPage
     };
 })(window);

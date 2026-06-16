@@ -134,6 +134,21 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void BuildSharedReaderLayoutCss_adds_running_head_gap_on_print_page_fragments()
+    {
+        var css = InteriorLayoutTokens.BuildSharedReaderLayoutCss();
+        Assert.Contains("box-decoration-break", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-running-head-gap-below", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildCssCustomProperties_includes_running_head_gap_below()
+    {
+        var props = InteriorLayoutTokens.BuildCssCustomProperties(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.Contains("--ilt-running-head-gap-below:", props, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DashboardLayoutTokens_emits_unified_page_background_and_preview_pane_width()
     {
         var css = DashboardLayoutTokens.BuildCssCustomProperties();

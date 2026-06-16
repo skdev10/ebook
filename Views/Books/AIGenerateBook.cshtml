@@ -36,12 +36,12 @@
     body { font-family: 'Inter', sans-serif; }
     .ai-writer-main-layout { width: 100%; }
     @@media (min-width: 1024px) {
-        .ai-writer-main-layout {
+        .ai-writer-main-layout.book-preview-layout-row {
             display: grid !important;
             grid-template-columns: minmax(0, 42%) minmax(0, 58%);
             gap: 1.75rem !important;
             align-items: stretch;
-            min-height: 0;
+            min-height: calc(100dvh - 7.5rem);
         }
         .ai-writer-main-layout .ai-writer-sidebar {
             height: 100%;
@@ -308,9 +308,7 @@
             max-height: min(9in, calc(100dvh - 11rem));
         }
     }
-    /* Hide preview page navigation — side zones and bottom prev/next */
-    #chapterPreviewNav { display: none !important; }
-    .ai-writer-preview-side-nav { display: none !important; }
+    /* Side + dock nav styled in book-page-preview.css (premium violet theme) */
     .book-nav-zone { display: none !important; }
     #preview-content.chapter-preview-viewport,
     #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
@@ -1403,9 +1401,9 @@
 <div class="dash-flow-page">
     <main class="dash-flow-main">
         <div class="ai-writer-page-wrap dash-flow-inner flex flex-col min-h-0" data-aos="fade-up" data-aos-duration="500">
-        <div class="ai-writer-main-layout dash-flow-grid dash-flow-grid--writer w-full flex flex-col lg:flex-row min-h-0">
+        <div class="ai-writer-main-layout book-preview-layout-row dash-flow-grid dash-flow-grid--writer w-full flex flex-col lg:flex-row min-h-0">
         <!-- Left Column: Forms -->
-        <div class="ai-writer-sidebar w-full flex flex-col gap-2 shrink-0 min-h-0">
+        <div class="ai-writer-sidebar book-preview-layout-sidebar w-full flex flex-col gap-2 shrink-0 min-h-0">
             <section class="flex flex-col gap-3" data-guided-tour="ai-book-picker">
                 @await Html.PartialAsync("_FlowStepper", 1)
                 <div class="hidden-fields sr-only" aria-hidden="true">
@@ -1517,7 +1515,7 @@
             </section>
         </div>
 
-        <div class="ai-writer-preview-stack flex flex-col min-w-[300px] min-h-0 flex-1 w-full">
+        <div class="ai-writer-preview-stack book-preview-layout-preview flex flex-col min-w-[300px] min-h-0 flex-1 w-full">
             <div class="ai-writer-preview-pane w-full flex flex-col min-h-0 flex-1">
             <div class="ai-writer-preview-column w-full flex flex-col gap-4 min-h-0 flex-1">
             <div class="ai-writer-preview-meta flex flex-col gap-2 mb-4 shrink-0">
@@ -1558,8 +1556,8 @@
                         </button>
                     </h3>
                     <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col text-base text-slate-700 leading-relaxed"></div>
-                    <button type="button" id="btnAiWriterPrevSide" class="ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
-                    <button type="button" id="btnAiWriterNextSide" class="ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page"><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
+                    <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
+                    <button type="button" id="btnAiWriterNextSide" class="book-preview-nav-side book-preview-nav-side-next ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page"><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
                     </div>
                     <div id="previewMeasureHost" class="preview-measure-host book-page-preview-measure" aria-hidden="true"></div>
                     <div id="readerViewport" class="hidden">
@@ -1587,12 +1585,12 @@
                         </div>
                     </div>
                     </div>
-                    <div id="chapterPreviewNav" class="chapter-preview-nav chapter-reader-nav-dock hidden flex flex-wrap items-stretch justify-between gap-2 relative" role="toolbar" aria-label="Chapter navigation">
+                    <div id="chapterPreviewNav" class="chapter-preview-nav book-preview-nav-dock chapter-reader-nav-dock hidden flex flex-wrap items-stretch justify-between gap-2 relative" role="toolbar" aria-label="Chapter navigation">
                         <div id="chapterIndexFlyout" class="chapter-index-flyout hidden" role="dialog" aria-modal="true" aria-labelledby="chapterIndexFlyoutTitle">
                             <div id="chapterIndexFlyoutTitle" class="chapter-index-flyout-header">Jump to chapter</div>
                             <div id="chapterIndexList" class="chapter-index-list"></div>
                         </div>
-                        <button type="button" id="btnPreviewChPrev" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0">
+                        <button type="button" id="btnPreviewChPrev" class="book-preview-nav-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0">
                             <i class="fas fa-chevron-left" aria-hidden="true"></i> <span class="hidden sm:inline">Previous</span>
                         </button>
                         <div class="chapter-nav-center order-last sm:order-none w-full sm:w-auto">
@@ -1602,7 +1600,7 @@
                                 All chapters
                             </button>
                         </div>
-                        <button type="button" id="btnPreviewChNext" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0">
+                        <button type="button" id="btnPreviewChNext" class="book-preview-nav-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0">
                             <span class="hidden sm:inline">Next</span> <i class="fas fa-chevron-right" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -2073,13 +2071,11 @@ window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
 };
 
 window.syncAiWriterPreviewLayout = function () {
-    var sidebar = document.querySelector('.ai-writer-sidebar');
-    var previewPane = document.querySelector('.ai-writer-preview-pane');
-    var bookResult = document.getElementById('bookResult');
     var scrollHost = document.getElementById('chapterPreviewScrollHost');
     var shell = document.getElementById('paginatedReaderShell');
     var viewport = document.getElementById('preview-content');
-    if (!bookResult || !scrollHost || !shell) return;
+    var previewPane = document.querySelector('.ai-writer-preview-pane');
+    if (!scrollHost || !shell) return;
 
     function syncPreviewPaneWidth(w) {
         if (!previewPane) return;
@@ -2093,144 +2089,48 @@ window.syncAiWriterPreviewLayout = function () {
         previewPane.style.maxWidth = '100%';
     }
 
-    if (window.innerWidth < 1024 || !sidebar) {
-        var stackMob = document.querySelector('.ai-writer-preview-stack');
-        if (stackMob) { stackMob.style.minHeight = ''; stackMob.style.height = ''; }
-        if (previewPane) { previewPane.style.minHeight = ''; previewPane.style.height = ''; }
-        bookResult.style.minHeight = '';
-        bookResult.style.height = '';
-        var mobW = scrollHost.clientWidth || bookResult.clientWidth || 320;
-        var mobShellW = Math.floor(mobW * 0.94);
-        var mobShellH = Math.floor(mobShellW * (9 / 6));
-        var mobMaxH = Math.floor(window.innerHeight * 0.55);
-        if (mobShellH > mobMaxH && mobMaxH > 80) {
-            mobShellH = mobMaxH;
-            mobShellW = Math.floor(mobShellH * (6 / 9));
-        }
-        syncPreviewPaneWidth(mobShellW);
-        shell.style.width = '100%';
-        shell.style.height = mobShellH + 'px';
-        shell.style.maxHeight = mobShellH + 'px';
-        shell.style.maxWidth = '100%';
-        shell.style.aspectRatio = '6 / 9';
-        if (viewport && mobShellW > 0 && mobShellH > 0) {
-            viewport.scrollTop = 0;
-            var mh = document.getElementById('previewMeasureHost');
-            if (mh) {
-                var vpStyles = window.getComputedStyle(viewport);
-                mh.style.width = mobShellW + 'px';
-                mh.style.padding = vpStyles.padding;
-                mh.style.fontSize = vpStyles.fontSize;
-                mh.style.lineHeight = vpStyles.lineHeight;
-            }
-        }
-        var mobKey = mobShellW + 'x' + mobShellH + '@@mob';
-        if (shell.dataset.layoutKey !== mobKey) {
-            shell.dataset.layoutKey = mobKey;
-            if (window._previewChaptersMeta && window._previewChaptersMeta.length && typeof window.invalidateReaderPageCaches === 'function') {
-                window.invalidateReaderPageCaches();
-                var chMob = window._previewChaptersMeta[window._previewChapterIndex || 0];
-                if (chMob && !chMob.loading && typeof window.ensureChapterPagesForMeta === 'function') {
-                    window.ensureChapterPagesForMeta(chMob);
-                    if (typeof window.renderCurrentReaderPage === 'function') window.renderCurrentReaderPage();
+    var nav = document.getElementById('chapterPreviewNav');
+    var minHostH = window.innerWidth >= 1024
+        ? Math.max(480, Math.floor(window.innerHeight * 0.58))
+        : Math.max(320, Math.floor(window.innerHeight * 0.45));
+
+    if (window.BookInteriorPreview && typeof window.BookInteriorPreview.syncPreviewLayout === 'function') {
+        window.BookInteriorPreview.syncPreviewLayout({
+            host: scrollHost,
+            shell: shell,
+            viewport: viewport,
+            measureHost: document.getElementById('previewMeasureHost'),
+            navDock: nav,
+            minHostHeightPx: minHostH,
+            widthFactor: 0.94,
+            syncMeasureTypography: true,
+            onLayoutChange: function (changed) {
+                if (!changed) return;
+                var shellW = parseInt(shell.style.width || '0', 10);
+                syncPreviewPaneWidth(shellW);
+                if (window._previewChaptersMeta && window._previewChaptersMeta.length && typeof window.invalidateReaderPageCaches === 'function') {
+                    window.invalidateReaderPageCaches();
+                    var ch = window._previewChaptersMeta[window._previewChapterIndex || 0];
+                    if (ch && !ch.loading && typeof window.ensureChapterPagesForMeta === 'function') {
+                        window.ensureChapterPagesForMeta(ch);
+                        if (typeof window.renderCurrentReaderPage === 'function') window.renderCurrentReaderPage();
+                    }
                 }
             }
-        }
+        });
+        var shellW = parseInt(shell.style.width || '0', 10);
+        syncPreviewPaneWidth(shellW);
         return;
     }
 
-    /* Align preview card bottom with left Chapter Topic box bottom */
-    var stack = document.querySelector('.ai-writer-preview-stack');
-    var topicBox = document.getElementById('chapterTopicBox');
-    var metaEl = previewPane ? previewPane.querySelector('.ai-writer-preview-meta') : null;
-    var sideEl = document.getElementById('sideBySidePreview');
-    var sideH = (sideEl && !sideEl.classList.contains('hidden')) ? (sideEl.offsetHeight + 16) : 0;
-    var paneGap = 8;
-    var leftBottom = topicBox
-        ? topicBox.getBoundingClientRect().bottom
-        : (sidebar.getBoundingClientRect().top + sidebar.offsetHeight);
-
-    if (stack) { stack.style.minHeight = ''; stack.style.height = ''; }
-    if (previewPane) { previewPane.style.minHeight = ''; previewPane.style.height = ''; }
-    bookResult.style.minHeight = '';
-    bookResult.style.height = '';
-    bookResult.style.flex = '0 0 auto';
-
-    var anchorBottom = metaEl ? metaEl.getBoundingClientRect().bottom : bookResult.getBoundingClientRect().top;
-    if (sideEl && !sideEl.classList.contains('hidden')) {
-        anchorBottom = sideEl.getBoundingClientRect().bottom;
-    }
-    var nav = document.getElementById('chapterPreviewNav');
-    var banner = document.getElementById('bookResultStatusBanner');
-    var navH = nav && !nav.classList.contains('hidden') ? nav.offsetHeight : 0;
-    var bannerH = banner && !banner.classList.contains('hidden') ? (banner.offsetHeight + 16) : 0;
-
-    var paneW = previewPane ? previewPane.clientWidth : (stack ? stack.clientWidth : 320);
-    paneW = Math.max(200, paneW);
-    var maxShellW = Math.floor(paneW * 0.94);
-
-    var maxShellH = Math.floor(leftBottom - anchorBottom - paneGap - navH - bannerH);
-    maxShellH = Math.max(180, maxShellH);
-    var viewportCap = Math.floor(window.innerHeight * 0.72);
-    if (viewportCap > 200) maxShellH = Math.min(maxShellH, viewportCap);
-
-    var shellW = maxShellW;
+    var paneW = scrollHost.clientWidth || 320;
+    var shellW = Math.floor(paneW * 0.94);
     var shellH = Math.floor(shellW * (9 / 6));
-    if (shellH > maxShellH) {
-        shellH = maxShellH;
-        shellW = Math.floor(shellH * (6 / 9));
-    }
-    shellW = Math.max(200, shellW);
-    shellH = Math.max(280, shellH);
-
-    var prevKey = shell.dataset.layoutKey || '';
-    var nextKey = shellW + 'x' + shellH + '@@align';
     syncPreviewPaneWidth(shellW);
     shell.style.width = shellW + 'px';
     shell.style.height = shellH + 'px';
-    shell.style.minHeight = shellH + 'px';
-    shell.style.maxHeight = shellH + 'px';
     shell.style.maxWidth = shellW + 'px';
     shell.style.aspectRatio = '6 / 9';
-
-    if (viewport && shellW > 0 && shellH > 0) {
-        void viewport.offsetHeight;
-        var vpStyles = window.getComputedStyle(viewport);
-        var mh = document.getElementById('previewMeasureHost');
-        if (mh) {
-            mh.style.width = shellW + 'px';
-            mh.style.padding = vpStyles.padding;
-            mh.style.fontSize = vpStyles.fontSize;
-            mh.style.lineHeight = vpStyles.lineHeight;
-            mh.style.boxSizing = 'border-box';
-        }
-    }
-
-    if (prevKey !== nextKey) {
-        shell.dataset.layoutKey = nextKey;
-        if (window._previewChaptersMeta && window._previewChaptersMeta.length && typeof window.invalidateReaderPageCaches === 'function') {
-            window.invalidateReaderPageCaches();
-            var ch = window._previewChaptersMeta[window._previewChapterIndex || 0];
-            if (ch && !ch.loading && typeof window.ensureChapterPagesForMeta === 'function') {
-                window.ensureChapterPagesForMeta(ch);
-                if (typeof window.renderCurrentReaderPage === 'function') window.renderCurrentReaderPage();
-            }
-        }
-    } else if (viewport && shellW > 0 && shellH > 0) {
-        /* Re-measure pages when shell size unchanged but content may clip */
-        var maxH = typeof window.getReaderPageMaxHeight === 'function'
-            ? window.getReaderPageMaxHeight(shell, viewport) : viewport.clientHeight;
-        var measureKey = shellW + 'x' + shellH + '@@' + maxH;
-        if (shell.dataset.measureKey !== measureKey && window._previewChaptersMeta && window._previewChaptersMeta.length) {
-            shell.dataset.measureKey = measureKey;
-            if (typeof window.invalidateReaderPageCaches === 'function') window.invalidateReaderPageCaches();
-            var ch2 = window._previewChaptersMeta[window._previewChapterIndex || 0];
-            if (ch2 && !ch2.loading && typeof window.ensureChapterPagesForMeta === 'function') {
-                window.ensureChapterPagesForMeta(ch2);
-                if (typeof window.renderCurrentReaderPage === 'function') window.renderCurrentReaderPage();
-            }
-        }
-    }
 };
 
 window.ensureChapterPagesForMeta = function (ch) {

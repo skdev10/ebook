@@ -1420,7 +1420,7 @@
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        overflow: visible;
+        overflow: hidden !important;
     }
     #fmt-preview-scroll-host .preview-panel-single {
         flex: 1 1 auto;
@@ -1768,16 +1768,16 @@
                                                     </div>
                                                     <div id="bookPageIndicator" class="book-page-indicator" aria-live="polite">1 / 1</div>
                                                 </div>
-                                                <button type="button" id="bookNavPrev" class="fmt-float-nav fmt-float-nav-prev" aria-label="Previous page" title="Previous page">
+                                                <button type="button" id="bookNavPrev" class="book-preview-nav-side book-preview-nav-side-prev fmt-float-nav fmt-float-nav-prev" aria-label="Previous page" title="Previous page">
                                                     <i class="fas fa-chevron-left" aria-hidden="true"></i>
                                                 </button>
-                                                <button type="button" id="bookNavNext" class="fmt-float-nav fmt-float-nav-next" aria-label="Next page" title="Next page">
+                                                <button type="button" id="bookNavNext" class="book-preview-nav-side book-preview-nav-side-next fmt-float-nav fmt-float-nav-next" aria-label="Next page" title="Next page">
                                                     <i class="fas fa-chevron-right" aria-hidden="true"></i>
                                                 </button>
-                                                <button type="button" id="btnAiWriterPrevSide" class="ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page">
+                                                <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page">
                                                     <i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i>
                                                 </button>
-                                                <button type="button" id="btnAiWriterNextSide" class="ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page">
+                                                <button type="button" id="btnAiWriterNextSide" class="book-preview-nav-side book-preview-nav-side-next ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page">
                                                     <i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i>
                                                 </button>
                                                 <div id="preview-content" class="chapter-preview-viewport book-page-preview-content hidden"></div>
@@ -1792,13 +1792,13 @@
                                         </div>
                                     </div>
                                 <!-- Below lavender preview: chapter + library (AI Writer pattern, does not cover the reader) -->
-                                <div id="fmt-chapter-nav-below" class="chapter-preview-nav fmt-chapter-nav-below mt-4 shrink-0 flex items-center justify-between gap-2 px-2 pb-3">
-                                    <button type="button" id="calcBtnPrev" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Previous page">
+                                <div id="fmt-chapter-nav-below" class="chapter-preview-nav book-preview-nav-dock fmt-chapter-nav-below mt-4 shrink-0 flex items-center justify-between gap-2 px-2 pb-3">
+                                    <button type="button" id="calcBtnPrev" class="book-preview-nav-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Previous page">
                                         <i class="fas fa-chevron-left" aria-hidden="true"></i>
                                         <span class="hidden sm:inline">Previous</span>
                                     </button>
                                     <span id="calcPageLabel" class="text-sm font-medium text-slate-600 text-center px-2">Page 1 / 1</span>
-                                    <button type="button" id="calcBtnNext" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Next page">
+                                    <button type="button" id="calcBtnNext" class="book-preview-nav-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Next page">
                                         <span class="hidden sm:inline">Next</span>
                                         <i class="fas fa-chevron-right" aria-hidden="true"></i>
                                     </button>
@@ -3380,36 +3380,34 @@
     function syncFmtPreviewLayout() {
         var scrollHost = document.getElementById('fmt-preview-scroll-host');
         var shell = document.getElementById('paginatedReaderShell');
-        var measureHost = document.getElementById('fmt-preview-measure-host');
         if (!scrollHost || !shell) return false;
-        if (scrollHost.clientHeight < 120) {
-            scrollHost.style.minHeight = Math.max(520, Math.floor(window.innerHeight * 0.68)) + 'px';
-        }
+
         var changed = false;
-        if (window.BookInteriorPreview && typeof window.BookInteriorPreview.fitShellToHost === 'function') {
+        if (window.BookInteriorPreview && typeof window.BookInteriorPreview.syncPreviewLayout === 'function') {
             var chrome = document.getElementById('reader-chrome-main');
-            var reserve = 0;
-            if (chrome && !chrome.classList.contains('hidden')) reserve += chrome.offsetHeight + 10;
-            changed = window.BookInteriorPreview.fitShellToHost(shell, scrollHost, {
-                aspectRatio: 6 / 9,
+            var chromeReserve = 0;
+            if (chrome && !chrome.classList.contains('hidden')) chromeReserve = chrome.offsetHeight + 10;
+            changed = window.BookInteriorPreview.syncPreviewLayout({
+                host: scrollHost,
+                shell: shell,
+                measureHost: document.getElementById('fmt-preview-measure-host'),
+                navDock: document.getElementById('fmt-chapter-nav-below'),
+                minHostHeightPx: Math.max(520, Math.floor(window.innerHeight * 0.68)),
                 widthFactor: 0.94,
-                reserveBottomPx: reserve,
-                preferHeight: false,
-                measureHost: measureHost
+                chromeReservePx: chromeReserve,
+                onLayoutChange: function (c) {
+                    if (c && bookChapters.length) {
+                        requestAnimationFrame(function() {
+                            ensureFmtStageVisibleForMeasure();
+                            fmtScheduleRepaginate();
+                        });
+                    }
+                }
             });
-        }
-        var shellH = parseInt(shell.style.height || '0', 10);
-        if (!changed || shellH < 200) {
-            applyFmtPreviewShellFallback(shell, scrollHost);
-            changed = true;
+        } else {
+            changed = applyFmtPreviewShellFallback(shell, scrollHost);
         }
         syncFormatterChromeWidth();
-        if (changed && bookChapters.length) {
-            requestAnimationFrame(function() {
-                ensureFmtStageVisibleForMeasure();
-                fmtScheduleRepaginate();
-            });
-        }
         return changed;
     }
 
@@ -4833,14 +4831,15 @@
     }
 
     function showLoadingState(show) {
-        const loadingHtml = '<div class="formatter-loading-spinner"><span class="spinner"></span> Loading book from database… (may take a moment)</div>';
-        const inner = document.getElementById('preview-content');
-        const ebook = document.getElementById('preview-content-ebook');
-        const paperback = document.getElementById('preview-content-paperback');
+        var scrollHost = document.getElementById('fmt-preview-scroll-host');
+        if (window.BookInteriorPreview) {
+            if (show) {
+                window.BookInteriorPreview.showLoadingOverlay(scrollHost, 'Loading book…');
+            } else {
+                window.BookInteriorPreview.hideLoadingOverlay(scrollHost);
+            }
+        }
         if (show) {
-            if (inner) inner.innerHTML = loadingHtml;
-            if (ebook) ebook.innerHTML = loadingHtml;
-            if (paperback) paperback.innerHTML = loadingHtml;
             setReaderNavDisabled(true, true);
             var readBarLoad = document.getElementById('fmt-fullbook-read-bar');
             if (readBarLoad) readBarLoad.classList.remove('is-visible');
@@ -4938,17 +4937,9 @@
 
     function renderReaderPage(viewportEl, pageHtml, animDir) {
         if (!viewportEl) return;
-        var dir = animDir || 0;
-        var apply = function() {
-            viewportEl.innerHTML = pageHtml || '';
-            applyPreviewStyles(viewportEl);
-            viewportEl.scrollTop = 0;
-        };
-        if (dir !== 0) {
-            setTimeout(apply, 80);
-        } else {
-            apply();
-        }
+        viewportEl.innerHTML = pageHtml || '';
+        applyPreviewStyles(viewportEl);
+        viewportEl.scrollTop = 0;
     }
 
     var FmtBookStageReader = (function() {
@@ -5025,6 +5016,20 @@
             fillLayer(contentA, footerA, headA, currentIndex);
             var ind = document.getElementById('bookPageIndicator');
             if (ind) ind.textContent = (currentIndex + 1) + ' / ' + pages.length;
+            if (window.BookInteriorPreview && typeof window.BookInteriorPreview.preloadAdjacentPage === 'function') {
+                window.BookInteriorPreview.preloadAdjacentPage({
+                    pages: pages,
+                    currentIndex: currentIndex,
+                    hiddenTarget: contentB,
+                    fill: function (idx, target) {
+                        if (!target) return;
+                        var html = pages[idx] || '';
+                        target.innerHTML = stripEmbeddedPageFooters(html);
+                        syncPageRunningHead(headB, idx);
+                        applyPreviewStyles(target);
+                    }
+                });
+            }
         }
         return {
             ensureDom: ensureDom,
@@ -5540,6 +5545,8 @@
 
         console.log('[Book Formatter] Selected Book ID:', numId);
 
+        showLoadingState(true);
+
         var hadWarmCache = false;
         var cached = readCachedBookPayload(numId);
         if (cached && cached.success) {
@@ -5548,8 +5555,8 @@
                 resetPage: false,
                 skipRepaginateAfterLayout: true
             });
+            if (hadWarmCache) showLoadingState(false);
         }
-        if (!hadWarmCache) showLoadingState(true);
 
         try {
             const url = '/BookDesign/GetFormatterBookContent?bookId=' + encodeURIComponent(numId);
@@ -5629,7 +5636,7 @@
                 showToast('Could not load book.');
             }
         } finally {
-            if (!hadWarmCache) showLoadingState(false);
+            showLoadingState(false);
         }
     }
 

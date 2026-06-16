@@ -467,6 +467,8 @@ public static class InteriorLayoutTokens
 
             "--ilt-folio-h: ", FolioPadBottom, "; ",
 
+            "--ilt-running-head-gap-below: ", RunningHeadGapBelow, "; ",
+
             "} ");
 
     }
@@ -520,6 +522,20 @@ public static class InteriorLayoutTokens
         sb.Append(".manuscript-root > section.chapter { padding-top:var(--ilt-chapter-drop); padding-bottom:0; min-height:auto; } ");
 
         sb.Append(".front-matter-page { padding-top:var(--ilt-front-pad-top); } ");
+
+        sb.Append("@media print { ");
+
+        sb.Append(".book-pdf-body .reader-page-body { ");
+
+        sb.Append("-webkit-box-decoration-break:clone; box-decoration-break:clone; ");
+
+        sb.Append("padding-top:var(--ilt-running-head-gap-below, ").Append(RunningHeadGapBelow).Append("); } ");
+
+        sb.Append(".book-pdf-body .reader-page-title + .reader-page-body, ");
+
+        sb.Append(".book-pdf-body .title-page, .book-pdf-body .copyright-page, .book-pdf-body .toc-page { padding-top:0; } ");
+
+        sb.Append("} ");
 
         sb.Append("img { max-width:100%; height:auto; page-break-inside:avoid; break-inside:avoid; display:block; margin:0.75rem auto; } ");
 
