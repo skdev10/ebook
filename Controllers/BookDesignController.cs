@@ -27,6 +27,7 @@ namespace EBookDashboard.Controllers
         private readonly IConfiguration _configuration;
         private readonly BookFlowStateService _bookFlow;
         private readonly ILogger<BookDesignController> _logger;
+        private readonly IBookRenderService _bookRenderService;
 
         public BookDesignController(
             ApplicationDbContext context,
@@ -35,7 +36,8 @@ namespace EBookDashboard.Controllers
             IWebHostEnvironment env,
             IConfiguration configuration,
             BookFlowStateService bookFlow,
-            ILogger<BookDesignController> logger)
+            ILogger<BookDesignController> logger,
+            IBookRenderService bookRenderService)
         {
             _context = context;
             _bookDesignService = bookDesignService ?? throw new ArgumentNullException(nameof(bookDesignService));
@@ -44,6 +46,7 @@ namespace EBookDashboard.Controllers
             _configuration = configuration;
             _bookFlow = bookFlow;
             _logger = logger;
+            _bookRenderService = bookRenderService;
         }
         // GET: /BookDesign/CoverDesignCalculator
         public IActionResult Index(int bookId = 0)
@@ -307,6 +310,63 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        //=====================================================
+        // GET: Canonical export HTML (same document as PDF download)
+        //=====================================================
+        [HttpGet]
+        [Route("BookDesign/PreviewBookHtml")]
+        public async Task<IActionResult> PreviewBookHtml(int bookId, CancellationToken cancellationToken)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null) return Unauthorized("Please sign in.");
+
+            if (bookId <= 0) return BadRequest("BookId is required.");
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == userId.Value, cancellationToken);
+            if (!owns) return NotFound("Book not found.");
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(userId.Value, bookId);
+            if (details == null || !details.Success)
+                return BadRequest(details?.Message ?? "Could not load book.");
+
+            var draftRow = await _context.Settings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:formattingDraft", cancellationToken);
+            var fmtRow = await _context.BookFormatting.AsNoTracking()
+                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId.Value, cancellationToken);
+            var exportOpt = BookPdfExportOptions.LoadFromPersistence(fmtRow, draftRow?.Value);
+
+            if (exportOpt.Format.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                || exportOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase))
+                exportOpt.IncludeCoverPage = false;
+
+            var userRow = await _context.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == userId.Value, cancellationToken);
+            var publisher = userRow?.FullName;
+            if (string.IsNullOrWhiteSpace(publisher)) publisher = userRow?.UserEmail;
+
+            try
+            {
+                var render = await _bookRenderService.BuildBookHtmlAsync(new BookRenderRequest
+                {
+                    Details = details,
+                    ExportOptions = exportOpt,
+                    DisplayTitle = details.BookTitle,
+                    DisplayAuthor = details.AuthorName,
+                    DisplayGenre = details.Genre,
+                    PublisherDisplayName = publisher
+                }, cancellationToken);
+
+                Response.Headers["Cache-Control"] = "no-store";
+                return Content(render.Html, "text/html; charset=utf-8");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "PreviewBookHtml failed for book {BookId}", bookId);
+                return StatusCode(500, "Could not build preview.");
             }
         }
 

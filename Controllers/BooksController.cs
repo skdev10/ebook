@@ -2621,7 +2621,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Export book as valid EPUB (cover first, then chapters). For KDP / Ebook platforms.</summary>
         [HttpPost]
-        [ValidateAntiForgeryToken]
+        [IgnoreAntiforgeryToken]
         [Route("Books/ExportEpub")]
         public async Task<IActionResult> ExportEpub([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
         {
@@ -2708,9 +2708,16 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(safe)) safe = "book";
                 var epubFileName = $"{safe}-{req.BookId}.epub";
 
-                await SavePublishedEpubAsync(sessionUserId.Value, req.BookId, epubFileName, bytes, cancellationToken);
-                await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
-                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, exportOpt.Format?.Equals("Paperback", StringComparison.OrdinalIgnoreCase) == true ? "print" : "ebook", cancellationToken);
+                try
+                {
+                    await SavePublishedEpubAsync(sessionUserId.Value, req.BookId, epubFileName, bytes, cancellationToken);
+                    await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
+                    await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, exportOpt.Format?.Equals("Paperback", StringComparison.OrdinalIgnoreCase) == true ? "print" : "ebook", cancellationToken);
+                }
+                catch (Exception sideEffectEx)
+                {
+                    _logger.LogWarning(sideEffectEx, "Post-export bookkeeping failed for book {BookId}; EPUB download still succeeded.", req.BookId);
+                }
 
                 return File(bytes, "application/epub+zip", epubFileName);
             }
@@ -2727,7 +2734,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Export book as Word document (.docx) for easy editing and EPUB conversion.</summary>
         [HttpPost]
-        [ValidateAntiForgeryToken]
+        [IgnoreAntiforgeryToken]
         [Route("Books/ExportDocx")]
         public async Task<IActionResult> ExportDocx([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
         {
@@ -2771,7 +2778,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Print-ready bundle: interior PDF (6×9) + full cover wrap ZIP in one download.</summary>
         [HttpPost]
-        [ValidateAntiForgeryToken]
+        [IgnoreAntiforgeryToken]
         [Route("Books/ExportPrintReadyBundle")]
         public async Task<IActionResult> ExportPrintReadyBundle([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
         {
@@ -4504,35 +4511,61 @@ namespace EBookDashboard.Controllers
             return Content(sb.ToString(), "text/html");
         }
 
-        // ========================== GENERATION (EPUB/PDF - mock) ===========================
+        // ========================== GENERATION (EPUB/PDF — real export bytes) ===========================
         [HttpPost]
-        public async Task<IActionResult> GenerateFormats(int bookId, bool epub, bool pdf)
+        public async Task<IActionResult> GenerateFormats(int bookId, bool epub, bool pdf, CancellationToken cancellationToken)
         {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (sessionUserId == null) return Unauthorized();
-            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value);
+            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (book == null) return NotFound("Book not found.");
-            // Simulate generation
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, bookId);
+            if (details == null || !details.Success || details.Chapters == null
+                || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
+                return BadRequest(new { success = false, message = "Add chapter content in AI Writer before exporting." });
+
+            var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, bookId, cancellationToken);
             var baseOut = $"/uploads/{sessionUserId}/books/{bookId}/output";
-            var outRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", sessionUserId.Value.ToString(), "books", bookId.ToString(), "output");
+            var outRoot = Path.Combine(_hostEnvironment.WebRootPath ?? "wwwroot", "uploads", sessionUserId.Value.ToString(), "books", bookId.ToString(), "output");
             Directory.CreateDirectory(outRoot);
 
             string? epubPath = null;
             string? pdfPath = null;
+            var title = (details.BookTitle ?? "book").Trim();
+            var safe = System.Text.RegularExpressions.Regex.Replace(title, @"[^\w\-\s]", "");
+            safe = System.Text.RegularExpressions.Regex.Replace(safe, @"\s+", "-").Trim('-');
+            if (string.IsNullOrEmpty(safe)) safe = "book";
 
-            if (epub)
+            try
             {
-                epubPath = $"{baseOut}/book_{DateTime.UtcNow:yyyyMMddHHmmss}.epub";
-                var physical = Path.Combine(outRoot, Path.GetFileName(epubPath));
-                await System.IO.File.WriteAllTextAsync(physical, "EPUB MOCK CONTENT");
-                await UpsertSettingAsync($"book:{bookId}:output:epub", epubPath, "Output");
+                if (epub)
+                {
+                    var epubBytes = await _epubExportService.BuildEpubAsync(
+                        details, details.CoverImagePath, title, details.AuthorName ?? "", exportOpt, 0, "6 x 9 in", cancellationToken);
+                    if (epubBytes == null || epubBytes.Length < 80)
+                        return StatusCode(500, new { success = false, message = "EPUB generation produced an empty file." });
+                    var epubFile = $"{safe}-{bookId}.epub";
+                    epubPath = $"{baseOut}/{epubFile}";
+                    await System.IO.File.WriteAllBytesAsync(Path.Combine(outRoot, epubFile), epubBytes, cancellationToken);
+                    await UpsertSettingAsync($"book:{bookId}:output:epub", epubPath, "Output");
+                }
+                if (pdf)
+                {
+                    var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
+                        details, null, title, details.AuthorName, details.Genre, exportOpt, null, cancellationToken);
+                    if (pdfBytes == null || pdfBytes.Length < 128 || pdfBytes[0] != (byte)'%')
+                        return StatusCode(500, new { success = false, message = "PDF generation failed." });
+                    var pdfFile = $"{safe}-{bookId}.pdf";
+                    pdfPath = $"{baseOut}/{pdfFile}";
+                    await System.IO.File.WriteAllBytesAsync(Path.Combine(outRoot, pdfFile), pdfBytes, cancellationToken);
+                    await UpsertSettingAsync($"book:{bookId}:output:pdf", pdfPath, "Output");
+                }
             }
-            if (pdf)
+            catch (Exception ex)
             {
-                pdfPath = $"{baseOut}/book_{DateTime.UtcNow:yyyyMMddHHmmss}.pdf";
-                var physical = Path.Combine(outRoot, Path.GetFileName(pdfPath));
-                await System.IO.File.WriteAllTextAsync(physical, "PDF MOCK CONTENT");
-                await UpsertSettingAsync($"book:{bookId}:output:pdf", pdfPath, "Output");
+                _logger.LogError(ex, "GenerateFormats failed for book {BookId}", bookId);
+                return StatusCode(500, new { success = false, message = "Export failed. Use Publish for the latest formatting." });
             }
 
             return Ok(new { success = true, epubPath, pdfPath });

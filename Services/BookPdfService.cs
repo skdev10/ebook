@@ -16,17 +16,20 @@ public class BookPdfService : IBookPdfService
     private readonly ILogger<BookPdfService> _logger;
     private readonly IConfiguration _configuration;
     private readonly PdfHtmlExportServiceResolver _pdfEngineResolver;
+    private readonly IBookRenderService _bookRenderService;
 
     public BookPdfService(
         IWebHostEnvironment env,
         ILogger<BookPdfService> logger,
         IConfiguration configuration,
-        PdfHtmlExportServiceResolver pdfEngineResolver)
+        PdfHtmlExportServiceResolver pdfEngineResolver,
+        IBookRenderService bookRenderService)
     {
         _env = env;
         _logger = logger;
         _configuration = configuration;
         _pdfEngineResolver = pdfEngineResolver;
+        _bookRenderService = bookRenderService;
     }
 
     public async Task<byte[]> RenderFullBookPdfAsync(
@@ -44,41 +47,24 @@ public class BookPdfService : IBookPdfService
         var title = (displayTitle ?? details.BookTitle ?? "").Trim();
         if (string.IsNullOrEmpty(title)) title = "Untitled";
         var author = (displayAuthor ?? details.AuthorName ?? "").Trim();
-        var genre = (displayGenre ?? details.Genre ?? "").Trim();
-        var coverSrc = await ResolveCoverSrcAsync(coverImageDataUrl, details.CoverImagePath, cancellationToken);
 
-        var phBase = BookManuscriptHtmlFormatter.CreateBaseContext(
-            title,
-            details.Subtitle,
-            details.Description,
-            genre,
-            author);
+        var render = await _bookRenderService.BuildBookHtmlAsync(new BookRenderRequest
+        {
+            Details = details,
+            ExportOptions = opt,
+            CoverImageDataUrl = coverImageDataUrl,
+            DisplayTitle = displayTitle,
+            DisplayAuthor = displayAuthor,
+            DisplayGenre = displayGenre,
+            PublisherDisplayName = publisherDisplayName
+        }, cancellationToken);
 
-        var layout = BookPdfPlatformLayout.Resolve(opt, BookPdfLayoutOptions.FromConfiguration(_configuration));
-
-        // One DB chapter = one PDF chapter. Do not split on in-body <h2> — those are section headings (##), not new chapters.
-        var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
-        var sections = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(chapters, phBase, opt);
-        var tocHtml = InteriorFrontMatterBuilder.BuildTocHtml(chapters, phBase);
-        var copyrightHtml = InteriorFrontMatterBuilder.BuildCopyrightPageHtml(title, author, publisherDisplayName);
-        var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
-        var shellCls = InteriorPrintDocumentBuilder.PreviewShellClass(opt.InteriorStyle);
-        var wrapCls = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(opt.InteriorStyle);
-
-        // BookPreview HTML = PDF input (CSS-based, 1:1 with formatter preview).
-        var html = BookPreviewPrintHtmlBuilder.Build(
-            title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
-            copyrightHtml, tocHtml, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
-            _env.WebRootPath,
-            ComputeContentHeightPx(layout));
-
-        if (ChapterContentNormalizer.LooksLikeJsonEnvelope(html))
-            _logger.LogWarning("Export HTML still contains JSON wrapper after normalization for book {BookId}.", details.BookId);
+        var html = render.Html;
+        var layout = render.Layout;
 
         _logger.LogDebug(
-            "PDF export book={BookId} engine={Engine} style={Style} interior={Interior} htmlLen={Len} hasPreviewSheet={Sheet}",
-            details.BookId, PdfExportEngine.Resolve(_configuration), opt.InteriorStyle, wrapCls,
-            html.Length, html.Contains("book-preview-sheet", StringComparison.Ordinal));
+            "PDF export book={BookId} engine={Engine} style={Style} htmlLen={Len}",
+            details.BookId, PdfExportEngine.Resolve(_configuration), opt.InteriorStyle, html.Length);
 
         var headerTemplate = BuildHeaderTemplate(title, author);
         var footerTemplate = BuildFooterTemplate();
@@ -113,6 +99,7 @@ public class BookPdfService : IBookPdfService
         try
         {
             var exporter = new PdfSharpBookExporter(_env, _logger);
+            var coverSrc = await ResolveCoverSrcAsync(coverImageDataUrl, details.CoverImagePath, cancellationToken);
             var fallback = exporter.Render(details, coverSrc, title, author, opt, opt.IncludeCoverPage);
             EnsureValidPdf(fallback);
             _logger.LogInformation("PDF generated via PdfSharp fallback: {Bytes} bytes, book={BookId}", fallback.Length, details.BookId);

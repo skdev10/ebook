@@ -1,5 +1,8 @@
+using EBookDashboard.Interfaces;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace EBookDashboard.Tests;
@@ -347,5 +350,79 @@ public class ManuscriptExportPrepTests
         Assert.Contains("toc-sub-text", html, StringComparison.Ordinal);
         Assert.DoesNotContain("toc-hint", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Heading:", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BookFormattingSettings_round_trips_export_options()
+    {
+        var opt = new BookPdfExportOptions
+        {
+            InteriorStyle = "Classic",
+            TextSize = "Large",
+            LineSpacing = "1.8",
+            Format = "Paperback",
+            IncludeCoverPage = false,
+            PageBackgroundColor = "#faf0e6"
+        };
+        var settings = BookFormattingSettings.FromExportOptions(opt);
+        var roundTrip = settings.ToExportOptions();
+
+        Assert.Equal("Classic", roundTrip.InteriorStyle);
+        Assert.Equal("Large", roundTrip.TextSize);
+        Assert.Equal("1.8", roundTrip.LineSpacing);
+        Assert.Equal("Paperback", roundTrip.Format);
+        Assert.False(roundTrip.IncludeCoverPage);
+        Assert.Equal("#faf0e6", roundTrip.PageBackgroundColor, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BookFormattingSettings_kdp_margins_inside_exceeds_outside()
+    {
+        var settings = BookFormattingSettings.FromExportOptions(new BookPdfExportOptions());
+        Assert.True(settings.MarginInsideIn > settings.MarginOutsideIn);
+        Assert.Equal("6x9", settings.TrimSize);
+    }
+
+    [Fact]
+    public async Task BuildBookHtml_includes_print_theme_and_chapter_structure()
+    {
+        var env = new FakeWebHostEnvironment { WebRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot") };
+        var svc = new BookRenderService(env, new ConfigurationBuilder().Build(), NullLogger<BookRenderService>.Instance);
+        var details = new BookDetailsResponseDto
+        {
+            Success = true,
+            BookId = 42,
+            BookTitle = "Test Novel",
+            AuthorName = "Jane Author",
+            Genre = "Fiction",
+            Chapters =
+            [
+                new ChapterDto { ChapterNumber = 1, Title = "Opening", Content = "<p class=\"manuscript-p\">First paragraph.</p>" }
+            ]
+        };
+        var render = await svc.BuildBookHtmlAsync(new BookRenderRequest
+        {
+            Details = details,
+            ExportOptions = new BookPdfExportOptions { InteriorStyle = "Novel", TextSize = "Medium", LineSpacing = "1.6" },
+            DisplayTitle = details.BookTitle,
+            DisplayAuthor = details.AuthorName,
+            DisplayGenre = details.Genre
+        });
+
+        Assert.Contains("book-pdf-body", render.Html, StringComparison.Ordinal);
+        Assert.Contains("reader-chapter-block", render.Html, StringComparison.Ordinal);
+        Assert.Contains("Merriweather", render.Html, StringComparison.Ordinal);
+        Assert.Contains("6in", render.Layout.PageSizeCss, StringComparison.Ordinal);
+        Assert.Equal("Novel", render.Settings.InteriorStyle);
+    }
+
+    private sealed class FakeWebHostEnvironment : Microsoft.AspNetCore.Hosting.IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "Tests";
+        public Microsoft.Extensions.FileProviders.IFileProvider WebRootFileProvider { get; set; } = null!;
+        public string WebRootPath { get; set; } = "";
+        public string EnvironmentName { get; set; } = "Development";
+        public string ContentRootPath { get; set; } = "";
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = null!;
     }
 }

@@ -1,0 +1,19 @@
+/**
+ * Print stylesheet for book export — canonical rules live in InteriorLayoutTokens.cs
+ * and InteriorExportTheme.BuildPdfThemeCss(), injected inline into PreviewBookHtml / PDF HTML.
+ * This file documents the contract; preview iframe and PDF share the same generated CSS.
+ *
+ * KDP 6×9 defaults (via InteriorSpacingTheme):
+ * - @page size: 6in 9in
+ * - Gutter (inside) margin wider than outside
+ * - Chapter page-break-before: always
+ * - Front matter: title, copyright, TOC on separate pages
+ * - Running header + folio via Chromium header/footer templates
+ */
+
+@media print {
+  body {
+    orphans: 2;
+    widows: 2;
+  }
+}

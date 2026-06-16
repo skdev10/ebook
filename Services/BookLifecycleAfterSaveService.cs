@@ -144,6 +144,12 @@ namespace EBookDashboard.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to persist lifecycle side-effects. Run Scripts/bookstatetransitions.mysql.sql if table is missing.");
+                foreach (var entry in db.ChangeTracker.Entries<BookStateTransition>().Where(e => e.State == EntityState.Added).ToList())
+                    entry.State = EntityState.Detached;
+                foreach (var entry in db.ChangeTracker.Entries<AuditLog>().Where(e => e.State == EntityState.Added).ToList())
+                    entry.State = EntityState.Detached;
+                foreach (var entry in db.ChangeTracker.Entries<Notification>().Where(e => e.State == EntityState.Added).ToList())
+                    entry.State = EntityState.Detached;
             }
             finally
             {

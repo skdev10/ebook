@@ -17,7 +17,8 @@ public class BookPdfSmokeTests
         var env = new StubEnv();
         var cfg = new ConfigurationBuilder().Build();
         var resolver = new PdfHtmlExportServiceResolver(cfg, NullLoggerFactory.Instance);
-        var svc = new BookPdfService(env, NullLogger<BookPdfService>.Instance, cfg, resolver);
+        var renderSvc = new BookRenderService(env, cfg, NullLogger<BookRenderService>.Instance);
+        var svc = new BookPdfService(env, NullLogger<BookPdfService>.Instance, cfg, resolver, renderSvc);
         var details = new BookDetailsResponseDto
         {
             Success = true,

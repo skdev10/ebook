@@ -1640,11 +1640,20 @@ namespace EBookDashboard.Controllers
                 safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
                 if (string.IsNullOrEmpty(safe)) safe = "book";
                 var fileName = $"{safe}-{req.BookId}.pdf";
-                await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", metrics.PageCount.ToString(), "Book", cancellationToken);
-                await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
-                await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, exportOpt.Format?.Equals("Paperback", StringComparison.OrdinalIgnoreCase) == true ? "print" : "ebook");
                 Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
                 Response.Headers["X-Pdf-Interior"] = $"{exportOpt.InteriorStyle}|{exportOpt.TextSize}|{exportOpt.LineSpacing}";
+
+                try
+                {
+                    await UpsertDashboardSettingAsync($"book:{req.BookId}:printReadyPageCount", metrics.PageCount.ToString(), "Book", cancellationToken);
+                    await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
+                    await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, exportOpt.Format?.Equals("Paperback", StringComparison.OrdinalIgnoreCase) == true ? "print" : "ebook");
+                }
+                catch (Exception sideEffectEx)
+                {
+                    _logger.LogWarning(sideEffectEx, "Post-export bookkeeping failed for book {BookId}; PDF download still succeeded.", req.BookId);
+                }
+
                 return File(pdfBytes, "application/pdf", fileName);
             }
             catch (Exception ex)
@@ -1656,7 +1665,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Marks a book published after a successful export (used when download is client-side only).</summary>
         [HttpPost]
-        [ValidateAntiForgeryToken]
+        [IgnoreAntiforgeryToken]
         [Route("MarkBookPublished")]
         public async Task<IActionResult> MarkBookPublished([FromBody] ExportBookPdfRequest req, CancellationToken cancellationToken)
         {
