@@ -38,7 +38,7 @@
     @@media (min-width: 1024px) {
         .ai-writer-main-layout.book-preview-layout-row {
             display: grid !important;
-            grid-template-columns: minmax(0, 36%) minmax(0, 64%);
+            grid-template-columns: minmax(0, 32%) minmax(0, 68%);
             gap: 1.5rem !important;
             align-items: stretch;
             min-height: calc(100dvh - 6.5rem);
@@ -111,7 +111,7 @@
         }
         #bookResult .paginated-reader-shell.book-page-preview-shell {
             flex: 0 0 auto;
-            max-height: calc(100dvh - 9rem);
+            max-height: calc(100dvh - 8rem);
             width: auto;
             max-width: 100%;
             min-height: 0;
@@ -691,8 +691,11 @@
         margin-bottom: 0 !important;
     }
     .reader-footer .reader-nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    /* Sticky chapter chrome: stays visible while the preview column scrolls */
     #chapterPreviewNav.chapter-reader-nav-dock {
+        display: none !important;
+    }
+    /* Sticky chapter chrome: stays visible while the preview column scrolls */
+    #chapterPreviewNav.chapter-reader-nav-dock.chapter-preview-nav {
         position: sticky;
         bottom: 0;
         z-index: 22;
@@ -2084,10 +2087,10 @@ window.syncAiWriterPreviewLayout = function () {
         previewPane.style.maxWidth = '100%';
     }
 
-    var nav = document.getElementById('chapterPreviewNav');
+    var nav = null;
     var isDesktopPreview = window.innerWidth >= 1024;
     var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    var maxShellH = Math.max(360, Math.floor(window.innerHeight - 9 * remPx));
+    var maxShellH = Math.max(360, Math.floor(window.innerHeight - 8 * remPx));
     var minHostH = isDesktopPreview
         ? 0
         : Math.max(360, Math.floor(window.innerHeight * 0.52));
@@ -2102,7 +2105,7 @@ window.syncAiWriterPreviewLayout = function () {
             minHostHeightPx: minHostH,
             preferHeight: isDesktopPreview,
             maxHeightPx: isDesktopPreview ? maxShellH : 0,
-            widthFactor: 0.98,
+            widthFactor: 1,
             syncMeasureTypography: true,
             onLayoutChange: function (changed) {
                 if (!changed) return;
@@ -2126,8 +2129,8 @@ window.syncAiWriterPreviewLayout = function () {
     var paneW = scrollHost.clientWidth || 320;
     var shellH = maxShellH;
     var shellW = Math.floor(shellH * (6 / 9));
-    if (shellW > Math.floor(paneW * 0.98)) {
-        shellW = Math.floor(paneW * 0.98);
+    if (shellW > Math.floor(paneW)) {
+        shellW = Math.floor(paneW);
         shellH = Math.floor(shellW * (9 / 6));
     }
     syncPreviewPaneWidth(shellW);
@@ -2810,7 +2813,7 @@ window.updateChapterPreviewNavUI = function () {
         }
         return;
     }
-    nav.classList.remove('hidden');
+    nav.classList.add('hidden');
     var psShow = document.getElementById('btnAiWriterPrevSide');
     var nsShow = document.getElementById('btnAiWriterNextSide');
     if (psShow) psShow.style.visibility = '';

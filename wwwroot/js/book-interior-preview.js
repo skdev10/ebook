@@ -85,7 +85,15 @@
         if (preferHeight) {
             shellH = Math.floor(cappedH);
             shellW = Math.floor(shellH * ratio);
-            if (shellW > availW) {
+            var targetW = Math.floor(availW * widthFactor);
+            if (shellW < targetW) {
+                shellW = targetW;
+                shellH = Math.floor(shellW / ratio);
+                if (shellH > cappedH) {
+                    shellH = Math.floor(cappedH);
+                    shellW = Math.floor(shellH * ratio);
+                }
+            } else if (shellW > availW) {
                 shellW = Math.floor(availW * widthFactor);
                 shellH = Math.floor(shellW / ratio);
             }
