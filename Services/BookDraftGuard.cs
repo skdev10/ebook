@@ -52,8 +52,8 @@ public static class BookDraftGuard
         int userId,
         CancellationToken cancellationToken = default)
     {
-        var candidates = await context.Books
-            .Where(b => b.UserId == userId && !BookFlowStateService.IsPublishedStatus(b.Status))
+        var candidates = await BookFlowStateService.WhereNotPublished(context.Books)
+            .Where(b => b.UserId == userId)
             .Where(b => b.Title == null || b.Title == ""
                         || b.Title == "Untitled" || b.Title == "Untitled Book")
             .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
@@ -66,5 +66,57 @@ public static class BookDraftGuard
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Latest draft with real content — skips near-empty Untitled placeholders so delete/resume does not resurrect ghosts.
+    /// </summary>
+    public static async Task<Books?> FindLatestMeaningfulDraftAsync(
+        ApplicationDbContext context,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await BookFlowStateService.WhereNotPublished(context.Books.AsNoTracking())
+            .Where(b => b.UserId == userId)
+            .OrderByDescending(b => b.isActive)
+            .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        foreach (var book in candidates)
+        {
+            if (await IsNearEmptyBookAsync(context, userId, book.BookId, cancellationToken))
+                continue;
+            return book;
+        }
+
+        return null;
+    }
+
+    /// <summary>Removes every near-empty Untitled placeholder for the user (e.g. after deleting one ghost draft).</summary>
+    public static async Task<int> PurgeAllNearEmptyUntitledAsync(
+        ApplicationDbContext context,
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = await BookFlowStateService.WhereNotPublished(context.Books)
+            .Where(b => b.UserId == userId)
+            .Where(b => b.Title == null || b.Title == ""
+                        || b.Title == "Untitled" || b.Title == "Untitled Book")
+            .ToListAsync(cancellationToken);
+
+        var removed = 0;
+        foreach (var book in candidates)
+        {
+            if (!await IsNearEmptyBookAsync(context, userId, book.BookId, cancellationToken))
+                continue;
+
+            context.Books.Remove(book);
+            removed++;
+        }
+
+        if (removed > 0)
+            await context.SaveChangesAsync(cancellationToken);
+
+        return removed;
     }
 }

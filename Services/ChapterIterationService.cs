@@ -189,7 +189,20 @@ namespace EBookDashboard.Services
         }
 
         /// <inheritdoc />
-        public async Task<bool> FinalizeByResponseIdAsync(int userId, int bookId, int chapterNumber, int responseId, CancellationToken cancellationToken = default)
+        public Task<bool> FinalizeByResponseIdAsync(int userId, int bookId, int chapterNumber, int responseId, CancellationToken cancellationToken = default)
+            => PromoteIterationCoreAsync(userId, bookId, chapterNumber, responseId, upsertLibraryChapter: true, cancellationToken);
+
+        /// <inheritdoc />
+        public Task<bool> PromoteAsCurrentVersionAsync(int userId, int bookId, int chapterNumber, int responseId, CancellationToken cancellationToken = default)
+            => PromoteIterationCoreAsync(userId, bookId, chapterNumber, responseId, upsertLibraryChapter: false, cancellationToken);
+
+        private async Task<bool> PromoteIterationCoreAsync(
+            int userId,
+            int bookId,
+            int chapterNumber,
+            int responseId,
+            bool upsertLibraryChapter,
+            CancellationToken cancellationToken)
         {
             if (responseId <= 0 || userId <= 0 || bookId <= 0) return false;
 
@@ -199,62 +212,23 @@ namespace EBookDashboard.Services
                 await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
                 try
                 {
-                    var iter = await _db.Set<ChapterIteration>()
-                        .FirstOrDefaultAsync(i => i.ResponseId == responseId && i.UserId == userId && i.BookId == bookId, cancellationToken);
-
+                    var iter = await EnsureIterationRowAsync(userId, bookId, chapterNumber, responseId, cancellationToken);
                     if (iter == null)
                     {
-                        var raw = await _db.APIRawResponse.FirstOrDefaultAsync(
-                            r => r.ResponseId == responseId && r.UserId == userId && r.BookId == bookId && r.Chapter == chapterNumber,
-                            cancellationToken);
-                        if (raw == null)
-                        {
-                            await tx.RollbackAsync(cancellationToken);
-                            return false;
-                        }
-
-                        var seriesGuid = await _db.Set<ChapterIteration>()
-                            .Where(i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNumber)
-                            .Select(i => i.ChapterSeriesGuid)
-                            .FirstOrDefaultAsync(cancellationToken);
-                        if (seriesGuid == Guid.Empty)
-                            seriesGuid = Guid.NewGuid();
-
-                        var maxIt = await _db.Set<ChapterIteration>()
-                            .Where(i => i.ChapterSeriesGuid == seriesGuid)
-                            .MaxAsync(i => (int?)i.IterationNumber, cancellationToken) ?? 0;
-
-                        var content = !string.IsNullOrWhiteSpace(raw.Content)
-                            ? raw.Content!
-                            : APIRawResponseService.ExtractContentFromResponse(raw.ResponseData ?? "");
-                        if (string.IsNullOrEmpty(content))
-                            content = raw.ResponseData ?? "";
-
-                        var utc = raw.CreatedAt;
-                        iter = new ChapterIteration
-                        {
-                            ChapterSeriesGuid = seriesGuid,
-                            BookId = bookId,
-                            UserId = userId,
-                            ChapterNumber = chapterNumber,
-                            IterationNumber = maxIt + 1,
-                            ResponseId = responseId,
-                            Title = raw.Title,
-                            Content = content,
-                            GenerationDate = utc.Date,
-                            GenerationTime = utc.TimeOfDay,
-                            IsFinalized = false,
-                            IsLocked = false
-                        };
-                        _db.Set<ChapterIteration>().Add(iter);
-                        await _db.SaveChangesAsync(cancellationToken);
+                        await tx.RollbackAsync(cancellationToken);
+                        return false;
                     }
 
                     var siblings = await _db.Set<ChapterIteration>()
                         .Where(i => i.ChapterSeriesGuid == iter.ChapterSeriesGuid && i.ChapterIterationId != iter.ChapterIterationId)
                         .ToListAsync(cancellationToken);
                     foreach (var s in siblings)
+                    {
                         s.IsFinalized = false;
+                        s.IsLocked = false;
+                        s.FinalizedDate = null;
+                        s.FinalizedTime = null;
+                    }
 
                     var now = DateTime.UtcNow;
                     iter.IsFinalized = true;
@@ -262,7 +236,8 @@ namespace EBookDashboard.Services
                     iter.FinalizedDate = now.Date;
                     iter.FinalizedTime = now.TimeOfDay;
 
-                    UpsertMainChapterFromIteration(userId, iter);
+                    if (upsertLibraryChapter)
+                        UpsertMainChapterFromIteration(userId, iter);
 
                     await _db.SaveChangesAsync(cancellationToken);
                     await tx.CommitAsync(cancellationToken);
@@ -270,11 +245,68 @@ namespace EBookDashboard.Services
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "FinalizeByResponseIdAsync failed for response {ResponseId}", responseId);
+                    _logger.LogWarning(ex, "Promote iteration failed for response {ResponseId}", responseId);
                     await tx.RollbackAsync(cancellationToken);
                     return false;
                 }
             });
+        }
+
+        private async Task<ChapterIteration?> EnsureIterationRowAsync(
+            int userId,
+            int bookId,
+            int chapterNumber,
+            int responseId,
+            CancellationToken cancellationToken)
+        {
+            var iter = await _db.Set<ChapterIteration>()
+                .FirstOrDefaultAsync(i => i.ResponseId == responseId && i.UserId == userId && i.BookId == bookId, cancellationToken);
+
+            if (iter != null)
+                return iter;
+
+            var raw = await _db.APIRawResponse.FirstOrDefaultAsync(
+                r => r.ResponseId == responseId && r.UserId == userId && r.BookId == bookId && r.Chapter == chapterNumber,
+                cancellationToken);
+            if (raw == null)
+                return null;
+
+            var seriesGuid = await _db.Set<ChapterIteration>()
+                .Where(i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNumber)
+                .Select(i => i.ChapterSeriesGuid)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (seriesGuid == Guid.Empty)
+                seriesGuid = Guid.NewGuid();
+
+            var maxIt = await _db.Set<ChapterIteration>()
+                .Where(i => i.ChapterSeriesGuid == seriesGuid)
+                .MaxAsync(i => (int?)i.IterationNumber, cancellationToken) ?? 0;
+
+            var content = !string.IsNullOrWhiteSpace(raw.Content)
+                ? raw.Content!
+                : APIRawResponseService.ExtractContentFromResponse(raw.ResponseData ?? "");
+            if (string.IsNullOrEmpty(content))
+                content = raw.ResponseData ?? "";
+
+            var utc = raw.CreatedAt;
+            iter = new ChapterIteration
+            {
+                ChapterSeriesGuid = seriesGuid,
+                BookId = bookId,
+                UserId = userId,
+                ChapterNumber = chapterNumber,
+                IterationNumber = maxIt + 1,
+                ResponseId = responseId,
+                Title = raw.Title,
+                Content = content,
+                GenerationDate = utc.Date,
+                GenerationTime = utc.TimeOfDay,
+                IsFinalized = false,
+                IsLocked = false
+            };
+            _db.Set<ChapterIteration>().Add(iter);
+            await _db.SaveChangesAsync(cancellationToken);
+            return iter;
         }
 
         /// <inheritdoc />

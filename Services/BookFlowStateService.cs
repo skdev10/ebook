@@ -25,6 +25,16 @@ public sealed class BookFlowStateService
         return s.Equals("Published", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>EF-translatable: books that are not published (case-insensitive).</summary>
+    public static IQueryable<Books> WhereNotPublished(IQueryable<Books> query) =>
+        query.Where(b => b.Status == null || b.Status.ToUpper() != PublishedStatusUpper);
+
+    /// <summary>EF-translatable: published books only (case-insensitive).</summary>
+    public static IQueryable<Books> WherePublished(IQueryable<Books> query) =>
+        query.Where(b => b.Status != null && b.Status.ToUpper() == PublishedStatusUpper);
+
+    private const string PublishedStatusUpper = "PUBLISHED";
+
     public static int StepToPercent(string? step) => (step ?? "").Trim().ToLowerInvariant() switch
     {
         StepFormat => 40,

@@ -19,7 +19,7 @@
                 .FirstOrDefault(u => u.UserEmail == userEmail);
             
             if (user != null)
-            {
+            {  
                 sidebarProfilePicturePath = user.ProfilePicturePath ?? "";
                 sidebarUserName = user.FullName;
                 sidebarUserRole = user.Role?.RoleName ?? "Reader";
@@ -94,25 +94,42 @@
         int.TryParse(ViewBag.SelectedBookId.ToString(), out sidebarActiveBookId);
     if (sidebarActiveBookId <= 0 && ViewBag.BookId != null)
         int.TryParse(ViewBag.BookId.ToString(), out sidebarActiveBookId);
+    var sidebarExplicitBookId = sidebarActiveBookId;
     try
     {
         var flowSess = HttpContextAccessor.HttpContext?.Session;
         if (sidebarActiveBookId <= 0 && flowSess != null)
             sidebarActiveBookId = flowSess.GetInt32("LastSelectedBookId") ?? 0;
+        if (sidebarActiveBookId > 0
+            && sidebarActiveBookId != sidebarExplicitBookId
+            && resolvedUserId is > 0)
+        {
+            var sidebarBook = DbContext.Books.AsNoTracking()
+                .FirstOrDefault(b => b.BookId == sidebarActiveBookId && b.UserId == resolvedUserId.Value);
+            if (sidebarBook == null
+                || BookDraftGuard.IsNearEmptyBookAsync(DbContext, resolvedUserId.Value, sidebarActiveBookId).GetAwaiter().GetResult())
+            {
+                sidebarActiveBookId = 0;
+                try { flowSess?.Remove("LastSelectedBookId"); } catch { }
+            }
+        }
         if (sidebarActiveBookId <= 0 && resolvedUserId is > 0)
         {
-            var latestDraftId = DbContext.Books
+            var draftCandidates = DbContext.Books
                 .Where(b => b.UserId == resolvedUserId.Value
                     && b.Status != "Published"
                     && b.Status != "Finalized")
                 .OrderByDescending(b => b.isActive)
                 .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
-                .Select(b => (int?)b.BookId)
-                .FirstOrDefault();
-            if (latestDraftId is > 0)
+                .Take(15)
+                .ToList();
+            foreach (var draft in draftCandidates)
             {
-                sidebarActiveBookId = latestDraftId.Value;
+                if (BookDraftGuard.IsNearEmptyBookAsync(DbContext, resolvedUserId.Value, draft.BookId).GetAwaiter().GetResult())
+                    continue;
+                sidebarActiveBookId = draft.BookId;
                 try { flowSess?.SetInt32("LastSelectedBookId", sidebarActiveBookId); } catch { }
+                break;
             }
         }
     }

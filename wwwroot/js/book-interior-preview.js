@@ -76,11 +76,14 @@
         var availH = Math.max(0, host.clientHeight - reserve);
         if (availW < 48 || availH < 48) return false;
 
+        var maxHeightCap = opts.maxHeightPx > 0 ? opts.maxHeightPx : availH;
+        var cappedH = Math.min(availH, maxHeightCap);
+
         var shellW;
         var shellH;
 
         if (preferHeight) {
-            shellH = Math.floor(availH);
+            shellH = Math.floor(cappedH);
             shellW = Math.floor(shellH * ratio);
             if (shellW > availW) {
                 shellW = Math.floor(availW * widthFactor);
@@ -90,8 +93,8 @@
             shellW = Math.floor(availW * widthFactor);
             if (opts.maxWidthPx > 0) shellW = Math.min(shellW, opts.maxWidthPx);
             shellH = Math.floor(shellW / ratio);
-            if (shellH > availH) {
-                shellH = Math.floor(availH);
+            if (shellH > cappedH) {
+                shellH = Math.floor(cappedH);
                 shellW = Math.floor(shellH * ratio);
             }
         }
@@ -153,6 +156,7 @@
             aspectRatio: cfg.aspectRatio || DEFAULT_RATIO,
             widthFactor: cfg.widthFactor || DEFAULT_WIDTH_FACTOR,
             maxWidthPx: cfg.maxWidthPx || 0,
+            maxHeightPx: cfg.maxHeightPx || 0,
             reserveBottomPx: reserve,
             preferHeight: cfg.preferHeight === true,
             measureHost: measureHost,

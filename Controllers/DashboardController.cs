@@ -174,10 +174,8 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "StartNewBook failed for user {UserId}", user.UserId);
-                var fallback = await _context.Books.AsNoTracking()
-                    .Where(b => b.UserId == user.UserId
-                        && b.Title == trimmedTitle
-                        && !BookFlowStateService.IsPublishedStatus(b.Status))
+                var fallback = await BookFlowStateService.WhereNotPublished(_context.Books.AsNoTracking())
+                    .Where(b => b.UserId == user.UserId && b.Title == trimmedTitle)
                     .OrderByDescending(b => b.CreatedAt)
                     .Select(b => b.BookId)
                     .FirstOrDefaultAsync();
@@ -220,12 +218,10 @@ namespace EBookDashboard.Controllers
 
         private async Task<Books?> FindLatestUserDraftAsync(int userId)
         {
-            var drafts = await _context.Books.AsNoTracking()
-                .Where(b => b.UserId == userId && !BookFlowStateService.IsPublishedStatus(b.Status))
-                .OrderByDescending(b => b.isActive)
-                .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
-                .ToListAsync();
-            return drafts.FirstOrDefault(b => !IsDemoSeedTitle(b.Title));
+            var meaningful = await BookDraftGuard.FindLatestMeaningfulDraftAsync(_context, userId);
+            if (meaningful != null && !IsDemoSeedTitle(meaningful.Title))
+                return meaningful;
+            return null;
         }
 
         private async Task SetActiveBookForUserAsync(int userId, int bookId)
@@ -570,11 +566,18 @@ namespace EBookDashboard.Controllers
             var userDraftBooks = books
                 .Where(b => !BookFlowStateService.IsPublishedStatus(b.Status) && !IsDemoSeedTitle(b.Title))
                 .ToList();
+            var meaningfulDraftBooks = new List<Books>();
+            foreach (var draft in userDraftBooks)
+            {
+                if (await BookDraftGuard.IsNearEmptyBookAsync(_context, user.UserId, draft.BookId))
+                    continue;
+                meaningfulDraftBooks.Add(draft);
+            }
             var publishedBooks = books
                 .Where(b => BookFlowStateService.IsPublishedStatus(b.Status) && !IsDemoSeedTitle(b.Title))
                 .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
-            var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, userDraftBooks);
+            var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, meaningfulDraftBooks);
             var pendingBooks = userDraftBooks;
             var allUserBookIds = books.Where(b => !IsDemoSeedTitle(b.Title)).Select(b => b.BookId).ToList();
             var flowMap = await LoadBookFlowMapAsync(allUserBookIds);
@@ -1744,6 +1747,9 @@ namespace EBookDashboard.Controllers
                 exportOpt.IncludeCoverPage = false;
                 if (!string.IsNullOrWhiteSpace(req.PublishingPlatform))
                     exportOpt.PublishingPlatform = NormalizePublishingPlatformForExport(req.PublishingPlatform);
+                else if (exportOpt.Format.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                         || exportOpt.Format.Equals("Both", StringComparison.OrdinalIgnoreCase))
+                    exportOpt.PublishingPlatform = "Amazon KDP";
 
                 var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
                 var userRow = await _context.Users.AsNoTracking()

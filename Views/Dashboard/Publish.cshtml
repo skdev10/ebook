@@ -96,6 +96,51 @@
         color: #6d28d9;
         line-height: 1.55;
     }
+    .publish-output-manifest {
+        display: grid;
+        gap: 0.75rem;
+        margin: 0 0 1.1rem;
+    }
+    @@media (min-width: 640px) {
+        .publish-output-manifest.publish-output-manifest--dual {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    .publish-output-card {
+        border-radius: 0.85rem;
+        border: 1px solid #e9d5ff;
+        background: #fff;
+        padding: 0.85rem 1rem;
+    }
+    .publish-output-card h3 {
+        margin: 0 0 0.35rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #6d28d9;
+    }
+    .publish-output-card ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .publish-output-card li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        font-size: 0.8125rem;
+        color: #334155;
+        line-height: 1.45;
+        padding: 0.2rem 0;
+    }
+    .publish-output-card li i {
+        color: #7c3aed;
+        margin-top: 0.15rem;
+        width: 1rem;
+        text-align: center;
+        flex-shrink: 0;
+    }
     .publish-export-stores .publish-export-actions {
         display: flex;
         flex-direction: column;
@@ -905,7 +950,7 @@
             }
             else
             {
-                <p class="publish-hero-copy">Open your book and export front cover + EPUB for Kindle, KDP ebook, IngramSpark, or any store.</p>
+                <p class="publish-hero-copy">Ebook output: <strong>front cover image</strong> + <strong>EPUB</strong> for Kindle / KDP ebook upload.</p>
             }
         </div>
         <div class="publish-hero-meta">
@@ -1051,30 +1096,49 @@
                 }
                 else
                 {
-                    <p class="publish-export-hint" id="publishExportHint">Ebook format selected: export exactly 2 files (front cover image + EPUB).</p>
+                    <p class="publish-export-hint" id="publishExportHint">Ebook output — exactly 2 files: front cover image + EPUB.</p>
                 }
+                <div class="publish-output-manifest @(isBothFormat ? "publish-output-manifest--dual" : "")" id="publishOutputManifest">
+                    @if (showEbookExports)
+                    {
+                        <article class="publish-output-card @(isPrintReadyFlow && !isBothFormat ? "hidden" : "")" id="publishOutputEbook" data-output-kind="ebook">
+                            <h3>Ebook output</h3>
+                            <ul>
+                                <li><i class="fas fa-image" aria-hidden="true"></i><span><strong>Front cover</strong> — single panel image (PNG/JPG) for ebook stores</span></li>
+                                <li><i class="fas fa-book" aria-hidden="true"></i><span><strong>EPUB</strong> — formatted manuscript with embedded cover</span></li>
+                            </ul>
+                        </article>
+                    }
+                    @if (showPrintExports)
+                    {
+                        <article class="publish-output-card @(isEbookFormat && !isBothFormat ? "hidden" : "")" id="publishOutputPrint" data-output-kind="print">
+                            <h3>Paperback output</h3>
+                            <ul>
+                                <li><i class="fas fa-book-open" aria-hidden="true"></i><span><strong>Full wrap cover</strong> — back + spine + front at 300 DPI with 0.125″ bleed</span></li>
+                                <li><i class="fas fa-file-pdf" aria-hidden="true"></i><span><strong>Interior PDF</strong> — 6×9″ trim, KDP-safe margins for Amazon paperback upload</span></li>
+                            </ul>
+                        </article>
+                    }
+                </div>
                 <div class="publish-export-actions">
                     <button type="button" data-export-kind="print" id="btnExportCoverWrap" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                        <i class="fas fa-image" aria-hidden="true"></i> Download full wrap cover (PNG)
+                        <i class="fas fa-book-open" aria-hidden="true"></i> Full wrap cover (back · spine · front)
                     </button>
                     <button type="button" data-export-kind="print" id="btnPrintReadyPublishPrimary" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                        <i class="fas fa-file-pdf" aria-hidden="true"></i> Download print-ready interior PDF
+                        <i class="fas fa-file-pdf" aria-hidden="true"></i> Interior PDF (6×9 KDP)
                     </button>
                     <button type="button" data-export-kind="print" id="btnExportPrintBundle" class="@((showPrintExports && (isBothFormat || !isPrintReadyFlow)) ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
                         <i class="fas fa-file-archive" aria-hidden="true"></i> Download print pack (ZIP)
                     </button>
-                    @if (hasSavedFrontCover)
-                    {
-                        <button type="button" data-export-kind="ebook" id="btnExportFrontCover" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                            <i class="fas fa-image" aria-hidden="true"></i> Download front cover
-                        </button>
-                    }
+                    <button type="button" data-export-kind="ebook" id="btnExportFrontCover" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                        <i class="fas fa-image" aria-hidden="true"></i> Front cover only
+                    </button>
                     <button type="button" data-export-kind="ebook" id="btnExportEpub" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                        <i class="fas fa-book" aria-hidden="true"></i> Download EPUB
+                        <i class="fas fa-book" aria-hidden="true"></i> EPUB file
                     </button>
                 </div>
-                <p class="publish-export-tip mt-3 mb-0 @(showPrintExports && isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipPrint">KDP upload: use the <strong>interior PDF</strong> for manuscript and the <strong>full wrap PNG</strong> for cover — spine width matches your page count.</p>
-                <p class="publish-export-tip mt-3 mb-0 @(showEbookExports && !isPrintReadyFlow ? "" : "hidden")" id="publishExportTipEbook">After download: open the <strong>.epub</strong> file with Apple Books, Google Play Books, Calibre, or send to your Kindle.</p>
+                <p class="publish-export-tip mt-3 mb-0 @(showPrintExports && isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipPrint">KDP paperback: upload the <strong>interior PDF</strong> (6×9 trim, safe margins) as manuscript and the <strong>full wrap PNG</strong> as cover — spine width matches your page count.</p>
+                <p class="publish-export-tip mt-3 mb-0 @(showEbookExports && !isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipEbook">KDP ebook: upload the <strong>EPUB</strong> as manuscript and the <strong>front cover JPG/PNG</strong> as cover art.</p>
             }
             else
             {
@@ -1313,16 +1377,22 @@
         });
         if (title) title.textContent = printOnly ? 'Export print-ready files' : 'Export your book';
         if (hint && printOnly) {
-            hint.innerHTML = 'Print-ready mode: download your <strong>full wrap cover (PNG)</strong> and <strong>formatted interior PDF</strong> for KDP upload.';
+            hint.innerHTML = 'Paperback output — 2 files: <strong>full wrap cover</strong> (back + spine + front) and <strong>6×9 interior PDF</strong> for Amazon KDP.';
         } else if (hint && isBothFormat) {
-            hint.textContent = 'Both format selected: export front cover + EPUB and print-ready files (full wrap + interior PDF).';
+            hint.textContent = 'Both formats: ebook (front cover + EPUB) and paperback (full wrap + interior PDF).';
         } else if (hint && showEbookExports && !showPrintExports) {
-            hint.textContent = 'Ebook format selected: export front cover image + EPUB.';
+            hint.textContent = 'Ebook output — 2 files: front cover image + EPUB.';
         }
         if (tipPrint) tipPrint.classList.toggle('hidden', !(showPrintExports && printOnly));
-        if (tipEbook) tipEbook.classList.toggle('hidden', !(showEbookExports && !isPrintReadyFlow));
+        if (tipEbook) tipEbook.classList.toggle('hidden', !(showEbookExports && !isPrintReadyFlow && !isBothFormat));
         var printSection = document.getElementById('publishSavedCoverSection');
         if (printSection) printSection.classList.toggle('hidden', !showPrintExports);
+        var outEbook = document.getElementById('publishOutputEbook');
+        var outPrint = document.getElementById('publishOutputPrint');
+        if (outEbook) outEbook.classList.toggle('hidden', !showEbookExports || (printOnly && !isBothFormat));
+        if (outPrint) outPrint.classList.toggle('hidden', !showPrintExports || (showEbookExports && !showPrintExports));
+        var manifest = document.getElementById('publishOutputManifest');
+        if (manifest) manifest.classList.toggle('publish-output-manifest--dual', isBothFormat);
     }
 
     function syncPublishModeFromContext() {
@@ -1640,7 +1710,7 @@
             textSize: fmtSnap.textSize || 'Medium',
             lineSpacing: fmtSnap.lineSpacing || '1.6',
             bookFormat: fmtSnap.bookFormat || publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
-            publishingPlatform: isPrintReadyFlow ? 'Just Print Ready File' : null
+            publishingPlatform: isPrintReadyFlow ? 'Amazon KDP' : null
         }))
             .then(function (result) {
                 var fname = (result && result.fileName) ? result.fileName : (safeBookSlug() + '-' + bookId + '-interior.pdf');

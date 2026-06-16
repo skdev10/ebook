@@ -114,4 +114,50 @@ public class BookDraftGuardTests
         Assert.NotNull(reusable);
         Assert.Equal(4, reusable!.BookId);
     }
+
+    [Fact]
+    public async Task FindLatestMeaningfulDraftAsync_skips_near_empty_untitled()
+    {
+        await using var ctx = CreateContext(nameof(FindLatestMeaningfulDraftAsync_skips_near_empty_untitled));
+        ctx.Books.AddRange(
+            new Books
+            {
+                BookId = 1,
+                UserId = 10,
+                Title = "Untitled Book",
+                Status = "Draft",
+                WordCount = 0,
+                UpdatedAt = DateTime.UtcNow
+            },
+            new Books
+            {
+                BookId = 2,
+                UserId = 10,
+                Title = "My Real Novel",
+                Status = "Draft",
+                WordCount = 1200,
+                UpdatedAt = DateTime.UtcNow.AddDays(-1)
+            });
+        await ctx.SaveChangesAsync();
+
+        var draft = await BookDraftGuard.FindLatestMeaningfulDraftAsync(ctx, 10);
+        Assert.NotNull(draft);
+        Assert.Equal(2, draft!.BookId);
+    }
+
+    [Fact]
+    public async Task PurgeAllNearEmptyUntitledAsync_removes_all_placeholders()
+    {
+        await using var ctx = CreateContext(nameof(PurgeAllNearEmptyUntitledAsync_removes_all_placeholders));
+        ctx.Books.AddRange(
+            new Books { BookId = 1, UserId = 10, Title = "Untitled Book", Status = "Draft", WordCount = 0 },
+            new Books { BookId = 2, UserId = 10, Title = "Untitled", Status = "Draft", WordCount = 0 },
+            new Books { BookId = 3, UserId = 10, Title = "Keep Me", Status = "Draft", WordCount = 500 });
+        await ctx.SaveChangesAsync();
+
+        var removed = await BookDraftGuard.PurgeAllNearEmptyUntitledAsync(ctx, 10);
+        Assert.Equal(2, removed);
+        Assert.Equal(1, await ctx.Books.CountAsync(b => b.UserId == 10));
+        Assert.Equal("Keep Me", (await ctx.Books.SingleAsync()).Title);
+    }
 }

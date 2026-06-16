@@ -766,6 +766,22 @@ namespace EBookDashboard.Controllers
                         {
                             // Do not tie to RequestAborted — browser/proxy disconnect (504) must not cancel draft bookkeeping.
                             await _chapterIterationService.RecordSuccessfulGenerationAsync(rawResponseId.Value, CancellationToken.None);
+                            var promoteBookId = genBookId;
+                            if (promoteBookId <= 0)
+                            {
+                                var savedRaw = await _context.APIRawResponse.AsNoTracking()
+                                    .FirstOrDefaultAsync(r => r.ResponseId == rawResponseId.Value, CancellationToken.None);
+                                promoteBookId = savedRaw?.BookId ?? 0;
+                            }
+                            if (promoteBookId > 0 && model.Chapter > 0)
+                            {
+                                await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                                    sessionUserId.Value,
+                                    promoteBookId,
+                                    model.Chapter,
+                                    rawResponseId.Value,
+                                    CancellationToken.None);
+                            }
                         }
                         catch (Exception itEx)
                         {
@@ -2129,16 +2145,37 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null)
                 return RedirectToAction("UserLogin", "Account");
 
+            var wasNearEmptyUntitled = await BookDraftGuard.IsNearEmptyBookAsync(_context, sessionUserId.Value, id);
+
             var deleted = await _bookService.DeleteBookForUserAsync(id, sessionUserId.Value);
             if (!deleted)
                 return NotFound();
+
+            if (wasNearEmptyUntitled)
+                await BookDraftGuard.PurgeAllNearEmptyUntitledAsync(_context, sessionUserId.Value);
 
             if (HttpContext.Session.GetInt32("LastSelectedBookId") == id)
                 HttpContext.Session.Remove("LastSelectedBookId");
             if (HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey) == id)
                 HttpContext.Session.Remove(BookFlowStateService.SessionEntryBookIdKey);
 
-            return RedirectToAction("MyBooks", "Dashboard");
+            var lastBookKey = $"user:{sessionUserId.Value}:lastBookId";
+            var lastUrlKey = $"user:{sessionUserId.Value}:lastBookWorkUrl";
+            var lastBookRows = await _context.Settings
+                .Where(s => s.Key == lastBookKey || s.Key == lastUrlKey)
+                .ToListAsync();
+            foreach (var row in lastBookRows)
+            {
+                if (row.Key == lastBookKey && int.TryParse(row.Value, out var savedId) && savedId == id)
+                    _context.Settings.Remove(row);
+                else if (row.Key == lastUrlKey
+                         && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(row.Value ?? "") == id)
+                    _context.Settings.Remove(row);
+            }
+            if (lastBookRows.Count > 0)
+                await _context.SaveChangesAsync();
+
+            return RedirectToAction("Index", "Dashboard");
         }
 
         // POST: Books/Publish/5 — legacy; real publish happens on Dashboard Publish after export download.
