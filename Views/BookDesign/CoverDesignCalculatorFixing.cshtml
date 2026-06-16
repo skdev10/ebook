@@ -5173,6 +5173,13 @@
         });
     }
 
+    function navigateToReaderPage(pageIdx) {
+        if (!readerPages.length) return;
+        currentPageIdx = Math.max(0, Math.min(pageIdx, readerPages.length - 1));
+        FmtBookStageReader.goToPage(currentPageIdx);
+        updatePageIndicator();
+    }
+
     function renderPreviewContent(animDir) {
         const stage = document.getElementById('bookStage');
         const viewport = document.getElementById('preview-content');
@@ -5194,12 +5201,10 @@
         FmtBookStageReader.show();
         FmtBookStageReader.setPages(readerPages);
         FmtBookStageReader.goToPage(currentPageIdx);
-        setTimeout(function() {
-            syncFmtPreviewLayout();
-            updatePageIndicator();
-            scrollReaderPanelsToTop();
-            initBookInteriorPreviewShell();
-        }, animDir ? 40 : 0);
+        syncFmtPreviewLayout();
+        updatePageIndicator();
+        scrollReaderPanelsToTop();
+        initBookInteriorPreviewShell();
     }
 
     function renderBothPreviews(animDir) {
@@ -5208,20 +5213,14 @@
 
     function goToPrevPage() {
         if (currentPageIdx <= 0) return;
-        currentPageIdx--;
-        const fmtEl = document.getElementById('format-select');
-        const fmt = (fmtEl && fmtEl.value) || 'Ebook';
-        if (fmt === 'Both') renderBothPreviews(-1); else renderPreviewContent(-1);
+        navigateToReaderPage(currentPageIdx - 1);
         persistReaderPosition();
     }
 
     function goToNextPage() {
         if (readerPages.length === 0) return;
         if (currentPageIdx >= readerPages.length - 1) return;
-        currentPageIdx++;
-        const fmtEl = document.getElementById('format-select');
-        const fmt = (fmtEl && fmtEl.value) || 'Ebook';
-        if (fmt === 'Both') renderBothPreviews(1); else renderPreviewContent(1);
+        navigateToReaderPage(currentPageIdx + 1);
         persistReaderPosition();
     }
 
@@ -5522,9 +5521,14 @@
             togglePreviewMode();
             if (!opts.skipRepaginateAfterLayout) fmtScheduleRepaginateAfterLayout();
             syncFormatterPageCountUi();
-            saveFormatting(function () {}, { silent: true });
-            setFmtExportPreviewVisible(true);
-            scheduleFmtExportPreviewReload(true);
+            var deferHeavy = function(fn) {
+                if (typeof requestIdleCallback === 'function') requestIdleCallback(fn, { timeout: 1200 });
+                else setTimeout(fn, 0);
+            };
+            deferHeavy(function() {
+                saveFormatting(function () {}, { silent: true });
+                if (fmtExportPreviewVisible) scheduleFmtExportPreviewReload(false);
+            });
         }
         lastLoadedBookPayloadSignature = nextSignature;
         return true;
