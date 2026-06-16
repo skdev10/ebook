@@ -1504,6 +1504,15 @@
         width: 100% !important;
         margin-inline: 0 !important;
     }
+    #book-formatter-root .fmt-preview-pane.dash-flow-preview-pane {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-inline: auto;
+    }
+    #book-formatter-root #fmt-preview-scroll-host {
+        min-height: clamp(32rem, 72dvh, 54rem) !important;
+        width: 100%;
+    }
 
     #fmt-studio-stage.fmt-studio-stage {
         max-width: 100% !important;
@@ -2684,9 +2693,32 @@
     }
 
     /** Usable inner height for one 6×9 page (content box — no scroll). */
+    function ensureFmtStageVisibleForMeasure() {
+        if (typeof FmtBookStageReader !== 'undefined') {
+            FmtBookStageReader.ensureDom();
+            FmtBookStageReader.show();
+        }
+    }
+
     function getFmtContentAreaHeightPx() {
+        ensureFmtStageVisibleForMeasure();
         var contentEl = document.getElementById('bookPageContentA');
-        if (contentEl && contentEl.clientHeight >= 80) return contentEl.clientHeight;
+        if (contentEl && contentEl.clientHeight >= 48) return contentEl.clientHeight;
+
+        var wrap = contentEl ? contentEl.closest('.book-page-content-wrap') : null;
+        var shell = document.getElementById('paginatedReaderShell');
+        var shellH = shell ? (parseInt(shell.style.height || '0', 10) || shell.clientHeight) : 0;
+        if (wrap && shellH >= 200) {
+            var cs = window.getComputedStyle(wrap);
+            var padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+            var head = wrap.querySelector('.book-page-running-head');
+            var foot = wrap.querySelector('.book-page-footer');
+            var headH = head && !head.classList.contains('is-empty') ? head.offsetHeight : 0;
+            var footH = foot ? foot.offsetHeight : 0;
+            var inner = shellH - padY - headH - footH - 2;
+            if (inner >= 48) return Math.floor(inner);
+        }
+
         var viewport = document.getElementById('preview-content')
             || document.getElementById('preview-content-ebook')
             || document.getElementById('preview-content-paperback');
@@ -2770,6 +2802,8 @@
         var stage = document.getElementById('bookStage');
         var shellH = document.getElementById('paginatedReaderShell');
         var shellHeight = (shellH && shellH.clientHeight >= 80) ? shellH.clientHeight : Math.floor(w * (9 / 6));
+        var contentMaxH = getFmtContentAreaHeightPx();
+        if (!contentMaxH || contentMaxH < 48) contentMaxH = Math.max(160, Math.floor(shellHeight * 0.72));
         var varSource = stage || shellH;
         var runTitle = (bookPreviewContext && bookPreviewContext.bookTitle) || '';
         runTitle = String(runTitle).trim();
@@ -2786,7 +2820,7 @@
             '<div class="book-container" style="width:100%;height:100%;display:flex;flex-direction:column;min-height:0">' +
             '<div class="book-page-content-wrap" style="box-sizing:border-box;flex:1;min-height:0;height:100%;display:flex;flex-direction:column">' +
             headHtml +
-            '<div class="book-page-content ' + contentCls + '" style="overflow:hidden;flex:1;min-height:0">' +
+            '<div class="book-page-content ' + contentCls + '" style="overflow:hidden;flex:1;min-height:0;height:' + contentMaxH + 'px;max-height:' + contentMaxH + 'px">' +
             (blockInnerHtml || '') +
             '</div><div class="book-page-footer book-page-footer-novel">&mdash; 1 &mdash;</div></div></div></div>';
 
@@ -2821,7 +2855,7 @@
         var maxH = contentEl.clientHeight;
         if (!maxH || maxH < 24) maxH = getFmtPageMaxHeightPx();
         if (!maxH || maxH < 24) return true;
-        return contentEl.scrollHeight <= maxH + 2;
+        return contentEl.scrollHeight <= maxH + 1;
     }
 
     function measureFmtArticleInner(articleInnerHtml) {
@@ -3357,7 +3391,12 @@
             changed = true;
         }
         syncFormatterChromeWidth();
-        if (changed && bookChapters.length) fmtScheduleRepaginate();
+        if (changed && bookChapters.length) {
+            requestAnimationFrame(function() {
+                ensureFmtStageVisibleForMeasure();
+                fmtScheduleRepaginate();
+            });
+        }
         return changed;
     }
 
@@ -5981,12 +6020,12 @@
     }
     #book-formatter-root #fmt-book-result .paginated-reader-shell {
         margin-inline: auto !important;
-        min-height: clamp(20rem, 52dvh, 44rem) !important;
+        min-height: clamp(24rem, 58dvh, 48rem) !important;
         aspect-ratio: 6 / 9 !important;
         overflow: hidden !important;
         flex: 1 1 auto !important;
         width: 100% !important;
-        max-width: 100% !important;
+        max-width: min(100%, 36rem) !important;
         padding: 0 !important;
     }
     #book-formatter-root #bookStage {

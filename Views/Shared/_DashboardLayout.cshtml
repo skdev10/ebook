@@ -1434,7 +1434,10 @@
             right: 22px;
             bottom: 22px;
             z-index: 100009;
-            display: inline-flex;
+            display: inline-flex !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
             align-items: center;
             gap: 8px;
             padding: 10px 16px;
@@ -4969,6 +4972,7 @@
         // ----- App-wide guided tour (per route) -----
         function guidedTourRouteKey() {
             const p = (window.location.pathname || '').toLowerCase().replace(/\/$/, '');
+            if (p.indexOf('/dashboard/profile') >= 0 || p.indexOf('/account/profile') >= 0) return 'profile';
             if (p.indexOf('/books/aigeneratebook') >= 0) return 'ai-writer';
             if (p.indexOf('coverdesigncalculatorfixing') >= 0) return 'formatter';
             if (p.indexOf('/dashboard/coverdesign') >= 0) return 'cover-design';
@@ -5018,6 +5022,10 @@
                 { sel: '[data-guided-tour="mb-books"]', title: 'All your books', body: 'Every book you made is here. Click a card to see details on the right.' },
                 { sel: '[data-guided-tour="mb-actions"]', title: 'Quick buttons', body: 'New Book starts a fresh project. Export Pack downloads files when your book is finished.' },
                 { sel: '[data-guided-tour="mb-detail"]', title: 'Book details', body: 'After you pick a book, see the cover, stats, and buttons to preview, edit, or delete.' }
+            ],
+            'profile': [
+                { sel: '.profile-header, .user-profile-header, main h1', title: 'Your profile', body: 'Update your name and photo here. Your photo also shows on the Dashboard.' },
+                { sel: 'form, .profile-form, #profileForm', title: 'Save changes', body: 'Edit your details and tap Save. Changes apply across the app.' }
             ],
             'default': [
                 { sel: '#sidebar', title: 'How to make a book', body: 'Follow these steps: AI Writer → Book Formatting → Cover Design → Publish.' },

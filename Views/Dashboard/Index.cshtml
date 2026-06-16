@@ -116,22 +116,26 @@
         top: 0.5rem;
         left: 0.5rem;
         z-index: 12;
-        width: 1.75rem;
-        height: 1.75rem;
+        min-height: 1.75rem;
+        height: auto;
+        width: auto;
+        padding: 0.25rem 0.55rem;
         border-radius: 9999px;
-        background: rgba(255, 255, 255, 0.95);
+        background: rgba(255, 255, 255, 0.97);
         border: 1px solid #fecaca;
         color: #dc2626;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.65rem;
-        opacity: 0;
-        transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+        gap: 0.3rem;
+        font-size: 0.68rem;
+        font-weight: 600;
+        line-height: 1;
+        opacity: 1;
+        transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
         box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
     }
-    .dash-draft-card-wrap:hover .dash-delete-book-btn,
-    .drafts-modal-item:hover .dash-delete-book-btn { opacity: 1; }
+    .dash-delete-book-btn .dash-delete-book-label { white-space: nowrap; }
     .dash-delete-book-btn:hover { background: #fef2f2; color: #b91c1c; }
     .dash-published-card { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
     .dash-published-card:hover { border-color: #c4b5fd; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1); }
@@ -239,7 +243,7 @@
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="dash-draft-card-wrap book-item" data-title="@title" data-book-id="@draft.BookId">
                                 <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt"></i>
+                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
                                 </button>
                                 <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
@@ -276,7 +280,7 @@
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="dash-draft-card-wrap book-item" data-title="@title" data-book-id="@draft.BookId">
                                 <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt"></i>
+                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
                                 </button>
                                 <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
@@ -550,7 +554,7 @@
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="drafts-modal-item relative overflow-hidden group" data-title="@title.ToLowerInvariant()">
                                 <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt"></i>
+                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
                                 </button>
                                 <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
@@ -579,7 +583,7 @@
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="drafts-modal-item relative overflow-hidden group" data-title="@title.ToLowerInvariant()">
                                 <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt"></i>
+                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
                                 </button>
                                 <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
