@@ -87,13 +87,16 @@ public sealed class ChromiumPdfExporter
         string headerTemplate,
         string footerTemplate)
     {
+        var useChromeHeaderFooter = !string.IsNullOrWhiteSpace(headerTemplate)
+            || !string.IsNullOrWhiteSpace(footerTemplate);
+
         var o = new PdfOptions
         {
             PrintBackground = true,
             PreferCSSPageSize = true,
-            DisplayHeaderFooter = true,
-            HeaderTemplate = headerTemplate,
-            FooterTemplate = footerTemplate,
+            DisplayHeaderFooter = useChromeHeaderFooter,
+            HeaderTemplate = headerTemplate ?? string.Empty,
+            FooterTemplate = footerTemplate ?? string.Empty,
             MarginOptions = new MarginOptions
             {
                 Top = layout.MarginTop,

@@ -45,6 +45,7 @@
     var showPrintExports = isPaperbackFormat || isBothFormat;
     var showEbookExports = isEbookFormat || isBothFormat;
     var displayCoverUrl = CoverUrl((isPaperbackFormat || isBothFormat) && hasSavedCoverWrap ? pbCoverWrap : pbCover);
+    var publishPrimaryPlatform = ViewBag.PublishPrimaryPlatform as string ?? "Amazon KDP";
     var displayCoverIsWrap = (isPaperbackFormat || isBothFormat) && hasSavedCoverWrap;
 }
 
@@ -61,6 +62,45 @@
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
+    }
+    .publish-simple-publish {
+        margin-top: 1.5rem;
+        padding: 1.5rem 1.65rem;
+        border-radius: 1.15rem;
+        border: 1px solid #ddd6fe;
+        background: linear-gradient(180deg, #faf5ff 0%, #f5f3ff 100%);
+        box-shadow: 0 16px 32px -24px rgba(91, 33, 182, 0.45);
+    }
+    .publish-simple-publish h2 {
+        margin: 0 0 1rem;
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+    .publish-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.85rem 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+    .publish-meta-grid dt {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #64748b;
+        margin-bottom: 0.2rem;
+    }
+    .publish-meta-grid dd {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+    .publish-page--publish-step .publish-stat-strip,
+    .publish-page--publish-step #publishSavedCoverSection,
+    .publish-page--publish-step #publishExportStores {
+        display: none !important;
     }
     .publish-page-shell {
         display: flex;
@@ -927,7 +967,7 @@
 <div class="dash-flow-page">
 <main class="dash-flow-main">
 <div class="dash-flow-inner flex flex-col min-h-0">
-<div class="publish-page publish-page-shell bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-6 md:p-10 lg:p-12 text-slate-800">
+<div class="publish-page publish-page-shell publish-page--publish-step bg-white rounded-[32px] shadow-sm border border-slate-200/60 w-full min-h-[min(850px,calc(100vh-140px))] md:min-h-[850px] p-6 md:p-10 lg:p-12 text-slate-800">
     <section class="publish-hero mb-6 sm:mb-8 lg:mb-10" data-guided-tour="pub-hero">
         <div class="flex flex-col gap-4">
             @if (bookId > 0)
@@ -938,20 +978,9 @@
             }
             <div class="mb-2">@await Html.PartialAsync("_FlowStepper", 4)</div>
         <div>
-            <p class="publish-kicker">Distribution Console</p>
-            <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Export your book</h1>
-            @if (isPrintReadyFlow && !isBothFormat)
-            {
-                <p class="publish-hero-copy">Paperback / print-ready mode: download your <strong>full wrap cover</strong> (back + spine + front) and <strong>formatted interior PDF</strong> for KDP upload.</p>
-            }
-            else if (isBothFormat)
-            {
-                <p class="publish-hero-copy">Both formats: export ebook files (front cover + EPUB) and print-ready files (full wrap + interior PDF).</p>
-            }
-            else
-            {
-                <p class="publish-hero-copy">Ebook output: <strong>front cover image</strong> + <strong>EPUB</strong> for Kindle / KDP ebook upload.</p>
-            }
+            <p class="publish-kicker">Publish</p>
+            <h1 class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">Download your interior PDF</h1>
+            <p class="publish-hero-copy">Review your book details below, then download the formatted <strong>6×9″ interior PDF</strong> for upload to your chosen platform. Trim size is shown here only — it is not printed inside the PDF pages.</p>
         </div>
         <div class="publish-hero-meta">
             <span class="publish-chip @(alreadyListed ? "publish-chip-ready" : "publish-chip-neutral")">
@@ -1027,8 +1056,33 @@
                     </div>
                     @if (!canExport)
                     {
-                    <p class="text-sm text-slate-600 mb-4">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a>, then return here to export.</p>
+                    <p class="text-sm text-slate-600 mb-4">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a>, then return here to download the PDF.</p>
                     }
+                    <section class="publish-simple-publish" id="publishSimplePublish" aria-labelledby="publishSimpleTitle">
+                        <h2 id="publishSimpleTitle">Book details</h2>
+                        <dl class="publish-meta-grid">
+                            <div>
+                                <dt>Title</dt>
+                                <dd>@pbTitle</dd>
+                            </div>
+                            <div>
+                                <dt>Trim size</dt>
+                                <dd>6 x 9</dd>
+                            </div>
+                            <div>
+                                <dt>Platform</dt>
+                                <dd id="publishPlatformLabel">@publishPrimaryPlatform</dd>
+                            </div>
+                        </dl>
+                        @if (canExport)
+                        {
+                            <button type="button" id="btnPublishPdfOnly" class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-6 py-3 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                                <i class="fas fa-file-pdf" aria-hidden="true"></i> Download interior PDF
+                            </button>
+                            <p class="publish-export-tip mt-3 mb-0">Returns a single PDF file — formatted manuscript only, ready for paperback upload.</p>
+                            <p class="publish-export-tip mt-2 mb-0 text-slate-600">This interior preview and the downloaded PDF both use the same 6×9 template, margins, and font presets.</p>
+                        }
+                    </section>
                     <p class="text-xs text-slate-500 mt-4">
                         Edit manuscript in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a> ·
                         <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">Formatting</a> ·
@@ -1683,7 +1737,9 @@
             .then(function (result) {
                 var fname = (result && result.fileName) ? result.fileName : (safeBookSlug() + '-' + bookId + '-interior.pdf');
                 downloadBlobAsFile(result.blob, fname);
-                redirectToDashboardAfterExport('PDF saved.');
+                notifyBookPublishedAfterDownload(isPrintReadyFlow ? 'print' : 'ebook').finally(function () {
+                    showTransientMessage('success', 'PDF downloaded.');
+                });
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'PDF download failed.');
@@ -2174,11 +2230,15 @@
     var exportPrintBundleBtn = document.getElementById('btnExportPrintBundle');
     var exportCoverWrapBtn = document.getElementById('btnExportCoverWrap');
     var printReadyPrimaryBtn = document.getElementById('btnPrintReadyPublishPrimary');
+    var publishPdfOnlyBtn = document.getElementById('btnPublishPdfOnly');
     if (exportFrontCoverBtn) {
         exportFrontCoverBtn.addEventListener('click', function () { runFrontCoverDownload(exportFrontCoverBtn); });
     }
     if (exportEpubBtn) {
         exportEpubBtn.addEventListener('click', function () { runEbookExport(exportEpubBtn, 'epub'); });
+    }
+    if (publishPdfOnlyBtn) {
+        publishPdfOnlyBtn.addEventListener('click', function () { runPublishPdfDownload(publishPdfOnlyBtn); });
     }
     if (printReadyPrimaryBtn) {
         printReadyPrimaryBtn.addEventListener('click', function () { runInteriorPdfDownload(printReadyPrimaryBtn); });

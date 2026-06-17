@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Net;
 using System.Text;
 using EBookDashboard.Models.DTO;
 
@@ -35,34 +33,16 @@ public static class InteriorPrintDocumentBuilder
             var displayHeading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
             var titleHtml = BookManuscriptHtmlFormatter.EscapeHtml(displayHeading);
             var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, displayHeading);
-            var bodyClass = string.IsNullOrEmpty(bodyExtraClass) ? "reader-page-body" : "reader-page-body " + bodyExtraClass;
+            var bodyClass = string.IsNullOrEmpty(bodyExtraClass) ? null : bodyExtraClass;
             var sectionId = i + 1;
+            var runningHead = InteriorPageMarkup.TruncateRunningHead(phBase.BookTitle);
 
-            sb.Append(CultureInfo.InvariantCulture, $"""
-                <section class="chapter" id="ch-{sectionId}">
-                  <div class="book-preview-sheet">
-                    <div class="reader-chapter-block" data-chapter-start="1">
-                      <article class="reader-page-title">{titleHtml}</article>
-                      <section class="reader-page-body {bodyClass}">{bodyHtml}</section>
-                    </div>
-                  </div>
-                </section>
-                """);
+            sb.Append(InteriorPageMarkup.BuildChapterSection(
+                sectionId, runningHead, titleHtml, bodyHtml, bodyClass));
         }
 
         if (sb.Length == 0)
-        {
-            sb.Append("""
-                <section class="chapter" id="ch-0">
-                  <div class="book-preview-sheet">
-                    <div class="reader-chapter-block" data-chapter-start="1">
-                      <article class="reader-page-title">Chapter</article>
-                      <section class="reader-page-body"><p class="manuscript-p">No chapters in this book yet.</p></section>
-                    </div>
-                  </div>
-                </section>
-                """);
-        }
+            sb.Append(InteriorPageMarkup.BuildEmptyChapterFallback());
 
         return sb.ToString();
     }

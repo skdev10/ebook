@@ -98,9 +98,8 @@ public static class InteriorLayoutTokens
 
 
 
-    /// <summary>Optimal reading measure — centered text block inside padded page (≈65 characters at 11pt).</summary>
-
-    public static string TextBlockMaxWidth => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.TextColumnWidthMm);
+    /// <summary>Full text measure between gutter and fore-edge.</summary>
+    public static string TextBlockMaxWidth => "100%";
 
 
 
@@ -111,7 +110,7 @@ public static class InteriorLayoutTokens
     /// <summary>PDF export margins — preview page inset on every printed page via Chromium.</summary>
     public static PrintMarginSpec PdfExportChromiumMargins => InteriorSpacingTheme.PdfExportChromiumMargins;
 
-    public static string ChapterDrop => InteriorSpacingTheme.Mm(InteriorSpacingTheme.ChapterDropMm);
+    public static string ChapterDrop => InteriorSpacingTheme.In(InteriorSpacingTheme.ChapterTitleSinkIn);
 
     public static string FrontMatterPadTop => InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.FrontMatterPadTopMm);
 
@@ -147,7 +146,7 @@ public static class InteriorLayoutTokens
 
             SheetPadding: InteriorSpacingTheme.TradePaperbackPagePadding,
 
-            Body: new("1.03rem", "1.88", InteriorSpacingTheme.Mm(InteriorSpacingTheme.FirstLineIndentMm), InteriorSpacingTheme.Mm(InteriorSpacingTheme.ParagraphSpacingMm), "justify", "1.1rem", "0.7rem"),
+            Body: new("0.97rem", "1.6", InteriorSpacingTheme.Mm(InteriorSpacingTheme.FirstLineIndentMm), "0", "justify", "1.1rem", "0.7rem"),
 
             Frame: new(
 
@@ -247,9 +246,9 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#ffffff",
 
-            SheetPadding: new("0.88in", "0.78in", "0.8in", "0.9in"),
+            SheetPadding: InteriorSpacingTheme.MinimalistPagePadding,
 
-            Body: new("0.96rem", "1.86", "0", "1.15rem", "left", "1.15rem", "0.6rem"),
+            Body: new("0.97rem", "1.55", "0", InteriorSpacingTheme.Mm(InteriorSpacingTheme.MinimalistParagraphSpacingMm), "left", "1.15rem", "0.6rem"),
 
             Frame: new(
 
@@ -281,9 +280,9 @@ public static class InteriorLayoutTokens
 
             SheetBackground: "#fcf9f3",
 
-            SheetPadding: new("0.82in", "0.72in", "0.72in", "0.84in"),
+            SheetPadding: InteriorSpacingTheme.TradePaperbackPagePadding,
 
-            Body: new("1.13rem", "1.84", "1.35rem", "0.35em", "justify", "0.5rem", "1rem"),
+            Body: new("0.97rem", "1.6", InteriorSpacingTheme.Mm(InteriorSpacingTheme.FirstLineIndentMm), "0", "justify", "0.5rem", "1rem"),
 
             Frame: new(
 
@@ -389,11 +388,10 @@ public static class InteriorLayoutTokens
 
         var spec = Get(interior);
 
-        var lh = ResolveLineHeightExact(opt.LineSpacing);
-
-        var bodyPx = ResolveBodyFontSizePx(opt);
-
-        var bodyPt = ResolveBodyFontSizePt(opt);
+        var typography = InteriorTypographyPresets.Resolve(opt);
+        var lh = typography.LineHeight;
+        var bodyPx = typography.BodyFontSizePx;
+        var bodyPt = typography.BodyFontSizePt;
 
         var pageBg = opt.ResolvePageBackgroundColor();
 
@@ -425,11 +423,11 @@ public static class InteriorLayoutTokens
 
             "--ilt-pad-left: ", spec.SheetPadding.Left, "; ",
 
-            "--ilt-text-indent: ", spec.Body.TextIndent, "; ",
+            "--ilt-text-indent: ", typography.TextIndent, "; ",
 
-            "--ilt-para-space: ", spec.Body.ParagraphSpacing, "; ",
+            "--ilt-para-space: ", typography.ParagraphSpacing, "; ",
 
-            "--ilt-text-align: ", spec.Body.TextAlign, "; ",
+            "--ilt-text-align: ", typography.TextAlign, "; ",
 
             "--ilt-title-mb: ", spec.Body.TitleMarginBottom, "; ",
 
@@ -509,7 +507,11 @@ public static class InteriorLayoutTokens
 
         sb.Append("text-indent:var(--ilt-text-indent); margin:0 0 var(--ilt-para-space); orphans:3; widows:3; ");
 
-        sb.Append("hyphens:auto; -webkit-hyphens:auto; } ");
+        sb.Append("hyphens:auto; -webkit-hyphens:auto; text-align:var(--ilt-text-align, justify); ");
+
+        sb.Append("hyphenate-limit-chars:6 3 3; } ");
+
+        sb.Append(".reader-page-body p:empty,.reader-page-body .manuscript-p:empty { display:none; margin:0; padding:0; height:0; } ");
 
         sb.Append(".reader-page-body p:first-of-type,.reader-page-title + .reader-page-body p:first-of-type { text-indent:0; } ");
 
@@ -519,17 +521,23 @@ public static class InteriorLayoutTokens
 
         sb.Append("margin-inline:auto; width:100%; box-sizing:border-box; } ");
 
-        sb.Append(".manuscript-root > section.chapter { padding-top:var(--ilt-chapter-drop); padding-bottom:0; min-height:auto; } ");
+        sb.Append(".manuscript-root > section.chapter { padding-top:0; padding-bottom:0; min-height:auto; } ");
+
+        sb.Append(".reader-chapter-block[data-chapter-start=\"1\"] .reader-page-title, ");
+
+        sb.Append(".book-pdf-body section.chapter .reader-page-title { margin-top:var(--ilt-chapter-drop); } ");
 
         sb.Append(".front-matter-page { padding-top:var(--ilt-front-pad-top); } ");
 
         sb.Append("@media print { ");
 
-        sb.Append(".book-pdf-body .reader-page-body { ");
+        sb.Append(".book-pdf-body .reader-page-body:not(.page-header + .page-body .reader-page-body) { ");
 
         sb.Append("-webkit-box-decoration-break:clone; box-decoration-break:clone; ");
 
         sb.Append("padding-top:var(--ilt-running-head-gap-below, ").Append(RunningHeadGapBelow).Append("); } ");
+
+        sb.Append(".book-pdf-body .page-header + .page-body .reader-page-body, ");
 
         sb.Append(".book-pdf-body .reader-page-title + .reader-page-body, ");
 
@@ -541,6 +549,29 @@ public static class InteriorLayoutTokens
 
         return sb.ToString();
 
+    }
+
+
+
+    /// <summary>
+    /// PDF export page chrome — running head and body are in-page only (no Chromium header/footer).
+    /// <c>.page-header</c> sits once at each chapter start; gap below uses <see cref="InteriorSpacingTheme.PageHeaderBodyGapCss"/>.
+    /// </summary>
+    public static string BuildPdfInContentPageChromeCss()
+    {
+        return string.Concat(
+            ".book-pdf-body .book-preview-sheet > .page-header { ",
+            "flex-shrink:0; text-align:center; font-family:Georgia,'Times New Roman',serif; ",
+            "font-size:7.5pt; letter-spacing:0.22em; text-transform:uppercase; color:#7c7368; line-height:1.35; ",
+            "min-height:var(--ilt-running-head-h, ", RunningHeadPadTop, "); padding:0.08in 0 0; margin:0 0 ",
+            InteriorSpacingTheme.PageHeaderBodyGapCss, " 0; ",
+            "overflow:hidden; text-overflow:ellipsis; white-space:nowrap; box-sizing:border-box; ",
+            "break-after:avoid; page-break-after:avoid; } ",
+            ".book-pdf-body .book-preview-sheet > .page-body { flex:1 1 auto; min-height:0; } ",
+            ".book-pdf-body .page-header + .page-body .reader-page-title { margin-top:var(--ilt-chapter-drop); } ",
+            ".book-pdf-body .page-header + .page-body .reader-page-body { padding-top:0; } ",
+            ".book-pdf-body section.chapter { break-before:page; page-break-before:always; } ",
+            ".book-pdf-body .manuscript-root > section.chapter:first-of-type { break-before:auto; page-break-before:auto; } ");
     }
 
 
@@ -713,25 +744,23 @@ public static class InteriorLayoutTokens
 
 
 
-            // Preview shows only the book page itself — no mat panel behind the sheet
-            // (the mat looked like an extra page/cover stacked behind the preview).
-
+            // Formatter preview: warm mat behind the 6×9 page card; PDF export uses sheet rules only.
             sb.Append("#book-formatter-root #fmt-book-result.").Append(mat).Append(" { ");
-
-            sb.Append("background:transparent; border:none; } ");
-
-
+            sb.Append("background:").Append(f.MatBackground).Append("; ");
+            sb.Append("border:").Append(f.MatBorder).Append("; ");
+            sb.Append("border-radius:12px; padding:0.75rem 1rem 1rem; box-sizing:border-box; } ");
 
             sb.Append("#book-formatter-root #paginatedReaderShell.").Append(wrap).Append(", ");
-
             sb.Append("#book-formatter-root .paginated-reader-shell.").Append(wrap).Append(" { ");
+            sb.Append("background:var(--ilt-page-bg, ").Append(spec.SheetBackground).Append("); ");
+            sb.Append("border:").Append(f.SheetBorder).Append("; ");
+            sb.Append("box-shadow:").Append(f.SheetShadow).Append("; } ");
 
-            sb.Append("background:transparent; border:none; ");
-
-            sb.Append("box-shadow:none; } ");
-
-
-
+            sb.Append("#book-formatter-root #paginatedReaderShell.").Append(wrap).Append(" .book-page-preview-content, ");
+            sb.Append("#book-formatter-root .paginated-reader-shell.").Append(wrap).Append(" .book-page-preview-content { ");
+            sb.Append("background:var(--ilt-page-bg, ").Append(spec.SheetBackground).Append("); ");
+            sb.Append("padding:var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); ");
+            sb.Append("box-sizing:border-box; height:100%; } ");
             sb.Append("#book-formatter-root #bookContainer.").Append(wrap).Append(", ");
 
             sb.Append("#book-formatter-root #paginatedReaderShell.").Append(wrap).Append(" #bookContainer, ");
@@ -841,12 +870,6 @@ public static class InteriorLayoutTokens
         sb.Append(pad.Top).Append(' ').Append(pad.Right).Append(' ').Append(pad.Bottom).Append(' ').Append(pad.Left);
 
         sb.Append(" !important; box-sizing:border-box; } ");
-
-        sb.Append(".book-pdf-body.interior-").Append(spec.Key);
-
-        sb.Append(" .book-preview-sheet { padding: 0 !important; } ");
-
-
 
         sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key);
 

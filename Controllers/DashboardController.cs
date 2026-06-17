@@ -2812,6 +2812,7 @@ namespace EBookDashboard.Controllers
                         publishingPlatform = primaryPlatform,
                         publishingPlatforms = platformCsv
                     });
+                    ViewBag.PublishPrimaryPlatform = string.IsNullOrWhiteSpace(primaryPlatform) ? "Amazon KDP" : primaryPlatform;
                     var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                     var hasPrintReadyPlatform =
                         primaryPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)

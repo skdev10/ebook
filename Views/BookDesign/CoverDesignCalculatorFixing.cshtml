@@ -1215,14 +1215,15 @@
         width: 100%;
         flex: 1 1 auto;
         min-height: 0;
-        height: auto;
+        height: 100%;
         overflow: hidden !important;
         overscroll-behavior: none;
         box-sizing: border-box;
         margin: 0;
-        padding: 0.25rem clamp(1rem, 2.2vw, 1.5rem) clamp(1rem, 2vw, 1.35rem);
-        font-size: 0.8125rem;
-        line-height: 1.65;
+        padding: var(--ilt-pad-top, 0.625in) var(--ilt-pad-right, 0.625in) var(--ilt-pad-bottom, 0.875in) var(--ilt-pad-left, 0.8125in);
+        background: var(--ilt-page-bg, var(--ilt-sheet-bg, #fffdf8));
+        font-size: var(--fmt-font-size, var(--ilt-body-px, 14.67px));
+        line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.6));
     }
     #book-formatter-root .fmt-float-nav {
         display: none !important;
@@ -1357,12 +1358,11 @@
         z-index: 6;
         background: #fff;
     }
-    /* AI Writer `#bookResult` — transparent wrap; lavender stage is on scroll host */
+    /* AI Writer `#bookResult` — mat on .fmt-mat-*; page surface is the 6×9 shell */
     .fmt-book-result {
         box-sizing: border-box;
         border: none;
         box-shadow: none;
-        background: transparent;
     }
     /*
      * Preview card height floor: without this, flex-1 + min-h-0 ancestors can shrink the reader to a strip
@@ -1632,6 +1632,7 @@
                                 <button type="button" class="fmt-pill" data-size="Medium">Medium</button>
                                 <button type="button" class="fmt-pill" data-size="Large">Large</button>
                             </div>
+                            <p class="text-xs text-gray-400 mt-2 leading-relaxed">Small ≈ 10 pt · Medium ≈ 11 pt · Large ≈ 12 pt (approximate print sizes).</p>
                         </div>
 
                         <div class="group">
@@ -1649,6 +1650,7 @@
                                 <button type="button" class="fmt-pill" data-line="1.8">Relaxed 1.8</button>
                                 <button type="button" class="fmt-pill" data-line="2">Loose 2</button>
                             </div>
+                            <p class="text-xs text-gray-400 mt-2 leading-relaxed">Normal 1.6 — recommended for most fiction.</p>
                         </div>
 
                         @* <div class="group">
@@ -4746,16 +4748,18 @@
         const interior = styleEl ? styleEl.value : 'Novel';
 
         var fontSize;
-        if (interior === 'Classic' || interior === 'ElegantTrade') {
+        var ptSmall = 10, ptMed = 11, ptLarge = 12;
+        function fmtPxFromPt(pt) { return (pt * 96 / 72).toFixed(2) + 'px'; }
+        if (interior === 'Classic') {
             if (size === 'Small') fontSize = '14px';
             else if (size === 'Large') fontSize = '19px';
-            else fontSize = interior === 'ElegantTrade' ? '16px' : '17px';
+            else fontSize = '17px';
         } else {
-            if (size === 'Small') fontSize = '14px';
-            else if (size === 'Large') fontSize = '20px';
-            else fontSize = '16px';
+            if (size === 'Small') fontSize = fmtPxFromPt(ptSmall);
+            else if (size === 'Large') fontSize = fmtPxFromPt(ptLarge);
+            else fontSize = fmtPxFromPt(ptMed);
         }
-        var textAlign = (interior === 'Classic' || interior === 'ElegantTrade') ? 'justify' : '';
+        var textAlign = (interior === 'Classic' || interior === 'ElegantTrade' || interior === 'Novel') ? 'justify' : '';
 
         el.style.fontSize = '';
         el.style.lineHeight = '';
@@ -5968,7 +5972,7 @@
                 var styleSel = document.getElementById('style-select');
                 var sizeSel = document.getElementById('text-size-select');
                 var lineSel = document.getElementById('line-spacing-select');
-                if (styleSel) { styleSel.value = 'Novel'; styleSel.dispatchEvent(new Event('change', { bubbles: true })); }
+                if (styleSel) { styleSel.value = 'ElegantTrade'; styleSel.dispatchEvent(new Event('change', { bubbles: true })); }
                 if (sizeSel) { sizeSel.value = 'Medium'; sizeSel.dispatchEvent(new Event('change', { bubbles: true })); }
                 if (lineSel) { lineSel.value = '1.6'; lineSel.dispatchEvent(new Event('change', { bubbles: true })); }
                 syncFmtInteriorCardsFromSelect();
@@ -6107,6 +6111,15 @@
         width: auto !important;
         max-width: min(100%, 100%) !important;
         padding: 0 !important;
+    }
+    #book-formatter-root #fmt-preview-scroll-host.book-preview-stage {
+        background: transparent;
+        padding: 0.5rem 0.75rem 0.75rem;
+    }
+    #book-formatter-root #paginatedReaderShell.book-page-preview-shell {
+        background: var(--ilt-page-bg, var(--ilt-sheet-bg, #fffdf8));
+        border: var(--ilt-sheet-border, 1px solid #d4b08a);
+        box-shadow: var(--ilt-sheet-shadow, 0 12px 40px -12px rgba(91, 33, 182, 0.22));
     }
     #book-formatter-root .fmt-export-preview-wrap {
         position: absolute;

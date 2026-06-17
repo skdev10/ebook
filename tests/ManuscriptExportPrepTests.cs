@@ -50,7 +50,39 @@ public class ManuscriptExportPrepTests
         Assert.Contains("reader-page-title", html, StringComparison.Ordinal);
         Assert.Contains("reader-page-body", html, StringComparison.Ordinal);
         Assert.Contains("reader-chapter-block", html, StringComparison.Ordinal);
+        Assert.Contains("page-header", html, StringComparison.Ordinal);
+        Assert.Contains("page-body", html, StringComparison.Ordinal);
+        Assert.Contains("book-page-running-head", html, StringComparison.Ordinal);
         Assert.DoesNotContain("chapter-heading", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NormalizeInteriorStyle_maps_formatter_aliases()
+    {
+        Assert.Equal("ElegantTrade", InteriorExportTheme.NormalizeInteriorStyle("PODElegantTrade"));
+        Assert.Equal("Minimalist", InteriorExportTheme.NormalizeInteriorStyle("CleanMinimalist"));
+    }
+
+    [Theory]
+    [InlineData("PODElegantTrade", "Medium", "1.6", "11", "1.6")]
+    [InlineData("CleanMinimalist", "Small", "1.4", "10", "1.4")]
+    public void InteriorStyle_textSize_lineSpacing_change_pdf_css_tokens(
+        string style, string textSize, string lineSpacing, string expectedPt, string expectedLh)
+    {
+        var opt = new BookPdfExportOptions
+        {
+            InteriorStyle = style,
+            TextSize = textSize,
+            LineSpacing = lineSpacing
+        };
+        var props = InteriorLayoutTokens.BuildCssCustomProperties(opt);
+        Assert.Contains(FormattableString.Invariant($"--ilt-body-pt: {expectedPt}pt"), props, StringComparison.Ordinal);
+        Assert.Contains(FormattableString.Invariant($"--ilt-body-lh: {expectedLh}"), props, StringComparison.Ordinal);
+        var css = InteriorExportTheme.BuildPdfThemeCss(opt);
+        Assert.Contains("page-header", css, StringComparison.Ordinal);
+        Assert.Contains(InteriorSpacingTheme.PageHeaderBodyGapCss, css, StringComparison.Ordinal);
+        Assert.Contains("export-meta", css, StringComparison.Ordinal);
+        Assert.Contains("display: none", css, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -94,12 +126,12 @@ public class ManuscriptExportPrepTests
     public void BuildFormatterSyncCss_uses_kdp_inch_padding_and_text_measure()
     {
         var css = InteriorLayoutTokens.BuildFormatterSyncCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
-        Assert.Contains("--ilt-pad-top: 0.85in", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-pad-right: 0.55in", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-pad-bottom: 0.8in", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-pad-left: 0.75in", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-text-max: 4.2in", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-chapter-drop: 26mm", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-top: 0.625in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-right: 0.625in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-bottom: 0.875in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-pad-left: 0.8125in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-text-max: 100%", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-chapter-drop: 1.25in", css, StringComparison.Ordinal);
         Assert.Contains(".toc-leader", css, StringComparison.Ordinal);
         Assert.Contains("book-page-running-head", css, StringComparison.Ordinal);
         Assert.Contains("fmt-mat-novel", css, StringComparison.Ordinal);
@@ -231,14 +263,14 @@ public class ManuscriptExportPrepTests
     }
 
     [Theory]
-    [InlineData("Novel", "Small", "1.4", "10.5pt", "1.4")]
-    [InlineData("Novel", "Medium", "1.6", "12pt", "1.6")]
-    [InlineData("Novel", "Large", "2", "15pt", "2")]
-    [InlineData("Classic", "Medium", "1.8", "12.75pt", "1.8")]
-    [InlineData("Classic", "Large", "1.6", "14.25pt", "1.6")]
-    [InlineData("Minimalist", "Small", "1.6", "10.5pt", "1.6")]
-    [InlineData("ElegantTrade", "Medium", "1.4", "12pt", "1.4")]
-    [InlineData("ElegantTrade", "Large", "2", "14.25pt", "2")]
+    [InlineData("Novel", "Small", "1.4", "10pt", "1.4")]
+    [InlineData("Novel", "Medium", "1.6", "11pt", "1.6")]
+    [InlineData("Novel", "Large", "2", "12pt", "2")]
+    [InlineData("Classic", "Medium", "1.8", "17pt", "1.8")]
+    [InlineData("Classic", "Large", "1.6", "19pt", "1.6")]
+    [InlineData("Minimalist", "Small", "1.6", "10pt", "1.6")]
+    [InlineData("ElegantTrade", "Medium", "1.4", "11pt", "1.4")]
+    [InlineData("ElegantTrade", "Large", "2", "12pt", "2")]
     public void BuildPdfThemeCss_maps_text_size_and_line_spacing_to_pdf_tokens(
         string interiorStyle, string textSize, string lineSpacing, string expectedPt, string expectedLh)
     {
@@ -301,16 +333,15 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
-    public void BookPdfPlatformLayout_ebook_uses_6x9_kdp_trim_like_preview()
+    public void BookPdfPlatformLayout_ebook_uses_6x9_trim_with_zero_chromium_margins()
     {
         var spec = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions { Format = "Ebook" });
-        var pdfMargins = InteriorLayoutTokens.PdfExportChromiumMargins;
         Assert.Contains("6in", spec.PageSizeCss, StringComparison.Ordinal);
         Assert.False(spec.UseBuiltInFormat);
-        Assert.Equal(pdfMargins.Top, spec.MarginTop);
-        Assert.Equal(pdfMargins.Inside, spec.MarginLeft);
-        Assert.Equal(pdfMargins.Outside, spec.MarginRight);
-        Assert.Equal(pdfMargins.Bottom, spec.MarginBottom);
+        Assert.Equal("0", spec.MarginTop);
+        Assert.Equal("0", spec.MarginBottom);
+        Assert.Equal("0", spec.MarginLeft);
+        Assert.Equal("0", spec.MarginRight);
     }
 
     [Fact]
@@ -327,27 +358,29 @@ public class ManuscriptExportPrepTests
     {
         var css = InteriorLayoutTokens.BuildPerInteriorCss("ElegantTrade");
         Assert.Contains("#book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content-wrap", css, StringComparison.Ordinal);
-        Assert.Contains("0.82in", css, StringComparison.Ordinal);
-        Assert.Contains("0.84in", css, StringComparison.Ordinal);
+        Assert.Contains("0.8125in", css, StringComparison.Ordinal);
+        Assert.Contains("0.625in", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".book-page-content-wrap, .book-pdf-body.interior-elegant-trade .book-preview-sheet { padding: 0 !important; }", css, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void BuildPdfThemeCss_zeros_sheet_padding_so_margins_apply_on_every_page()
+    public void BuildPdfThemeCss_keeps_sheet_padding_and_in_content_running_head()
     {
         var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
-        Assert.Contains(".book-pdf-body .book-preview-sheet { padding: 0 !important; }", css, StringComparison.Ordinal);
+        Assert.Contains(".book-pdf-body .book-preview-sheet > .page-header", css, StringComparison.Ordinal);
+        Assert.Contains(InteriorSpacingTheme.PageHeaderBodyGapCss, css, StringComparison.Ordinal);
+        Assert.DoesNotContain("padding: 0 !important", css, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Pdf_export_top_margin_includes_page_pad_and_running_head()
+    public void Pdf_export_chromium_margins_reserve_running_head_band_in_html_padding()
     {
         static double Inches(string v) =>
             double.Parse(v.Replace("in", ""), System.Globalization.CultureInfo.InvariantCulture);
 
         var top = Inches(InteriorLayoutTokens.PdfExportChromiumMargins.Top);
-        Assert.True(top >= 1.35, $"PDF top margin should include 0.85in pad + running head; got {top:0.####}in");
-        Assert.True(Inches(InteriorLayoutTokens.PdfExportChromiumMargins.Inside) >= 0.74);
+        Assert.True(top >= 1.1, $"Reference top inset should include pad + running head; got {top:0.####}in");
+        Assert.True(Inches(InteriorLayoutTokens.PdfExportChromiumMargins.Inside) >= 0.8);
     }
 
     [Fact]
@@ -429,6 +462,42 @@ public class ManuscriptExportPrepTests
         Assert.Contains("Merriweather", render.Html, StringComparison.Ordinal);
         Assert.Contains("6in", render.Layout.PageSizeCss, StringComparison.Ordinal);
         Assert.Equal("Novel", render.Settings.InteriorStyle);
+    }
+
+    [Fact]
+    public void Trade_elegant_preset_medium_yields_about_30_lines_per_continuation_page()
+    {
+        var opt = new BookPdfExportOptions
+        {
+            InteriorStyle = "PODElegantTrade",
+            TextSize = "Medium",
+            LineSpacing = "1.6"
+        };
+        var lines = InteriorSampleDocumentBuilder.EstimateBodyLinesPerContinuationPage(opt);
+        Assert.InRange(lines, 29.0, 35.0);
+    }
+
+    [Fact]
+    public void Sample_document_builder_produces_multi_chapter_markup()
+    {
+        var html = InteriorSampleDocumentBuilder.BuildSampleChapterSections(
+            3, 12, new BookPdfExportOptions { InteriorStyle = "ElegantTrade", TextSize = "Medium", LineSpacing = "1.6" });
+        Assert.Contains("page-header", html, StringComparison.Ordinal);
+        Assert.Contains("manuscript-p", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"ch-3\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Interior_typography_presets_maps_clean_minimalist_sans_stack()
+    {
+        var t = InteriorTypographyPresets.Resolve(new BookPdfExportOptions
+        {
+            InteriorStyle = "CleanMinimalist",
+            TextSize = "Medium",
+            LineSpacing = "1.6"
+        });
+        Assert.Contains("Inter", t.BodyFontStack, StringComparison.Ordinal);
+        Assert.Equal("11", t.BodyFontSizePt);
     }
 
     private sealed class FakeWebHostEnvironment : Microsoft.AspNetCore.Hosting.IWebHostEnvironment

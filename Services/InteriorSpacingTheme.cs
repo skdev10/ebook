@@ -3,9 +3,8 @@ using System.Globalization;
 namespace EBookDashboard.Services;
 
 /// <summary>
-/// Authoritative millimeter spacing for 6×9 KDP trade paperback interiors.
-/// <see cref="InteriorLayoutTokens"/> and both preview/PDF CSS builders derive every numeric
-/// margin, padding, and rhythm value from these constants — never duplicate numbers elsewhere.
+/// Authoritative spacing for 6×9 KDP trade paperback interiors (Reedsy / trade-novel conventions).
+/// <see cref="InteriorLayoutTokens"/> and preview/PDF CSS derive every margin from these constants.
 /// </summary>
 public static class InteriorSpacingTheme
 {
@@ -20,50 +19,86 @@ public static class InteriorSpacingTheme
     /// <summary>Page height — 9in trim.</summary>
     public const double TrimHeightMm = 228.6;
 
-    // ── Page content padding (Novel / Traditional default) ──────────────────────
-    // Reference: Amazon trade paperback — top 0.85", bottom 0.8", inside 0.75", outside 0.55".
+    // ── Industry 6×9 page margins (inches — thebookdesigner / trade fiction) ───
 
-    /// <summary>Top padding — breathing room below running head.</summary>
-    public const double PageTopPaddingMm = 21.59;
+    /// <summary>Inside (gutter) margin — 13/16″ (0.75–0.875″ range).</summary>
+    public const double MarginInsideIn = 0.8125;
 
-    /// <summary>Bottom padding — space above folio.</summary>
-    public const double PageBottomPaddingMm = 20.32;
+    /// <summary>Outside (fore-edge) margin — 5/8″ (0.5–0.75″ range).</summary>
+    public const double MarginOutsideIn = 0.625;
 
-    /// <summary>Inside (binding/gutter) margin — wider for comfortable thumb rest.</summary>
-    public const double PageInsideMarginMm = 19.05;
+    /// <summary>Top margin from trim to running-head band.</summary>
+    public const double MarginTopIn = 0.625;
 
-    /// <summary>Outside (fore-edge) margin.</summary>
-    public const double PageOutsideMarginMm = 13.97;
+    /// <summary>Bottom margin — 7/8″ (0.75–1″ range).</summary>
+    public const double MarginBottomIn = 0.875;
 
-    /// <summary>Centered text column — ≈65 characters at 11–12pt (60–75 CPL target).</summary>
-    public const double TextColumnWidthMm = 106.68;
+    /// <summary>Clean Minimalist — extra white space on all edges.</summary>
+    public const double MinimalistMarginInsideIn = 0.875;
 
-    /// <summary>Vertical drop before chapter title on new chapter pages (test 24 / 26 / 28).</summary>
-    public const double ChapterDropMm = 26.0;
+    public const double MinimalistMarginOutsideIn = 0.75;
 
-    /// <summary>Alias — running head / folio reserved band (see <see cref="RunningHeadHeightMm"/>).</summary>
+    public const double MinimalistMarginTopIn = 0.75;
+
+    public const double MinimalistMarginBottomIn = 1.0;
+
+    // ── Derived page padding (mm) ───────────────────────────────────────────────
+
+    /// <summary>Top padding — breathing room below trim before running head.</summary>
+    public static double PageTopPaddingMm => InToMm(MarginTopIn);
+
+    /// <summary>Bottom padding — space above folio / foot of page.</summary>
+    public static double PageBottomPaddingMm => InToMm(MarginBottomIn);
+
+    /// <summary>Inside (binding/gutter) padding.</summary>
+    public static double PageInsideMarginMm => InToMm(MarginInsideIn);
+
+    /// <summary>Outside (fore-edge) padding.</summary>
+    public static double PageOutsideMarginMm => InToMm(MarginOutsideIn);
+
+    /// <summary>Text uses full measure between gutters (not a narrow column).</summary>
+    public static double TextColumnWidthMm =>
+        TrimWidthMm - PageInsideMarginMm - PageOutsideMarginMm;
+
+    /// <summary>
+    /// Chapter title sink — margin below running head so title sits ~¼ page down (≈2.25″ from trim).
+    /// </summary>
+    public const double ChapterTitleSinkIn = 1.25;
+
+    public static double ChapterDropMm => InToMm(ChapterTitleSinkIn);
+
+    /// <summary>Alias — running head / folio reserved band.</summary>
     public static double HeaderFooterMarginMm => RunningHeadHeightMm;
 
-    /// <summary>Space between paragraphs (justified + indented prose).</summary>
-    public const double ParagraphSpacingMm = 1.9;
+    /// <summary>Space between justified paragraphs (trade fiction — indent only, no extra lead).</summary>
+    public const double ParagraphSpacingMm = 0;
 
-    /// <summary>First-line indent for traditional novel interiors.</summary>
-    public const double FirstLineIndentMm = 6.35;
+    /// <summary>Clean Minimalist — looser paragraph rhythm.</summary>
+    public const double MinimalistParagraphSpacingMm = 4.5;
 
-    // ── Chromium @page margin box (outside the padded text block) ───────────────
+    /// <summary>First-line indent — ≈1.5 characters at 11pt.</summary>
+    public const double FirstLineIndentMm = 3.5;
 
-    public const double PrintMarginTopMm = 15.75;
-    public const double PrintMarginBottomMm = 14.73;
-    public const double PrintMarginInsideMm = 10.67;
-    public const double PrintMarginOutsideMm = 8.13;
+    // ── Chromium @page margin box (legacy reference — HTML padding is authoritative) ──
+
+    public static double PrintMarginTopMm => PageTopPaddingMm;
+
+    public static double PrintMarginBottomMm => PageBottomPaddingMm;
+
+    public static double PrintMarginInsideMm => PageInsideMarginMm;
+
+    public static double PrintMarginOutsideMm => PageOutsideMarginMm;
 
     // ── Running head / folio chrome ─────────────────────────────────────────────
 
-    /// <summary>Reserved height for running head band.</summary>
-    public const double RunningHeadHeightMm = 10.16;
+    /// <summary>Reserved height for running head band (~0.35″).</summary>
+    public const double RunningHeadHeightMm = 8.89;
 
-    /// <summary>Air between running head baseline and first body line.</summary>
+    /// <summary>Air between running head baseline and chapter title / body.</summary>
     public const double RunningHeadGapBelowMm = 4.57;
+
+    /// <summary>Gap between <c>.page-header</c> and <c>.page-body</c> in export HTML (~12px).</summary>
+    public const string PageHeaderBodyGapCss = "0.75rem";
 
     /// <summary>Reserved height for folio (page number) band.</summary>
     public const double FolioHeightMm = 9.65;
@@ -71,33 +106,31 @@ public static class InteriorSpacingTheme
     /// <summary>Air between last body line and folio.</summary>
     public const double FolioGapAboveMm = 4.06;
 
-    /// <summary>Horizontal inset for running head on outside edge.</summary>
-    public const double HeaderFooterOutsideInsetMm = 14.73;
+    /// <summary>Horizontal inset for running head on outside edge (matches fore-edge margin).</summary>
+    public static double HeaderFooterOutsideInsetMm => PageOutsideMarginMm;
 
     /// <summary>Horizontal inset for running head on inside (gutter) edge.</summary>
-    public const double HeaderFooterInsideInsetMm = 13.21;
+    public static double HeaderFooterInsideInsetMm => PageInsideMarginMm;
 
     // ── Front matter ────────────────────────────────────────────────────────────
 
     public const double FrontMatterPadTopMm = 29.21;
+
     public const double TitlePagePadTopMm = 82.55;
 
     // ── Line-height multipliers (formatter UI → exact CSS number) ───────────────
 
-    /// <summary>Tight — dense reference or back matter.</summary>
     public const double LineHeightTight = 1.4;
 
-    /// <summary>Normal — standard trade paperback body.</summary>
     public const double LineHeightNormal = 1.6;
 
-    /// <summary>Medium — alias of Normal in formatter UI.</summary>
     public const double LineHeightMedium = 1.6;
 
-    /// <summary>Relaxed — default elegant spacing (Medium + 1.8 in formatter).</summary>
     public const double LineHeightRelaxed = 1.8;
 
-    /// <summary>Loose — poetry, large type, or accessibility.</summary>
     public const double LineHeightLoose = 2.0;
+
+    public static double InToMm(double inches) => inches * MmPerInch;
 
     /// <summary>Formats a millimeter value as a CSS length (e.g. <c>26mm</c>).</summary>
     public static string Mm(double value) =>
@@ -107,38 +140,47 @@ public static class InteriorSpacingTheme
     public static string MmToIn(double mm) =>
         (mm / MmPerInch).ToString("0.####", CultureInfo.InvariantCulture) + "in";
 
-    /// <summary>Trade paperback page padding — top, outside, bottom, inside.</summary>
+    /// <summary>Converts inches to CSS length.</summary>
+    public static string In(double inches) =>
+        inches.ToString("0.####", CultureInfo.InvariantCulture) + "in";
+
+    /// <summary>Standard trade paperback page padding — top, outside, bottom, inside (gutter).</summary>
     public static InteriorLayoutTokens.ContentPaddingSpec TradePaperbackPagePadding =>
         new(
-            MmToIn(PageTopPaddingMm),
-            MmToIn(PageOutsideMarginMm),
-            MmToIn(PageBottomPaddingMm),
-            MmToIn(PageInsideMarginMm));
+            In(MarginTopIn),
+            In(MarginOutsideIn),
+            In(MarginBottomIn),
+            In(MarginInsideIn));
 
-    /// <summary>KDP 6×9 Chromium margin box (header/footer band outside the text block).</summary>
+    /// <summary>Clean Minimalist — more white space on every edge.</summary>
+    public static InteriorLayoutTokens.ContentPaddingSpec MinimalistPagePadding =>
+        new(
+            In(MinimalistMarginTopIn),
+            In(MinimalistMarginOutsideIn),
+            In(MinimalistMarginBottomIn),
+            In(MinimalistMarginInsideIn));
+
+    /// <summary>KDP 6×9 Chromium margin box (reference — export uses @page margin 0 + HTML padding).</summary>
     public static InteriorLayoutTokens.PrintMarginSpec KdpPrintMarginBox =>
         new(
-            MmToIn(PrintMarginTopMm),
-            MmToIn(PrintMarginBottomMm),
-            MmToIn(PrintMarginInsideMm),
-            MmToIn(PrintMarginOutsideMm));
+            In(MarginTopIn),
+            In(MarginBottomIn),
+            In(MarginInsideIn),
+            In(MarginOutsideIn));
 
-    /// <summary>
-    /// Chromium/Puppeteer margins for PDF export — matches Book Formatter preview on <b>every</b> page:
-    /// top pad + running head + gap; bottom pad + folio gap + folio; gutter/outside sheet padding.
-    /// </summary>
+    /// <summary>Chromium margin reference when header/footer lived outside HTML (superseded by in-page chrome).</summary>
     public static InteriorLayoutTokens.PrintMarginSpec PdfExportChromiumMargins =>
         new(
-            MmToIn(PageTopPaddingMm + RunningHeadHeightMm + RunningHeadGapBelowMm),
-            MmToIn(PageBottomPaddingMm + FolioHeightMm + FolioGapAboveMm),
-            MmToIn(PageInsideMarginMm),
-            MmToIn(PageOutsideMarginMm));
+            In(MarginTopIn + (RunningHeadHeightMm + RunningHeadGapBelowMm) / MmPerInch),
+            In(MarginBottomIn + (FolioHeightMm + FolioGapAboveMm) / MmPerInch),
+            In(MarginInsideIn),
+            In(MarginOutsideIn));
 
     /// <summary>Shared spacing block for client-side token sync (formatter JS).</summary>
     public static object ClientSpacingPayload() => new
     {
-        chapterDrop = Mm(ChapterDropMm),
-        textMax = MmToIn(TextColumnWidthMm),
+        chapterDrop = In(ChapterTitleSinkIn),
+        textMax = "100%",
         paraSpace = Mm(ParagraphSpacingMm),
         textIndent = Mm(FirstLineIndentMm),
         runningHeadH = MmToIn(RunningHeadHeightMm),
@@ -147,9 +189,14 @@ public static class InteriorSpacingTheme
         folioGapAbove = MmToIn(FolioGapAboveMm),
         frontPadTop = MmToIn(FrontMatterPadTopMm),
         titlePagePadTop = MmToIn(TitlePagePadTopMm),
+        marginInside = In(MarginInsideIn),
+        marginOutside = In(MarginOutsideIn),
+        marginTop = In(MarginTopIn),
+        marginBottom = In(MarginBottomIn),
         lineHeightTight = LineHeightTight.ToString("0.#", CultureInfo.InvariantCulture),
         lineHeightNormal = LineHeightNormal.ToString("0.#", CultureInfo.InvariantCulture),
         lineHeightRelaxed = LineHeightRelaxed.ToString("0.#", CultureInfo.InvariantCulture),
-        lineHeightLoose = LineHeightLoose.ToString("0.#", CultureInfo.InvariantCulture)
+        lineHeightLoose = LineHeightLoose.ToString("0.#", CultureInfo.InvariantCulture),
+        typography = InteriorTypographyPresets.ClientTypographyPayload()
     };
 }

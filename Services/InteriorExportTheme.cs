@@ -21,9 +21,12 @@ public static class InteriorExportTheme
             || s.Equals("Classic", StringComparison.OrdinalIgnoreCase))
             return "Classic";
         if (s.Equals("Clean", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("Minimalist", StringComparison.OrdinalIgnoreCase))
+            || s.Equals("Minimalist", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("CleanMinimalist", StringComparison.OrdinalIgnoreCase))
             return "Minimalist";
         if (s.Equals("POD", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("POD Elegant Trade", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("PODElegantTrade", StringComparison.OrdinalIgnoreCase)
             || s.Equals("Elegant trade", StringComparison.OrdinalIgnoreCase)
             || s.Equals("ElegantTrade", StringComparison.OrdinalIgnoreCase))
             return "ElegantTrade";
@@ -49,35 +52,11 @@ public static class InteriorExportTheme
     }
 
     /// <summary>Body font size in px — matches formatter <c>applyPreviewStyles</c>.</summary>
-    public static string ResolveBodyFontSizePx(string? interiorStyle, string? textSize)
-    {
-        var interior = NormalizeInteriorStyle(interiorStyle);
-        var size = NormalizeTextSize(textSize);
-        if (interior is "Classic" or "ElegantTrade")
-        {
-            return size switch
-            {
-                "Small" => "14",
-                "Large" => "19",
-                _ => interior == "ElegantTrade" ? "16" : "17"
-            };
-        }
+    public static string ResolveBodyFontSizePx(string? interiorStyle, string? textSize) =>
+        InteriorTypographyPresets.ResolveBodyFontSizePx(interiorStyle, textSize);
 
-        return size switch
-        {
-            "Small" => "14",
-            "Large" => "20",
-            _ => "16"
-        };
-    }
-
-    public static string ResolveBodyFontSizePt(string? interiorStyle, string? textSize)
-    {
-        if (!double.TryParse(ResolveBodyFontSizePx(interiorStyle, textSize), NumberStyles.Integer, CultureInfo.InvariantCulture, out var px))
-            px = 16;
-        var pt = px * 0.75;
-        return pt.ToString("0.##", CultureInfo.InvariantCulture);
-    }
+    public static string ResolveBodyFontSizePt(string? interiorStyle, string? textSize) =>
+        InteriorTypographyPresets.ResolveBodyFontSizePt(interiorStyle, textSize);
 
     /// <summary>Exact multiplier shared with formatter <c>--fmt-line-height</c> (1.4 / 1.6 / 1.8 / 2).</summary>
     public static string ResolveLineHeight(string? lineSpacing) =>
@@ -203,7 +182,7 @@ public static class InteriorExportTheme
             ".title-page-author { font-size: 13pt; margin: 16mm 0 3mm; letter-spacing: 0.06em; } ",
             ".title-page-genre { font-size: 9pt; color: #8a8175; text-transform: uppercase; letter-spacing: 0.22em; margin-top: 3mm; } ",
             ".reader-page-title { font-family: var(--heading-font); color: var(--heading-color); font-weight: 600; } ",
-            ".export-meta { font-size: 9pt; color: #64748b; margin: 0 0 4mm; line-height: 1.45; } ",
+            ".book-pdf-body .export-meta { display: none !important; } ",
             ".manuscript-h1 { font-size: 16pt; margin: 5mm 0 3mm; font-family: var(--heading-font); color: var(--heading-color); } ",
             ".manuscript-h2 { font-size: 14pt; margin: 4mm 0 2mm; font-family: var(--heading-font); color: var(--heading-color); } ",
             ".manuscript-h3 { font-size: 12pt; margin: 3mm 0 2mm; font-family: var(--heading-font); color: var(--heading-color); } ",
@@ -223,10 +202,8 @@ public static class InteriorExportTheme
             ".book-pdf-body.interior-modern .reader-page-body p { border-left-color: var(--fmt-accent, #6366f1); } ",
             ".book-pdf-body blockquote { border-left-color: var(--fmt-accent, #c4b5fd); } ",
             ".reader-content-wrap { background: var(--page-bg); -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
-            /* Sheet padding is folded into Chromium margins — must not apply only on the first page fragment. */
-            ".book-pdf-body .book-preview-sheet { padding: 0 !important; } ",
-            ".book-pdf-body .title-page { padding-left: 0; padding-right: 0; } ",
-            ".book-pdf-body .copyright-page, .book-pdf-body .toc-page { padding-left: 0; padding-right: 0; } ");
+            InteriorLayoutTokens.BuildPdfInContentPageChromeCss(),
+            ".book-pdf-body .title-page { padding-left: var(--ilt-pad-left); padding-right: var(--ilt-pad-right); } ");
 
         var tplCss = interior switch
         {
@@ -266,7 +243,7 @@ public static class InteriorExportTheme
             scope, ".interior-minimalist .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #3f3f46; } ",
             scope, ".interior-minimalist .reader-page-body p { text-indent: 0; margin-bottom: 1.1em; } ",
             scope, ".interior-elegant-trade .reader-page-title { font-family: 'Lora', 'Times New Roman', serif; font-weight: 600; letter-spacing: 0.06em; color: #3d2914; text-align: center; border-bottom: 1px solid #c8b08e; } ",
-            scope, ".interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
+            scope, ".interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
             scope, ".interior-elegant-trade .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
             scope, ".interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ");
 

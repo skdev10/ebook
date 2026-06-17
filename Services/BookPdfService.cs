@@ -66,8 +66,8 @@ public class BookPdfService : IBookPdfService
             "PDF export book={BookId} engine={Engine} style={Style} htmlLen={Len}",
             details.BookId, PdfExportEngine.Resolve(_configuration), opt.InteriorStyle, html.Length);
 
-        var headerTemplate = BuildHeaderTemplate(title, author);
-        var footerTemplate = BuildFooterTemplate();
+        var headerTemplate = string.Empty;
+        var footerTemplate = string.Empty;
 
         var configuredEngine = PdfExportEngine.Resolve(_configuration);
         if (configuredEngine != PdfExportEngine.PdfSharp)
@@ -144,8 +144,8 @@ public class BookPdfService : IBookPdfService
         html.Append("</div></body></html>");
 
         var layout = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions(), BookPdfLayoutOptions.FromConfiguration(_configuration));
-        var headerTemplate = BuildHeaderTemplate(title, author);
-        var footerTemplate = BuildFooterTemplate();
+        var headerTemplate = string.Empty;
+        var footerTemplate = string.Empty;
 
         try
         {
@@ -188,7 +188,7 @@ public class BookPdfService : IBookPdfService
         return await File.ReadAllTextAsync(path, cancellationToken);
     }
 
-    /// <summary>Flowed content height per printed page (page height minus top/bottom print margins) at 96 dpi.</summary>
+    /// <summary>Flowed content height per printed page at 96 dpi (full trim when margins are zero).</summary>
     private static double? ComputeContentHeightPx(BookPdfPlatformLayout.PdfLayoutSpec layout)
     {
         var pageIn = layout.PdfHeight != null && layout.PdfHeight.Contains("in", StringComparison.OrdinalIgnoreCase)
@@ -217,38 +217,6 @@ public class BookPdfService : IBookPdfService
             throw new InvalidOperationException("PDF generation produced an empty document.");
         if (pdfBytes[0] != (byte)'%' || pdfBytes[1] != (byte)'P' || pdfBytes[2] != (byte)'D' || pdfBytes[3] != (byte)'F')
             throw new InvalidOperationException("PDF generation produced invalid output.");
-    }
-
-    /// <summary>
-    /// Book-style running head: small letterspaced caps, centered, floated into the top margin
-    /// with breathing room above and below — no web-style rule line.
-    /// </summary>
-    private static string BuildHeaderTemplate(string title, string author)
-    {
-        var t = WebUtility.HtmlEncode(TruncateForHeader(title, 52));
-        var pagePadTop = InteriorSpacingTheme.MmToIn(InteriorSpacingTheme.PageTopPaddingMm);
-        return "<div style=\"width:100%;box-sizing:border-box;padding:" + pagePadTop +
-               " " + InteriorLayoutTokens.RunningHeadPadSides + " " + InteriorLayoutTokens.RunningHeadGapBelow + " " + InteriorLayoutTokens.RunningHeadPadInside + ";" +
-               "font-family:Georgia,'Times New Roman',serif;font-size:7.5px;color:#7c7368;" +
-               "letter-spacing:0.22em;text-transform:uppercase;text-align:center;" +
-               "min-height:" + InteriorLayoutTokens.RunningHeadPadTop + ";line-height:1.35;" +
-               "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;\">" + t + "</div>";
-    }
-
-    /// <summary>Folio only (centered page number) — “Page X of Y” reads like a report, not a book.</summary>
-    private static string BuildFooterTemplate()
-    {
-        return "<div style=\"width:100%;box-sizing:border-box;padding:" + InteriorLayoutTokens.FolioGapAbove +
-               " " + InteriorLayoutTokens.RunningHeadPadSides + " " + InteriorLayoutTokens.FolioPadBottom + " " +
-               InteriorLayoutTokens.RunningHeadPadInside + ";" +
-               "font-family:Georgia,'Times New Roman',serif;font-size:8.5px;color:#7c7368;" +
-               "letter-spacing:0.12em;text-align:center;\"><span class=\"pageNumber\"></span></div>";
-    }
-
-    private static string TruncateForHeader(string s, int max)
-    {
-        if (string.IsNullOrEmpty(s)) return "";
-        return s.Length <= max ? s : s.Substring(0, max - 1) + "…";
     }
 
     private async Task<string?> ResolveCoverSrcAsync(string? dataUrl, string? coverPath, CancellationToken ct)

@@ -1,0 +1,13 @@
+@* Shared interior chapter page — same DOM as PDF export (InteriorPageMarkup). *@
+@model EBookDashboard.Models.InteriorPageModel
+<section class="chapter" id="ch-@Model.SectionId">
+  <div class="book-preview-sheet">
+    <div class="page-header book-page-running-head" aria-hidden="false">@Model.RunningHeadTitle</div>
+    <div class="page-body">
+      <div class="reader-chapter-block" data-chapter-start="1">
+        <article class="reader-page-title">@Html.Raw(Model.TitleHtml)</article>
+        <section class="@Model.BodyClass">@Html.Raw(Model.BodyHtml)</section>
+      </div>
+    </div>
+  </div>
+</section>

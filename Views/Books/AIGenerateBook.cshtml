@@ -1271,14 +1271,18 @@
     .iteration-select-wrap:focus-within .iteration-select-chevron {
         color: #7c3aed;
     }
-    /* Tighter spacing above Book formatting button */
-    .ai-writer-sidebar #writerAutoSaveStatus {
-        margin: 0.25rem 0 0;
-        min-height: 1rem;
+    /* Tighter spacing between topic textarea and Book formatting button */
+    .ai-writer-sidebar [data-guided-tour="ai-topic-generate"] {
+        gap: 0.5rem !important;
     }
-    .ai-writer-sidebar #nextStepSection {
-        margin-top: 0.25rem !important;
-        padding-top: 0.5rem !important;
+    .ai-writer-sidebar #writerAutoSaveStatus {
+        margin: 0.125rem 0 0;
+        min-height: 0;
+    }
+    .ai-writer-sidebar [data-guided-tour="ai-topic-generate"] .ai-writer-sticky-actions {
+        margin-top: 0.25rem;
+        padding-top: 0.25rem;
+        border-top-color: #e8edf2;
     }
     #chapterTopicBox > div:last-child {
         margin-top: 0;
@@ -1517,7 +1521,7 @@
                     </div>
                     <p class="chapter-edit-notice"><i class="fas fa-info-circle text-purple-500"></i> Save draft here; official chapter lock &amp; PDF — <strong>Book formatting</strong> page par last step.</p>
                 </div>
-                <p id="writerAutoSaveStatus" class="text-xs text-slate-400 min-h-[1.25rem] leading-relaxed" aria-live="polite"></p>
+                <p id="writerAutoSaveStatus" class="text-xs text-slate-400 leading-relaxed" aria-live="polite"></p>
                 <input type="hidden" id="APIRawResponse">
 
                 <div class="ai-writer-sticky-actions" data-guided-tour="ai-next-step">

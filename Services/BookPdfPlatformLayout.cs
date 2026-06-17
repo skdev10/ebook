@@ -79,32 +79,22 @@ public static class BookPdfPlatformLayout
         PreferCssPageSize: false);
 
     /// <summary>
-    /// 6×9 print margins — same inset as Book Formatter preview on every page (pad + running head + folio).
+    /// 6×9 print — full trim page; KDP margins live in HTML (<c>.book-preview-sheet</c> padding + in-page running head).
     /// </summary>
     private static PdfLayoutSpec Trim6x9Print(bool bleedHeavy)
     {
-        var m = InteriorLayoutTokens.PdfExportChromiumMargins;
-        var bleedBump = bleedHeavy ? 0.05 : 0.0;
+        _ = bleedHeavy; // reserved for future bleed-specific margin bumps
         return new PdfLayoutSpec(
             PageSizeCss: "6in 9in",
             PdfWidth: "6in",
             PdfHeight: "9in",
             UseBuiltInFormat: false,
             BuiltInFormat: PaperFormat.A4,
-            MarginTop: InchesWithBump(m.Top, bleedBump),
-            MarginBottom: InchesWithBump(m.Bottom, bleedBump),
-            MarginLeft: InchesWithBump(m.Inside, bleedBump * 0.6),
-            MarginRight: InchesWithBump(m.Outside, bleedBump * 0.4),
+            MarginTop: "0",
+            MarginBottom: "0",
+            MarginLeft: "0",
+            MarginRight: "0",
             PreferCssPageSize: true);
-    }
-
-    private static string InchesWithBump(string inches, double bump)
-    {
-        if (bump <= 0 || !inches.EndsWith("in", StringComparison.OrdinalIgnoreCase)) return inches;
-        if (!double.TryParse(inches[..^2], System.Globalization.NumberStyles.Any,
-                System.Globalization.CultureInfo.InvariantCulture, out var v))
-            return inches;
-        return FormattableString.Invariant($"{v + bump:0.##}in");
     }
 
     private static string NormalizePlatform(string? raw)
