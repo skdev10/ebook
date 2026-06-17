@@ -837,9 +837,6 @@
         margin: 0;
         pointer-events: none;
     }
-    #fmt-preview-scroll-host .chapter-preview-viewport.book-page-preview-content {
-        padding-block: 0.75rem;
-    }
     #fmt-preview-scroll-host .reader-nav-btn,
     #fmt-preview-scroll-host .ai-writer-preview-side-nav {
         pointer-events: auto;
@@ -1091,8 +1088,6 @@
     #preview-single .book-page-footer ::selection { background: #D4E8F5; color: #0f172a; }
     #preview-single section ::selection { background: #F0D878; color: #1a1200; }
     /* Frame, padding, margins, typography: InteriorLayoutTokens.cs (#interior-layout-tokens). */
-    #book-formatter-root #btnAiWriterPrevSide,
-    #book-formatter-root #btnAiWriterNextSide { display: none !important; }
     #book-formatter-root .fmt-float-nav {
         position: absolute;
         top: 50%;
@@ -1186,12 +1181,11 @@
         padding-top: 0;
         margin-top: 0;
     }
-    #fmt-book-result .paginated-reader-shell {
+    #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
         position: relative;
         width: auto;
         max-width: min(100%, 100%);
-        margin-left: auto;
-        margin-right: auto;
+        margin-inline: auto;
         flex: 0 0 auto;
         min-height: 0;
         aspect-ratio: 6 / 9;
@@ -1199,12 +1193,11 @@
         display: flex;
         flex-direction: column;
         box-sizing: border-box;
-        padding: 0 !important;
-        border-radius: 14px;
-        background: transparent;
-        border: none;
-        box-shadow: none;
-        transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    }
+    @@media (min-width: 1024px) {
+        #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
+            max-height: calc(100dvh - 9rem);
+        }
     }
     /* Mat/frame/chrome: InteriorLayoutTokens.BuildFrameAndSheetCss */
     .paginated-reader-shell.reader-content-wrap {
@@ -1214,7 +1207,7 @@
     #preview-both .paginated-reader-shell {
         max-width: 100%;
     }
-    #fmt-book-result #preview-content.chapter-preview-viewport,
+    #fmt-book-result #preview-content.chapter-preview-viewport.book-page-preview-content,
     #fmt-book-result #preview-content-ebook.chapter-preview-viewport,
     #fmt-book-result #preview-content-paperback.chapter-preview-viewport {
         position: relative;
@@ -1222,20 +1215,16 @@
         width: 100%;
         flex: 1 1 auto;
         min-height: 0;
-        overflow-y: hidden !important;
-        overflow-x: hidden;
-        overscroll-behavior: contain;
+        height: auto;
+        overflow: hidden !important;
+        overscroll-behavior: none;
         box-sizing: border-box;
-        padding: 1.5rem;
-        padding-bottom: clamp(0.65rem, 1.8vw, 0.85rem);
         margin: 0;
+        padding: 0.25rem clamp(1rem, 2.2vw, 1.5rem) clamp(1rem, 2vw, 1.35rem);
+        font-size: 0.8125rem;
+        line-height: 1.65;
     }
-    .paginated-reader-shell.interior-novel .chapter-preview-viewport { background: #fffef9; }
-    .paginated-reader-shell.interior-modern .chapter-preview-viewport { background: #fafafa; }
-    .paginated-reader-shell.interior-classic .chapter-preview-viewport { background: #fffefb; }
-    .paginated-reader-shell.interior-minimalist .chapter-preview-viewport { background: #fff; }
-    .paginated-reader-shell.interior-elegant-trade .chapter-preview-viewport { background: #fffef8; }
-    #fmt-book-result .ai-writer-preview-side-nav {
+    #book-formatter-root .fmt-float-nav {
         display: none !important;
     }
     #book-formatter-root .book-page-footer-classic {
@@ -1306,10 +1295,6 @@
         max-height: none !important;
         overflow: visible !important;
     }
-    .fmt-chapter-nav-below {
-        border-top: 1px solid rgba(196, 181, 253, 0.35);
-        padding-top: 0.5rem;
-    }
     /* Full-book read strip: fixed footprint (shrink-0), does not change .fmt-studio-stage outer height */
     .fmt-fullbook-read-bar {
         flex-shrink: 0;
@@ -1372,10 +1357,12 @@
         z-index: 6;
         background: #fff;
     }
-    /* AI Writer `#bookResult` lavender card */
+    /* AI Writer `#bookResult` — transparent wrap; lavender stage is on scroll host */
     .fmt-book-result {
         box-sizing: border-box;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        border: none;
+        box-shadow: none;
+        background: transparent;
     }
     /*
      * Preview card height floor: without this, flex-1 + min-h-0 ancestors can shrink the reader to a strip
@@ -1419,7 +1406,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: flex-start;
+        justify-content: center;
         overflow: hidden !important;
     }
     #fmt-preview-scroll-host .preview-panel-single {
@@ -1529,21 +1516,10 @@
         #fmt-preview-scroll-host { min-height: 0 !important; }
     }
 
-    #fmt-book-result .paginated-reader-shell {
-        margin-left: auto !important;
-        margin-right: auto !important;
-        aspect-ratio: 6 / 9 !important;
-        overflow: hidden !important;
-        flex: 0 0 auto !important;
-        min-height: 0 !important;
+    #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
+        margin-inline: auto;
         width: auto;
         max-width: min(100%, 100%);
-    }
-
-    #fmt-book-result #preview-content.chapter-preview-viewport,
-    #fmt-book-result #preview-content-ebook.chapter-preview-viewport,
-    #fmt-book-result #preview-content-paperback.chapter-preview-viewport {
-        padding: 0 !important;
     }
 </style>
 <partial name="_InteriorLayoutTokens" />
@@ -1743,11 +1719,11 @@
                                     </button>
                                 </div>
                                 <!-- Match AI Book Writer `#bookResult` lavender panel + scroll host -->
-                                <div id="fmt-book-result" class="fmt-book-result fmt-mat-novel relative rounded-2xl py-2 shadow-md border flex flex-col flex-1 min-h-0 overflow-hidden transition-shadow duration-200 hover:shadow-lg">
+                                <div id="fmt-book-result" class="fmt-book-result fmt-mat-novel relative flex flex-col flex-1 min-h-0 overflow-hidden">
                                     <div id="fmt-preview-scroll-host" class="chapter-preview-scroll-host book-preview-stage book-interior-scroll-host flex-1 min-h-0 flex flex-col w-full" data-guided-tour="fmt-preview" data-book-interior-root="1">
                                         <div id="preview-single" class="preview-panel-single flex flex-1 flex-col min-h-0 w-full" tabindex="0">
                                             <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell reader-content-wrap interior-novel interior-preview-novel relative w-full flex-shrink-0 flex flex-col">
-                                                <div id="bookStage" class="book-stage" style="display:none;">
+                                                <div id="bookStage" class="book-stage hidden" style="display:none;" aria-hidden="true">
                                                     <div id="bookContainer" class="book-container">
                                                         <div id="pageLayerA" class="book-page-layer" aria-hidden="false">
                                                             <div class="book-page-background"></div>
@@ -1768,19 +1744,13 @@
                                                     </div>
                                                     <div id="bookPageIndicator" class="book-page-indicator" aria-live="polite">1 / 1</div>
                                                 </div>
-                                                <button type="button" id="bookNavPrev" class="book-preview-nav-side book-preview-nav-side-prev fmt-float-nav fmt-float-nav-prev" aria-label="Previous page" title="Previous page">
-                                                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
-                                                </button>
-                                                <button type="button" id="bookNavNext" class="book-preview-nav-side book-preview-nav-side-next fmt-float-nav fmt-float-nav-next" aria-label="Next page" title="Next page">
-                                                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                                                </button>
                                                 <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page">
                                                     <i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i>
                                                 </button>
                                                 <button type="button" id="btnAiWriterNextSide" class="book-preview-nav-side book-preview-nav-side-next ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page">
                                                     <i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i>
                                                 </button>
-                                                <div id="preview-content" class="chapter-preview-viewport book-page-preview-content hidden"></div>
+                                                <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col text-base text-slate-700 leading-relaxed"></div>
                                                 <div id="fmt-export-preview-wrap" class="fmt-export-preview-wrap hidden" aria-label="Export-exact preview (same HTML as PDF)">
                                                     <iframe id="fmt-export-preview-iframe" title="Export preview — matches downloaded PDF" class="fmt-export-preview-iframe"></iframe>
                                                 </div>
@@ -1790,19 +1760,7 @@
                                         </div>
                                         <div id="preview-both" class="preview-panel-both hidden flex flex-1 flex-col min-h-0 w-full" style="display:none;">
                                         </div>
-                                    </div>
-                                <!-- Below lavender preview: chapter + library (AI Writer pattern, does not cover the reader) -->
-                                <div id="fmt-chapter-nav-below" class="chapter-preview-nav book-preview-nav-dock fmt-chapter-nav-below mt-4 shrink-0 flex items-center justify-between gap-2 px-2 pb-3">
-                                    <button type="button" id="calcBtnPrev" class="book-preview-nav-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Previous page">
-                                        <i class="fas fa-chevron-left" aria-hidden="true"></i>
-                                        <span class="hidden sm:inline">Previous</span>
-                                    </button>
-                                    <span id="calcPageLabel" class="text-sm font-medium text-slate-600 text-center px-2">Page 1 / 1</span>
-                                    <button type="button" id="calcBtnNext" class="book-preview-nav-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0" disabled title="Next page">
-                                        <span class="hidden sm:inline">Next</span>
-                                        <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                                    </button>
-                                </div>
+                                        </div>
                             </div>
                         </div>
                     </div>
@@ -2308,18 +2266,16 @@
     var fmtTocNavWired = false;
     function wireFormatterTocLinks() {
         if (fmtTocNavWired) return;
-        var stage = document.getElementById('bookStage');
-        if (!stage) return;
+        var root = document.getElementById('preview-content') || document.getElementById('bookStage');
+        if (!root) return;
         fmtTocNavWired = true;
-        stage.addEventListener('click', function(e) {
+        root.addEventListener('click', function(e) {
             var anchor = e.target && e.target.closest ? e.target.closest('.toc-link[data-goto-page]') : null;
             if (!anchor) return;
             e.preventDefault();
             var p = parseInt(anchor.getAttribute('data-goto-page') || '', 10);
             if (!Number.isFinite(p) || p < 1) return;
-            currentPageIdx = p - 1;
-            FmtBookStageReader.goToPage(currentPageIdx);
-            updatePageIndicator();
+            navigateToReaderPage(p - 1);
             persistReaderPageBookmark();
         });
     }
@@ -2698,10 +2654,7 @@
 
     /** Usable inner height for one 6×9 page (content box — no scroll). */
     function ensureFmtStageVisibleForMeasure() {
-        if (typeof FmtBookStageReader !== 'undefined') {
-            FmtBookStageReader.ensureDom();
-            FmtBookStageReader.show();
-        }
+        syncFmtPreviewLayout();
     }
 
     function getFmtContentAreaHeightPx() {
@@ -2754,8 +2707,30 @@
         return 520;
     }
 
+    /** Match AI Book Writer `getReaderPageMaxHeight` — usable height inside `#preview-content`. */
+    function getFmtReaderPageMaxHeight() {
+        var shell = document.getElementById('paginatedReaderShell');
+        var viewport = document.getElementById('preview-content')
+            || document.getElementById('preview-content-ebook')
+            || document.getElementById('preview-content-paperback');
+        if (!viewport) return getFmtContentAreaHeightPx();
+        var vs = window.getComputedStyle(viewport);
+        var padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
+        var blockPad = 0;
+        var sample = viewport.querySelector('.reader-chapter-block, .book-preview-sheet');
+        if (sample) {
+            var bs = window.getComputedStyle(sample);
+            blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
+        }
+        var usable = Math.max(0, viewport.clientHeight - padY - blockPad - 8);
+        if (usable >= 32) return usable;
+        if (!shell || shell.clientHeight < 48) return getFmtContentAreaHeightPx();
+        return Math.max(0, shell.clientHeight - padY - blockPad - 8);
+    }
+
     function getFmtPageMaxHeightPx() {
-        return getFmtContentAreaHeightPx();
+        var h = getFmtReaderPageMaxHeight();
+        return h >= 32 ? h : getFmtContentAreaHeightPx();
     }
 
     function fmtCanMeasurePages() {
@@ -2792,68 +2767,40 @@
         viewportEl.style.fontFamily = rs.fontFamily;
     }
 
-    /** Measure block height using the same DOM/CSS as the paginated book stage (not the legacy viewport). */
+    /** Measure block height using the same flat `#preview-content` viewport as AI Book Writer. */
     function renderFmtMeasureSandbox(blockInnerHtml) {
         var mh = document.getElementById('fmt-preview-measure-host');
         if (!mh) return null;
         var w = getFmtMeasureShellWidth();
         if (w < 48) return null;
 
-        var styleEl = document.getElementById('style-select');
-        var interior = styleEl ? String(styleEl.value || 'Novel') : 'Novel';
-        var contentCls = interiorWrapClassMap[interior] || interiorWrapClassMap['Novel'];
-        var wrapCls = contentCls;
-        var stage = document.getElementById('bookStage');
-        var shellH = document.getElementById('paginatedReaderShell');
-        var shellHeight = (shellH && shellH.clientHeight >= 80) ? shellH.clientHeight : Math.floor(w * (9 / 6));
-        var contentMaxH = getFmtContentAreaHeightPx();
-        if (!contentMaxH || contentMaxH < 48) contentMaxH = Math.max(160, Math.floor(shellHeight * 0.72));
-        var varSource = stage || shellH;
-        var runTitle = (bookPreviewContext && bookPreviewContext.bookTitle) || '';
-        runTitle = String(runTitle).trim();
-        var showHead = runTitle.length > 0 && !(blockInnerHtml || '').match(/front-matter-page|title-page|copyright-page|toc-page/);
-        var headHtml = showHead
-            ? '<div class="book-page-running-head">' + escapeHtml(runTitle.length > 52 ? runTitle.substring(0, 49) + '\u2026' : runTitle) + '</div>'
-            : '<div class="book-page-running-head is-empty" aria-hidden="true"></div>';
+        var viewport = document.getElementById('preview-content')
+            || document.getElementById('preview-content-ebook')
+            || document.getElementById('preview-content-paperback');
+        var maxH = getFmtReaderPageMaxHeight();
+        if (!maxH || maxH < 48) maxH = getFmtPageMaxHeightPx();
+        if (!maxH || maxH < 48) return null;
 
-        mh.style.width = w + 'px';
-        mh.style.padding = '0';
-        mh.style.boxSizing = 'border-box';
-        if (varSource) {
-            ['--ilt-pad-top', '--ilt-pad-right', '--ilt-pad-bottom', '--ilt-pad-left',
-                '--ilt-body-px', '--ilt-body-lh', '--fmt-font-size', '--fmt-line-height',
-                '--ilt-text-align', '--ilt-text-max'].forEach(function (v) {
-                var val = varSource.style.getPropertyValue(v) || window.getComputedStyle(varSource).getPropertyValue(v);
-                if (val && val.trim()) mh.style.setProperty(v, val.trim());
-            });
+        if (viewport) {
+            var vpStyles = window.getComputedStyle(viewport);
+            mh.style.width = w + 'px';
+            mh.style.padding = vpStyles.padding;
+            mh.style.fontSize = vpStyles.fontSize;
+            mh.style.lineHeight = vpStyles.lineHeight;
+            mh.style.boxSizing = 'border-box';
+            var inner = blockInnerHtml || '';
+            if (inner.indexOf('reader-chapter-block') < 0) {
+                inner = '<div class="reader-chapter-block">' + inner + '</div>';
+            }
+            mh.innerHTML = inner;
+            var block = mh.querySelector('.reader-chapter-block');
+            if (!block) return null;
+            applyPreviewStyles(block);
+            syncFmtMeasureTypography(block);
+            return block;
         }
-        mh.innerHTML =
-            '<div class="paginated-reader-shell reader-content-wrap ' + wrapCls + '" style="width:' + w + 'px;height:' + shellHeight + 'px;padding:0;border:0;box-shadow:none;aspect-ratio:auto;min-height:0;display:flex;flex-direction:column">' +
-            '<div class="book-container" style="width:100%;height:100%;display:flex;flex-direction:column;min-height:0">' +
-            '<div class="book-page-content-wrap" style="box-sizing:border-box;flex:1;min-height:0;height:100%;display:flex;flex-direction:column;padding:var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left)">' +
-            headHtml +
-            '<div class="book-page-content ' + contentCls + '" style="overflow:hidden;flex:1;min-height:0;height:' + contentMaxH + 'px;max-height:' + contentMaxH + 'px">' +
-            (blockInnerHtml || '') +
-            '</div><div class="book-page-footer book-page-footer-novel">&mdash; 1 &mdash;</div></div></div></div>';
 
-        var contentEl = mh.querySelector('.book-page-content');
-        if (!contentEl) return null;
-        if (varSource) {
-            var fs = varSource.style.getPropertyValue('--fmt-font-size') || window.getComputedStyle(varSource).getPropertyValue('--fmt-font-size')
-                || window.getComputedStyle(document.documentElement).getPropertyValue('--ilt-body-px');
-            var lh = varSource.style.getPropertyValue('--fmt-line-height') || window.getComputedStyle(varSource).getPropertyValue('--fmt-line-height')
-                || window.getComputedStyle(document.documentElement).getPropertyValue('--ilt-body-lh');
-            if (fs && fs.trim()) {
-                contentEl.style.setProperty('--fmt-font-size', fs.trim());
-                contentEl.style.setProperty('--ilt-body-px', fs.trim());
-            }
-            if (lh && lh.trim()) {
-                contentEl.style.setProperty('--fmt-line-height', lh.trim());
-                contentEl.style.setProperty('--ilt-body-lh', lh.trim());
-            }
-        }
-        applyPreviewStyles(contentEl);
-        return contentEl;
+        return null;
     }
 
     function measureFmtPageBlock(blockInnerHtml) {
@@ -2864,8 +2811,7 @@
     function fmtPageContentFits(blockInnerHtml) {
         var contentEl = renderFmtMeasureSandbox(blockInnerHtml);
         if (!contentEl) return true;
-        var maxH = contentEl.clientHeight;
-        if (!maxH || maxH < 24) maxH = getFmtPageMaxHeightPx();
+        var maxH = getFmtReaderPageMaxHeight() || getFmtPageMaxHeightPx();
         if (!maxH || maxH < 24) return true;
         return contentEl.scrollHeight <= maxH + 1;
     }
@@ -3347,20 +3293,22 @@
     /** Force shell dimensions when flex host height is not yet measurable. */
     function applyFmtPreviewShellFallback(shell, scrollHost) {
         if (!shell || !scrollHost) return false;
+        var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        var maxShellH = Math.max(360, Math.floor(window.innerHeight - 9 * remPx));
         var pane = scrollHost.closest('.fmt-preview-pane');
         var availW = scrollHost.clientWidth || (pane ? pane.clientWidth : 0);
         if (availW < 48) availW = Math.floor(window.innerWidth * 0.68);
         var availH = scrollHost.clientHeight;
         if (availH < 120) {
-            availH = Math.max(440, Math.floor(window.innerHeight * 0.62));
+            availH = Math.min(maxShellH, Math.max(440, Math.floor(window.innerHeight * 0.62)));
             scrollHost.style.minHeight = availH + 'px';
         }
+        availH = Math.min(availH, maxShellH);
         var ratio = 6 / 9;
-        var maxShellW = Math.floor(availW * 0.94);
         var shellH = Math.floor(availH);
         var shellW = Math.floor(shellH * ratio);
-        if (shellW > maxShellW) {
-            shellW = maxShellW;
+        if (shellW > availW) {
+            shellW = Math.floor(availW);
             shellH = Math.floor(shellW / ratio);
         }
         shellW = Math.max(220, shellW);
@@ -3370,19 +3318,25 @@
         shell.style.maxWidth = '100%';
         shell.style.maxHeight = shellH + 'px';
         shell.style.flexShrink = '0';
+        shell.style.aspectRatio = '6 / 9';
         shell.dataset.layoutKey = shellW + 'x' + shellH;
         var mh = document.getElementById('fmt-preview-measure-host');
         if (mh) mh.style.width = shellW + 'px';
         return true;
     }
 
-    /** Fit the 6×9 preview shell to the studio column (no internal scroll). */
+    /** Fit the 6×9 preview shell to the studio column (matches AI Writer layout sync). */
     function syncFmtPreviewLayout() {
         var scrollHost = document.getElementById('fmt-preview-scroll-host');
         var shell = document.getElementById('paginatedReaderShell');
+        var viewport = document.getElementById('preview-content');
         if (!scrollHost || !shell) return false;
 
+        var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        var maxShellH = Math.max(360, Math.floor(window.innerHeight - 9 * remPx));
+        var isDesktop = window.innerWidth >= 1024;
         var changed = false;
+
         if (window.BookInteriorPreview && typeof window.BookInteriorPreview.syncPreviewLayout === 'function') {
             var chrome = document.getElementById('reader-chrome-main');
             var chromeReserve = 0;
@@ -3391,14 +3345,16 @@
                 host: scrollHost,
                 shell: shell,
                 measureHost: document.getElementById('fmt-preview-measure-host'),
-                navDock: document.getElementById('fmt-chapter-nav-below'),
-                minHostHeightPx: Math.max(520, Math.floor(window.innerHeight * 0.68)),
-                widthFactor: 0.94,
+                viewport: viewport,
+                minHostHeightPx: isDesktop ? 0 : Math.max(360, Math.floor(window.innerHeight * 0.52)),
+                preferHeight: isDesktop,
+                maxHeightPx: isDesktop ? maxShellH : 0,
+                widthFactor: 1,
+                syncMeasureTypography: true,
                 chromeReservePx: chromeReserve,
                 onLayoutChange: function (c) {
                     if (c && bookChapters.length) {
                         requestAnimationFrame(function() {
-                            ensureFmtStageVisibleForMeasure();
                             fmtScheduleRepaginate();
                         });
                     }
@@ -3411,32 +3367,30 @@
         return changed;
     }
 
-    /** Align the chapter bar + page nav with the book preview card width. */
+    /** Align optional reader chrome with the book preview card width. */
     function syncFormatterChromeWidth() {
         var shell = document.getElementById('paginatedReaderShell');
         var shellW = shell ? parseInt(shell.style.width || '0', 10) : 0;
-        ['reader-chrome-main', 'fmt-chapter-nav-below'].forEach(function(id) {
-            var bar = document.getElementById(id);
-            if (!bar) return;
-            if (bar.classList.contains('hidden')) {
-                bar.style.width = '';
-                bar.style.maxWidth = '';
-                bar.style.marginLeft = '';
-                bar.style.marginRight = '';
-                return;
-            }
-            if (shellW > 0) {
-                bar.style.width = shellW + 'px';
-                bar.style.maxWidth = '100%';
-                bar.style.marginLeft = 'auto';
-                bar.style.marginRight = 'auto';
-            } else {
-                bar.style.width = '100%';
-                bar.style.maxWidth = '100%';
-                bar.style.marginLeft = 'auto';
-                bar.style.marginRight = 'auto';
-            }
-        });
+        var bar = document.getElementById('reader-chrome-main');
+        if (!bar) return;
+        if (bar.classList.contains('hidden')) {
+            bar.style.width = '';
+            bar.style.maxWidth = '';
+            bar.style.marginLeft = '';
+            bar.style.marginRight = '';
+            return;
+        }
+        if (shellW > 0) {
+            bar.style.width = shellW + 'px';
+            bar.style.maxWidth = '100%';
+            bar.style.marginLeft = 'auto';
+            bar.style.marginRight = 'auto';
+        } else {
+            bar.style.width = '100%';
+            bar.style.maxWidth = '100%';
+            bar.style.marginLeft = 'auto';
+            bar.style.marginRight = 'auto';
+        }
     }
 
     function scrollReaderPanelsToTop() {
@@ -4591,10 +4545,6 @@
         }
         syncInteriorTokenVars();
         syncFmtPreviewLayout();
-        if (typeof FmtBookStageReader !== 'undefined') {
-            FmtBookStageReader.ensureDom();
-            FmtBookStageReader.show();
-        }
         var key = computeReaderBuildKey();
         if (!force && readerPages.length && key === lastReaderBuildKey) return;
         readerPages = buildReaderPages();
@@ -4865,12 +4815,11 @@
         if (hint) hint.textContent = 'Page 0 of 0';
         var fh = document.getElementById('fmt-preview-chapter-header');
         if (fh) fh.classList.add('hidden');
-        var chRow = document.getElementById('fmt-chapter-nav-below');
-        if (chRow) { chRow.classList.add('hidden'); chRow.classList.remove('flex'); }
         var readBar = document.getElementById('fmt-fullbook-read-bar');
         if (readBar) readBar.classList.remove('is-visible');
         const chrome = document.getElementById('reader-chrome-main');
         if (chrome) chrome.classList.add('hidden');
+        if (typeof FmtBookStageReader !== 'undefined') FmtBookStageReader.hide();
     }
 
     /** Match AI Book Writer: hide side chevrons when there is nothing to paginate. */
@@ -4888,10 +4837,8 @@
         const nextSide = document.getElementById('btnAiWriterNextSide');
         var prevRead = document.getElementById('fmt-btn-read-prev-page');
         var nextRead = document.getElementById('fmt-btn-read-next-page');
-        var prevStage = document.getElementById('bookNavPrev');
-        var nextStage = document.getElementById('bookNavNext');
-        [prevSide, prevRead, prevStage].forEach(function(btn) { if (btn) btn.disabled = prevDisabled; });
-        [nextSide, nextRead, nextStage].forEach(function(btn) { if (btn) btn.disabled = nextDisabled; });
+        [prevSide, prevRead].forEach(function(btn) { if (btn) btn.disabled = prevDisabled; });
+        [nextSide, nextRead].forEach(function(btn) { if (btn) btn.disabled = nextDisabled; });
     }
 
     function showErrorState(msg, userFriendly, retryBookId) {
@@ -5145,7 +5092,6 @@
         setReaderNavDisabled(currentPageIdx <= 0, currentPageIdx >= total - 1 || total === 0);
         updateReaderProgressUi();
         updateFmtPreviewChapterChrome();
-        updateFmtChapterNavBelow();
         updateFmtFullBookReadBar();
         syncFormatterSideNavVisibility();
     }
@@ -5156,6 +5102,8 @@
         var shell = document.getElementById('paginatedReaderShell');
         if (!scrollHost || !shell) return;
         syncFmtPreviewLayout();
+        var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        var maxShellH = Math.max(360, Math.floor(window.innerHeight - 9 * remPx));
         window.BookInteriorPreview.init(scrollHost, {
             bookTitle: (bookPreviewContext && bookPreviewContext.bookTitle) || '',
             mode: 'web',
@@ -5164,8 +5112,11 @@
             fitOptions: {
                 aspectRatio: 6 / 9,
                 widthFactor: 1,
-                preferHeight: true,
-                measureHost: document.getElementById('fmt-preview-measure-host')
+                preferHeight: window.innerWidth >= 1024,
+                maxHeightPx: window.innerWidth >= 1024 ? maxShellH : 0,
+                measureHost: document.getElementById('fmt-preview-measure-host'),
+                viewport: document.getElementById('preview-content'),
+                syncMeasureTypography: true
             },
             onLayoutChange: function() {
                 if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
@@ -5176,31 +5127,37 @@
     function navigateToReaderPage(pageIdx) {
         if (!readerPages.length) return;
         currentPageIdx = Math.max(0, Math.min(pageIdx, readerPages.length - 1));
-        FmtBookStageReader.goToPage(currentPageIdx);
+        var viewport = document.getElementById('preview-content');
+        if (viewport) {
+            viewport.classList.remove('hidden');
+            renderReaderPage(viewport, readerPages[currentPageIdx]);
+            wireFormatterTocLinks();
+        }
+        if (typeof FmtBookStageReader !== 'undefined') FmtBookStageReader.hide();
         updatePageIndicator();
     }
 
     function renderPreviewContent(animDir) {
-        const stage = document.getElementById('bookStage');
         const viewport = document.getElementById('preview-content');
-        if (!stage) return;
+        const stage = document.getElementById('bookStage');
+        if (!viewport) return;
         if (bookChapters.length === 0) {
-            FmtBookStageReader.hide();
-            if (viewport) {
-                viewport.classList.remove('hidden');
-                var activeBid = resolveFormatterBookId();
-                if (activeBid > 0) showNoDataState();
-                else showEmptyState();
-            }
+            if (typeof FmtBookStageReader !== 'undefined') FmtBookStageReader.hide();
+            if (stage) { stage.classList.add('hidden'); stage.style.display = 'none'; }
+            viewport.classList.remove('hidden');
+            var activeBid = resolveFormatterBookId();
+            if (activeBid > 0) showNoDataState();
+            else showEmptyState();
             setPageIndicatorsToZero();
             return;
         }
         if (readerPages.length === 0) ensureReaderPages(false);
         currentPageIdx = Math.min(currentPageIdx, Math.max(0, readerPages.length - 1));
-        if (viewport) viewport.classList.add('hidden');
-        FmtBookStageReader.show();
-        FmtBookStageReader.setPages(readerPages);
-        FmtBookStageReader.goToPage(currentPageIdx);
+        if (stage) { stage.classList.add('hidden'); stage.style.display = 'none'; }
+        viewport.classList.remove('hidden');
+        renderReaderPage(viewport, readerPages[currentPageIdx], animDir);
+        wireFormatterTocLinks();
+        if (typeof FmtBookStageReader !== 'undefined') FmtBookStageReader.hide();
         syncFmtPreviewLayout();
         updatePageIndicator();
         scrollReaderPanelsToTop();
@@ -5249,26 +5206,7 @@
         persistReaderPosition();
     }
 
-    function updateFmtChapterNavBelow() {
-        var row = document.getElementById('fmt-chapter-nav-below');
-        var prevB = document.getElementById('calcBtnPrev');
-        var nextB = document.getElementById('calcBtnNext');
-        var lab = document.getElementById('calcPageLabel');
-        if (!row || !prevB || !nextB) return;
-        if (!readerPages.length) {
-            row.classList.add('hidden');
-            return;
-        }
-        row.classList.remove('hidden');
-        var total = readerPages.length;
-        prevB.disabled = currentPageIdx <= 0;
-        nextB.disabled = currentPageIdx >= total - 1;
-        if (lab) {
-            lab.textContent = 'Page ' + (currentPageIdx + 1) + ' / ' + total;
-        }
-    }
-
-    function updateFmtFullBookReadBar() {
+    function goToNextChapter() {
         var bar = document.getElementById('fmt-fullbook-read-bar');
         var prev = document.getElementById('fmt-btn-read-prev-page');
         var next = document.getElementById('fmt-btn-read-next-page');
@@ -5963,11 +5901,6 @@
         document.getElementById('fmt-btn-studio-next')?.addEventListener('click', function() {
             document.getElementById('btn-next-cover')?.click();
         });
-        document.getElementById('calcBtnPrev')?.addEventListener('click', function() { goToPrevPage(); });
-        document.getElementById('calcBtnNext')?.addEventListener('click', function() { goToNextPage(); });
-        document.getElementById('bookNavPrev')?.addEventListener('click', function() { goToPrevPage(); });
-        document.getElementById('bookNavNext')?.addEventListener('click', function() { goToNextPage(); });
-
         document.getElementById('text-size-select')?.addEventListener('change', function() {
             if (bookChapters.length) fmtScheduleRepaginateAfterLayout();
             persistFormatterDraftLocal(getFormatterStateFromUi());

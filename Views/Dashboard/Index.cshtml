@@ -57,7 +57,8 @@
     .dash-book-card .dash-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #7c3aed 0%, #a78bfa 100%); }
     .dash-book-card .dash-progress-pct { font-size: 0.7rem; font-weight: 700; color: #7c3aed; letter-spacing: 0.02em; }
     .dashboard-cover-img.is-wrap-cover { object-position: right center; }
-    .dash-published-card { cursor: default; pointer-events: none; }
+    .dash-published-card { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+    .dash-published-card:hover { border-color: #c4b5fd; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1); }
     .dash-epub-carousel {
         display: flex; gap: 1.25rem; overflow-x: auto; scroll-behavior: smooth;
         padding: 0.25rem 0 1rem; scrollbar-width: thin;
@@ -111,34 +112,64 @@
         transform: translateY(-2px);
     }
     .dash-draft-card-wrap { position: relative; }
-    .dash-delete-book-btn {
-        position: absolute;
-        top: 0.5rem;
-        left: 0.5rem;
-        z-index: 12;
-        min-height: 1.75rem;
-        height: auto;
-        width: auto;
-        padding: 0.25rem 0.55rem;
+    .dash-book-menu-wrap { position: absolute; top: 0.45rem; right: 0.45rem; z-index: 14; }
+    .dash-book-menu-btn {
+        width: 1.75rem;
+        height: 1.75rem;
         border-radius: 9999px;
-        background: rgba(255, 255, 255, 0.97);
-        border: 1px solid #fecaca;
-        color: #dc2626;
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid #e2e8f0;
+        color: #64748b;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.3rem;
-        font-size: 0.68rem;
-        font-weight: 600;
-        line-height: 1;
-        opacity: 1;
-        transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+        font-size: 0.72rem;
         box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     }
-    .dash-delete-book-btn .dash-delete-book-label { white-space: nowrap; }
-    .dash-delete-book-btn:hover { background: #fef2f2; color: #b91c1c; }
-    .dash-published-card { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
-    .dash-published-card:hover { border-color: #c4b5fd; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1); }
+    .dash-book-menu-btn:hover { background: #f5f3ff; color: #6d28d9; border-color: #c4b5fd; }
+    .dash-book-menu {
+        position: absolute;
+        top: calc(100% + 0.25rem);
+        right: 0;
+        min-width: 8.5rem;
+        padding: 0.35rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        box-shadow: 0 12px 28px -12px rgba(15, 23, 42, 0.28);
+        display: none;
+    }
+    .dash-book-menu.is-open { display: block; }
+    .dash-book-menu a,
+    .dash-book-menu button {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        width: 100%;
+        text-align: left;
+        padding: 0.45rem 0.65rem;
+        border-radius: 0.5rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #334155;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .dash-book-menu a:hover,
+    .dash-book-menu button:hover { background: #f8fafc; color: #6d28d9; }
+    .dash-book-menu button.dash-book-menu-delete { color: #dc2626; }
+    .dash-book-menu button.dash-book-menu-delete:hover { background: #fef2f2; color: #b91c1c; }
+    #drafts-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    @@media (min-width: 640px) { #drafts-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @@media (min-width: 768px) { #drafts-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @@media (min-width: 1024px) { #drafts-list { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
     .mb-10.rounded-2xl.border.border-violet-200\/80.bg-gradient-to-br.from-violet-50.via-white.to-purple-50.p-6.sm\:p-8.shadow-sm {
         display: none;
@@ -231,20 +262,25 @@
                     }
                 </div>
                 <p class="text-sm text-slate-500 mb-6 max-w-2xl">Always open your book from here to write, format, design a cover, and publish. Following the steps keeps your work safe — skipping around can delete unsaved drafts.</p>
-                <div id="drafts-list" class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                <div id="drafts-list" class="gap-4">
                     @if (draftBooksShow.Any())
                     {
                         foreach (var draft in draftBooksShow)
                         {
                             var draftCover = DashCoverSrc(draft.CoverImagePath);
                             var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId });
+                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="dash-draft-card-wrap book-item" data-title="@title" data-book-id="@draft.BookId">
-                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
-                                </button>
+                                <div class="dash-book-menu-wrap">
+                                    <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
+                                    <div class="dash-book-menu" role="menu">
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                    </div>
+                                </div>
                                 <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
@@ -263,10 +299,10 @@
                         }
                         if (hasMoreDrafts)
                         {
-                            <div class="col-span-2 md:col-span-4 pt-1">
+                            <div class="col-span-full pt-1">
                                 <button type="button" class="open-all-drafts-modal inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 font-medium text-sm">More drafts <i class="fas fa-arrow-right text-xs"></i></button>
                             </div>
-                            <div class="col-span-2 md:col-span-4 pt-0 text-xs text-gray-400">Showing 8 of @draftBooks.Count drafts</div>
+                            <div class="col-span-full pt-0 text-xs text-gray-400">Showing 8 of @draftBooks.Count drafts</div>
                         }
                     }
                     else if (demoDraftsShow.Any())
@@ -275,13 +311,18 @@
                         {
                             var draftCover = DashCoverSrc(draft.CoverUrl);
                             var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId });
+                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="dash-draft-card-wrap book-item" data-title="@title" data-book-id="@draft.BookId">
-                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
-                                </button>
+                                <div class="dash-book-menu-wrap">
+                                    <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
+                                    <div class="dash-book-menu" role="menu">
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                    </div>
+                                </div>
                                 <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
@@ -300,15 +341,15 @@
                         }
                         @if (hasMoreDemoDrafts)
                         {
-                            <div class="col-span-2 md:col-span-4 pt-1">
+                            <div class="col-span-full pt-1">
                                 <button type="button" class="open-all-drafts-modal inline-flex items-center gap-2 text-purple-600 hover:text-purple-800 font-medium text-sm">More drafts <i class="fas fa-arrow-right text-xs"></i></button>
                             </div>
-                            <div class="col-span-2 md:col-span-4 pt-0 text-xs text-gray-400">Showing 8 of @demoDrafts.Count drafts</div>
+                            <div class="col-span-full pt-0 text-xs text-gray-400">Showing 8 of @demoDrafts.Count drafts</div>
                         }
                     }
                     else if (!Model.HasAnyBooks)
                     {
-                        <div class="col-span-2 md:col-span-4 border border-dashed border-violet-200 rounded-2xl p-8 text-center bg-violet-50/40">
+                        <div class="col-span-full border border-dashed border-violet-200 rounded-2xl p-8 text-center bg-violet-50/40">
                             <img src="@defaultCoverPlaceholder" alt="" class="w-16 h-20 rounded-lg mx-auto mb-4 object-cover dash-placeholder-cover" />
                             <p class="text-gray-700 font-medium mb-2">No books in progress yet</p>
                             <p class="text-gray-500 text-sm mb-5 max-w-md mx-auto">Your drafts will appear here with progress through Writer → Format → Cover → Publish.</p>
@@ -328,7 +369,7 @@
                         <h2 class="font-serif text-2xl font-semibold text-gray-900 tracking-tight">Published Books</h2>
                         <span class="text-xs font-semibold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">@publishedBooks.Count published</span>
                     </div>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                         @foreach (var pub in publishedBooks.Take(8))
                         {
                             var pubCover = DashCoverSrc(pub.CoverUrl);
@@ -337,7 +378,16 @@
                             var pubResume = !string.IsNullOrWhiteSpace(pub.ResumeUrl)
                                 ? pub.ResumeUrl
                                 : (Url.Action("SelectBook", "Dashboard", new { bookId = pub.BookId }) ?? $"/Dashboard/SelectBook?bookId={pub.BookId}");
-                            <a href="@pubResume" class="book-item dash-book-card dash-published-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-title="@pubTitle" title="Open @pubTitle to edit again">
+                            var pubPublish = Url.Action("Publish", "Dashboard", new { bookId = pub.BookId });
+                            <div class="dash-draft-card-wrap book-item dash-published-card" data-title="@pubTitle" data-book-id="@pub.BookId">
+                                <div class="dash-book-menu-wrap">
+                                    <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @pubTitle" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
+                                    <div class="dash-book-menu" role="menu">
+                                        <a href="@pubPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@pub.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                    </div>
+                                </div>
+                                <a href="@pubResume" class="dash-book-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@pubCover" data-resume-url="@pubResume" title="Open @pubTitle to edit again">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@pubCover" alt="@pubTitle" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
                                     <span class="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-sm">Published</span>
@@ -347,7 +397,8 @@
                                     <p class="text-purple-600 text-[11px] mt-1 truncate font-medium">Click to edit again</p>
                                     <p class="text-gray-400 text-[11px] mt-1 truncate">@(pub.LastEditedText ?? "Ready for readers")</p>
                                 </div>
-                            </a>
+                                </a>
+                            </div>
                         }
                     </div>
                 </div>
@@ -549,13 +600,18 @@
                         {
                             var draftCover = DashCoverSrc(draft.CoverImagePath);
                             var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}";
+                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="drafts-modal-item relative overflow-hidden group" data-title="@title.ToLowerInvariant()">
-                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
-                                </button>
+                                <div class="dash-book-menu-wrap">
+                                    <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
+                                    <div class="dash-book-menu" role="menu">
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                    </div>
+                                </div>
                                 <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
@@ -578,13 +634,18 @@
                             var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl)
                                 ? draft.ResumeUrl
                                 : (Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}");
+                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
                             <div class="drafts-modal-item relative overflow-hidden group" data-title="@title.ToLowerInvariant()">
-                                <button type="button" class="dash-delete-book-btn" data-book-id="@draft.BookId" title="Delete permanently" aria-label="Delete @title permanently">
-                                    <i class="fas fa-trash-alt" aria-hidden="true"></i><span class="dash-delete-book-label">Delete</span>
-                                </button>
+                                <div class="dash-book-menu-wrap">
+                                    <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
+                                    <div class="dash-book-menu" role="menu">
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                    </div>
+                                </div>
                                 <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
@@ -885,6 +946,23 @@
             }
         }
         document.addEventListener('click', function (e) {
+            var menuBtn = e.target.closest('.dash-book-menu-btn');
+            if (menuBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                var wrap = menuBtn.closest('.dash-book-menu-wrap');
+                var menu = wrap && wrap.querySelector('.dash-book-menu');
+                document.querySelectorAll('.dash-book-menu.is-open').forEach(function (m) {
+                    if (m !== menu) m.classList.remove('is-open');
+                });
+                if (menu) menu.classList.toggle('is-open');
+                menuBtn.setAttribute('aria-expanded', menu && menu.classList.contains('is-open') ? 'true' : 'false');
+                return;
+            }
+            if (!e.target.closest('.dash-book-menu-wrap')) {
+                document.querySelectorAll('.dash-book-menu.is-open').forEach(function (m) { m.classList.remove('is-open'); });
+                document.querySelectorAll('.dash-book-menu-btn[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+            }
             var btn = e.target.closest('.dash-delete-book-btn');
             if (!btn) return;
             e.preventDefault();

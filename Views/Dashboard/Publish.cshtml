@@ -1335,10 +1335,7 @@
     function redirectToDashboardAfterExport(message, flowPath) {
         var path = flowPath || (isPrintReadyFlow ? 'print' : 'ebook');
         notifyBookPublishedAfterDownload(path).finally(function () {
-            showTransientMessage('success', message || 'Download complete — returning to Dashboard…');
-            setTimeout(function () {
-                window.location.href = '/Dashboard';
-            }, 1600);
+            showTransientMessage('success', message || 'Download complete.');
         });
     }
 
@@ -1577,7 +1574,9 @@
             displayAuthor: '',
             displayGenre: pbGenre || '',
             exportFormat: fmt,
-            bookFormat: publishBookFormat || 'Ebook'
+            bookFormat: 'Ebook',
+            publishingPlatform: '',
+            publishingPlatforms: ''
         });
         ensureFormatterSavedOnServer(2).then(function (saved) {
             if (!saved) showTransientMessage('warning', 'Could not sync formatting — using last saved settings.');
@@ -1607,8 +1606,8 @@
                 var fname = serverName || (safeBookSlug() + '-' + bookId + '.' + ext);
                 downloadBlobAsFile(typed, fname);
                 redirectToDashboardAfterExport(fmt === 'epub'
-                    ? 'EPUB downloaded — returning to Dashboard…'
-                    : 'Word file downloaded — returning to Dashboard…');
+                    ? 'EPUB downloaded.'
+                    : 'Word file downloaded.');
             });
         }).catch(function (err) {
             showTransientMessage('error', err && err.message ? err.message : 'Export failed.');
@@ -1655,7 +1654,7 @@
                 } else {
                     showTransientMessage('success', 'ZIP downloaded: interior PDF (chapters only) + your saved full cover wrap.');
                 }
-                redirectToDashboardAfterExport('Print-ready ZIP downloaded — returning to Dashboard…');
+                redirectToDashboardAfterExport('Print-ready ZIP downloaded.');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Export failed.');
@@ -1684,7 +1683,7 @@
             .then(function (result) {
                 var fname = (result && result.fileName) ? result.fileName : (safeBookSlug() + '-' + bookId + '-interior.pdf');
                 downloadBlobAsFile(result.blob, fname);
-                redirectToDashboardAfterExport('PDF saved — returning to Dashboard…');
+                redirectToDashboardAfterExport('PDF saved.');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'PDF download failed.');
@@ -1715,7 +1714,7 @@
             .then(function (result) {
                 var fname = (result && result.fileName) ? result.fileName : (safeBookSlug() + '-' + bookId + '-interior.pdf');
                 downloadBlobAsFile(result.blob, fname);
-                redirectToDashboardAfterExport('Interior PDF saved — returning to Dashboard…');
+                redirectToDashboardAfterExport('Interior PDF saved.');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Interior PDF download failed.');
@@ -1761,7 +1760,7 @@
                     return r.blob().then(function (blob) {
                         var ext = (r.headers.get('content-disposition') || '').indexOf('.jpg') >= 0 ? 'jpg' : 'png';
                         downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-front-cover.' + ext);
-                        redirectToDashboardAfterExport('Front cover downloaded — returning to Dashboard…');
+                        redirectToDashboardAfterExport('Front cover downloaded.');
                     });
                 }
                 return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
@@ -1784,7 +1783,7 @@
                     })
                     .then(function (blob) {
                         downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-front-cover.png');
-                        redirectToDashboardAfterExport('Front cover downloaded — returning to Dashboard…');
+                        redirectToDashboardAfterExport('Front cover downloaded.');
                     });
             })
             .catch(function (err) {
@@ -1874,7 +1873,7 @@
             .then(function (assets) { return buildPrintWrapFromAssets(assets); })
             .then(function (out) {
                 downloadBlobAsFile(out.blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.png');
-                redirectToDashboardAfterExport('Full wrap cover downloaded — returning to Dashboard…', 'print');
+                redirectToDashboardAfterExport('Full wrap cover downloaded.', 'print');
             })
             .catch(function (err) {
                 showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');

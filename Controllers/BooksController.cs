@@ -2720,9 +2720,10 @@ namespace EBookDashboard.Controllers
 
                 var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, req.BookId, cancellationToken);
                 exportOpt.ApplyRequestOverrides(req);
-                if (exportOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase)
-                    || exportOpt.Format.Equals("Paperback", StringComparison.OrdinalIgnoreCase))
-                    exportOpt.IncludeCoverPage = false;
+                exportOpt.Format = "Ebook";
+                exportOpt.IncludeCoverPage = true;
+                if (exportOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase))
+                    exportOpt.PublishingPlatform = "";
 
                 var pageCountForCover = 0;
                 if (int.TryParse(coverRows.GetValueOrDefault($"book:{req.BookId}:printReadyPageCount"), out var savedPages)

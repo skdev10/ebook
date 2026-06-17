@@ -510,6 +510,7 @@
                                 }
                             </div>
                             <h3 class="text-base font-medium truncate text-slate-900">@(title.Length > 22 ? title.Substring(0, 20) + "…" : title)</h3>
+                            <a href="/Dashboard/Publish?bookId=@book.BookId" class="text-[11px] font-semibold text-violet-600 hover:text-violet-800 mt-0.5">Edit</a>
                             <p class="text-sm text-slate-500 truncate">@authorName</p>
                             @if (chCount > 0)
                             {
@@ -562,6 +563,7 @@
                                     }
                                 </div>
                                 <h3 class="text-sm font-medium truncate text-slate-900 text-center">@(title.Length > 18 ? title.Substring(0, 16) + "…" : title)</h3>
+                                <a href="/Dashboard/Publish?bookId=@book.BookId" class="text-[10px] font-semibold text-violet-600 hover:text-violet-800 text-center block mt-0.5">Edit</a>
                                 <p class="text-xs text-slate-500 truncate text-center">@authorName</p>
                                 @if (book.ChapterCount > 0)
                                 {
@@ -623,6 +625,9 @@
                     <button type="button" id="btn-view-book" class="hidden w-full py-3.5 px-5 sm:px-6 rounded-xl text-sm font-bold flex justify-center items-center gap-2 cursor-pointer shadow-lg border-2 min-h-[48px]" style="background-color:#ffffff;color:#4c1d95;border-color:#e9d5ff;">
                         <i class="fas fa-book-open" aria-hidden="true"></i> Preview full book
                     </button>
+                    <a id="btn-edit-book" href="#" class="hidden w-full py-3 px-6 rounded-xl text-sm font-semibold flex justify-center items-center gap-2 border border-white/30 text-white hover:bg-white/10 transition-colors">
+                        <i class="fas fa-edit" aria-hidden="true"></i> Edit
+                    </a>
                     <p class="text-[11px] text-center leading-snug px-1" style="color:#c4b5fd;">Opens a print-style chapter preview (same data as your PDF export).</p>
                     <button type="button" id="btn-delete-book" class="w-full py-3 px-6 rounded-xl text-sm font-semibold flex justify-center items-center gap-2 cursor-pointer border border-red-300/40" style="background-color:#991b1b;color:#fff;">
                         <i class="fas fa-trash"></i> Delete book
@@ -849,6 +854,11 @@
         document.getElementById('aside-chapters').textContent = book.chapterCount != null ? book.chapterCount : '—';
         document.getElementById('aside-status').textContent = book.status || 'Published';
         document.getElementById('btn-view-book').classList.remove('hidden');
+        var editBtn = document.getElementById('btn-edit-book');
+        if (editBtn) {
+            editBtn.href = '/Dashboard/Publish?bookId=' + book.bookId;
+            editBtn.classList.remove('hidden');
+        }
         var deleteTop = document.getElementById('btn-delete-book-top');
         if (deleteTop) deleteTop.classList.remove('hidden');
         var hasChapters = (book.chapterCount || 0) > 0;

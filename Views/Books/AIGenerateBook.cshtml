@@ -273,6 +273,13 @@
         max-width: 100%;
         box-sizing: border-box;
     }
+    #chapterTopicBox.chapter-topic-locked {
+        opacity: 0.72;
+        background: #f8fafc;
+    }
+    #chapterTopicBox.chapter-topic-locked textarea {
+        cursor: not-allowed;
+    }
     .chapter-preview-scroll-host {
         flex: 1 1 auto;
         width: 100%;
@@ -1414,7 +1421,6 @@
                     <input type="text" id="UserId" value="@ViewBag.UserId">
                     <label for="BookId">BookId:</label>
                     <input type="text" id="BookId" value="@(selectedBookId ?? 0)">
-                    <input type="text" id="Title" value="">
                     <button type="button" id="btnSaveChapterName" class="hidden" tabindex="-1" aria-hidden="true"></button>
                     <label for="ResponseId">ResponseId:</label>
                     <input type="text" id="ResponseId" value="0">
@@ -1468,9 +1474,15 @@
                 </div>
             </section>
 
+            <section class="flex flex-col gap-2" data-guided-tour="ai-chapter-title">
+                <label class="text-sm font-medium text-slate-500" for="Title">Chapter Title</label>
+                <input type="text" id="Title" value="" placeholder="Enter chapter title" maxlength="200" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
+            </section>
+
             <section class="flex flex-col gap-2" data-guided-tour="ai-topic-generate">
                 <div>
                     <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800 m-0">Chapter topic / brief</h2>
+                    <p id="chapterTitleTopicHint" class="text-xs text-slate-400 mt-1 mb-0">Enter a chapter title first.</p>
                 </div>
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
                     <textarea id="UserInput" placeholder="e.g. A short summary of what this chapter should cover" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-3 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]"></textarea>
@@ -1487,7 +1499,7 @@
                 </div>
                 <div id="processingMessage" class="hidden items-center gap-3 p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm font-medium my-2" role="status" aria-live="polite">
                     <span class="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent shrink-0"></span>
-                    <span id="processingMessageText">Generating your ebook chapter…</span>
+                    <span id="processingMessageText">Generating your chapter…</span>
                 </div>
                 <div id="chapterEditPanel" class="chapter-edit-panel" style="display: none;">
                     <div id="chapterEditHelp" class="chapter-edit-help">
@@ -1504,7 +1516,6 @@
                 <input type="hidden" id="APIRawResponse">
 
                 <div class="ai-writer-sticky-actions" data-guided-tour="ai-next-step">
-                    <p id="bookFormattingHint" class="btn-book-formatting-hint">Open Book formatting when you are ready to set layout and export.</p>
                     <button type="button" id="btnNextStep" class="btn-book-formatting" disabled title="Select a book first">
                         <span>Book formatting</span>
                         <i class="fas fa-arrow-right text-xs" aria-hidden="true"></i>
@@ -1523,7 +1534,7 @@
                 </div>
                 <h1 id="preview-book-title" class="font-serif-custom text-2xl lg:text-[1.65rem] font-medium tracking-tight text-slate-900 transition-all duration-300 m-0">Your Chapter's Preview</h1>
                 <p class="preview-intro-desc text-sm text-slate-500 leading-relaxed m-0">
-                    Your manuscript appears as a paginated ebook page. Use the side arrows or buttons below to turn pages.
+                    Your manuscript appears as a paginated ebook page. Use the side arrows to turn pages.
                 </p>
                 <div id="chatContainer" class="chat-container hidden flex-col flex-shrink-0" aria-live="polite"></div>
             </div>
@@ -1582,25 +1593,6 @@
                             <div id="bookPageIndicator" class="book-page-indicator" aria-live="polite">1 / 1</div>
                         </div>
                     </div>
-                    </div>
-                    <div id="chapterPreviewNav" class="chapter-preview-nav book-preview-nav-dock chapter-reader-nav-dock hidden flex flex-wrap items-stretch justify-between gap-2 relative" role="toolbar" aria-label="Chapter navigation">
-                        <div id="chapterIndexFlyout" class="chapter-index-flyout hidden" role="dialog" aria-modal="true" aria-labelledby="chapterIndexFlyoutTitle">
-                            <div id="chapterIndexFlyoutTitle" class="chapter-index-flyout-header">Jump to chapter</div>
-                            <div id="chapterIndexList" class="chapter-index-list"></div>
-                        </div>
-                        <button type="button" id="btnPreviewChPrev" class="book-preview-nav-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0">
-                            <i class="fas fa-chevron-left" aria-hidden="true"></i> <span class="hidden sm:inline">Previous</span>
-                        </button>
-                        <div class="chapter-nav-center order-last sm:order-none w-full sm:w-auto">
-                            <div class="chapter-read-progress" aria-hidden="true"><div id="chapterReadProgressFill" class="chapter-read-progress-fill"></div></div>
-                            <span id="chapterPreviewNavLabel" class="text-sm font-medium text-slate-600 text-center px-2"></span>
-                            <button type="button" id="btnOpenChapterIndex" class="text-xs font-semibold text-violet-700 hover:text-violet-900 underline-offset-2 hover:underline py-0.5">
-                                All chapters
-                            </button>
-                        </div>
-                        <button type="button" id="btnPreviewChNext" class="book-preview-nav-btn inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0">
-                            <span class="hidden sm:inline">Next</span> <i class="fas fa-chevron-right" aria-hidden="true"></i>
-                        </button>
                     </div>
                 </div>
             </div>
@@ -2412,7 +2404,6 @@ window.refreshChapterWorkflowProgress = async function () {
     var bid = parseInt(String((document.getElementById('BookId') && document.getElementById('BookId').value) || '0'), 10);
     var ch = parseInt(String((document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '1'), 10);
     var textEl = document.getElementById('chapterWorkflowProgressText');
-    var hintEl = document.getElementById('bookFormattingHint');
     if (!textEl || !uid || !bid) {
         window._refreshWorkflowBusy = false;
         return;
@@ -2440,11 +2431,6 @@ window.refreshChapterWorkflowProgress = async function () {
         textEl.innerHTML = (curLabel ? ('<strong>' + curLabel + '</strong> — ') : '') + curStatus
             + (fin > 0 && total > 0 ? (' <span class="text-violet-600/80">· ' + fin + ' of ' + total + ' finalized</span>') : '');
         if (typeof window.syncFinalizedBadge === 'function') window.syncFinalizedBadge(isActuallyFinalized);
-        if (hintEl) {
-            hintEl.textContent = d.allFinalized
-                ? 'All chapters finalized — continue to layout and PDF export.'
-                : 'You can open Book formatting anytime; finalize chapters when you are ready.';
-        }
         if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(d);
     } catch (e) {
         console.warn('refreshChapterWorkflowProgress', e);
@@ -2535,8 +2521,8 @@ window.checkUpstreamQueueBeforeAiCall = async function () {
             var msg = (d.message || 'Chapter generation is not available right now.').toString();
             throw new Error(msg);
         }
-        if (d.warning && typeof showNotification === 'function') {
-            showNotification(d.warning, 'info');
+        if (d.warning) {
+            console.warn('ChapterGenerationReady:', d.warning);
         }
         return { ok: true, queue: d.queue || null };
     } catch (e) {
@@ -2703,6 +2689,31 @@ window.updateGenerateBtnMode = function () {
         btn.title = 'Generate chapter';
         btn.setAttribute('aria-label', 'Generate chapter');
     }
+    if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
+};
+/** Lock chapter topic / Generate until a chapter title is entered. */
+window.syncChapterTopicLock = function () {
+    var titleEl = document.getElementById('Title');
+    var topicEl = document.getElementById('UserInput');
+    var genBtn = document.getElementById('GenerateBtn');
+    var uploadBtn = document.getElementById('chapterDocUploadBtn');
+    var topicBox = document.getElementById('chapterTopicBox');
+    var hint = document.getElementById('chapterTitleTopicHint');
+    var statusEl = document.getElementById('Status');
+    var hasTitle = titleEl && String(titleEl.value || '').trim().length > 0;
+    var readOnly = statusEl && String(statusEl.value || '').trim() === 'ReadOnly';
+    var topicLocked = !hasTitle || readOnly;
+    if (topicEl) {
+        topicEl.disabled = topicLocked;
+        topicEl.setAttribute('aria-disabled', topicLocked ? 'true' : 'false');
+    }
+    if (uploadBtn) uploadBtn.disabled = topicLocked;
+    if (genBtn) {
+        var regenBusy = genBtn.getAttribute('data-generating') === '1';
+        genBtn.disabled = topicLocked || regenBusy;
+    }
+    if (topicBox) topicBox.classList.toggle('chapter-topic-locked', !hasTitle);
+    if (hint) hint.classList.toggle('hidden', hasTitle);
 };
 window.formatChapterGenCountdown = function (totalSeconds) {
     var s = Math.max(0, Math.floor(totalSeconds));
@@ -2711,56 +2722,15 @@ window.formatChapterGenCountdown = function (totalSeconds) {
     return m + ':' + (r < 10 ? '0' : '') + r;
 };
 window.updateChapterGenEtaUI = function (remainingSeconds) {
-    var rem = Math.max(0, remainingSeconds);
-    var fmt = window.formatChapterGenCountdown(rem);
     var procText = document.getElementById('processingMessageText');
-    if (procText) {
-        procText.textContent = rem > 0
-            ? 'Generating your ebook chapter… About ' + fmt + ' remaining. Keep this tab open.'
-            : 'Almost there… your chapter is still generating. Keep this tab open.';
-    }
+    if (procText) procText.textContent = 'Generating your chapter…';
 };
 window.showChapterGenerationOverlay = function (message) {
     var o = document.getElementById('chapterGenerationOverlay');
     var tx = document.getElementById('chapterGenerationOverlayText');
-    var shortMsg = (message && String(message).trim()) ? String(message).trim() : 'Writing…';
-    if (tx) tx.textContent = shortMsg;
+    if (tx) tx.textContent = 'Generating your chapter…';
     if (o) o.classList.remove('hidden');
-    var bid = (document.getElementById('BookId') && document.getElementById('BookId').value) || '0';
-    var ch = (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '?';
-    var estimated = (typeof window.__chapterGenEstimatedSeconds === 'number' && window.__chapterGenEstimatedSeconds > 0)
-        ? window.__chapterGenEstimatedSeconds
-        : 300;
-    window._chapterGenEstimatedSeconds = estimated;
     if (window._chapterGenTimer) { clearInterval(window._chapterGenTimer); window._chapterGenTimer = null; }
-    window._chapterGenStartedAt = Date.now();
-    var tickChapterGenEta = function () {
-        var elapsed = Math.max(0, Math.floor((Date.now() - (window._chapterGenStartedAt || Date.now())) / 1000));
-        var remaining = Math.max(0, estimated - elapsed);
-        var fmt = window.formatChapterGenCountdown(remaining);
-        if (tx) {
-            tx.textContent = remaining > 0
-                ? (shortMsg + ' — about ' + fmt + ' left')
-                : (shortMsg + ' — almost ready…');
-        }
-        if (typeof window.updateChapterGenEtaUI === 'function') window.updateChapterGenEtaUI(remaining);
-        if (typeof window.setBookResultStatusBanner === 'function') {
-            window.setBookResultStatusBanner(
-                (remaining > 0
-                    ? (shortMsg + ' — about ' + fmt + ' remaining')
-                    : (shortMsg + ' — almost ready, please wait')) +
-                (bid !== '0' ? (' · Book ID ' + bid) : ' · new book') + '. Keep this tab open; text will appear in the preview when ready.',
-                true
-            );
-        }
-        if (elapsed > 0 && elapsed % 30 === 0) {
-            console.log('⏳ Chapter generation still in progress… ' + (remaining > 0 ? (fmt + ' left') : 'almost ready'));
-        }
-    };
-    tickChapterGenEta();
-    var br = document.getElementById('bookResult');
-    if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
-    window._chapterGenTimer = setInterval(tickChapterGenEta, 1000);
 };
 window.hideChapterGenerationOverlay = function () {
     var o = document.getElementById('chapterGenerationOverlay');
@@ -3492,6 +3462,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (t && t.closest && t.closest('#bookResult')) e.preventDefault();
     });
     if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+    if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
 });
 </script>
 <script>
@@ -3985,6 +3956,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (bookId > 0) loadChapterPreview(bookId, getChapterNo());
     var hasShownTitleSavePrompt = false;
     inputChapterTitle.addEventListener('input', function (e) {
+        if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
         if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         queueWriterAutosave(700);
         if (hasShownTitleSavePrompt || !e.isTrusted) return;
@@ -5435,14 +5407,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (messageElement) {
                 messageElement.classList.remove('hidden');
                 messageElement.classList.add('flex');
-                if (typeof window.updateChapterGenEtaUI === 'function') {
-                    var est = (typeof window.__chapterGenEstimatedSeconds === 'number' && window.__chapterGenEstimatedSeconds > 0)
-                        ? window.__chapterGenEstimatedSeconds
-                        : 300;
-                    window.updateChapterGenEtaUI(est);
-                }
+                var procText = document.getElementById('processingMessageText');
+                if (procText) procText.textContent = 'Generating your chapter…';
             }
-            if (generateBtn) { generateBtn.disabled = true; }
+            if (generateBtn) { generateBtn.disabled = true; generateBtn.setAttribute('data-generating', '1'); }
 
           // Show loading state immediately
             showGenerateLoading();
@@ -5482,7 +5450,11 @@ document.addEventListener('DOMContentLoaded', function() {
          function doneCommon() {
              if (messageElement) { messageElement.classList.add('hidden'); messageElement.classList.remove('flex'); }
              enableControls();
-             if (generateBtn) generateBtn.disabled = false;
+             if (generateBtn) {
+                 generateBtn.removeAttribute('data-generating');
+                 generateBtn.disabled = false;
+             }
+             if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
          }
 
          (async function runChapterGenerate() {

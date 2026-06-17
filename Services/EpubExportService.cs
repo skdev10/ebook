@@ -95,7 +95,12 @@ public class EpubExportService : IEpubExportService
             string? coverImageId = null;
             byte[]? coverBytes = await ResolveCoverBytesAsync(coverImageUrlOrData, details.CoverImagePath, cancellationToken);
             if (coverBytes != null && coverBytes.Length > 0)
-                coverBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(coverBytes, pageCountForCover, trimSizeForCover);
+            {
+                var pagesForCrop = pageCountForCover > 0
+                    ? pageCountForCover
+                    : Math.Clamp(chapters.Count * 12, KdpPrintCoverCalculator.MinPages, 300);
+                coverBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(coverBytes, pagesForCrop, trimSizeForCover);
+            }
             if (coverBytes != null && coverBytes.Length > 0)
             {
                 var (coverHref, coverMedia) = DetectCoverAsset(coverBytes);
