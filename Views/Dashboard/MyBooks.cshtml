@@ -66,6 +66,28 @@
     .mybooks-main { background: white; border-radius: 2rem; box-shadow: 0 8px 30px rgba(15,23,42,0.08); overflow: hidden; max-width: 100%; width: 100%; }
     .book-card-mybooks { transition: all 0.2s; }
     .book-card-mybooks:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(91, 33, 182, 0.22); }
+    .mybooks-card-wrap { position: relative; }
+    .mybooks-menu-wrap { position: absolute; top: 0.45rem; right: 0.45rem; z-index: 14; }
+    .mybooks-menu-btn {
+        width: 1.75rem; height: 1.75rem; border-radius: 9999px;
+        background: rgba(255,255,255,0.96); border: 1px solid #e2e8f0;
+        color: #64748b; display: inline-flex; align-items: center; justify-content: center;
+    }
+    .mybooks-menu-btn:hover { background: #f5f3ff; color: #6d28d9; border-color: #c4b5fd; }
+    .mybooks-menu {
+        display: none; position: absolute; right: 0; top: calc(100% + 0.25rem);
+        min-width: 8.5rem; background: #fff; border: 1px solid #e2e8f0;
+        border-radius: 0.75rem; box-shadow: 0 12px 28px -12px rgba(15,23,42,0.22); padding: 0.35rem; z-index: 20;
+    }
+    .mybooks-menu.is-open { display: block; }
+    .mybooks-menu a, .mybooks-menu button {
+        display: flex; align-items: center; gap: 0.5rem; width: 100%;
+        padding: 0.45rem 0.65rem; border-radius: 0.5rem; font-size: 0.8125rem;
+        font-weight: 600; color: #334155; text-decoration: none; border: none; background: transparent; cursor: pointer;
+    }
+    .mybooks-menu a:hover, .mybooks-menu button:hover { background: #f8fafc; color: #6d28d9; }
+    .mybooks-menu-delete { color: #dc2626; }
+    .mybooks-menu-delete:hover { background: #fef2f2; color: #b91c1c; }
     .aside-panel-mybooks {
         background: linear-gradient(165deg, #4c1d95 0%, #5b21b6 42%, #6d28d9 100%);
         border: 1px solid rgba(255,255,255,0.08);
@@ -484,6 +506,14 @@
                         var chCount = book.ChapterCount;
                         var wordCount = book.WordCount;
                         var genre = book.Genre ?? "";
+                        <div class="mybooks-card-wrap">
+                            <div class="mybooks-menu-wrap">
+                                <button type="button" class="mybooks-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
+                                <div class="mybooks-menu" role="menu">
+                                    <a href="/Dashboard/Publish?bookId=@book.BookId" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                    <button type="button" class="mybooks-menu-delete dash-delete-book-btn" data-book-id="@book.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
+                                </div>
+                            </div>
                         <div class="book-card-mybooks book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm"
                              data-book-id="@book.BookId"
                              data-title="@title"
@@ -510,12 +540,12 @@
                                 }
                             </div>
                             <h3 class="text-base font-medium truncate text-slate-900">@(title.Length > 22 ? title.Substring(0, 20) + "…" : title)</h3>
-                            <a href="/Dashboard/Publish?bookId=@book.BookId" class="text-[11px] font-semibold text-violet-600 hover:text-violet-800 mt-0.5">Edit</a>
                             <p class="text-sm text-slate-500 truncate">@authorName</p>
                             @if (chCount > 0)
                             {
                                 <p class="text-[11px] text-violet-700 font-semibold mt-1.5 truncate" title="Chapters with exportable content"><i class="fas fa-book-open" aria-hidden="true"></i> @chCount chapter@(chCount == 1 ? "" : "s") ready</p>
                             }
+                        </div>
                         </div>
                     }
                 </div>
@@ -1112,6 +1142,26 @@
                 if (triggerBtn) triggerBtn.disabled = false;
             });
     }
+
+    document.addEventListener('click', function (e) {
+        var menuBtn = e.target.closest('.mybooks-menu-btn');
+        if (menuBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            var wrap = menuBtn.closest('.mybooks-menu-wrap');
+            var menu = wrap && wrap.querySelector('.mybooks-menu');
+            document.querySelectorAll('.mybooks-menu.is-open').forEach(function (m) {
+                if (m !== menu) m.classList.remove('is-open');
+            });
+            if (menu) menu.classList.toggle('is-open');
+            menuBtn.setAttribute('aria-expanded', menu && menu.classList.contains('is-open') ? 'true' : 'false');
+            return;
+        }
+        if (!e.target.closest('.mybooks-menu-wrap')) {
+            document.querySelectorAll('.mybooks-menu.is-open').forEach(function (m) { m.classList.remove('is-open'); });
+            document.querySelectorAll('.mybooks-menu-btn[aria-expanded="true"]').forEach(function (b) { b.setAttribute('aria-expanded', 'false'); });
+        }
+    });
 
     (function initMyBooksSelection() {
         var params = new URLSearchParams(window.location.search);

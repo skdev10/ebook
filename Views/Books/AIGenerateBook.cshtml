@@ -1491,7 +1491,7 @@
             <section class="flex flex-col gap-2" data-guided-tour="ai-topic-generate">
                 <div>
                     <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800 m-0">Chapter topic / brief</h2>
-                    <p id="chapterTitleTopicHint" class="text-xs text-slate-400 mt-1 mb-0">Add a chapter and enter a title first (via Add a chapter).</p>
+                    <p id="chapterTitleTopicHint" class="text-xs text-slate-400 mt-1 mb-0">Enter a chapter title first.</p>
                 </div>
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
                     <textarea id="UserInput" placeholder="e.g. A short summary of what this chapter should cover" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-3 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]"></textarea>
@@ -2462,7 +2462,7 @@ window.refreshBookFormattingButton = function (progressData) {
         ? 'Select a book first'
         : (allOk
             ? 'Open Book formatting to lock chapters and export PDF'
-            : 'Open Book formatting (you can return to finalize chapters later)');
+            : 'Open Book formatting');
 };
 
 window.showPreviewEmptyState = function () {
@@ -3345,7 +3345,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!hasChapters && typeof Swal !== 'undefined') {
                 Swal.fire({
                     title: 'Continue to formatting?',
-                    html: 'You have not generated chapter content yet. You can still open <strong>Book Formatting</strong> and return here to write.',
+                    text: 'You have not generated chapter content yet.',
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Continue',

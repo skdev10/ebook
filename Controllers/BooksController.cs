@@ -4395,18 +4395,16 @@ namespace EBookDashboard.Controllers
                 });
             }
 
-            string? warning = null;
             if (snapshot?.IsStuck == true)
-                warning = "AI service queue is backed up (jobs waiting, none running). Generation may take 5–15+ minutes — keep this tab open.";
+                _logger.LogWarning("ChapterGenerationReady: upstream queue backed up (waiting={Waiting}, running={Running}).", snapshot.Waiting, snapshot.Running);
             else if (snapshot != null && snapshot.Waiting >= 5)
-                warning = $"AI service has {snapshot.Waiting} job(s) in queue. Your chapter may take a few extra minutes.";
+                _logger.LogInformation("ChapterGenerationReady: upstream queue depth {Waiting}.", snapshot.Waiting);
 
             return Json(new
             {
                 ok = true,
                 canGenerate = true,
                 apiKeyConfigured = true,
-                warning,
                 queue = snapshot == null ? null : new
                 {
                     running = snapshot.Running,

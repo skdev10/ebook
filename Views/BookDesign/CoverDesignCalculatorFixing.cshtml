@@ -773,6 +773,9 @@
         flex-shrink: 0;
     }
     #preview-both .reader-nav-bar.fmt-reader-nav-dock {
+        display: none !important;
+    }
+    #preview-both .reader-nav-bar.fmt-reader-nav-dock.fmt-reader-nav-dock-show {
         position: relative;
         bottom: auto;
         z-index: 8;
@@ -1225,8 +1228,26 @@
         font-size: var(--fmt-font-size, var(--ilt-body-px, 14.67px));
         line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.6));
     }
-    #book-formatter-root .fmt-float-nav {
-        display: none !important;
+    /* Side prev/next — match AI Book Writer chevrons on the page shell */
+    #book-formatter-root #paginatedReaderShell .book-preview-nav-side,
+    #book-formatter-root #paginatedReaderShell .ai-writer-preview-side-nav {
+        display: inline-flex !important;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 14;
+    }
+    #book-formatter-root #paginatedReaderShell .book-preview-nav-side-prev,
+    #book-formatter-root #paginatedReaderShell .ai-writer-preview-side-prev {
+        left: 0.35rem;
+    }
+    #book-formatter-root #paginatedReaderShell .book-preview-nav-side-next,
+    #book-formatter-root #paginatedReaderShell .ai-writer-preview-side-next {
+        right: 0.35rem;
+    }
+    #book-formatter-root #paginatedReaderShell .book-preview-nav-side:hover:not(:disabled),
+    #book-formatter-root #paginatedReaderShell .ai-writer-preview-side-nav:hover:not(:disabled) {
+        transform: translateY(calc(-50% - 1px));
     }
     #book-formatter-root .book-page-footer-classic {
         font-family: 'Libre Baskerville', Georgia, serif;
@@ -1769,13 +1790,13 @@
                                                     </div>
                                                     <div id="bookPageIndicator" class="book-page-indicator" aria-live="polite">1 / 1</div>
                                                 </div>
+                                                <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col text-base text-slate-700 leading-relaxed"></div>
                                                 <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page">
                                                     <i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i>
                                                 </button>
                                                 <button type="button" id="btnAiWriterNextSide" class="book-preview-nav-side book-preview-nav-side-next ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page">
                                                     <i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i>
                                                 </button>
-                                                <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col text-base text-slate-700 leading-relaxed"></div>
                                                 <div id="fmt-export-preview-wrap" class="fmt-export-preview-wrap hidden" aria-label="Export-exact preview (same HTML as PDF)">
                                                     <iframe id="fmt-export-preview-iframe" title="Export preview — matches downloaded PDF" class="fmt-export-preview-iframe"></iframe>
                                                 </div>
@@ -5709,7 +5730,9 @@
         fmtExportPreviewVisible = !!show;
         var wrap = document.getElementById('fmt-export-preview-wrap');
         var stage = document.getElementById('bookStage');
+        var shell = document.getElementById('paginatedReaderShell');
         if (wrap) wrap.classList.toggle('hidden', !fmtExportPreviewVisible);
+        if (shell) shell.classList.toggle('fmt-show-export-preview', fmtExportPreviewVisible);
         if (stage && fmtExportPreviewVisible) stage.style.display = 'none';
         else if (stage && bookChapters.length) stage.style.display = '';
     }
@@ -6130,9 +6153,10 @@
         border-radius: 14px;
         -webkit-overflow-scrolling: touch;
     }
-    #book-formatter-root .fmt-export-preview-wrap:not(.hidden) ~ #bookStage,
-    #book-formatter-root .fmt-export-preview-wrap:not(.hidden) ~ .fmt-float-nav,
-    #book-formatter-root .fmt-export-preview-wrap:not(.hidden) ~ .ai-writer-preview-side-nav {
+    #book-formatter-root #paginatedReaderShell.fmt-show-export-preview #bookStage,
+    #book-formatter-root #paginatedReaderShell.fmt-show-export-preview #preview-content,
+    #book-formatter-root #paginatedReaderShell.fmt-show-export-preview .book-preview-nav-side,
+    #book-formatter-root #paginatedReaderShell.fmt-show-export-preview .ai-writer-preview-side-nav {
         visibility: hidden;
         pointer-events: none;
     }

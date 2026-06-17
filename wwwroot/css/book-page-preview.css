@@ -192,6 +192,12 @@
     box-shadow: none;
 }
 
+/* Bottom dock only — side chevrons stay visible (AI Writer + Book Formatting) */
+.book-preview-nav-dock,
+.chapter-reader-nav-dock {
+    display: none !important;
+}
+
 /* Bottom dock nav — chapter/page controls */
 .book-preview-nav-dock,
 .chapter-reader-nav-dock {
