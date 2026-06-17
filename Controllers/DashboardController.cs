@@ -569,7 +569,7 @@ namespace EBookDashboard.Controllers
             var meaningfulDraftBooks = new List<Books>();
             foreach (var draft in userDraftBooks)
             {
-                if (await BookDraftGuard.IsNearEmptyBookAsync(_context, user.UserId, draft.BookId))
+                if (!await BookDraftGuard.HasGeneratedManuscriptAsync(_context, user.UserId, draft.BookId))
                     continue;
                 meaningfulDraftBooks.Add(draft);
             }
@@ -578,7 +578,7 @@ namespace EBookDashboard.Controllers
                 .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
             var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, meaningfulDraftBooks);
-            var pendingBooks = userDraftBooks;
+            var pendingBooks = meaningfulDraftBooks;
             var allUserBookIds = books.Where(b => !IsDemoSeedTitle(b.Title)).Select(b => b.BookId).ToList();
             var flowMap = await LoadBookFlowMapAsync(allUserBookIds);
             var epubByBookId = await LoadEpubPathsByBookIdAsync(publishedBooks.Select(b => b.BookId).ToList());

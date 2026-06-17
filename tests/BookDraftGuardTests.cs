@@ -146,6 +146,49 @@ public class BookDraftGuardTests
     }
 
     [Fact]
+    public async Task HasGeneratedManuscriptAsync_false_for_titled_book_without_content()
+    {
+        await using var ctx = CreateContext(nameof(HasGeneratedManuscriptAsync_false_for_titled_book_without_content));
+        ctx.Books.Add(new Books
+        {
+            BookId = 6,
+            UserId = 10,
+            Title = "My Novel",
+            Status = "Draft",
+            WordCount = 0,
+            CreatedAt = DateTime.UtcNow
+        });
+        await ctx.SaveChangesAsync();
+
+        Assert.False(await BookDraftGuard.HasGeneratedManuscriptAsync(ctx, 10, 6));
+    }
+
+    [Fact]
+    public async Task HasGeneratedManuscriptAsync_true_when_api_response_exists()
+    {
+        await using var ctx = CreateContext(nameof(HasGeneratedManuscriptAsync_true_when_api_response_exists));
+        ctx.Books.Add(new Books
+        {
+            BookId = 7,
+            UserId = 10,
+            Title = "My Novel",
+            Status = "Draft",
+            WordCount = 0,
+            CreatedAt = DateTime.UtcNow
+        });
+        ctx.APIRawResponse.Add(new APIRawResponse
+        {
+            UserId = 10,
+            BookId = 7,
+            ResponseData = "This is generated chapter content from the AI writer.",
+            CreatedAt = DateTime.UtcNow
+        });
+        await ctx.SaveChangesAsync();
+
+        Assert.True(await BookDraftGuard.HasGeneratedManuscriptAsync(ctx, 10, 7));
+    }
+
+    [Fact]
     public async Task PurgeAllNearEmptyUntitledAsync_removes_all_placeholders()
     {
         await using var ctx = CreateContext(nameof(PurgeAllNearEmptyUntitledAsync_removes_all_placeholders));

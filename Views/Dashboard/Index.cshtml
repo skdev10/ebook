@@ -145,18 +145,39 @@
     .dash-book-menu button {
         display: flex;
         align-items: center;
-        gap: 0.45rem;
+        gap: 0.5rem;
         width: 100%;
         text-align: left;
-        padding: 0.45rem 0.65rem;
+        padding: 0.5rem 0.65rem;
         border-radius: 0.5rem;
-        font-size: 0.78rem;
+        font-size: 0.8125rem;
         font-weight: 600;
+        font-family: inherit;
+        line-height: 1.25;
         color: #334155;
         background: transparent;
         border: none;
+        margin: 0;
         cursor: pointer;
         text-decoration: none;
+        box-sizing: border-box;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    .dash-book-menu a i,
+    .dash-book-menu button i {
+        width: 0.875rem;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.75rem;
+        line-height: 1;
+    }
+    .dash-book-menu a span,
+    .dash-book-menu button span {
+        flex: 1 1 auto;
+        min-width: 0;
     }
     .dash-book-menu a:hover,
     .dash-book-menu button:hover { background: #f8fafc; color: #6d28d9; }
@@ -277,14 +298,14 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
-                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
                                 <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
-                                    <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
+                                    <span class="absolute top-2 left-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
                                 </div>
                                 <div class="p-3.5 flex flex-col flex-1 min-w-0">
                                     <h3 class="font-semibold text-gray-900 text-sm group-hover:text-purple-700 transition-colors truncate" title="@title">@title</h3>
@@ -319,14 +340,14 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
-                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
                                 <a href="@draftResume" class="dash-book-card cursor-pointer flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@cardCover" data-resume-url="@draftResume">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
-                                    <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
+                                    <span class="absolute top-2 left-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
                                 </div>
                                 <div class="p-3.5 flex flex-col flex-1 min-w-0">
                                     <h3 class="font-semibold text-gray-900 text-sm group-hover:text-purple-700 transition-colors truncate" title="@title">@title</h3>
@@ -383,14 +404,14 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @pubTitle" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@pubPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
-                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@pub.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                        <a href="@pubPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@pub.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
                                 <a href="@pubResume" class="dash-book-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@pubCover" data-resume-url="@pubResume" title="Open @pubTitle to edit again">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@pubCover" alt="@pubTitle" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
-                                    <span class="absolute top-2 right-2 text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-sm">Published</span>
+                                    <span class="absolute top-2 left-2 text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-sm">Published</span>
                                 </div>
                                 <div class="p-3.5 flex flex-col flex-1 min-w-0">
                                     <h3 class="font-semibold text-gray-900 text-sm group-hover:text-purple-700 transition-colors truncate" title="@pubTitle">@pubTitle</h3>
@@ -608,14 +629,14 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
-                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
                                 <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
-                                    <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
+                                    <span class="absolute top-2 left-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
                                 </div>
                                 <div class="p-3">
                                     <h3 class="font-semibold text-gray-900 text-sm truncate group-hover:text-purple-700" title="@title">@title</h3>
@@ -642,14 +663,14 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit text-xs" aria-hidden="true"></i> Edit</a>
-                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt text-xs" aria-hidden="true"></i> Delete</button>
+                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
                                 <a href="@draftResume" class="block">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@cardCover" alt="@title" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
-                                    <span class="absolute top-2 right-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
+                                    <span class="absolute top-2 left-2 dash-progress-pct bg-white/90 backdrop-blur px-2 py-0.5 rounded-full shadow-sm">@pct%</span>
                                 </div>
                                 <div class="p-3">
                                     <h3 class="font-semibold text-gray-900 text-sm truncate group-hover:text-purple-700" title="@title">@title</h3>

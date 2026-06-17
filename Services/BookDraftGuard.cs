@@ -13,6 +13,55 @@ public static class BookDraftGuard
 
     public static bool IsPlaceholderTitle(string? title) => BookTitleResolver.IsPlaceholderTitle(title);
 
+    private static async Task<bool> HasChapterManuscriptAsync(
+        ApplicationDbContext context,
+        int bookId,
+        CancellationToken cancellationToken)
+    {
+        return await context.Chapters.AsNoTracking()
+            .AnyAsync(c => c.BookId == bookId
+                           && c.Content != null
+                           && c.Content.Trim().Length > MinChapterContentChars,
+                cancellationToken);
+    }
+
+    private static async Task<bool> HasApiManuscriptAsync(
+        ApplicationDbContext context,
+        int userId,
+        int bookId,
+        CancellationToken cancellationToken)
+    {
+        return await context.APIRawResponse.AsNoTracking()
+            .AnyAsync(r => r.UserId == userId
+                           && r.BookId == bookId
+                           && ((r.ResponseData != null && r.ResponseData.Trim().Length > MinApiResponseChars)
+                               || (r.Content != null && r.Content.Trim().Length > MinApiResponseChars)),
+                cancellationToken);
+    }
+
+    /// <summary>
+    /// True when the user has generated manuscript content (chapter body or AI response), not just a title/draft shell.
+    /// Used to hide books from Dashboard Continue Editing until generation has started.
+    /// </summary>
+    public static async Task<bool> HasGeneratedManuscriptAsync(
+        ApplicationDbContext context,
+        int userId,
+        int bookId,
+        CancellationToken cancellationToken = default)
+    {
+        var book = await context.Books.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+        if (book == null) return false;
+        if (book.WordCount > 0) return true;
+        if (!string.IsNullOrWhiteSpace(book.BookContentHtml) && book.BookContentHtml.Trim().Length > 20)
+            return true;
+
+        if (await HasChapterManuscriptAsync(context, bookId, cancellationToken))
+            return true;
+
+        return await HasApiManuscriptAsync(context, userId, bookId, cancellationToken);
+    }
+
     /// <summary>True when the book has no meaningful manuscript (placeholder title + no chapter/API body).</summary>
     public static async Task<bool> IsNearEmptyBookAsync(
         ApplicationDbContext context,
@@ -29,21 +78,13 @@ public static class BookDraftGuard
         if (!string.IsNullOrWhiteSpace(book.BookContentHtml) && book.BookContentHtml.Trim().Length > 20)
             return false;
 
-        var hasChapterContent = await context.Chapters.AsNoTracking()
-            .AnyAsync(c => c.BookId == bookId
-                           && c.Content != null
-                           && c.Content.Trim().Length > MinChapterContentChars,
-                cancellationToken);
-        if (hasChapterContent) return false;
+        if (await HasChapterManuscriptAsync(context, bookId, cancellationToken))
+            return false;
 
-        var hasApiContent = await context.APIRawResponse.AsNoTracking()
-            .AnyAsync(r => r.UserId == userId
-                           && r.BookId == bookId
-                           && ((r.ResponseData != null && r.ResponseData.Trim().Length > MinApiResponseChars)
-                               || (r.Content != null && r.Content.Trim().Length > MinApiResponseChars)),
-                cancellationToken);
+        if (await HasApiManuscriptAsync(context, userId, bookId, cancellationToken))
+            return false;
 
-        return !hasApiContent;
+        return true;
     }
 
     /// <summary>Returns the user's newest near-empty Untitled draft, if any.</summary>
@@ -84,7 +125,7 @@ public static class BookDraftGuard
 
         foreach (var book in candidates)
         {
-            if (await IsNearEmptyBookAsync(context, userId, book.BookId, cancellationToken))
+            if (!await HasGeneratedManuscriptAsync(context, userId, book.BookId, cancellationToken))
                 continue;
             return book;
         }

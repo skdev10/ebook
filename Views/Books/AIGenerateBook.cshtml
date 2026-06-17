@@ -1235,6 +1235,14 @@
         padding-top: 0.875rem;
         padding-bottom: 0.875rem;
     }
+    @@keyframes chapterTitleShake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-7px); }
+        40%, 80% { transform: translateX(7px); }
+    }
+    .chapter-no-input-group.chapter-title-shake {
+        animation: chapterTitleShake 0.45s ease;
+    }
     /* Version history — custom chevron aligned inside the field */
     .iteration-select-wrap {
         position: relative;
@@ -1426,6 +1434,8 @@
                     <input type="text" id="ResponseId" value="0">
                     <label for="ChapterNo">ChapterNo:</label>
                     <input type="text" id="ChapterNo" value="1">
+                    <label for="Title">ChapterTitle:</label>
+                    <input type="hidden" id="Title" value="" maxlength="200">
                     <select id="savedResponsesDropdown" tabindex="-1"><option value="@(selectedBookId ?? 0)" selected>@selectedBookTitle</option></select>
                     <button type="button" id="bookSelectionPreviewBtn" tabindex="-1"></button>
                     <button type="button" id="createBookBtn" tabindex="-1"></button>
@@ -1474,15 +1484,10 @@
                 </div>
             </section>
 
-            <section class="flex flex-col gap-2" data-guided-tour="ai-chapter-title">
-                <label class="text-sm font-medium text-slate-500" for="Title">Chapter Title</label>
-                <input type="text" id="Title" value="" placeholder="Enter chapter title" maxlength="200" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
-            </section>
-
             <section class="flex flex-col gap-2" data-guided-tour="ai-topic-generate">
                 <div>
                     <h2 class="font-serif-custom text-2xl font-medium tracking-tight text-slate-800 m-0">Chapter topic / brief</h2>
-                    <p id="chapterTitleTopicHint" class="text-xs text-slate-400 mt-1 mb-0">Enter a chapter title first.</p>
+                    <p id="chapterTitleTopicHint" class="text-xs text-slate-400 mt-1 mb-0">Add a chapter and enter a title first (via Add a chapter).</p>
                 </div>
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
                     <textarea id="UserInput" placeholder="e.g. A short summary of what this chapter should cover" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-3 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]"></textarea>
@@ -2691,6 +2696,31 @@ window.updateGenerateBtnMode = function () {
     }
     if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
 };
+window.getChapterTitleValue = function () {
+    var titleEl = document.getElementById('Title');
+    return titleEl ? String(titleEl.value || '').trim() : '';
+};
+window.shakeChapterTitleRequired = function () {
+    var group = document.querySelector('.chapter-no-input-group');
+    if (!group) return;
+    group.classList.remove('chapter-title-shake');
+    void group.offsetWidth;
+    group.classList.add('chapter-title-shake');
+    window.setTimeout(function () { group.classList.remove('chapter-title-shake'); }, 500);
+};
+window.requireChapterTitleForAction = function (actionLabel) {
+    if (window.getChapterTitleValue()) return true;
+    window.shakeChapterTitleRequired();
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Chapter title required',
+            text: 'Click Add a chapter and enter a chapter title before you ' + (actionLabel || 'continue') + '.',
+            icon: 'warning',
+            confirmButtonColor: '#7c3aed'
+        });
+    }
+    return false;
+};
 /** Lock chapter topic / Generate until a chapter title is entered. */
 window.syncChapterTopicLock = function () {
     var titleEl = document.getElementById('Title');
@@ -2700,7 +2730,7 @@ window.syncChapterTopicLock = function () {
     var topicBox = document.getElementById('chapterTopicBox');
     var hint = document.getElementById('chapterTitleTopicHint');
     var statusEl = document.getElementById('Status');
-    var hasTitle = titleEl && String(titleEl.value || '').trim().length > 0;
+    var hasTitle = window.getChapterTitleValue().length > 0;
     var readOnly = statusEl && String(statusEl.value || '').trim() === 'ReadOnly';
     var topicLocked = !hasTitle || readOnly;
     if (topicEl) {
@@ -4563,7 +4593,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
       function setVersionHistoryPanelVisible(visible) {
           var wrap = document.getElementById('iterationPickerWrap');
-          if (wrap) wrap.classList.toggle('hidden', !visible);
+          if (wrap) {
+              wrap.classList.toggle('hidden', !visible);
+              wrap.classList.toggle('flex', visible);
+          }
+      }
+
+      function shouldShowVersionHistoryPanel() {
+          var bid = document.getElementById('BookId') && document.getElementById('BookId').value;
+          var ch = document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value;
+          return bid && bid !== '0' && ch && ch !== '0';
       }
 
       function ensureChapterBrowseOption() {
@@ -4588,7 +4627,7 @@ document.addEventListener('DOMContentLoaded', function() {
           if (sumWrap) sumWrap.classList.add('hidden');
           var sumTxt = document.getElementById('chapterVersionsSummaryText');
           if (sumTxt) sumTxt.textContent = '';
-          setVersionHistoryPanelVisible(false);
+          setVersionHistoryPanelVisible(shouldShowVersionHistoryPanel());
       }
 
       async function promptNewChapterTitle() {
@@ -4603,10 +4642,13 @@ document.addEventListener('DOMContentLoaded', function() {
                   confirmButtonColor: '#7c3aed',
                   cancelButtonColor: '#64748b',
                   focusCancel: false,
-                  allowOutsideClick: false
+                  allowOutsideClick: false,
+                  inputValidator: function (value) {
+                      if (!value || !String(value).trim()) return 'Chapter title is required';
+                  }
               });
               if (!r.isConfirmed) return null;
-              return (r.value || '').trim();
+              return String(r.value || '').trim();
           }
           var t = prompt('Chapter title');
           if (t === null) return null;
@@ -4623,6 +4665,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
           var chapterTitle = await promptNewChapterTitle();
           if (chapterTitle === null) return;
+          if (!chapterTitle) {
+              if (typeof window.shakeChapterTitleRequired === 'function') window.shakeChapterTitleRequired();
+              return;
+          }
 
           const response = await fetch(`/Books/GetLastChapter?userId=${userId}&bookId=${bookId}`);
           const data = await response.json();
@@ -4683,6 +4729,8 @@ document.addEventListener('DOMContentLoaded', function() {
           if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
           if (typeof window.showPreviewEmptyState === 'function') window.showPreviewEmptyState();
           if (typeof window.updatePreviewUI === 'function') window.updatePreviewUI();
+          if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
+          setVersionHistoryPanelVisible(true);
 
       }
       //=================================================100% OK
@@ -4720,6 +4768,7 @@ document.addEventListener('DOMContentLoaded', function() {
               if (responseIdElement) responseIdElement.value = "";
               clearChapterVersionHistoryUi();
                    updateButtonStates("OK"); // Enable buttons
+                  if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
                   return;
           }
           // Clear existing content
@@ -4771,6 +4820,7 @@ document.addEventListener('DOMContentLoaded', function() {
                   if (typeof refreshChapterIterationsDropdown === 'function') {
                       refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value);
                   }
+                  if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
                   if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                   if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
                       window.markChapterAsGenerated();
@@ -4813,9 +4863,9 @@ document.addEventListener('DOMContentLoaded', function() {
               var res = await fetch('/Books/GetChapterIterations?userId=' + encodeURIComponent(uid) + '&bookId=' + encodeURIComponent(bid) + '&chapterNo=' + encodeURIComponent(ch));
               var data = await res.json();
               if (!data.success || !data.iterations || !data.iterations.length) {
-                  sel.innerHTML = '<option value="">No versions yet — Generate</option>';
+                  sel.innerHTML = '<option value="">— Generate to create v1 —</option>';
                   if (sumWrap) sumWrap.classList.add('hidden');
-                  setVersionHistoryPanelVisible(false);
+                  setVersionHistoryPanelVisible(shouldShowVersionHistoryPanel());
                   return 0;
               }
               setVersionHistoryPanelVisible(true);
@@ -5275,6 +5325,7 @@ document.addEventListener('DOMContentLoaded', function() {
      //   Run on button click ⚙️ Generate – show theme-matched confirmation modal
      //=============================================
      function confirmGenerateChapter() {
+         if (typeof window.requireChapterTitleForAction === 'function' && !window.requireChapterTitleForAction('generate')) return;
          var genModal = document.getElementById('generateConfirmModal');
          var etaHint = document.getElementById('generateConfirmEtaHint');
          var isRegen = typeof window.isGenerateRegenerateMode === 'function' && window.isGenerateRegenerateMode();
@@ -5358,6 +5409,11 @@ document.addEventListener('DOMContentLoaded', function() {
      //==================
      async function generateBook() {
          console.log("🟢 Step 1: generateBook() function started");
+
+         if (typeof window.requireChapterTitleForAction === 'function' && !window.requireChapterTitleForAction('generate')) {
+             hideGenerateLoading();
+             return;
+         }
 
          // --- Step 2: Collect input values from the page ---
          const requestData = {
