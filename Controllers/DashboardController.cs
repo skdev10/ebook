@@ -137,7 +137,7 @@ namespace EBookDashboard.Controllers
                     await SetActiveBookForUserAsync(user.UserId, inProgress.BookId);
                     HttpContext.Session.SetInt32("LastSelectedBookId", inProgress.BookId);
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, inProgress.BookId);
-                    var flow = await _bookFlow.GetStepAsync(inProgress.BookId);
+                    var flow = await _bookFlow.GetResumeStepAsync(inProgress.BookId);
                     BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
                     var resumeUrl = _bookFlow.BuildResumeUrl(inProgress.BookId, flow.Step, flow.Path);
                     if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
@@ -263,7 +263,7 @@ namespace EBookDashboard.Controllers
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
-            var flow = await _bookFlow.GetStepAsync(bookId);
+            var flow = await _bookFlow.GetResumeStepAsync(bookId);
             BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
 
             string resumeUrl;
@@ -272,8 +272,11 @@ namespace EBookDashboard.Controllers
                 .Where(s => s.Key == perBookKey)
                 .Select(s => s.Value)
                 .FirstOrDefaultAsync();
+            // Bug #17: honour the last-work URL only when it is at least as far as the furthest step,
+            // so backward navigation can't make resume land on an earlier step.
             if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
-                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId)
+                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId
+                && BookFlowStateService.StepRank(BookFlowStateService.StepFromWorkUrl(perBookUrl)) >= BookFlowStateService.StepRank(flow.Step))
             {
                 resumeUrl = perBookUrl!.Trim();
             }
@@ -311,7 +314,7 @@ namespace EBookDashboard.Controllers
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
             string? resumeUrl = null;
-            var flow = await _bookFlow.GetStepAsync(bookId);
+            var flow = await _bookFlow.GetResumeStepAsync(bookId);
             var flowStep = flow.Step;
             BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
 
@@ -320,8 +323,10 @@ namespace EBookDashboard.Controllers
                 .Where(s => s.Key == perBookKey)
                 .Select(s => s.Value)
                 .FirstOrDefaultAsync();
+            // Bug #17: never resume earlier than the furthest step reached.
             if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
-                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId)
+                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId
+                && BookFlowStateService.StepRank(BookFlowStateService.StepFromWorkUrl(perBookUrl)) >= BookFlowStateService.StepRank(flow.Step))
             {
                 resumeUrl = perBookUrl!.Trim();
             }
@@ -795,16 +800,20 @@ namespace EBookDashboard.Controllers
         {
             var map = new Dictionary<int, (string Step, string Path)>();
             if (bookIds.Count == 0) return map;
-            var keys = bookIds.SelectMany(id => new[] { $"book:{id}:flowStep", $"book:{id}:flowPath" }).ToList();
+            var keys = bookIds.SelectMany(id => new[] { $"book:{id}:flowStep", $"book:{id}:flowMaxStep", $"book:{id}:flowPath" }).ToList();
             var rows = await _context.Settings.AsNoTracking()
                 .Where(s => keys.Contains(s.Key))
                 .ToListAsync();
             foreach (var id in bookIds)
             {
                 var step = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowStep")?.Value?.Trim() ?? "";
+                var maxStep = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowMaxStep")?.Value?.Trim() ?? "";
                 var path = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowPath")?.Value?.Trim() ?? "";
                 if (string.IsNullOrEmpty(step)) step = BookFlowStateService.StepGenerate;
                 if (string.IsNullOrEmpty(path)) path = "ebook";
+                // Bug #17: resume at the furthest step reached, not the last (possibly backward) step.
+                if (BookFlowStateService.StepRank(maxStep) > BookFlowStateService.StepRank(step))
+                    step = maxStep;
                 map[id] = (step, path);
             }
             return map;

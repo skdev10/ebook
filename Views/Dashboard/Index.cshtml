@@ -260,9 +260,6 @@
                             </ol>
                         </div>
                         <div class="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
-                            <a href="@startBookUrl" class="inline-flex items-center justify-center gap-2 rounded-full bg-purple-700 hover:bg-purple-800 text-white font-semibold px-8 py-3.5 shadow-lg shadow-purple-200 transition-all" data-editor-reset-new="1" data-book-id="0">
-                                <i class="fas fa-plus text-sm"></i> Create first book
-                            </a>
                             <a href="@Url.Action("MyBooks", "Dashboard")" class="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white text-gray-700 font-medium px-6 py-3 hover:bg-gray-50 transition-colors text-sm">
                                 Browse My Books
                             </a>
@@ -289,7 +286,9 @@
                         foreach (var draft in draftBooksShow)
                         {
                             var draftCover = DashCoverSrc(draft.CoverImagePath);
-                            var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId });
+                            var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl)
+                                ? draft.ResumeUrl
+                                : (Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}");
                             var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
@@ -331,7 +330,9 @@
                         foreach (var draft in demoDraftsShow)
                         {
                             var draftCover = DashCoverSrc(draft.CoverUrl);
-                            var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId });
+                            var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl)
+                                ? draft.ResumeUrl
+                                : (Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}");
                             var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
@@ -373,10 +374,7 @@
                         <div class="col-span-full border border-dashed border-violet-200 rounded-2xl p-8 text-center bg-violet-50/40">
                             <img src="@defaultCoverPlaceholder" alt="" class="w-16 h-20 rounded-lg mx-auto mb-4 object-cover dash-placeholder-cover" />
                             <p class="text-gray-700 font-medium mb-2">No books in progress yet</p>
-                            <p class="text-gray-500 text-sm mb-5 max-w-md mx-auto">Your drafts will appear here with progress through Writer → Format → Cover → Publish.</p>
-                            <a href="@startBookUrl" class="inline-flex items-center gap-2 rounded-full bg-purple-700 hover:bg-purple-800 text-white font-semibold px-6 py-2.5 text-sm shadow-md transition-all">
-                                <i class="fas fa-magic"></i> Create your first book
-                            </a>
+                            <p class="text-gray-500 text-sm mb-0 max-w-md mx-auto">Your drafts will appear here with progress through Writer → Format → Cover → Publish. Use <strong class="text-gray-700">Write Now</strong> above to start.</p>
                         </div>
                     }
                 </div>
@@ -480,7 +478,7 @@
                         <div class="h-full bg-purple-600 rounded-full relative" style="width: @currentReadPercent%"></div>
                     </div>
                 </div>
-                <button type="button" id="continue-reading-btn" class="w-full bg-purple-700 hover:bg-purple-800 active:scale-95 text-white py-3 rounded-full font-medium transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2 group" @(Model.HasAnyBooks ? "" : "data-start-url=\"" + startBookUrl + "\"")>
+                <button type="button" id="continue-reading-btn" class="w-full @(Model.HasAnyBooks ? "bg-purple-700 hover:bg-purple-800 text-white shadow-lg shadow-purple-200" : "border-2 border-purple-200 bg-white text-purple-700 hover:bg-purple-50") active:scale-95 py-3 rounded-full font-medium transition-all flex items-center justify-center gap-2 group" @(Model.HasAnyBooks ? "" : "data-start-url=\"" + startBookUrl + "\"")>
                     @(Model.HasAnyBooks ? "Continue Reading" : "Start first book") <i class="fas fa-external-link-alt w-4 h-4 transition-transform group-hover:translate-x-1"></i>
                 </button>
             </div>

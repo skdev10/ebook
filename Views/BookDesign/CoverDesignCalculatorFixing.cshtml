@@ -1374,6 +1374,26 @@
         max-width: min(100%, 22rem);
         line-height: 1.35;
     }
+    .fmt-preview-footer {
+        flex-shrink: 0;
+        align-items: center;
+    }
+    .fmt-page-indicator,
+    .fmt-total-page-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #5b21b6;
+        background: #f5f3ff;
+        border: 1px solid #ede9fe;
+        border-radius: 9999px;
+    }
+    .fmt-total-page-badge.hidden { display: none !important; }
+    .fmt-total-page-badge strong { font-weight: 700; }
     #preview-both .reader-nav-bar {
         position: relative;
         z-index: 6;
@@ -1802,6 +1822,13 @@
                                                 </div>
                                                 <div id="fmt-preview-measure-host" class="preview-measure-host book-page-preview-measure" aria-hidden="true"></div>
                                             </div>
+                                            <div id="fmt-preview-footer" class="fmt-preview-footer flex flex-col items-center gap-2 shrink-0 w-full py-2">
+                                                <div id="fmt-page-indicator" class="fmt-page-indicator" aria-live="polite">Page 1 of 1</div>
+                                                <div id="fmt-total-page-count" class="fmt-total-page-badge" aria-live="polite">
+                                                    <i class="fas fa-book text-[11px]" aria-hidden="true"></i>
+                                                    <span>Total pages: <strong id="fmt-total-page-count-value">—</strong></span>
+                                                </div>
+                                            </div>
                                             <span class="sr-only" id="page-indicator-format">Page 0 of 0</span>
                                         </div>
                                         <div id="preview-both" class="preview-panel-both hidden flex flex-1 flex-col min-h-0 w-full" style="display:none;">
@@ -2065,10 +2092,14 @@
 
     function syncFormatterPageCountUi() {
         var pages = getFormatterPreviewPageCount();
-        var totalEl = document.getElementById('fmt-total-page-count');
+        var totalVal = document.getElementById('fmt-total-page-count-value');
+        var totalWrap = document.getElementById('fmt-total-page-count');
         var noteEl = document.getElementById('fmt-spine-page-note');
-        if (totalEl) {
-            totalEl.textContent = pages > 0 ? ('Total pages: ' + pages) : 'Total pages: —';
+        if (totalVal) {
+            totalVal.textContent = pages > 0 ? String(pages) : '—';
+        }
+        if (totalWrap) {
+            totalWrap.classList.toggle('hidden', pages <= 0);
         }
         if (noteEl) {
             if (pages > 0) noteEl.classList.remove('hidden');
@@ -5131,6 +5162,7 @@
         const indE = document.getElementById('page-indicator-ebook');
         const indP = document.getElementById('page-indicator-paperback');
         const indStage = document.getElementById('bookPageIndicator');
+        const fmtPageInd = document.getElementById('fmt-page-indicator');
         const text = total ? 'Page ' + (currentPageIdx + 1) + ' of ' + total : 'Page 0 of 0';
         const short = total ? (currentPageIdx + 1) + ' / ' + total : '0 / 0';
         if (indF) indF.textContent = text;
@@ -5138,6 +5170,8 @@
         if (indE) indE.textContent = short;
         if (indP) indP.textContent = short;
         if (indStage) indStage.textContent = short;
+        if (fmtPageInd) fmtPageInd.textContent = total ? ('Page ' + (currentPageIdx + 1) + ' of ' + total) : 'Page 0 of 0';
+        if (fmtPageInd) fmtPageInd.classList.toggle('hidden', !total);
         setReaderNavDisabled(currentPageIdx <= 0, currentPageIdx >= total - 1 || total === 0);
         updateReaderProgressUi();
         updateFmtPreviewChapterChrome();
@@ -6118,22 +6152,19 @@
 <style>
     #book-formatter-root #fmt-book-result #preview-both { display: none !important; }
     #book-formatter-root #fmt-preview-chapter-header,
-    #book-formatter-root #fmt-total-page-count,
     #book-formatter-root #fmt-spine-page-note,
     #book-formatter-root #fmt-btn-rename-chapter,
-    #book-formatter-root #fmt-link-switch-book,
-    #book-formatter-root #fmt-fullbook-read-bar {
+    #book-formatter-root #fmt-link-switch-book {
         display: none !important;
     }
     #book-formatter-root #fmt-book-result .paginated-reader-shell {
         margin-inline: auto !important;
         min-height: 0 !important;
-        aspect-ratio: 6 / 9 !important;
         overflow: hidden !important;
         flex: 0 0 auto !important;
-        width: auto !important;
-        max-width: min(100%, 100%) !important;
+        max-width: 100% !important;
         padding: 0 !important;
+        /* Width/height set by BookInteriorPreview.syncPreviewLayout — do not force width:auto */
     }
     #book-formatter-root #fmt-preview-scroll-host.book-preview-stage {
         background: transparent;

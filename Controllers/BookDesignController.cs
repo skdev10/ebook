@@ -567,7 +567,7 @@ namespace EBookDashboard.Controllers
                     spineTitle = response.SpineTitle,
                     spineDescription = response.SpineDescription,
                     bookVolume = response.BookVolume,
-                    createdAt = response.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
+                    createdAt = EBookDashboard.Services.FriendlyDateFormatter.Format(response.CreatedAt),
                     status = response.Status,
                     IsActive = response.isActive
                 });

@@ -74,10 +74,60 @@ public sealed class BookFlowStateService
     public async Task SaveStepAsync(int bookId, string step, string? formatPath = null, CancellationToken ct = default)
     {
         if (bookId <= 0 || string.IsNullOrWhiteSpace(step)) return;
-        await UpsertAsync($"book:{bookId}:flowStep", step.Trim(), ct);
+        var normalized = step.Trim();
+
+        // Bug #17/#18: capture the furthest step reached BEFORE overwriting the current step, so
+        // "Continue Editing" / Publish resume at the last completed step (never regress on soft back).
+        var priorMaxRank = await GetMaxStepRankAsync(bookId, ct);
+
+        await UpsertAsync($"book:{bookId}:flowStep", normalized, ct);
         if (!string.IsNullOrWhiteSpace(formatPath))
             await UpsertAsync($"book:{bookId}:flowPath", formatPath.Trim(), ct);
         await UpsertAsync($"book:{bookId}:flowUpdatedAt", DateTime.UtcNow.ToString("O"), ct);
+
+        if (StepRank(normalized) > priorMaxRank)
+            await UpsertAsync($"book:{bookId}:flowMaxStep", normalized, ct);
+    }
+
+    private async Task<int> GetMaxStepRankAsync(int bookId, CancellationToken ct)
+    {
+        var keys = new[] { $"book:{bookId}:flowMaxStep", $"book:{bookId}:flowStep" };
+        var rows = await _context.Settings.AsNoTracking()
+            .Where(s => keys.Contains(s.Key))
+            .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", ct);
+        var max = rows.GetValueOrDefault($"book:{bookId}:flowMaxStep", "").Trim();
+        var cur = rows.GetValueOrDefault($"book:{bookId}:flowStep", "").Trim();
+        return Math.Max(StepRank(max), StepRank(cur));
+    }
+
+    /// <summary>Resolves the step to resume at: the furthest reached step (Bug #17/#18).</summary>
+    public async Task<(string Step, string Path)> GetResumeStepAsync(int bookId, CancellationToken ct = default)
+    {
+        if (bookId <= 0) return (StepGenerate, "ebook");
+        var keys = new[] { $"book:{bookId}:flowStep", $"book:{bookId}:flowMaxStep", $"book:{bookId}:flowPath" };
+        var rows = await _context.Settings.AsNoTracking()
+            .Where(s => keys.Contains(s.Key))
+            .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", ct);
+        var step = rows.GetValueOrDefault($"book:{bookId}:flowStep", "").Trim();
+        if (string.IsNullOrEmpty(step)) step = StepGenerate;
+        var maxStep = rows.GetValueOrDefault($"book:{bookId}:flowMaxStep", "").Trim();
+        var resume = StepRank(maxStep) > StepRank(step) ? maxStep : step;
+        var path = rows.GetValueOrDefault($"book:{bookId}:flowPath", "").Trim();
+        if (string.IsNullOrEmpty(path)) path = "ebook";
+        return (resume, path);
+    }
+
+    /// <summary>Maps a stored "last work URL" back to its flow step (for resume comparison).</summary>
+    public static string StepFromWorkUrl(string? url)
+    {
+        var u = (url ?? "").Trim();
+        if (u.Length == 0) return "";
+        var pathOnly = u.Split('?', 2)[0];
+        if (pathOnly.Contains("/Dashboard/Publish", StringComparison.OrdinalIgnoreCase)) return StepPublish;
+        if (pathOnly.Contains("CoverDesignCalculatorFixing", StringComparison.OrdinalIgnoreCase)) return StepFormat;
+        if (pathOnly.Contains("/Dashboard/CoverDesign", StringComparison.OrdinalIgnoreCase)) return StepCover;
+        if (pathOnly.Contains("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase)) return StepGenerate;
+        return "";
     }
 
     public async Task<(string Step, string Path)> GetStepAsync(int bookId, CancellationToken ct = default)
@@ -137,6 +187,8 @@ public sealed class BookFlowStateService
         if (prev == null) return;
         var (_, path) = await GetStepAsync(bookId, ct);
         await SaveStepAsync(bookId, prev, path, ct);
+        // Destructive back: the furthest-reached step regresses too (work at currentStep was wiped).
+        await UpsertAsync($"book:{bookId}:flowMaxStep", prev, ct);
     }
 
     /// <summary>Clears persisted assets for the step the user is leaving when navigating back.</summary>

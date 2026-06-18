@@ -135,7 +135,8 @@
     }
     catch { }
     var sidebarFlowEntryUrl = "/Dashboard";
-    var sidebarAiWriterUrl = sidebarFlowEntryUrl;
+    // AI Writer must ALWAYS open the writer (never bounce to Dashboard): start/reuse a draft when no book is active.
+    var sidebarAiWriterUrl = "/Dashboard/StartNewBook?writer=1";
     var sidebarFormatUrl = sidebarFlowEntryUrl;
     var sidebarCoverUrl = sidebarFlowEntryUrl;
     var sidebarPublishUrl = sidebarFlowEntryUrl;
@@ -146,19 +147,34 @@
         {
             var flowStepKey = $"book:{sidebarActiveBookId}:flowStep";
             var flowPathKey = $"book:{sidebarActiveBookId}:flowPath";
+            var flowMaxKey = $"book:{sidebarActiveBookId}:flowMaxStep";
             var flowRows = DbContext.Settings.AsNoTracking()
-                .Where(s => s.Key == flowStepKey || s.Key == flowPathKey)
+                .Where(s => s.Key == flowStepKey || s.Key == flowPathKey || s.Key == flowMaxKey)
                 .ToDictionary(s => s.Key, s => s.Value ?? "");
             var activeStep = flowRows.GetValueOrDefault(flowStepKey, "").Trim();
             if (string.IsNullOrEmpty(activeStep)) activeStep = BookFlowStateService.StepGenerate;
+            var activeMaxStep = flowRows.GetValueOrDefault(flowMaxKey, "").Trim();
+            var resumeStep = BookFlowStateService.StepRank(activeMaxStep) > BookFlowStateService.StepRank(activeStep)
+                ? activeMaxStep : activeStep;
             var activePath = flowRows.GetValueOrDefault(flowPathKey, "").Trim();
             if (string.IsNullOrEmpty(activePath)) activePath = "ebook";
             // Dashboard-first: sidebar step links re-enter flow via SelectBook (resume at saved step).
             var selectBookEntry = $"/Dashboard/SelectBook?bookId={sidebarActiveBookId}";
-            sidebarAiWriterUrl = selectBookEntry;
+            // AI Writer always opens the writer for the active book directly (preserves context, no step bounce).
+            sidebarAiWriterUrl = $"/Books/AIGenerateBook?bookId={sidebarActiveBookId}";
             sidebarFormatUrl = $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}";
             sidebarCoverUrl = selectBookEntry;
             sidebarPublishUrl = selectBookEntry;
+            if (BookFlowStateService.IsStepAtLeast(resumeStep, BookFlowStateService.StepPublish))
+            {
+                sidebarPublishUrl = activePath.Equals("print", StringComparison.OrdinalIgnoreCase)
+                    ? $"/Dashboard/Publish?bookId={sidebarActiveBookId}&flow=printready"
+                    : $"/Dashboard/Publish?bookId={sidebarActiveBookId}";
+            }
+            else if (BookFlowStateService.IsStepAtLeast(resumeStep, BookFlowStateService.StepCover))
+                sidebarCoverUrl = $"/Dashboard/CoverDesign?bookId={sidebarActiveBookId}";
+            else if (BookFlowStateService.IsStepAtLeast(resumeStep, BookFlowStateService.StepFormat))
+                sidebarFormatUrl = $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}&format={(activePath.Equals("print", StringComparison.OrdinalIgnoreCase) ? "Paperback" : "Ebook")}";
         }
         catch { }
     }

@@ -335,10 +335,11 @@
                     <div class="bg-slate-50 rounded-[14px] flex flex-wrap justify-end items-center p-2.5 mt-1 border border-slate-100/90 gap-2">
                         @* <button type="button" id="btnEditCover" class="cov-action-icon-btn cov-action-icon-btn--muted" title="Edit cover — apply Image Direction to current cover" aria-label="Edit cover">
                             <i data-lucide="pencil" class="w-5 h-5" stroke-width="2"></i>
-                        </button>
-                        <button type="button" id="btnRegenerate" class="cov-action-icon-btn cov-action-icon-btn--accent" title="Regenerate — new cover with current fields" aria-label="Regenerate cover">
-                            <i data-lucide="refresh-cw" class="w-5 h-5" stroke-width="2"></i>
                         </button> *@
+                        <button type="button" id="btnRegenerate" class="hidden inline-flex items-center gap-2 rounded-full bg-white text-violet-700 border border-violet-200 px-5 py-2.5 text-sm font-semibold shadow-sm hover:bg-violet-50 transition-colors" title="Regenerate — create a fresh cover with the current fields">
+                            <i data-lucide="refresh-cw" class="w-4 h-4" stroke-width="1.75"></i>
+                            Regenerate Cover
+                        </button>
                         <button type="button" id="btnGenerate" class="inline-flex items-center gap-2 rounded-full bg-violet-600 text-white px-5 py-2.5 text-sm font-semibold shadow-md shadow-violet-500/30 hover:bg-violet-700 transition-colors">
                             <i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i>
                             Generate Cover
@@ -542,9 +543,15 @@
     function setPublishButtonBusy(isBusy) {
         if (!btnGoToPublish) return;
         var busy = !!isBusy;
-        btnGoToPublish.setAttribute('aria-disabled', busy ? 'true' : 'false');
-        btnGoToPublish.style.pointerEvents = busy ? 'none' : '';
-        btnGoToPublish.style.opacity = busy ? '0.6' : '';
+        btnGoToPublish.setAttribute('data-busy', busy ? 'true' : 'false');
+        if (busy) {
+            btnGoToPublish.setAttribute('aria-disabled', 'true');
+            btnGoToPublish.style.pointerEvents = 'none';
+            btnGoToPublish.style.opacity = '0.6';
+        } else {
+            // Re-apply the cover-ready gate (don't blindly re-enable).
+            updatePublishGate();
+        }
     }
 
     function showSpinePagesCreatedAlert(pageCount) {
@@ -990,6 +997,27 @@
                 covPreviewPlaceholderImg.classList.remove('opacity-0');
             }
         }
+        updatePublishGate();
+    }
+
+    // Bug #15: "Continue to Publish" stays disabled until a cover actually exists for this book.
+    function coverIsReady() {
+        if (coverGeneratedPayload && (coverGeneratedPayload.value || '').trim()) return true;
+        if (selectedPath && String(selectedPath).trim()) return true;
+        if (selectedBook && (selectedBook.coverImagePath || selectedBook.aiCoverLastPreview)) return true;
+        return false;
+    }
+
+    function updatePublishGate() {
+        if (!btnGoToPublish) return;
+        if (btnGoToPublish.getAttribute('data-busy') === 'true') return;
+        var ready = coverIsReady();
+        btnGoToPublish.setAttribute('aria-disabled', ready ? 'false' : 'true');
+        btnGoToPublish.style.pointerEvents = ready ? '' : 'none';
+        btnGoToPublish.style.opacity = ready ? '' : '0.5';
+        btnGoToPublish.title = ready ? 'Open Publish with this same book' : 'Generate a cover first to continue';
+        // Bug #16: Regenerate becomes available only after a cover exists.
+        if (btnRegenerate) btnRegenerate.classList.toggle('hidden', !ready);
     }
 
     function pushCoverHistory(url) {
@@ -1725,6 +1753,9 @@
     if (btnGoToPublish) btnGoToPublish.addEventListener('click', function (e) {
         if (btnGoToPublish.getAttribute('aria-disabled') === 'true') {
             e.preventDefault();
+            if (btnGoToPublish.getAttribute('data-busy') !== 'true') {
+                toast('info', 'Generate a cover first, then continue to Publish.');
+            }
             return;
         }
         e.preventDefault();
@@ -1748,6 +1779,7 @@
             } catch (_) { /* no-op */ }
         }
         loadBooks();
+        updatePublishGate();
         if (coverType === 'both') {
             if (btnGoToPublish) btnGoToPublish.innerHTML = '<i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i> Continue to Publish with both files';
         }

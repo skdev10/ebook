@@ -557,6 +557,22 @@
         flex-shrink: 0;
     }
     .ai-writer-total-pages strong { font-weight: 700; }
+    .ai-writer-page-indicator {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-top: 0.6rem;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #5b21b6;
+        background: #f5f3ff;
+        border: 1px solid #ede9fe;
+        border-radius: 9999px;
+        align-self: center;
+        flex-shrink: 0;
+    }
     .book-page-indicator {
         position: absolute;
         bottom: 12px;
@@ -1467,7 +1483,7 @@
             <hr class="border-slate-200/80 my-1 hidden" aria-hidden="true">
 
             <div id="chapterWorkflowProgress" class="chapter-workflow-progress hidden" role="status" aria-live="polite" aria-hidden="true" style="display:none !important;">
-                <span id="chapterWorkflowProgressText">Not started</span>
+                <span id="chapterWorkflowProgressText">Ready to Write</span>
                 <span id="chapterFinalizedBadge" class="chapter-finalized-badge hidden" aria-hidden="true"><i class="fas fa-lock text-[9px]" aria-hidden="true"></i> Finalized</span>
             </div>
 
@@ -1592,6 +1608,7 @@
                     <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
                     <button type="button" id="btnAiWriterNextSide" class="book-preview-nav-side book-preview-nav-side-next ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page"><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
                     </div>
+                    <div id="aiWriterPageIndicator" class="ai-writer-page-indicator hidden" aria-live="polite">Page 1 of 1</div>
                     <div id="aiWriterTotalPages" class="ai-writer-total-pages hidden" aria-live="polite">
                         <i class="fas fa-book text-[11px]" aria-hidden="true"></i>
                         <span>Total pages: <strong id="aiWriterTotalPagesValue">—</strong></span>
@@ -2454,7 +2471,7 @@ window.refreshChapterWorkflowProgress = async function () {
         var isActuallyFinalized = hasGenerated && (
             statusField === 'ReadOnly' || (current && current.isFinalized));
         var curStatus = !hasGenerated
-            ? 'Not started'
+            ? 'Ready to Write'
             : (isActuallyFinalized ? 'Finalized' : 'Ready');
         textEl.innerHTML = (curLabel ? ('<strong>' + curLabel + '</strong> — ') : '') + curStatus
             + (fin > 0 && total > 0 ? (' <span class="text-violet-600/80">· ' + fin + ' of ' + total + ' finalized</span>') : '');
@@ -2467,23 +2484,58 @@ window.refreshChapterWorkflowProgress = async function () {
     }
 };
 
+/** Formats stored UTC version date/time as a human-friendly "June 18, 2026 at 4:37 PM". */
+window.formatFriendlyVersionDate = function (dateStr, timeStr) {
+    var d = (dateStr || '').trim();
+    if (!d) return '';
+    var t = (timeStr || '').split('.')[0] || '00:00:00';
+    var dt = new Date(d + 'T' + t + 'Z');
+    if (isNaN(dt.getTime())) return d;
+    var months = ['January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'];
+    var h = dt.getUTCHours();
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    var mins = ('0' + dt.getUTCMinutes()).slice(-2);
+    return months[dt.getUTCMonth()] + ' ' + dt.getUTCDate() + ', ' + dt.getUTCFullYear()
+        + ' at ' + h12 + ':' + mins + ' ' + ampm;
+};
+
+window.getAiWriterLocalTotalPages = function () {
+    var list = window._previewChaptersMeta || [];
+    var total = 0;
+    list.forEach(function (ch) {
+        if (!ch) return;
+        if (ch._pagesCache && ch._pagesCache.length) total += ch._pagesCache.length;
+        else if (ch.content && String(ch.content).trim()) total += 1;
+    });
+    return total;
+};
+
 window.refreshAiWriterTotalPages = async function () {
     var wrap = document.getElementById('aiWriterTotalPages');
     var valEl = document.getElementById('aiWriterTotalPagesValue');
     if (!wrap || !valEl) return;
     var bid = parseInt(String((document.getElementById('BookId') && document.getElementById('BookId').value) || '0'), 10);
     if (!bid) { wrap.classList.add('hidden'); return; }
-    try {
-        var r = await fetch('/BookPageMetrics?bookId=' + bid, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
-        var d = await r.json().catch(function () { return {}; });
-        if (d && d.success && d.pageCount > 0) {
-            valEl.textContent = String(d.pageCount);
+    var localPages = typeof window.getAiWriterLocalTotalPages === 'function' ? window.getAiWriterLocalTotalPages() : 0;
+    var showCount = function (n) {
+        if (n > 0) {
+            valEl.textContent = String(n);
             wrap.classList.remove('hidden');
         } else {
             wrap.classList.add('hidden');
         }
+    };
+    if (localPages > 0) showCount(localPages);
+    try {
+        var r = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        var d = await r.json().catch(function () { return {}; });
+        var apiCount = (d && d.success && d.pageCount > 0) ? parseInt(String(d.pageCount), 10) : 0;
+        if (apiCount > 0) showCount(Math.max(apiCount, localPages));
+        else if (!localPages) showCount(0);
     } catch (e) {
-        wrap.classList.add('hidden');
+        if (!localPages) showCount(0);
     }
 };
 document.addEventListener('DOMContentLoaded', function () {
@@ -2846,10 +2898,12 @@ window.updateChapterPreviewNavUI = function () {
     var next = document.getElementById('btnPreviewChNext');
     var fill = document.getElementById('chapterReadProgressFill');
     var idxBtn = document.getElementById('btnOpenChapterIndex');
+    var pageInd = document.getElementById('aiWriterPageIndicator');
     var list = window._previewChaptersMeta || [];
     if (!nav) return;
     if (list.length === 0) {
         nav.classList.add('hidden');
+        if (pageInd) pageInd.classList.add('hidden');
         var psHide = document.getElementById('btnAiWriterPrevSide');
         var nsHide = document.getElementById('btnAiWriterNextSide');
         if (psHide) { psHide.style.visibility = 'hidden'; psHide.disabled = true; }
@@ -2879,6 +2933,14 @@ window.updateChapterPreviewNavUI = function () {
         label.textContent = ch.loading
             ? ('Loading… ' + displayTitle)
             : (displayTitle + ' · Page ' + (pgIdx + 1) + ' / ' + pageCount);
+    }
+    if (pageInd) {
+        if (ch.loading) {
+            pageInd.classList.add('hidden');
+        } else {
+            pageInd.textContent = 'Page ' + (pgIdx + 1) + ' of ' + pageCount;
+            pageInd.classList.remove('hidden');
+        }
     }
     if (ch.loading) {
         if (prev) prev.disabled = true;
@@ -2919,6 +2981,29 @@ window.updateChapterPreviewNavUI = function () {
     }
     if (typeof window.syncAiWriterPreviewLayout === 'function') {
         requestAnimationFrame(function () { window.syncAiWriterPreviewLayout(); });
+    }
+    if (typeof window.refreshAiWriterTotalPages === 'function') window.refreshAiWriterTotalPages();
+};
+
+/**
+ * Bug #5: bind the preview card to the *selected* chapter (by chapterNo), so switching chapters
+ * never leaves a stale chapter title/heading in the preview. No-op when preview has no chapters.
+ */
+window.syncPreviewToSelectedChapter = function (chapterNo) {
+    var list = window._previewChaptersMeta || [];
+    if (!list.length || !Number.isFinite(chapterNo)) return;
+    var idx = -1;
+    for (var i = 0; i < list.length; i++) {
+        var cn = (list[i] && list[i].chapterNo != null && list[i].chapterNo !== '')
+            ? parseInt(list[i].chapterNo, 10) : (i + 1);
+        if (cn === chapterNo) { idx = i; break; }
+    }
+    if (idx < 0 || idx === window._previewChapterIndex) return;
+    if (typeof window.applyPreviewChapterIndex === 'function') {
+        window.applyPreviewChapterIndex(idx, { initialPage: 0 });
+    }
+    if (typeof window.updateChapterPreviewNavUI === 'function') {
+        window.updateChapterPreviewNavUI();
     }
 };
 
@@ -4445,8 +4530,16 @@ document.addEventListener('DOMContentLoaded', function() {
                // Sync chapter dropdown only — form fields already filled above
                await loadBookAllChaptersNumbers(true);
                populateBookForm(result);   // Function to populate FORM's fields with book data
-               // Full book preview: user clicks Preview next to Book Selection
-               showNotification("Book loaded. Click Preview to see the full book below, or edit chapters and Generate.", "success");
+               // Full book preview: only claim "loaded" when real chapter content exists; otherwise prompt to start.
+               var hasRealChapterContent = sortedCh.some(function (c) {
+                   if (!c || c.content == null) return false;
+                   return String(c.content).replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().length > 0;
+               });
+               if (hasRealChapterContent) {
+                   showNotification("Book loaded. Click Preview to see the full book below, or edit chapters and Generate.", "success");
+               } else {
+                   showNotification("Start writing your first chapter.", "info");
+               }
                if (typeof window.syncCoverFormFromBook === 'function') window.syncCoverFormFromBook(bookId);
                if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
                if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
@@ -4879,6 +4972,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                   if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
                       window.markChapterAsGenerated();
+                      // Bug #5: move the preview card to the chapter the user just selected.
+                      if (typeof window.syncPreviewToSelectedChapter === 'function') {
+                          window.syncPreviewToSelectedChapter(parseInt(selectedValue, 10));
+                      }
                   } else {
                       var apiRawCh = document.getElementById('APIRawResponse');
                       if (apiRawCh) apiRawCh.value = '';
@@ -4936,8 +5033,10 @@ document.addEventListener('DOMContentLoaded', function() {
                   opt.value = String(it.responseId || '');
                   var label = 'v' + it.iterationNumber;
                   if (it.title) label += ': ' + String(it.title).substring(0, 48);
-                  var t = (it.generationTime || '').split('.')[0] || '';
-                  label += ' · ' + (it.generationDate || '') + (t ? (' ' + t + ' UTC') : '');
+                  var friendly = (typeof window.formatFriendlyVersionDate === 'function')
+                      ? window.formatFriendlyVersionDate(it.generationDate, it.generationTime)
+                      : (it.generationDate || '');
+                  if (friendly) label += ' · ' + friendly;
                   if (it.isFinalized) label += ' [Current]';
                   opt.textContent = label;
                   sel.appendChild(opt);
@@ -5690,16 +5789,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                  window.patchLocalPreviewMetaAfterGeneration(bookData);
                              }
                              if (typeof refreshChapterIterationsDropdown === 'function') {
-                                 refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value).then(function (draftCount) {
-                                     var base = 'Chapter ready — preview neeche.';
-                                     var extra = '';
-                                     if (draftCount > 1) extra = ' Is chapter ke ' + draftCount + ' versions hain — sabse naya [Current] hai.';
-                                     else if (draftCount === 1) extra = ' Pehla version save — dubara Generate se v2, v3…';
-                                     if (typeof showNotification === 'function') showNotification(base + extra, 'success');
-                                 });
-                             } else if (typeof showNotification === 'function') {
-                                 showNotification('Chapter ready — latest version saved as [Current].', 'success');
-                             }
+                                refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value).then(function () {
+                                    if (typeof showNotification === 'function') showNotification('Chapter generated successfully.', 'success');
+                                });
+                            } else if (typeof showNotification === 'function') {
+                                showNotification('Chapter generated successfully.', 'success');
+                            }
                          });
                      } else {
                          loadSavedBooksDropdown();
@@ -5713,15 +5808,12 @@ document.addEventListener('DOMContentLoaded', function() {
                              window.patchLocalPreviewMetaAfterGeneration(bookData);
                          }
                          if (typeof refreshChapterIterationsDropdown === 'function') {
-                             refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value).then(function (draftCount) {
-                                 var msg = 'Chapter ready.';
-                                 if (draftCount > 1) msg += ' ' + draftCount + ' drafts saved — green summary above.';
-                                 else if (draftCount === 1) msg += ' 1 draft saved.';
-                                 if (typeof showNotification === 'function') showNotification(msg, 'success');
-                             });
-                         } else if (typeof showNotification === 'function') {
-                             showNotification('Chapter ready.', 'success');
-                         }
+                            refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value).then(function () {
+                                if (typeof showNotification === 'function') showNotification('Chapter generated successfully.', 'success');
+                            });
+                        } else if (typeof showNotification === 'function') {
+                            showNotification('Chapter generated successfully.', 'success');
+                        }
                      }
                 } else if (response.status === 401) {
                     var loginMsg = 'Your session expired. Please log in again, then retry chapter generation.';
