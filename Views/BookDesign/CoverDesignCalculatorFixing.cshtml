@@ -1153,8 +1153,8 @@
         width: 100%;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: center;
+        align-items: flex-start;
+        justify-content: flex-start;
         overflow: visible;
         position: relative;
     }
@@ -1166,7 +1166,7 @@
         width: 100%;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
         justify-content: flex-start;
         overflow: visible;
     }
@@ -1187,8 +1187,8 @@
     #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
         position: relative;
         width: auto;
-        max-width: min(100%, 100%);
-        margin-inline: auto;
+        max-width: 100%;
+        margin-inline: 0;
         flex: 0 0 auto;
         min-height: 0;
         aspect-ratio: 6 / 9;
@@ -1199,7 +1199,7 @@
     }
     @@media (min-width: 1024px) {
         #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
-            max-height: calc(100dvh - 9rem);
+            max-height: calc(100dvh - 6rem);
         }
     }
     /* Mat/frame/chrome: InteriorLayoutTokens.BuildFrameAndSheetCss */
@@ -1597,6 +1597,21 @@
         width: auto;
         max-width: min(100%, 100%);
     }
+
+    /* ===== Align the preview page flush-left under the header (Ebook preview / title / byline) ===== */
+    #book-formatter-root #fmt-preview-scroll-host,
+    #book-formatter-root #fmt-preview-scroll-host .preview-panel-single,
+    #book-formatter-root #fmt-book-result .chapter-preview-scroll-host,
+    #book-formatter-root #preview-single {
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+    }
+    #book-formatter-root #fmt-book-result .paginated-reader-shell.book-page-preview-shell,
+    #book-formatter-root #fmt-preview-scroll-host .paginated-reader-shell.book-page-preview-shell {
+        margin-inline: 0 !important;
+    }
+    /* Header sits at the same left edge as the page (no stray inset) */
+    #book-formatter-root .fmt-preview-header { padding-left: 0; margin-left: 0; }
 </style>
 <partial name="_InteriorLayoutTokens" />
 <partial name="_BookInteriorPreviewAssets" />

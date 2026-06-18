@@ -744,11 +744,11 @@ public static class InteriorLayoutTokens
 
 
 
-            // Formatter preview: warm mat behind the 6×9 page card; PDF export uses sheet rules only.
+            // Formatter preview: no mat chrome — the 6×9 page card floats clean on the canvas.
+            // (Background/border intentionally removed across every interior variant.)
             sb.Append("#book-formatter-root #fmt-book-result.").Append(mat).Append(" { ");
-            sb.Append("background:").Append(f.MatBackground).Append("; ");
-            sb.Append("border:").Append(f.MatBorder).Append("; ");
-            sb.Append("border-radius:12px; padding:0.75rem 1rem 1rem; box-sizing:border-box; } ");
+            sb.Append("background:transparent; border:0; ");
+            sb.Append("border-radius:0; padding:0; box-sizing:border-box; } ");
 
             sb.Append("#book-formatter-root #paginatedReaderShell.").Append(wrap).Append(", ");
             sb.Append("#book-formatter-root .paginated-reader-shell.").Append(wrap).Append(" { ");
