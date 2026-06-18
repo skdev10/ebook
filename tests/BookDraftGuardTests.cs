@@ -203,4 +203,30 @@ public class BookDraftGuardTests
         Assert.Equal(1, await ctx.Books.CountAsync(b => b.UserId == 10));
         Assert.Equal("Keep Me", (await ctx.Books.SingleAsync()).Title);
     }
+
+    [Fact]
+    public async Task CreateBookFromRequest_allows_duplicate_real_titles_as_distinct_books()
+    {
+        await using var ctx = CreateContext(nameof(CreateBookFromRequest_allows_duplicate_real_titles_as_distinct_books));
+        var service = new BookService(ctx, chapterIterations: null!, env: null!);
+
+        CreateBookRequest MakeRequest() => new()
+        {
+            UserId = 10,
+            AuthorId = 10,
+            CategoryId = 1,
+            LanguageId = 1,
+            Title = "India vs Pakistan War",
+            Status = "Draft"
+        };
+
+        var first = await service.CreateBookFromRequestAsync(MakeRequest());
+        var second = await service.CreateBookFromRequestAsync(MakeRequest());
+
+        // Same real title is allowed: two separate rows, each with its own BookId.
+        Assert.NotEqual(first.BookId, second.BookId);
+        Assert.Equal("India vs Pakistan War", first.Title);
+        Assert.Equal("India vs Pakistan War", second.Title);
+        Assert.Equal(2, await ctx.Books.CountAsync(b => b.UserId == 10 && b.Title == "India vs Pakistan War"));
+    }
 }

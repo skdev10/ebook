@@ -3828,7 +3828,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                 setWriterAutoSaveStatus('Saved', false);
                 var savedTitle = (result.data.bookTitle || payload.BookTitle || '').trim();
-                if (savedTitle) {
+                // Never push a placeholder ("Untitled Book") back into the field, and never
+                // overwrite/refill the title input the user just cleared — leave it empty.
+                if (savedTitle && !isPlaceholderBookTitle(savedTitle)) {
                     syncWorkingOnBookTitle(savedTitle);
                     if (inputBookTitle && !inputBookTitle.value.trim()) inputBookTitle.value = savedTitle;
                 }
@@ -3863,11 +3865,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }, typeof delayMs === 'number' ? delayMs : 700);
     }
 
+    /** A blank/placeholder book title that must never be force-injected into the title input. */
+    function isPlaceholderBookTitle(title) {
+        var t = (title || '').trim();
+        if (!t) return true;
+        return /^(untitled|untitled book|no book selected)$/i.test(t);
+    }
+
     function syncWorkingOnBookTitle(title) {
         var el = document.getElementById('aiWriterSelectedBookTitle');
         if (!el) return;
         var t = (title || '').trim();
-        if (!t || t === 'Untitled' || t === 'Untitled Book') {
+        if (isPlaceholderBookTitle(t)) {
             el.textContent = 'Untitled Book';
             return;
         }
