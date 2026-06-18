@@ -1740,6 +1740,43 @@ namespace EBookDashboard.Controllers
         }
 
         /// <summary>
+        /// Promotes one chapter iteration (version) to the chapter's current/finalized version.
+        /// Used by the AI Writer "Set as current version" action in Version history.
+        /// </summary>
+        [HttpPost]
+        [Route("Books/PromoteChapterVersion")]
+        public async Task<IActionResult> PromoteChapterVersion([FromBody] PromoteChapterVersionRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0 || req.ChapterNo <= 0 || req.ResponseId <= 0)
+                return BadRequest(new { success = false, message = "BookId, ChapterNo, and ResponseId are required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            try
+            {
+                var ok = await _chapterIterationService.FinalizeByResponseIdAsync(
+                    sessionUserId.Value, req.BookId, req.ChapterNo, req.ResponseId, cancellationToken);
+                if (!ok)
+                    return Json(new { success = false, message = "Could not finalize this version. Generate or save the version first." });
+
+                HttpContext.Session.SetString("HasGeneratedBook", "1");
+                return Json(new { success = true, message = "Version finalized as current." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "PromoteChapterVersion failed for book {BookId} chapter {Chapter}", req.BookId, req.ChapterNo);
+                return Json(new { success = false, message = "Server error while finalizing the version." });
+            }
+        }
+
+        /// <summary>
         /// PDF built only from iterations marked finalized; includes generation/finalization timestamps per chapter.
         /// </summary>
         [HttpPost]

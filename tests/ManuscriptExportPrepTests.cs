@@ -488,6 +488,54 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public async Task BuildEpub_has_toc_and_never_emits_chapter_zero()
+    {
+        var svc = new EpubExportService();
+        var details = new BookDetailsResponseDto
+        {
+            Success = true,
+            BookId = 7,
+            BookTitle = "Numbering Test",
+            AuthorName = "Author",
+            Chapters =
+            [
+                // Mis-stored as ChapterNumber 0 with a literal "Chapter 0" title — must not leak into export.
+                new ChapterDto { ChapterNumber = 0, Title = "Chapter 0", Content = "<p>First.</p>" },
+                new ChapterDto { ChapterNumber = 2, Title = "The Journey", Content = "<p>Second.</p>" }
+            ]
+        };
+
+        var bytes = await svc.BuildEpubAsync(details, null, details.BookTitle, details.AuthorName);
+
+        using var ms = new MemoryStream(bytes);
+        using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read);
+
+        string ReadEntry(string path)
+        {
+            var entry = zip.GetEntry(path);
+            Assert.NotNull(entry);
+            using var reader = new StreamReader(entry!.Open());
+            return reader.ReadToEnd();
+        }
+
+        var nav = ReadEntry("OEBPS/nav.xhtml");
+        var ncx = ReadEntry("OEBPS/toc.ncx");
+        var opf = ReadEntry("OEBPS/content.opf");
+
+        // Both TOC documents present and referenced.
+        Assert.Contains("epub:type=\"toc\"", nav, StringComparison.Ordinal);
+        Assert.Contains("<navMap>", ncx, StringComparison.Ordinal);
+        Assert.Contains("<spine toc=\"ncx\">", opf, StringComparison.Ordinal);
+        Assert.Contains("toc.ncx", opf, StringComparison.Ordinal);
+
+        // No "Chapter 0" anywhere; numbering starts at 1; real title preserved.
+        Assert.DoesNotContain("Chapter 0", nav, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Chapter 0", ncx, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Chapter 1", nav, StringComparison.Ordinal);
+        Assert.Contains("The Journey", nav, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Interior_typography_presets_maps_clean_minimalist_sans_stack()
     {
         var t = InteriorTypographyPresets.Resolve(new BookPdfExportOptions

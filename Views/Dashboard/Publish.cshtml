@@ -882,7 +882,60 @@
         font-size: 0.86rem;
         font-weight: 600;
     }
-    .book-info { flex: 1; min-width: 0; padding-top: 0.15rem; }
+    .book-info {
+        flex: 1;
+        min-width: 0;
+        padding-top: 0.15rem;
+        display: flex;
+        gap: clamp(1rem, 1.6vw, 2rem);
+        align-items: flex-start;
+    }
+    .book-info-main { flex: 1; min-width: 0; }
+    .publish-quick-actions {
+        flex-shrink: 0;
+        width: clamp(190px, 16vw, 230px);
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+    .publish-quick-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        width: 100%;
+        padding: 0.85rem 1.1rem;
+        border-radius: 0.95rem;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #5b21b6;
+        background: #f5f3ff;
+        border: 1px solid #ddd6fe;
+        text-decoration: none;
+        transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+    }
+    .publish-quick-btn i { width: 1.1rem; text-align: center; }
+    .publish-quick-btn:hover {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 22px -16px rgba(91, 33, 182, 0.6);
+    }
+    .publish-quick-btn--primary {
+        color: #ffffff;
+        background: #5b21b6;
+        border-color: #5b21b6;
+        box-shadow: 0 12px 22px -14px rgba(91, 33, 182, 0.85);
+    }
+    .publish-quick-btn--primary:hover {
+        background: #4c1d95;
+        border-color: #4c1d95;
+        color: #ffffff;
+    }
+    @@media (max-width: 880px) {
+        .book-info { flex-direction: column; }
+        .publish-quick-actions { width: 100%; flex-direction: row; flex-wrap: wrap; }
+        .publish-quick-btn { width: auto; flex: 1 1 45%; }
+    }
     .label {
         font-size: 0.7rem;
         font-weight: 700;
@@ -1034,44 +1087,38 @@
                     }
                 </div>
                 <div class="book-info">
-                    <div class="label">@(canExport ? "Export your book" : "Your book")</div>
-                    <h1 class="book-title">@pbTitle</h1>
-                    <p class="book-description">
-                        @(string.IsNullOrWhiteSpace(pbDesc) ? "Description can be updated in AI Writer or My Books." : pbDesc)
-                    </p>
-                    @if (pbChapterCount > 0)
-                    {
-                        <p class="text-sm text-slate-600 mb-4"><strong>@pbChapterCount</strong> chapter@(pbChapterCount == 1 ? "" : "s") on file.</p>
-                    }
-                    <div class="tags flex-wrap">
-                        @if (!string.IsNullOrEmpty(pbGenre))
+                    <div class="book-info-main">
+                        <div class="label">@(canExport ? "Export your book" : "Your book")</div>
+                        <h1 class="book-title">@pbTitle</h1>
+                        <p class="book-description">
+                            @(string.IsNullOrWhiteSpace(pbDesc) ? "Description can be updated in AI Writer or My Books." : pbDesc)
+                        </p>
+                        @if (pbChapterCount > 0)
                         {
-                            <span class="tag fiction" style="cursor:default;">@pbGenre</span>
+                            <p class="text-sm text-slate-600 mb-4"><strong>@pbChapterCount</strong> chapter@(pbChapterCount == 1 ? "" : "s") on file.</p>
                         }
-                        <span class="tag draft" style="cursor:default;">@(alreadyListed ? "Published" : pbStatus)</span>
-                        @if (pbEstimatedPages > 0)
-                        {
-                            <span class="tag fiction" style="cursor:default;">@pbEstimatedPages pages</span>
-                        }
-                    </div>
-                    <div class="mb-4 mt-2">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Output format</p>
-                        <div id="pubFormatOptions" class="inline-flex flex-wrap gap-1 p-1 rounded-xl border border-slate-200 bg-slate-50">
-                            <button type="button" class="pub-format-btn px-4 py-2 text-sm font-semibold rounded-lg @(isEbookFormat && !isBothFormat ? "bg-violet-600 text-white" : "text-slate-700")" data-format="Ebook">Ebook</button>
-                            <button type="button" class="pub-format-btn px-4 py-2 text-sm font-semibold rounded-lg @(isPaperbackFormat && !isBothFormat ? "bg-violet-600 text-white" : "text-slate-700")" data-format="Paperback">Paperback</button>
-                            <button type="button" class="pub-format-btn px-4 py-2 text-sm font-semibold rounded-lg @(isBothFormat ? "bg-violet-600 text-white" : "text-slate-700")" data-format="Both">Both</button>
+                        <div class="tags flex-wrap">
+                            @if (!string.IsNullOrEmpty(pbGenre))
+                            {
+                                <span class="tag fiction" style="cursor:default;">@pbGenre</span>
+                            }
+                            <span class="tag draft" style="cursor:default;">@(alreadyListed ? "Published" : pbStatus)</span>
+                            @if (pbEstimatedPages > 0)
+                            {
+                                <span class="tag fiction" style="cursor:default;">@pbEstimatedPages pages</span>
+                            }
                         </div>
-                        <input type="hidden" id="pubFormat" value="@publishBookFormat" />
+                        @if (!canExport)
+                        {
+                            <p class="text-sm text-slate-600 mt-4 mb-0">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a>, then return here to export.</p>
+                        }
                     </div>
-                    @if (!canExport)
-                    {
-                    <p class="text-sm text-slate-600 mb-4">Add chapter content in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a>, then return here to export.</p>
-                    }
-                    <p class="text-xs text-slate-500 mt-4">
-                        Edit manuscript in <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-leave-to-writer text-violet-700 font-semibold underline">AI Writer</a> ·
-                        <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="text-violet-700 font-semibold underline">Formatting</a> ·
-                        <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover</a>
-                    </p>
+                    <div class="publish-quick-actions" aria-label="Edit and navigation">
+                        <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-quick-btn publish-leave-to-writer"><i class="fas fa-pen-nib" aria-hidden="true"></i> Edit in AI Writer</a>
+                        <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-book-open" aria-hidden="true"></i> Book Formatting</a>
+                        <a href="/Dashboard/CoverDesign?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-image" aria-hidden="true"></i> Cover Design</a>
+                        <a href="/Dashboard" class="publish-quick-btn publish-quick-btn--primary"><i class="fas fa-th-large" aria-hidden="true"></i> Go to Dashboard</a>
+                    </div>
                 </div>
             </div>
         }

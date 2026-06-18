@@ -83,7 +83,9 @@ public class EpubExportService : IEpubExportService
             var manifest = new StringBuilder();
             var spine = new StringBuilder();
             var navItems = new StringBuilder();
+            var ncxNavPoints = new StringBuilder();
             var itemIndex = 0;
+            var playOrder = 0;
 
             var exportOpt = exportOptions ?? new BookPdfExportOptions();
             var interiorTpl = InteriorExportTheme.PdfBodyTemplateClass(exportOpt.InteriorStyle);
@@ -110,6 +112,8 @@ public class EpubExportService : IEpubExportService
                 manifest.AppendLine("    <item id=\"cover-page\" href=\"cover.xhtml\" media-type=\"application/xhtml+xml\"/>");
                 spine.AppendLine("    <itemref idref=\"cover-page\"/>");
                 navItems.AppendLine("      <li><a href=\"cover.xhtml\">Cover</a></li>");
+                playOrder++;
+                ncxNavPoints.AppendLine($"    <navPoint id=\"navpoint-cover\" playOrder=\"{playOrder}\"><navLabel><text>Cover</text></navLabel><content src=\"cover.xhtml\"/></navPoint>");
 
                 var coverXhtml = $"""
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -123,21 +127,20 @@ public class EpubExportService : IEpubExportService
                 WriteEntry(zip, "OEBPS/cover.xhtml", coverXhtml);
             }
 
+            // Every exported chapter is narrative content — number sequentially from 1 so a
+            // mis-stored chapter (ChapterNumber 0 or a literal "Chapter 0" title) never leaks
+            // into the EPUB as "Chapter 0".
             var narrativeOrdinal = 0;
             foreach (var ch in chapters)
             {
                 itemIndex++;
-                if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
-                    narrativeOrdinal++;
+                narrativeOrdinal++;
 
-                var displayOrd = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber)
-                    ? 0
-                    : narrativeOrdinal;
-                var storageNum = ch.ChapterNumber > 0 ? ch.ChapterNumber : Math.Max(1, displayOrd);
-                var phNum = displayOrd > 0 ? displayOrd : 1;
+                var phNum = narrativeOrdinal;
+                var storageNum = ch.ChapterNumber > 0 ? ch.ChapterNumber : narrativeOrdinal;
                 var chCtx = baseCtx.WithChapter(ch.Title ?? "", phNum, storageNum);
                 var chTitleApplied = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", chCtx);
-                var heading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleApplied, ch.ChapterNumber, phNum);
+                var heading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleApplied, storageNum, phNum);
                 var id = $"chapter{itemIndex}";
                 var href = $"chapter{itemIndex}.xhtml";
                 var chTitle = WebUtility.HtmlEncode(heading);
@@ -159,20 +162,25 @@ public class EpubExportService : IEpubExportService
                 manifest.AppendLine($"    <item id=\"{id}\" href=\"{href}\" media-type=\"application/xhtml+xml\"/>");
                 spine.AppendLine($"    <itemref idref=\"{id}\"/>");
                 navItems.AppendLine($"      <li><a href=\"{href}\">{chTitle}</a></li>");
+                playOrder++;
+                ncxNavPoints.AppendLine($"    <navPoint id=\"navpoint-{id}\" playOrder=\"{playOrder}\"><navLabel><text>{chTitle}</text></navLabel><content src=\"{href}\"/></navPoint>");
             }
 
             manifest.AppendLine("    <item id=\"nav\" href=\"nav.xhtml\" media-type=\"application/xhtml+xml\" properties=\"nav\"/>");
+            manifest.AppendLine("    <item id=\"ncx\" href=\"toc.ncx\" media-type=\"application/x-dtbncx+xml\"/>");
             spine.AppendLine("    <itemref idref=\"nav\" linear=\"no\"/>");
 
             var coverMeta = coverImageId != null
                 ? $"""    <meta name="cover" content="{coverImageId}"/>"""
                 : "";
 
+            var bookUid = $"urn:uuid:{Guid.NewGuid()}";
+
             var opf = $"""
                 <?xml version="1.0" encoding="UTF-8"?>
                 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
                   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
-                    <dc:identifier id="book-id">urn:uuid:{Guid.NewGuid()}</dc:identifier>
+                    <dc:identifier id="book-id">{bookUid}</dc:identifier>
                     <dc:title>{title}</dc:title>
                     <dc:creator>{author}</dc:creator>
                     <dc:language>en</dc:language>
@@ -182,12 +190,32 @@ public class EpubExportService : IEpubExportService
                   <manifest>
                 {manifest}
                   </manifest>
-                  <spine>
+                  <spine toc="ncx">
                 {spine}
                   </spine>
                 </package>
                 """;
             WriteEntry(zip, "OEBPS/content.opf", opf);
+
+            // EPUB2 NCX — many readers (Apple Books, ADE, older apps) build their visible
+            // Table of Contents from this file even for EPUB3 packages.
+            var ncx = $"""
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">
+                <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+                  <head>
+                    <meta name="dtb:uid" content="{bookUid}"/>
+                    <meta name="dtb:depth" content="1"/>
+                    <meta name="dtb:totalPageCount" content="0"/>
+                    <meta name="dtb:maxPageNumber" content="0"/>
+                  </head>
+                  <docTitle><text>{title}</text></docTitle>
+                  <navMap>
+                {ncxNavPoints}
+                  </navMap>
+                </ncx>
+                """;
+            WriteEntry(zip, "OEBPS/toc.ncx", ncx);
 
             var nav = $"""
                 <?xml version="1.0" encoding="UTF-8"?>

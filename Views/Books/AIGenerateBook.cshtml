@@ -540,6 +540,23 @@
     .book-nav-zone:hover::after { opacity: 0.7; }
     .book-nav-zone:disabled { cursor: default; pointer-events: none; }
     .book-nav-zone:disabled::after { opacity: 0; }
+    .ai-writer-total-pages {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-top: 0.6rem;
+        padding: 0.45rem 0.9rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #5b21b6;
+        background: #f5f3ff;
+        border: 1px solid #ede9fe;
+        border-radius: 9999px;
+        align-self: center;
+        flex-shrink: 0;
+    }
+    .ai-writer-total-pages strong { font-weight: 700; }
     .book-page-indicator {
         position: absolute;
         bottom: 12px;
@@ -1449,7 +1466,7 @@
 
             <hr class="border-slate-200/80 my-1 hidden" aria-hidden="true">
 
-            <div id="chapterWorkflowProgress" class="chapter-workflow-progress hidden" role="status" aria-live="polite" aria-hidden="true">
+            <div id="chapterWorkflowProgress" class="chapter-workflow-progress hidden" role="status" aria-live="polite" aria-hidden="true" style="display:none !important;">
                 <span id="chapterWorkflowProgressText">Not started</span>
                 <span id="chapterFinalizedBadge" class="chapter-finalized-badge hidden" aria-hidden="true"><i class="fas fa-lock text-[9px]" aria-hidden="true"></i> Finalized</span>
             </div>
@@ -1464,7 +1481,7 @@
                     <label class="text-sm font-medium text-slate-500">Chapter No.</label>
                     <div class="chapter-no-input-group flex w-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-purple-400 focus-within:border-purple-400 transition-all">
                         <select id="ChapterDropdown" class="chapter-no-select flex-1 min-w-[100px] appearance-none bg-transparent border-0 px-4 py-3.5 pr-8 text-base text-slate-700 focus:outline-none focus:ring-0 cursor-pointer" onchange="loadBookChapterNos(this.value)">
-                            <option value="1" selected>Chapter 1</option>
+                            <option value="1" selected>Enter chapter title first</option>
                         </select>
                         <span class="flex items-center px-2 text-slate-400 pointer-events-none"><i class="fas fa-chevron-down text-sm"></i></span>
                         <button id="addChapterBtn" type="button" class="add-chapter-btn-inline inline-flex items-center justify-center shrink-0 px-3 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 border-l border-slate-200 transition-colors whitespace-nowrap" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">Add a chapter</button>
@@ -1480,6 +1497,7 @@
                             </select>
                             <span class="iteration-select-chevron" aria-hidden="true"><i class="fas fa-chevron-down text-sm"></i></span>
                         </div>
+                        <button type="button" id="btnFinalizeChapterVersion" class="inline-flex items-center justify-center gap-2 self-start rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 shadow-sm shadow-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Make the selected version the current (finalized) version of this chapter"><i class="fas fa-check-circle text-xs" aria-hidden="true"></i> Set as current version</button>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 pt-1 status-display-none">
                         <span class="text-sm text-slate-500">Status:</span>
@@ -1569,13 +1587,14 @@
                     <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell">
                     <h3 id="preview-chapter-header" class="tracking-tight shrink-0 flex items-center gap-2 group hidden" aria-hidden="true">
                         <span id="preview-chapter-header-text" class="min-w-0 truncate"></span>
-                        <button type="button" id="btnRenameChapterFromPreview" class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-violet-700 hover:bg-violet-50 border border-transparent hover:border-violet-200 transition-colors opacity-80 hover:opacity-100" title="Rename chapter" aria-label="Rename chapter">
-                            <i class="fas fa-pen text-xs" aria-hidden="true"></i>
-                        </button>
                     </h3>
                     <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col text-base text-slate-700 leading-relaxed"></div>
                     <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
                     <button type="button" id="btnAiWriterNextSide" class="book-preview-nav-side book-preview-nav-side-next ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page"><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
+                    </div>
+                    <div id="aiWriterTotalPages" class="ai-writer-total-pages hidden" aria-live="polite">
+                        <i class="fas fa-book text-[11px]" aria-hidden="true"></i>
+                        <span>Total pages: <strong id="aiWriterTotalPagesValue">—</strong></span>
                     </div>
                     <div id="previewMeasureHost" class="preview-measure-host book-page-preview-measure" aria-hidden="true"></div>
                     <div id="readerViewport" class="hidden">
@@ -2447,6 +2466,29 @@ window.refreshChapterWorkflowProgress = async function () {
         window._refreshWorkflowBusy = false;
     }
 };
+
+window.refreshAiWriterTotalPages = async function () {
+    var wrap = document.getElementById('aiWriterTotalPages');
+    var valEl = document.getElementById('aiWriterTotalPagesValue');
+    if (!wrap || !valEl) return;
+    var bid = parseInt(String((document.getElementById('BookId') && document.getElementById('BookId').value) || '0'), 10);
+    if (!bid) { wrap.classList.add('hidden'); return; }
+    try {
+        var r = await fetch('/BookPageMetrics?bookId=' + bid, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+        var d = await r.json().catch(function () { return {}; });
+        if (d && d.success && d.pageCount > 0) {
+            valEl.textContent = String(d.pageCount);
+            wrap.classList.remove('hidden');
+        } else {
+            wrap.classList.add('hidden');
+        }
+    } catch (e) {
+        wrap.classList.add('hidden');
+    }
+};
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.refreshAiWriterTotalPages === 'function') window.refreshAiWriterTotalPages();
+});
 
 window.refreshBookFormattingButton = function (progressData) {
     var btn = document.getElementById('btnNextStep');
@@ -4593,7 +4635,7 @@ document.addEventListener('DOMContentLoaded', function() {
           return max;
       }
 
-      var CHAPTER_BROWSE_LABEL = 'Saved chapters…';
+      var CHAPTER_BROWSE_LABEL = 'Enter chapter title first';
 
       function setVersionHistoryPanelVisible(visible) {
           var wrap = document.getElementById('iterationPickerWrap');
@@ -4907,8 +4949,45 @@ document.addEventListener('DOMContentLoaded', function() {
           }
       }
 
-      /** Legacy — Finalize button removed; latest generate auto-becomes [Current] in version history. */
-      async function finalizeCurrentChapterVersion() { return; }
+      /** Promote the version currently selected in Version history to the chapter's [Current] (finalized) version. */
+      async function finalizeCurrentChapterVersion() {
+          var sel = document.getElementById('IterationDropdown');
+          var btn = document.getElementById('btnFinalizeChapterVersion');
+          var uid = parseInt(String((document.getElementById('UserId') && document.getElementById('UserId').value) || '0'), 10);
+          var bid = parseInt(String((document.getElementById('BookId') && document.getElementById('BookId').value) || '0'), 10);
+          var ch = parseInt(String((document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '0'), 10);
+          var responseId = parseInt(String((sel && sel.value) || '0'), 10);
+          if (!uid || !bid || !ch || !responseId) {
+              if (typeof showNotification === 'function') showNotification('Pick a version from Version history first.', 'error');
+              return;
+          }
+          if (btn) { btn.disabled = true; }
+          try {
+              var res = await fetch('/Books/PromoteChapterVersion', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'same-origin',
+                  body: JSON.stringify({ UserId: uid, BookId: bid, ChapterNo: ch, ResponseId: responseId })
+              });
+              var data = await res.json().catch(function () { return { success: false }; });
+              if (!res.ok || !data.success) {
+                  if (typeof showNotification === 'function') showNotification((data && data.message) || 'Could not finalize this version.', 'error');
+                  return;
+              }
+              if (typeof showNotification === 'function') showNotification('This version is now the current version of the chapter.', 'success');
+              if (typeof refreshChapterIterationsDropdown === 'function') await refreshChapterIterationsDropdown(String(responseId));
+              if (typeof window.refreshChapterWorkflowProgress === 'function') window.refreshChapterWorkflowProgress();
+              if (typeof loadSavedBooksDropdown === 'function') loadSavedBooksDropdown();
+          } catch (e) {
+              if (typeof showNotification === 'function') showNotification('Finalize failed: ' + (e.message || 'Unknown error'), 'error');
+          } finally {
+              if (btn) { btn.disabled = false; }
+          }
+      }
+      document.addEventListener('DOMContentLoaded', function () {
+          var btn = document.getElementById('btnFinalizeChapterVersion');
+          if (btn) btn.addEventListener('click', finalizeCurrentChapterVersion);
+      });
 
       /** Load editor fields for a specific apirawresponse row (one iteration). */
       async function onChapterIterationSelected(responseIdStr) {
@@ -5587,18 +5666,11 @@ document.addEventListener('DOMContentLoaded', function() {
                      if (typeof showGeneratedChapterWithTyping === 'function') {
                          showGeneratedChapterWithTyping(bookData, function() {
                              var cn = (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || String(requestData.Chapter || '');
-                             if (typeof window.setBookResultStatusBanner === 'function') {
-                                 var readyTitle = (document.getElementById('Title') && document.getElementById('Title').value)
-                                     ? (typeof window.sanitizeChapterTitleForInput === 'function'
-                                         ? window.sanitizeChapterTitleForInput(document.getElementById('Title').value)
-                                         : document.getElementById('Title').value.trim())
-                                     : '';
-                                 window.setBookResultStatusBanner(
-                                     (readyTitle ? (readyTitle + ' is ready below (preview). ') : 'Your chapter is ready below (preview). ')
-                                     + 'Latest version is marked [Current] in version history — regenerate anytime to add v2, v3…',
-                                     true);
-                             }
-                             loadSavedBooksDropdown();
+                            if (typeof window.setBookResultStatusBanner === 'function') {
+                                window.setBookResultStatusBanner('', false);
+                            }
+                            if (typeof window.refreshAiWriterTotalPages === 'function') window.refreshAiWriterTotalPages();
+                            loadSavedBooksDropdown();
                              var uid = document.getElementById('UserId') && document.getElementById('UserId').value;
                              var bid = (document.getElementById('BookId') && document.getElementById('BookId').value) || bookData.bookId;
                              if (typeof window.persistFormatterBookId === 'function' && bid) window.persistFormatterBookId(bid);

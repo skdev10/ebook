@@ -35,6 +35,19 @@ namespace EBookDashboard.Models.DTO
         public string? Size { get; set; }
     }
 
+    /// <summary>POST /Books/PromoteChapterVersion — make a chapter iteration the current/finalized version.</summary>
+    public class PromoteChapterVersionRequest
+    {
+        public int UserId { get; set; }
+
+        [Required]
+        public int BookId { get; set; }
+
+        public int ChapterNo { get; set; }
+
+        public int ResponseId { get; set; }
+    }
+
     /// <summary>POST /Dashboard/DownloadBookPdf — full book PDF with cover (data URL or server path) and formatted chapters.</summary>
     public class ExportBookPdfRequest
     {
