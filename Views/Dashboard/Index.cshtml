@@ -59,6 +59,71 @@
     .dashboard-cover-img.is-wrap-cover { object-position: right center; }
     .dash-published-card { cursor: pointer; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
     .dash-published-card:hover { border-color: #c4b5fd; box-shadow: 0 8px 24px rgba(124, 58, 237, 0.1); }
+
+    /* ===== Book Reader modal (read-only formatted book) ===== */
+    .book-reader-modal { position: fixed; inset: 0; z-index: 1200; display: none; }
+    .book-reader-modal.is-open { display: block; }
+    .book-reader-backdrop {
+        position: absolute; inset: 0;
+        background: rgba(15, 23, 42, 0.62);
+        backdrop-filter: blur(6px);
+        opacity: 0; transition: opacity 0.25s ease;
+    }
+    .book-reader-modal.is-open .book-reader-backdrop { opacity: 1; }
+    .book-reader-shell {
+        position: absolute; top: 50%; left: 50%;
+        transform: translate(-50%, -48%) scale(0.97);
+        width: min(960px, 94vw); height: min(92vh, 1000px);
+        display: flex; flex-direction: column;
+        background: #faf7f2; border-radius: 18px; overflow: hidden;
+        box-shadow: 0 40px 90px -30px rgba(15, 23, 42, 0.6);
+        opacity: 0; transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .book-reader-modal.is-open .book-reader-shell { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    .book-reader-topbar {
+        flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+        gap: 12px; padding: 12px 16px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8f5ef 100%);
+        border-bottom: 1px solid rgba(124, 58, 237, 0.12);
+    }
+    .book-reader-title-wrap { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .book-reader-title-wrap > i { color: #7c3aed; flex: 0 0 auto; }
+    .book-reader-title {
+        font-family: 'Playfair Display', Georgia, serif; font-weight: 700;
+        font-size: 1.05rem; color: #1f2937;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .book-reader-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+    .book-reader-action-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 7px 12px; border-radius: 999px;
+        font-size: 0.8rem; font-weight: 600; color: #6d28d9;
+        background: #f5f3ff; border: 1px solid #ddd6fe; text-decoration: none;
+        transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .book-reader-action-btn:hover { background: #ede9fe; border-color: #c4b5fd; }
+    .book-reader-close {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; border-radius: 999px;
+        color: #64748b; background: #f1f5f9; border: 1px solid #e2e8f0;
+        cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+    }
+    .book-reader-close:hover { background: #e2e8f0; color: #334155; }
+    .book-reader-body { position: relative; flex: 1 1 auto; min-height: 0; background: #ece7df; }
+    .book-reader-frame { width: 100%; height: 100%; border: 0; display: block; background: #ece7df; }
+    .book-reader-loading {
+        position: absolute; inset: 0; z-index: 2;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 12px; color: #6d28d9; font-weight: 600; font-size: 0.9rem;
+        background: #faf7f2;
+    }
+    .book-reader-loading.hidden { display: none; }
+    .book-reader-spinner {
+        width: 34px; height: 34px; border-radius: 50%;
+        border: 3px solid #e9d5ff; border-top-color: #7c3aed;
+        animation: book-reader-spin 0.8s linear infinite;
+    }
+    @@keyframes book-reader-spin { to { transform: rotate(360deg); } }
     .dash-epub-carousel {
         display: flex; gap: 1.25rem; overflow-x: auto; scroll-behavior: smooth;
         padding: 0.25rem 0 1rem; scrollbar-width: thin;
@@ -406,7 +471,7 @@
                                         <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@pub.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
-                                <a href="/BookDesign/PreviewBookHtml?bookId=@pub.BookId" target="_blank" rel="noopener" class="dash-book-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@pubCover" title="Read @pubTitle">
+                                <a href="/BookDesign/PreviewBookHtml?bookId=@pub.BookId" target="_blank" rel="noopener" class="js-open-reader dash-book-card flex flex-col rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm hover:border-purple-100 group block" data-cover-url="@pubCover" data-book-id="@pub.BookId" data-book-title="@pubTitle" title="Read @pubTitle">
                                 <div class="aspect-[2/3] relative bg-violet-50 border-b border-violet-100/80 overflow-hidden">
                                     <img src="@pubCover" alt="@pubTitle" class="dashboard-cover-img absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 dash-placeholder-cover" loading="lazy" />
                                     <span class="absolute top-2 left-2 text-[10px] font-bold uppercase tracking-wide bg-emerald-600 text-white px-2 py-0.5 rounded-full shadow-sm">Published</span>
@@ -702,6 +767,34 @@
     </div>
 </div>
 
+<!-- Book Reader modal: full formatted book in a clean reading view (read-only) -->
+<div id="book-reader-modal" class="book-reader-modal" aria-modal="true" role="dialog" aria-label="Book reader">
+    <div id="book-reader-backdrop" class="book-reader-backdrop"></div>
+    <div class="book-reader-shell" role="document">
+        <div class="book-reader-topbar">
+            <div class="book-reader-title-wrap">
+                <i class="fas fa-book-open" aria-hidden="true"></i>
+                <span id="book-reader-title" class="book-reader-title">Reading</span>
+            </div>
+            <div class="book-reader-actions">
+                <a id="book-reader-newtab" href="#" target="_blank" rel="noopener" class="book-reader-action-btn" title="Open in a new tab">
+                    <i class="fas fa-up-right-from-square" aria-hidden="true"></i><span>New tab</span>
+                </a>
+                <button type="button" id="book-reader-close" class="book-reader-close" aria-label="Close reader">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+        </div>
+        <div class="book-reader-body">
+            <div id="book-reader-loading" class="book-reader-loading">
+                <span class="book-reader-spinner" aria-hidden="true"></span>
+                <span>Opening your book…</span>
+            </div>
+            <iframe id="book-reader-frame" class="book-reader-frame" title="Book contents" referrerpolicy="no-referrer"></iframe>
+        </div>
+    </div>
+</div>
+
 <!-- Toast -->
 <div id="toast-dash" class="toast-dash">Notification</div>
 
@@ -823,6 +916,60 @@
         if (backdrop) backdrop.addEventListener('click', closeModal);
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) closeModal();
+        });
+    })();
+
+    // Published book → open a clean, read-only reader modal (not the editor)
+    (function () {
+        var modal = document.getElementById('book-reader-modal');
+        var backdrop = document.getElementById('book-reader-backdrop');
+        var closeBtn = document.getElementById('book-reader-close');
+        var frame = document.getElementById('book-reader-frame');
+        var titleEl = document.getElementById('book-reader-title');
+        var newTab = document.getElementById('book-reader-newtab');
+        var loading = document.getElementById('book-reader-loading');
+        if (!modal || !frame) return;
+
+        function previewUrl(bookId) {
+            return '/BookDesign/PreviewBookHtml?bookId=' + encodeURIComponent(bookId);
+        }
+        function openReader(bookId, title) {
+            if (!bookId) return;
+            if (titleEl) titleEl.textContent = title || 'Reading';
+            if (newTab) newTab.href = previewUrl(bookId);
+            if (loading) loading.classList.remove('hidden');
+            frame.src = previewUrl(bookId);
+            modal.classList.add('is-open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeReader() {
+            modal.classList.remove('is-open');
+            document.body.style.overflow = '';
+            // Release the iframe so audio/large DOM is torn down and a fresh load happens next time.
+            setTimeout(function () { if (!modal.classList.contains('is-open')) frame.src = 'about:blank'; }, 260);
+        }
+
+        frame.addEventListener('load', function () {
+            if (frame.src && frame.src !== 'about:blank' && loading) loading.classList.add('hidden');
+        });
+
+        document.addEventListener('click', function (e) {
+            var card = e.target.closest('.js-open-reader');
+            if (!card) return;
+            // Allow new-tab affordances (ctrl/cmd/middle-click) to use the href normally.
+            if (e.defaultPrevented || e.button === 1 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            // Never hijack the 3-dot actions menu.
+            if (e.target.closest('.dash-book-menu-wrap')) return;
+            var bookId = card.getAttribute('data-book-id');
+            if (!bookId) return;
+            e.preventDefault();
+            openReader(bookId, card.getAttribute('data-book-title'));
+        });
+
+        if (closeBtn) closeBtn.addEventListener('click', closeReader);
+        if (backdrop) backdrop.addEventListener('click', closeReader);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && modal.classList.contains('is-open')) closeReader();
         });
     })();
 
