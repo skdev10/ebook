@@ -1018,6 +1018,9 @@
         btnGoToPublish.title = ready ? 'Open Publish with this same book' : 'Generate a cover first to continue';
         // Bug #16: Regenerate becomes available only after a cover exists.
         if (btnRegenerate) btnRegenerate.classList.toggle('hidden', !ready);
+        // After a cover exists, hide "Generate Cover" so only "Regenerate Cover" remains
+        // (single clear primary action; avoids the dual-CTA confusion).
+        if (btnGenerate) btnGenerate.classList.toggle('hidden', ready);
     }
 
     function pushCoverHistory(url) {

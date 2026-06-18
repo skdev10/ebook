@@ -1543,6 +1543,41 @@
         width: 100%;
     }
 
+    /* ===== TASK 1: clean, larger floating book preview (match reference) ===== */
+    @@media (min-width: 1024px) {
+        #book-formatter-root .fmt-main-layout {
+            grid-template-columns: minmax(0, 380px) minmax(0, 1fr) !important;
+            gap: 2rem !important;
+        }
+    }
+    /* Let the page use the full preview column width (no inner gutters) */
+    #fmt-preview-scroll-host .preview-panel-single {
+        padding-inline: 0 !important;
+        align-items: center !important;
+    }
+    #book-formatter-root #fmt-preview-scroll-host {
+        padding: 4px 0 8px !important;
+    }
+    /* Plain app background behind the page — no grey/beige mat, card, panel or border */
+    #book-formatter-root #fmt-studio-stage,
+    #book-formatter-root #fmt-preview-scroll-host,
+    #book-formatter-root #preview-single {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    /* The page itself: solid white + a single soft drop shadow */
+    #book-formatter-root #paginatedReaderShell.book-page-preview-shell {
+        background: #ffffff !important;
+        background-image: none !important;
+        border: 1px solid rgba(15, 23, 42, 0.06) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+    }
+    #book-formatter-root #preview-content.book-page-preview-content {
+        background: #ffffff !important;
+        background-image: none !important;
+    }
+
     #fmt-studio-stage.fmt-studio-stage {
         max-width: 100% !important;
     }
@@ -4295,7 +4330,6 @@
                 }
                 renderPreviewContent(currentPageIdx);
                 renderBothPreviews(currentPageIdx);
-                updateFmtChapterNavBelow();
                 updateFmtFullBookReadBar();
                 showToast('Chapter name saved.');
             }).catch(function (err) { showToast((err && err.message) || 'Save failed.'); });
@@ -5087,7 +5121,6 @@
         }
         if (chrome) chrome.classList.remove('hidden');
         syncFormatterChromeWidth();
-        updateFmtChapterNavBelow();
         bookChapters.forEach(function(ch, idx) {
             const t = (ch && ch.chapterTitle) || ('Chapter ' + (idx + 1));
             const opt = document.createElement('option');
@@ -5177,6 +5210,9 @@
         updateFmtPreviewChapterChrome();
         updateFmtFullBookReadBar();
         syncFormatterSideNavVisibility();
+        // Keep the "Total pages" readout in sync even when the full-book read bar
+        // (and its early-return) skips syncFormatterPageCountUi.
+        syncFormatterPageCountUi();
     }
 
     function initBookInteriorPreviewShell() {
