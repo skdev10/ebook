@@ -937,14 +937,14 @@
         padding-inline: 0;
     }
     .fmt-preview-header #formatting-preview-title {
-        text-align: left;
+        text-align: center;
         margin-left: 0;
         margin-right: 0;
         padding-left: 0;
         padding-right: 0;
     }
     .fmt-preview-header #fmt-preview-byline {
-        text-align: left;
+        text-align: center;
         margin-left: 0;
         padding-left: 0;
         font-style: normal;
@@ -1153,8 +1153,8 @@
         width: 100%;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
-        justify-content: flex-start;
+        align-items: center;
+        justify-content: center;
         overflow: visible;
         position: relative;
     }
@@ -1166,7 +1166,7 @@
         width: 100%;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
         justify-content: flex-start;
         overflow: visible;
     }
@@ -1188,7 +1188,7 @@
         position: relative;
         width: auto;
         max-width: 100%;
-        margin-inline: 0;
+        margin-inline: auto;
         flex: 0 0 auto;
         min-height: 0;
         aspect-ratio: 6 / 9;
@@ -1598,20 +1598,20 @@
         max-width: min(100%, 100%);
     }
 
-    /* ===== Align the preview page flush-left under the header (Ebook preview / title / byline) ===== */
+    /* ===== Center the preview page + header so they line up with the chapter bar ===== */
     #book-formatter-root #fmt-preview-scroll-host,
     #book-formatter-root #fmt-preview-scroll-host .preview-panel-single,
     #book-formatter-root #fmt-book-result .chapter-preview-scroll-host,
     #book-formatter-root #preview-single {
-        align-items: flex-start !important;
-        justify-content: flex-start !important;
+        align-items: center !important;
     }
     #book-formatter-root #fmt-book-result .paginated-reader-shell.book-page-preview-shell,
     #book-formatter-root #fmt-preview-scroll-host .paginated-reader-shell.book-page-preview-shell {
-        margin-inline: 0 !important;
+        margin-inline: auto !important;
     }
-    /* Header sits at the same left edge as the page (no stray inset) */
-    #book-formatter-root .fmt-preview-header { padding-left: 0; margin-left: 0; }
+    /* Header centered above the page, aligned with the chapter bar */
+    #book-formatter-root .fmt-preview-header { text-align: center; }
+    #book-formatter-root .fmt-preview-header > .flex { justify-content: center; }
 </style>
 <partial name="_InteriorLayoutTokens" />
 <partial name="_BookInteriorPreviewAssets" />
@@ -1723,7 +1723,6 @@
                                 <button type="button" class="fmt-pill" data-size="Medium">Medium</button>
                                 <button type="button" class="fmt-pill" data-size="Large">Large</button>
                             </div>
-                            <p class="text-xs text-gray-400 mt-2 leading-relaxed">Small ≈ 10 pt · Medium ≈ 11 pt · Large ≈ 12 pt (approximate print sizes).</p>
                         </div>
 
                         <div class="group">
@@ -1741,7 +1740,6 @@
                                 <button type="button" class="fmt-pill" data-line="1.8">Relaxed 1.8</button>
                                 <button type="button" class="fmt-pill" data-line="2">Loose 2</button>
                             </div>
-                            <p class="text-xs text-gray-400 mt-2 leading-relaxed">Normal 1.6 — recommended for most fiction.</p>
                         </div>
 
                         @* <div class="group">
@@ -1755,7 +1753,6 @@
 
                         <div>
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Publishing Platforms</label>
-                            <p class="text-xs text-gray-400 mb-2">Mark where you plan to publish (for your reference — export uses Format above).</p>
                             <div class="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm" id="platforms-container">
                                 <div class="platform-block border-b border-gray-50">
                                     <label class="platform-row flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors">
@@ -1793,7 +1790,6 @@
                         <button type="button" id="fmt-btn-reset-formatting" class="formatter-ui-radius w-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 text-sm font-medium py-2 px-6 transition-all inline-flex items-center justify-center gap-2" title="Reset Interior style, Text size, and Line spacing to defaults">
                             <i class="fas fa-rotate-left text-xs" aria-hidden="true"></i> Reset formatting
                         </button>
-                        <p id="fmt-next-hint" class="text-xs text-gray-500 leading-relaxed">Ebook: front cover + EPUB on Publish. Paperback: full wrap + interior PDF on Publish.</p>
                         <p id="formatter-save-status" class="text-xs text-gray-400 min-h-[1.25rem] leading-relaxed" aria-live="polite"></p>
                     </div>
                 </div>
