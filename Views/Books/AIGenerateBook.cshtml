@@ -2900,9 +2900,8 @@ window.updateChapterPreviewNavUI = function () {
     var idxBtn = document.getElementById('btnOpenChapterIndex');
     var pageInd = document.getElementById('aiWriterPageIndicator');
     var list = window._previewChaptersMeta || [];
-    if (!nav) return;
     if (list.length === 0) {
-        nav.classList.add('hidden');
+        if (nav) nav.classList.add('hidden');
         if (pageInd) pageInd.classList.add('hidden');
         var psHide = document.getElementById('btnAiWriterPrevSide');
         var nsHide = document.getElementById('btnAiWriterNextSide');
@@ -2913,7 +2912,7 @@ window.updateChapterPreviewNavUI = function () {
         }
         return;
     }
-    nav.classList.add('hidden');
+    if (nav) nav.classList.add('hidden');
     var psShow = document.getElementById('btnAiWriterPrevSide');
     var nsShow = document.getElementById('btnAiWriterNextSide');
     if (psShow) psShow.style.visibility = '';
