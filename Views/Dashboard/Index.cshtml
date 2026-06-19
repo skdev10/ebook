@@ -866,23 +866,8 @@
         if (initial) applySelectedBook(initial);
     })();
 
-    (function () {
-        var searchInput = document.getElementById('search-input');
-        var bookItems = document.querySelectorAll('.book-item');
-        var noBooksMsg = document.getElementById('no-books-msg');
-        if (searchInput && bookItems.length) {
-            searchInput.addEventListener('input', function (e) {
-                var term = e.target.value.toLowerCase();
-                var visible = 0;
-                bookItems.forEach(function (item) {
-                    var title = (item.getAttribute('data-title') || '').toLowerCase();
-                    if (title.indexOf(term) !== -1) { item.style.display = ''; visible++; }
-                    else item.style.display = 'none';
-                });
-                if (noBooksMsg) noBooksMsg.classList.toggle('hidden', visible > 0);
-            });
-        }
-    })();
+    // Dashboard search is initialised in a dedicated, isolated <script> block
+    // at the end of this page so an unrelated error above can never stop it.
 
     (function () {
         var modal = document.getElementById('reading-modal');
@@ -1124,5 +1109,42 @@
             var pic = sessionStorage.getItem('newProfilePicture');
             if (pic) applyDashProfile(pic);
         });
+    })();
+</script>
+
+<script>
+    // Dashboard book/draft/author search — isolated so it always runs.
+    (function () {
+        function initDashSearch() {
+            var input = document.getElementById('search-input');
+            if (!input || input.dataset.searchBound === '1') return;
+            input.dataset.searchBound = '1';
+            var noBooksMsg = document.getElementById('no-books-msg');
+
+            function applyFilter() {
+                var term = (input.value || '').trim().toLowerCase();
+                var items = document.querySelectorAll('.book-item');
+                var visible = 0;
+                items.forEach(function (item) {
+                    var hay = ((item.getAttribute('data-title') || '') + ' ' + (item.textContent || '')).toLowerCase();
+                    var match = term === '' || hay.indexOf(term) !== -1;
+                    item.style.display = match ? '' : 'none';
+                    if (match) visible++;
+                });
+                if (noBooksMsg) noBooksMsg.classList.toggle('hidden', !(term !== '' && visible === 0));
+            }
+
+            input.addEventListener('input', applyFilter);
+            // Block the implicit form submit / page reload on Enter.
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); applyFilter(); }
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initDashSearch);
+        } else {
+            initDashSearch();
+        }
     })();
 </script>

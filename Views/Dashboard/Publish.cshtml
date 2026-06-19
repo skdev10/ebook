@@ -1664,6 +1664,8 @@
                     html: '<p class="text-sm text-slate-600 mb-3">If the file did not start, tap the button below.</p>' +
                         '<a href="' + url + '" download="' + safeName.replace(/"/g, '') + '" class="inline-flex items-center justify-center rounded-xl bg-violet-600 text-white font-semibold px-4 py-2 text-sm">Download ' + safeName.replace(/</g, '') + '</a>',
                     showConfirmButton: false,
+                    showCloseButton: true,
+                    closeButtonAriaLabel: 'Close',
                     timer: 120000
                 });
             }
