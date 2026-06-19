@@ -590,7 +590,11 @@ namespace EBookDashboard.Controllers
             var demoPublished = EnrichPublishedWithResume(
                 GetDemoPublishedBooks(publishedBooks, ResolveBookCover, epubByBookId),
                 bookId => Url.Action(nameof(SelectBook), "Dashboard", new { bookId }) ?? $"/Dashboard/SelectBook?bookId={bookId}");
-            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(userDraftBooks, aiCoverByBookId), flowMap, _bookFlow);
+            // Hide phantom "Untitled Book — No chapters yet" ghosts (no real title AND no generated chapters).
+            var visibleDraftBooks = userDraftBooks
+                .Where(b => !IsGhostBook(b, chaptersGeneratedByBookId))
+                .ToList();
+            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(visibleDraftBooks, aiCoverByBookId), flowMap, _bookFlow);
             string? heroDisplayTitle = null;
             if (lastWorkedBook != null)
             {
@@ -864,6 +868,17 @@ namespace EBookDashboard.Controllers
                 Status = string.IsNullOrWhiteSpace(b.Status) ? "Draft" : b.Status,
                 LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
             }).ToList();
+        }
+
+        /// <summary>A book with no real title and no generated chapters — a phantom "Untitled Book" tile we must not display.</summary>
+        private static bool IsGhostBook(Books b, IReadOnlyDictionary<int, int> chaptersByBookId)
+        {
+            var t = (b.Title ?? "").Trim();
+            var hasRealTitle = t.Length > 0
+                && !t.Equals("Untitled Book", StringComparison.OrdinalIgnoreCase)
+                && !t.Equals("Untitled", StringComparison.OrdinalIgnoreCase);
+            var hasChapters = chaptersByBookId.TryGetValue(b.BookId, out var n) && n > 0;
+            return !hasRealTitle && !hasChapters;
         }
 
         private static List<DemoDraftViewModel> GetDemoDrafts(List<Books> books, IReadOnlyDictionary<int, string> aiCoverByBookId)

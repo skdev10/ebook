@@ -142,7 +142,7 @@ public static class InteriorLayoutTokens
 
             Key: "novel",
 
-            SheetBackground: "#fffdf8",
+            SheetBackground: "#faf2e2",
 
             SheetPadding: InteriorSpacingTheme.TradePaperbackPagePadding,
 
@@ -160,7 +160,7 @@ public static class InteriorLayoutTokens
 
                 "0 18px 44px -24px rgba(120, 72, 32, 0.36), 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 0 0 1px rgba(212, 176, 138, 0.45)",
 
-                "linear-gradient(180deg, #fffef9 0%, #faf8f2 100%)"),
+                "linear-gradient(180deg, #fdf6e9 0%, #f7eddb 100%)"),
 
             TitleFontSizePt: "18",
 
@@ -210,7 +210,7 @@ public static class InteriorLayoutTokens
 
             Key: "classic",
 
-            SheetBackground: "#fdfcfa",
+            SheetBackground: "#f4ecd8",
 
             SheetPadding: new("0.8in", "0.72in", "0.7in", "0.84in"),
 
@@ -228,7 +228,7 @@ public static class InteriorLayoutTokens
 
                 "0 8px 30px rgba(0, 0, 0, 0.11), 0 0 0 1px rgba(255, 255, 255, 0.9) inset, 0 0 0 1px rgba(214, 196, 168, 0.5)",
 
-                "#fdfcf8 url(\"data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0' stroke='%23ebe6dc' stroke-width='0.5' fill='none'/%3E%3C/svg%3E\")"),
+                "#f3ead2 url(\"data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0' stroke='%23e3d9c2' stroke-width='0.5' fill='none'/%3E%3C/svg%3E\")"),
 
             TitleFontSizePt: "18",
 
@@ -278,7 +278,7 @@ public static class InteriorLayoutTokens
 
             Key: "elegant-trade",
 
-            SheetBackground: "#fcf9f3",
+            SheetBackground: "#f7efdd",
 
             SheetPadding: InteriorSpacingTheme.TradePaperbackPagePadding,
 
@@ -296,7 +296,7 @@ public static class InteriorLayoutTokens
 
                 "0 14px 42px -20px rgba(62, 47, 32, 0.34), 0 0 0 1px rgba(201, 184, 160, 0.35)",
 
-                "linear-gradient(165deg, #fffef8 0%, #f9f5ee 55%, #fffef8 100%)"),
+                "linear-gradient(165deg, #fbf5e6 0%, #f4ebd6 55%, #fbf5e6 100%)"),
 
             TitleFontSizePt: "17",
 
@@ -823,6 +823,18 @@ public static class InteriorLayoutTokens
 
         var uppercase = spec.TitleUppercase ? "text-transform:uppercase; " : "";
 
+        // Per-interior font + ink — emitted with the SAME high-specificity selector that already
+        // drives padding, so the typeface/colour visibly change on every style switch (preview + PDF).
+        var (bodyFont, titleFont, bodyColor, titleColor) = spec.Key switch
+        {
+            "novel" => ("'Merriweather', Georgia, serif", "'Playfair Display', Georgia, serif", "#2c2118", "#6f2f10"),
+            "modern" => ("'Inter', system-ui, sans-serif", "'Inter', system-ui, sans-serif", "#334155", "#334155"),
+            "classic" => ("'Cormorant Garamond', 'Times New Roman', Times, serif", "'Cormorant Garamond', 'Times New Roman', Times, serif", "#231f1a", "#141414"),
+            "minimalist" => ("'Inter', system-ui, sans-serif", "'Inter', system-ui, sans-serif", "#3f3f46", "#111827"),
+            "elegant-trade" => ("'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif", "'Lora', 'Times New Roman', serif", "#29211b", "#3d2914"),
+            _ => ("Georgia, serif", "Georgia, serif", "#2c2118", "#1c1917")
+        };
+
         var sb = new System.Text.StringBuilder(4096);
 
 
@@ -902,6 +914,30 @@ public static class InteriorLayoutTokens
         sb.Append("line-height:var(--ilt-body-lh) !important; ");
 
         sb.Append("text-align:var(--ilt-text-align) !important; } ");
+
+        // Body typeface + ink (broad descendant selector covers BOTH render targets:
+        // the paginated .book-page-content and the single-page #preview-content). !important
+        // guarantees it wins wherever the (working) padding rule wins.
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key).Append(" .reader-page-body,");
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key).Append(" .reader-page-body p,");
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key).Append(" .reader-page-body .manuscript-p,");
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key).Append(" .reader-page-body,");
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key).Append(" .reader-page-body p,");
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-body,");
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-body p { ");
+        sb.Append("font-family:").Append(bodyFont).Append(" !important; color:").Append(bodyColor).Append(" !important; } ");
+
+        // Chapter title typeface + ink.
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key).Append(" .reader-page-title,");
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key).Append(" .reader-page-title,");
+        sb.Append(".book-pdf-body.interior-").Append(spec.Key).Append(" .reader-page-title { ");
+        sb.Append("font-family:").Append(titleFont).Append(" !important; color:").Append(titleColor).Append(" !important; } ");
+
+        // Page surface colour per interior (so the page tint changes too; user hex picker still overrides via --ilt-page-bg).
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key).Append(" .book-page-content-wrap,");
+        sb.Append("#book-formatter-root #paginatedReaderShell.interior-").Append(spec.Key).Append(" .book-page-background,");
+        sb.Append(".paginated-reader-shell.interior-").Append(spec.Key).Append(" .book-page-content-wrap { ");
+        sb.Append("background:var(--ilt-page-bg, ").Append(spec.SheetBackground).Append("); } ");
 
 
 

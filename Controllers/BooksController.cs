@@ -2938,6 +2938,60 @@ namespace EBookDashboard.Controllers
                         wrapBytes = await System.IO.File.ReadAllBytesAsync(physical, cancellationToken);
                 }
 
+                // "Both" (ebook + paperback): also ship the standalone ebook front cover image,
+                // since the EPUB only embeds it and ebook stores (e.g. KDP) need it as a separate file.
+                byte[]? frontBytes = null;
+                var frontExt = "png";
+                if (string.Equals((req.BookFormat ?? "").Trim(), "Both", StringComparison.OrdinalIgnoreCase))
+                {
+                    var frontKeys = new[]
+                    {
+                        $"book:{req.BookId}:printReadyCoverFront",
+                        $"book:{req.BookId}:aiCoverLastPreview"
+                    };
+                    var frontRows = await _context.Settings.AsNoTracking()
+                        .Where(s => frontKeys.Contains(s.Key))
+                        .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+                    var bookCoverRow = await _context.Books.AsNoTracking()
+                        .Where(b => b.BookId == req.BookId)
+                        .Select(b => new { b.CoverImagePath })
+                        .FirstOrDefaultAsync(cancellationToken);
+                    var frontRef = (BookCoverRefResolver.ResolveEbookFrontCoverRef(
+                        frontRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverFront"),
+                        frontRows.GetValueOrDefault($"book:{req.BookId}:aiCoverLastPreview"),
+                        bookCoverRow?.CoverImagePath,
+                        wrapVal) ?? "").Trim();
+                    if (frontRef.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (frontRef.Contains("image/jpeg", StringComparison.OrdinalIgnoreCase) || frontRef.Contains("image/jpg", StringComparison.OrdinalIgnoreCase))
+                            frontExt = "jpg";
+                        var fix = frontRef.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
+                        if (fix >= 0) frontBytes = Convert.FromBase64String(frontRef[(fix + 7)..]);
+                    }
+                    else if (frontRef.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || frontRef.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            using var frontClient = _httpClientFactory.CreateClient();
+                            frontBytes = await frontClient.GetByteArrayAsync(frontRef, cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "ExportPrintReadyBundle front fetch failed for book {BookId}", req.BookId);
+                        }
+                        if (frontRef.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || frontRef.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                            frontExt = "jpg";
+                    }
+                    else if (frontRef.StartsWith("/"))
+                    {
+                        var physicalFront = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", frontRef.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                        if (System.IO.File.Exists(physicalFront))
+                            frontBytes = await System.IO.File.ReadAllBytesAsync(physicalFront, cancellationToken);
+                        if (frontRef.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || frontRef.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                            frontExt = "jpg";
+                    }
+                }
+
                 using var zipMs = new MemoryStream();
                 using (var zip = new System.IO.Compression.ZipArchive(zipMs, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
                 {
@@ -2954,6 +3008,13 @@ namespace EBookDashboard.Controllers
                     else
                     {
                         return BadRequest(new { success = false, message = "Print cover wrap not found. Generate and save your full wrap (front + spine + back) in Cover Design first." });
+                    }
+
+                    if (frontBytes != null && frontBytes.Length > 0)
+                    {
+                        var frontEntry = zip.CreateEntry("cover-front." + frontExt);
+                        await using (var es = frontEntry.Open())
+                            await es.WriteAsync(frontBytes, cancellationToken);
                     }
                 }
 

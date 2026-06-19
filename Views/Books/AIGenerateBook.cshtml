@@ -1699,7 +1699,7 @@
             <h3 class="generate-confirm-modal-title">Generate Chapter</h3>
         </div>
         <div class="generate-confirm-modal-body">
-            <p>Do you want to generate this chapter with AI?</p>
+            <p>This chapter will be generated based on your chapter brief. Generation usually takes a few minutes.</p>
             <p id="generateConfirmEtaHint" class="text-sm text-violet-700 mt-2 mb-0 font-medium"></p>
         </div>
         <div class="generate-confirm-modal-actions">
@@ -3917,7 +3917,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // overwrite/refill the title input the user just cleared — leave it empty.
                 if (savedTitle && !isPlaceholderBookTitle(savedTitle)) {
                     syncWorkingOnBookTitle(savedTitle);
-                    if (inputBookTitle && !inputBookTitle.value.trim()) inputBookTitle.value = savedTitle;
+                    if (inputBookTitle && !inputBookTitle.value.trim() && !window.__userClearedBookTitle) inputBookTitle.value = savedTitle;
                 }
                 if (payload.TitleOnly && typeof loadBookAllChaptersNumbers === 'function') {
                     loadBookAllChaptersNumbers();
@@ -4005,7 +4005,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (savedDdlSync && bookId > 0) savedDdlSync.value = String(bookId);
         if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
         if (bookId > 0) {
-            inputBookTitle.value = selectBook.options[selectBook.selectedIndex].text;
+            // Explicit book switch: load its real title (never a placeholder) and clear the guard.
+            var pickedTitle = selectBook.options[selectBook.selectedIndex].text;
+            inputBookTitle.value = isPlaceholderBookTitle(pickedTitle) ? '' : pickedTitle;
+            window.__userClearedBookTitle = false;
             fetch('/Books/GetSavedChapterNos?userId=' + userId + '&bookId=' + bookId)
                 .then(function(r) { return r.json(); })
                 .then(function(chapters) {
@@ -4090,7 +4093,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.bookTitle) {
                         previewBookTitle.textContent = data.bookTitle;
                         syncWorkingOnBookTitle(data.bookTitle);
-                        if (inputBookTitle && !inputBookTitle.value.trim()) inputBookTitle.value = data.bookTitle;
+                        if (inputBookTitle && !inputBookTitle.value.trim() && !window.__userClearedBookTitle) inputBookTitle.value = data.bookTitle;
                     }
                     if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                     if (hadContent && typeof window.markChapterAsGenerated === 'function') {
@@ -4138,6 +4141,9 @@ document.addEventListener('DOMContentLoaded', function() {
         writerAutosaveStatusTimer = setTimeout(function () { setWriterAutoSaveStatus('', false); }, 2200);
     });
     inputBookTitle.addEventListener('input', function () {
+        // Remember when the user intentionally empties the title so that background
+        // saves/loads never silently refill it (fixes "title reappears after clearing").
+        window.__userClearedBookTitle = !inputBookTitle.value.trim();
         if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         syncWorkingOnBookTitle(getBookTitle());
         queueWriterAutosave(400);
@@ -5526,8 +5532,8 @@ document.addEventListener('DOMContentLoaded', function() {
          if (modalTitle) modalTitle.textContent = isRegen ? 'Regenerate Chapter' : 'Generate Chapter';
          if (yesLabel) yesLabel.textContent = isRegen ? 'Regenerate' : 'Generate';
          if (modalBody) modalBody.textContent = isRegen
-             ? 'Regenerate this chapter with AI? A new draft version will be saved.'
-             : 'Do you want to generate this chapter with AI?';
+             ? 'This chapter will be regenerated based on your chapter brief. Generation usually takes a few minutes.'
+             : 'This chapter will be generated based on your chapter brief. Generation usually takes a few minutes.';
          if (etaHint) {
              var secs = (typeof window.__chapterGenEstimatedSeconds === 'number' && window.__chapterGenEstimatedSeconds > 0)
                  ? window.__chapterGenEstimatedSeconds
@@ -8638,7 +8644,10 @@ document.addEventListener('DOMContentLoaded', function() {
       //        // 1. Check if there's an AuthorId element
       //        const authorIdElement = document.getElementById('AuthorId');
       //        if (authorIdElement && authorIdElement.value) {
-      //            console.log("✅ Author ID from AuthorId element:", authorIdElement.value);
+      //            console.log("✅ Author ID from AuthorId element:", authorIdElement.value);       
+
+
+       // jkaskjjkjkjjkj  iuujjsdk 
       //            return parseInt(authorIdElement.value);
       //        }
 

@@ -1523,9 +1523,11 @@
             body: JSON.stringify({
                 bookId: bookId,
                 format: fmt,
-                interiorStyle: snap.interiorStyle || 'Novel',
-                textSize: snap.textSize || 'Medium',
-                lineSpacing: snap.lineSpacing || '1.6',
+                // Send blank (not 'Novel') when unknown so the server keeps the persisted
+                // interior style instead of clobbering it with a hardcoded default.
+                interiorStyle: snap.interiorStyle || '',
+                textSize: snap.textSize || '',
+                lineSpacing: snap.lineSpacing || '',
                 publishingPlatforms: snap.publishingPlatforms || '',
                 publishingPlatform: snap.publishingPlatform || ''
             })
@@ -1811,10 +1813,11 @@
             })
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-print-ready-' + bookId + '.zip');
+                var frontNote = isBothFormat ? ' + ebook front cover' : '';
                 if (realPages > 0) {
-                    showTransientMessage('success', 'ZIP downloaded for ' + realPages + ' pages: interior PDF (chapters only) + your saved full cover wrap.');
+                    showTransientMessage('success', 'ZIP downloaded for ' + realPages + ' pages: interior PDF (chapters only) + your saved full cover wrap' + frontNote + '.');
                 } else {
-                    showTransientMessage('success', 'ZIP downloaded: interior PDF (chapters only) + your saved full cover wrap.');
+                    showTransientMessage('success', 'ZIP downloaded: interior PDF (chapters only) + your saved full cover wrap' + frontNote + '.');
                 }
                 redirectToDashboardAfterExport('Print-ready ZIP downloaded.');
             })
@@ -1869,9 +1872,9 @@
             displayTitle: pbTitle || '',
             displayAuthor: '',
             displayGenre: pbGenre || '',
-            interiorStyle: fmtSnap.interiorStyle || 'Novel',
-            textSize: fmtSnap.textSize || 'Medium',
-            lineSpacing: fmtSnap.lineSpacing || '1.6',
+            interiorStyle: fmtSnap.interiorStyle || '',
+            textSize: fmtSnap.textSize || '',
+            lineSpacing: fmtSnap.lineSpacing || '',
             bookFormat: fmtSnap.bookFormat || publishBookFormat || (isPrintReadyFlow ? 'Paperback' : 'Ebook'),
             publishingPlatform: isPrintReadyFlow ? 'Amazon KDP' : null
         }))
