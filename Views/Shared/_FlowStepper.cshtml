@@ -70,14 +70,6 @@
         min-width: 10px;
     }
     .ai-flow-line.is-done { background: linear-gradient(90deg, #7c3aed 0%, #c4b5fd 100%); }
-    .ai-flow-hint {
-        margin: 0.5rem 0 0 0.2rem;
-        font-size: 0.78rem;
-        color: #64748b;
-        line-height: 1.5;
-        max-width: 100%;
-    }
-    .ai-flow-hint strong { color: #5b21b6; font-weight: 600; }
     @@media (min-width: 640px) {
         .ai-flow-stepper { padding: 14px 18px 12px; max-width: 720px; }
         .ai-flow-step { min-width: 64px; }
@@ -100,14 +92,4 @@
             </div>
         }
     </div>
-    <p class="ai-flow-hint">
-        @if (current < steps.Length)
-        {
-            @Html.Raw($"Step {current}: <strong>{steps[current - 1]}</strong>. Next up: <strong>{steps[current]}</strong>.")
-        }
-        else
-        {
-            @Html.Raw($"Step {current}: <strong>{steps[current - 1]}</strong> — download your book files here.")
-        }
-    </p>
 </div>
