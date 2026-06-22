@@ -329,6 +329,19 @@ var stripeSecretKey = StripeKeys.Secret(builder.Configuration);
 if (!string.IsNullOrWhiteSpace(stripeSecretKey))
     Stripe.StripeConfiguration.ApiKey = stripeSecretKey.Trim();
 
+// Response compression (Brotli + Gzip): the dashboard/AI-writer/publish pages ship large
+// inline HTML/CSS/JS; compressing them cuts transfer size dramatically over slow networks.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+    options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+});
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions>(
+    o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions>(
+    o => o.Level = System.IO.Compression.CompressionLevel.Fastest);
+
 var app = builder.Build();
 
 {
@@ -366,6 +379,8 @@ var app = builder.Build();
 }
 
 app.UseForwardedHeaders();
+// Compress responses before static files / MVC so HTML, CSS, JS and JSON all shrink on the wire.
+app.UseResponseCompression();
 // Serve book cover images from Images/book_covers at /book-covers
 var bookCoversPath = Path.Combine(app.Environment.ContentRootPath, "Images", "book_covers");
 Directory.CreateDirectory(bookCoversPath); // publish/container often omits empty folders; PhysicalFileProvider requires an existing root
