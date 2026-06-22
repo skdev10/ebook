@@ -1315,66 +1315,99 @@ namespace EBookDashboard.Controllers
             };
 
             var json = payloadObj.ToString(Newtonsoft.Json.Formatting.None);
-            _logger.LogInformation("[Dashboard/GenerateCover] bookId={BookId} url={Url} promptChars={Chars}", req.BookId, apiUrl, (req.Prompt ?? "").Length);
+            // D1: generate several cover variations so the user can choose one. The image API
+            // returns one image per call and is stochastic, so N calls => up to N distinct options.
+            var variationCount = Math.Clamp(
+                int.TryParse(_configuration["ExternalApi:CoverGenerateVariations"], out var vc) ? vc : 3,
+                1, 4);
+            _logger.LogInformation("[Dashboard/GenerateCover] bookId={BookId} url={Url} variations={N} promptChars={Chars}",
+                req.BookId, apiUrl, variationCount, (req.Prompt ?? "").Length);
 
             try
             {
                 var client = _bookApiClient;
-                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-                var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
-                var responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
-
-                if (!response.IsSuccessStatusCode)
+                async Task<string?> GenerateOneCoverAsync()
                 {
-                    _logger.LogWarning("GenerateCover HTTP {Code}: {Body}", (int)response.StatusCode,
-                        responseData?.Length > 500 ? responseData.Substring(0, 500) + "…" : responseData);
-                    return Json(new { success = false, status = "error", message = $"Cover service returned {(int)response.StatusCode}." });
+                    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+                    httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                    using var oneCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                    var resp = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, oneCts.Token);
+                    var body = await resp.Content.ReadAsStringAsync(oneCts.Token);
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning("GenerateCover HTTP {Code}: {Body}", (int)resp.StatusCode,
+                            body?.Length > 500 ? body.Substring(0, 500) + "…" : body);
+                        return null;
+                    }
+                    var got = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(body);
+                    return got.Count > 0 ? got[0] : null;
                 }
 
-                var urls = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(responseData);
-                if (urls.Count == 0)
+                var genTasks = Enumerable.Range(0, variationCount).Select(_ => GenerateOneCoverAsync()).ToArray();
+                var genResults = await Task.WhenAll(genTasks);
+
+                // Distinct, non-empty image refs in arrival order.
+                var rawUrls = new List<string>();
+                var seenRaw = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var r in genResults)
+                    if (!string.IsNullOrWhiteSpace(r) && seenRaw.Add(r!)) rawUrls.Add(r!);
+
+                if (rawUrls.Count == 0)
                     return Json(new { success = false, status = "error", message = "No image in API response." });
-
-                var first = urls[0];
-                string? imageBase64 = null;
-                if (first.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = first.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
-                    if (idx >= 0)
-                        imageBase64 = first[(idx + "base64,".Length)..];
-                }
 
                 HttpContext.Session.SetString("CoverDesignHasGenerated", "1");
                 HttpContext.Session.SetString("CoverDesignLastBookId", req.BookId.ToString());
 
-                // Persist preview to disk when possible so Settings / Book rows are not forced to hold huge base64.
-                string? coverUrlForClient = first;
+                // Persist each variation to disk (sequentially → unique timestamped filenames) so the
+                // client receives stable, displayable URLs for the option picker instead of huge base64.
+                var optionUrls = new List<string>();
+                foreach (var raw in rawUrls)
+                {
+                    var urlForClient = raw;
+                    try
+                    {
+                        var persisted = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, raw, cancellationToken);
+                        if (!string.IsNullOrEmpty(persisted)) urlForClient = persisted!;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not persist AI cover variation for book {BookId}", req.BookId);
+                    }
+                    optionUrls.Add(urlForClient);
+                }
+
+                var firstRaw = rawUrls[0];
+                var firstOption = optionUrls[0];
+
+                // Default-select the first variation so existing single-cover behavior is preserved;
+                // the user can switch to another option in the picker (which re-persists their choice).
                 try
                 {
-                    var persisted = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, first, cancellationToken);
-                    if (!string.IsNullOrEmpty(persisted))
-                    {
-                        await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, persisted, cancellationToken);
-                        if (persisted.StartsWith("/", StringComparison.Ordinal) || persisted.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                            coverUrlForClient = persisted;
-                    }
+                    if (firstOption.StartsWith("/", StringComparison.Ordinal) || firstOption.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, firstOption, cancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Could not persist AI cover preview for book {BookId}", req.BookId);
+                    _logger.LogWarning(ex, "Could not persist default AI cover for book {BookId}", req.BookId);
+                }
+
+                string? imageBase64 = null;
+                if (firstRaw.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+                {
+                    var idx = firstRaw.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
+                    if (idx >= 0)
+                        imageBase64 = firstRaw[(idx + "base64,".Length)..];
                 }
 
                 return Json(new
                 {
                     success = true,
                     status = "success",
-                    coverUrl = coverUrlForClient,
+                    coverUrl = firstOption,
                     image_base64 = imageBase64,
-                    imageDataUrl = first.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ? first : (string?)null,
-                    options = urls.ToArray()
+                    imageDataUrl = firstRaw.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ? firstRaw : (string?)null,
+                    options = optionUrls.ToArray()
                 });
             }
             catch (OperationCanceledException)
@@ -2059,11 +2092,22 @@ namespace EBookDashboard.Controllers
 
             var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, bookId, cancellationToken);
             var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
+
+            // B3/B4: single source of truth for page count. When Book Formatting has run and
+            // persisted its measured reader-page count (printReadyPageCount / formattingDraft),
+            // prefer that — exactly what the Publish page uses — so AI Writer, Book Formatting
+            // and Publish all agree. Fall back to the word-count estimate only when nothing has
+            // been saved yet.
+            var savedFormatterPages = await ResolvePrintReadyPageCountAsync(bookId, cancellationToken);
+            var resolvedPageCount = savedFormatterPages > 0 ? savedFormatterPages : metrics.PageCount;
+            var pageCountSource = savedFormatterPages > 0 ? "formatter" : "estimate";
+
             return Json(new
             {
                 success = true,
                 bookId,
-                pageCount = metrics.PageCount,
+                pageCount = resolvedPageCount,
+                pageCountSource,
                 wordCount = metrics.WordCount,
                 chapterCount = metrics.ChapterCount,
                 imageCount = metrics.ImageCount,

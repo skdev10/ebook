@@ -194,6 +194,38 @@
             max-width: none;
         }
     }
+    /* E1: use the empty right side on the Publish page. On wide screens the
+       "what you'll get" manifest sits on the left and the primary download/export
+       actions move into a sticky panel on the right. Stacks on narrow screens. */
+    .publish-export-grid {
+        display: grid;
+        gap: 1.1rem;
+    }
+    @@media (min-width: 1024px) {
+        .publish-export-grid {
+            grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+            align-items: start;
+            gap: 1.5rem;
+        }
+        .publish-export-grid .publish-output-manifest {
+            margin-bottom: 0;
+        }
+        .publish-export-stores .publish-export-grid .publish-export-actions {
+            flex-direction: column;
+            flex-wrap: nowrap;
+            max-width: none;
+            position: sticky;
+            top: 1rem;
+            padding: 1rem;
+            border-radius: 0.85rem;
+            border: 1px solid #e9d5ff;
+            background: #ffffff;
+            box-shadow: 0 16px 32px -28px rgba(91, 33, 182, 0.5);
+        }
+        .publish-export-grid .publish-export-actions > button {
+            width: 100%;
+        }
+    }
     .publish-hero-title { font-family: 'Playfair Display', serif; }
     .publish-hero {
         border: 1px solid #ddd6fe;
@@ -1183,6 +1215,7 @@
                 {
                     <p class="publish-export-hint" id="publishExportHint">Ebook output — exactly 2 files: front cover image + EPUB.</p>
                 }
+                <div class="publish-export-grid">
                 <div class="publish-output-manifest @(isBothFormat ? "publish-output-manifest--dual" : "")" id="publishOutputManifest">
                     @if (showEbookExports)
                     {
@@ -1221,6 +1254,7 @@
                     <button type="button" data-export-kind="ebook" id="btnExportEpub" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                         <i class="fas fa-book" aria-hidden="true"></i> EPUB file
                     </button>
+                </div>
                 </div>
                 <p class="publish-export-tip mt-3 mb-0 @(showPrintExports && isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipPrint">KDP paperback: upload the <strong>interior PDF</strong> (6×9 trim, safe margins) as manuscript and the <strong>full wrap PNG</strong> as cover — spine width matches your page count.</p>
                 <p class="publish-export-tip mt-3 mb-0 @(showEbookExports && !isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipEbook">KDP ebook: upload the <strong>EPUB</strong> as manuscript and the <strong>front cover JPG/PNG</strong> as cover art.</p>

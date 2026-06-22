@@ -212,6 +212,18 @@
         color: #334155;
         position: relative;
         z-index: 2;
+        align-items: flex-start;
+    }
+    /* A4 fix: long chapter titles must be fully readable in the preview panel.
+       Replace single-line truncation with wrapping (clamped to keep the header tidy). */
+    #bookResult #preview-chapter-header .ai-writer-chapter-title-text {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        overflow: hidden;
     }
     #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
         flex: 1 1 auto;
@@ -1602,7 +1614,7 @@
                     <div id="chapterPreviewScrollHost" class="chapter-preview-scroll-host book-preview-stage min-h-0 flex-1 flex flex-col">
                     <div id="paginatedReaderShell" class="paginated-reader-shell book-page-preview-shell">
                     <h3 id="preview-chapter-header" class="tracking-tight shrink-0 flex items-center gap-2 group hidden" aria-hidden="true">
-                        <span id="preview-chapter-header-text" class="min-w-0 truncate"></span>
+                        <span id="preview-chapter-header-text" class="min-w-0 ai-writer-chapter-title-text"></span>
                     </h3>
                     <div id="preview-content" class="chapter-preview-viewport book-page-preview-content flex flex-col text-base text-slate-700 leading-relaxed"></div>
                     <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
@@ -2532,7 +2544,11 @@ window.refreshAiWriterTotalPages = async function () {
         var r = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         var d = await r.json().catch(function () { return {}; });
         var apiCount = (d && d.success && d.pageCount > 0) ? parseInt(String(d.pageCount), 10) : 0;
-        if (apiCount > 0) showCount(Math.max(apiCount, localPages));
+        // B3/B4: when the server count comes from saved Book Formatting (the measured reader
+        // pages), it is the single source of truth — show it directly so the AI Writer total
+        // matches the Publish page exactly. Otherwise fall back to the prior max() heuristic.
+        if (apiCount > 0 && d && d.pageCountSource === 'formatter') showCount(apiCount);
+        else if (apiCount > 0) showCount(Math.max(apiCount, localPages));
         else if (!localPages) showCount(0);
     } catch (e) {
         if (!localPages) showCount(0);
@@ -2989,15 +3005,26 @@ window.updateChapterPreviewNavUI = function () {
  * never leaves a stale chapter title/heading in the preview. No-op when preview has no chapters.
  */
 window.syncPreviewToSelectedChapter = function (chapterNo) {
+    if (!Number.isFinite(chapterNo)) return;
     var list = window._previewChaptersMeta || [];
-    if (!list.length || !Number.isFinite(chapterNo)) return;
     var idx = -1;
     for (var i = 0; i < list.length; i++) {
         var cn = (list[i] && list[i].chapterNo != null && list[i].chapterNo !== '')
             ? parseInt(list[i].chapterNo, 10) : (i + 1);
         if (cn === chapterNo) { idx = i; break; }
     }
-    if (idx < 0 || idx === window._previewChapterIndex) return;
+    // A1 fix: if the selected chapter isn't present in the reader, load it so the
+    // preview card title/content always follow the selected chapter — instead of
+    // silently keeping the previously shown chapter's title.
+    if (idx < 0) {
+        var bidEl = document.getElementById('BookId');
+        var bid = bidEl ? parseInt(bidEl.value, 10) : 0;
+        if (bid > 0 && typeof window.loadChapterPreview === 'function') {
+            window.loadChapterPreview(bid, chapterNo);
+        }
+        return;
+    }
+    if (idx === window._previewChapterIndex) return;
     if (typeof window.applyPreviewChapterIndex === 'function') {
         window.applyPreviewChapterIndex(idx, { initialPage: 0 });
     }
@@ -4113,6 +4140,9 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(function() {});
     }
+    // A1 fix: expose the proven single-chapter preview loader so chapter-sync logic
+    // can rebuild the reader for a selected chapter that isn't currently in it.
+    window.loadChapterPreview = loadChapterPreview;
 
     inputChapterNo.addEventListener('change', function() {
         var bookId = getBookId();
@@ -4552,6 +4582,14 @@ document.addEventListener('DOMContentLoaded', function() {
                } else if (typeof window.clearChapterDraftGenerated === 'function') {
                    window.clearChapterDraftGenerated();
                }
+               // A5 fix: restore Version History when returning to Step 1 (full page reload).
+               // loadSelectedResponse selects the latest chapter but never repopulated the
+               // iterations dropdown, so the Version History panel stayed hidden until the
+               // user manually re-picked a chapter. Refresh it for the selected chapter here.
+               if (typeof refreshChapterIterationsDropdown === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
+                   try { await refreshChapterIterationsDropdown(latestChapter.responseId || latestChapter.response_id); }
+                   catch (e) { console.warn('restore version history failed', e); }
+               }
                } else {
                     // clearBookForm();
                     showNotification("Error: " + result.message, "error");
@@ -4876,10 +4914,21 @@ document.addEventListener('DOMContentLoaded', function() {
           if (apiRawEl) apiRawEl.value = '';
           clearChapterVersionHistoryUi();
           if (typeof window.clearChapterDraftGenerated === 'function') window.clearChapterDraftGenerated();
-          if (typeof window.resetWriterPreviewForContextChange === 'function') {
-              window.resetWriterPreviewForContextChange(parseInt(bookId, 10) || 0, parseInt(nextChapter, 10) || 1, 0, true);
-          }
+          // A3 fix: adding a new (empty) chapter must NOT wipe the whole-book preview.
+          // Switch the writer/editor context to the new chapter, but keep previously
+          // generated chapters in the reader so e.g. Ch.1's content stays available.
+          // (A full reset here used to clear _previewChaptersMeta/_previewChapterPages and
+          // then showPreviewEmptyState() rendered "No generated chapter yet".)
+          (function switchWriterContextKeepReader() {
+              var bk = String(parseInt(bookId, 10) || 0);
+              var chNo = String(parseInt(nextChapter, 10) || 1);
+              window._writerPreviewIsolationKey = bk + ':' + chNo + ':0';
+              window._editModeOriginalContent = null;
+              if (window._chapterEditModalState) window._chapterEditModalState = null;
+          })();
           if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+          // No-op when the reader still holds generated chapters; only shows the empty
+          // state when there is genuinely nothing generated yet (very first chapter).
           if (typeof window.showPreviewEmptyState === 'function') window.showPreviewEmptyState();
           if (typeof window.updatePreviewUI === 'function') window.updatePreviewUI();
           if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
