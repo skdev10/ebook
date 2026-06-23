@@ -66,18 +66,19 @@
         if (!dirty) return Promise.resolve(true);
 
         if (typeof Swal === 'undefined') {
-            var ok = global.confirm('Leave this page? Your current draft won\'t be saved.');
+            var ok = global.confirm('Go back? Your unsaved work on this step will be DELETED — it has not been saved yet.');
             if (ok) markSaved();
             return Promise.resolve(ok);
         }
 
         var buttons = {
             showCancelButton: true,
-            confirmButtonText: 'Leave',
-            cancelButtonText: 'Stay',
-            confirmButtonColor: '#7c3aed',
+            confirmButtonText: 'Go back & delete it',
+            cancelButtonText: 'Keep working',
+            confirmButtonColor: '#dc2626',
             cancelButtonColor: '#64748b',
-            allowOutsideClick: false
+            allowOutsideClick: false,
+            focusCancel: true
         };
 
         if (pendingSaveFn) {
@@ -87,9 +88,11 @@
         }
 
         return Swal.fire(Object.assign({
-            title: 'Leave this page?',
-            html: 'Unsaved changes on this step may be <b>lost</b> if you leave without saving.<br><br>'
-                + 'To stay safe, use <b>Dashboard → Continue Editing</b> for your book.',
+            title: 'Going back will delete your unsaved work',
+            html: 'If you go back now, the <b>work you haven\'t saved on this step will be deleted</b> '
+                + '(your current chapter draft, formatting, or cover changes).<br><br>'
+                + 'Your already-saved chapters stay safe. To continue later, reopen the book from '
+                + '<b>Dashboard → Continue Editing</b>.',
             icon: 'warning'
         }, buttons)).then(function (result) {
             if (result.isDenied) {

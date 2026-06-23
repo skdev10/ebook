@@ -89,13 +89,16 @@
         }
 
         return global.Swal.fire({
-            title: 'Return to Dashboard?',
-            html: 'Your book stays saved. Pick it again under <b>Continue Editing</b> to resume at the right step (' + FLOW_ORDER_HTML + ').',
-            icon: 'question',
+            title: 'Go back to Dashboard?',
+            html: 'Going back will <b>discard any work on this step that you haven\'t saved yet</b> '
+                + '(current chapter draft, formatting, or cover changes).<br><br>'
+                + 'Your already-saved chapters stay safe — reopen the book under '
+                + '<b>Continue Editing</b> to resume at the right step (' + FLOW_ORDER_HTML + ').',
+            icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Go to Dashboard',
+            confirmButtonText: 'Go back anyway',
             cancelButtonText: 'Keep working',
-            confirmButtonColor: '#7c3aed',
+            confirmButtonColor: '#dc2626',
             cancelButtonColor: '#64748b',
             focusCancel: true
         }).then(function (r) {

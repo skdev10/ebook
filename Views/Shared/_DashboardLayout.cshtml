@@ -3636,11 +3636,6 @@
                     </a>
                 </li>
                 }
-                <li>
-                    <a href="/Dashboard/Profile" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "active" : "")">
-                        <i data-lucide="user" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Profile Settings</span>
-                    </a>
-                </li>
             </ul>
 
             <!-- ✅ Lucide Icons (same as AI Book Writer design) -->
@@ -3872,6 +3867,9 @@
 
 
             <div class="sidebar-footer">
+                <a href="/Dashboard/Profile" class="profile-btn @(ViewContext.RouteData.Values["Action"]?.ToString() == "Profile" ? "active" : "")">
+                    <i data-lucide="user" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Profile Settings</span>
+                </a>
                 <a href="/Account/Logout" class="logout-btn">
                     <i data-lucide="log-out" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Logout</span>
                 </a>
