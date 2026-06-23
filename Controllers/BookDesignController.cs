@@ -1018,6 +1018,47 @@ namespace EBookDashboard.Controllers
             }
         }
 
+        //==============================================
+        // GET: /BookDesign/InteriorPreview
+        // Self-contained interactive "Book Interior Preview" (real templates).
+        // Standalone page so it never interferes with the production formatter.
+        //==============================================
+        [HttpGet]
+        [Route("BookDesign/InteriorPreview")]
+        public async Task<IActionResult> InteriorPreview(int bookId = 0)
+        {
+            int userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+            if (userId == 0)
+                return RedirectToAction("UserLogin", "Account");
+
+            // Proof-of-concept title binding: use the real book title when a bookId
+            // is supplied, otherwise fall back to the sample manuscript title.
+            string bookTitle = "Verglas Season";
+            if (bookId > 0)
+            {
+                try
+                {
+                    var bookRow = await _context.Books.AsNoTracking()
+                        .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId);
+                    if (bookRow != null)
+                    {
+                        var resolved = await BookTitleResolver.ResolveDisplayTitleAsync(
+                            _context, userId, bookRow.BookId, bookRow.Title);
+                        if (!string.IsNullOrWhiteSpace(resolved))
+                            bookTitle = resolved;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "InteriorPreview title resolve failed for book {BookId}", bookId);
+                }
+            }
+
+            ViewBag.BookTitle = bookTitle;
+            ViewBag.SelectedBookId = bookId;
+            return View("InteriorPreview");
+        }
+
         private double ParseDoubleSetting(string key, double fallback)
         {
             var raw = (_configuration[key] ?? "").Trim();

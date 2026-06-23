@@ -142,7 +142,7 @@ public static class InteriorLayoutTokens
 
             Key: "novel",
 
-            SheetBackground: "#faf2e2",
+            SheetBackground: "#f4ecd9",
 
             SheetPadding: InteriorSpacingTheme.TradePaperbackPagePadding,
 
@@ -160,7 +160,7 @@ public static class InteriorLayoutTokens
 
                 "0 18px 44px -24px rgba(120, 72, 32, 0.36), 0 2px 0 rgba(255, 255, 255, 0.85) inset, 0 0 0 1px rgba(212, 176, 138, 0.45)",
 
-                "linear-gradient(180deg, #fdf6e9 0%, #f7eddb 100%)"),
+                "radial-gradient(120% 90% at 50% 0%, #f8f2e2 0%, #f1e8d2 100%)"),
 
             TitleFontSizePt: "18",
 
@@ -210,7 +210,7 @@ public static class InteriorLayoutTokens
 
             Key: "classic",
 
-            SheetBackground: "#f4ecd8",
+            SheetBackground: "#faf5e9",
 
             SheetPadding: new("0.8in", "0.72in", "0.7in", "0.84in"),
 
@@ -228,7 +228,7 @@ public static class InteriorLayoutTokens
 
                 "0 8px 30px rgba(0, 0, 0, 0.11), 0 0 0 1px rgba(255, 255, 255, 0.9) inset, 0 0 0 1px rgba(214, 196, 168, 0.5)",
 
-                "#f3ead2 url(\"data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 40L40 0' stroke='%23e3d9c2' stroke-width='0.5' fill='none'/%3E%3C/svg%3E\")"),
+                "radial-gradient(120% 90% at 50% 0%, #fdf9ef 0%, #f6efdf 100%)"),
 
             TitleFontSizePt: "18",
 
@@ -278,9 +278,9 @@ public static class InteriorLayoutTokens
 
             Key: "elegant-trade",
 
-            SheetBackground: "#f7efdd",
+            SheetBackground: "#f7efe0",
 
-            SheetPadding: InteriorSpacingTheme.TradePaperbackPagePadding,
+            SheetPadding: new("0.7in", "0.62in", "0.66in", "0.92in"),
 
             Body: new("0.97rem", "1.6", InteriorSpacingTheme.Mm(InteriorSpacingTheme.FirstLineIndentMm), "0", "justify", "0.5rem", "1rem"),
 
@@ -296,7 +296,7 @@ public static class InteriorLayoutTokens
 
                 "0 14px 42px -20px rgba(62, 47, 32, 0.34), 0 0 0 1px rgba(201, 184, 160, 0.35)",
 
-                "linear-gradient(165deg, #fbf5e6 0%, #f4ebd6 55%, #fbf5e6 100%)"),
+                "radial-gradient(120% 90% at 50% 0%, #fbf5ea 0%, #f4ebd9 100%)"),
 
             TitleFontSizePt: "17",
 
@@ -827,11 +827,11 @@ public static class InteriorLayoutTokens
         // drives padding, so the typeface/colour visibly change on every style switch (preview + PDF).
         var (bodyFont, titleFont, bodyColor, titleColor) = spec.Key switch
         {
-            "novel" => ("'Merriweather', Georgia, serif", "'Playfair Display', Georgia, serif", "#2c2118", "#6f2f10"),
+            "novel" => ("'Merriweather', Georgia, serif", "'Playfair Display', Georgia, serif", "#2a2620", "#2a2620"),
             "modern" => ("'Inter', system-ui, sans-serif", "'Inter', system-ui, sans-serif", "#334155", "#334155"),
-            "classic" => ("'Cormorant Garamond', 'Times New Roman', Times, serif", "'Cormorant Garamond', 'Times New Roman', Times, serif", "#231f1a", "#141414"),
-            "minimalist" => ("'Inter', system-ui, sans-serif", "'Inter', system-ui, sans-serif", "#3f3f46", "#111827"),
-            "elegant-trade" => ("'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif", "'Lora', 'Times New Roman', serif", "#29211b", "#3d2914"),
+            "classic" => ("'Cormorant Garamond', 'Times New Roman', Times, serif", "'Cormorant Garamond', 'Times New Roman', Times, serif", "#241c16", "#241c16"),
+            "minimalist" => ("'Inter', system-ui, sans-serif", "'Inter', system-ui, sans-serif", "#1d1d1f", "#111111"),
+            "elegant-trade" => ("'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif", "'Lora', 'Times New Roman', serif", "#2c241a", "#2c241a"),
             _ => ("Georgia, serif", "Georgia, serif", "#2c2118", "#1c1917")
         };
 

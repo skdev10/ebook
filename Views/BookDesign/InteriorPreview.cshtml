@@ -1,0 +1,1007 @@
+@{
+    Layout = null;
+    var bookTitle = (string)(ViewBag.BookTitle ?? "Verglas Season");
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Book Interior Preview — Real Templates</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@@0,400;0,500;0,600;1,400&family=Cormorant+Garamond:ital,wght@@0,400;0,500;0,600;1,400&family=Inter:wght@@400;500;600;700&family=Merriweather:ital,wght@@0,400;0,700;1,400&family=Libre+Baskerville:ital,wght@@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <style>
+        /* ── reset & base ── */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: #f4f4f6;
+            color: #2a2a32;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ── left panel ── */
+        .panel {
+            width: 360px;
+            flex-shrink: 0;
+            padding: 28px 26px;
+            background: #ffffff;
+            border-right: 1px solid #e2e2e8;
+            overflow-y: auto;
+            height: 100vh;
+        }
+
+            .panel h2 {
+                font-size: 13px;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: #8a8a96;
+                margin: 0 0 10px;
+                font-weight: 600;
+            }
+
+        .group {
+            margin-bottom: 26px;
+        }
+
+        /* theme grid */
+        .theme-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .theme-card {
+            border: 1.5px solid #e2e2e8;
+            border-radius: 12px;
+            padding: 14px 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: border-color .15s, box-shadow .15s, transform .1s;
+            background: #fff;
+        }
+
+            .theme-card:hover {
+                transform: translateY(-1px);
+            }
+
+            .theme-card .eyebrow {
+                font-size: 9px;
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                color: #8a8a96;
+                display: block;
+                margin-bottom: 4px;
+            }
+
+            .theme-card .name {
+                font-size: 15px;
+                font-weight: 600;
+            }
+
+            .theme-card.active {
+                border-color: #6c4cf0;
+                box-shadow: 0 0 0 3px #efeafe;
+            }
+
+        .swatch {
+            height: 6px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        /* pills */
+        .pill-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            border: 1.5px solid #e2e2e8;
+            background: #fff;
+            border-radius: 999px;
+            padding: 7px 15px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all .12s;
+            color: #2a2a32;
+            font-family: inherit;
+        }
+
+            .pill:hover {
+                border-color: #c9c9d4;
+            }
+
+            .pill.active {
+                border-color: #6c4cf0;
+                background: #efeafe;
+                color: #6c4cf0;
+                font-weight: 500;
+            }
+
+        .hint {
+            font-size: 12px;
+            color: #8a8a96;
+            line-height: 1.5;
+            margin-top: 14px;
+            padding: 12px;
+            background: #fafafc;
+            border-radius: 10px;
+            border: 1px solid #e2e2e8;
+        }
+
+        /* ── right stage ── */
+        .stage {
+            flex: 1;
+            background: var(--surface, #e9e9ec);
+            transition: background .45s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px;
+            width: 100%;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            color: #2a2a32;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all .12s;
+            font-family: inherit;
+        }
+
+            .nav-btn:hover:not(:disabled) {
+                background: #fff;
+            }
+
+            .nav-btn:disabled {
+                opacity: 0.4;
+                cursor: default;
+            }
+
+        .page-counter {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.55);
+            background: rgba(255, 255, 255, 0.7);
+            padding: 8px 14px;
+            border-radius: 8px;
+            min-width: 92px;
+            text-align: center;
+        }
+
+        .page-scroll {
+            flex: 1;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+            padding: 10px 20px 40px;
+        }
+
+        /* ── the book page ── */
+        .page {
+            position: relative;
+            background: var(--paper, #fff);
+            background-image: var(--paper-grad, none);
+            color: var(--ink, #222);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.32), 0 4px 12px rgba(0, 0, 0, 0.18);
+            flex-shrink: 0;
+            transition: background .45s ease, color .45s ease;
+            overflow: hidden;
+        }
+
+        .running-head {
+            position: absolute;
+            font-size: 9.5px;
+            color: var(--ink);
+            opacity: 0.55;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .page-number {
+            position: absolute;
+            font-size: 10px;
+            color: var(--ink);
+            opacity: 0.6;
+        }
+
+        .content {
+            position: absolute;
+            overflow: hidden;
+        }
+
+        /* paragraphs */
+        .para {
+            margin: 0;
+            font-family: var(--body-font);
+            font-size: var(--body-size);
+            line-height: var(--line-height);
+            color: var(--ink);
+            text-indent: var(--indent, 1.4em);
+            -webkit-hyphens: auto;
+            hyphens: auto;
+            font-feature-settings: "liga" 1, "kern" 1;
+        }
+
+            .para.first {
+                text-indent: 0;
+            }
+
+            .para.cont {
+                text-indent: 0;
+            }
+
+        /* chapter opener */
+        .chapter {
+            text-align: center;
+        }
+
+            .chapter .flourish {
+                font-size: 22px;
+                opacity: 0.65;
+                margin-bottom: 14px;
+                line-height: 1;
+            }
+
+            .chapter .ch-num {
+                font-family: var(--head-font);
+                font-size: calc(var(--body-size) * 0.85);
+                letter-spacing: 0.22em;
+                text-transform: uppercase;
+                opacity: 0.6;
+                margin-bottom: 12px;
+            }
+
+            .chapter .ch-title {
+                font-family: var(--head-font);
+                font-size: calc(var(--body-size) * 1.85);
+                font-weight: 600;
+                line-height: 1.15;
+            }
+
+            .chapter .ch-rule {
+                width: 46px;
+                height: 1.5px;
+                background: var(--ink);
+                opacity: 0.45;
+                margin: 14px auto 0;
+            }
+
+        /* scene break */
+        .scene {
+            text-align: center;
+            font-family: var(--body-font);
+            color: var(--ink);
+            opacity: 0.6;
+            margin: calc(var(--line-height) * 0.55em) 0;
+            letter-spacing: 0.3em;
+        }
+
+        /* off-screen measuring */
+        #measure,
+        #lineMeasureWrap {
+            position: absolute;
+            left: -99999px;
+            top: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        /* ── THEME-SPECIFIC STRUCTURE ── */
+
+        /* NOVEL */
+        [data-theme="novel"] {
+            --body-font: 'Merriweather', serif;
+            --head-font: 'Merriweather', serif;
+            --indent: 1.4em;
+        }
+
+            [data-theme="novel"] .para {
+                text-align: justify;
+            }
+
+            [data-theme="novel"] .chapter .ch-title {
+                letter-spacing: 0.04em;
+                font-variant: small-caps;
+                font-weight: 700;
+            }
+
+            [data-theme="novel"] .running-head {
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                font-variant: small-caps;
+                text-align: center;
+            }
+
+        /* CLASSIC */
+        [data-theme="classic"] {
+            --body-font: 'Cormorant Garamond', serif;
+            --head-font: 'Cormorant Garamond', serif;
+            --indent: 1.3em;
+        }
+
+            [data-theme="classic"] .para {
+                text-align: justify;
+                font-size: calc(var(--body-size) * 1.12);
+                font-feature-settings: "liga" 1, "dlig" 1, "kern" 1;
+            }
+
+                [data-theme="classic"] .para.first::first-letter {
+                    float: left;
+                    font-family: 'Cormorant Garamond', serif;
+                    font-weight: 600;
+                    font-size: 3.5em;
+                    line-height: 0.74;
+                    padding: 0.04em 0.08em 0 0;
+                }
+
+            [data-theme="classic"] .chapter .ch-title {
+                font-style: italic;
+                font-weight: 500;
+            }
+
+            [data-theme="classic"] .running-head {
+                font-style: italic;
+                text-align: center;
+            }
+
+        /* MINIMALIST */
+        [data-theme="minimal"] {
+            --body-font: 'Inter', sans-serif;
+            --head-font: 'Inter', sans-serif;
+            --indent: 0;
+        }
+
+            [data-theme="minimal"] .para {
+                text-align: left;
+                font-size: calc(var(--body-size) * 0.95);
+            }
+
+                [data-theme="minimal"] .para + .para {
+                    margin-top: calc(var(--line-height) * 0.62em);
+                    text-indent: 0;
+                }
+
+            [data-theme="minimal"] .chapter {
+                text-align: left;
+            }
+
+                [data-theme="minimal"] .chapter .ch-num {
+                    letter-spacing: 0.3em;
+                }
+
+                [data-theme="minimal"] .chapter .ch-title {
+                    font-weight: 700;
+                    font-size: calc(var(--body-size) * 2.1);
+                    letter-spacing: -0.01em;
+                }
+
+            [data-theme="minimal"] .running-head {
+                letter-spacing: 0.18em;
+                text-transform: uppercase;
+                opacity: 0.4;
+            }
+
+        /* ELEGANT TRADE */
+        [data-theme="elegant"] {
+            --body-font: 'EB Garamond', serif;
+            --head-font: 'EB Garamond', serif;
+            --indent: 1.2em;
+        }
+
+            [data-theme="elegant"] .para {
+                text-align: justify;
+            }
+
+                [data-theme="elegant"] .para.first::first-letter {
+                    font-size: 1.9em;
+                    font-weight: 600;
+                    line-height: 1;
+                }
+
+            [data-theme="elegant"] .chapter .ch-title {
+                font-weight: 700;
+            }
+
+            [data-theme="elegant"] .running-head {
+                letter-spacing: 0.12em;
+                text-transform: uppercase;
+                font-variant: small-caps;
+                text-align: center;
+            }
+    </style>
+</head>
+<body>
+
+    <!-- ===================== CONTROLS ===================== -->
+    <aside class="panel">
+        <div class="group">
+            <h2>Interior style</h2>
+            <div class="theme-grid" id="themeGrid">
+                <div class="theme-card" data-theme-key="novel">
+                    <span class="eyebrow">Traditional</span>
+                    <span class="name">Novel</span>
+                    <div class="swatch" style="background:#3a4038"></div>
+                </div>
+                <div class="theme-card" data-theme-key="classic">
+                    <span class="eyebrow">Fine book</span>
+                    <span class="name">Classic</span>
+                    <div class="swatch" style="background:#4a1f24"></div>
+                </div>
+                <div class="theme-card" data-theme-key="minimal">
+                    <span class="eyebrow">Clean</span>
+                    <span class="name">Minimalist</span>
+                    <div class="swatch" style="background:#dde1e6"></div>
+                </div>
+                <div class="theme-card" data-theme-key="elegant">
+                    <span class="eyebrow">POD</span>
+                    <span class="name">Elegant trade</span>
+                    <div class="swatch" style="background:#a9895f"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="group">
+            <h2>Text size</h2>
+            <div class="pill-row" id="sizeRow">
+                <button class="pill" data-size="small">Small</button>
+                <button class="pill" data-size="medium">Medium</button>
+                <button class="pill" data-size="large">Large</button>
+            </div>
+        </div>
+
+        <div class="group">
+            <h2>Line spacing</h2>
+            <div class="pill-row" id="spacingRow">
+                <button class="pill" data-lh="1.4">Tight 1.4</button>
+                <button class="pill" data-lh="1.6">Normal 1.6</button>
+                <button class="pill" data-lh="1.8">Relaxed 1.8</button>
+                <button class="pill" data-lh="2.0">Loose 2</button>
+            </div>
+        </div>
+
+        <div class="group">
+            <h2>Trim size</h2>
+            <div class="pill-row" id="trimRow">
+                <button class="pill" data-trim="6x9">6 × 9″</button>
+                <button class="pill" data-trim="5.5x8.5">5.5 × 8.5″</button>
+                <button class="pill" data-trim="5.06x7.81">5.06 × 7.81″</button>
+            </div>
+        </div>
+
+        <div class="hint">
+            Click a style — the whole page repaints: paper colour, backdrop gradient,
+            fonts, margins, chapter opener, drop cap, ornaments and running heads all
+            change together. Change text size or spacing and the page count
+            re-computes live. No chapter is ever cut off.
+        </div>
+    </aside>
+
+    <!-- ===================== PREVIEW ===================== -->
+    <main class="stage" id="stage">
+        <div class="toolbar">
+            <button class="nav-btn" id="prevBtn">‹ Previous</button>
+            <div class="page-counter" id="counter">Page 1 / 1</div>
+            <button class="nav-btn" id="nextBtn">Next ›</button>
+        </div>
+        <div class="page-scroll">
+            <div class="page" id="page"></div>
+        </div>
+    </main>
+
+    <div id="measure"></div>
+    <div id="lineMeasureWrap">
+        <p id="lineMeasure" class="para"></p>
+        <p id="lhProbe" class="para"></p>
+    </div>
+
+    <script>
+        /* ============================================================================
+           1. THEME DEFINITIONS — each is a COMPLETE design system
+           ============================================================================ */
+        const THEMES = {
+            novel: {
+                surface: 'linear-gradient(135deg,#3f463c 0%,#2a302a 100%)',
+                paper: '#f4ecd9',
+                paperGrad: 'radial-gradient(120% 90% at 50% 0%, #f8f2e2 0%, #f1e8d2 100%)',
+                ink: '#2a2620',
+                margins: { t: 0.8125, b: 0.8125, inside: 0.875, outside: 0.6875 },
+                dropPct: 30,
+                dropCap: 'none',
+                ornament: '* * *',
+            },
+            classic: {
+                surface: 'linear-gradient(135deg,#4f2126 0%,#2c1316 100%)',
+                paper: '#faf5e9',
+                paperGrad: 'radial-gradient(120% 90% at 50% 0%, #fdf9ef 0%, #f6efdf 100%)',
+                ink: '#241c16',
+                margins: { t: 0.95, b: 0.875, inside: 0.95, outside: 0.75 },
+                dropPct: 35,
+                dropCap: 'big',
+                ornament: '\u2766',
+            },
+            minimal: {
+                surface: 'linear-gradient(135deg,#edeff2 0%,#dce0e6 100%)',
+                paper: '#ffffff',
+                paperGrad: 'none',
+                ink: '#1d1d1f',
+                margins: { t: 0.95, b: 0.95, inside: 0.75, outside: 0.75 },
+                dropPct: 14,
+                dropCap: 'none',
+                ornament: '\u2014',
+            },
+            elegant: {
+                surface: 'linear-gradient(135deg,#b49a70 0%,#876c4a 100%)',
+                paper: '#f7efe0',
+                paperGrad: 'radial-gradient(120% 90% at 50% 0%, #fbf5ea 0%, #f4ebd9 100%)',
+                ink: '#2c241a',
+                margins: { t: 0.85, b: 0.85, inside: 0.92, outside: 0.62 },
+                dropPct: 25,
+                dropCap: 'raised',
+                ornament: '\u2022 \u2022 \u2022',
+            },
+        };
+
+        const SIZES = { small: '10pt', medium: '11.5pt', large: '13pt' };
+        const TRIMS = { '6x9': [6, 9], '5.5x8.5': [5.5, 8.5], '5.06x7.81': [5.06, 7.81] };
+
+        /* current state */
+        const state = { theme: 'classic', size: 'medium', lh: '1.8', trim: '6x9' };
+
+        /* Book title comes from the server (proof of concept). */
+        const BOOK_TITLE = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(bookTitle));
+
+        /* ============================================================================
+           2. THE MANUSCRIPT (static proof-of-concept content)
+           ============================================================================ */
+        const MANUSCRIPT = [
+            { type: 'chapter', num: 'Chapter One', title: 'The Patch Notes' },
+            { type: 'para',
+                text: 'The trailers slid into his feed at a time when the city outside his window had thinned to one tired streetlight and the memory of a neighbour\u2019s dog padding through the night. He watched the first frame, a map folding itself like a paper secret, and felt an old pulse wake: the small, steady hunger a player harbours for a new world.' },
+            { type: 'para',
+                text: 'He closed the page and opened it again, the way you reopen a letter to be sure the handwriting means the same thing twice. The patch notes read like an architect\u2019s shorthand, dynamic weather, destructible cover, drones with brittle loyalties, persistent outposts, memory nodes, and in that hour the update felt less like noise and more like an invitation to practice.' },
+            { type: 'para',
+                text: 'Mara found him there at two in the morning, a halo of blue across his face, the keyboard warm under his hands. She did not ask what he was building. She had learned, over the years, that the answer was always the same shape: something that did not exist yet, something he could not quite describe until it was finished and then could not stop describing.' },
+            { type: 'para',
+                text: '\u201cYou\u2019re going back in,\u201d she said. It was not a question, and he loved her for not making it one. He nodded, and the room held its breath the way rooms do when a decision has already been made and is only waiting for someone to say it out loud.' },
+            { type: 'scene' },
+            { type: 'para',
+                text: 'The server admitted him without ceremony. There was a field, and beyond the field a ridge, and beyond the ridge the suggestion of a town that the engine had not finished imagining. He walked toward it because walking toward unfinished things was the only craft he had ever fully trusted.' },
+            { type: 'para',
+                text: 'Rain began, procedural and patient, each drop computed somewhere and delivered on time. He tilted his head back and let the simulated sky do its work, and for a moment the line between the world he had left and the world he had entered grew thin enough to step across without noticing.' },
+            { type: 'para',
+                text: 'A message blinked in the corner of his vision. It was from an account he did not recognise, three words only, lowercase, unhurried: stay off ridge. He read it twice. Then he kept walking, because the ridge was where the town was, and the town was the only thing worth the trouble of arriving.' },
+
+            { type: 'chapter', num: 'Chapter Two', title: 'Brittle Loyalties' },
+            { type: 'para',
+                text: 'By morning he had mapped the outpost twice and learned its tempo, the way the drones swept their patrol in lazy figure-eights, the way the guards traded shifts with a carelessness the designers had probably called realism. He sketched the timing on a napkin he would later lose, and felt the particular joy of a system beginning to yield its rules.' },
+            { type: 'para',
+                text: 'The other player was waiting at the well. He stood with the stillness of someone who had stood there a long time, watching the same drones, learning the same tempo. When he spoke his voice came through clean, no accent the codec could place, no urgency it could betray.' },
+            { type: 'para',
+                text: '\u201cYou ignored the message,\u201d he said. It was not an accusation. It was closer to recognition, one practitioner noting another\u2019s stubbornness the way a climber notes the line a stranger has chosen up a wall, dangerous, beautiful, entirely their own.' },
+            { type: 'para',
+                text: 'They worked the outpost together without agreeing to. It is a strange grammar, cooperation among strangers, a sentence built one verb at a time by people who never settle on a subject. He took the drones; the stranger took the gate; and the town, when it opened, opened for both of them at once.' },
+            { type: 'para',
+                text: 'Inside there were memory nodes, just as the notes had promised, soft humming cubes that held the world\u2019s record of itself. Touch one and the town remembered you. Touch enough and the town could not forget. He understood, standing there, that persistence was the whole game, that the designers had built a place whose only true currency was being remembered.' },
+            { type: 'para',
+                text: '\u201cThis is why I said stay off the ridge,\u201d the stranger said quietly. \u201cThe town keeps score. And the things it remembers, it sends back for.\u201d He did not explain further. He did not need to. The hum of the nodes had already begun to change pitch, and somewhere above them the procedural sky was darkening on a schedule that no longer felt like weather.' },
+
+            { type: 'chapter', num: 'Chapter Three', title: 'Persistent Outposts' },
+            { type: 'para',
+                text: 'The siege, when it came, was not loud. That was the cruelty of good design, that catastrophe could arrive on tiptoe, announced only by the smallest wrongness, a patrol that did not turn back, a gate that stayed open a half-second too long, a silence where the drones should have hummed.' },
+            { type: 'para',
+                text: 'He held the eastern wall because someone had to and because the stranger had taken the west without asking, and between them the town became, briefly, a thing worth defending. He had built outposts before, in older worlds, on quieter servers, and lost every one. He did not expect this to end differently. He only expected to be remembered as having stood there.' },
+            { type: 'para',
+                text: 'Mara, in the other world, set a cup of tea beside the keyboard and did not speak. She watched the wall hold and break and hold again, watched his shoulders carry a weight that had no mass, and understood that he was not playing, exactly. He was rehearsing something. He had always been rehearsing something.' },
+            { type: 'para',
+                text: 'When the wall finally fell it fell the way real things fall, slowly and then all at once, and in the last frame before the screen went grey he saw the stranger raise one hand, not in surrender, not in farewell, but in the small salute one practitioner offers another across the ruin of a shared and beautiful failure.' },
+            { type: 'para',
+                text: 'He sat back. The streetlight outside had given up. Somewhere a neighbour\u2019s dog began, at last, to bark. And on the dead grey screen a single line resolved, lowercase, unhurried, in a hand he now recognised as his own: the town remembers you. He drank the cold tea, and he smiled, and he opened the page again.' },
+        ];
+
+        /* ============================================================================
+           3. GEOMETRY
+           ============================================================================ */
+        const PAGE_W_PX = 460;
+        let geo = {};
+
+        function computeGeometry() {
+            const [trimW, trimH] = TRIMS[state.trim];
+            const pxPerInch = PAGE_W_PX / trimW;
+            const m = THEMES[state.theme].margins;
+            const pageW = PAGE_W_PX;
+            const pageH = Math.round(trimH * pxPerInch);
+            const mt = m.t * pxPerInch,
+                mb = m.b * pxPerInch;
+            const mi = m.inside * pxPerInch,
+                mo = m.outside * pxPerInch;
+            geo = {
+                pageW,
+                pageH,
+                marginTop: mt,
+                marginBottom: mb,
+                marginInside: mi,
+                marginOutside: mo,
+                contentW: pageW - mi - mo,
+                contentH: pageH - mt - mb,
+            };
+        }
+
+        /* ============================================================================
+           4. MEASUREMENT-BASED PAGINATION ENGINE
+           ============================================================================ */
+        const measure = document.getElementById('measure');
+        const lineMeasureWrap = document.getElementById('lineMeasureWrap');
+        const lineMeasure = document.getElementById('lineMeasure');
+        const lhProbe = document.getElementById('lhProbe');
+
+        function applyTypographyVars(el) {
+            el.style.setProperty('--body-size', SIZES[state.size]);
+            el.style.setProperty('--line-height', state.lh);
+        }
+
+        function makeContentEl() {
+            const c = document.createElement('div');
+            c.className = 'content';
+            c.style.position = 'static';
+            c.style.width = geo.contentW + 'px';
+            return c;
+        }
+
+        function renderBlock(b) {
+            if (b.type === 'chapter') {
+                const ch = document.createElement('div');
+                ch.className = 'chapter';
+                ch.style.paddingTop = Math.round(geo.contentH * THEMES[state.theme].dropPct / 100) + 'px';
+                ch.style.paddingBottom = '1.6em';
+                let inner = '';
+                if (THEMES[state.theme].dropCap === 'big' || state.theme === 'classic') {
+                    inner += '<div class="flourish">' + THEMES[state.theme].ornament + '</div>';
+                }
+                inner += '<div class="ch-num">' + b.num + '</div>';
+                inner += '<div class="ch-title">' + b.title + '</div>';
+                if (state.theme === 'elegant') inner += '<div class="ch-rule"></div>';
+                ch.innerHTML = inner;
+                return ch;
+            }
+            if (b.type === 'scene') {
+                const s = document.createElement('div');
+                s.className = 'scene';
+                s.textContent = THEMES[state.theme].ornament;
+                return s;
+            }
+            const p = document.createElement('p');
+            p.className = 'para' + (b.first ? ' first' : '') + (b.cont ? ' cont' : '');
+            p.textContent = b.text;
+            return p;
+        }
+
+        function lineHeightPx() {
+            lhProbe.className = 'para';
+            lhProbe.style.width = geo.contentW + 'px';
+            lhProbe.style.setProperty('--body-size', SIZES[state.size]);
+            lhProbe.style.setProperty('--line-height', state.lh);
+            lhProbe.textContent = 'Mg';
+            return lhProbe.offsetHeight;
+        }
+
+        function splitParagraph(text, available, first, cont) {
+            lineMeasure.className = 'para' + (first ? ' first' : '') + (cont ? ' cont' : '');
+            lineMeasure.style.width = geo.contentW + 'px';
+            lineMeasure.style.setProperty('--body-size', SIZES[state.size]);
+            lineMeasure.style.setProperty('--line-height', state.lh);
+
+            lineMeasure.textContent = text;
+            const lh = lineHeightPx();
+            const fullH = lineMeasure.offsetHeight;
+            if (fullH <= available) return { fits: text, rest: '' };
+
+            const words = text.split(' ');
+            let lo = 1,
+                hi = words.length,
+                best = 0;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                lineMeasure.textContent = words.slice(0, mid).join(' ');
+                if (lineMeasure.offsetHeight <= available) { best = mid;
+                    lo = mid + 1; } else hi = mid - 1;
+            }
+
+            lineMeasure.textContent = words.slice(0, best).join(' ');
+            let fitsLines = Math.round(lineMeasure.offsetHeight / lh);
+            if (best === 0 || fitsLines < 2) return { fits: '', rest: text };
+
+            let restWords = words.length - best;
+            while (restWords > 0) {
+                const restText = words.slice(best).join(' ');
+                lineMeasure.textContent = restText;
+                const restLines = Math.round(lineMeasure.offsetHeight / lh);
+                if (restLines >= 2 || restLines === 0) break;
+                best--;
+                restWords++;
+                lineMeasure.textContent = words.slice(0, best).join(' ');
+                if (Math.round(lineMeasure.offsetHeight / lh) < 2) { best++; break; }
+            }
+
+            return {
+                fits: words.slice(0, best).join(' '),
+                rest: words.slice(best).join(' ')
+            };
+        }
+
+        function paginate() {
+            computeGeometry();
+
+            measure.innerHTML = '';
+            measure.setAttribute('data-theme', state.theme);
+            lineMeasureWrap.setAttribute('data-theme', state.theme);
+            applyTypographyVars(measure);
+            let host = makeContentEl();
+            measure.appendChild(host);
+
+            const blocks = [];
+            for (let i = 0; i < MANUSCRIPT.length; i++) {
+                const b = MANUSCRIPT[i];
+                if (b.type === 'para') {
+                    const prev = MANUSCRIPT[i - 1];
+                    const first = prev && (prev.type === 'chapter' || prev.type === 'scene');
+                    blocks.push({ type: 'para', text: b.text, first: !!first });
+                } else {
+                    blocks.push(Object.assign({}, b));
+                }
+            }
+
+            const pages = [];
+            let pageBlocks = [];
+            let currentChapter = BOOK_TITLE;
+
+            function reset() {
+                measure.innerHTML = '';
+                host = makeContentEl();
+                measure.appendChild(host);
+            }
+
+            function commit() {
+                pages.push({ blocks: pageBlocks, chapter: currentChapter });
+                pageBlocks = [];
+                reset();
+            }
+
+            for (let i = 0; i < blocks.length; i++) {
+                const b = blocks[i];
+
+                if (b.type === 'chapter') {
+                    if (pageBlocks.length) commit();
+                    currentChapter = b.title;
+                    const node = renderBlock(b);
+                    host.appendChild(node);
+                    pageBlocks.push(b);
+                    continue;
+                }
+
+                const node = renderBlock(b);
+                host.appendChild(node);
+
+                if (host.scrollHeight <= geo.contentH + 0.5) {
+                    pageBlocks.push(b);
+                    continue;
+                }
+
+                host.removeChild(node);
+
+                if (b.type === 'scene') {
+                    commit();
+                    const n2 = renderBlock(b);
+                    host.appendChild(n2);
+                    pageBlocks.push(b);
+                    continue;
+                }
+
+                const usedH = host.scrollHeight;
+                const available = geo.contentH - usedH;
+                const { fits, rest } = splitParagraph(b.text, available, b.first, b.cont);
+
+                if (fits && pageBlocks.length) {
+                    pageBlocks.push({ type: 'para', text: fits, first: b.first, cont: b.cont });
+                    const fn = renderBlock({ type: 'para', text: fits, first: b.first, cont: b.cont });
+                    host.appendChild(fn);
+                    commit();
+                    blocks.splice(i + 1, 0, { type: 'para', text: rest, cont: true });
+                } else {
+                    if (pageBlocks.length) commit();
+                    const fn = renderBlock(b);
+                    host.appendChild(fn);
+                    if (host.scrollHeight > geo.contentH + 0.5) {
+                        host.removeChild(fn);
+                        const r = splitParagraph(b.text, geo.contentH, b.first, b.cont);
+                        pageBlocks.push({ type: 'para', text: r.fits, first: b.first, cont: b.cont });
+                        const fn2 = renderBlock({ type: 'para', text: r.fits, first: b.first, cont: b.cont });
+                        host.appendChild(fn2);
+                        commit();
+                        if (r.rest) blocks.splice(i + 1, 0, { type: 'para', text: r.rest, cont: true });
+                    } else {
+                        pageBlocks.push(b);
+                    }
+                }
+            }
+            if (pageBlocks.length) pages.push({ blocks: pageBlocks, chapter: currentChapter });
+            return pages;
+        }
+
+        /* ============================================================================
+           5. RENDER one page
+           ============================================================================ */
+        let PAGES = [];
+        let currentPage = 0;
+
+        function renderPage(idx) {
+            const page = document.getElementById('page');
+            const t = THEMES[state.theme];
+
+            page.setAttribute('data-theme', state.theme);
+            page.style.width = geo.pageW + 'px';
+            page.style.height = geo.pageH + 'px';
+            page.style.setProperty('--paper', t.paper);
+            page.style.setProperty('--paper-grad', t.paperGrad);
+            page.style.setProperty('--ink', t.ink);
+            applyTypographyVars(page);
+            page.innerHTML = '';
+
+            if (!PAGES.length) return;
+            const data = PAGES[idx];
+            const pageNo = idx + 1;
+            const isRecto = (pageNo % 2) === 1;
+
+            const leftMargin = isRecto ? geo.marginInside : geo.marginOutside;
+            const rightMargin = isRecto ? geo.marginOutside : geo.marginInside;
+
+            // running head
+            const rh = document.createElement('div');
+            rh.className = 'running-head';
+            rh.style.top = (geo.marginTop * 0.42) + 'px';
+            rh.style.left = leftMargin + 'px';
+            rh.style.width = (geo.pageW - leftMargin - rightMargin) + 'px';
+            rh.textContent = isRecto ? data.chapter : BOOK_TITLE;
+            const startsWithChapter = data.blocks[0] && data.blocks[0].type === 'chapter';
+            if (!startsWithChapter) page.appendChild(rh);
+
+            // content box
+            const content = document.createElement('div');
+            content.className = 'content';
+            content.style.top = geo.marginTop + 'px';
+            content.style.left = leftMargin + 'px';
+            content.style.width = geo.contentW + 'px';
+            content.style.height = geo.contentH + 'px';
+            data.blocks.forEach(b => content.appendChild(renderBlock(b)));
+            page.appendChild(content);
+
+            // page number
+            const pn = document.createElement('div');
+            pn.className = 'page-number';
+            pn.style.bottom = (geo.marginBottom * 0.4) + 'px';
+            if (state.theme === 'minimal') {
+                if (isRecto) { pn.style.right = rightMargin + 'px'; } else { pn.style.left = leftMargin + 'px'; }
+            } else {
+                pn.style.left = '0';
+                pn.style.right = '0';
+                pn.style.textAlign = 'center';
+            }
+            pn.textContent = pageNo;
+            if (!startsWithChapter || state.theme === 'minimal') page.appendChild(pn);
+
+            document.getElementById('counter').textContent = 'Page ' + pageNo + ' / ' + PAGES.length;
+            document.getElementById('prevBtn').disabled = idx === 0;
+            document.getElementById('nextBtn').disabled = idx === PAGES.length - 1;
+        }
+
+        /* ============================================================================
+           6. ORCHESTRATION
+           ============================================================================ */
+        function rebuild(keepPage) {
+            document.getElementById('stage').style.setProperty('--surface', THEMES[state.theme].surface);
+            PAGES = paginate();
+            if (!keepPage || currentPage >= PAGES.length) currentPage = 0;
+            renderPage(currentPage);
+        }
+
+        /* control wiring */
+        function setActive(container, attr, value) {
+            container.querySelectorAll('[' + attr + ']').forEach(el => {
+                el.classList.toggle('active', el.getAttribute(attr) === value);
+            });
+        }
+
+        document.getElementById('themeGrid').addEventListener('click', e => {
+            const card = e.target.closest('[data-theme-key]');
+            if (!card) return;
+            state.theme = card.getAttribute('data-theme-key');
+            setActive(document.getElementById('themeGrid'), 'data-theme-key', state.theme);
+            rebuild(false);
+        });
+
+        let debounceTimer = null;
+
+        function debouncedRebuild() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => rebuild(true), 130);
+        }
+
+        document.getElementById('sizeRow').addEventListener('click', e => {
+            const b = e.target.closest('[data-size]');
+            if (!b) return;
+            state.size = b.getAttribute('data-size');
+            setActive(document.getElementById('sizeRow'), 'data-size', state.size);
+            debouncedRebuild();
+        });
+        document.getElementById('spacingRow').addEventListener('click', e => {
+            const b = e.target.closest('[data-lh]');
+            if (!b) return;
+            state.lh = b.getAttribute('data-lh');
+            setActive(document.getElementById('spacingRow'), 'data-lh', state.lh);
+            debouncedRebuild();
+        });
+        document.getElementById('trimRow').addEventListener('click', e => {
+            const b = e.target.closest('[data-trim]');
+            if (!b) return;
+            state.trim = b.getAttribute('data-trim');
+            setActive(document.getElementById('trimRow'), 'data-trim', state.trim);
+            debouncedRebuild();
+        });
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (currentPage > 0) { currentPage--;
+                renderPage(currentPage); }
+        });
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (currentPage < PAGES.length - 1) { currentPage++;
+                renderPage(currentPage); }
+        });
+
+        /* initial active states */
+        setActive(document.getElementById('themeGrid'), 'data-theme-key', state.theme);
+        setActive(document.getElementById('sizeRow'), 'data-size', state.size);
+        setActive(document.getElementById('spacingRow'), 'data-lh', state.lh);
+        setActive(document.getElementById('trimRow'), 'data-trim', state.trim);
+
+        /* boot */
+        function boot() { rebuild(false); }
+        if (document.fonts && document.fonts.ready) {
+            boot();
+            document.fonts.ready.then(() => rebuild(true));
+        } else {
+            window.addEventListener('load', boot);
+        }
+    </script>
+</body>
+</html>

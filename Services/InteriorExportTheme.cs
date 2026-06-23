@@ -121,12 +121,12 @@ public static class InteriorExportTheme
     public static string ResolveDefaultPageBackground(string? interiorStyle) =>
         NormalizeInteriorStyle(interiorStyle) switch
         {
-            "Classic" => "#fdfcfa",
-            "ElegantTrade" => "#fcf9f3",
-            "Novel" => "#fffdf8",
+            "Classic" => "#faf5e9",
+            "ElegantTrade" => "#f7efe0",
+            "Novel" => "#f4ecd9",
             "Modern" => "#ffffff",
             "Minimalist" => "#ffffff",
-            _ => "#ffffff"
+            _ => "#f4ecd9"
         };
 
     /// <summary>CSS keep-with-next: in-chapter headings stay with the following block (preview + Chromium PDF).</summary>
