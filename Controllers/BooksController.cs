@@ -129,6 +129,17 @@ namespace EBookDashboard.Controllers
                 TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                 return RedirectToAction("Index", "Dashboard");
             }
+            // #14: once a book is published, editing steps (AI Writer) are locked — mirror the
+            // Cover Design / Book Formatting gates so even a direct URL cannot reopen the editor.
+            var publishedStatus = await _context.Books.AsNoTracking()
+                .Where(b => b.BookId == bookId.Value && b.UserId == userId.Value)
+                .Select(b => b.Status)
+                .FirstOrDefaultAsync();
+            if (BookFlowStateService.IsPublishedStatus(publishedStatus))
+            {
+                TempData["InfoMessage"] = "This book is already published, so editing steps are locked. Manage it from Publish.";
+                return RedirectToAction("Publish", "Dashboard", new { bookId = bookId.Value });
+            }
             var entryBookId = HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
             if (!entryBookId.HasValue || entryBookId.Value != bookId.Value)
             {
