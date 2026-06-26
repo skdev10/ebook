@@ -4588,12 +4588,15 @@ document.addEventListener('DOMContentLoaded', function() {
                // Book Formatting unlocks only once the book actually has generated content.
                window.__bookHasGeneratedContent = hasRealChapterContent;
                if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
-               // A5 fix: restore Version History when returning to Step 1 (full page reload).
+               // A5 fix (+#13): restore Version History when returning to Step 1 (full page reload).
                // loadSelectedResponse selects the latest chapter but never repopulated the
                // iterations dropdown, so the Version History panel stayed hidden until the
-               // user manually re-picked a chapter. Refresh it for the selected chapter here.
-               if (typeof refreshChapterIterationsDropdown === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
-                   try { await refreshChapterIterationsDropdown(latestChapter.responseId || latestChapter.response_id); }
+               // user manually re-picked a chapter. refreshChapterIterationsDropdown fetches
+               // versions by the selected chapterNo (set above), so run it for ANY selected
+               // chapter — not only when a responseId is present — so history reliably persists
+               // across step navigation even for chapters whose responseId didn't come back.
+               if (typeof refreshChapterIterationsDropdown === 'function' && latestChapter) {
+                   try { await refreshChapterIterationsDropdown(latestChapter.responseId || latestChapter.response_id || null); }
                    catch (e) { console.warn('restore version history failed', e); }
                }
                } else {
