@@ -432,6 +432,20 @@
         } catch (_) {}
     }
 
+    // #8: persist the user's chosen cover variation on the SERVER so Publish/export uses it
+    // (sessionStorage alone would leave the default first variation as the stored active cover).
+    function setServerActiveCover(bookId, url) {
+        if (!bookId || !url) return;
+        if (String(url).indexOf('data:') === 0) return; // transient preview, not a stored image
+        try {
+            fetch('/Dashboard/SetActiveCover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ bookId: bookId, url: url })
+            }).catch(function () {});
+        } catch (_) {}
+    }
+
     function readPersistedCoverUrl(bookId) {
         if (!bookId) return '';
         try {
@@ -1057,7 +1071,10 @@
                 btn.classList.remove('border-slate-200');
                 selectedPath = btn.getAttribute('data-path') || '';
                 setCoverImageVisible(toUrl(selectedPath));
-                if (selectedBook && selectedBook.bookId) persistCoverSelection(selectedBook.bookId, selectedPath);
+                if (selectedBook && selectedBook.bookId) {
+                    persistCoverSelection(selectedBook.bookId, selectedPath);
+                    setServerActiveCover(selectedBook.bookId, selectedPath);
+                }
                 if (coverGeneratedPayload) coverGeneratedPayload.value = selectedPath.indexOf('data:') === 0 ? selectedPath.substring(0, 120) + '…' : selectedPath;
                 renderHistoryThumbnails();
             });

@@ -1313,22 +1313,24 @@ namespace EBookDashboard.Controllers
             if (string.IsNullOrEmpty(apiKey))
                 return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
 
-            var payloadObj = new JObject
-            {
-                ["title"] = title,
-                ["author_name"] = authorName,
-                ["category"] = category,
-                ["cover_style"] = coverStyleLabel,
-                ["size"] = size,
-                ["quality"] = quality
-            };
-
-            var json = payloadObj.ToString(Newtonsoft.Json.Formatting.None);
             // D1: generate several cover variations so the user can choose one. The image API
             // returns one image per call and is stochastic, so N calls => up to N distinct options.
             var variationCount = Math.Clamp(
                 int.TryParse(_configuration["ExternalApi:CoverGenerateVariations"], out var vc) ? vc : 3,
                 1, 4);
+
+            // #8: vary the cover_style per call so the variations are visibly DISTINCT designs.
+            // Previously every call sent the same cover_style, so the results deduped down to ~1
+            // image and the picker effectively showed a single option. Variation 0 keeps the
+            // user's chosen style so the default/first cover is unchanged.
+            var styleVariants = new[]
+            {
+                coverStyleLabel,
+                coverStyleLabel + ", minimalist composition, bold modern typography",
+                coverStyleLabel + ", dramatic cinematic lighting, rich illustrative detail",
+                coverStyleLabel + ", elegant classic layout, refined color palette"
+            };
+
             _logger.LogInformation("[Dashboard/GenerateCover] bookId={BookId} url={Url} variations={N} promptChars={Chars}",
                 req.BookId, apiUrl, variationCount, (req.Prompt ?? "").Length);
 
@@ -1336,10 +1338,21 @@ namespace EBookDashboard.Controllers
             {
                 var client = _bookApiClient;
 
-                async Task<string?> GenerateOneCoverAsync()
+                async Task<string?> GenerateOneCoverAsync(int variantIndex)
                 {
+                    var styleForVariant = styleVariants[variantIndex % styleVariants.Length];
+                    var variantPayload = new JObject
+                    {
+                        ["title"] = title,
+                        ["author_name"] = authorName,
+                        ["category"] = category,
+                        ["cover_style"] = styleForVariant,
+                        ["size"] = size,
+                        ["quality"] = quality
+                    };
+                    var variantJson = variantPayload.ToString(Newtonsoft.Json.Formatting.None);
                     using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                    httpRequest.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                    httpRequest.Content = new StringContent(variantJson, Encoding.UTF8, "application/json");
                     using var oneCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
                     var resp = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, oneCts.Token);
                     var body = await resp.Content.ReadAsStringAsync(oneCts.Token);
@@ -1353,7 +1366,7 @@ namespace EBookDashboard.Controllers
                     return got.Count > 0 ? got[0] : null;
                 }
 
-                var genTasks = Enumerable.Range(0, variationCount).Select(_ => GenerateOneCoverAsync()).ToArray();
+                var genTasks = Enumerable.Range(0, variationCount).Select(i => GenerateOneCoverAsync(i)).ToArray();
                 var genResults = await Task.WhenAll(genTasks);
 
                 // Distinct, non-empty image refs in arrival order.
@@ -1435,6 +1448,44 @@ namespace EBookDashboard.Controllers
         [Route("RegenerateCover")]
         public Task<IActionResult> RegenerateCover([FromBody] DashboardGenerateCoverRequest req, CancellationToken cancellationToken)
             => GenerateCover(req, cancellationToken);
+
+        /// <summary>
+        /// #8: persist the cover variation the user picked from the options grid as the ACTIVE front
+        /// cover, so the Publish/export step uses their choice instead of the default first variation.
+        /// </summary>
+        [HttpPost]
+        [Route("SetActiveCover")]
+        public async Task<IActionResult> SetActiveCover([FromBody] DashboardSetActiveCoverRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0 || string.IsNullOrWhiteSpace(req.Url))
+                return Json(new { success = false, message = "BookId and Url are required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var url = req.Url.Trim();
+            // Only accept a server-side path/URL (the variations are persisted to /uploads/...).
+            // A data: URL is a transient preview and is not stored as the active cover.
+            if (!url.StartsWith("/", StringComparison.Ordinal) && !url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                return Json(new { success = false, message = "Selected cover is not a stored image yet." });
+
+            try
+            {
+                await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, url, cancellationToken);
+                return Json(new { success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "SetActiveCover failed for book {BookId}", req.BookId);
+                return Json(new { success = false, message = "Could not save selected cover." });
+            }
+        }
 
         /// <summary>Edit / refine cover via external POST /api/edit-cover (base64 image + direction).</summary>
         [HttpPost]

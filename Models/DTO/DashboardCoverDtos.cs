@@ -19,6 +19,17 @@ namespace EBookDashboard.Models.DTO
         public string? Description { get; set; }
     }
 
+    /// <summary>POST /Dashboard/SetActiveCover — persist the cover variation the user picked from the grid.</summary>
+    public class DashboardSetActiveCoverRequest
+    {
+        [Required]
+        public int BookId { get; set; }
+
+        /// <summary>The chosen variation's image URL/path (a persisted /uploads/... path).</summary>
+        [Required]
+        public string Url { get; set; } = "";
+    }
+
     /// <summary>POST /Dashboard/EditCover — refine cover from current image + new direction.</summary>
     public class DashboardEditCoverRequest
     {
