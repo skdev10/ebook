@@ -2473,28 +2473,6 @@ namespace EBookDashboard.Controllers
             return 0;
         }
 
-        /// <summary>
-        /// UI-only page count fallback that avoids hard print minimums (24) when no saved preview page count exists yet.
-        /// </summary>
-        private static int EstimatePublishDisplayPages(BookPageMetricsDto metrics)
-        {
-            const int max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
-            if (metrics == null) return 0;
-
-            var words = Math.Max(0, metrics.WordCount);
-            var chapters = Math.Max(0, metrics.ChapterCount);
-            var images = Math.Max(0, metrics.ImageCount);
-
-            // Lighter display estimate than print export floor; keeps Publish card aligned with real manuscript size.
-            var prosePages = words > 0 ? (words / 285.0) : 0.0;
-            var chapterBreakPages = chapters > 0 ? chapters * 0.20 : 0.0;
-            var imagePenaltyPages = images > 0 ? images * 0.30 : 0.0;
-            var frontMatterPages = chapters > 0 ? 1.0 : 0.0;
-
-            var estimate = (int)Math.Ceiling(prosePages + chapterBreakPages + imagePenaltyPages + frontMatterPages);
-            return Math.Clamp(Math.Max(1, estimate), 1, max);
-        }
-
         /// <summary>Print-ready flow: Standard Color + White Paper, bleed on, 150 DPI (KDP Cover Calculator defaults).</summary>
         private KdpCalculateResponse CalculatePrintReadyKdp(int pageCount, string trimSizeLabel)
         {
@@ -2887,7 +2865,11 @@ namespace EBookDashboard.Controllers
                                     .FirstOrDefaultAsync(HttpContext.RequestAborted);
                                 var draftPages = TryParsePreviewPageCountFromDraft(draftRaw);
                                 if (draftPages > 0) estimatedPages = draftPages;
-                                else estimatedPages = EstimatePublishDisplayPages(metrics);
+                                // #11/#12: when no formatter-measured count exists, fall back to the
+                                // canonical BookPageMetricsService estimate (already in estimatedPages)
+                                // — the SAME value used by /Dashboard/BookPageMetrics, the KDP spine
+                                // calc and pricing — instead of a Publish-only formula that produced a
+                                // mismatching page count.
                             }
 
                             ViewBag.PublishBookEstimatedPages = estimatedPages;
