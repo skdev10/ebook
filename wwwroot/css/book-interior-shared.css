@@ -105,6 +105,31 @@
     page-break-before: always;
 }
 
+/* #2: consistent section breaks — major subsections (h2) always start at the
+   top of a new page in the print/export layout, so the reading flow is uniform
+   across every chapter (no subsection starting mid-page after a short paragraph). */
+[data-interior-mode="print"] .manuscript-root .manuscript-h2,
+[data-interior-mode="print"] .manuscript-root h2.manuscript-heading {
+    break-before: page;
+    page-break-before: always;
+    break-after: avoid;
+    page-break-after: avoid;
+}
+/* But the first heading of a chapter must not force an extra/blank break — the
+   chapter already starts on a fresh page. */
+[data-interior-mode="print"] .manuscript-root section.chapter .manuscript-h2:first-child,
+[data-interior-mode="print"] .manuscript-root section.chapter > .manuscript-h2:first-of-type:first-child {
+    break-before: auto;
+    page-break-before: avoid;
+}
+/* Never orphan a sub-heading at the very bottom of a page. */
+[data-interior-mode="print"] .manuscript-root .manuscript-h3,
+[data-interior-mode="print"] .manuscript-root h3.manuscript-heading {
+    break-after: avoid;
+    page-break-after: avoid;
+    break-inside: avoid;
+}
+
 [data-interior-mode="web"] .reader-page-body .manuscript-h2,
 [data-interior-mode="web"] .reader-page-body h2 {
     font-size: 1.05em;
