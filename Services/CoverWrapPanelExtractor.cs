@@ -45,14 +45,20 @@ public static class CoverWrapPanelExtractor
         return wrapImage.Clone(c => c.Crop(new Rectangle(xPx, yPx, wPx, hPx)));
     }
 
-    /// <summary>Returns front-only bytes when the source is a wide wrap; otherwise returns the original bytes.</summary>
-    public static byte[] EnsureFrontPanelBytes(byte[] sourceBytes, int pageCount, string? trimSize)
+    /// <summary>
+    /// Returns front-only bytes when the source is a full wrap; otherwise returns the original bytes.
+    /// When <paramref name="assumeWrap"/> is true the source is known to be the full wrap
+    /// (e.g. the front download fell back to the wrap), so the front panel is always cropped
+    /// even if the aspect-ratio heuristic is borderline — this prevents the "front button returns
+    /// the full cover" glitch when the generated wrap is not clearly landscape.
+    /// </summary>
+    public static byte[] EnsureFrontPanelBytes(byte[] sourceBytes, int pageCount, string? trimSize, bool assumeWrap = false)
     {
         if (sourceBytes.Length == 0) return sourceBytes;
         try
         {
             using var probe = Image.Load<Rgba32>(sourceBytes);
-            if (!IsLikelyWrapImage(probe.Width, probe.Height))
+            if (!assumeWrap && !IsLikelyWrapImage(probe.Width, probe.Height))
                 return sourceBytes;
 
             var pages = Math.Clamp(pageCount > 0 ? pageCount : KdpPrintCoverCalculator.MinPages,

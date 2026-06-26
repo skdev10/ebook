@@ -2004,6 +2004,9 @@ namespace EBookDashboard.Controllers
             var settingKey = $"book:{bookId}:{keySuffix}";
 
             string refValue;
+            // True when the front download is actually serving the full wrap (no standalone
+            // front exists). In that case we must always crop the front panel out of the wrap.
+            var frontSourceIsWrap = false;
             if (partNorm == "front")
             {
                 var coverKeys = new[]
@@ -2019,15 +2022,24 @@ namespace EBookDashboard.Controllers
                     .Where(b => b.BookId == bookId && b.UserId == sessionUserId.Value)
                     .Select(b => new { b.CoverImagePath })
                     .FirstOrDefaultAsync(cancellationToken);
+                var wrapForFront = (rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap") ?? "").Trim();
                 refValue = BookCoverRefResolver.ResolveEbookFrontCoverRef(
                     rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront"),
                     rows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview"),
                     bookRow?.CoverImagePath,
-                    rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap"));
+                    wrapForFront);
                 // Both/Paperback flows often store only the full wrap (no standalone front).
                 // Fall back to the wrap here so we can crop the front panel from it below.
                 if (string.IsNullOrWhiteSpace(refValue))
-                    refValue = (rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap") ?? "").Trim();
+                {
+                    refValue = wrapForFront;
+                    frontSourceIsWrap = true;
+                }
+                else if (!string.IsNullOrEmpty(wrapForFront)
+                    && string.Equals(refValue, wrapForFront, StringComparison.OrdinalIgnoreCase))
+                {
+                    frontSourceIsWrap = true;
+                }
             }
             else
             {
@@ -2096,7 +2108,7 @@ namespace EBookDashboard.Controllers
                     var trim = (await _context.Settings.AsNoTracking()
                         .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:printReadyTrimSize", cancellationToken))?.Value?.Trim();
                     if (string.IsNullOrWhiteSpace(trim)) trim = "6 x 9 in";
-                    var frontBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(bytes, pages, trim);
+                    var frontBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(bytes, pages, trim, assumeWrap: frontSourceIsWrap);
                     if (frontBytes is { Length: > 0 } && !ReferenceEquals(frontBytes, bytes))
                     {
                         bytes = frontBytes;

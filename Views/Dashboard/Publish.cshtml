@@ -1655,6 +1655,47 @@
         }
     }
 
+    // Persistent download UX: button spinner + blocking SweetAlert loader so the
+    // user clearly sees that the export is in progress (covers ebook, paperback, both).
+    function setPublishButtonBusy(btn, busyLabel) {
+        if (!btn) return;
+        if (!btn.dataset.publishOriginalHtml) btn.dataset.publishOriginalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ' + (busyLabel || 'Preparing…');
+    }
+
+    function clearPublishButtonBusy(btn) {
+        if (!btn) return;
+        if (btn.dataset.publishOriginalHtml) {
+            btn.innerHTML = btn.dataset.publishOriginalHtml;
+            delete btn.dataset.publishOriginalHtml;
+        }
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+    }
+
+    function showPublishDownloadLoader(title, message) {
+        if (typeof Swal === 'undefined') return;
+        Swal.fire({
+            title: title || 'Preparing your download',
+            html: '<p style="margin:0;color:#475569;font-size:14px;line-height:1.55">'
+                + (message || 'Your download will be ready in a few minutes. Please keep this tab open while we build your files…')
+                + '</p>',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: function () { if (typeof Swal.showLoading === 'function') Swal.showLoading(); }
+        });
+    }
+
+    // Wrap a download flow with the busy button + loader. The success/error
+    // SweetAlerts shown later automatically replace the loader modal.
+    function startPublishDownloadUx(triggerBtn, busyLabel, loaderTitle, loaderMessage) {
+        setPublishButtonBusy(triggerBtn, busyLabel || 'Preparing…');
+        showPublishDownloadLoader(loaderTitle, loaderMessage);
+    }
+
     function parseFilenameFromDisposition(header) {
         if (!header) return '';
         var m = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(header);
@@ -1766,8 +1807,11 @@
         }
         var fmt = (format || 'epub').toLowerCase();
         var url = fmt === 'docx' ? '/Books/ExportDocx' : '/Books/ExportEpub';
-        if (triggerBtn) triggerBtn.disabled = true;
-        showTransientMessage('info', fmt === 'docx' ? 'Saving formatting…' : 'Saving formatting, then building EPUB…');
+        startPublishDownloadUx(triggerBtn, 'Building…',
+            fmt === 'docx' ? 'Preparing your Word file' : 'Preparing your EPUB',
+            fmt === 'docx'
+                ? 'Saving formatting and building your Word file. This can take a few minutes — please keep this tab open…'
+                : 'Saving formatting and building your EPUB. This can take a few minutes — please keep this tab open…');
         var exportBody = buildExportPayload({
             bookId: bookId,
             displayTitle: pbTitle || '',
@@ -1812,7 +1856,7 @@
         }).catch(function (err) {
             showTransientMessage('error', err && err.message ? err.message : 'Export failed.');
         }).finally(function () {
-            if (triggerBtn) triggerBtn.disabled = false;
+            clearPublishButtonBusy(triggerBtn);
         });
     }
 
@@ -1823,8 +1867,8 @@
         }
         var realPages = resolvePublishPageCount(pbEstimatedPages > 0 ? pbEstimatedPages : getLocalFormatterPageCount(bookId));
         var token = getPublishAntiForgeryToken();
-        if (triggerBtn) triggerBtn.disabled = true;
-        showTransientMessage('info', 'Preparing print-ready ZIP…');
+        startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing your print pack',
+            'Building your print-ready ZIP (interior PDF + full wrap cover). This can take a few minutes — please keep this tab open…');
         ensureFormatterSavedOnServer(2).then(function () {
         return fetch('/Books/ExportPrintReadyBundle', {
             method: 'POST',
@@ -1861,7 +1905,7 @@
                 showTransientMessage('error', err && err.message ? err.message : 'Export failed.');
             })
             .finally(function () {
-                if (triggerBtn) triggerBtn.disabled = false;
+                clearPublishButtonBusy(triggerBtn);
             });
         });
     }
@@ -1871,7 +1915,8 @@
             showTransientMessage('warning', 'Select a book first.');
             return;
         }
-        if (triggerBtn) triggerBtn.disabled = true;
+        startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing your PDF',
+            'Building your book PDF. This can take a few minutes — please keep this tab open…');
 
         fetchPdfExport('/Dashboard/DownloadBookPdf', buildExportPayload({
             bookId: bookId,
@@ -1892,7 +1937,7 @@
                 showTransientMessage('error', err && err.message ? err.message : 'PDF download failed.');
             })
             .finally(function () {
-                if (triggerBtn) triggerBtn.disabled = false;
+                clearPublishButtonBusy(triggerBtn);
             });
     }
 
@@ -1901,7 +1946,8 @@
             showTransientMessage('warning', 'Select a book first.');
             return;
         }
-        if (triggerBtn) triggerBtn.disabled = true;
+        startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing your interior PDF',
+            'Building your formatted interior PDF. This can take a few minutes — please keep this tab open…');
         var fmtSnap = getFormatterDraftSnapshot();
         fetchPdfExport('/Dashboard/DownloadBookInteriorPdf', buildExportPayload({
             bookId: bookId,
@@ -1923,7 +1969,7 @@
                 showTransientMessage('error', err && err.message ? err.message : 'Interior PDF download failed.');
             })
             .finally(function () {
-                if (triggerBtn) triggerBtn.disabled = false;
+                clearPublishButtonBusy(triggerBtn);
             });
     }
 
@@ -1953,7 +1999,8 @@
             showTransientMessage('warning', 'Select a book first.');
             return;
         }
-        if (triggerBtn) triggerBtn.disabled = true;
+        startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing your front cover',
+            'Getting your front cover image ready. This will only take a moment…');
 
         var serverUrl = '/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bookId) + '&part=front';
 
@@ -1994,7 +2041,7 @@
                 showTransientMessage('error', err && err.message ? err.message : 'Front cover download failed.');
             })
             .finally(function () {
-                if (triggerBtn) triggerBtn.disabled = false;
+                clearPublishButtonBusy(triggerBtn);
             });
     }
 
@@ -2069,8 +2116,8 @@
             showTransientMessage('warning', 'Select a book first.');
             return;
         }
-        if (triggerBtn) triggerBtn.disabled = true;
-        showTransientMessage('info', 'Preparing full wrap cover at 300 DPI…');
+        startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing your full wrap cover',
+            'Building your full wrap cover (back + spine + front) at 300 DPI. This can take a few minutes — please keep this tab open…');
 
         fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
             .then(function (r) { return r.json(); })
@@ -2083,7 +2130,7 @@
                 showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
             })
             .finally(function () {
-                if (triggerBtn) triggerBtn.disabled = false;
+                clearPublishButtonBusy(triggerBtn);
             });
     }
 
