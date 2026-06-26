@@ -737,6 +737,14 @@ namespace EBookDashboard.Controllers
                     return RedirectToAction("Index", "Dashboard");
                 }
 
+                // #16: published books are read-only — block the Book Formatting editor and
+                // send the user to Publish (export/manage) instead, even via a direct URL.
+                if (BookFlowStateService.IsPublishedStatus(bookRow.Status))
+                {
+                    TempData["InfoMessage"] = "This book is already published, so editing steps are locked. Manage it from Publish.";
+                    return Redirect($"/Dashboard/Publish?bookId={bookId}");
+                }
+
                 if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId))
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 

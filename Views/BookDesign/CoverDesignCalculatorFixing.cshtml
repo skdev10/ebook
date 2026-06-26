@@ -481,6 +481,13 @@
     }
     .reader-content-wrap.interior-classic .reader-page-body .manuscript-heading { text-indent: 0; }
     .reader-content-wrap.interior-classic .reader-page-body .manuscript-hr { border-top-color: #c4b8a8; }
+    /* #4: keep media inside the page box so it scales down instead of being clipped. */
+    .reader-page-body img,
+    .reader-page-body table,
+    .reader-page-body pre,
+    .reader-page-body svg { max-width: 100%; height: auto; }
+    .reader-page-body img { display: block; margin: 0.4rem auto; object-fit: contain; }
+    .reader-page-body table { display: block; overflow-x: auto; }
     .book-preview-sheet {
         width: 100%;
         max-width: 100%;
@@ -3491,7 +3498,11 @@
         var el = tmp.firstElementChild;
         if (!el) return [seg];
         var tag = (el.tagName || 'p').toLowerCase();
-        if (!/^p$/.test(tag)) return [seg];
+        // #4: split text-bearing blocks (not just <p>) so long content flows to the next
+        // page instead of being clipped. Skip blocks with media/nested lists/tables that
+        // cannot be word-split safely.
+        var hasComplexChild = el.querySelector && el.querySelector('img,table,ul,ol,figure,pre,svg,iframe,video');
+        if (!/^(p|blockquote|div|li|figcaption)$/.test(tag) || hasComplexChild) return [seg];
         var words = (el.textContent || '').split(/\s+/).filter(Boolean);
         if (words.length < 2) return [seg];
         var cls = el.className ? (' class="' + escapeHtml(el.className) + '"') : '';
@@ -3562,9 +3573,17 @@
 
         for (var i = 0; i < flat.length; i++) {
             var seg = flat[i];
-            if (isFlowHeadingSegment(seg) && i + 1 < flat.length && !isFlowHeadingSegment(flat[i + 1])) {
+            var segIsHeading = isFlowHeadingSegment(seg);
+            if (segIsHeading && i + 1 < flat.length && !isFlowHeadingSegment(flat[i + 1])) {
                 seg = seg + flat[i + 1];
                 i++;
+            }
+            // #2: a major subsection heading consistently starts at the top of a new page.
+            // Flush whatever is already accumulated so the heading opens a fresh page.
+            // (acc is empty right after a chapter opener, so this won't strand the title page.)
+            if (segIsHeading && acc) {
+                var headingOrphan = pushPage(acc, pageOpts());
+                acc = headingOrphan || '';
             }
             var trial = acc ? (acc + seg) : seg;
             if (fmtPageContentFits(buildReaderPageBlockHtml(trial, pageOpts()))) {
@@ -6619,7 +6638,17 @@
             var node = kids[i];
             var tag = node.tagName ? node.tagName.toLowerCase() : '';
             if (tag === 'hr') { res.push({ type:'scene' }); continue; }
-            if (/^h[1-6]$/.test(tag)) { continue; } // chapter heading handled by opener
+            if (/^h[1-6]$/.test(tag)) {
+                // #2: keep in-chapter subsection headings and start each on a new page.
+                // Skip only the chapter's own opening heading (handled by the chapter opener).
+                var htext = (node.textContent || '').replace(/\s+/g, ' ').trim();
+                if (!htext) continue;
+                var low = htext.toLowerCase();
+                var titleLow = (title || '').toLowerCase().trim();
+                if (low === titleLow || /^chapter\s+\d+\b/i.test(htext)) continue;
+                res.push({ type:'section', text:htext });
+                continue;
+            }
             var txt = (node.textContent || '').replace(/\s+/g, ' ').trim();
             if (txt) res.push({ type:'para', text:txt });
         }
@@ -6704,6 +6733,12 @@
             s.textContent = THEMES[ipvState.theme].ornament;
             return s;
         }
+        if (b.type === 'section') {
+            var sec = document.createElement('div');
+            sec.className = 'ipv-section';
+            sec.textContent = b.text || '';
+            return sec;
+        }
         var p = document.createElement('p');
         p.className = 'ipv-para' + (b.first ? ' first' : '') + (b.cont ? ' cont' : '');
         p.textContent = b.text;
@@ -6765,7 +6800,7 @@
             var b = raw[i];
             if (b.type === 'para') {
                 var prev = raw[i - 1];
-                var first = prev && (prev.type === 'chapter' || prev.type === 'scene');
+                var first = prev && (prev.type === 'chapter' || prev.type === 'scene' || prev.type === 'section');
                 blocks.push({ type:'para', text:b.text, first:!!first });
             } else blocks.push(Object.assign({}, b));
         }
@@ -6782,6 +6817,15 @@
             if (blk.type === 'chapter') {
                 if (pageBlocks.length) commit();
                 currentChapter = blk.title;
+                host.appendChild(renderBlock(blk));
+                pageBlocks.push(blk);
+                continue;
+            }
+            if (blk.type === 'section') {
+                // #2: a major subsection always opens at the top of a fresh page, unless the
+                // current page only holds the chapter opener (avoid a near-empty page right after it).
+                var onlyChapterOpener = pageBlocks.length === 1 && pageBlocks[0].type === 'chapter';
+                if (pageBlocks.length && !onlyChapterOpener) commit();
                 host.appendChild(renderBlock(blk));
                 pageBlocks.push(blk);
                 continue;
@@ -7230,6 +7274,12 @@
     #ipvOverlay .ipv-scene {
         text-align: center; font-family: var(--ipv-body-font); color: var(--ipv-ink);
         opacity: .6; margin: calc(var(--ipv-lh) * .55em) 0; letter-spacing: .3em;
+    }
+    #ipvOverlay .ipv-section {
+        font-family: var(--ipv-head-font); color: var(--ipv-ink);
+        font-size: calc(var(--ipv-body-size) * 1.28); font-weight: 600;
+        line-height: 1.2; margin: 0 0 calc(var(--ipv-lh) * .7em);
+        text-align: left;
     }
 
     /* themes — vars live on the [data-ipv-theme] holders (page + measure hosts) */

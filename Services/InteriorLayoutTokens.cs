@@ -571,7 +571,12 @@ public static class InteriorLayoutTokens
             ".book-pdf-body .page-header + .page-body .reader-page-title { margin-top:var(--ilt-chapter-drop); } ",
             ".book-pdf-body .page-header + .page-body .reader-page-body { padding-top:0; } ",
             ".book-pdf-body section.chapter { break-before:page; page-break-before:always; } ",
-            ".book-pdf-body .manuscript-root > section.chapter:first-of-type { break-before:auto; page-break-before:auto; } ");
+            ".book-pdf-body .manuscript-root > section.chapter:first-of-type { break-before:auto; page-break-before:auto; } ",
+            // #6/#2 parity: mid-chapter subsection headings open on a fresh page, matching the
+            // formatter preview. The chapter's leading heading (:first-child) is excluded.
+            ".book-pdf-body section.chapter .reader-page-body .manuscript-h2:not(:first-child), ",
+            ".book-pdf-body section.chapter .reader-page-body .manuscript-h3:not(:first-child) { ",
+            "break-before:page; page-break-before:always; break-after:avoid; page-break-after:avoid; } ");
     }
 
 

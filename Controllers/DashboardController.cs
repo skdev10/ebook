@@ -1185,12 +1185,21 @@ namespace EBookDashboard.Controllers
             }
             if (user != null)
             {
-                var owns = await _context.Books.AsNoTracking()
-                    .AnyAsync(b => b.BookId == bookId.Value && b.UserId == user.UserId);
-                if (!owns)
+                var ownedBook = await _context.Books.AsNoTracking()
+                    .Where(b => b.BookId == bookId.Value && b.UserId == user.UserId)
+                    .Select(b => new { b.BookId, b.Status })
+                    .FirstOrDefaultAsync();
+                if (ownedBook == null)
                 {
                     TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                     return RedirectToAction("Index");
+                }
+                // #16: once a book is published, editing steps (Cover Design) are locked.
+                // Send the user to Publish (read-only/export) instead of the editor.
+                if (BookFlowStateService.IsPublishedStatus(ownedBook.Status))
+                {
+                    TempData["InfoMessage"] = "This book is already published, so editing steps are locked. Manage it from Publish.";
+                    return RedirectToAction("Publish", new { bookId = bookId.Value });
                 }
             }
 
@@ -2015,6 +2024,10 @@ namespace EBookDashboard.Controllers
                     rows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview"),
                     bookRow?.CoverImagePath,
                     rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap"));
+                // Both/Paperback flows often store only the full wrap (no standalone front).
+                // Fall back to the wrap here so we can crop the front panel from it below.
+                if (string.IsNullOrWhiteSpace(refValue))
+                    refValue = (rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap") ?? "").Trim();
             }
             else
             {
@@ -2028,47 +2041,76 @@ namespace EBookDashboard.Controllers
 
             await FinalizeBookAsPublishedAfterExportAsync(bookId, sessionUserId.Value, "print", cancellationToken);
 
+            // Load the referenced image into a byte buffer (data URL / remote / local file).
+            byte[]? bytes = null;
+            var ext = "png";
+            var contentType = "image/png";
+
             if (refValue.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
             {
                 var comma = refValue.IndexOf(',', StringComparison.Ordinal);
                 if (comma < 0) return BadRequest("Invalid data URL.");
                 var meta = refValue.Substring(0, comma);
                 var b64 = refValue[(comma + 1)..].Trim();
-                var bytes = Convert.FromBase64String(b64);
-                var ext = meta.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
-                return File(bytes, $"image/{(ext == "jpg" ? "jpeg" : ext)}", $"book-{bookId}-{keySuffix}.{ext}");
+                bytes = Convert.FromBase64String(b64);
+                ext = meta.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
+                contentType = ext == "jpg" ? "image/jpeg" : "image/png";
             }
-
-            if (refValue.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || refValue.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            else if (refValue.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || refValue.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
                 var client = _httpClientFactory.CreateClient();
                 var resp = await client.GetAsync(refValue, cancellationToken);
                 if (!resp.IsSuccessStatusCode)
                     return BadRequest("Could not fetch remote cover asset.");
-                var bytes = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
-                var contentType = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
-                var ext = contentType.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
-                return File(bytes, contentType, $"book-{bookId}-{keySuffix}.{ext}");
+                bytes = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
+                contentType = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
+                ext = contentType.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
             }
-
-            if (refValue.StartsWith("/", StringComparison.Ordinal))
+            else if (refValue.StartsWith("/", StringComparison.Ordinal))
             {
                 var rel = refValue.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
                 var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", rel);
                 if (!System.IO.File.Exists(fullPath))
                     return NotFound("Cover file missing on disk.");
-                var ext = Path.GetExtension(fullPath).ToLowerInvariant();
-                var contentType = ext switch
+                bytes = await System.IO.File.ReadAllBytesAsync(fullPath, cancellationToken);
+                ext = Path.GetExtension(fullPath).ToLowerInvariant().TrimStart('.');
+                contentType = ext switch
                 {
-                    ".jpg" or ".jpeg" => "image/jpeg",
-                    ".webp" => "image/webp",
-                    ".gif" => "image/gif",
+                    "jpg" or "jpeg" => "image/jpeg",
+                    "webp" => "image/webp",
+                    "gif" => "image/gif",
                     _ => "image/png"
                 };
-                return PhysicalFile(fullPath, contentType, $"book-{bookId}-{keySuffix}{ext}");
             }
 
-            return BadRequest("Unsupported cover asset reference.");
+            if (bytes == null || bytes.Length == 0)
+                return BadRequest("Unsupported cover asset reference.");
+
+            // For the standalone front cover, crop the front panel out of a full wrap when needed
+            // (Both/Paperback store only the wrap). EnsureFrontPanelBytes is a no-op for true fronts.
+            if (partNorm == "front")
+            {
+                try
+                {
+                    var pages = await ResolvePrintReadyPageCountAsync(bookId, cancellationToken);
+                    var trim = (await _context.Settings.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:printReadyTrimSize", cancellationToken))?.Value?.Trim();
+                    if (string.IsNullOrWhiteSpace(trim)) trim = "6 x 9 in";
+                    var frontBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(bytes, pages, trim);
+                    if (frontBytes is { Length: > 0 } && !ReferenceEquals(frontBytes, bytes))
+                    {
+                        bytes = frontBytes;
+                        ext = "png";
+                        contentType = "image/png";
+                    }
+                }
+                catch (Exception cropEx)
+                {
+                    _logger.LogWarning(cropEx, "Front-panel crop failed for book {BookId}; serving original image.", bookId);
+                }
+            }
+
+            return File(bytes, contentType, $"book-{bookId}-{keySuffix}.{ext}");
         }
 
         [HttpGet]
