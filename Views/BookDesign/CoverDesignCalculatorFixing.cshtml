@@ -2426,10 +2426,16 @@
 
     /** Page count shown in preview — source of truth for KDP spine on export. */
     function getFormatterPreviewPageCount() {
+        // Single source of truth: when the on-screen real-template preview (overlay) is active,
+        // its page count is exactly what the user sees on the Book Formatting screen. Use it so
+        // the "Total pages" label, the autosaved count, Publish, and the cover spine all agree.
+        var ipv = parseInt(window.__ipvPageCount, 10);
+        if (window.__ipvActive && Number.isFinite(ipv) && ipv > 0) return Math.min(828, ipv);
         var total = Array.isArray(readerPages) ? readerPages.length : 0;
         if (!Number.isFinite(total) || total <= 0) return 0;
         return Math.min(828, total);
     }
+    window.getFormatterPreviewPageCount = getFormatterPreviewPageCount;
 
     function syncFormatterPageCountUi() {
         var pages = getFormatterPreviewPageCount();
@@ -2454,6 +2460,7 @@
             }
         }
     }
+    window.syncFormatterPageCountUi = syncFormatterPageCountUi;
 
     function getFormatterStateFromUi() {
         var accentEl = document.getElementById('fmt-preview-accent');
@@ -6940,6 +6947,12 @@
         if (currentPage >= PAGES.length) currentPage = 0;
         if (currentPage < 0) currentPage = 0;
         renderPage(currentPage);
+        // Publish the on-screen count as the source of truth and refresh the shared
+        // "Total pages" label + autosave so Publish/spine match what the user sees.
+        try {
+            window.__ipvPageCount = PAGES.length;
+            if (typeof window.syncFormatterPageCountUi === 'function') window.syncFormatterPageCountUi();
+        } catch (e) {}
     }
 
     function scheduleRender() {
@@ -6964,6 +6977,7 @@
         if (!ov) return;
         var active = shouldBeActive();
         ov.classList.toggle('ipv-active', active);
+        try { window.__ipvActive = active; } catch (e) {}
         if (!active) return;
         var sig = signature();
         if (sig !== lastSig) { lastSig = sig; scheduleRender(); }
