@@ -214,16 +214,14 @@
         z-index: 2;
         align-items: flex-start;
     }
-    /* A4 fix: long chapter titles must be fully readable in the preview panel.
-       Replace single-line truncation with wrapping (clamped to keep the header tidy). */
+    /* Long chapter titles must be fully readable in the preview panel — wrap to
+       as many lines as needed, no truncation/ellipsis/line-clamp. */
     #bookResult #preview-chapter-header .ai-writer-chapter-title-text {
         white-space: normal;
         overflow-wrap: anywhere;
         word-break: break-word;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 3;
-        overflow: hidden;
+        overflow: visible;
+        text-overflow: clip;
     }
     #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
         flex: 1 1 auto;
@@ -2596,19 +2594,19 @@ window.showPreviewEmptyState = function () {
     previewContent.classList.remove('text-slate-800');
 };
 
-/** Show chapter title bar in preview only when AI content exists. */
+/** Show the chapter title bar for the SELECTED chapter. */
 window.showPreviewChapterChrome = function (chapterNo, title) {
     var previewHeader = document.getElementById('preview-chapter-header');
     if (!previewHeader) return;
     var display = window.sanitizeChapterTitleForInput(title);
+    // Bug fix (wrong chapter title): do NOT fall back to the live #Title form
+    // field — it holds the title of whatever chapter is being edited and would
+    // leak the previous chapter's title onto the selected chapter's preview.
+    // When the selected chapter has no title yet, show a neutral "Chapter N"
+    // so the heading is always present and always matches the selected chapter.
     if (!display) {
-        var titleEl = document.getElementById('Title');
-        display = titleEl ? window.sanitizeChapterTitleForInput(titleEl.value) : '';
-    }
-    if (!display) {
-        previewHeader.classList.add('hidden');
-        previewHeader.setAttribute('aria-hidden', 'true');
-        return;
+        var n = parseInt(String(chapterNo), 10);
+        display = (Number.isFinite(n) && n > 0) ? ('Chapter ' + n) : 'Chapter';
     }
     previewHeader.classList.remove('hidden');
     previewHeader.setAttribute('aria-hidden', 'false');
