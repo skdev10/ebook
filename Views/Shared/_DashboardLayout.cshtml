@@ -5539,7 +5539,41 @@
                     return confirmFlowLeave(targetUrl);
                 }
                 window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
-                window.confirmFlowBack = confirmFlowLeave;
+
+                // Going BACK a step (or the browser back button) can reset the current step's
+                // unsaved work, so always warn the user first — not only when the page is "dirty".
+                // Leaving to the Dashboard keeps its own stronger guard.
+                function confirmFlowBack(targetUrl) {
+                    var target = targetUrl || flowBackUrl || '/Dashboard';
+                    var path = (target.split('?')[0] || '').toLowerCase();
+                    var goingDashboard = path === '/dashboard' || path === '/dashboard/index';
+                    if (goingDashboard && window.FlowNavGuard && typeof window.FlowNavGuard.confirmLeaveToDashboard === 'function') {
+                        return window.FlowNavGuard.confirmLeaveToDashboard(target);
+                    }
+                    if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
+                        return Swal.fire({
+                            title: 'Go back a step?',
+                            text: 'Going back may discard unsaved changes on this step. Your saved chapters are kept.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, go back',
+                            cancelButtonText: 'Stay here',
+                            confirmButtonColor: '#7c3aed',
+                            cancelButtonColor: '#64748b',
+                            reverseButtons: true,
+                            focusCancel: true
+                        }).then(function (res) {
+                            if (res && res.isConfirmed) { window.location.href = target; return true; }
+                            return false;
+                        });
+                    }
+                    if (window.confirm('Go back a step? Unsaved changes on this step may be lost.')) {
+                        window.location.href = target;
+                        return Promise.resolve(true);
+                    }
+                    return Promise.resolve(false);
+                }
+                window.confirmFlowBack = confirmFlowBack;
 
                 document.addEventListener('DOMContentLoaded', function () {
                     document.querySelectorAll('.sidebar-menu a[href], .sidebar-footer a[href]').forEach(function (a) {
