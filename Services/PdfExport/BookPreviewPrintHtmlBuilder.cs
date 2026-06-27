@@ -85,6 +85,20 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine(".title-page { background: var(--export-page-bg, var(--page-bg)); }");
         doc.AppendLine(".title-page h1 { font-size: 28pt; margin: 0 0 12mm; font-weight: 600; letter-spacing: 0.03em; line-height: 1.2; }");
         doc.AppendLine(".title-page .subtitle { margin-bottom: 14mm; }");
+        // Read Mode polish — screen-only (Chromium PDF uses print media, so this never affects exports).
+        // Gives the on-screen reader a warm backdrop, centered "paper" pages with margins/shadow,
+        // and shows the cover as a proper centered PORTRAIT card instead of a cropped full-bleed strip.
+        doc.AppendLine("@media screen {");
+        doc.AppendLine("  html, body.book-pdf-body { background: #e8e2d6 !important; }");
+        doc.AppendLine("  body.book-pdf-body { margin: 0; padding: 32px 16px 64px; }");
+        doc.AppendLine("  body.book-pdf-body > .title-page, body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { max-width: 760px; margin-left: auto; margin-right: auto; background: var(--export-page-bg, #fff); box-shadow: 0 14px 44px -20px rgba(15,23,42,0.55); border-radius: 10px; margin-bottom: 28px; }");
+        doc.AppendLine("  body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { padding: 44px clamp(28px, 6%, 64px); }");
+        doc.AppendLine("  body.book-pdf-body > .manuscript-root { padding-top: 8px; padding-bottom: 8px; }");
+        doc.AppendLine("  body.book-pdf-body > .cover-page { min-height: auto; background: transparent; padding: 0; margin: 0 auto 34px; display: flex; justify-content: center; }");
+        doc.AppendLine("  .cover-page .cover-img { width: 100%; height: auto; max-width: 360px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; box-shadow: 0 24px 60px -16px rgba(15,23,42,0.7); }");
+        doc.AppendLine("  .cover-page.cover-fallback { min-height: auto; }");
+        doc.AppendLine("  .cover-fallback .cover-fallback-inner { width: 100%; max-width: 360px; aspect-ratio: 2 / 3; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1b4b; border-radius: 12px; padding: 28px; box-shadow: 0 24px 60px -16px rgba(15,23,42,0.7); }");
+        doc.AppendLine("}");
         doc.AppendLine("</style></head>");
         doc.AppendLine("<body class=\"book-pdf-body reader-content-wrap " + bodyTemplateClass + " " + previewShellClass + " " + previewWrapClass + "\">");
         doc.Append(coverBlock);
