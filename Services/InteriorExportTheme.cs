@@ -245,7 +245,16 @@ public static class InteriorExportTheme
             scope, ".interior-elegant-trade .reader-page-title { font-family: 'Lora', 'Times New Roman', serif; font-weight: 600; letter-spacing: 0.06em; color: #3d2914; text-align: center; border-bottom: 1px solid #c8b08e; } ",
             scope, ".interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
             scope, ".interior-elegant-trade .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
-            scope, ".interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ");
+            scope, ".interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ",
+            // In-body sub-headings must never inherit justified body text (justify stretches short
+            // heading lines into ugly word gaps, e.g. "The   Bullet   That   Couldn't"). Force a
+            // natural left edge for all in-chapter headings across every interior style.
+            scope, " .reader-page-body h1, ", scope, " .reader-page-body h2, ", scope, " .reader-page-body h3, ",
+            scope, " .reader-page-body h4, ", scope, " .reader-page-body h5, ", scope, " .reader-page-body h6, ",
+            scope, " .reader-page-body .manuscript-heading, ", scope, " .reader-page-body .manuscript-chapter-heading, ",
+            scope, " .reader-page-body .manuscript-h1, ", scope, " .reader-page-body .manuscript-h2, ",
+            scope, " .reader-page-body .manuscript-h3, ", scope, " .reader-page-body .manuscript-h4 ",
+            "{ text-align: left; text-align-last: left; text-indent: 0; } ");
 
     private static string? NormalizeAccentHex(string? raw)
     {
