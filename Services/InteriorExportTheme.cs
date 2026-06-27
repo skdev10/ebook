@@ -15,7 +15,7 @@ public static class InteriorExportTheme
             return "Novel";
         if (s.Equals("Contemporary", StringComparison.OrdinalIgnoreCase)
             || s.Equals("Modern", StringComparison.OrdinalIgnoreCase))
-            return "Novel";
+            return "Modern";
         if (s.Equals("Fine book", StringComparison.OrdinalIgnoreCase)
             || s.Equals("FineBook", StringComparison.OrdinalIgnoreCase)
             || s.Equals("Classic", StringComparison.OrdinalIgnoreCase))

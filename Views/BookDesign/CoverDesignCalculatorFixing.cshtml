@@ -1984,12 +1984,14 @@
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Interior style</label>
                             <select id="style-select" class="sr-only" tabindex="-1" aria-hidden="true" title="Interior style">
                                 @if ((Model?.InteriorStyle ?? "Novel") == "Novel") { <option value="Novel" selected>Novel</option> } else { <option value="Novel">Novel</option> }
+                                @if ((Model?.InteriorStyle ?? "") == "Modern") { <option value="Modern" selected>Modern</option> } else { <option value="Modern">Modern</option> }
                                 @if ((Model?.InteriorStyle ?? "") == "Classic") { <option value="Classic" selected>Classic</option> } else { <option value="Classic">Classic</option> }
                                 @if ((Model?.InteriorStyle ?? "") == "Minimalist") { <option value="Minimalist" selected>Minimalist</option> } else { <option value="Minimalist">Minimalist</option> }
                                 @if ((Model?.InteriorStyle ?? "") == "ElegantTrade") { <option value="ElegantTrade" selected>Elegant trade (POD)</option> } else { <option value="ElegantTrade">Elegant trade (POD)</option> }
                             </select>
                             <div id="fmt-interior-cards" class="grid grid-cols-2 sm:grid-cols-3 gap-2" role="group" aria-label="Interior style">
                                 <button type="button" class="fmt-int-card" data-style="Novel"><span class="fmt-int-card__badge">Traditional</span><span class="fmt-int-card__name">Novel</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Modern"><span class="fmt-int-card__badge">Contemporary</span><span class="fmt-int-card__name">Modern</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Classic"><span class="fmt-int-card__badge">Fine book</span><span class="fmt-int-card__name">Classic</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Minimalist"><span class="fmt-int-card__badge">Clean</span><span class="fmt-int-card__name">Minimalist</span></button>
                                 <button type="button" class="fmt-int-card" data-style="ElegantTrade"><span class="fmt-int-card__badge">POD</span><span class="fmt-int-card__name">Elegant trade</span></button>

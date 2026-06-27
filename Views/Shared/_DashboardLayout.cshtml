@@ -5550,6 +5550,13 @@
                     if (goingDashboard && window.FlowNavGuard && typeof window.FlowNavGuard.confirmLeaveToDashboard === 'function') {
                         return window.FlowNavGuard.confirmLeaveToDashboard(target);
                     }
+                    // From the Publish step (incl. already-published books) going back is a normal
+                    // review action and does not reset any draft work — allow it without a warning.
+                    // The warning is only needed while actively writing/formatting a draft.
+                    if (flowStep === 'publish') {
+                        window.location.href = target;
+                        return Promise.resolve(true);
+                    }
                     if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
                         return Swal.fire({
                             title: 'Go back a step?',
