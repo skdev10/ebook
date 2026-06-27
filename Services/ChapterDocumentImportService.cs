@@ -257,6 +257,88 @@ public static class ChapterDocumentImportService
         return (chapterNo, chapterTitle);
     }
 
+    /// <summary>A single chapter detected inside an imported document.</summary>
+    public sealed record ImportedChapter(int ChapterNo, string Title, string Body);
+
+    /// <summary>
+    /// Split imported text into chapters by detecting headings:
+    /// markdown headings (<c># ...</c>), "Chapter N[: Title]" lines, or short ALL-CAPS / Title-Case
+    /// heading-like lines. Returns a single chapter when no reliable boundaries are found.
+    /// </summary>
+    public static List<ImportedChapter> SplitIntoChapters(string text)
+    {
+        var result = new List<ImportedChapter>();
+        if (string.IsNullOrWhiteSpace(text))
+            return result;
+
+        var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+
+        // Collect indices of lines that look like a chapter heading.
+        var boundaries = new List<(int lineIdx, string title)>();
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.Length == 0)
+                continue;
+
+            // Markdown heading: #, ##, ### ...
+            var hm = Regex.Match(line, @"^(#{1,3})\s+(.+?)\s*#*$");
+            if (hm.Success)
+            {
+                boundaries.Add((i, TruncateSuggestedTitle(hm.Groups[2].Value.Trim())));
+                continue;
+            }
+
+            // "Chapter 1", "CHAPTER 2 - The Fall", "Chapter Three: ..."
+            var chMatch = Regex.Match(line, @"^(?:Chapter|CHAPTER|Part|PART|Section|SECTION)\s+([0-9]+|[IVXLC]+|[A-Za-z]+)\s*[:\.\-–—]?\s*(.*)$", RegexOptions.IgnoreCase);
+            if (chMatch.Success && line.Length <= 120)
+            {
+                var rest = chMatch.Groups[2].Value.Trim();
+                var title = string.IsNullOrEmpty(rest) ? line : $"{line}";
+                boundaries.Add((i, TruncateSuggestedTitle(string.IsNullOrEmpty(rest) ? line : rest)));
+                continue;
+            }
+        }
+
+        // Need at least 2 boundaries to justify a multi-chapter split, otherwise treat as one chapter.
+        if (boundaries.Count < 2)
+        {
+            var (no, title) = SuggestChapterFromBodyText(text);
+            result.Add(new ImportedChapter(no, title, text.Trim()));
+            return result;
+        }
+
+        // Capture any preface text before the first heading as chapter content prepended to chapter 1.
+        var chapterNo = 0;
+        for (var b = 0; b < boundaries.Count; b++)
+        {
+            var startLine = boundaries[b].lineIdx + 1;
+            var endLine = b + 1 < boundaries.Count ? boundaries[b + 1].lineIdx : lines.Length;
+            var bodyBuilder = new StringBuilder();
+            for (var l = startLine; l < endLine; l++)
+                bodyBuilder.AppendLine(lines[l]);
+
+            var body = bodyBuilder.ToString().Trim();
+            // Skip empty chapters (heading with no content).
+            if (body.Length == 0)
+                continue;
+
+            chapterNo++;
+            var title = boundaries[b].title;
+            if (string.IsNullOrWhiteSpace(title))
+                title = $"Chapter {chapterNo}";
+            result.Add(new ImportedChapter(chapterNo, title, body));
+        }
+
+        if (result.Count == 0)
+        {
+            var (no, title) = SuggestChapterFromBodyText(text);
+            result.Add(new ImportedChapter(no, title, text.Trim()));
+        }
+
+        return result;
+    }
+
     public static string MapImportExceptionMessage(Exception ex)
     {
         if (ex is OperationCanceledException)

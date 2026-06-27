@@ -129,17 +129,8 @@ namespace EBookDashboard.Controllers
                 TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                 return RedirectToAction("Index", "Dashboard");
             }
-            // #14: once a book is published, editing steps (AI Writer) are locked — mirror the
-            // Cover Design / Book Formatting gates so even a direct URL cannot reopen the editor.
-            var publishedStatus = await _context.Books.AsNoTracking()
-                .Where(b => b.BookId == bookId.Value && b.UserId == userId.Value)
-                .Select(b => b.Status)
-                .FirstOrDefaultAsync();
-            if (BookFlowStateService.IsPublishedStatus(publishedStatus))
-            {
-                TempData["InfoMessage"] = "This book is already published, so editing steps are locked. Manage it from Publish.";
-                return RedirectToAction("Publish", "Dashboard", new { bookId = bookId.Value });
-            }
+            // Published books remain fully editable — the author can revisit AI Writer, re-edit
+            // chapters and re-publish. (Previously this redirected published books to Publish.)
             var entryBookId = HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
             if (!entryBookId.HasValue || entryBookId.Value != bookId.Value)
             {
@@ -3164,6 +3155,11 @@ namespace EBookDashboard.Controllers
                 var suggestedBookTitle = ChapterDocumentImportService.SuggestBookTitleFromFileName(file.FileName);
                 var (suggestedChapterNo, suggestedChapterTitle) = ChapterDocumentImportService.SuggestChapterFromBodyText(text);
 
+                var splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
+                var chapters = splitChapters
+                    .Select(c => new { chapterNo = c.ChapterNo, title = c.Title, text = c.Body, characterCount = c.Body.Length })
+                    .ToList();
+
                 return Json(new
                 {
                     success = true,
@@ -3172,7 +3168,9 @@ namespace EBookDashboard.Controllers
                     characterCount = text.Length,
                     suggestedBookTitle,
                     suggestedChapterNo,
-                    suggestedChapterTitle
+                    suggestedChapterTitle,
+                    chapters,
+                    chapterCount = chapters.Count
                 });
             }
             catch (Exception ex)

@@ -1194,13 +1194,7 @@ namespace EBookDashboard.Controllers
                     TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                     return RedirectToAction("Index");
                 }
-                // #16: once a book is published, editing steps (Cover Design) are locked.
-                // Send the user to Publish (read-only/export) instead of the editor.
-                if (BookFlowStateService.IsPublishedStatus(ownedBook.Status))
-                {
-                    TempData["InfoMessage"] = "This book is already published, so editing steps are locked. Manage it from Publish.";
-                    return RedirectToAction("Publish", new { bookId = bookId.Value });
-                }
+                // Published books stay editable — author can revisit Cover Design and re-publish.
             }
 
             if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId.Value))

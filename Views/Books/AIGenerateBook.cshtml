@@ -3583,6 +3583,36 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
         return true;
     };
+    window.applyImportedMultiChapterDocument = function (chapters, meta) {
+        meta = meta || {};
+        if (!Array.isArray(chapters) || chapters.length === 0) return false;
+        var btEl = document.getElementById('BookTitle');
+        if (meta.suggestedBookTitle && btEl) btEl.value = meta.suggestedBookTitle;
+        var btitle = (btEl && btEl.value) ? btEl.value.trim() : (meta.suggestedBookTitle || '');
+        var mapped = chapters.map(function (c, i) {
+            var no = parseInt(String(c.chapterNo), 10) || (i + 1);
+            var title = (c.title || c.chapterTitle || ('Chapter ' + no)).toString().trim();
+            return { chapterNo: no, chapterTitle: title, title: title, content: (c.text || c.content || '').toString() };
+        });
+        // Point the writer form at the first chapter so subsequent edits/generate target it.
+        var firstNo = mapped[0].chapterNo;
+        if (typeof ensureChapterDropdownOption === 'function') ensureChapterDropdownOption(firstNo);
+        var chEl = document.getElementById('ChapterNo');
+        if (chEl) chEl.value = String(firstNo);
+        var titleEl = document.getElementById('Title');
+        if (titleEl) titleEl.value = mapped[0].title;
+        if (typeof window.showBookContent !== 'function') return false;
+        window.showBookContent({ bookTitle: btitle, chapters: mapped });
+        var previewTitle = document.getElementById('preview-book-title');
+        if (previewTitle && btitle) previewTitle.textContent = btitle;
+        var br = document.getElementById('bookResult');
+        if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+        if (typeof showNotification === 'function') {
+            showNotification('Document loaded as ' + mapped.length + ' chapters in book preview.', 'success');
+        }
+        if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+        return true;
+    };
     function setDocUploadBusy(busy) {
         if (docUploadBtn) {
             docUploadBtn.disabled = !!busy;
@@ -3620,6 +3650,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     importInput.value = '';
                     if (!data || !data.success) {
                         if (typeof showNotification === 'function') showNotification((data && data.message) || 'Import failed', 'error');
+                        return;
+                    }
+                    var multi = Array.isArray(data.chapters) ? data.chapters : [];
+                    if (multi.length > 1 && typeof window.applyImportedMultiChapterDocument === 'function') {
+                        window.applyImportedMultiChapterDocument(multi, {
+                            suggestedBookTitle: (data.suggestedBookTitle || '').trim()
+                        });
                         return;
                     }
                     window.applyImportedChapterDocument(data.text, {
