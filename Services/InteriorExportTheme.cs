@@ -235,7 +235,96 @@ public static class InteriorExportTheme
 
         return baseCss + tplCss + InteriorLayoutTokens.BuildFrameAndSheetCss()
                + InteriorLayoutTokens.BuildPerInteriorCss(interior)
-               + BuildFormatterInteriorCss() + BuildHeadingKeepWithNextCss();
+               + BuildFormatterInteriorCss() + BuildHeadingKeepWithNextCss()
+               + BuildPdfInteriorParityCss(interior)
+               + BuildRunningChromeCompensationCss(opt, interior);
+    }
+
+    /// <summary>
+    /// Reconciles two PDF-only concerns on the printed sheet padding:
+    /// (1) when Chromium per-page running headers/folios are active (interior export, no cover) they
+    /// occupy reserved top/bottom page margins, so the in-sheet top/bottom padding is trimmed by a
+    /// matching amount and the single in-content running head is hidden;
+    /// (2) POD styles add a 0.125in bleed per side, so the sheet padding gains 0.125in to keep text
+    /// inside the trim safe zone.
+    /// </summary>
+    private static string BuildRunningChromeCompensationCss(BookPdfExportOptions opt, string interior)
+    {
+        var isPod = interior is "POD" or "ElegantTradePOD";
+        var bleed = isPod ? "0.125in" : "0px";
+
+        if (!opt.IncludeCoverPage)
+        {
+            // Running header/folio active: hide the in-content head and reserve top/bottom margin
+            // (plus the POD bleed where applicable). Horizontal bleed padding is added for POD.
+            var sides = isPod
+                ? "padding-left: calc(var(--ilt-pad-left) + 0.125in); padding-right: calc(var(--ilt-pad-right) + 0.125in); "
+                : string.Empty;
+            return string.Concat(
+                ".book-pdf-body .book-preview-sheet > .page-header { display: none !important; } ",
+                ".book-pdf-body .book-preview-sheet { ",
+                // Reserve matches ChromiumPdfExporter header(18mm)/folio(16mm) margins, minus ~2mm
+                // so the text block keeps its intended trim-relative position.
+                "padding-top: max(0px, calc(var(--ilt-pad-top) + ", bleed, " - 16mm)); ",
+                "padding-bottom: max(0px, calc(var(--ilt-pad-bottom) + ", bleed, " - 14mm)); ",
+                sides, "} ");
+        }
+
+        // Cover export (no running chrome). Only POD needs all-sides bleed padding.
+        return isPod
+            ? ".book-pdf-body .book-preview-sheet { padding: calc(var(--ilt-pad-top) + 0.125in) calc(var(--ilt-pad-right) + 0.125in) calc(var(--ilt-pad-bottom) + 0.125in) calc(var(--ilt-pad-left) + 0.125in); } "
+            : string.Empty;
+    }
+
+    /// <summary>
+    /// PDF-only parity rules so the exported page matches the per-style preview:
+    /// chapter "sink" (heading starts partway down the first page), a guaranteed gap so body
+    /// text never touches the heading, and drop caps for the elegant/traditional family.
+    /// </summary>
+    private static string BuildPdfInteriorParityCss(string interior)
+    {
+        var wrap = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(interior); // interior-*
+        var sink = interior switch
+        {
+            "ElegantTrade" or "FineBook" or "ElegantTradePOD" => 30,
+            "Traditional" or "Classic" => 25,
+            "Minimalist" => 24,
+            "Contemporary" => 22,
+            "Novel" or "POD" => 20,
+            "Modern" => 18,
+            "Clean" => 15,
+            _ => 20
+        };
+
+        var css = string.Concat(
+            // Chapter heading starts partway down the chapter's first page (real-book sink).
+            ".book-pdf-body.", wrap, " .reader-page-title { padding-top: ", sink.ToString(System.Globalization.CultureInfo.InvariantCulture), "vh; } ",
+            // Body text must never touch the chapter heading.
+            ".book-pdf-body .reader-page-title + .reader-page-body { margin-top: 12mm; } ");
+
+        if (interior is "ElegantTrade" or "ElegantTradePOD" or "Traditional")
+        {
+            css = string.Concat(css,
+                ".book-pdf-body.", wrap, " .reader-page-body > p:first-of-type::first-letter { ",
+                "float: left; font-family: var(--heading-font); font-weight: 700; font-size: 4.2em; ",
+                "line-height: 0.72; padding-right: 6px; margin-top: 4px; color: var(--heading-color); } ");
+        }
+
+        // Scene-break ornament — replace the plain rule with a centered glyph per style
+        // (gold ❧/✦ for Fine Book + Elegant; ⁂ for Classic/Traditional; ◆ elsewhere).
+        var (glyph, ornColor) = interior switch
+        {
+            "FineBook" => ("\\2767", "#C9A84C"),                       // ❧
+            "ElegantTrade" or "ElegantTradePOD" => ("\\2726", "#C9A84C"), // ✦
+            "Classic" or "Traditional" => ("\\2042", "var(--heading-color)"), // ⁂
+            "Modern" or "Contemporary" or "Clean" or "Minimalist" => ("\\25C6", "var(--fmt-accent, var(--heading-color))"), // ◆
+            _ => ("\\2726", "var(--heading-color)")                    // ✦
+        };
+        css = string.Concat(css,
+            ".book-pdf-body.", wrap, " .manuscript-hr { border: 0 !important; height: auto; text-align: center; margin: 7mm 0; line-height: 1; } ",
+            ".book-pdf-body.", wrap, " .manuscript-hr::after { content: \"", glyph, " \"; color: ", ornColor, "; font-size: 13pt; letter-spacing: 0.35em; } ");
+
+        return css;
     }
 
     /// <summary>Legacy hook — sheet padding now lives in <see cref="InteriorLayoutTokens"/>.</summary>

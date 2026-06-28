@@ -6,7 +6,7 @@
 }
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Fredoka+One&family=Baloo+2:wght@500;700&display=swap" rel="stylesheet">
 <style>
     /* Match dashboard: Inter body, Playfair headings, violet accents */
     .cover-design-page { font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; color: #0f172a; }
@@ -128,6 +128,17 @@
     #covPreviewShell.cov-style-elegant #covPreviewAuthor { font-family: 'Playfair Display', Georgia, serif; font-style: italic; letter-spacing: 0.06em; text-transform: none; font-size: 0.95rem; }
     #covPreviewShell.cov-style-modern #covPreviewAuthor { font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.7rem; }
     #covPreviewShell.cov-style-vintage #covPreviewAuthor { font-family: Georgia, serif; letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.72rem; opacity: 0.95; }
+    /* Cartoon — playful children's-book look (gradient shows when no AI art is set yet). */
+    #covPreviewShell.cov-style-cartoon { background: linear-gradient(135deg, #FFE566, #FF6B9D); border: 6px solid #333; border-radius: 12px; }
+    #covPreviewShell.cov-style-cartoon #covPreviewTitle { font-family: 'Fredoka One', 'Baloo 2', cursive; font-weight: 400; color: #1A1A1A; text-shadow: 3px 3px 0px rgba(0,0,0,0.3); }
+    #covPreviewShell.cov-style-cartoon #covPreviewAuthor { font-family: 'Fredoka One', 'Baloo 2', cursive; color: #1A1A1A; text-shadow: 2px 2px 0px rgba(0,0,0,0.25); }
+    /* Print / eBook target tabs + size lock (both 2:3). */
+    .cov-target-tabs { display: flex; gap: 0.5rem; }
+    .cov-target-tab { padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+    .cov-target-tab:hover { background: #ede9fe; border-color: #c4b5fd; }
+    .cov-target-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    #covPreviewColumn.cov-target-print .cov-preview-book-stage { max-width: 340px; }
+    #covPreviewColumn.cov-target-ebook .cov-preview-book-stage { max-width: 280px; }
     .cov-preview-book-stage {
         perspective: 1200px;
         padding: 0;
@@ -324,6 +335,17 @@
                     </select>
                 </div>
                 <input type="hidden" id="coverStyle" value="modern" autocomplete="off" />
+                <div>
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Cover Style</label>
+                    <div id="coverStyleCards" class="cov-style-cards" role="group" aria-label="Cover style">
+                        <button type="button" class="cov-style-card" data-style="minimal" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#f8fafc,#e2e8f0)"></span><span class="cov-style-card__label">Minimal</span></button>
+                        <button type="button" class="cov-style-card" data-style="bold" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#111827,#374151)"></span><span class="cov-style-card__label">Bold</span></button>
+                        <button type="button" class="cov-style-card" data-style="elegant" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#3d2914,#c8b08e)"></span><span class="cov-style-card__label">Elegant</span></button>
+                        <button type="button" class="cov-style-card" data-style="modern" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#6366f1,#22d3ee)"></span><span class="cov-style-card__label">Modern</span></button>
+                        <button type="button" class="cov-style-card" data-style="vintage" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#7c5a3a,#d9c2a3)"></span><span class="cov-style-card__label">Vintage</span></button>
+                        <button type="button" class="cov-style-card" data-style="cartoon" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#FFE566,#FF6B9D)"></span><span class="cov-style-card__label">🎨 Cartoon</span></button>
+                    </div>
+                </div>
                 </div>
             </div>
 
@@ -363,6 +385,11 @@
                 <span class="text-violet-600 font-medium text-sm tracking-wide">Cover preview</span>
             </div>
             <h2 id="covPreviewHeaderTitle" class="font-serif text-xl md:text-2xl text-slate-900 font-medium tracking-tight mb-3 shrink-0">Your book</h2>
+
+            <div id="coverTargetTabs" class="cov-target-tabs mb-3 shrink-0" role="group" aria-label="Cover target">
+                <button type="button" class="cov-target-tab is-active" data-target="print" aria-pressed="true">Print Cover</button>
+                <button type="button" class="cov-target-tab" data-target="ebook" aria-pressed="false">eBook Cover</button>
+            </div>
 
             <div class="cov-preview-book-stage w-full flex justify-start items-start">
                     <div id="covPreviewShell" class="cov-preview-3d w-full aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
@@ -722,7 +749,7 @@
     function applyCoverStyleClass() {
         if (!covPreviewShell || !coverStyle) return;
         var v = (coverStyle.value || 'modern').trim() || 'modern';
-        var allowed = { minimal: 1, bold: 1, elegant: 1, modern: 1, vintage: 1 };
+        var allowed = { minimal: 1, bold: 1, elegant: 1, modern: 1, vintage: 1, cartoon: 1 };
         if (!allowed[v]) v = 'modern';
         covPreviewShell.className = covPreviewShell.className.replace(/\bcov-style-[a-z]+\b/g, '').trim();
         covPreviewShell.classList.add(COVER_STYLE_PREFIX + v);
@@ -738,6 +765,82 @@
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
     }
+
+    // ── Cover style cards: click selects the style (sets hidden input + preview class). ──
+    (function bindCoverStyleCards() {
+        var cards = document.getElementById('coverStyleCards');
+        if (!cards) return;
+        cards.addEventListener('click', function (e) {
+            var btn = e.target && e.target.closest ? e.target.closest('.cov-style-card') : null;
+            if (!btn) return;
+            var v = btn.getAttribute('data-style');
+            if (!v || !coverStyle) return;
+            coverStyle.value = v;
+            applyCoverStyleClass();
+            syncCoverStyleCards();
+        });
+    })();
+
+    // ── Print Cover vs eBook Cover tabs (both locked 2:3, independent in-session state). ──
+    var coverTarget = 'print';
+    var coverTargetState = { print: null, ebook: null };
+
+    function snapshotCoverTarget() {
+        var bg = document.getElementById('covPreviewBgImg');
+        return {
+            style: (coverStyle && coverStyle.value) || 'modern',
+            direction: (imageDirection && imageDirection.value) || '',
+            bg: bg ? (bg.getAttribute('src') || '') : '',
+            bgVisible: bg ? !bg.classList.contains('opacity-0') : false
+        };
+    }
+    function restoreCoverTarget(s) {
+        if (!s) return;
+        if (coverStyle) coverStyle.value = s.style || 'modern';
+        if (imageDirection) imageDirection.value = s.direction || '';
+        var bg = document.getElementById('covPreviewBgImg');
+        if (bg) {
+            if (s.bg && s.bgVisible) { bg.src = s.bg; bg.classList.remove('opacity-0'); }
+            else { bg.removeAttribute('src'); bg.classList.add('opacity-0'); }
+        }
+        applyCoverStyleClass();
+        syncCoverStyleCards();
+        if (typeof syncCovPreviewHeader === 'function') { try { syncCovPreviewHeader(); } catch (e) {} }
+    }
+    function setCoverTargetUi(target) {
+        var col = document.getElementById('covPreviewColumn');
+        if (col) {
+            col.classList.toggle('cov-target-ebook', target === 'ebook');
+            col.classList.toggle('cov-target-print', target !== 'ebook');
+        }
+        var tabs = document.getElementById('coverTargetTabs');
+        if (tabs) {
+            Array.prototype.forEach.call(tabs.querySelectorAll('.cov-target-tab'), function (b) {
+                var on = b.getAttribute('data-target') === target;
+                b.classList.toggle('is-active', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+        }
+    }
+    function switchCoverTarget(target) {
+        if (target !== 'print' && target !== 'ebook') return;
+        if (target === coverTarget) return;
+        coverTargetState[coverTarget] = snapshotCoverTarget(); // save current
+        coverTarget = target;
+        setCoverTargetUi(target);
+        if (coverTargetState[target]) restoreCoverTarget(coverTargetState[target]); // restore other
+    }
+    window.getActiveCoverTarget = function () { return coverTarget; };
+    (function bindCoverTargetTabs() {
+        var tabs = document.getElementById('coverTargetTabs');
+        if (!tabs) return;
+        setCoverTargetUi('print'); // default Print Cover
+        tabs.addEventListener('click', function (e) {
+            var b = e.target && e.target.closest ? e.target.closest('.cov-target-tab') : null;
+            if (!b) return;
+            switchCoverTarget(b.getAttribute('data-target'));
+        });
+    })();
 
     /** Genre list is driven only by book API (no static catalog). */
     function setGenreFromApi(g) {

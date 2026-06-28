@@ -3146,19 +3146,40 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                var text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
-                text = ChapterDocumentImportService.SanitizeImportedText(text);
+                string text;
+                List<ChapterDocumentImportService.ImportedChapter> splitChapters;
 
-                if (string.IsNullOrWhiteSpace(text))
+                // .docx → rich path that preserves embedded images inline (HTML chapter bodies).
+                if (ext == ".docx")
+                {
+                    var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
+                    text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
+                    var docxHasImages = docxChapters.Any(c => c.Body.Contains("<img", StringComparison.OrdinalIgnoreCase));
+                    if (docxChapters.Count > 0 && (docxHasImages || docxChapters.Count > 1))
+                        splitChapters = docxChapters; // keep structured HTML (images + headings)
+                    else
+                        splitChapters = ChapterDocumentImportService.SplitIntoChapters(
+                            string.IsNullOrWhiteSpace(text)
+                                ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
+                                : text);
+                }
+                else
+                {
+                    text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
+                    text = ChapterDocumentImportService.SanitizeImportedText(text);
+                    splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
+                }
+
+                if (string.IsNullOrWhiteSpace(text) && splitChapters.Count == 0)
                     return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR). Paste the text instead." });
 
                 var suggestedBookTitle = ChapterDocumentImportService.SuggestBookTitleFromFileName(file.FileName);
-                var (suggestedChapterNo, suggestedChapterTitle) = ChapterDocumentImportService.SuggestChapterFromBodyText(text);
-
-                var splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
+                var (suggestedChapterNo, suggestedChapterTitle) = ChapterDocumentImportService.SuggestChapterFromBodyText(
+                    string.IsNullOrWhiteSpace(text) ? (splitChapters.FirstOrDefault()?.Title ?? "Imported chapter") : text);
                 var chapters = splitChapters
                     .Select(c => new { chapterNo = c.ChapterNo, title = c.Title, text = c.Body, characterCount = c.Body.Length })
                     .ToList();
+                var hasImages = chapters.Any(c => c.text.Contains("<img", StringComparison.OrdinalIgnoreCase));
 
                 return Json(new
                 {
@@ -3170,7 +3191,8 @@ namespace EBookDashboard.Controllers
                     suggestedChapterNo,
                     suggestedChapterTitle,
                     chapters,
-                    chapterCount = chapters.Count
+                    chapterCount = chapters.Count,
+                    hasImages
                 });
             }
             catch (Exception ex)

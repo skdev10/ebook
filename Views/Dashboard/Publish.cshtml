@@ -1665,7 +1665,13 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ' + (busyLabel || 'Preparing…');
     }
 
+    var _stillGeneratingTimer = null;
+    function cancelStillGeneratingTimer() {
+        if (_stillGeneratingTimer) { clearTimeout(_stillGeneratingTimer); _stillGeneratingTimer = null; }
+    }
+
     function clearPublishButtonBusy(btn) {
+        cancelStillGeneratingTimer();
         if (!btn) return;
         if (btn.dataset.publishOriginalHtml) {
             btn.innerHTML = btn.dataset.publishOriginalHtml;
@@ -1687,6 +1693,19 @@
             showConfirmButton: false,
             didOpen: function () { if (typeof Swal.showLoading === 'function') Swal.showLoading(); }
         });
+        // After 90s, reassure the user it's still working (no freeze / no silent timeout).
+        cancelStillGeneratingTimer();
+        _stillGeneratingTimer = setTimeout(function () {
+            try {
+                if (typeof Swal !== 'undefined' && typeof Swal.isVisible === 'function' && Swal.isVisible()) {
+                    var html = document.querySelector('.swal2-html-container');
+                    if (html && !html.querySelector('.still-generating-note')) {
+                        html.insertAdjacentHTML('beforeend',
+                            '<p class="still-generating-note" style="margin:10px 0 0;color:#b45309;font-size:13px;font-weight:600;line-height:1.5">Still generating… large books can take a little longer. Please keep this tab open.</p>');
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        }, 90000);
     }
 
     // Wrap a download flow with the busy button + loader. The success/error

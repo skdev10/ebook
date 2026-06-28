@@ -1303,43 +1303,91 @@
             min-height: 0;
         }
     }
+    /* Visual interior tiles — each shows a mini CHAPTER heading + body in its own fonts/colors. */
     .fmt-int-card {
         position: relative;
         overflow: hidden;
         border-radius: 12px;
         border: 2px solid #e5e7eb;
         background: #fff;
-        padding: 0.65rem 0.5rem;
-        text-align: center;
+        padding: 0;
+        text-align: left;
         cursor: pointer;
-        transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s, background 0.2s;
-        min-height: 4.5rem;
+        transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+        min-height: 128px;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.2rem;
     }
     .fmt-int-card::after,
-    .fmt-int-card[data-style]::after {
-        display: none !important;
-        content: none !important;
+    .fmt-int-card[data-style]::after { display: none !important; content: none !important; }
+    .fmt-int-card__preview {
+        flex: 1 1 auto; display: flex; flex-direction: column; gap: 5px;
+        padding: 11px 10px 9px; overflow: hidden; background: #fff;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
     }
-    .fmt-int-card[data-style="Novel"] { background: linear-gradient(180deg, #fffef9 0%, #fff 100%); }
-    .fmt-int-card[data-style="Modern"] { background: linear-gradient(180deg, #f8fafc 0%, #fff 100%); }
-    .fmt-int-card[data-style="Classic"] { background: linear-gradient(180deg, #fdfcf8 0%, #f5f0e8 100%); }
-    .fmt-int-card[data-style="Minimalist"] { background: #fff; }
-    .fmt-int-card[data-style="ElegantTrade"] { background: linear-gradient(180deg, #fafafa 0%, #fff 100%); }
-    .fmt-int-card[data-style="Novel"] .fmt-int-card__name { font-family: 'EB Garamond', Georgia, serif; }
-    .fmt-int-card[data-style="Modern"] .fmt-int-card__name { font-family: 'Source Serif 4', Georgia, serif; color: #334155; }
-    .fmt-int-card[data-style="Classic"] .fmt-int-card__name { font-family: 'Playfair Display', Georgia, serif; font-style: italic; }
-    .fmt-int-card[data-style="Minimalist"] .fmt-int-card__name { font-family: 'Lato', sans-serif; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.72rem; }
-    .fmt-int-card[data-style="ElegantTrade"] .fmt-int-card__name { font-family: 'Merriweather', Georgia, serif; }
+    .fmt-int-card__ch { font-size: 0.58rem; line-height: 1.15; font-weight: 700; color: #111827; }
+    .fmt-int-card__rule { height: 2px; width: 30px; background: #cbd5e1; border-radius: 2px; margin: 1px 0; }
+    .fmt-int-card__body {
+        font-size: 0.54rem; line-height: 1.55; color: #475569;
+        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .fmt-int-card__name { font-size: 0.74rem; font-weight: 600; color: #111827; padding: 6px 10px; background: #fafafa; }
+
+    .fmt-int-card[data-style="ElegantTrade"] .fmt-int-card__preview,
+    .fmt-int-card[data-style="ElegantTradePOD"] .fmt-int-card__preview { background: #FDFBF7; }
+    .fmt-int-card[data-style="ElegantTrade"] .fmt-int-card__ch,
+    .fmt-int-card[data-style="ElegantTradePOD"] .fmt-int-card__ch { font-family: 'Cormorant SC','Cormorant Garamond',serif; text-transform: uppercase; letter-spacing: 0.16em; text-align: center; }
+    .fmt-int-card[data-style="ElegantTrade"] .fmt-int-card__rule,
+    .fmt-int-card[data-style="ElegantTradePOD"] .fmt-int-card__rule { background: #C9A84C; margin: 2px auto; }
+    .fmt-int-card[data-style="ElegantTrade"] .fmt-int-card__body,
+    .fmt-int-card[data-style="ElegantTradePOD"] .fmt-int-card__body { font-family: 'Cormorant Garamond',serif; text-align: justify; }
+
+    .fmt-int-card[data-style="Traditional"] .fmt-int-card__ch { font-family: 'EB Garamond',serif; text-align: center; }
+    .fmt-int-card[data-style="Traditional"] .fmt-int-card__rule { display: none; }
+    .fmt-int-card[data-style="Traditional"] .fmt-int-card__body { font-family: 'EB Garamond',serif; text-align: justify; }
+
+    .fmt-int-card[data-style="Novel"] .fmt-int-card__ch { font-family: 'Lora',serif; }
+    .fmt-int-card[data-style="Novel"] .fmt-int-card__rule { display: none; }
+    .fmt-int-card[data-style="Novel"] .fmt-int-card__body { font-family: 'Lora',serif; text-align: justify; }
+
+    .fmt-int-card[data-style="Contemporary"] .fmt-int-card__ch { font-family: 'Raleway',sans-serif; text-transform: uppercase; letter-spacing: 0.14em; color: #1f2937; }
+    .fmt-int-card[data-style="Contemporary"] .fmt-int-card__rule { background: #3B82F6; width: 26px; }
+    .fmt-int-card[data-style="Contemporary"] .fmt-int-card__body { font-family: 'Lora',serif; }
+
+    .fmt-int-card[data-style="Modern"] .fmt-int-card__ch { font-family: 'Outfit',sans-serif; }
+    .fmt-int-card[data-style="Modern"] .fmt-int-card__rule { display: none; }
+    .fmt-int-card[data-style="Modern"] .fmt-int-card__body { font-family: 'DM Sans',sans-serif; }
+
+    .fmt-int-card[data-style="FineBook"] .fmt-int-card__preview { background: #FDF8F2; }
+    .fmt-int-card[data-style="FineBook"] .fmt-int-card__ch { font-family: 'Playfair Display',serif; font-style: italic; text-align: center; }
+    .fmt-int-card[data-style="FineBook"] .fmt-int-card__rule { background: #C9A84C; margin: 2px auto; }
+    .fmt-int-card[data-style="FineBook"] .fmt-int-card__body { font-family: 'Spectral',serif; text-align: justify; }
+
+    .fmt-int-card[data-style="Classic"] .fmt-int-card__ch { font-family: 'Libre Baskerville',serif; text-align: center; text-decoration: underline; }
+    .fmt-int-card[data-style="Classic"] .fmt-int-card__rule { display: none; }
+    .fmt-int-card[data-style="Classic"] .fmt-int-card__body { font-family: 'Libre Baskerville',serif; text-align: justify; }
+
+    .fmt-int-card[data-style="Clean"] .fmt-int-card__ch { font-family: 'Inter',sans-serif; font-weight: 600; }
+    .fmt-int-card[data-style="Clean"] .fmt-int-card__rule { display: none; }
+    .fmt-int-card[data-style="Clean"] .fmt-int-card__body { font-family: 'Source Serif 4',serif; }
+
+    .fmt-int-card[data-style="Minimalist"] .fmt-int-card__ch { font-family: 'Jost',sans-serif; font-weight: 300; text-transform: uppercase; letter-spacing: 0.28em; text-align: center; color: #6b7280; }
+    .fmt-int-card[data-style="Minimalist"] .fmt-int-card__rule { display: none; }
+    .fmt-int-card[data-style="Minimalist"] .fmt-int-card__body { font-family: 'Libre Baskerville',serif; color: #6b7280; }
+
+    .fmt-int-card[data-style="POD"] .fmt-int-card__ch { font-family: 'Nunito Sans',sans-serif; font-weight: 700; }
+    .fmt-int-card[data-style="POD"] .fmt-int-card__rule { background: #cccccc; }
+    .fmt-int-card[data-style="POD"] .fmt-int-card__body { font-family: 'Crimson Pro',serif; text-align: justify; }
+
     .fmt-int-card:hover { border-color: #c4b5fd; box-shadow: 0 6px 16px -8px rgba(91, 33, 182, 0.35); }
     .fmt-int-card.is-selected { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2); }
+    .fmt-int-card.is-selected::before {
+        content: '\2713'; position: absolute; top: 6px; right: 6px; z-index: 2;
+        width: 18px; height: 18px; border-radius: 50%; background: #7c3aed; color: #fff;
+        font-size: 11px; line-height: 18px; text-align: center; font-weight: 700;
+    }
     .fmt-int-card:active { transform: scale(0.98); }
-    .fmt-int-card__badge { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #6b7280; }
-    .fmt-int-card__name { font-size: 0.8rem; font-weight: 600; color: #111827; }
+    .fmt-int-card__badge { display: none; }
     .fmt-pill-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
     .fmt-pill {
         border-radius: 999px; border: 1px solid #e5e7eb; background: #fff; padding: 0.4rem 0.85rem;
@@ -1997,17 +2045,17 @@
                                 <option value="ElegantTrade" selected="@(curStyle == "ElegantTrade")">Elegant trade</option>
                             </select>
                             <div id="fmt-interior-cards" class="grid grid-cols-2 sm:grid-cols-3 gap-2" role="group" aria-label="Interior style">
-                                <button type="button" class="fmt-int-card" data-style="ElegantTradePOD"><span class="fmt-int-card__badge">POD · Garamond</span><span class="fmt-int-card__name">Elegant trade (POD)</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Traditional"><span class="fmt-int-card__badge">EB Garamond</span><span class="fmt-int-card__name">Traditional</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Novel"><span class="fmt-int-card__badge">Palatino</span><span class="fmt-int-card__name">Novel</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Contemporary"><span class="fmt-int-card__badge">Lora · Raleway</span><span class="fmt-int-card__name">Contemporary</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Modern"><span class="fmt-int-card__badge">DM Sans</span><span class="fmt-int-card__name">Modern</span></button>
-                                <button type="button" class="fmt-int-card" data-style="FineBook"><span class="fmt-int-card__badge">Spectral · Playfair</span><span class="fmt-int-card__name">Fine book</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Classic"><span class="fmt-int-card__badge">Times</span><span class="fmt-int-card__name">Classic</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Clean"><span class="fmt-int-card__badge">Source · Inter</span><span class="fmt-int-card__name">Clean</span></button>
-                                <button type="button" class="fmt-int-card" data-style="Minimalist"><span class="fmt-int-card__badge">Baskerville · Jost</span><span class="fmt-int-card__name">Minimalist</span></button>
-                                <button type="button" class="fmt-int-card" data-style="POD"><span class="fmt-int-card__badge">Crimson · Nunito</span><span class="fmt-int-card__name">POD</span></button>
-                                <button type="button" class="fmt-int-card" data-style="ElegantTrade"><span class="fmt-int-card__badge">Cormorant</span><span class="fmt-int-card__name">Elegant trade</span></button>
+                                <button type="button" class="fmt-int-card" data-style="ElegantTradePOD"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade (POD)</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Traditional"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Traditional</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Novel"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Novel</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Contemporary"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Contemporary</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Modern"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Modern</span></button>
+                                <button type="button" class="fmt-int-card" data-style="FineBook"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Fine book</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Classic"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Classic</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Clean"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Clean</span></button>
+                                <button type="button" class="fmt-int-card" data-style="Minimalist"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Minimalist</span></button>
+                                <button type="button" class="fmt-int-card" data-style="POD"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">POD</span></button>
+                                <button type="button" class="fmt-int-card" data-style="ElegantTrade"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade</span></button>
                             </div>
                         </div>
 
@@ -5599,8 +5647,14 @@
         if (indE) indE.textContent = short;
         if (indP) indP.textContent = short;
         if (indStage) indStage.textContent = short;
-        if (fmtPageInd) fmtPageInd.textContent = total ? ('Page ' + (currentPageIdx + 1) + ' of ' + total) : 'Page 0 of 0';
-        if (fmtPageInd) fmtPageInd.classList.toggle('hidden', !total);
+        // Single source of truth for the "Page X of Y" / "Total pages: Y" pair.
+        // When the on-screen real-template (IPV) reader is active it owns the top
+        // indicator (see its renderPage); we must NOT overwrite it here with the
+        // secondary readerPages count, or top (e.g. 24) and bottom (e.g. 20) diverge.
+        if (fmtPageInd && !window.__ipvActive) {
+            fmtPageInd.textContent = total ? ('Page ' + (currentPageIdx + 1) + ' of ' + total) : 'Page 0 of 0';
+            fmtPageInd.classList.toggle('hidden', !total);
+        }
         setReaderNavDisabled(currentPageIdx <= 0, currentPageIdx >= total - 1 || total === 0);
         updateReaderProgressUi();
         updateFmtPreviewChapterChrome();
@@ -6615,15 +6669,46 @@
         return [];
     }
 
+    // 11 visually-distinct interior themes (preview parity with the PDF interior CSS).
+    // Each: paper/ink/margins + body/head fonts + alignment, drop cap, ornament, accent.
     var THEMES = {
-        novel:   { surface:'linear-gradient(135deg,#3f463c 0%,#2a302a 100%)', paper:'#f4ecd9', paperGrad:'radial-gradient(120% 90% at 50% 0%, #f8f2e2 0%, #f1e8d2 100%)', ink:'#2a2620', margins:{t:0.8125,b:0.8125,inside:0.875,outside:0.6875}, dropPct:30, dropCap:'none', ornament:'* * *' },
-        classic: { surface:'linear-gradient(135deg,#4f2126 0%,#2c1316 100%)', paper:'#faf5e9', paperGrad:'radial-gradient(120% 90% at 50% 0%, #fdf9ef 0%, #f6efdf 100%)', ink:'#241c16', margins:{t:0.95,b:0.875,inside:0.95,outside:0.75}, dropPct:35, dropCap:'big', ornament:'\u2766' },
-        minimal: { surface:'linear-gradient(135deg,#edeff2 0%,#dce0e6 100%)', paper:'#ffffff', paperGrad:'none', ink:'#1d1d1f', margins:{t:0.95,b:0.95,inside:0.75,outside:0.75}, dropPct:14, dropCap:'none', ornament:'\u2014' },
-        elegant: { surface:'linear-gradient(135deg,#b49a70 0%,#876c4a 100%)', paper:'#f7efe0', paperGrad:'radial-gradient(120% 90% at 50% 0%, #fbf5ea 0%, #f4ebd9 100%)', ink:'#2c241a', margins:{t:0.85,b:0.85,inside:0.92,outside:0.62}, dropPct:25, dropCap:'raised', ornament:'\u2022 \u2022 \u2022' }
+        // 1 — Elegant Trade: warm ivory, Cormorant, centered small-caps + gold rule, drop cap.
+        elegant: { surface:'linear-gradient(135deg,#b49a70 0%,#876c4a 100%)', paper:'#FDFBF7', paperGrad:'none', ink:'#1C1C1C', margins:{t:0.875,b:0.875,inside:1.0,outside:0.75}, dropPct:30,
+            bodyFont:"'Cormorant Garamond', serif", headFont:"'Cormorant SC', 'Cormorant Garamond', serif", indent:'1.5em', align:'justify', headAlign:'center', headTransform:'uppercase', headLs:'.22em', headWeight:'600', accent:'#C9A84C', dropCap:true, dropSize:'3.4em', headRule:true, ornament:'\u2726' },
+        // 2 — Traditional: white, EB Garamond, centered bold, drop cap.
+        traditional: { surface:'linear-gradient(135deg,#3f463c 0%,#2a302a 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#222222', margins:{t:0.875,b:0.875,inside:1.0,outside:0.75}, dropPct:25,
+            bodyFont:"'EB Garamond', serif", headFont:"'EB Garamond', serif", indent:'1.25em', align:'justify', headAlign:'center', headWeight:'700', accent:'#555555', dropCap:true, dropSize:'3em', ornament:'* * *' },
+        // 3 — Novel: white, Lora, left bold heading, mass-market.
+        novel: { surface:'linear-gradient(135deg,#3f463c 0%,#2a302a 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#1A1A1A', margins:{t:0.75,b:0.75,inside:0.875,outside:0.625}, dropPct:20,
+            bodyFont:"'Lora', serif", headFont:"'Lora', serif", indent:'1em', align:'justify', headAlign:'left', headWeight:'700', accent:'#888888', dropCap:false, ornament:'\u2014' },
+        // 4 — Contemporary: Lora body / Raleway uppercase heading + blue accent line, no indent.
+        contemporary: { surface:'linear-gradient(135deg,#1e3a5f 0%,#0f2238 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#1F2937', margins:{t:0.875,b:0.875,inside:1.0,outside:0.75}, dropPct:22,
+            bodyFont:"'Lora', serif", headFont:"'Raleway', sans-serif", indent:'0', paraGap:'10px', align:'justify', headAlign:'left', headTransform:'uppercase', headLs:'.25em', headWeight:'700', accent:'#3B82F6', dropCap:false, headRule:true, ruleMx:'0', ornament:'\u2014' },
+        // 5 — Modern: DM Sans / Outfit, left, ragged-right, gap, business/non-fiction.
+        modern: { surface:'linear-gradient(135deg,#111827 0%,#030712 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#111827', margins:{t:1.0,b:1.0,inside:1.125,outside:0.875}, dropPct:18,
+            bodyFont:"'DM Sans', sans-serif", headFont:"'Outfit', sans-serif", indent:'0', paraGap:'12px', align:'left', headAlign:'left', headWeight:'700', accent:'#6366f1', dropCap:false, ornament:'\u2042' },
+        // 6 — Fine Book: cream, Spectral / Playfair italic, centered, gold ornament, premium.
+        finebook: { surface:'linear-gradient(135deg,#7c6a4a 0%,#4a3c26 100%)', paper:'#FDF8F2', paperGrad:'radial-gradient(120% 90% at 50% 0%, #fffaf2 0%, #f6ecdb 100%)', ink:'#1A120B', margins:{t:1.0,b:1.125,inside:1.25,outside:1.125}, dropPct:30,
+            bodyFont:"'Spectral', serif", headFont:"'Playfair Display', serif", indent:'1.5em', align:'justify', headAlign:'center', headStyle:'italic', headWeight:'400', accent:'#C9A84C', dropCap:false, ornTop:true, ornament:'\u2767' },
+        // 7 — Classic: white, Libre Baskerville, centered bold underlined.
+        classic: { surface:'linear-gradient(135deg,#4f2126 0%,#2c1316 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#000000', margins:{t:0.875,b:0.875,inside:1.0,outside:0.75}, dropPct:25,
+            bodyFont:"'Libre Baskerville', serif", headFont:"'Libre Baskerville', serif", indent:'1.25em', align:'justify', headAlign:'center', headWeight:'700', headDecoration:'underline', accent:'#000000', dropCap:false, ornament:'* * *' },
+        // 8 — Clean: white, Source Serif / Inter, left semibold, minimal.
+        clean: { surface:'linear-gradient(135deg,#374151 0%,#1f2937 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#374151', margins:{t:0.875,b:0.875,inside:1.0,outside:0.875}, dropPct:15,
+            bodyFont:"'Source Serif 4', serif", headFont:"'Inter', sans-serif", indent:'0', paraGap:'8px', align:'justify', headAlign:'left', headWeight:'600', accent:'#9CA3AF', dropCap:false, ornament:'\u2014' },
+        // 9 — Minimalist: white, Libre Baskerville / Jost light uppercase, huge whitespace.
+        minimalist: { surface:'linear-gradient(135deg,#edeff2 0%,#dce0e6 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#4B5563', margins:{t:1.25,b:1.25,inside:1.25,outside:1.25}, dropPct:24,
+            bodyFont:"'Libre Baskerville', serif", headFont:"'Jost', sans-serif", indent:'0', paraGap:'16px', align:'left', headAlign:'center', headTransform:'uppercase', headLs:'.5em', headWeight:'300', accent:'#9CA3AF', dropCap:false, ornament:'\u00b7' },
+        // 10 — POD: white, Crimson Pro / Nunito Sans, left bold + thin rule, KDP-ready.
+        pod: { surface:'linear-gradient(135deg,#374151 0%,#111827 100%)', paper:'#FFFFFF', paperGrad:'none', ink:'#111111', margins:{t:0.875,b:0.75,inside:0.875,outside:0.625}, dropPct:20,
+            bodyFont:"'Crimson Pro', serif", headFont:"'Nunito Sans', sans-serif", indent:'1em', align:'justify', headAlign:'left', headWeight:'700', accent:'#CCCCCC', dropCap:false, headRule:true, ruleMx:'0', ornament:'* * *' },
+        // 11 — Elegant Trade (POD): same elegance, POD trim.
+        elegantpod: { surface:'linear-gradient(135deg,#b49a70 0%,#876c4a 100%)', paper:'#FDFBF7', paperGrad:'none', ink:'#1C1C1C', margins:{t:0.875,b:0.875,inside:1.0,outside:0.75}, dropPct:30,
+            bodyFont:"'Cormorant Garamond', serif", headFont:"'Cormorant SC', 'Cormorant Garamond', serif", indent:'1.5em', align:'justify', headAlign:'center', headTransform:'uppercase', headLs:'.22em', headWeight:'600', accent:'#C9A84C', dropCap:true, dropSize:'3.4em', headRule:true, ornament:'\u2726' }
     };
     var PT = { Small:10, Medium:11.5, Large:13 };
     var TRIMS = { '6x9':[6,9] };
-    var STYLE_MAP = { Novel:'novel', Traditional:'novel', POD:'novel', Modern:'minimal', Contemporary:'minimal', Clean:'minimal', Minimalist:'minimal', Classic:'classic', FineBook:'classic', ElegantTrade:'elegant', ElegantTradePOD:'elegant' };
+    var STYLE_MAP = { Novel:'novel', Traditional:'traditional', POD:'pod', Modern:'modern', Contemporary:'contemporary', Clean:'clean', Minimalist:'minimalist', Classic:'classic', FineBook:'finebook', ElegantTrade:'elegant', ElegantTradePOD:'elegantpod' };
 
     var ipvState = { theme:'novel', size:'Medium', lh:'1.6', trim:'6x9' };
     var geo = {};
@@ -6695,6 +6780,17 @@
                 res.push({ type:'section', text:htext });
                 continue;
             }
+            // Inline images (e.g. extracted from an uploaded .docx) render as centered blocks.
+            var imgEls = node.querySelectorAll ? node.querySelectorAll('img') : [];
+            if (imgEls && imgEls.length) {
+                for (var im = 0; im < imgEls.length; im++) {
+                    var isrc = imgEls[im].getAttribute('src') || '';
+                    if (isrc) res.push({ type:'image', src:isrc });
+                }
+                var withText = (node.textContent || '').replace(/\s+/g, ' ').trim();
+                if (withText) res.push({ type:'para', text:withText });
+                continue;
+            }
             var txt = (node.textContent || '').replace(/\s+/g, ' ').trim();
             if (txt) res.push({ type:'para', text:txt });
         }
@@ -6721,7 +6817,13 @@
 
     /* ---- geometry: fit a real page rectangle into the available pane ---- */
     function computeGeometry() {
-        var trim = TRIMS[ipvState.trim] || TRIMS['6x9'];
+        // Per-style trim size so page SHAPE differs between styles (5×8 / 5.5×8.5 / 6×9).
+        var TRIM_BY_THEME = {
+            elegant:[5.5,8.5], traditional:[5.5,8.5], novel:[5,8], contemporary:[5.5,8.5],
+            modern:[6,9], finebook:[6,9], classic:[5.5,8.5], clean:[6,9],
+            minimalist:[5.5,8.5], pod:[6,9], elegantpod:[5.5,8.5]
+        };
+        var trim = TRIM_BY_THEME[ipvState.theme] || TRIMS[ipvState.trim] || TRIMS['6x9'];
         var trimW = trim[0], trimH = trim[1];
         var ratio = trimW / trimH;
         var scroll = overlay().querySelector('.ipv-scroll');
@@ -6749,6 +6851,33 @@
         node.style.setProperty('--ipv-lh', ipvState.lh);
     }
 
+    /** Push all per-style CSS variables onto a holder so the 11 themes render distinctly
+     *  (and measurement uses the same fonts as the rendered page). */
+    function applyThemeVars(node) {
+        if (!node) return;
+        var t = THEMES[ipvState.theme] || THEMES.novel;
+        var s = node.style;
+        s.setProperty('--ipv-paper', t.paper);
+        s.setProperty('--ipv-paper-grad', t.paperGrad || 'none');
+        s.setProperty('--ipv-ink', t.ink);
+        s.setProperty('--ipv-body-font', t.bodyFont);
+        s.setProperty('--ipv-head-font', t.headFont);
+        s.setProperty('--ipv-indent', t.indent != null ? t.indent : '1.4em');
+        s.setProperty('--ipv-align', t.align || 'justify');
+        s.setProperty('--ipv-para-gap', t.paraGap || '0px');
+        s.setProperty('--ipv-head-align', t.headAlign || 'center');
+        s.setProperty('--ipv-head-transform', t.headTransform || 'none');
+        s.setProperty('--ipv-head-variant', t.headVariant || 'normal');
+        s.setProperty('--ipv-head-ls', t.headLs || 'normal');
+        s.setProperty('--ipv-head-style', t.headStyle || 'normal');
+        s.setProperty('--ipv-head-weight', t.headWeight || '600');
+        s.setProperty('--ipv-head-decoration', t.headDecoration || 'none');
+        s.setProperty('--ipv-accent', t.accent || t.ink);
+        s.setProperty('--ipv-dropcap-size', t.dropSize || '3.2em');
+        s.setProperty('--ipv-rule-mx', t.ruleMx || 'auto');
+        if (node.classList) node.classList.toggle('ipv-dropcap', !!t.dropCap);
+    }
+
     function makeHost() {
         var c = document.createElement('div');
         c.className = 'ipv-content';
@@ -6759,15 +6888,17 @@
 
     function renderBlock(b) {
         if (b.type === 'chapter') {
+            var th = THEMES[ipvState.theme] || THEMES.novel;
             var ch = document.createElement('div');
             ch.className = 'ipv-chapter';
-            ch.style.paddingTop = Math.round(geo.contentH * THEMES[ipvState.theme].dropPct / 100) + 'px';
+            ch.style.paddingTop = Math.round(geo.contentH * th.dropPct / 100) + 'px';
             ch.style.paddingBottom = '1.6em';
             var inner = '';
-            if (THEMES[ipvState.theme].dropCap === 'big' || ipvState.theme === 'classic')
-                inner += '<div class="ipv-flourish">' + THEMES[ipvState.theme].ornament + '</div>';
+            // Ornament above the heading (Fine Book / Elegant gold mark).
+            if (th.ornTop) inner += '<div class="ipv-flourish">' + (th.ornTopChar || th.ornament) + '</div>';
             inner += '<div class="ipv-chnum"></div><div class="ipv-chtitle"></div>';
-            if (ipvState.theme === 'elegant') inner += '<div class="ipv-chrule"></div>';
+            // Accent rule under the heading (Elegant gold, Contemporary/POD line).
+            if (th.headRule) inner += '<div class="ipv-chrule"></div>';
             ch.innerHTML = inner;
             ch.querySelector('.ipv-chnum').textContent = b.num || '';
             ch.querySelector('.ipv-chtitle').textContent = b.title || '';
@@ -6784,6 +6915,15 @@
             sec.className = 'ipv-section';
             sec.textContent = b.text || '';
             return sec;
+        }
+        if (b.type === 'image') {
+            var fig = document.createElement('div');
+            fig.className = 'ipv-figure';
+            var img = document.createElement('img');
+            img.src = b.src || '';
+            img.alt = '';
+            fig.appendChild(img);
+            return fig;
         }
         var p = document.createElement('p');
         p.className = 'ipv-para' + (b.first ? ' first' : '') + (b.cont ? ' cont' : '');
@@ -6837,6 +6977,10 @@
         measure.setAttribute('data-ipv-theme', ipvState.theme);
         el('ipvLineWrap').setAttribute('data-ipv-theme', ipvState.theme);
         applyTypo(measure);
+        // Measurement must use the SAME fonts/indent/drop-cap as the rendered page,
+        // otherwise top "Page X of Y" (measured) and the visible pages disagree.
+        applyThemeVars(measure);
+        applyThemeVars(el('ipvLineWrap'));
         var host = makeHost();
         measure.appendChild(host);
 
@@ -6880,7 +7024,7 @@
             host.appendChild(node);
             if (host.scrollHeight <= geo.contentH + 0.5) { pageBlocks.push(blk); continue; }
             host.removeChild(node);
-            if (blk.type === 'scene') {
+            if (blk.type === 'scene' || blk.type === 'image') {
                 commit();
                 host.appendChild(renderBlock(blk));
                 pageBlocks.push(blk);
@@ -6913,13 +7057,10 @@
 
     function renderPage(idx) {
         var page = el('ipvPage');
-        var t = THEMES[ipvState.theme];
         page.setAttribute('data-ipv-theme', ipvState.theme);
         page.style.width = geo.pageW + 'px';
         page.style.height = geo.pageH + 'px';
-        page.style.setProperty('--ipv-paper', t.paper);
-        page.style.setProperty('--ipv-paper-grad', t.paperGrad);
-        page.style.setProperty('--ipv-ink', t.ink);
+        applyThemeVars(page);
         applyTypo(page);
         page.innerHTML = '';
 
@@ -6952,13 +7093,27 @@
         var pn = document.createElement('div');
         pn.className = 'ipv-folio';
         pn.style.bottom = (geo.marginBottom * 0.4) + 'px';
-        if (ipvState.theme === 'minimal') {
+        // Outer-corner folios (Traditional / Novel / Modern / Classic) vs centered (rest).
+        var outerFolio = (ipvState.theme === 'traditional' || ipvState.theme === 'novel' ||
+                          ipvState.theme === 'modern' || ipvState.theme === 'classic');
+        if (outerFolio) {
             if (isRecto) pn.style.right = rightMargin + 'px'; else pn.style.left = leftMargin + 'px';
         } else { pn.style.left = '0'; pn.style.right = '0'; pn.style.textAlign = 'center'; }
         pn.textContent = pageNo;
-        if (!startsWithChapter || ipvState.theme === 'minimal') page.appendChild(pn);
+        // Folio is hidden on chapter-opener pages, except Minimalist (shown on every page).
+        if (!startsWithChapter || ipvState.theme === 'minimalist') page.appendChild(pn);
 
         el('ipvCounter').textContent = 'Page ' + pageNo + ' / ' + PAGES.length;
+        // Keep the top "Page X of Y" indicator on the SAME count as the bottom
+        // "Total pages: Y" badge (both driven by this IPV reader = source of truth).
+        try {
+            window.__ipvCurrentPage = idx;
+            var fpiTop = document.getElementById('fmt-page-indicator');
+            if (fpiTop) {
+                fpiTop.textContent = 'Page ' + (idx + 1) + ' of ' + PAGES.length;
+                fpiTop.classList.toggle('hidden', PAGES.length === 0);
+            }
+        } catch (eTop) {}
         el('ipvPrev').disabled = idx === 0;
         el('ipvNext').disabled = idx === PAGES.length - 1;
     }
@@ -7309,55 +7464,47 @@
         margin: 0; font-family: var(--ipv-body-font);
         font-size: var(--ipv-body-size); line-height: var(--ipv-lh);
         color: var(--ipv-ink); text-indent: var(--ipv-indent, 1.4em);
+        text-align: var(--ipv-align, justify);
         -webkit-hyphens: auto; hyphens: auto;
         font-feature-settings: "liga" 1, "kern" 1;
     }
+    /* No-indent styles (Modern/Contemporary/Clean/Minimalist) use a vertical gap instead of an indent. */
+    #ipvOverlay .ipv-para + .ipv-para { margin-top: var(--ipv-para-gap, 0px); }
     #ipvOverlay .ipv-para.first, #ipvOverlay .ipv-para.cont { text-indent: 0; }
-    #ipvOverlay .ipv-chapter { text-align: center; }
-    #ipvOverlay .ipv-chapter .ipv-flourish { font-size: 22px; opacity: .65; margin-bottom: 14px; line-height: 1; }
+    /* Drop cap — turned on per style via the .ipv-dropcap class on the page/measure host. */
+    #ipvOverlay .ipv-dropcap .ipv-para.first::first-letter {
+        float: left; font-family: var(--ipv-head-font); font-weight: 700;
+        font-size: var(--ipv-dropcap-size, 3.2em); line-height: .72;
+        padding: .02em .12em 0 0; color: var(--ipv-accent, var(--ipv-ink));
+    }
+    #ipvOverlay .ipv-chapter { text-align: var(--ipv-head-align, center); }
+    #ipvOverlay .ipv-chapter .ipv-flourish { font-size: 24px; color: var(--ipv-accent, var(--ipv-ink)); opacity: .9; margin-bottom: 14px; line-height: 1; }
     #ipvOverlay .ipv-chapter .ipv-chnum {
-        font-family: var(--ipv-head-font); font-size: calc(var(--ipv-body-size) * .85);
-        letter-spacing: .22em; text-transform: uppercase; opacity: .6; margin-bottom: 12px;
+        font-family: var(--ipv-head-font); font-size: calc(var(--ipv-body-size) * .8);
+        letter-spacing: .22em; text-transform: uppercase; color: var(--ipv-accent, var(--ipv-ink)); opacity: .75; margin-bottom: 12px;
     }
     #ipvOverlay .ipv-chapter .ipv-chtitle {
         font-family: var(--ipv-head-font); font-size: calc(var(--ipv-body-size) * 1.85);
-        font-weight: 600; line-height: 1.15;
+        font-weight: var(--ipv-head-weight, 600); line-height: 1.18;
+        font-style: var(--ipv-head-style, normal);
+        font-variant: var(--ipv-head-variant, normal);
+        text-transform: var(--ipv-head-transform, none);
+        letter-spacing: var(--ipv-head-ls, normal);
+        text-decoration: var(--ipv-head-decoration, none);
+        color: var(--ipv-ink);
     }
-    #ipvOverlay .ipv-chapter .ipv-chrule { width: 46px; height: 1.5px; background: var(--ipv-ink); opacity: .45; margin: 14px auto 0; }
+    #ipvOverlay .ipv-chapter .ipv-chrule { width: 56px; height: 2px; background: var(--ipv-accent, var(--ipv-ink)); opacity: .85; margin: 14px var(--ipv-rule-mx, auto) 0; }
     #ipvOverlay .ipv-scene {
-        text-align: center; font-family: var(--ipv-body-font); color: var(--ipv-ink);
-        opacity: .6; margin: calc(var(--ipv-lh) * .55em) 0; letter-spacing: .3em;
+        text-align: center; font-family: var(--ipv-body-font); color: var(--ipv-accent, var(--ipv-ink));
+        opacity: .7; margin: calc(var(--ipv-lh) * .55em) 0; letter-spacing: .3em;
     }
     #ipvOverlay .ipv-section {
         font-family: var(--ipv-head-font); color: var(--ipv-ink);
-        font-size: calc(var(--ipv-body-size) * 1.28); font-weight: 600;
+        font-size: calc(var(--ipv-body-size) * 1.22); font-weight: 700;
         line-height: 1.2; margin: 0 0 calc(var(--ipv-lh) * .7em);
         text-align: left;
     }
-
-    /* themes — vars live on the [data-ipv-theme] holders (page + measure hosts) */
-    #ipvOverlay [data-ipv-theme="novel"] { --ipv-body-font: 'Merriweather', serif; --ipv-head-font: 'Merriweather', serif; --ipv-indent: 1.4em; }
-    #ipvOverlay [data-ipv-theme="novel"] .ipv-para { text-align: justify; }
-    #ipvOverlay [data-ipv-theme="novel"] .ipv-chtitle { letter-spacing: .04em; font-variant: small-caps; font-weight: 700; }
-    #ipvOverlay [data-ipv-theme="novel"] .ipv-running-head { letter-spacing: .12em; text-transform: uppercase; font-variant: small-caps; text-align: center; }
-
-    #ipvOverlay [data-ipv-theme="classic"] { --ipv-body-font: 'Cormorant Garamond', serif; --ipv-head-font: 'Cormorant Garamond', serif; --ipv-indent: 1.3em; }
-    #ipvOverlay [data-ipv-theme="classic"] .ipv-para { text-align: justify; font-size: calc(var(--ipv-body-size) * 1.12); font-feature-settings: "liga" 1, "dlig" 1, "kern" 1; }
-    #ipvOverlay [data-ipv-theme="classic"] .ipv-para.first::first-letter { float: left; font-family: 'Cormorant Garamond', serif; font-weight: 600; font-size: 3.5em; line-height: .74; padding: .04em .08em 0 0; }
-    #ipvOverlay [data-ipv-theme="classic"] .ipv-chtitle { font-style: italic; font-weight: 500; }
-    #ipvOverlay [data-ipv-theme="classic"] .ipv-running-head { font-style: italic; text-align: center; }
-
-    #ipvOverlay [data-ipv-theme="minimal"] { --ipv-body-font: 'Inter', sans-serif; --ipv-head-font: 'Inter', sans-serif; --ipv-indent: 0; }
-    #ipvOverlay [data-ipv-theme="minimal"] .ipv-para { text-align: left; font-size: calc(var(--ipv-body-size) * .95); }
-    #ipvOverlay [data-ipv-theme="minimal"] .ipv-para + .ipv-para { margin-top: calc(var(--ipv-lh) * .62em); text-indent: 0; }
-    #ipvOverlay [data-ipv-theme="minimal"] .ipv-chapter { text-align: left; }
-    #ipvOverlay [data-ipv-theme="minimal"] .ipv-chnum { letter-spacing: .3em; }
-    #ipvOverlay [data-ipv-theme="minimal"] .ipv-chtitle { font-weight: 700; font-size: calc(var(--ipv-body-size) * 2.1); letter-spacing: -.01em; }
-    #ipvOverlay [data-ipv-theme="minimal"] .ipv-running-head { letter-spacing: .18em; text-transform: uppercase; opacity: .4; }
-
-    #ipvOverlay [data-ipv-theme="elegant"] { --ipv-body-font: 'EB Garamond', serif; --ipv-head-font: 'EB Garamond', serif; --ipv-indent: 1.2em; }
-    #ipvOverlay [data-ipv-theme="elegant"] .ipv-para { text-align: justify; }
-    #ipvOverlay [data-ipv-theme="elegant"] .ipv-para.first::first-letter { font-size: 1.9em; font-weight: 600; line-height: 1; }
-    #ipvOverlay [data-ipv-theme="elegant"] .ipv-chtitle { font-weight: 700; }
-    #ipvOverlay [data-ipv-theme="elegant"] .ipv-running-head { letter-spacing: .12em; text-transform: uppercase; font-variant: small-caps; text-align: center; }
+    #ipvOverlay .ipv-figure { text-align: center; margin: .85em 0; }
+    #ipvOverlay .ipv-figure img { max-width: 100%; max-height: 60%; height: auto; display: inline-block; }
+    #ipvOverlay .ipv-running-head { text-align: var(--ipv-rh-align, center); letter-spacing: .12em; text-transform: uppercase; font-variant: var(--ipv-head-variant, small-caps); }
 </style>

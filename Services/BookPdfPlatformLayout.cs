@@ -23,35 +23,61 @@ public static class BookPdfPlatformLayout
     public static PdfLayoutSpec Resolve(BookPdfExportOptions opt, BookPdfLayoutOptions? marginOverrides = null)
     {
         var platform = NormalizePlatform(opt.PrimaryPlatformToken());
-        var fmt = (opt.Format ?? "Ebook").Trim();
+        var bleedHeavy = platform is "justprint" or "ingram";
 
-        // Ebook-only workflow → same 6×9 KDP trim as formatter preview (preview ≡ PDF).
-        if (string.IsNullOrEmpty(platform) &&
-            fmt.Equals("Ebook", StringComparison.OrdinalIgnoreCase))
-            return ApplyMarginOverrides(Trim6x9Print(bleedHeavy: false), marginOverrides);
+        // Start from the standard print spec (full-trim page; margin 0 because the per-style
+        // insets are provided by .book-preview-sheet padding, identical to the formatter preview).
+        var spec = ApplyMarginOverrides(Trim6x9Print(bleedHeavy), marginOverrides);
 
-        // Print / dual format without explicit platform → standard 6×9 interior.
-        if (string.IsNullOrEmpty(platform) &&
-            (fmt.Equals("Paperback", StringComparison.OrdinalIgnoreCase) ||
-             fmt.Equals("Print", StringComparison.OrdinalIgnoreCase) ||
-             fmt.Equals("Both", StringComparison.OrdinalIgnoreCase)))
+        // Page SHAPE follows the selected interior style so the exported PDF trim matches what
+        // the user sees in the per-style preview (Novel 5×8, Elegant/Traditional/Classic/Contemporary/
+        // Minimalist/ElegantTradePOD 5.5×8.5, Modern/FineBook/Clean/POD 6×9).
+        var (tw, th) = TrimForInterior(opt.InteriorStyle);
+
+        // POD styles carry a 0.125in bleed on every side → page grows by 0.25in per dimension.
+        // The interior CSS adds matching bleed padding so text stays in the safe zone inside trim.
+        var style = InteriorExportTheme.NormalizeInteriorStyle(opt.InteriorStyle);
+        var isPodBleed = style is "POD" or "ElegantTradePOD";
+        if (isPodBleed)
         {
-            return ApplyMarginOverrides(Trim6x9Print(bleedHeavy: false), marginOverrides);
+            tw = AddBleed(tw);
+            th = AddBleed(th);
         }
 
-        var spec = platform switch
+        spec = spec with
         {
-            "justprint" => Trim6x9Print(bleedHeavy: true),
-            "ingram" => Trim6x9Print(bleedHeavy: true),
-            "bn" => Trim6x9Print(bleedHeavy: false),
-            "kdp" => Trim6x9Print(bleedHeavy: false),
-            _ => fmt.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
-                ? Trim6x9Print(bleedHeavy: false)
-                : Trim6x9Print(bleedHeavy: false)
+            PageSizeCss = $"{tw} {th}",
+            PdfWidth = tw,
+            PdfHeight = th,
+            UseBuiltInFormat = false,
+            // POD bleed → explicit Width/Height takes priority over CSS @page size; all other
+            // styles keep PreferCSSPageSize=true so the CSS @page trim is authoritative.
+            PreferCssPageSize = !isPodBleed
         };
-        return spec.PageSizeCss.Contains("6in", StringComparison.Ordinal)
-            ? ApplyMarginOverrides(spec, marginOverrides)
-            : spec;
+        return spec;
+    }
+
+    /// <summary>Adds a 0.125in bleed per side (0.25in total) to an inches CSS dimension like "6in".</summary>
+    private static string AddBleed(string inches)
+    {
+        var raw = inches.Replace("in", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+        return double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)
+            ? string.Concat((v + 0.25).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), "in")
+            : inches;
+    }
+
+    /// <summary>Trim size (inches CSS) for each interior style — keeps PDF shape == preview shape.</summary>
+    private static (string Width, string Height) TrimForInterior(string? interiorStyle)
+    {
+        var style = InteriorExportTheme.NormalizeInteriorStyle(interiorStyle);
+        return style switch
+        {
+            "Novel" => ("5in", "8in"),
+            "ElegantTrade" or "Traditional" or "Contemporary" or "Classic"
+                or "Minimalist" or "ElegantTradePOD" => ("5.5in", "8.5in"),
+            "Modern" or "FineBook" or "Clean" or "POD" => ("6in", "9in"),
+            _ => ("6in", "9in")
+        };
     }
 
     private static PdfLayoutSpec ApplyMarginOverrides(PdfLayoutSpec spec, BookPdfLayoutOptions? o)

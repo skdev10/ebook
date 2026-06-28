@@ -176,6 +176,120 @@ public static class ChapterDocumentImportService
         }
     }
 
+    /// <summary>
+    /// Rich .docx extraction: returns chapters whose <see cref="ImportedChapter.Body"/> is HTML
+    /// (paragraphs + inline base64 images), split on Word "Heading" styles or "Chapter N" lines.
+    /// Embedded images are kept at their position so they survive into preview + PDF export.
+    /// </summary>
+    public static List<ImportedChapter> ExtractDocxChapters(byte[] bytes, out string combinedPlainText)
+    {
+        combinedPlainText = string.Empty;
+        var chapters = new List<ImportedChapter>();
+        try
+        {
+            using var ms = new MemoryStream(bytes, writable: false);
+            using var doc = WordprocessingDocument.Open(ms, false);
+            var mainPart = doc.MainDocumentPart;
+            var body = mainPart?.Document?.Body;
+            if (mainPart == null || body == null)
+                return chapters;
+
+            var plain = new StringBuilder();
+            var curTitle = string.Empty;
+            var curBody = new StringBuilder();
+            var curNo = 0;
+
+            void Flush()
+            {
+                var html = curBody.ToString().Trim();
+                if (html.Length == 0 && string.IsNullOrEmpty(curTitle))
+                    return;
+                curNo++;
+                var title = string.IsNullOrWhiteSpace(curTitle) ? $"Chapter {curNo}" : curTitle;
+                chapters.Add(new ImportedChapter(curNo, TruncateSuggestedTitle(title), html));
+                curBody.Clear();
+                curTitle = string.Empty;
+            }
+
+            foreach (var para in body.Elements<Paragraph>())
+            {
+                var styleId = para.ParagraphProperties?.ParagraphStyleId?.Val?.Value ?? string.Empty;
+                var text = (para.InnerText ?? string.Empty).Trim();
+                var isHeadingStyle = styleId.StartsWith("Heading", StringComparison.OrdinalIgnoreCase)
+                    && (styleId.EndsWith("1", StringComparison.Ordinal)
+                        || styleId.EndsWith("2", StringComparison.Ordinal)
+                        || styleId.Equals("Heading", StringComparison.OrdinalIgnoreCase)
+                        || styleId.Equals("Title", StringComparison.OrdinalIgnoreCase));
+                var isHeadingText = text.Length is > 0 and <= 120 && Regex.IsMatch(
+                    text,
+                    @"^(?:Chapter|CHAPTER|Part|PART|Prologue|Epilogue|Introduction|Conclusion)\b",
+                    RegexOptions.IgnoreCase);
+
+                var imgs = ExtractParagraphImagesHtml(para, mainPart);
+
+                if ((isHeadingStyle || isHeadingText) && text.Length > 0)
+                {
+                    if (curBody.Length > 0 || !string.IsNullOrEmpty(curTitle))
+                        Flush();
+                    curTitle = text;
+                    plain.AppendLine(text);
+                    if (imgs.Length > 0) curBody.Append(imgs);
+                    continue;
+                }
+
+                if (text.Length > 0)
+                {
+                    curBody.Append("<p>").Append(System.Net.WebUtility.HtmlEncode(text)).Append("</p>");
+                    plain.AppendLine(text);
+                }
+                if (imgs.Length > 0)
+                    curBody.Append(imgs);
+            }
+
+            Flush();
+            combinedPlainText = plain.ToString();
+        }
+        catch (Exception ex) when (ex is FileFormatException or InvalidDataException or OpenXmlPackageException)
+        {
+            throw new InvalidOperationException("This Word file could not be read. Re-save it as .docx in Microsoft Word or Google Docs, then upload again.");
+        }
+
+        return chapters;
+    }
+
+    /// <summary>Reads inline images from a paragraph and returns centered, responsive base64 &lt;img&gt; blocks.</summary>
+    private static string ExtractParagraphImagesHtml(Paragraph para, MainDocumentPart mainPart)
+    {
+        var sb = new StringBuilder();
+        foreach (var blip in para.Descendants<DocumentFormat.OpenXml.Drawing.Blip>())
+        {
+            var relId = blip.Embed?.Value;
+            if (string.IsNullOrEmpty(relId))
+                continue;
+            try
+            {
+                if (mainPart.GetPartById(relId) is not ImagePart part)
+                    continue;
+                using var stream = part.GetStream();
+                using var imgMs = new MemoryStream();
+                stream.CopyTo(imgMs);
+                var imageBytes = imgMs.ToArray();
+                if (imageBytes.Length == 0)
+                    continue;
+                var contentType = string.IsNullOrWhiteSpace(part.ContentType) ? "image/png" : part.ContentType;
+                var b64 = Convert.ToBase64String(imageBytes);
+                sb.Append("<p class=\"manuscript-figure\" style=\"text-align:center;margin:1em 0;\">")
+                  .Append("<img src=\"data:").Append(contentType).Append(";base64,").Append(b64)
+                  .Append("\" style=\"max-width:100%;height:auto;\" alt=\"\" /></p>");
+            }
+            catch
+            {
+                /* skip unreadable image */
+            }
+        }
+        return sb.ToString();
+    }
+
     /// <summary>Normalize imported text for JSON + preview (strip nulls, invalid Unicode, cap length).</summary>
     public static string SanitizeImportedText(string? text)
     {

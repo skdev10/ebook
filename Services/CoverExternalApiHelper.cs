@@ -24,6 +24,7 @@ namespace EBookDashboard.Services
                 "elegant" => "Elegant",
                 "modern" => "Modern Illustration",
                 "vintage" => "Vintage",
+                "cartoon" => "Children's book cartoon style, bright bold colors, thick outlines, playful bubbly typography, fun illustrated background",
                 _ => styleKey.Trim()
             };
             var dir = (imageDirection ?? "").Trim();

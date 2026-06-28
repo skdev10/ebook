@@ -337,13 +337,20 @@ public class ManuscriptExportPrepTests
     [Fact]
     public void BookPdfPlatformLayout_ebook_uses_6x9_trim_with_zero_chromium_margins()
     {
-        var spec = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions { Format = "Ebook" });
+        // 6×9 interior styles (Modern/Clean/FineBook/POD) keep the 6×9 trim with zero Chromium
+        // margins (per-style insets live in the sheet padding). Trim now follows the interior style.
+        var spec = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions { Format = "Ebook", InteriorStyle = "Modern" });
         Assert.Contains("6in", spec.PageSizeCss, StringComparison.Ordinal);
         Assert.False(spec.UseBuiltInFormat);
         Assert.Equal("0", spec.MarginTop);
         Assert.Equal("0", spec.MarginBottom);
         Assert.Equal("0", spec.MarginLeft);
         Assert.Equal("0", spec.MarginRight);
+
+        // Novel maps to the 5×8 mass-market trim so the PDF shape matches the per-style preview.
+        var novel = BookPdfPlatformLayout.Resolve(new BookPdfExportOptions { Format = "Ebook", InteriorStyle = "Novel" });
+        Assert.Contains("5in", novel.PageSizeCss, StringComparison.Ordinal);
+        Assert.Contains("8in", novel.PageSizeCss, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -462,7 +469,8 @@ public class ManuscriptExportPrepTests
         Assert.Contains("book-pdf-body", render.Html, StringComparison.Ordinal);
         Assert.Contains("reader-chapter-block", render.Html, StringComparison.Ordinal);
         Assert.Contains("Palatino", render.Html, StringComparison.Ordinal);
-        Assert.Contains("6in", render.Layout.PageSizeCss, StringComparison.Ordinal);
+        // Novel is the 5×8 mass-market trim (matches the per-style preview shape).
+        Assert.Contains("5in", render.Layout.PageSizeCss, StringComparison.Ordinal);
         Assert.Equal("Novel", render.Settings.InteriorStyle);
     }
 

@@ -93,17 +93,25 @@ public sealed class ChromiumPdfExporter
         var o = new PdfOptions
         {
             PrintBackground = true,
-            PreferCSSPageSize = true,
+            // POD bleed styles set PreferCssPageSize=false so the explicit bleed Width/Height below
+            // is authoritative; all other styles keep CSS @page size.
+            PreferCSSPageSize = layout.PreferCssPageSize,
             DisplayHeaderFooter = useChromeHeaderFooter,
             HeaderTemplate = headerTemplate ?? string.Empty,
             FooterTemplate = footerTemplate ?? string.Empty,
-            MarginOptions = new MarginOptions
-            {
-                Top = layout.MarginTop,
-                Bottom = layout.MarginBottom,
-                Left = layout.MarginLeft,
-                Right = layout.MarginRight
-            }
+            // When running headers/folios are active, Chromium draws them inside the top/bottom
+            // page margins, so we must reserve vertical space here (horizontal margins still come
+            // from CSS sheet padding). The interior CSS trims the sheet's top/bottom padding by a
+            // matching amount so the text block keeps its intended position.
+            MarginOptions = useChromeHeaderFooter
+                ? new MarginOptions { Top = "18mm", Bottom = "16mm", Left = layout.MarginLeft, Right = layout.MarginRight }
+                : new MarginOptions
+                {
+                    Top = layout.MarginTop,
+                    Bottom = layout.MarginBottom,
+                    Left = layout.MarginLeft,
+                    Right = layout.MarginRight
+                }
         };
 
         if (layout.UseBuiltInFormat)

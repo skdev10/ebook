@@ -3596,11 +3596,23 @@ document.addEventListener('DOMContentLoaded', function() {
             var title = (c.title || c.chapterTitle || ('Chapter ' + no)).toString().trim();
             return { chapterNo: no, chapterTitle: title, title: title, content: (c.text || c.content || '').toString() };
         });
-        // Auto-populate the chapter dropdown with every detected chapter (title from the document),
-        // then select the first one so the writer/editor opens on it.
+        // Existing chapters already in the preview/list — imported chapters must be APPENDED
+        // below these (never replace them). When the list is empty we fall back to a plain load.
+        var existingMeta = (Array.isArray(window._previewChaptersMeta) ? window._previewChaptersMeta : [])
+            .filter(function (m) { return m && (m.html != null); }).slice();
+        var hasExisting = existingMeta.length > 0;
+        var maxExistingNo = 0;
+        existingMeta.forEach(function (m) {
+            var n = parseInt(m.chapterNo, 10);
+            if (Number.isFinite(n) && n > maxExistingNo) maxExistingNo = n;
+        });
+        // Renumber imported chapters so they continue after the last existing chapter.
+        if (hasExisting) {
+            mapped.forEach(function (c, i) { c.chapterNo = maxExistingNo + i + 1; });
+        }
+
         var ddl = document.getElementById('ChapterDropdown');
         if (ddl) {
-            // Drop the placeholder "Click Add a chapter to start" option once we have real chapters.
             mapped.forEach(function (c) {
                 var s = String(c.chapterNo);
                 var existing = null, k;
@@ -3614,7 +3626,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     opt.value = s; opt.textContent = label; ddl.appendChild(opt);
                 }
             });
-            // Remove the initial placeholder option (value 1 with the prompt text) if a real ch1 exists.
+            // Drop the placeholder "Click Add a chapter to start" option once real chapters exist.
             for (var p = ddl.options.length - 1; p >= 0; p--) {
                 var o = ddl.options[p];
                 if (o.textContent && o.textContent.indexOf('Add a chapter') >= 0) ddl.removeChild(o);
@@ -3624,18 +3636,49 @@ document.addEventListener('DOMContentLoaded', function() {
         var chEl = document.getElementById('ChapterNo');
         if (chEl) chEl.value = String(firstNo);
         if (ddl) ddl.value = String(firstNo);
-        var titleEl = document.getElementById('Title');
-        if (titleEl) titleEl.value = mapped[0].title;
-        if (typeof window.showBookContent !== 'function') return false;
-        window.showBookContent({ bookTitle: btitle, chapters: mapped });
-        var previewTitle = document.getElementById('preview-book-title');
-        if (previewTitle && btitle) previewTitle.textContent = btitle;
+        var titleEl2 = document.getElementById('Title');
+        if (titleEl2) titleEl2.value = mapped[0].title;
+
+        var doneToast = function () {
+            var fileLabel = meta.fileName ? (' from ' + meta.fileName) : '';
+            if (typeof showNotification === 'function')
+                showNotification('\u2705 ' + mapped.length + ' chapters imported' + fileLabel + '.', 'success');
+            if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+        };
+
+        if (hasExisting && typeof window.setPreviewChaptersFromList === 'function') {
+            // Build formatted meta for the new chapters and append to the existing list.
+            var escFn = typeof window.escapeHtml === 'function' ? window.escapeHtml : function (x) {
+                return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            };
+            var newMeta = mapped.map(function (c) {
+                var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
+                    ? window.buildPreviewChapterHeadingHtml(c.title, escFn) : '';
+                var raw = String(c.content || '');
+                var normalized = typeof window.normalizeManuscriptEscapes === 'function'
+                    ? window.normalizeManuscriptEscapes(raw) : raw;
+                var bodyHtml = typeof window.formatManuscriptBodyToHtml === 'function'
+                    ? window.formatManuscriptBodyToHtml(normalized)
+                    : (normalized.indexOf('<') >= 0 ? normalized : '<p class="manuscript-p">' + escFn(normalized) + '</p>');
+                var plain = normalized.indexOf('<') >= 0 ? normalized.replace(/<[^>]+>/g, ' ') : normalized;
+                var wc = plain.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean).length;
+                var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
+                    ? window.sanitizeChapterTitleForInput(c.title) : c.title;
+                return { html: headingHtml + bodyHtml, title: cleanTitle || c.title || '', wordCount: wc, chapterNo: c.chapterNo };
+            });
+            var merged = existingMeta.concat(newMeta);
+            var firstNewIdx = existingMeta.length;
+            window.setPreviewChaptersFromList(merged, firstNewIdx, 0);
+            doneToast();
+        } else {
+            if (typeof window.showBookContent !== 'function') return false;
+            window.showBookContent({ bookTitle: btitle, chapters: mapped });
+            var previewTitle = document.getElementById('preview-book-title');
+            if (previewTitle && btitle) previewTitle.textContent = btitle;
+            doneToast();
+        }
         var br = document.getElementById('bookResult');
         if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
-        if (typeof showNotification === 'function') {
-            showNotification('\u2705 ' + mapped.length + ' chapters detected and imported successfully.', 'success');
-        }
-        if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
         return true;
     };
     function setDocUploadBusy(busy) {
@@ -3651,49 +3694,115 @@ document.addEventListener('DOMContentLoaded', function() {
             importInput.click();
         });
     }
+    // Lightweight upload progress bar (created on demand, inline-styled — no CSS dependency).
+    var _docProgressEls = null;
+    function getDocProgressEls() {
+        if (!docUploadBtn) return null;
+        if (_docProgressEls && document.body.contains(_docProgressEls.bar)) return _docProgressEls;
+        var bar = document.createElement('div');
+        bar.id = 'docUploadProgress';
+        bar.style.cssText = 'margin-top:8px;display:none;';
+        var track = document.createElement('div');
+        track.style.cssText = 'height:6px;background:#f3f4f6;border-radius:6px;overflow:hidden;';
+        var fill = document.createElement('div');
+        fill.style.cssText = 'height:100%;width:0%;background:#3b82f6;border-radius:6px;transition:width .3s ease;';
+        track.appendChild(fill);
+        var text = document.createElement('span');
+        text.style.cssText = 'display:block;font-size:11px;color:#6b7280;margin-top:4px;';
+        bar.appendChild(track);
+        bar.appendChild(text);
+        var anchor = docUploadBtn.parentNode || docUploadBtn;
+        if (docUploadBtn.parentNode) anchor.insertBefore(bar, docUploadBtn.nextSibling);
+        else anchor.appendChild(bar);
+        _docProgressEls = { bar: bar, fill: fill, text: text };
+        return _docProgressEls;
+    }
+    function setDocProgress(pct, label) {
+        var els = getDocProgressEls();
+        if (!els) return;
+        els.bar.style.display = 'block';
+        els.fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+        els.text.textContent = label || '';
+    }
+    function hideDocProgress(delay) {
+        var els = getDocProgressEls();
+        if (!els) return;
+        setTimeout(function () {
+            els.bar.style.display = 'none';
+            els.fill.style.width = '0%';
+            els.text.textContent = '';
+        }, delay || 0);
+    }
+
     if (importInput) {
         importInput.addEventListener('change', function () {
             var f = importInput.files && importInput.files[0];
             if (!f) return;
             setDocUploadBusy(true);
-            if (typeof showNotification === 'function') showNotification('Reading document…', 'info');
+            setDocProgress(3, 'Uploading ' + (f.name || 'document') + '…');
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/Books/ImportChapterFile', true);
+            xhr.withCredentials = true;
+
+            xhr.upload.onprogress = function (e) {
+                if (e.lengthComputable) {
+                    var pct = Math.round((e.loaded / e.total) * 55);
+                    setDocProgress(Math.max(3, pct), 'Uploading… ' + Math.min(55, pct) + '%');
+                }
+            };
+            xhr.upload.onload = function () { setDocProgress(70, 'Processing chapters…'); };
+
+            xhr.onerror = function () {
+                importInput.value = '';
+                if (typeof showNotification === 'function') showNotification('Import failed. Please try again.', 'error');
+                hideDocProgress(0);
+                setDocUploadBusy(false);
+            };
+
+            xhr.onload = function () {
+                importInput.value = '';
+                var data = null;
+                try { data = JSON.parse(xhr.responseText); } catch (e) {}
+                if (xhr.status < 200 || xhr.status >= 300 || !data || !data.success) {
+                    var msg = (data && data.message) ||
+                        (xhr.status === 401 ? 'Please sign in again.' : 'Import failed (' + xhr.status + ').');
+                    if (typeof showNotification === 'function') showNotification(msg, 'error');
+                    hideDocProgress(0);
+                    setDocUploadBusy(false);
+                    return;
+                }
+                setDocProgress(90, 'Adding chapters…');
+                try {
+                    var multi = Array.isArray(data.chapters) ? data.chapters : [];
+                    // Structured (list) path when multiple chapters OR embedded images — keeps the
+                    // HTML body (with <img>) and APPENDS to the existing chapter list.
+                    if ((multi.length > 1 || (data.hasImages && multi.length >= 1)) &&
+                        typeof window.applyImportedMultiChapterDocument === 'function') {
+                        window.applyImportedMultiChapterDocument(multi, {
+                            suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
+                            fileName: (f && f.name) ? f.name : ''
+                        });
+                    } else {
+                        window.applyImportedChapterDocument(data.text, {
+                            suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
+                            suggestedChapterTitle: (data.suggestedChapterTitle || '').trim(),
+                            suggestedChapterNo: data.suggestedChapterNo
+                        });
+                    }
+                    var cc = data.chapterCount || multi.length || 1;
+                    setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' added');
+                } catch (e) {
+                    if (typeof showNotification === 'function') showNotification('Import processing failed.', 'error');
+                } finally {
+                    hideDocProgress(1600);
+                    setDocUploadBusy(false);
+                }
+            };
+
             var fd = new FormData();
             fd.append('file', f);
-            fetch('/Books/ImportChapterFile', { method: 'POST', body: fd, credentials: 'same-origin' })
-                .then(function (r) {
-                    return r.json().then(function (data) {
-                        if (!r.ok && data && !data.message)
-                            data.message = 'Import failed (' + r.status + ').';
-                        return data;
-                    }).catch(function () {
-                        if (!r.ok)
-                            throw new Error(r.status === 401 ? 'Please sign in again.' : 'Import failed (' + r.status + ').');
-                        throw new Error('Server returned an invalid response.');
-                    });
-                })
-                .then(function (data) {
-                    importInput.value = '';
-                    if (!data || !data.success) {
-                        if (typeof showNotification === 'function') showNotification((data && data.message) || 'Import failed', 'error');
-                        return;
-                    }
-                    var multi = Array.isArray(data.chapters) ? data.chapters : [];
-                    if (multi.length > 1 && typeof window.applyImportedMultiChapterDocument === 'function') {
-                        window.applyImportedMultiChapterDocument(multi, {
-                            suggestedBookTitle: (data.suggestedBookTitle || '').trim()
-                        });
-                        return;
-                    }
-                    window.applyImportedChapterDocument(data.text, {
-                        suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
-                        suggestedChapterTitle: (data.suggestedChapterTitle || '').trim(),
-                        suggestedChapterNo: data.suggestedChapterNo
-                    });
-                })
-                .catch(function (err) {
-                    if (typeof showNotification === 'function') showNotification(err.message || 'Import failed', 'error');
-                })
-                .finally(function () { setDocUploadBusy(false); });
+            xhr.send(fd);
         });
     }
     (function lockBookPreviewInteractions() {
