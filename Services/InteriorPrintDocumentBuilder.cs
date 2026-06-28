@@ -54,9 +54,13 @@ public static class InteriorPrintDocumentBuilder
         return interior switch
         {
             "Classic" => "fmt-style-classic",
+            "FineBook" => "fmt-style-classic",
             "Modern" => "fmt-style-modern",
+            "Contemporary" => "fmt-style-modern",
             "Minimalist" => "fmt-style-clean-minimalist",
+            "Clean" => "fmt-style-clean-minimalist",
             "ElegantTrade" => "fmt-style-elegant-trade",
+            "ElegantTradePOD" => "fmt-style-elegant-trade",
             _ => "fmt-style-traditional"
         };
     }
@@ -70,6 +74,12 @@ public static class InteriorPrintDocumentBuilder
             "Modern" => "interior-modern",
             "Minimalist" => "interior-minimalist",
             "ElegantTrade" => "interior-elegant-trade",
+            "Traditional" => "interior-traditional",
+            "Contemporary" => "interior-contemporary",
+            "FineBook" => "interior-fine-book",
+            "Clean" => "interior-clean",
+            "POD" => "interior-pod",
+            "ElegantTradePOD" => "interior-elegant-trade-pod",
             _ => "interior-novel"
         };
     }
@@ -78,7 +88,7 @@ public static class InteriorPrintDocumentBuilder
         """
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;600;700;800&family=Lato:wght@400;700&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Cormorant+SC:wght@400;600&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;600;700;800&family=Jost:wght@300;400;600&family=Lato:wght@400;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Nunito+Sans:ital,wght@0,400;0,700;1,400&family=Outfit:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Raleway:wght@400;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet" />
         """;
 
     private static readonly (string Family, string Weight, string File)[] EmbeddedFontFiles =

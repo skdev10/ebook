@@ -59,7 +59,7 @@ public class ManuscriptExportPrepTests
     [Fact]
     public void NormalizeInteriorStyle_maps_formatter_aliases()
     {
-        Assert.Equal("ElegantTrade", InteriorExportTheme.NormalizeInteriorStyle("PODElegantTrade"));
+        Assert.Equal("ElegantTradePOD", InteriorExportTheme.NormalizeInteriorStyle("PODElegantTrade"));
         Assert.Equal("Minimalist", InteriorExportTheme.NormalizeInteriorStyle("CleanMinimalist"));
     }
 
@@ -99,7 +99,7 @@ public class ManuscriptExportPrepTests
     public void ResolveDefaultPageBackground_elegant_trade_matches_formatter_sheet()
     {
         var bg = InteriorExportTheme.ResolveDefaultPageBackground("ElegantTrade");
-        Assert.Equal("#fcf9f3", bg, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal("#fdfbf7", bg, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class ManuscriptExportPrepTests
     {
         var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
         Assert.Contains("interior-novel", css, StringComparison.Ordinal);
-        Assert.Contains("Merriweather", css, StringComparison.Ordinal);
+        Assert.Contains("Palatino", css, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -286,11 +286,13 @@ public class ManuscriptExportPrepTests
     }
 
     [Theory]
-    [InlineData("Traditional", "Novel")]
-    [InlineData("Fine book", "Classic")]
-    [InlineData("Clean", "Minimalist")]
-    [InlineData("POD", "ElegantTrade")]
+    [InlineData("Traditional", "Traditional")]
+    [InlineData("Fine book", "FineBook")]
+    [InlineData("Clean", "Clean")]
+    [InlineData("POD", "POD")]
     [InlineData("Elegant trade", "ElegantTrade")]
+    [InlineData("Elegant trade (POD)", "ElegantTradePOD")]
+    [InlineData("Contemporary", "Contemporary")]
     [InlineData("", "Novel")]
     public void NormalizeInteriorStyle_maps_ui_badge_labels_to_canonical_styles(string uiValue, string expected)
     {
@@ -358,8 +360,8 @@ public class ManuscriptExportPrepTests
     {
         var css = InteriorLayoutTokens.BuildPerInteriorCss("ElegantTrade");
         Assert.Contains("#book-formatter-root #paginatedReaderShell.interior-elegant-trade .book-page-content-wrap", css, StringComparison.Ordinal);
-        Assert.Contains("0.8125in", css, StringComparison.Ordinal);
-        Assert.Contains("0.625in", css, StringComparison.Ordinal);
+        Assert.Contains("0.7in", css, StringComparison.Ordinal);
+        Assert.Contains("0.62in", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".book-page-content-wrap, .book-pdf-body.interior-elegant-trade .book-preview-sheet { padding: 0 !important; }", css, StringComparison.Ordinal);
     }
 
@@ -459,7 +461,7 @@ public class ManuscriptExportPrepTests
 
         Assert.Contains("book-pdf-body", render.Html, StringComparison.Ordinal);
         Assert.Contains("reader-chapter-block", render.Html, StringComparison.Ordinal);
-        Assert.Contains("Merriweather", render.Html, StringComparison.Ordinal);
+        Assert.Contains("Palatino", render.Html, StringComparison.Ordinal);
         Assert.Contains("6in", render.Layout.PageSizeCss, StringComparison.Ordinal);
         Assert.Equal("Novel", render.Settings.InteriorStyle);
     }
@@ -469,7 +471,7 @@ public class ManuscriptExportPrepTests
     {
         var opt = new BookPdfExportOptions
         {
-            InteriorStyle = "PODElegantTrade",
+            InteriorStyle = "ElegantTrade",
             TextSize = "Medium",
             LineSpacing = "1.6"
         };
@@ -544,7 +546,7 @@ public class ManuscriptExportPrepTests
             TextSize = "Medium",
             LineSpacing = "1.6"
         });
-        Assert.Contains("Inter", t.BodyFontStack, StringComparison.Ordinal);
+        Assert.Contains("Libre Baskerville", t.BodyFontStack, StringComparison.Ordinal);
         Assert.Equal("11", t.BodyFontSizePt);
     }
 

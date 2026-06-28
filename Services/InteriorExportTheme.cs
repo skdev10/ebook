@@ -8,29 +8,38 @@ public static class InteriorExportTheme
 {
     public static string NormalizeInteriorStyle(string? style)
     {
-        var s = (style ?? "").Trim();
+        var s = (style ?? "").Trim().Replace(" ", "");
         if (string.IsNullOrEmpty(s)) return "Novel";
-        if (s.Equals("Traditional", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("Novel", StringComparison.OrdinalIgnoreCase))
+
+        // 11 distinct Canva-inspired interior styles (each visually unique).
+        if (s.Equals("Traditional", StringComparison.OrdinalIgnoreCase))
+            return "Traditional";
+        if (s.Equals("Novel", StringComparison.OrdinalIgnoreCase))
             return "Novel";
-        if (s.Equals("Contemporary", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("Modern", StringComparison.OrdinalIgnoreCase))
+        if (s.Equals("Contemporary", StringComparison.OrdinalIgnoreCase))
+            return "Contemporary";
+        if (s.Equals("Modern", StringComparison.OrdinalIgnoreCase))
             return "Modern";
-        if (s.Equals("Fine book", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("FineBook", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("Classic", StringComparison.OrdinalIgnoreCase))
+        if (s.Equals("Finebook", StringComparison.OrdinalIgnoreCase))
+            return "FineBook";
+        if (s.Equals("Classic", StringComparison.OrdinalIgnoreCase))
             return "Classic";
-        if (s.Equals("Clean", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("Minimalist", StringComparison.OrdinalIgnoreCase)
+        if (s.Equals("Clean", StringComparison.OrdinalIgnoreCase))
+            return "Clean";
+        if (s.Equals("Minimalist", StringComparison.OrdinalIgnoreCase)
             || s.Equals("CleanMinimalist", StringComparison.OrdinalIgnoreCase))
             return "Minimalist";
-        if (s.Equals("POD", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("POD Elegant Trade", StringComparison.OrdinalIgnoreCase)
+        // Order matters: match the POD Elegant Trade variant before plain Elegant Trade / POD.
+        if (s.Equals("ElegantTradePOD", StringComparison.OrdinalIgnoreCase)
+            || s.Equals("ElegantTrade(POD)", StringComparison.OrdinalIgnoreCase)
             || s.Equals("PODElegantTrade", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("Elegant trade", StringComparison.OrdinalIgnoreCase)
-            || s.Equals("ElegantTrade", StringComparison.OrdinalIgnoreCase))
+            || s.Equals("PODElegant Trade", StringComparison.OrdinalIgnoreCase))
+            return "ElegantTradePOD";
+        if (s.Equals("POD", StringComparison.OrdinalIgnoreCase))
+            return "POD";
+        if (s.Equals("ElegantTrade", StringComparison.OrdinalIgnoreCase))
             return "ElegantTrade";
-        return s;
+        return "Novel";
     }
 
     public static string NormalizeTextSize(string? textSize)
@@ -66,9 +75,15 @@ public static class InteriorExportTheme
         NormalizeInteriorStyle(interiorStyle) switch
         {
             "Modern" => "tpl-modern",
+            "Contemporary" => "tpl-contemporary",
             "Minimalist" => "tpl-minimalist",
+            "Clean" => "tpl-clean",
             "Classic" => "tpl-classic",
+            "FineBook" => "tpl-fine-book",
+            "Traditional" => "tpl-traditional",
+            "POD" => "tpl-pod",
             "ElegantTrade" => "tpl-elegant-trade",
+            "ElegantTradePOD" => "tpl-elegant-trade-pod",
             _ => "tpl-novel"
         };
 
@@ -121,12 +136,18 @@ public static class InteriorExportTheme
     public static string ResolveDefaultPageBackground(string? interiorStyle) =>
         NormalizeInteriorStyle(interiorStyle) switch
         {
-            "Classic" => "#faf5e9",
-            "ElegantTrade" => "#f7efe0",
-            "Novel" => "#f4ecd9",
+            "Classic" => "#ffffff",
+            "FineBook" => "#fdf8f2",
+            "ElegantTrade" => "#fdfbf7",
+            "ElegantTradePOD" => "#fdfbf7",
+            "Novel" => "#ffffff",
+            "Traditional" => "#ffffff",
             "Modern" => "#ffffff",
+            "Contemporary" => "#ffffff",
+            "Clean" => "#ffffff",
             "Minimalist" => "#ffffff",
-            _ => "#f4ecd9"
+            "POD" => "#ffffff",
+            _ => "#ffffff"
         };
 
     /// <summary>CSS keep-with-next: in-chapter headings stay with the following block (preview + Chromium PDF).</summary>
@@ -266,50 +287,115 @@ public static class InteriorExportTheme
 
     private static ThemeSpec ResolveTheme(string interior) => interior switch
     {
+        // STYLE 5 — Modern: DM Sans body / Outfit headings, clean grid, blue accent.
         "Modern" => new ThemeSpec(
-            "'Inter', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif",
-            "'Inter', system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif",
-            "#334155", "#334155", "#ffffff",
-            "font-weight: 800; margin: 1.2em 0 0.8em;",
-            "text-indent: 0; margin-bottom: 0.85em; padding-left: 0.9em; border-left: 3px solid #6366f1;",
+            "'DM Sans', system-ui, 'Helvetica Neue', Arial, sans-serif",
+            "'Outfit', system-ui, 'Helvetica Neue', Arial, sans-serif",
+            "#111827", "#111827", "#ffffff",
+            "font-weight: 700; margin: 1.2em 0 0.8em;",
+            "text-indent: 0; margin-bottom: 12px;",
             "border-left: 3px solid #6366f1; margin: 3mm 0 3mm 4mm; padding-left: 4mm; color: #334155;",
             "border-bottom: none;",
             ""),
+        // STYLE 4 — Contemporary: Lora body / Raleway uppercase headings, blue underline accent.
+        "Contemporary" => new ThemeSpec(
+            "'Lora', Georgia, 'Times New Roman', Times, serif",
+            "'Raleway', system-ui, 'Helvetica Neue', Arial, sans-serif",
+            "#1f2937", "#1f2937", "#ffffff",
+            "font-weight: 700; text-transform: uppercase; letter-spacing: 3px; margin: 1.2em 0 0.6em;",
+            "text-indent: 0; margin-bottom: 10px;",
+            "border-left: 4px solid #3b82f6; margin: 3mm 0; padding-left: 4mm; font-style: italic; color: #1f2937;",
+            "border-bottom: 2px solid #3b82f6;",
+            ""),
+        // STYLE 9 — Minimalist: Libre Baskerville body / Jost ultra-light uppercase headings.
         "Minimalist" => new ThemeSpec(
-            "'Inter', system-ui, Roboto, Arial, sans-serif",
-            "'Inter', system-ui, Roboto, Arial, sans-serif",
-            "#111111", "#1a1a1a", "#ffffff",
-            "font-weight: 600; font-size: 1.15em; letter-spacing: -0.02em; margin: 1.2em 0 0.8em;",
-            "text-indent: 0; margin-bottom: 0.8em;",
-            "border-left: 2px solid #e5e5e5; margin: 3mm 0; padding-left: 4mm; color: #334155;",
-            "border-bottom: 1px solid #e5e5e5;",
+            "'Libre Baskerville', Georgia, serif",
+            "'Jost', system-ui, 'Helvetica Neue', Arial, sans-serif",
+            "#4b5563", "#4b5563", "#ffffff",
+            "font-weight: 300; font-size: 1em; text-transform: uppercase; letter-spacing: 6px; margin: 80px 0 40px;",
+            "text-indent: 0; margin-bottom: 16px;",
+            "border-left: 1px solid #e5e5e5; margin: 4mm 0; padding-left: 4mm; color: #4b5563;",
+            "border-bottom: none;",
             ""),
+        // STYLE 8 — Clean: Source Serif body / Inter headings, minimal lines.
+        "Clean" => new ThemeSpec(
+            "'Source Serif 4', Georgia, 'Times New Roman', Times, serif",
+            "'Inter', system-ui, 'Helvetica Neue', Arial, sans-serif",
+            "#111827", "#374151", "#ffffff",
+            "font-weight: 600; font-size: 1.1em; margin: 1.2em 0 0.7em;",
+            "text-indent: 0; margin-bottom: 8px;",
+            "border-left: 2px solid #e5e7eb; margin: 3mm 0; padding-left: 4mm; color: #374151;",
+            "border-bottom: none;",
+            ""),
+        // STYLE 7 — Classic: Times New Roman, centered bold underlined headings, drop cap.
         "Classic" => new ThemeSpec(
-            "'Cormorant Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif",
-            "'Cormorant Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif",
-            "#78350f", "#111111", "#fdfcfa",
-            "font-weight: 400; font-size: 1.25em; font-style: italic; letter-spacing: 0.03em; margin: 1.5em 0 1em;",
-            "text-indent: 2em; margin-bottom: 0;",
-            "border-left: 3px solid #d6c4a8; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #334155;",
-            "border-bottom: 3px double #d6c4a8;",
-            ".book-pdf-body.tpl-classic .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 600; color: #78350f; } "),
-        "ElegantTrade" => new ThemeSpec(
-            "'EB Garamond', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', Times, serif",
-            "'Lora', 'Merriweather', Georgia, 'Times New Roman', Times, serif",
-            "#3d2914", "#1a1a1a", "#fcf9f3",
-            "font-weight: 600; font-size: 1.2em; letter-spacing: 0.04em; margin: 1.3em 0 0.9em;",
-            "text-indent: 1.5em; margin-bottom: 0;",
-            "border-left: 3px solid #c9b8a0; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #334155;",
-            "border-bottom: 1px solid #c9b8a0;",
-            ""),
-        _ => new ThemeSpec(
-            "'Merriweather', Georgia, 'Times New Roman', Times, serif",
+            "'Times New Roman', Times, Georgia, serif",
+            "'Times New Roman', Times, Georgia, serif",
+            "#000000", "#000000", "#ffffff",
+            "font-weight: 700; font-size: 1.25em; text-decoration: underline; margin: 1.4em 0 1em;",
+            "text-indent: 1.25em; margin-bottom: 0;",
+            "border-left: 3px solid #999999; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #333333;",
+            "border-bottom: none;",
+            ".book-pdf-body.tpl-classic .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 700; color: #000000; } "),
+        // STYLE 6 — Fine Book: Spectral body / Playfair Display italic headings, gold ornaments.
+        "FineBook" => new ThemeSpec(
+            "'Spectral', Georgia, 'Times New Roman', Times, serif",
             "'Playfair Display', Georgia, 'Times New Roman', Times, serif",
-            "#6f2f10", "#2c2118", "#fffdf8",
-            "font-weight: 700; font-size: 1.2em; letter-spacing: 0.015em; margin: 1.5em 0 0.8em;",
-            "text-indent: 1.5em; margin-bottom: 0.95em;",
-            "border-left: 3px solid #c4b5fd; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #334155;",
-            "border-bottom: 1px solid rgba(111, 47, 16, 0.18);",
+            "#1a120b", "#1a120b", "#fdf8f2",
+            "font-weight: 400; font-size: 1.3em; font-style: italic; margin: 1.5em 0 1em;",
+            "text-indent: 1.5em; margin-bottom: 0;",
+            "border-left: 3px solid #c9a84c; margin: 3mm 0 3mm 6mm; padding-left: 4mm; font-style: italic; color: #4a3a1a;",
+            "border-bottom: none;",
+            ""),
+        // STYLE 2 — Traditional: EB Garamond, centered bold headings, drop cap.
+        "Traditional" => new ThemeSpec(
+            "'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif",
+            "'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif",
+            "#222222", "#222222", "#ffffff",
+            "font-weight: 700; font-size: 1.25em; margin: 1.4em 0 0.9em;",
+            "text-indent: 1.25em; margin-bottom: 0;",
+            "border-left: 3px solid #cccccc; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #333333;",
+            "border-bottom: none;",
+            ".book-pdf-body.tpl-traditional .manuscript-p:first-of-type::first-letter { float: left; font-size: 3em; line-height: 0.85; padding-right: 0.08em; font-weight: 700; color: #222222; } "),
+        // STYLE 10 — POD: Crimson Pro body / Nunito Sans headings, rule below heading.
+        "POD" => new ThemeSpec(
+            "'Crimson Pro', Georgia, 'Times New Roman', Times, serif",
+            "'Nunito Sans', system-ui, 'Helvetica Neue', Arial, sans-serif",
+            "#111111", "#111111", "#ffffff",
+            "font-weight: 700; font-size: 1.1em; margin: 1.2em 0 0.7em; border-bottom: 1px solid #dddddd; padding-bottom: 0.3em;",
+            "text-indent: 1em; margin-bottom: 0;",
+            "border-left: 3px solid #cccccc; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #333333;",
+            "border-bottom: 1px solid #dddddd;",
+            ""),
+        // STYLE 11 — Elegant Trade (POD): same typography as Elegant Trade, POD-tuned.
+        "ElegantTradePOD" => new ThemeSpec(
+            "'Cormorant Garamond', 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif",
+            "'Cormorant SC', 'Cormorant Garamond', Georgia, serif",
+            "#1c1c1c", "#1c1c1c", "#fdfbf7",
+            "font-weight: 600; font-size: 1.35em; font-variant: small-caps; letter-spacing: 0.04em; text-align: center; margin: 1.3em 0 0.9em;",
+            "text-indent: 1.5em; margin-bottom: 0;",
+            "border-left: 3px solid #c9b8a0; margin: 3mm 0 3mm 6mm; padding-left: 4mm; font-style: italic; color: #3d2914;",
+            "border-bottom: none;",
+            ".book-pdf-body.tpl-elegant-trade-pod .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.82; padding-right: 0.08em; font-weight: 600; color: #1c1c1c; } "),
+        // STYLE 1 — Elegant Trade: Cormorant Garamond body / Cormorant SC small-caps headings, drop cap.
+        "ElegantTrade" => new ThemeSpec(
+            "'Cormorant Garamond', 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif",
+            "'Cormorant SC', 'Cormorant Garamond', Georgia, serif",
+            "#1c1c1c", "#1c1c1c", "#fdfbf7",
+            "font-weight: 600; font-size: 1.35em; font-variant: small-caps; letter-spacing: 0.04em; text-align: center; margin: 1.3em 0 0.9em;",
+            "text-indent: 1.5em; margin-bottom: 0;",
+            "border-left: 3px solid #c9b8a0; margin: 3mm 0 3mm 6mm; padding-left: 4mm; font-style: italic; color: #3d2914;",
+            "border-bottom: none;",
+            ".book-pdf-body.tpl-elegant-trade .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.82; padding-right: 0.08em; font-weight: 600; color: #1c1c1c; } "),
+        // STYLE 3 — Novel: Palatino / Book Antiqua, plain bold left headings, mass-market feel.
+        _ => new ThemeSpec(
+            "'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Times New Roman', Times, serif",
+            "'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif",
+            "#1a1a1a", "#1a1a1a", "#ffffff",
+            "font-weight: 700; font-size: 1.35em; margin: 1.2em 0 0.7em;",
+            "text-indent: 1em; margin-bottom: 0;",
+            "border-left: 3px solid #cccccc; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #333333;",
+            "border-bottom: none;",
             "")
     };
 

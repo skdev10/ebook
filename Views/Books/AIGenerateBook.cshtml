@@ -1512,6 +1512,12 @@
                         <span class="flex items-center px-2 text-slate-400 pointer-events-none"><i class="fas fa-chevron-down text-sm"></i></span>
                         <button id="addChapterBtn" type="button" class="add-chapter-btn-inline inline-flex items-center justify-center shrink-0 px-3 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 border-l border-slate-200 transition-colors whitespace-nowrap" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">Add a chapter</button>
                     </div>
+                    <div class="flex items-center gap-2 pt-1">
+                        <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.text,.md,.markdown,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" aria-label="Upload document (PDF, Word, TXT, or Markdown)" />
+                        <button type="button" id="chapterDocUploadBtn" class="inline-flex items-center justify-center gap-2 w-full text-xs font-semibold text-violet-800 px-3.5 py-2.5 rounded-xl border border-dashed border-violet-300 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Import a PDF, Word (.docx), TXT, or Markdown file — chapters are detected and added automatically" aria-label="Import document file">
+                            <i class="fas fa-file-arrow-up text-sm" aria-hidden="true"></i> Import .docs file (auto-split into chapters)
+                        </button>
+                    </div>
                     <div class="flex flex-col gap-2 pt-1 hidden" id="iterationPickerWrap">
                         <div id="chapterVersionsSummary" class="hidden rounded-lg border border-emerald-200/70 bg-emerald-50/90 px-2.5 py-2 text-xs text-emerald-900" role="status" aria-live="polite">
                             <span id="chapterVersionsSummaryText"></span>
@@ -1540,10 +1546,6 @@
                 <div id="chapterTopicBox" class="relative flex flex-col bg-white border border-slate-200 rounded-2xl shadow-sm focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400 transition-all overflow-hidden min-h-[240px]">
                     <textarea id="UserInput" placeholder="e.g. A short summary of what this chapter should cover" class="form-input-uniform w-full flex-1 resize-none bg-transparent px-5 py-3 text-base text-slate-600 placeholder:text-slate-400 focus:outline-none min-h-[280px]"></textarea>
                     <div class="bg-slate-50/80 p-1.5 mx-1 mb-1 rounded-xl flex items-center justify-end gap-2 border border-slate-100">
-                        <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.text,.md,.markdown,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" aria-label="Upload document (PDF, Word, TXT, or Markdown)" />
-                        <button type="button" id="chapterDocUploadBtn" class="inline-flex items-center justify-center text-xs font-semibold text-slate-700 hover:text-violet-900 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-violet-50 hover:border-violet-300 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Upload PDF, Word (.docx), TXT, or Markdown — preview updates automatically" aria-label="Upload docs">
-                            Upload docs
-                        </button>
                         <button type="button" id="GenerateBtn" class="inline-flex items-center justify-center text-xs font-semibold text-white px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 shadow-sm transition-all hover:scale-[1.02] shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" title="Generate chapter" aria-label="Generate chapter" onclick="confirmGenerateChapter()">
                             <span id="GenerateBtnLabel">Generate</span>
                         </button>
@@ -3594,11 +3596,34 @@ document.addEventListener('DOMContentLoaded', function() {
             var title = (c.title || c.chapterTitle || ('Chapter ' + no)).toString().trim();
             return { chapterNo: no, chapterTitle: title, title: title, content: (c.text || c.content || '').toString() };
         });
-        // Point the writer form at the first chapter so subsequent edits/generate target it.
+        // Auto-populate the chapter dropdown with every detected chapter (title from the document),
+        // then select the first one so the writer/editor opens on it.
+        var ddl = document.getElementById('ChapterDropdown');
+        if (ddl) {
+            // Drop the placeholder "Click Add a chapter to start" option once we have real chapters.
+            mapped.forEach(function (c) {
+                var s = String(c.chapterNo);
+                var existing = null, k;
+                for (k = 0; k < ddl.options.length; k++) {
+                    if (ddl.options[k].value === s) { existing = ddl.options[k]; break; }
+                }
+                var label = 'Ch ' + s + ' — ' + c.title;
+                if (existing) { existing.textContent = label; }
+                else {
+                    var opt = document.createElement('option');
+                    opt.value = s; opt.textContent = label; ddl.appendChild(opt);
+                }
+            });
+            // Remove the initial placeholder option (value 1 with the prompt text) if a real ch1 exists.
+            for (var p = ddl.options.length - 1; p >= 0; p--) {
+                var o = ddl.options[p];
+                if (o.textContent && o.textContent.indexOf('Add a chapter') >= 0) ddl.removeChild(o);
+            }
+        }
         var firstNo = mapped[0].chapterNo;
-        if (typeof ensureChapterDropdownOption === 'function') ensureChapterDropdownOption(firstNo);
         var chEl = document.getElementById('ChapterNo');
         if (chEl) chEl.value = String(firstNo);
+        if (ddl) ddl.value = String(firstNo);
         var titleEl = document.getElementById('Title');
         if (titleEl) titleEl.value = mapped[0].title;
         if (typeof window.showBookContent !== 'function') return false;
@@ -3608,7 +3633,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var br = document.getElementById('bookResult');
         if (br) try { br.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
         if (typeof showNotification === 'function') {
-            showNotification('Document loaded as ' + mapped.length + ' chapters in book preview.', 'success');
+            showNotification('\u2705 ' + mapped.length + ' chapters detected and imported successfully.', 'success');
         }
         if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
         return true;

@@ -36,14 +36,23 @@ public static class InteriorTypographyPresets
 
         return interior switch
         {
+            "Modern" => new TypographyValues(
+                FormatPt(pt), px, lh, "0", "12px", "left",
+                "'DM Sans', system-ui, sans-serif"),
+            "Contemporary" => new TypographyValues(
+                FormatPt(pt), px, lh, "0", "10px", "left",
+                "'Lora', Georgia, serif"),
+            "Clean" => new TypographyValues(
+                FormatPt(pt), px, lh, "0", "8px", "left",
+                "'Source Serif 4', Georgia, serif"),
             "Minimalist" => new TypographyValues(
                 FormatPt(pt),
                 px,
                 lh,
                 "0",
-                InteriorSpacingTheme.Mm(InteriorSpacingTheme.MinimalistParagraphSpacingMm),
+                "16px",
                 "left",
-                "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"),
+                "'Libre Baskerville', Georgia, serif"),
             "Classic" => new TypographyValues(
                 FormatPt(ClassicPointSize(size)),
                 PxFromPt(ClassicPointSize(size)),

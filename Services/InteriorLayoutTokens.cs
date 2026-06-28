@@ -306,6 +306,102 @@ public static class InteriorLayoutTokens
 
             TitleUppercase: false,
 
+            TitleCentered: true),
+
+        ["Traditional"] = new(
+            Key: "traditional",
+            SheetBackground: "#ffffff",
+            SheetPadding: new("1in", "1in", "1in", "1in"),
+            Body: new("0.97rem", "1.85", "1.25em", "0", "justify", "1rem", "0.4rem"),
+            Frame: new(
+                "linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%)",
+                "1px solid #e4e4e7", "1px solid #e4e4e7",
+                "0 8px 28px -16px rgba(15, 23, 42, 0.12)",
+                "0 0 0 1px #e4e4e7", "#ffffff"),
+            TitleFontSizePt: "20",
+            TitleLetterSpacing: "0.01em",
+            TitleBorderBottom: "none",
+            TitleUppercase: false,
+            TitleCentered: true),
+
+        ["Contemporary"] = new(
+            Key: "contemporary",
+            SheetBackground: "#ffffff",
+            SheetPadding: new("0.85in", "0.8in", "0.78in", "0.9in"),
+            Body: new("0.97rem", "1.75", "0", "10px", "left", "0.9rem", "0.35rem"),
+            Frame: new(
+                "linear-gradient(180deg, #eef2f7 0%, #e6edf5 100%)",
+                "1px solid #d2dded", "1px solid #d2dded",
+                "0 10px 34px -16px rgba(59, 130, 246, 0.22)",
+                "0 0 0 1px #d2dded", "#ffffff"),
+            TitleFontSizePt: "15",
+            TitleLetterSpacing: "0.2em",
+            TitleBorderBottom: "2px solid #3b82f6",
+            TitleUppercase: true,
+            TitleCentered: false),
+
+        ["FineBook"] = new(
+            Key: "fine-book",
+            SheetBackground: "#fdf8f2",
+            SheetPadding: new("1.05in", "1in", "1in", "1.05in"),
+            Body: new("1.02rem", "2.0", "1.5em", "0", "justify", "1.2rem", "0.5rem"),
+            Frame: new(
+                "linear-gradient(180deg, #f4ece0 0%, #ece0cd 100%)",
+                "1px solid #ddccae", "1px solid #ddccae",
+                "0 12px 40px -14px rgba(62, 47, 32, 0.2)",
+                "0 14px 42px -20px rgba(62, 47, 32, 0.3)", "#fdf8f2"),
+            TitleFontSizePt: "24",
+            TitleLetterSpacing: "0.02em",
+            TitleBorderBottom: "none",
+            TitleUppercase: false,
+            TitleCentered: true),
+
+        ["Clean"] = new(
+            Key: "clean",
+            SheetBackground: "#ffffff",
+            SheetPadding: new("0.85in", "0.8in", "0.8in", "0.85in"),
+            Body: new("0.95rem", "1.72", "0", "8px", "left", "0.85rem", "0.3rem"),
+            Frame: new(
+                "linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%)",
+                "1px solid #e5e7eb", "1px solid #e5e7eb",
+                "0 8px 28px -16px rgba(15, 23, 42, 0.1)",
+                "0 0 0 1px #e5e7eb", "#ffffff"),
+            TitleFontSizePt: "14",
+            TitleLetterSpacing: "-0.01em",
+            TitleBorderBottom: "none",
+            TitleUppercase: false,
+            TitleCentered: false),
+
+        ["POD"] = new(
+            Key: "pod",
+            SheetBackground: "#ffffff",
+            SheetPadding: new("0.875in", "0.875in", "0.875in", "0.875in"),
+            Body: new("0.97rem", "1.78", "1em", "0", "justify", "0.9rem", "0.3rem"),
+            Frame: new(
+                "linear-gradient(180deg, #fafafa 0%, #f4f4f5 100%)",
+                "1px solid #e4e4e7", "1px solid #e4e4e7",
+                "0 8px 28px -16px rgba(15, 23, 42, 0.12)",
+                "0 0 0 1px #e4e4e7", "#ffffff"),
+            TitleFontSizePt: "16",
+            TitleLetterSpacing: "0.01em",
+            TitleBorderBottom: "1px solid #dddddd",
+            TitleUppercase: false,
+            TitleCentered: false),
+
+        ["ElegantTradePOD"] = new(
+            Key: "elegant-trade-pod",
+            SheetBackground: "#fdfbf7",
+            SheetPadding: new("0.75in", "0.625in", "0.75in", "0.75in"),
+            Body: new("1.0rem", "1.9", "1.5em", "0", "justify", "0.5rem", "0.9rem"),
+            Frame: new(
+                "linear-gradient(180deg, #f3ece0 0%, #e9dfce 100%)",
+                "1px solid #d9c9af", "1px solid #d9c9af",
+                "0 12px 40px -14px rgba(62, 47, 32, 0.2)",
+                "0 14px 42px -20px rgba(62, 47, 32, 0.3)", "#fdfbf7"),
+            TitleFontSizePt: "22",
+            TitleLetterSpacing: "0.05em",
+            TitleBorderBottom: "none",
+            TitleUppercase: false,
             TitleCentered: true)
 
     };
@@ -832,11 +928,17 @@ public static class InteriorLayoutTokens
         // drives padding, so the typeface/colour visibly change on every style switch (preview + PDF).
         var (bodyFont, titleFont, bodyColor, titleColor) = spec.Key switch
         {
-            "novel" => ("'Merriweather', Georgia, serif", "'Playfair Display', Georgia, serif", "#2a2620", "#2a2620"),
-            "modern" => ("'Inter', system-ui, sans-serif", "'Inter', system-ui, sans-serif", "#334155", "#334155"),
-            "classic" => ("'Cormorant Garamond', 'Times New Roman', Times, serif", "'Cormorant Garamond', 'Times New Roman', Times, serif", "#241c16", "#241c16"),
-            "minimalist" => ("'Inter', system-ui, sans-serif", "'Inter', system-ui, sans-serif", "#1d1d1f", "#111111"),
-            "elegant-trade" => ("'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif", "'Lora', 'Times New Roman', serif", "#2c241a", "#2c241a"),
+            "novel" => ("'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif", "'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif", "#1a1a1a", "#1a1a1a"),
+            "traditional" => ("'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif", "'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif", "#222222", "#222222"),
+            "modern" => ("'DM Sans', system-ui, sans-serif", "'Outfit', system-ui, sans-serif", "#111827", "#111827"),
+            "contemporary" => ("'Lora', Georgia, serif", "'Raleway', system-ui, sans-serif", "#1f2937", "#1f2937"),
+            "classic" => ("'Times New Roman', Times, Georgia, serif", "'Times New Roman', Times, Georgia, serif", "#000000", "#000000"),
+            "fine-book" => ("'Spectral', Georgia, 'Times New Roman', Times, serif", "'Playfair Display', Georgia, serif", "#1a120b", "#1a120b"),
+            "clean" => ("'Source Serif 4', Georgia, serif", "'Inter', system-ui, sans-serif", "#374151", "#111827"),
+            "minimalist" => ("'Libre Baskerville', Georgia, serif", "'Jost', system-ui, sans-serif", "#4b5563", "#4b5563"),
+            "pod" => ("'Crimson Pro', Georgia, 'Times New Roman', Times, serif", "'Nunito Sans', system-ui, sans-serif", "#111111", "#111111"),
+            "elegant-trade" => ("'Cormorant Garamond', 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif", "'Cormorant SC', 'Cormorant Garamond', Georgia, serif", "#1c1c1c", "#1c1c1c"),
+            "elegant-trade-pod" => ("'Cormorant Garamond', 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif", "'Cormorant SC', 'Cormorant Garamond', Georgia, serif", "#1c1c1c", "#1c1c1c"),
             _ => ("Georgia, serif", "Georgia, serif", "#2c2118", "#1c1917")
         };
 
