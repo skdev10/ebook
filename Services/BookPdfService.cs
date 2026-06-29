@@ -66,9 +66,12 @@ public class BookPdfService : IBookPdfService
             "PDF export book={BookId} engine={Engine} style={Style} htmlLen={Len}",
             details.BookId, PdfExportEngine.Resolve(_configuration), opt.InteriorStyle, html.Length);
 
-        // Per-page running header (book title) + folio (page number) are drawn by Chromium in the
-        // reserved page margins. We enable them only for the interior export (no cover page) so the
-        // header/folio never overprint a full-bleed cover. Front-book-with-cover keeps the old look.
+        // Professional per-page chrome: Chromium draws the running head (book title) and folio (page
+        // number) inside the reserved top/bottom page margins on EVERY page — exactly like a printed
+        // book. We enable them only for the interior export (no cover page) so the header/folio never
+        // overprint a full-bleed cover. The interior CSS reserves matching top/bottom @page margin so
+        // the chrome has space, hides the duplicate in-content running head, and trims the sheet's
+        // top/bottom padding by the reserved amount so the text block keeps its intended position.
         var headerTemplate = opt.IncludeCoverPage ? string.Empty : PdfRunningHeaderFooter.BuildHeader(opt.InteriorStyle, title);
         var footerTemplate = opt.IncludeCoverPage ? string.Empty : PdfRunningHeaderFooter.BuildFooter(opt.InteriorStyle);
 

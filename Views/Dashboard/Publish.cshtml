@@ -1172,7 +1172,7 @@
                             <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-quick-btn publish-leave-to-writer"><i class="fas fa-pen-nib" aria-hidden="true"></i> Edit in AI Writer</a>
                             <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-book-open" aria-hidden="true"></i> Book Formatting</a>
                             <a href="/Dashboard/CoverDesign?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-image" aria-hidden="true"></i> Cover Design</a>
-                            <a href="/Dashboard" id="publishFinishBtn" class="publish-finish-btn publish-quick-btn publish-quick-btn--primary" data-finish-toast="Your book is saved — pick up anytime from My Books or the Dashboard."><i class="fas fa-check-circle" aria-hidden="true"></i> Save &amp; Go to Dashboard</a>
+                            <button type="button" id="publishFinalizeBtn" data-book-id="@bookId" class="publish-quick-btn publish-quick-btn--primary"><i class="fas fa-flag-checkered" aria-hidden="true"></i> Finalize</button>
                         }
                     </div>
                 </div>
@@ -2357,7 +2357,57 @@
         else alert('Submitted (demo)');
     });
 
-    // "Save & Go to Dashboard" / "Done" — reassure the user their work is saved, then navigate.
+    // "Finalize" — mark the book finalized/published, then go to Dashboard.
+    (function wireFinalizeButton() {
+        var btn = document.getElementById('publishFinalizeBtn');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var id = parseInt(btn.getAttribute('data-book-id') || '0', 10);
+            if (!id) { window.location.href = '/Dashboard'; return; }
+            var original = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Finalizing…';
+            fetch('/Dashboard/MarkBookPublished', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ BookId: id })
+            })
+            .then(function (r) { return r.json().catch(function () { return { success: r.ok }; }); })
+            .then(function (data) {
+                if (data && data.success) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Book finalized',
+                            text: 'Your book is finalized and saved. Manage it anytime from My Books.',
+                            timer: 1700,
+                            timerProgressBar: true,
+                            showConfirmButton: false,
+                            didClose: function () { window.location.href = '/Dashboard'; }
+                        });
+                        setTimeout(function () { window.location.href = '/Dashboard'; }, 2000);
+                    } else {
+                        window.location.href = '/Dashboard';
+                    }
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                    var msg = (data && data.message) || 'Could not finalize the book. Please try again.';
+                    if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Finalize failed', text: msg, confirmButtonColor: '#7c3aed' });
+                    else alert(msg);
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.innerHTML = original;
+                if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: 'Network error', text: 'Please try again.', confirmButtonColor: '#7c3aed' });
+                else alert('Network error. Please try again.');
+            });
+        });
+    })();
+
+    // "Done — Go to Dashboard" (published/locked state) — reassure work is saved, then navigate.
     (function wireFinishButtons() {
         var finishBtns = document.querySelectorAll('.publish-finish-btn');
         Array.prototype.forEach.call(finishBtns, function (btn) {

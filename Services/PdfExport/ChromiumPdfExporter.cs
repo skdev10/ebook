@@ -100,11 +100,14 @@ public sealed class ChromiumPdfExporter
             HeaderTemplate = headerTemplate ?? string.Empty,
             FooterTemplate = footerTemplate ?? string.Empty,
             // When running headers/folios are active, Chromium draws them inside the top/bottom
-            // page margins, so we must reserve vertical space here (horizontal margins still come
-            // from CSS sheet padding). The interior CSS trims the sheet's top/bottom padding by a
-            // matching amount so the text block keeps its intended position.
+            // page margins, so we reserve vertical space here. Left/Right are 0 because the horizontal
+            // text inset comes entirely from the per-style .book-preview-sheet padding (adding page
+            // margins here too would double the side margins). These values match the interior
+            // `@page { margin: 18mm 0 16mm 0 }` rule so the result is identical regardless of which
+            // one Chromium treats as authoritative. The interior CSS trims the sheet's top/bottom
+            // padding by a matching amount so the text block keeps its intended position.
             MarginOptions = useChromeHeaderFooter
-                ? new MarginOptions { Top = "18mm", Bottom = "16mm", Left = layout.MarginLeft, Right = layout.MarginRight }
+                ? new MarginOptions { Top = "18mm", Bottom = "16mm", Left = "0", Right = "0" }
                 : new MarginOptions
                 {
                     Top = layout.MarginTop,

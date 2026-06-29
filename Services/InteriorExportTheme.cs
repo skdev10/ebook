@@ -241,10 +241,12 @@ public static class InteriorExportTheme
     }
 
     /// <summary>
-    /// Reconciles two PDF-only concerns on the printed sheet padding:
-    /// (1) when Chromium per-page running headers/folios are active (interior export, no cover) they
-    /// occupy reserved top/bottom page margins, so the in-sheet top/bottom padding is trimmed by a
-    /// matching amount and the single in-content running head is hidden;
+    /// Reconciles the printed-sheet padding with the per-page Chromium chrome:
+    /// (1) for the interior export (no cover page) Chromium draws a running head + folio on EVERY page
+    /// inside reserved top/bottom page margins (18mm/16mm, see <see cref="BookPreviewPrintHtmlBuilder"/>
+    /// <c>@page</c> + <c>ChromiumPdfExporter</c>). We therefore hide the duplicate in-content running
+    /// head and trim the sheet's top/bottom padding by the reserved amount so the text block keeps its
+    /// intended trim-relative position;
     /// (2) POD styles add a 0.125in bleed per side, so the sheet padding gains 0.125in to keep text
     /// inside the trim safe zone.
     /// </summary>
@@ -255,16 +257,16 @@ public static class InteriorExportTheme
 
         if (!opt.IncludeCoverPage)
         {
-            // Running header/folio active: hide the in-content head and reserve top/bottom margin
-            // (plus the POD bleed where applicable). Horizontal bleed padding is added for POD.
+            // Running header/folio active: hide the duplicate in-content head and reserve top/bottom
+            // margin (plus the POD bleed where applicable). Horizontal bleed padding is added for POD.
             var sides = isPod
                 ? "padding-left: calc(var(--ilt-pad-left) + 0.125in); padding-right: calc(var(--ilt-pad-right) + 0.125in); "
                 : string.Empty;
             return string.Concat(
                 ".book-pdf-body .book-preview-sheet > .page-header { display: none !important; } ",
                 ".book-pdf-body .book-preview-sheet { ",
-                // Reserve matches ChromiumPdfExporter header(18mm)/folio(16mm) margins, minus ~2mm
-                // so the text block keeps its intended trim-relative position.
+                // Reserve matches the @page header(18mm)/footer(16mm) margins, minus ~2mm so the text
+                // block keeps its intended trim-relative position.
                 "padding-top: max(0px, calc(var(--ilt-pad-top) + ", bleed, " - 16mm)); ",
                 "padding-bottom: max(0px, calc(var(--ilt-pad-bottom) + ", bleed, " - 14mm)); ",
                 sides, "} ");

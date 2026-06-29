@@ -72,7 +72,11 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine(InteriorPrintDocumentBuilder.GoogleFontLinks());
         doc.AppendLine(fontCss);
         doc.AppendLine("<style>");
-        doc.AppendLine(FormattableString.Invariant($"@page {{ size: {pageSizeCss}; margin: 0; }}"));
+        // Page margins: the interior export (no cover) reserves top/bottom space so Chromium can draw
+        // the running head + folio on EVERY page (left/right stay 0 — the horizontal text inset comes
+        // from the per-style .book-preview-sheet padding). The cover export is full-bleed (margin 0).
+        var pageMargin = includeCoverPage ? "0" : "18mm 0 16mm 0";
+        doc.AppendLine(FormattableString.Invariant($"@page {{ size: {pageSizeCss}; margin: {pageMargin}; }}"));
         doc.AppendLine("* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }");
         doc.AppendLine(FormattableString.Invariant($":root {{ --export-page-bg: {pageBg}; }}"));
         doc.AppendLine(themeCss);
