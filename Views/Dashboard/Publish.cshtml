@@ -1258,6 +1258,10 @@
                             <ul>
                                 <li><i class="fas fa-book-open" aria-hidden="true"></i><span><strong>Full wrap cover</strong> — back + spine + front at 300 DPI with 0.125″ bleed</span></li>
                                 <li><i class="fas fa-file-pdf" aria-hidden="true"></i><span><strong>Interior PDF</strong> — 6×9″ trim, KDP-safe margins for Amazon paperback upload</span></li>
+                                @if (isBothFormat)
+                                {
+                                    <li><i class="fas fa-file-archive" aria-hidden="true"></i><span><strong>One ZIP, both formats</strong> — the print pack also bundles the EPUB + front cover so ebook &amp; paperback publish together</span></li>
+                                }
                             </ul>
                         </article>
                     }
@@ -1269,8 +1273,8 @@
                     <button type="button" data-export-kind="print" id="btnPrintReadyPublishPrimary" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
                         <i class="fas fa-file-pdf" aria-hidden="true"></i> Interior PDF (6×9 KDP)
                     </button>
-                    <button type="button" data-export-kind="print" id="btnExportPrintBundle" class="@((showPrintExports && (isBothFormat || !isPrintReadyFlow)) ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                        <i class="fas fa-file-archive" aria-hidden="true"></i> Download print pack (ZIP)
+                    <button type="button" data-export-kind="print" id="btnExportPrintBundle" class="@((showPrintExports && (isBothFormat || !isPrintReadyFlow)) ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl @(isBothFormat ? "bg-violet-600 text-white border-2 border-violet-600 hover:bg-violet-700 shadow-md shadow-violet-500/25" : "border-2 border-violet-300 bg-white text-violet-800 hover:bg-violet-50") font-semibold px-5 py-2.5 text-sm w-full sm:w-auto">
+                        <i class="fas fa-file-archive" aria-hidden="true"></i> @(isBothFormat ? "Publish both — download everything (ZIP)" : "Download print pack (ZIP)")
                     </button>
                     <button type="button" data-export-kind="ebook" id="btnExportFrontCover" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                         <i class="fas fa-image" aria-hidden="true"></i> Front cover only
@@ -1936,7 +1940,7 @@
             })
             .then(function (blob) {
                 downloadBlobAsFile(blob, safeBookSlug() + '-print-ready-' + bookId + '.zip');
-                var frontNote = isBothFormat ? ' + ebook front cover' : '';
+                var frontNote = isBothFormat ? ' + ebook front cover + EPUB' : '';
                 if (realPages > 0) {
                     showTransientMessage('success', 'ZIP downloaded for ' + realPages + ' pages: interior PDF (chapters only) + your saved full cover wrap' + frontNote + '.');
                 } else {

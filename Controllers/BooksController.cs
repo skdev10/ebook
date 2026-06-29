@@ -2944,7 +2944,9 @@ namespace EBookDashboard.Controllers
                 // since the EPUB only embeds it and ebook stores (e.g. KDP) need it as a separate file.
                 byte[]? frontBytes = null;
                 var frontExt = "png";
-                if (string.Equals((req.BookFormat ?? "").Trim(), "Both", StringComparison.OrdinalIgnoreCase))
+                byte[]? epubBytes = null;
+                var isBoth = string.Equals((req.BookFormat ?? "").Trim(), "Both", StringComparison.OrdinalIgnoreCase);
+                if (isBoth)
                 {
                     var frontKeys = new[]
                     {
@@ -2992,6 +2994,35 @@ namespace EBookDashboard.Controllers
                         if (frontRef.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || frontRef.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
                             frontExt = "jpg";
                     }
+
+                    // Build the EPUB too, so a single "Both" download yields every deliverable:
+                    // paperback interior PDF + full wrap cover + ebook front cover + reflowable EPUB.
+                    try
+                    {
+                        var epubOpt = BookPdfExportOptions.LoadFromPersistence(fmtRow, draftRow?.Value);
+                        epubOpt.ApplyRequestOverrides(req);
+                        epubOpt.Format = "Ebook";
+                        epubOpt.IncludeCoverPage = true;
+                        if (epubOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase))
+                            epubOpt.PublishingPlatform = "";
+                        var epubCoverRef = !string.IsNullOrEmpty(frontRef)
+                            ? BookCoverRefResolver.NormalizeCoverUrlRef(frontRef)
+                            : BookCoverRefResolver.NormalizeCoverUrlRef(wrapVal);
+                        var epubPageCount = _bookPageMetricsService.Estimate(details, epubOpt).PageCount;
+                        epubBytes = await _epubExportService.BuildEpubAsync(
+                            details,
+                            epubCoverRef,
+                            (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
+                            (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
+                            epubOpt,
+                            epubPageCount,
+                            "6 x 9 in",
+                            cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "ExportPrintReadyBundle EPUB build failed for book {BookId}; ZIP will omit the EPUB.", req.BookId);
+                    }
                 }
 
                 using var zipMs = new MemoryStream();
@@ -3017,6 +3048,13 @@ namespace EBookDashboard.Controllers
                         var frontEntry = zip.CreateEntry("cover-front." + frontExt);
                         await using (var es = frontEntry.Open())
                             await es.WriteAsync(frontBytes, cancellationToken);
+                    }
+
+                    if (epubBytes != null && epubBytes.Length > 0)
+                    {
+                        var epubEntry = zip.CreateEntry("ebook.epub");
+                        await using (var es = epubEntry.Open())
+                            await es.WriteAsync(epubBytes, cancellationToken);
                     }
                 }
 
