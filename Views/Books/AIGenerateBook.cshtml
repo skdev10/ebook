@@ -2856,7 +2856,9 @@ window.syncChapterTopicLock = function () {
         topicEl.disabled = topicLocked;
         topicEl.setAttribute('aria-disabled', topicLocked ? 'true' : 'false');
     }
-    if (uploadBtn) uploadBtn.disabled = topicLocked;
+    // Document import stays enabled even without a chapter title — the uploaded file
+    // auto-populates the book title and chapter title(s). Only block read-only chapters.
+    if (uploadBtn) uploadBtn.disabled = !!readOnly;
     if (genBtn) {
         var regenBusy = genBtn.getAttribute('data-generating') === '1';
         genBtn.disabled = topicLocked || regenBusy;
@@ -3536,6 +3538,12 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
     var importInput = document.getElementById('chapterImportFileInput');
     var docUploadBtn = document.getElementById('chapterDocUploadBtn');
+    // Only auto-fill the book title from an upload when the user hasn't already set one,
+    // so a real typed title is never clobbered by a filename/metadata guess.
+    function isBlankBookTitleValue(v) {
+        var t = (v == null ? '' : String(v)).trim();
+        return t.length === 0 || /^(untitled(\s+book)?|no book selected)$/i.test(t);
+    }
     window.applyImportedChapterDocument = function (txt, meta) {
         meta = meta || {};
         if (!txt || !String(txt).trim()) return false;
@@ -3565,7 +3573,7 @@ document.addEventListener('DOMContentLoaded', function() {
             window.resetWriterPreviewForContextChange(bid, ch, 0, true);
         }
         var btEl = document.getElementById('BookTitle');
-        if (meta.suggestedBookTitle && btEl) btEl.value = meta.suggestedBookTitle;
+        if (meta.suggestedBookTitle && btEl && isBlankBookTitleValue(btEl.value)) btEl.value = meta.suggestedBookTitle;
         var titleEl = document.getElementById('Title');
         var title = meta.suggestedChapterTitle || ((titleEl && titleEl.value) ? titleEl.value.trim() : 'Imported chapter');
         if (titleEl) titleEl.value = title;
@@ -3589,7 +3597,7 @@ document.addEventListener('DOMContentLoaded', function() {
         meta = meta || {};
         if (!Array.isArray(chapters) || chapters.length === 0) return false;
         var btEl = document.getElementById('BookTitle');
-        if (meta.suggestedBookTitle && btEl) btEl.value = meta.suggestedBookTitle;
+        if (meta.suggestedBookTitle && btEl && isBlankBookTitleValue(btEl.value)) btEl.value = meta.suggestedBookTitle;
         var btitle = (btEl && btEl.value) ? btEl.value.trim() : (meta.suggestedBookTitle || '');
         var mapped = chapters.map(function (c, i) {
             var no = parseInt(String(c.chapterNo), 10) || (i + 1);

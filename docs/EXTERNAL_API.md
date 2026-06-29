@@ -26,7 +26,14 @@ X-API-Key: your-secret-key
 
 - The key is like a password. Do not share it in chat or commit it to git.
 - On the live server it is saved in `/etc/default/ebookai` as `ExternalApi__ApiKey`.
+- On your own PC (local dev) put it in `appsettings.Local.json` (this file is git-ignored):
+  ```json
+  { "ExternalApi": { "ApiKey": "AK-proj-...your-key..." } }
+  ```
 - No spaces before or after the key.
+- **Rotating the key:** when the key changes you only update the value in these two places
+  (server env var + local `appsettings.Local.json`). **No code change is needed** — every
+  endpoint reads the same key automatically.
 
 **Your server file should look like this:**
 
@@ -570,4 +577,4 @@ bash deploy/do-deploy.sh
 
 ---
 
-*Last updated for Clean_Code branch. Keep your API key secret.*
+*Last updated Jun 2026 (Clean_Code branch) — verified against the latest API key + endpoint spec. Keep your API key secret.*

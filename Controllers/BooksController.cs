@@ -3173,7 +3173,7 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrWhiteSpace(text) && splitChapters.Count == 0)
                     return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR). Paste the text instead." });
 
-                var suggestedBookTitle = ChapterDocumentImportService.SuggestBookTitleFromFileName(file.FileName);
+                var suggestedBookTitle = ChapterDocumentImportService.ResolveSuggestedBookTitle(bytes, ext, file.FileName, text);
                 var (suggestedChapterNo, suggestedChapterTitle) = ChapterDocumentImportService.SuggestChapterFromBodyText(
                     string.IsNullOrWhiteSpace(text) ? (splitChapters.FirstOrDefault()?.Title ?? "Imported chapter") : text);
                 var chapters = splitChapters

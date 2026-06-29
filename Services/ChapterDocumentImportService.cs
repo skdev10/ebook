@@ -147,6 +147,18 @@ public static class ChapterDocumentImportService
         {
             throw new InvalidOperationException("This PDF is password-protected. Export a copy without a password or paste the text instead.");
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Some PDFs (scanned, damaged, or built with unusual encoders) defeat even lenient
+            // parsing. Surface a clear, actionable message instead of a dead-end generic error.
+            throw new InvalidOperationException(
+                "This PDF couldn't be read automatically — it may be scanned (image-only) or use an unusual format. "
+                + "Save it as a Word (.docx) or .txt file, or paste the text instead.");
+        }
     }
 
     /// <summary>Extract paragraph text from a Word .docx file.</summary>
@@ -324,6 +336,98 @@ public static class ChapterDocumentImportService
         baseName = Regex.Replace(baseName.Replace('_', ' '), @"\s+", " ").Trim();
         return baseName.Length > 200 ? baseName.Substring(0, 197) + "..." : baseName;
     }
+
+    /// <summary>
+    /// Best book-title guess, in priority order: .docx core metadata Title → first Title/Heading1
+    /// paragraph → a Markdown "# Title" line → cleaned file name (last resort). Chapter markers
+    /// (e.g. "Chapter 1") are never used as the book title.
+    /// </summary>
+    public static string ResolveSuggestedBookTitle(byte[]? bytes, string? ext, string? fileName, string? plainText)
+    {
+        if (!string.IsNullOrWhiteSpace(ext)
+            && ext.Equals(".docx", StringComparison.OrdinalIgnoreCase)
+            && bytes is { Length: > 0 })
+        {
+            var fromDoc = SuggestBookTitleFromDocx(bytes);
+            if (!string.IsNullOrWhiteSpace(fromDoc))
+                return TruncateSuggestedTitle(fromDoc);
+        }
+
+        var fromText = SuggestBookTitleFromText(plainText);
+        if (!string.IsNullOrWhiteSpace(fromText))
+            return TruncateSuggestedTitle(fromText);
+
+        return SuggestBookTitleFromFileName(fileName);
+    }
+
+    private static string SuggestBookTitleFromDocx(byte[] bytes)
+    {
+        try
+        {
+            using var ms = new MemoryStream(bytes, writable: false);
+            using var doc = WordprocessingDocument.Open(ms, false);
+
+            var metaTitle = doc.PackageProperties?.Title?.Trim();
+            if (!string.IsNullOrWhiteSpace(metaTitle) && !IsChapterHeadingLine(metaTitle!))
+                return CleanCandidateTitle(metaTitle!);
+
+            var body = doc.MainDocumentPart?.Document?.Body;
+            if (body != null)
+            {
+                foreach (var para in body.Elements<Paragraph>())
+                {
+                    var styleId = para.ParagraphProperties?.ParagraphStyleId?.Val?.Value ?? string.Empty;
+                    var text = (para.InnerText ?? string.Empty).Trim();
+                    if (text.Length == 0)
+                        continue;
+                    var isTitleStyle = styleId.Equals("Title", StringComparison.OrdinalIgnoreCase)
+                        || styleId.Equals("Heading1", StringComparison.OrdinalIgnoreCase);
+                    if (isTitleStyle && text.Length <= 200 && !IsChapterHeadingLine(text))
+                        return CleanCandidateTitle(text);
+                    // Stop at the first body paragraph — the title, if any, leads the document.
+                    if (!isTitleStyle && !styleId.StartsWith("Heading", StringComparison.OrdinalIgnoreCase))
+                        break;
+                }
+            }
+        }
+        catch
+        {
+            /* fall through to other strategies */
+        }
+        return string.Empty;
+    }
+
+    private static string SuggestBookTitleFromText(string? plainText)
+    {
+        if (string.IsNullOrWhiteSpace(plainText))
+            return string.Empty;
+        var lines = plainText.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
+        var scanned = 0;
+        foreach (var raw in lines)
+        {
+            var line = raw.Trim();
+            if (line.Length == 0)
+                continue;
+            if (++scanned > 8)
+                break;
+            var md = Regex.Match(line, @"^#\s+(.{2,200})$");
+            if (md.Success)
+            {
+                var t = md.Groups[1].Value;
+                if (!IsChapterHeadingLine(t))
+                    return CleanCandidateTitle(t);
+            }
+        }
+        return string.Empty;
+    }
+
+    private static bool IsChapterHeadingLine(string? text) =>
+        Regex.IsMatch(text ?? string.Empty,
+            @"^(?:#+\s*)?(?:Chapter|CHAPTER|Part|PART|Prologue|Epilogue|Introduction|Conclusion|Section)\b",
+            RegexOptions.IgnoreCase);
+
+    private static string CleanCandidateTitle(string? text) =>
+        Regex.Replace((text ?? string.Empty).Replace('_', ' '), @"\s+", " ").Trim().TrimStart('#').Trim();
 
     public static (int chapterNo, string chapterTitle) SuggestChapterFromBodyText(string text)
     {

@@ -963,6 +963,21 @@
         border-color: #4c1d95;
         color: #ffffff;
     }
+    .publish-locked-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.45rem;
+        margin: 0 0 0.2rem;
+        padding: 0.6rem 0.7rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.35;
+        color: #6d28d9;
+        background: #f5f3ff;
+        border: 1px solid #ddd6fe;
+        border-radius: 0.7rem;
+    }
+    .publish-locked-note i { margin-top: 0.15rem; }
     @@media (max-width: 880px) {
         .book-info { flex-direction: column; }
         .publish-quick-actions { width: 100%; flex-direction: row; flex-wrap: wrap; }
@@ -1146,10 +1161,19 @@
                         }
                     </div>
                     <div class="publish-quick-actions" aria-label="Edit and navigation">
-                        <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-quick-btn publish-leave-to-writer"><i class="fas fa-pen-nib" aria-hidden="true"></i> Edit in AI Writer</a>
-                        <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-book-open" aria-hidden="true"></i> Book Formatting</a>
-                        <a href="/Dashboard/CoverDesign?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-image" aria-hidden="true"></i> Cover Design</a>
-                        <a href="/Dashboard" class="publish-quick-btn publish-quick-btn--primary"><i class="fas fa-th-large" aria-hidden="true"></i> Go to Dashboard</a>
+                        @if (alreadyListed)
+                        {
+                            <p class="publish-locked-note"><i class="fas fa-lock" aria-hidden="true"></i> This book is published — formatting &amp; cover editing are locked. Continue from the Dashboard.</p>
+                            <a href="/Dashboard" id="publishFinishBtnLocked" class="publish-finish-btn publish-quick-btn publish-quick-btn--primary" data-finish-toast="This book is published and safely saved. Manage it anytime from My Books."><i class="fas fa-check-circle" aria-hidden="true"></i> Done — Go to Dashboard</a>
+                            <a href="/Dashboard/MyBooks" class="publish-quick-btn"><i class="fas fa-book" aria-hidden="true"></i> View in My Books</a>
+                        }
+                        else
+                        {
+                            <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-quick-btn publish-leave-to-writer"><i class="fas fa-pen-nib" aria-hidden="true"></i> Edit in AI Writer</a>
+                            <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-book-open" aria-hidden="true"></i> Book Formatting</a>
+                            <a href="/Dashboard/CoverDesign?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-image" aria-hidden="true"></i> Cover Design</a>
+                            <a href="/Dashboard" id="publishFinishBtn" class="publish-finish-btn publish-quick-btn publish-quick-btn--primary" data-finish-toast="Your book is saved — pick up anytime from My Books or the Dashboard."><i class="fas fa-check-circle" aria-hidden="true"></i> Save &amp; Go to Dashboard</a>
+                        }
                     </div>
                 </div>
             </div>
@@ -2332,6 +2356,30 @@
         if (typeof Swal !== 'undefined') Swal.fire({ icon: 'success', title: 'Submitted (demo)', text: 'Our team would contact you within 1 business day.', confirmButtonColor: '#7c3aed' });
         else alert('Submitted (demo)');
     });
+
+    // "Save & Go to Dashboard" / "Done" — reassure the user their work is saved, then navigate.
+    (function wireFinishButtons() {
+        var finishBtns = document.querySelectorAll('.publish-finish-btn');
+        Array.prototype.forEach.call(finishBtns, function (btn) {
+            btn.addEventListener('click', function (e) {
+                var href = btn.getAttribute('href') || '/Dashboard';
+                var msg = btn.getAttribute('data-finish-toast') || 'Your work is saved.';
+                if (typeof Swal === 'undefined') return; // let the normal link navigation happen
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Saved',
+                    text: msg,
+                    timer: 1400,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    didClose: function () { window.location.href = href; }
+                });
+                // Safety net in case the dialog is dismissed without firing didClose.
+                setTimeout(function () { window.location.href = href; }, 1700);
+            });
+        });
+    })();
 
     var pubFormatOptions = document.getElementById('pubFormatOptions');
     var pubFormatInput = document.getElementById('pubFormat');

@@ -117,6 +117,18 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine("@media screen and (max-width: 640px) {");
         doc.AppendLine("  body.book-pdf-body > .title-page, body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { padding: 24px 20px; border-radius: 0; }");
         doc.AppendLine("}");
+        // PDF parity: the exported PDF (print media) now mirrors the on-screen Read Mode reading
+        // typography so the downloaded file matches the clean, comfortable browser reader — same
+        // serif body, size, line-height, paragraph spacing/indent and heading hierarchy. The print
+        // page geometry (trim size, margins, running heads, folios, chapter page breaks) is kept.
+        // NOTE: this intentionally unifies body/heading typography across interiors for a clean,
+        // readable book. To restore per-interior export fonts, remove this @media print block.
+        doc.AppendLine("@media print {");
+        doc.AppendLine("  body.book-pdf-body .manuscript-root, body.book-pdf-body .reader-page-body, body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { font-family: Georgia, 'Times New Roman', serif !important; font-size: 16px !important; line-height: 1.8 !important; color: #1A1A1A !important; }");
+        doc.AppendLine("  body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { text-indent: 1.5em; margin: 0 0 12px; text-align: left !important; }");
+        doc.AppendLine("  body.book-pdf-body .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-title + .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-body .manuscript-p:first-of-type { text-indent: 0; }");
+        doc.AppendLine("  body.book-pdf-body .reader-page-title, body.book-pdf-body .manuscript-h1, body.book-pdf-body .manuscript-h2, body.book-pdf-body .manuscript-h3 { font-family: Georgia, serif !important; font-size: 22px !important; font-weight: 600 !important; color: #1A1A1A !important; }");
+        doc.AppendLine("}");
         doc.AppendLine("</style></head>");
         doc.AppendLine("<body class=\"book-pdf-body reader-content-wrap " + bodyTemplateClass + " " + previewShellClass + " " + previewWrapClass + "\">");
         doc.Append(coverBlock);
