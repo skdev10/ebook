@@ -194,6 +194,15 @@
    
     /* Book page card: matches the reference design — soft lavender gradient page,
        chapter title inside the page, no border, deep soft shadow. */
+    #bookResult[data-interior-mode="web"] .paginated-reader-shell.book-page-preview-shell {
+        background: var(--ilt-page-bg, var(--export-page-bg, #ffffff)) !important;
+        border: 1px solid rgba(148, 163, 184, 0.45) !important;
+        border-radius: 4px !important;
+        box-shadow: var(--book-preview-page-shadow, 0 12px 32px -8px rgba(15, 23, 42, 0.18)) !important;
+    }
+    #bookResult[data-interior-mode="web"] #preview-content.chapter-preview-viewport.book-page-preview-content {
+        background: var(--ilt-page-bg, var(--export-page-bg, #ffffff));
+    }
     #bookResult .paginated-reader-shell.book-page-preview-shell {
         display: flex;
         flex-direction: column;
@@ -1913,6 +1922,42 @@ window.readerBookStateStorageKey = function (bookId) {
     return 'ebook_ai_reader_state_v2_' + String(bookId == null || bookId === '' ? '0' : bookId);
 };
 /** Persist chapter index + page-within-chapter (and flat book page when in full-book read mode). */
+window.syncAiBookPreviewContextFromDom = function () {
+    var ctx = Object.assign({}, window._aiBookPreviewContext || {});
+    var bookTitleEl = document.getElementById('BookTitle');
+    var previewTitleEl = document.getElementById('preview-book-title');
+    if (bookTitleEl && bookTitleEl.value) ctx.bookTitle = String(bookTitleEl.value).trim();
+    else if (previewTitleEl && previewTitleEl.textContent) ctx.bookTitle = String(previewTitleEl.textContent).trim();
+    window._aiBookPreviewContext = ctx;
+    if (window.AiWriterReadMode && typeof window.AiWriterReadMode.syncContextFromDom === 'function') {
+        window._aiBookPreviewContext = window.AiWriterReadMode.syncContextFromDom(ctx);
+    }
+    return window._aiBookPreviewContext;
+};
+
+window.ensureAiWriterFormattingLoaded = function (bookId) {
+    var bid = parseInt(String(bookId || '0'), 10);
+    if (!bid) return Promise.resolve(window._aiWriterFormatting || {});
+    if (window._aiWriterFormatting && window._aiWriterFormattingBookId === bid && window._aiWriterFormatting.interiorCss) {
+        return Promise.resolve(window._aiWriterFormatting);
+    }
+    return fetch('/BookDesign/GetBookFormatting?bookId=' + encodeURIComponent(bid), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (!d || !d.success || !d.data) return window._aiWriterFormatting || {};
+            window._aiWriterFormatting = {
+                interiorStyle: d.data.interiorStyle || 'Novel',
+                textSize: d.data.textSize || 'Medium',
+                lineSpacing: d.data.lineSpacing || '1.6',
+                pageBackgroundColor: '',
+                previewAccent: ''
+            };
+            window._aiWriterFormattingBookId = bid;
+            return window._aiWriterFormatting;
+        })
+        .catch(function () { return window._aiWriterFormatting || {}; });
+};
+
 window.saveReaderBookState = function () {
     var bidEl = document.getElementById('BookId');
     if (!bidEl) return;
@@ -2290,6 +2335,16 @@ window.ensureChapterPagesForMeta = function (ch) {
 };
 
 window.renderCurrentReaderPage = function () {
+    if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length && window.AiWriterReadMode) {
+        window.AiWriterReadMode.renderWriterPage(window._writerPageIndex || 0);
+        return;
+    }
+    var meta = window._previewChaptersMeta || [];
+    if (meta.length && window.AiWriterReadMode && typeof window.AiWriterReadMode.rebuildIfPossible === 'function') {
+        if (typeof window.syncAiBookPreviewContextFromDom === 'function') window.syncAiBookPreviewContextFromDom();
+        var flat = window._writerPageIndex || 0;
+        if (window.AiWriterReadMode.rebuildIfPossible(meta, { useFlatPage: true, startPageIndex: flat })) return;
+    }
     var viewport = document.getElementById('preview-content');
     var pages = window._previewChapterPages || [];
     var pi = Math.max(0, Math.min(window._previewPageIndex || 0, Math.max(0, pages.length - 1)));
@@ -3322,13 +3377,20 @@ window.setPreviewChaptersFromList = function (meta, startChapterIndex, startPage
         return;
     }
     if (window.AiWriterReadMode && typeof window.AiWriterReadMode.rebuildIfPossible === 'function') {
-        if (window.AiWriterReadMode.rebuildIfPossible(window._previewChaptersMeta, {
-            startChapterIndex: resolved,
-            startPageIndex: resolvedPage,
-            initialPage: resolvedPage
-        })) {
-            return;
-        }
+        if (typeof window.syncAiBookPreviewContextFromDom === 'function') window.syncAiBookPreviewContextFromDom();
+        (function tryRebuild(attempt) {
+            if (window.AiWriterReadMode.rebuildIfPossible(window._previewChaptersMeta, {
+                startChapterIndex: resolved,
+                startPageIndex: resolvedPage,
+                initialPage: resolvedPage
+            })) return;
+            if (attempt < 8) {
+                requestAnimationFrame(function () { tryRebuild(attempt + 1); });
+                return;
+            }
+            window.applyPreviewChapterIndex(resolved, { initialPage: resolvedPage });
+        })(0);
+        return;
     }
     window.applyPreviewChapterIndex(resolved, { initialPage: resolvedPage });
 };
@@ -3539,6 +3601,7 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
             previewContent.classList.remove('hidden');
             setTimeout(function() {
                 window._previewChaptersMeta = chaptersMeta;
+                window.syncAiBookPreviewContextFromDom();
                 var rebuildOpts = {
                     startChapterIndex: startIdx,
                     startPageIndex: startPg,
@@ -3549,14 +3612,26 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                     rebuildOpts.useFlatPage = true;
                     delete rebuildOpts.startChapterIndex;
                 }
-                if (typeof window.AiWriterReadMode !== 'undefined' && window.AiWriterReadMode.rebuildIfPossible(chaptersMeta, rebuildOpts)) {
-                    /* full-book read mode active */
-                } else if (typeof window.setPreviewChaptersFromList === 'function') {
-                    window.setPreviewChaptersFromList(chaptersMeta, startIdx, startPg);
+                function runRebuild(attempt) {
+                    attempt = attempt || 0;
+                    if (typeof window.syncAiWriterPreviewLayout === 'function') window.syncAiWriterPreviewLayout();
+                    if (typeof window.AiWriterReadMode !== 'undefined' && window.AiWriterReadMode.rebuildIfPossible(chaptersMeta, rebuildOpts)) {
+                        return;
+                    }
+                    if (attempt < 8) {
+                        requestAnimationFrame(function () { runRebuild(attempt + 1); });
+                        return;
+                    }
+                    if (typeof window.setPreviewChaptersFromList === 'function') {
+                        window.setPreviewChaptersFromList(chaptersMeta, startIdx, startPg);
+                    }
                 }
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(function () { runRebuild(0); });
+                });
                 var brScroll = document.getElementById('bookResult');
                 if (brScroll) brScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 50);
+            }, 80);
             if (data.bookTitle) {
                 var tEl = document.getElementById('preview-book-title');
                 if (tEl) {
@@ -7645,10 +7720,21 @@ document.addEventListener('DOMContentLoaded', function() {
         /** When BookId is not saved yet, still cache chapters for prev/next without calling GetFullBookContent. */
         window.patchLocalPreviewMetaAfterGeneration = function (bookData) {
             var phBase = Object.assign({}, window._aiBookPreviewContext || {});
+            if (typeof window.syncAiBookPreviewContextFromDom === 'function') {
+                phBase = Object.assign(phBase, window.syncAiBookPreviewContextFromDom());
+            }
             var list = (window._previewChaptersMeta && window._previewChaptersMeta.length) ? window._previewChaptersMeta.slice() : [];
             var ix = window.patchPreviewMetaArrayWithGeneration(list, bookData, phBase);
-            if (typeof window.setPreviewChaptersFromList === 'function') {
-                window.setPreviewChaptersFromList(list, ix);
+            var bidEl = document.getElementById('BookId');
+            var bid = bidEl ? parseInt(bidEl.value, 10) : 0;
+            if (bid > 0 && typeof window.ensureAiWriterFormattingLoaded === 'function') {
+                window.ensureAiWriterFormattingLoaded(bid).finally(function () {
+                    if (typeof window.setPreviewChaptersFromList === 'function') {
+                        window.setPreviewChaptersFromList(list, ix, 0);
+                    }
+                });
+            } else if (typeof window.setPreviewChaptersFromList === 'function') {
+                window.setPreviewChaptersFromList(list, ix, 0);
             }
         };
 

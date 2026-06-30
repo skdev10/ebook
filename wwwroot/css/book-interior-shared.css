@@ -169,6 +169,25 @@
     line-height: 1.2;
 }
 
-#book-formatter-root .book-page-content .toc-title {
+#bookResult #preview-content .front-matter-page.title-page h1 {
     font-family: var(--heading-font, 'Playfair Display', Georgia, serif);
 }
+
+#bookResult #preview-content .front-matter-page.toc-page .toc-title {
+    font-family: var(--heading-font, 'Playfair Display', Georgia, serif);
+}
+
+#bookResult #preview-content .front-matter-page.title-page,
+#bookResult #preview-content .front-matter-page.copyright-page,
+#bookResult #preview-content .front-matter-page.toc-page {
+    min-height: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+#bookResult #preview-content .front-matter-page.copyright-page,
+#bookResult #preview-content .front-matter-page.toc-page {
+    justify-content: flex-start;
+    overflow: hidden;
+}
+

@@ -233,8 +233,86 @@
             el.id = id;
             document.head.appendChild(el);
         }
-        var scoped = String(css).replace(/#book-formatter-root/g, '#bookResult');
+        var scoped = String(css)
+            .replace(/#book-formatter-root/g, '#bookResult')
+            .replace(/#fmt-book-result/g, '#bookResult');
         if (el.textContent !== scoped) el.textContent = scoped;
+        appendAiWriterInteriorBridge();
+    }
+
+    function appendAiWriterInteriorBridge() {
+        var id = 'ai-writer-interior-bridge';
+        var el = document.getElementById(id);
+        if (!el) {
+            el = document.createElement('style');
+            el.id = id;
+            document.head.appendChild(el);
+        }
+        el.textContent =
+            '#bookResult[data-interior-mode="web"] .paginated-reader-shell.book-page-preview-shell {' +
+            'background: var(--ilt-page-bg, var(--export-page-bg, #fff)) !important;' +
+            'border: 1px solid rgba(148, 163, 184, 0.45) !important; border-radius: 4px !important;' +
+            'box-shadow: var(--book-preview-page-shadow, 0 12px 32px -8px rgba(15,23,42,0.18)) !important; }' +
+            '#bookResult[data-interior-mode="web"] #preview-content.book-page-preview-content {' +
+            'background: var(--ilt-page-bg, var(--export-page-bg, #fff));' +
+            'color: var(--ilt-body-color, inherit); font-family: var(--ilt-body-font, inherit);' +
+            'font-size: var(--ilt-body-px, inherit); line-height: var(--ilt-body-lh, inherit); }' +
+            '#bookResult #preview-content .reader-chapter-block .reader-page-body,' +
+            '#bookResult #preview-content .reader-chapter-block .reader-page-body p,' +
+            '#bookResult #preview-content .reader-chapter-block .reader-page-body .manuscript-p {' +
+            'max-width: var(--ilt-text-max, 100%); margin-inline: auto; width: 100%; box-sizing: border-box; }' +
+            '#bookResult #preview-content .reader-chapter-block .reader-page-title,' +
+            '#bookResult #preview-content .reader-chapter-block .manuscript-chapter-heading.reader-page-title {' +
+            'font-family: var(--heading-font, Georgia, serif); color: var(--heading-color, inherit);' +
+            'text-align: center; margin: 0 0 0.65rem; font-weight: 600; }';
+    }
+
+    /** Match formatter DOM: reader-chapter-block > reader-page-title + reader-page-body */
+    function normalizeChapterPageHtml(html) {
+        if (!html || html.indexOf('reader-page-body') >= 0) return html;
+        if (html.indexOf('front-matter-page') >= 0 || html.indexOf('writer-cover-page') >= 0) return html;
+        try {
+            var d = document.createElement('div');
+            d.innerHTML = html;
+            var block = d.querySelector('.reader-chapter-block');
+            if (!block) return html;
+            var heading = block.querySelector('.manuscript-chapter-heading, h1, h2, h3, h4, h5, h6');
+            var titleHtml = '';
+            if (heading) {
+                heading.classList.add('reader-page-title');
+                if (!heading.classList.contains('manuscript-chapter-heading')) {
+                    heading.classList.add('manuscript-chapter-heading');
+                }
+                titleHtml = heading.outerHTML;
+                heading.remove();
+            }
+            var bodyInner = block.innerHTML.trim();
+            block.innerHTML = titleHtml + '<section class="reader-page-body">' + (bodyInner || '<p class="text-slate-500">No content.</p>') + '</section>';
+            return d.innerHTML;
+        } catch (e) {
+            return html;
+        }
+    }
+
+    function waitForShellReady(cb, tries) {
+        tries = tries || 0;
+        if (typeof global.syncAiWriterPreviewLayout === 'function') global.syncAiWriterPreviewLayout();
+        var shell = document.getElementById('paginatedReaderShell');
+        var viewport = document.getElementById('preview-content');
+        var ready = shell && viewport && shell.clientWidth >= 48 && shell.clientHeight >= 48;
+        if (ready || tries >= 16) {
+            cb(shell, viewport);
+            return;
+        }
+        global.requestAnimationFrame(function () { waitForShellReady(cb, tries + 1); });
+    }
+
+    function syncContextFromDom(ctx) {
+        ctx = Object.assign({}, ctx || global._aiBookPreviewContext || {});
+        var titleEl = document.getElementById('BookTitle');
+        var bookTitle = (titleEl && titleEl.value) ? String(titleEl.value).trim() : '';
+        if (bookTitle) ctx.bookTitle = bookTitle;
+        return ctx;
     }
 
     function paginateAllChapters(meta, shell, viewport) {
@@ -262,7 +340,7 @@
                 ch._pagesCacheKey = key;
             }
             for (var p = 0; p < pages.length; p++) {
-                chapterPages.push(pages[p]);
+                chapterPages.push(normalizeChapterPageHtml(pages[p]));
                 chapterIdxs.push(i);
             }
         }
@@ -379,16 +457,12 @@
         return 0;
     }
 
-    function rebuildFullBookPages(meta, ctx, formatting, coverUrl, opts) {
+    function rebuildFullBookPagesCore(meta, ctx, formatting, coverUrl, opts, shell, viewport) {
         meta = meta || [];
-        ctx = ctx || global._aiBookPreviewContext || {};
+        ctx = syncContextFromDom(ctx);
         formatting = formatting || global._aiWriterFormatting || {};
         opts = opts || {};
 
-        if (typeof global.syncAiWriterPreviewLayout === 'function') global.syncAiWriterPreviewLayout();
-
-        var shell = document.getElementById('paginatedReaderShell');
-        var viewport = document.getElementById('preview-content');
         if (!shell || !viewport) return false;
 
         var hasContent = meta.some(function (m) { return m && !m.loading && String(m.html || '').trim(); });
@@ -402,6 +476,7 @@
 
         applyInteriorFormatting(formatting);
         if (formatting.interiorCss) ensureInteriorCss(formatting.interiorCss);
+        else appendAiWriterInteriorBridge();
 
         var paginated = paginateAllChapters(meta, shell, viewport);
         var chapterPages = paginated.pages;
@@ -415,11 +490,11 @@
         }
 
         var resolvedCover = resolveCoverUrl(coverUrl || global._aiWriterCoverUrl || ctx.coverImagePath || '');
-        var hasCover = !!resolvedCover;
-        var fmOffset = (hasCover ? 1 : 0) + FM_COUNT;
+        var COVER_COUNT = 1;
+        var fmOffset = COVER_COUNT + FM_COUNT;
         var toc = buildTocPage(meta, chapterStartPages, fmOffset);
         var fmPages = [buildTitlePage(ctx), buildCopyrightPage(ctx), toc];
-        if (hasCover) {
+        if (resolvedCover) {
             fmPages.unshift(buildCoverPage(resolvedCover, ctx.bookTitle));
         } else {
             fmPages.unshift(buildCoverFallbackPage(ctx));
@@ -434,12 +509,40 @@
         global._writerBookPages = allPages;
         global._writerPageChapterIdx = allIdxs;
         global._writerFrontMatterCount = fmPages.length;
+        global._aiBookPreviewContext = ctx;
 
         var start = resolveStartPageIndex(opts, meta);
         start = Math.max(0, Math.min(start, allPages.length - 1));
         renderWriterPage(start);
         wireTocOnce();
         return true;
+    }
+
+    function rebuildFullBookPages(meta, ctx, formatting, coverUrl, opts) {
+        meta = meta || [];
+        ctx = ctx || global._aiBookPreviewContext || {};
+        formatting = formatting || global._aiWriterFormatting || {};
+        opts = opts || {};
+
+        var shell = document.getElementById('paginatedReaderShell');
+        var viewport = document.getElementById('preview-content');
+        if (!shell || !viewport) return false;
+
+        var hasContent = meta.some(function (m) { return m && !m.loading && String(m.html || '').trim(); });
+        if (!hasContent) {
+            global._writerFullBookMode = false;
+            global._writerBookPages = null;
+            return false;
+        }
+
+        if (shell.clientWidth >= 48 && shell.clientHeight >= 48) {
+            return rebuildFullBookPagesCore(meta, ctx, formatting, coverUrl, opts, shell, viewport);
+        }
+
+        waitForShellReady(function (sh, vp) {
+            rebuildFullBookPagesCore(meta, ctx, formatting, coverUrl, opts, sh, vp);
+        });
+        return false;
     }
 
     function rebuildIfPossible(meta, opts) {
@@ -518,6 +621,8 @@
         findFirstPageForChapter: findFirstPageForChapter,
         findLastPageForChapter: findLastPageForChapter,
         pageLabel: pageLabel,
-        applyInteriorFormatting: applyInteriorFormatting
+        applyInteriorFormatting: applyInteriorFormatting,
+        syncContextFromDom: syncContextFromDom,
+        normalizeChapterPageHtml: normalizeChapterPageHtml
     };
 })(window);
