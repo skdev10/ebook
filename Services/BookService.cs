@@ -1148,6 +1148,59 @@ namespace EBookDashboard.Services
             return Task.FromResult(true);
         }
 
+        /// <inheritdoc />
+        public async Task<(bool Success, string Message)> DeleteWriterChapterAsync(
+            int userId,
+            int bookId,
+            int chapterNumber,
+            CancellationToken cancellationToken = default)
+        {
+            if (userId <= 0 || bookId <= 0 || chapterNumber <= 0)
+                return (false, "Invalid book or chapter number.");
+
+            var book = await _context.Books
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+            if (book == null)
+                return (false, "Book not found or access denied.");
+
+            var chapterRow = await _context.Chapters
+                .FirstOrDefaultAsync(c => c.BookId == bookId && c.ChapterNumber == chapterNumber, cancellationToken);
+
+            var hasChapterData = chapterRow != null
+                || await _context.APIRawResponse.AnyAsync(
+                    r => r.UserId == userId && r.BookId == bookId && r.Chapter == chapterNumber,
+                    cancellationToken)
+                || await _context.ChapterIterations.AnyAsync(
+                    i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNumber,
+                    cancellationToken);
+            if (!hasChapterData)
+                return (false, "Chapter not found.");
+
+            var finalizeRows = await _context.FinalizeChapters
+                .Where(f => f.UserId == userId && f.BookId == bookId && f.Chapter == chapterNumber)
+                .ToListAsync(cancellationToken);
+            if (finalizeRows.Count > 0)
+                _context.FinalizeChapters.RemoveRange(finalizeRows);
+
+            var iterations = await _context.ChapterIterations
+                .Where(i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNumber)
+                .ToListAsync(cancellationToken);
+            if (iterations.Count > 0)
+                _context.ChapterIterations.RemoveRange(iterations);
+
+            var rawResponses = await _context.APIRawResponse
+                .Where(r => r.UserId == userId && r.BookId == bookId && r.Chapter == chapterNumber)
+                .ToListAsync(cancellationToken);
+            if (rawResponses.Count > 0)
+                _context.APIRawResponse.RemoveRange(rawResponses);
+
+            if (chapterRow != null)
+                _context.Chapters.Remove(chapterRow);
+
+            await _context.SaveChangesAsync(cancellationToken);
+            return (true, $"Chapter {chapterNumber} deleted.");
+        }
+
        
     }
 

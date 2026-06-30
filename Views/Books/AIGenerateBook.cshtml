@@ -28,9 +28,12 @@
     window.__chapterGenEstimatedSeconds = @chapterGenEstimatedSeconds;
 </script>
 <link rel="stylesheet" href="~/css/book-page-preview.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/book-interior-shared.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/css/ai-writer.css" asp-append-version="true" />
 <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
 <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
+<script src="~/js/book-interior-preview.js" asp-append-version="true"></script>
+<script src="~/js/ai-writer-read-mode.js" asp-append-version="true"></script>
 <style>
 
     body { font-family: 'Inter', sans-serif; }
@@ -848,6 +851,16 @@
         background: transparent;
         cursor: pointer;
     }
+    .chapter-index-delete {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: #a78bfa;
+    }
+    .chapter-index-delete:hover {
+        color: #6d28d9;
+        background: #f5f3ff;
+    }
     /* Book page-turn: arrows + current page info */
     .book-page-turn-bar {
         display: flex;
@@ -1240,10 +1253,54 @@
         box-sizing: border-box;
     }
     .add-chapter-btn-inline {
-        min-width: 5.5rem;
+        min-width: 0;
         align-self: stretch;
         height: auto !important;
         box-sizing: border-box;
+    }
+    .chapter-inline-action {
+        flex: 0 0 auto;
+        width: 2.75rem;
+        min-height: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-left: 1px solid #e2e8f0;
+        cursor: pointer;
+        padding: 0;
+        font-size: 0.8125rem;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+    .chapter-inline-add {
+        color: #fff;
+        background: #9333ea;
+        border-left-color: #9333ea;
+    }
+    .chapter-inline-add:hover {
+        background: #7e22ce;
+        border-left-color: #7e22ce;
+    }
+    .chapter-inline-remove {
+        color: #6b21a8;
+        background: #f5f3ff;
+        border-left-color: #ddd6fe;
+        border-radius: 0 0.75rem 0.75rem 0;
+    }
+    .chapter-inline-remove:not(:disabled):hover {
+        color: #5b21b6;
+        background: #ede9fe;
+        border-left-color: #c4b5fd;
+    }
+    .chapter-inline-remove:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        color: #a78bfa;
+        background: #faf5ff;
+        border-left-color: #ede9fe;
+    }
+    .chapter-toolbar-actions {
+        display: none;
     }
     /* Uniform input width - all form inputs same size */
     .form-input-uniform,
@@ -1509,8 +1566,13 @@
                         <select id="ChapterDropdown" class="chapter-no-select flex-1 min-w-[100px] appearance-none bg-transparent border-0 px-4 py-3.5 pr-8 text-base text-slate-700 focus:outline-none focus:ring-0 cursor-pointer" onchange="loadBookChapterNos(this.value)">
                             <option value="1" selected>Click “Add a chapter” to start →</option>
                         </select>
-                        <span class="flex items-center px-2 text-slate-400 pointer-events-none"><i class="fas fa-chevron-down text-sm"></i></span>
-                        <button id="addChapterBtn" type="button" class="add-chapter-btn-inline inline-flex items-center justify-center shrink-0 px-3 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 border-l border-slate-200 transition-colors whitespace-nowrap" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">Add a chapter</button>
+                        <span class="flex items-center px-1 text-slate-400 pointer-events-none"><i class="fas fa-chevron-down text-sm"></i></span>
+                        <button id="addChapterBtn" type="button" class="chapter-inline-action chapter-inline-add add-chapter-btn-inline" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">
+                            <i class="fas fa-plus text-[11px]" aria-hidden="true"></i>
+                        </button>
+                        <button id="deleteChapterBtn" type="button" class="chapter-inline-action chapter-inline-remove" onclick="confirmDeleteCurrentChapter()" title="Remove the selected chapter" aria-label="Remove chapter">
+                            <i class="fas fa-trash-alt text-[11px]" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <div class="flex items-center gap-2 pt-1">
                         <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.text,.md,.markdown,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" aria-label="Upload document (PDF, Word, TXT, or Markdown)" />
@@ -1850,16 +1912,20 @@ window.saveAiReaderChapterIndex = function (bookId, zeroBasedIndex) {
 window.readerBookStateStorageKey = function (bookId) {
     return 'ebook_ai_reader_state_v2_' + String(bookId == null || bookId === '' ? '0' : bookId);
 };
-/** Persist chapter index + page-within-chapter for paginated reader. */
+/** Persist chapter index + page-within-chapter (and flat book page when in full-book read mode). */
 window.saveReaderBookState = function () {
     var bidEl = document.getElementById('BookId');
     if (!bidEl) return;
     var bid = bidEl.value;
     try {
-        localStorage.setItem(window.readerBookStateStorageKey(bid), JSON.stringify({
+        var payload = {
             ch: window._previewChapterIndex || 0,
             pg: window._previewPageIndex || 0
-        }));
+        };
+        if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
+            payload.flatPage = window._writerPageIndex || 0;
+        }
+        localStorage.setItem(window.readerBookStateStorageKey(bid), JSON.stringify(payload));
         window.saveAiReaderChapterIndex(bid, window._previewChapterIndex || 0);
     } catch (e) { /* quota */ }
 };
@@ -2162,6 +2228,13 @@ window.syncAiWriterPreviewLayout = function () {
                 syncPreviewPaneWidth(shellW);
                 if (window._previewChaptersMeta && window._previewChaptersMeta.length && typeof window.invalidateReaderPageCaches === 'function') {
                     window.invalidateReaderPageCaches();
+                    if (window._writerFullBookMode && window.AiWriterReadMode && typeof window.AiWriterReadMode.rebuildIfPossible === 'function') {
+                        window.AiWriterReadMode.rebuildIfPossible(window._previewChaptersMeta, {
+                            useFlatPage: true,
+                            startPageIndex: window._writerPageIndex || 0
+                        });
+                        return;
+                    }
                     var ch = window._previewChaptersMeta[window._previewChapterIndex || 0];
                     if (ch && !ch.loading && typeof window.ensureChapterPagesForMeta === 'function') {
                         window.ensureChapterPagesForMeta(ch);
@@ -2232,6 +2305,10 @@ window.renderCurrentReaderPage = function () {
 };
 
 window.readerNavNext = function () {
+    if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length && window.AiWriterReadMode) {
+        window.AiWriterReadMode.navNext();
+        return;
+    }
     var pi = window._previewPageIndex || 0;
     var ci = window._previewChapterIndex || 0;
     var pages = window._previewChapterPages || [];
@@ -2250,6 +2327,10 @@ window.readerNavNext = function () {
 };
 
 window.readerNavPrevious = function () {
+    if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length && window.AiWriterReadMode) {
+        window.AiWriterReadMode.navPrev();
+        return;
+    }
     var pi = window._previewPageIndex || 0;
     var ci = window._previewChapterIndex || 0;
     if (pi > 0) {
@@ -2514,6 +2595,9 @@ window.formatFriendlyVersionDate = function (dateStr, timeStr) {
 };
 
 window.getAiWriterLocalTotalPages = function () {
+    if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
+        return window._writerBookPages.length;
+    }
     var list = window._previewChaptersMeta || [];
     var total = 0;
     list.forEach(function (ch) {
@@ -2583,6 +2667,8 @@ window.showPreviewEmptyState = function () {
     var previewHeader = document.getElementById('preview-chapter-header');
     if (!previewContent) return;
     if (window._previewChaptersMeta && window._previewChaptersMeta.length > 0) return;
+    window._writerFullBookMode = false;
+    window._writerBookPages = null;
     if (previewHeader) {
         previewHeader.classList.add('hidden');
         previewHeader.setAttribute('aria-hidden', 'true');
@@ -2745,8 +2831,22 @@ window.rebuildChapterIndexFlyoutList = function () {
             }
         });
 
+        var deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'chapter-index-delete shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-200';
+        deleteBtn.title = 'Remove chapter';
+        deleteBtn.setAttribute('aria-label', 'Remove chapter ' + chNo);
+        deleteBtn.innerHTML = '<i class="fas fa-trash-alt text-[10px]" aria-hidden="true"></i>';
+        deleteBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (typeof window.confirmDeleteCurrentChapter === 'function') {
+                window.confirmDeleteCurrentChapter(chNo);
+            }
+        });
+
         row.appendChild(btn);
         row.appendChild(renameBtn);
+        row.appendChild(deleteBtn);
         listEl.appendChild(row);
     });
 };
@@ -2923,6 +3023,42 @@ window.updateChapterPreviewNavUI = function () {
     var idxBtn = document.getElementById('btnOpenChapterIndex');
     var pageInd = document.getElementById('aiWriterPageIndicator');
     var list = window._previewChaptersMeta || [];
+
+    if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
+        if (nav) nav.classList.add('hidden');
+        var psFull = document.getElementById('btnAiWriterPrevSide');
+        var nsFull = document.getElementById('btnAiWriterNextSide');
+        if (psFull) psFull.style.visibility = '';
+        if (nsFull) nsFull.style.visibility = '';
+        var pi = window._writerPageIndex || 0;
+        var total = window._writerBookPages.length;
+        var pageLabel = (window.AiWriterReadMode && typeof window.AiWriterReadMode.pageLabel === 'function')
+            ? window.AiWriterReadMode.pageLabel(pi)
+            : ('Page ' + (pi + 1));
+        if (label) label.textContent = pageLabel + ' · Page ' + (pi + 1) + ' / ' + total;
+        if (pageInd) {
+            pageInd.textContent = 'Page ' + (pi + 1) + ' of ' + total;
+            pageInd.classList.remove('hidden');
+        }
+        if (prev) prev.disabled = pi <= 0;
+        if (next) next.disabled = pi >= total - 1;
+        if (psFull) psFull.disabled = pi <= 0;
+        if (nsFull) nsFull.disabled = pi >= total - 1;
+        if (fill) fill.style.width = total ? ((pi + 1) / total * 100) + '%' : '0%';
+        if (idxBtn) {
+            idxBtn.style.display = list.length > 1 ? '' : 'none';
+            idxBtn.disabled = list.length <= 1;
+        }
+        if (window._chapterIndexFlyoutOpen && typeof window.rebuildChapterIndexFlyoutList === 'function') {
+            window.rebuildChapterIndexFlyoutList();
+        }
+        if (typeof window.syncAiWriterPreviewLayout === 'function') {
+            requestAnimationFrame(function () { window.syncAiWriterPreviewLayout(); });
+        }
+        if (typeof window.refreshAiWriterTotalPages === 'function') window.refreshAiWriterTotalPages();
+        return;
+    }
+
     if (list.length === 0) {
         if (nav) nav.classList.add('hidden');
         if (pageInd) pageInd.classList.add('hidden');
@@ -3048,6 +3184,21 @@ window.applyPreviewChapterIndex = function (idx, opts) {
     var list = window._previewChaptersMeta;
     if (!list || !list.length) return;
     var i = Math.max(0, Math.min(idx, list.length - 1));
+
+    if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length && window.AiWriterReadMode) {
+        var initialPage = typeof opts.initialPage === 'number' ? opts.initialPage : 0;
+        if (window.AiWriterReadMode.goToChapter(i, { initialPage: initialPage })) {
+            var ch = list[i] || {};
+            if (ch && ch.html) window._currentChapterContent = ch.html;
+            var chNoSync = (ch && ch.chapterNo != null && ch.chapterNo !== '') ? parseInt(ch.chapterNo, 10) : NaN;
+            if (!Number.isFinite(chNoSync)) chNoSync = i + 1;
+            if (typeof window.syncChapterNoDropdownAndHidden === 'function') {
+                window.syncChapterNoDropdownAndHidden(chNoSync);
+            }
+            return;
+        }
+    }
+
     window._previewChapterIndex = i;
     var ch = list[i] || {};
     var readerView = document.getElementById('readerViewport');
@@ -3165,8 +3316,19 @@ window.setPreviewChaptersFromList = function (meta, startChapterIndex, startPage
         window._previewChapterIndex = 0;
         window._previewPageIndex = 0;
         window._previewChapterPages = [];
+        window._writerFullBookMode = false;
+        window._writerBookPages = null;
         window.updateChapterPreviewNavUI();
         return;
+    }
+    if (window.AiWriterReadMode && typeof window.AiWriterReadMode.rebuildIfPossible === 'function') {
+        if (window.AiWriterReadMode.rebuildIfPossible(window._previewChaptersMeta, {
+            startChapterIndex: resolved,
+            startPageIndex: resolvedPage,
+            initialPage: resolvedPage
+        })) {
+            return;
+        }
     }
     window.applyPreviewChapterIndex(resolved, { initialPage: resolvedPage });
 };
@@ -3290,9 +3452,19 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                 subtitle: (data.subtitle && String(data.subtitle)) || '',
                 description: (data.description && String(data.description)) || '',
                 genre: (data.genre && String(data.genre)) || '',
-                authorName: (data.authorName && String(data.authorName)) || ''
+                authorName: (data.authorName && String(data.authorName)) || '',
+                coverImagePath: (data.coverImagePath && String(data.coverImagePath)) || ''
             };
             try { window._aiBookPreviewContext = Object.assign({}, phBase); } catch (e) {}
+            window._aiWriterCoverUrl = phBase.coverImagePath || '';
+            window._aiWriterFormatting = {
+                interiorStyle: (data.formatting && data.formatting.interiorStyle) || 'Novel',
+                textSize: (data.formatting && data.formatting.textSize) || 'Medium',
+                lineSpacing: (data.formatting && data.formatting.lineSpacing) || '1.6',
+                pageBackgroundColor: (data.formatting && data.formatting.pageBackgroundColor) || '',
+                previewAccent: (data.formatting && data.formatting.previewAccent) || '',
+                interiorCss: data.interiorCss || ''
+            };
             var ap = window.applyTemplatePlaceholders;
             var chaptersMeta = [];
             var fmt = window.formatManuscriptBodyToHtml;
@@ -3334,6 +3506,7 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
             });
             var startIdx = 0;
             var startPg = 0;
+            var startFlatPage = null;
             if (opts.mergeBookData && typeof window.patchPreviewMetaArrayWithGeneration === 'function') {
                 startIdx = window.patchPreviewMetaArrayWithGeneration(chaptersMeta, opts.mergeBookData, phBase);
                 startPg = 0;
@@ -3342,7 +3515,9 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                 startPg = typeof opts.startPageIndex === 'number' ? Math.max(0, opts.startPageIndex) : 0;
             } else if (typeof window.loadReaderBookState === 'function') {
                 var st = window.loadReaderBookState(String(bid));
-                if (st && typeof st.ch === 'number' && st.ch >= 0 && st.ch < chaptersMeta.length) {
+                if (st && typeof st.flatPage === 'number' && st.flatPage >= 0) {
+                    startFlatPage = st.flatPage;
+                } else if (st && typeof st.ch === 'number' && st.ch >= 0 && st.ch < chaptersMeta.length) {
                     startIdx = st.ch;
                     startPg = Math.max(0, st.pg || 0);
                 }
@@ -3363,7 +3538,20 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
             if (wrap) wrap.classList.add('hidden');
             previewContent.classList.remove('hidden');
             setTimeout(function() {
-                if (typeof window.setPreviewChaptersFromList === 'function') {
+                window._previewChaptersMeta = chaptersMeta;
+                var rebuildOpts = {
+                    startChapterIndex: startIdx,
+                    startPageIndex: startPg,
+                    initialPage: startPg
+                };
+                if (startFlatPage != null) {
+                    rebuildOpts.startPageIndex = startFlatPage;
+                    rebuildOpts.useFlatPage = true;
+                    delete rebuildOpts.startChapterIndex;
+                }
+                if (typeof window.AiWriterReadMode !== 'undefined' && window.AiWriterReadMode.rebuildIfPossible(chaptersMeta, rebuildOpts)) {
+                    /* full-book read mode active */
+                } else if (typeof window.setPreviewChaptersFromList === 'function') {
                     window.setPreviewChaptersFromList(chaptersMeta, startIdx, startPg);
                 }
                 var brScroll = document.getElementById('bookResult');
@@ -5123,6 +5311,152 @@ document.addEventListener('DOMContentLoaded', function() {
           setVersionHistoryPanelVisible(true);
 
       }
+
+      window.isWriterChapterFinalizedStatus = function (status) {
+          var s = String(status || '').trim().toLowerCase();
+          return s === 'readonly' || s === 'finalized' || s === 'final';
+      };
+
+      window.updateDeleteChapterButtonState = function () {
+          var btn = document.getElementById('deleteChapterBtn');
+          var bookId = document.getElementById('BookId') && document.getElementById('BookId').value;
+          var ddl = document.getElementById('ChapterDropdown');
+          var statusEl = document.getElementById('Status');
+          if (!btn) return;
+          var hasBook = bookId && bookId !== '0';
+          var hasChapter = ddl && ddl.options.length > 0 && ddl.value && ddl.value !== '0';
+          var isFinalized = statusEl && typeof window.isWriterChapterFinalizedStatus === 'function'
+              && window.isWriterChapterFinalizedStatus(statusEl.value);
+          btn.disabled = !hasBook || !hasChapter;
+          btn.title = isFinalized
+              ? 'Remove this finalized chapter permanently (included in export until deleted)'
+              : 'Remove the selected chapter and all its versions';
+      };
+
+      window.removeChapterFromPreviewMeta = function (chapterNo) {
+          var n = parseInt(String(chapterNo || '0'), 10);
+          if (!n || !window._previewChaptersMeta) return;
+          var idx = -1;
+          for (var i = 0; i < window._previewChaptersMeta.length; i++) {
+              var ch = window._previewChaptersMeta[i];
+              var cn = parseInt(String((ch && (ch.chapterNo || ch.chapter)) || '0'), 10);
+              if (cn === n) { idx = i; break; }
+          }
+          if (idx < 0) return;
+          window._previewChaptersMeta.splice(idx, 1);
+          if (window._previewChaptersMeta.length === 0) {
+              window._previewChapterPages = [];
+              window._previewChapterIndex = 0;
+              window._previewPageIndex = 0;
+              window._writerFullBookMode = false;
+              window._writerBookPages = null;
+              if (typeof window.showPreviewEmptyState === 'function') window.showPreviewEmptyState();
+              if (typeof window.updatePreviewUI === 'function') window.updatePreviewUI();
+              return;
+          }
+          if ((window._previewChapterIndex || 0) >= window._previewChaptersMeta.length) {
+              window._previewChapterIndex = window._previewChaptersMeta.length - 1;
+          }
+          window._previewPageIndex = 0;
+          if (typeof window.invalidateReaderPageCaches === 'function') window.invalidateReaderPageCaches();
+          if (window.AiWriterReadMode && typeof window.AiWriterReadMode.rebuildIfPossible === 'function') {
+              window.AiWriterReadMode.rebuildIfPossible(window._previewChaptersMeta, {
+                  startChapterIndex: window._previewChapterIndex,
+                  initialPage: 0
+              });
+          } else if (typeof window.ensureChapterPagesForMeta === 'function') {
+              window.ensureChapterPagesForMeta(window._previewChaptersMeta[window._previewChapterIndex]);
+              if (typeof window.renderCurrentReaderPage === 'function') window.renderCurrentReaderPage();
+          }
+          if (typeof window.updatePreviewUI === 'function') window.updatePreviewUI();
+      };
+
+      window.confirmDeleteCurrentChapter = async function (chapterNoOverride) {
+          var userId = document.getElementById('UserId') && document.getElementById('UserId').value;
+          var bookId = document.getElementById('BookId') && document.getElementById('BookId').value;
+          var chapterNo = chapterNoOverride != null && chapterNoOverride !== ''
+              ? String(chapterNoOverride)
+              : String((document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '');
+          if (!bookId || bookId === '0') {
+              if (typeof Swal !== 'undefined') Swal.fire('Select a book', 'Choose or create a book first.', 'warning');
+              else if (typeof showNotification === 'function') showNotification('Select a book first.', 'error');
+              return;
+          }
+          if (!chapterNo || chapterNo === '0') {
+              if (typeof showNotification === 'function') showNotification('Select a chapter to delete.', 'error');
+              return;
+          }
+
+          var statusEl = document.getElementById('Status');
+          var isFinalized = statusEl && typeof window.isWriterChapterFinalizedStatus === 'function'
+              && window.isWriterChapterFinalizedStatus(statusEl.value);
+
+          var confirmDelete = true;
+          if (typeof Swal !== 'undefined') {
+              var dlg = await Swal.fire({
+                  title: isFinalized ? ('Remove finalized Chapter ' + chapterNo + '?') : ('Delete Chapter ' + chapterNo + '?'),
+                  html: isFinalized
+                      ? 'This chapter is <strong>finalized</strong> and may be used for PDF/export. Removing it deletes all versions permanently.'
+                      : 'This removes the chapter and all saved versions. This cannot be undone.',
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: isFinalized ? '#7e22ce' : '#9333ea',
+                  confirmButtonText: isFinalized ? 'Yes, remove chapter' : 'Delete chapter',
+                  cancelButtonText: 'Cancel'
+              });
+              confirmDelete = dlg.isConfirmed;
+          } else {
+              confirmDelete = window.confirm(
+                  isFinalized
+                      ? ('Chapter ' + chapterNo + ' is finalized. Remove permanently?')
+                      : ('Delete Chapter ' + chapterNo + ' and all its versions?')
+              );
+          }
+          if (!confirmDelete) return;
+
+          var deleteBtn = document.getElementById('deleteChapterBtn');
+          if (deleteBtn) deleteBtn.disabled = true;
+          try {
+              var res = await fetch('/Books/DeleteChapter', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'same-origin',
+                  body: JSON.stringify({
+                      bookId: parseInt(bookId, 10),
+                      chapterNumber: parseInt(chapterNo, 10)
+                  })
+              });
+              var data = await res.json().catch(function () { return { success: false, message: 'Invalid response' }; });
+              if (!res.ok || !data.success) {
+                  var msg = (data && data.message) || 'Could not delete chapter.';
+                  if (typeof showNotification === 'function') showNotification(msg, 'error');
+                  else if (typeof Swal !== 'undefined') Swal.fire('Delete failed', msg, 'error');
+                  return;
+              }
+
+              if (typeof window.removeChapterFromPreviewMeta === 'function') {
+                  window.removeChapterFromPreviewMeta(chapterNo);
+              }
+              if (typeof window.closeChapterIndexFlyout === 'function') window.closeChapterIndexFlyout();
+              clearChapterVersionHistoryUi();
+              if (typeof loadBookAllChaptersNumbers === 'function') {
+                  await loadBookAllChaptersNumbers(false);
+              }
+              if (typeof window.refreshFullBookPreviewFromWriter === 'function') {
+                  window.refreshFullBookPreviewFromWriter();
+              }
+              if (typeof window.refreshChapterWorkflowProgress === 'function') {
+                  window.refreshChapterWorkflowProgress();
+              }
+              if (typeof showNotification === 'function') showNotification(data.message || 'Chapter deleted.', 'success');
+              else if (typeof Swal !== 'undefined') Swal.fire('Deleted', data.message || 'Chapter deleted.', 'success');
+          } catch (err) {
+              if (typeof showNotification === 'function') showNotification('Delete failed: ' + (err.message || 'Unknown error'), 'error');
+          } finally {
+              if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
+          }
+      };
+
       //=================================================100% OK
       //   Update Status when chapter selection changes
       //=============================================
@@ -6597,6 +6931,7 @@ document.addEventListener('DOMContentLoaded', function() {
               ddl.innerHTML = `<option value="1" selected>Chapter 1</option>`;
               statusInput.value = "OK";
           }
+          if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
 
      }
 
@@ -6758,6 +7093,7 @@ document.addEventListener('DOMContentLoaded', function() {
              }
          }
          if (typeof window.refreshChapterWorkflowProgress === 'function') window.refreshChapterWorkflowProgress();
+         if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
      }
 
      //============================================

@@ -349,6 +349,9 @@ namespace EBookDashboard.Controllers
                 if (result == null || !result.Success)
                     return Json(new { success = false, message = result?.Message ?? "No book found." });
 
+                var exportOpt = await LoadExportOptionsForBookAsync(effectiveUserId, bookId, CancellationToken.None);
+                var interiorCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt);
+
                 return Json(new
                 {
                     success = true,
@@ -360,6 +363,15 @@ namespace EBookDashboard.Controllers
                     authorName = result.AuthorName ?? "",
                     coverImagePath = result.CoverImagePath ?? "",
                     totalChapters = result.TotalChapters,
+                    formatting = new
+                    {
+                        interiorStyle = exportOpt.InteriorStyle ?? "Novel",
+                        textSize = exportOpt.TextSize ?? "Medium",
+                        lineSpacing = exportOpt.LineSpacing ?? "1.6",
+                        pageBackgroundColor = exportOpt.PageBackgroundColor ?? "",
+                        previewAccent = exportOpt.PreviewAccent ?? ""
+                    },
+                    interiorCss,
                     chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
                     {
                         chapterNo = c.ChapterNumber,
@@ -1775,6 +1787,34 @@ namespace EBookDashboard.Controllers
             {
                 _logger.LogError(ex, "PromoteChapterVersion failed for book {BookId} chapter {Chapter}", req.BookId, req.ChapterNo);
                 return Json(new { success = false, message = "Server error while finalizing the version." });
+            }
+        }
+
+        /// <summary>Deletes one chapter and all related drafts, iterations, and finalized rows from AI Writer.</summary>
+        [HttpPost]
+        [Route("Books/DeleteChapter")]
+        public async Task<IActionResult> DeleteWriterChapter([FromBody] DeleteWriterChapterRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0 || req.ChapterNumber <= 0)
+                return BadRequest(new { success = false, message = "BookId and ChapterNumber are required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            try
+            {
+                var (ok, message) = await _bookService.DeleteWriterChapterAsync(
+                    sessionUserId.Value, req.BookId, req.ChapterNumber, cancellationToken);
+                if (!ok)
+                    return Json(new { success = false, message });
+
+                return Json(new { success = true, message, chapterNumber = req.ChapterNumber });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DeleteWriterChapter failed for book {BookId} chapter {Chapter}", req.BookId, req.ChapterNumber);
+                return Json(new { success = false, message = "Could not delete chapter. Try again." });
             }
         }
 

@@ -340,3 +340,206 @@
     break-before: avoid;
     page-break-before: avoid;
 }
+
+/* ── AI Writer full-book read mode: cover, front matter, TOC (6×9 shell) ── */
+#bookResult[data-interior-mode="web"] #preview-content.writer-cover-active {
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+#bookResult[data-interior-mode="web"] #preview-content.writer-front-matter-active {
+    padding: clamp(0.85rem, 2vw, 1.15rem) clamp(0.75rem, 1.8vw, 1rem);
+}
+
+#bookResult .writer-cover-page {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+    box-sizing: border-box;
+    background: #1e1b4b;
+}
+
+#bookResult .writer-cover-img {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    object-fit: cover;
+    object-position: center;
+    display: block;
+    border-radius: 0;
+}
+
+#bookResult .writer-cover-fallback {
+    background: linear-gradient(165deg, #312e81 0%, #1e1b4b 55%, #0f172a 100%);
+    color: #f8fafc;
+    align-items: center;
+    justify-content: center;
+}
+
+#bookResult .writer-cover-fallback-inner {
+    text-align: center;
+    padding: 1.25rem;
+    max-width: 88%;
+}
+
+#bookResult .writer-cover-fallback-title {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: clamp(1.1rem, 3.2vw, 1.45rem);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin: 0 0 0.65rem;
+    line-height: 1.25;
+}
+
+#bookResult .writer-cover-fallback-author {
+    font-size: clamp(0.75rem, 2vw, 0.875rem);
+    opacity: 0.88;
+    margin: 0;
+}
+
+#bookResult .front-matter-page.title-page,
+#bookResult .front-matter-page.copyright-page,
+#bookResult .front-matter-page.toc-page {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#bookResult .front-matter-page.title-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    padding: 0.5rem 0.25rem;
+}
+
+#bookResult .front-matter-page.title-page h1 {
+    font-family: var(--heading-font, Georgia, serif);
+    font-size: clamp(1.15rem, 3vw, 1.5rem);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    margin: 0 0 0.5rem;
+    color: var(--heading-color, #1c1917);
+}
+
+#bookResult .front-matter-page .subtitle,
+#bookResult .front-matter-page .title-page-author,
+#bookResult .front-matter-page .title-page-genre {
+    font-size: clamp(0.72rem, 1.8vw, 0.85rem);
+    color: #475569;
+    margin: 0.25rem 0;
+}
+
+#bookResult .front-matter-page.copyright-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 0.75rem;
+}
+
+#bookResult .front-matter-page.copyright-page .cr-meta {
+    font-size: clamp(0.72rem, 1.7vw, 0.82rem);
+    margin: 0 0 0.35rem;
+    line-height: 1.45;
+}
+
+#bookResult .front-matter-page.copyright-page .cr-legal {
+    font-size: clamp(0.65rem, 1.5vw, 0.75rem);
+    color: #64748b;
+    line-height: 1.5;
+    margin: 0.35rem 0 0;
+}
+
+#bookResult .front-matter-page.toc-page .toc-title {
+    font-family: var(--heading-font, Georgia, serif);
+    font-size: clamp(0.95rem, 2.4vw, 1.15rem);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--heading-color, #1c1917);
+    margin: 0 0 0.65rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid rgba(120, 96, 72, 0.28);
+}
+
+#bookResult .front-matter-page.toc-page .toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+#bookResult .front-matter-page.toc-page .toc-item {
+    margin: 0 0 0.35rem;
+    font-size: clamp(0.68rem, 1.6vw, 0.78rem);
+    line-height: 1.35;
+}
+
+#bookResult .front-matter-page.toc-page .toc-chapter-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.2rem;
+    font-weight: 600;
+    color: #1c1917;
+}
+
+#bookResult .front-matter-page.toc-page .toc-entry-text {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+#bookResult .front-matter-page.toc-page .toc-leader {
+    flex: 1 1 auto;
+    min-width: 0.25rem;
+    border-bottom: 1px dotted rgba(100, 116, 139, 0.65);
+    transform: translateY(-0.12em);
+    margin: 0 0.08rem;
+}
+
+#bookResult .front-matter-page.toc-page .toc-page-ref {
+    flex: 0 0 auto;
+    min-width: 1rem;
+    text-align: right;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #334155;
+}
+
+#bookResult .front-matter-page.toc-page .toc-subheadings {
+    list-style: none;
+    margin: 0.12rem 0 0;
+    padding: 0 0 0 0.35rem;
+}
+
+#bookResult .front-matter-page.toc-page .toc-subheading-item {
+    font-size: clamp(0.62rem, 1.45vw, 0.72rem);
+    font-weight: 400;
+    color: #475569;
+    margin: 0 0 0.08rem;
+}
+
+#bookResult .front-matter-page.toc-page .toc-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+#bookResult .front-matter-page.toc-page .toc-link:hover {
+    text-decoration: underline;
+    color: var(--book-preview-accent, #7c3aed);
+}
+
+#bookResult #paginatedReaderShell.interior-novel .reader-chapter-block,
+#bookResult #paginatedReaderShell.interior-classic .reader-chapter-block,
+#bookResult #paginatedReaderShell.interior-modern .reader-chapter-block,
+#bookResult #paginatedReaderShell.interior-minimalist .reader-chapter-block,
+#bookResult #paginatedReaderShell.interior-elegant-trade .reader-chapter-block {
+    background: var(--export-page-bg, var(--page-bg, #fff));
+}

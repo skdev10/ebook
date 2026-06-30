@@ -106,11 +106,11 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine("  body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { text-indent: 1.5em; margin: 0 0 12px; }");
         doc.AppendLine("  body.book-pdf-body .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-title + .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-body .manuscript-p:first-of-type { text-indent: 0; }");
         doc.AppendLine("  body.book-pdf-body .reader-page-title, body.book-pdf-body .manuscript-h1, body.book-pdf-body .manuscript-h2 { font-family: Georgia, serif !important; font-size: 22px !important; font-weight: 600 !important; margin-top: 40px; color: #1A1A1A; }");
-        // Cover — portrait, centered, never distorted.
-        doc.AppendLine("  body.book-pdf-body > .cover-page { min-height: auto; background: transparent; padding: 0; margin: 0 auto 40px; display: flex; justify-content: center; align-items: flex-start; }");
-        doc.AppendLine("  .cover-page .cover-img { width: auto; height: auto; max-width: 280px; max-height: 70vh; object-fit: contain; margin: 0 auto; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
-        doc.AppendLine("  .cover-page.cover-fallback { min-height: auto; }");
-        doc.AppendLine("  .cover-fallback .cover-fallback-inner { width: 100%; max-width: 280px; aspect-ratio: 2 / 3; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1b4b; border-radius: 8px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
+        // Cover — full 6×9 portrait in read mode (matches trim size).
+        doc.AppendLine("  body.book-pdf-body > .cover-page { min-height: auto; background: transparent; padding: 0; margin: 0 auto 40px; display: flex; justify-content: center; align-items: flex-start; width: min(100%, 432px); max-width: 100%; }");
+        doc.AppendLine("  .cover-page .cover-img { width: 100%; height: auto; aspect-ratio: 2 / 3; max-width: min(432px, 100%); max-height: none; object-fit: cover; margin: 0 auto; border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
+        doc.AppendLine("  .cover-page.cover-fallback { min-height: auto; width: min(100%, 432px); max-width: 100%; }");
+        doc.AppendLine("  .cover-fallback .cover-fallback-inner { width: 100%; max-width: 432px; aspect-ratio: 2 / 3; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1b4b; border-radius: 4px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
         // Thin custom scrollbar.
         doc.AppendLine("  ::-webkit-scrollbar { width: 4px; height: 4px; }");
         doc.AppendLine("  ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }");

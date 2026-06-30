@@ -64,5 +64,8 @@ namespace EBookDashboard.Interfaces
         Task<BookDetailsResponseDto?> GetBookDetailsAsync2(int userId, int bookId, int chapterNo, int? responseId = null);
         Task<bool> SetRecordReadOnlyAsync(FinalizeChapters finalize);
         Task<int> GetLastChapterAsync(int userId, int bookId);
+
+        /// <summary>Removes one chapter and all its drafts/versions from the AI Writer manuscript.</summary>
+        Task<(bool Success, string Message)> DeleteWriterChapterAsync(int userId, int bookId, int chapterNumber, CancellationToken cancellationToken = default);
     }
 }
