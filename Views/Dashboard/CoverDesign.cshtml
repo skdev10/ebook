@@ -1370,22 +1370,7 @@
         }
     }
 
-    async function generateCoverFromDashboard(endpointUrl) {
-        if (!selectedBook) {
-            toast('error', 'No book loaded.');
-            return;
-        }
-        var userPrompt = (imageDirection.value || '').trim();
-        if (!userPrompt) {
-            toast('info', 'Write your Image Direction prompt first, then click Generate Cover.');
-            if (imageDirection) imageDirection.focus();
-            return;
-        }
-        var isPrintFlow = (isPrintReadyPlatform() || coverFlowPrintReady || bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both') && !skipPrintReadyAuto;
-        if (isPrintFlow) {
-            await generatePrintReadyCoverFromApi();
-            return;
-        }
+    async function generateFrontCoverOnly(endpointUrl) {
         var url = endpointUrl || '/Dashboard/GenerateCover';
         var prompt = buildStructuredPrompt();
         var body = {
@@ -1408,26 +1393,61 @@
             var d = {};
             try { d = text ? JSON.parse(text) : {}; } catch (e) {
                 console.error('[CoverDesign] JSON parse error', e, text);
-                d = { success: false, message: text || 'Invalid JSON' };
+                var frontMsg = r.status === 504
+                    ? 'Front cover timed out at the server gateway. Please retry.'
+                    : (text && text.indexOf('<html') >= 0 ? ('Server error (HTTP ' + r.status + '). Please retry.') : (text || 'Invalid JSON'));
+                d = { success: false, message: frontMsg };
             }
             if (!r.ok && !d.message) d.message = 'HTTP ' + r.status;
             if (d.status === 'error' || d.success === false) {
                 toast('error', d.message || 'Generation failed.');
-                return;
+                return false;
             }
             if (!(d.status === 'success' || d.success === true)) {
                 toast('error', d.message || 'Unexpected response.');
-                return;
+                return false;
             }
             if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
             applyGenerationSuccess(d, 'generate');
             toast('success', 'Front cover ready.');
+            return true;
         } catch (err) {
             console.error('[CoverDesign] GenerateCover fetch error', err);
             toast('error', err.message || 'Network error.');
+            return false;
         } finally {
             setBusy(false);
         }
+    }
+
+    async function generateCoverFromDashboard(endpointUrl) {
+        if (!selectedBook) {
+            toast('error', 'No book loaded.');
+            return;
+        }
+        var userPrompt = (imageDirection.value || '').trim();
+        if (!userPrompt) {
+            toast('info', 'Write your Image Direction prompt first, then click Generate Cover.');
+            if (imageDirection) imageDirection.focus();
+            return;
+        }
+        // Ebook + Paperback ("Both"): build the FRONT cover FIRST (a fast single image — this is what
+        // the Publish page's "Front cover only" button and the EPUB use), THEN build the full wrap
+        // (back + spine + front) for paperback. If the heavier wrap call times out upstream, the user
+        // still keeps the saved front cover and can just retry the wrap.
+        var isBothFlow = (bookPublishFormat === 'Both') && !skipPrintReadyAuto;
+        if (isBothFlow) {
+            var frontOk = await generateFrontCoverOnly(endpointUrl);
+            if (frontOk) toast('info', 'Front cover saved. Now building the full paperback wrap…');
+            await generatePrintReadyCoverFromApi();
+            return;
+        }
+        var isPrintFlow = (isPrintReadyPlatform() || coverFlowPrintReady || bookPublishFormat === 'Paperback') && !skipPrintReadyAuto;
+        if (isPrintFlow) {
+            await generatePrintReadyCoverFromApi();
+            return;
+        }
+        await generateFrontCoverOnly(endpointUrl);
     }
 
     function getPreviewImageAsBase64Async() {
