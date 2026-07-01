@@ -339,9 +339,9 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId.Value, cancellationToken);
             var exportOpt = BookPdfExportOptions.LoadFromPersistence(fmtRow, draftRow?.Value);
 
-            if (exportOpt.Format.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
-                || exportOpt.PublishingPlatform.Equals("Just Print Ready File", StringComparison.OrdinalIgnoreCase))
-                exportOpt.IncludeCoverPage = false;
+            // Published read mode always opens with the front cover (full reader experience).
+            // KDP interior PDF export omits the cover separately via DownloadBookInteriorPdf.
+            exportOpt.IncludeCoverPage = true;
 
             var userRow = await _context.Users.AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserId == userId.Value, cancellationToken);

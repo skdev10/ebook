@@ -521,6 +521,47 @@
     var bookPublishingPlatform = '';
     var bookPublishFormat = '';
 
+    function needsPrintWrapAutoBuild() {
+        return bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both' || coverFlowPrintReady || isPrintReadyPlatform();
+    }
+
+    function queuePrintWrapInBackground() {
+        if (!selectedBook || !selectedBook.bookId || !needsPrintWrapAutoBuild()) return;
+        resolveWrapPageCount().then(function (pageCount) {
+            fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    bookId: selectedBook.bookId,
+                    pageCount: pageCount > 0 ? pageCount : null,
+                    force: true,
+                    wait: false,
+                    title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
+                    author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
+                    genre: (bookCategory.value || '').trim()
+                })
+            }).catch(function () {});
+        }).catch(function () {});
+    }
+
+    async function resolveWrapPageCount() {
+        var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.estimatedPages || selectedBook.totalPages)) || 0;
+        if (!pageCount && selectedBook && selectedBook.bookId) {
+            try {
+                var metricsResp = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(selectedBook.bookId));
+                var metricsData = await metricsResp.json();
+                if (metricsData && metricsData.success && metricsData.pageCount > 0) {
+                    pageCount = metricsData.pageCount;
+                    selectedBook.pageCount = pageCount;
+                }
+            } catch (_) {}
+        }
+        if (pageCount > 100) pageCount = 100;
+        if (pageCount < 24) pageCount = 24;
+        return pageCount;
+    }
+
     function isPrintReadyPlatform() {
         var p = (bookPublishingPlatform || '').toLowerCase();
         return p.indexOf('print ready') >= 0 || p.indexOf('just print ready') >= 0;
@@ -1053,8 +1094,10 @@
     function loadSavedPrintWrapAssets(bookId) {
         if (!bookId) return Promise.resolve();
         return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
+            .then(function (r) { return r.text(); })
+            .then(function (text) {
+                var d = {};
+                try { d = text ? JSON.parse(text) : {}; } catch (e) { return; }
                 if (!d || !d.success || !d.cover) return;
                 var c = d.cover;
                 if (!c.front && !c.wrap) return;
@@ -1220,10 +1263,12 @@
         hasAiCoverThisSession = true;
         coverHistory = [];
         var primary = urls[0];
-        selectedPath = primary;
         pushCoverHistory(primary);
         urls.slice(1).forEach(function (u) { pushCoverHistory(u); });
-        setCoverImageVisible(toUrl(primary));
+        applyBestFrontPreview(primary).catch(function () {
+            selectedPath = primary;
+            setCoverImageVisible(toUrl(primary));
+        });
         if (selectedBook && selectedBook.bookId) {
             selectedBook.aiCoverLastPreview = primary;
             if (primary.indexOf('data:') !== 0) selectedBook.coverImagePath = primary;
@@ -1241,6 +1286,8 @@
         } catch (e) { /* ignore */ }
         toast('success', label === 'edit' ? 'Cover updated.' : 'Cover ready.');
         updateLivePreview();
+        setPrintWrapSaved(false);
+        if (needsPrintWrapAutoBuild()) queuePrintWrapInBackground();
         setTimeout(function () { renderHistoryThumbnails(); }, 0);
     }
 
@@ -1409,7 +1456,6 @@
             }
             if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
             applyGenerationSuccess(d, 'generate');
-            toast('success', 'Front cover ready.');
             return true;
         } catch (err) {
             console.error('[CoverDesign] GenerateCover fetch error', err);
@@ -1431,22 +1477,7 @@
             if (imageDirection) imageDirection.focus();
             return;
         }
-        // Ebook + Paperback ("Both"): build the FRONT cover FIRST (a fast single image — this is what
-        // the Publish page's "Front cover only" button and the EPUB use), THEN build the full wrap
-        // (back + spine + front) for paperback. If the heavier wrap call times out upstream, the user
-        // still keeps the saved front cover and can just retry the wrap.
-        var isBothFlow = (bookPublishFormat === 'Both') && !skipPrintReadyAuto;
-        if (isBothFlow) {
-            var frontOk = await generateFrontCoverOnly(endpointUrl);
-            if (frontOk) toast('info', 'Front cover saved. Now building the full paperback wrap…');
-            await generatePrintReadyCoverFromApi();
-            return;
-        }
-        var isPrintFlow = (isPrintReadyPlatform() || coverFlowPrintReady || bookPublishFormat === 'Paperback') && !skipPrintReadyAuto;
-        if (isPrintFlow) {
-            await generatePrintReadyCoverFromApi();
-            return;
-        }
+        // Cover Design: one cover button; full wrap builds silently when format is Paperback/Both.
         await generateFrontCoverOnly(endpointUrl);
     }
 

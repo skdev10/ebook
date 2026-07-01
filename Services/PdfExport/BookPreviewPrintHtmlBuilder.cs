@@ -43,11 +43,13 @@ public static class BookPreviewPrintHtmlBuilder
                       <p class="cover-meta">Generate or select a cover in the dashboard for a full graphic cover in export.</p>
                     </div>
                   </div>
+                  <div class="cover-page cover-page-blank" aria-hidden="true"></div>
                   """
                 : $"""
                   <div class="cover-page">
                     <img src="{WebUtility.HtmlEncode(coverSrc)}" alt="" class="cover-img" />
                   </div>
+                  <div class="cover-page cover-page-blank" aria-hidden="true"></div>
                   """;
 
         var metaLines = new StringBuilder();
@@ -59,11 +61,6 @@ public static class BookPreviewPrintHtmlBuilder
         var subtitleBlock = string.IsNullOrWhiteSpace(subtitle)
             ? ""
             : FormattableString.Invariant($"""<p class="subtitle">{WebUtility.HtmlEncode(subtitle.Trim())}</p>""");
-
-        // TOC page refs estimate page count from flowed content height: page height minus print margins.
-        var pageHeightPx = contentHeightPx is > 0
-            ? contentHeightPx.Value
-            : (pageSizeCss.Contains("A4", StringComparison.OrdinalIgnoreCase) ? 1122.0 : 864.0);
 
         var doc = new StringBuilder();
         doc.AppendLine("<!DOCTYPE html>");
@@ -81,6 +78,7 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine(FormattableString.Invariant($":root {{ --export-page-bg: {pageBg}; }}"));
         doc.AppendLine(themeCss);
         doc.AppendLine(".cover-page { page-break-after: always; width: 100%; min-height: 100vh; position: relative; margin: 0; padding: 0; background: #1e1b4b; }");
+        doc.AppendLine(".cover-page-blank { background: var(--export-page-bg, #fff); min-height: 100vh; }");
         doc.AppendLine(".cover-img { width: 100%; height: 100vh; object-fit: cover; display: block; }");
         doc.AppendLine(".cover-fallback { display: flex; align-items: center; justify-content: center; color: #fafafa; min-height: 100vh; }");
         doc.AppendLine(".cover-fallback-inner { text-align: center; padding: 24mm; }");
@@ -106,11 +104,11 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine("  body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { text-indent: 1.5em; margin: 0 0 12px; }");
         doc.AppendLine("  body.book-pdf-body .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-title + .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-body .manuscript-p:first-of-type { text-indent: 0; }");
         doc.AppendLine("  body.book-pdf-body .reader-page-title, body.book-pdf-body .manuscript-h1, body.book-pdf-body .manuscript-h2 { font-family: Georgia, serif !important; font-size: 22px !important; font-weight: 600 !important; margin-top: 40px; color: #1A1A1A; }");
-        // Cover — full 6×9 portrait in read mode (matches trim size).
-        doc.AppendLine("  body.book-pdf-body > .cover-page { min-height: auto; background: transparent; padding: 0; margin: 0 auto 40px; display: flex; justify-content: center; align-items: flex-start; width: min(100%, 432px); max-width: 100%; }");
-        doc.AppendLine("  .cover-page .cover-img { width: 100%; height: auto; aspect-ratio: 2 / 3; max-width: min(432px, 100%); max-height: none; object-fit: cover; margin: 0 auto; border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
-        doc.AppendLine("  .cover-page.cover-fallback { min-height: auto; width: min(100%, 432px); max-width: 100%; }");
-        doc.AppendLine("  .cover-fallback .cover-fallback-inner { width: 100%; max-width: 432px; aspect-ratio: 2 / 3; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1b4b; border-radius: 4px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
+        // Cover — full 6×9 portrait in read mode (matches trim size: 6in × 96dpi = 576px).
+        doc.AppendLine("  body.book-pdf-body > .cover-page { min-height: auto; background: transparent; padding: 0; margin: 0 auto 40px; display: flex; justify-content: center; align-items: flex-start; width: min(100%, 576px); max-width: 100%; }");
+        doc.AppendLine("  .cover-page .cover-img { width: 100%; height: auto; aspect-ratio: 2 / 3; max-width: min(576px, 100%); max-height: none; object-fit: cover; margin: 0 auto; border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
+        doc.AppendLine("  .cover-page.cover-fallback { min-height: auto; width: min(100%, 576px); max-width: 100%; }");
+        doc.AppendLine("  .cover-fallback .cover-fallback-inner { width: 100%; max-width: 576px; aspect-ratio: 2 / 3; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1b4b; border-radius: 4px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
         // Thin custom scrollbar.
         doc.AppendLine("  ::-webkit-scrollbar { width: 4px; height: 4px; }");
         doc.AppendLine("  ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }");
@@ -146,22 +144,6 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine("""<div class="manuscript-root">""");
         doc.Append(chapterSections);
         doc.AppendLine("</div>");
-        doc.AppendLine("<script>");
-        doc.AppendLine("(function () {");
-        doc.AppendLine("  var pageHeight = " + pageHeightPx.ToString("0.###", CultureInfo.InvariantCulture) + ";");
-        doc.AppendLine("  if (!Number.isFinite(pageHeight) || pageHeight <= 0) pageHeight = 864;");
-        doc.AppendLine("  var refs = document.querySelectorAll('.toc-page-ref[data-target]');");
-        doc.AppendLine("  refs.forEach(function (el) {");
-        doc.AppendLine("    var id = el.getAttribute('data-target');");
-        doc.AppendLine("    if (!id) return;");
-        doc.AppendLine("    var target = document.getElementById(id);");
-        doc.AppendLine("    if (!target) return;");
-        doc.AppendLine("    var top = target.getBoundingClientRect().top + window.scrollY;");
-        doc.AppendLine("    var pageNo = Math.max(1, Math.floor(top / pageHeight) + 1);");
-        doc.AppendLine("    el.textContent = String(pageNo);");
-        doc.AppendLine("  });");
-        doc.AppendLine("})();");
-        doc.AppendLine("</script>");
         doc.AppendLine("</body></html>");
         return doc.ToString();
     }

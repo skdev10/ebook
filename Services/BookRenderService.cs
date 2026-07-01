@@ -17,15 +17,18 @@ public sealed class BookRenderService : IBookRenderService
     private readonly IWebHostEnvironment _env;
     private readonly IConfiguration _configuration;
     private readonly ILogger<BookRenderService> _logger;
+    private readonly ITocPageNumberMeasurer _tocPageNumberMeasurer;
 
     public BookRenderService(
         IWebHostEnvironment env,
         IConfiguration configuration,
-        ILogger<BookRenderService> logger)
+        ILogger<BookRenderService> logger,
+        ITocPageNumberMeasurer tocPageNumberMeasurer)
     {
         _env = env;
         _configuration = configuration;
         _logger = logger;
+        _tocPageNumberMeasurer = tocPageNumberMeasurer;
     }
 
     /// <inheritdoc />
@@ -47,18 +50,43 @@ public sealed class BookRenderService : IBookRenderService
         var layout = BookPdfPlatformLayout.Resolve(opt, BookPdfLayoutOptions.FromConfiguration(_configuration));
         var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
         var sections = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(chapters, phBase, opt);
-        var tocHtml = InteriorFrontMatterBuilder.BuildTocHtml(chapters, phBase);
         var copyrightHtml = InteriorFrontMatterBuilder.BuildCopyrightPageHtml(
             title, author, request.PublisherDisplayName);
         var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
         var shellCls = InteriorPrintDocumentBuilder.PreviewShellClass(opt.InteriorStyle);
         var wrapCls = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(opt.InteriorStyle);
+        var contentHeightPx = ComputeContentHeightPx(layout);
 
+        // Pass 1: placeholder TOC (ellipsis page refs — same layout, numbers filled after Chromium measurement).
+        var tocPlaceholder = InteriorFrontMatterBuilder.BuildTocHtml(chapters, phBase);
+        var htmlForMeasure = BookPreviewPrintHtmlBuilder.Build(
+            title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
+            copyrightHtml, tocPlaceholder, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
+            _env.WebRootPath,
+            contentHeightPx);
+
+        var chapterTitles = new List<string>(chapters.Count);
+        var tocNarrative = 0;
+        for (var i = 0; i < chapters.Count; i++)
+        {
+            var ch = chapters[i];
+            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+                tocNarrative++;
+            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : tocNarrative;
+            var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
+            var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
+            chapterTitles.Add(BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum));
+        }
+
+        var chapterStartPages = await _tocPageNumberMeasurer.MeasureChapterStartPagesAsync(
+            htmlForMeasure, opt, layout, title, chapterTitles, chapters.Count, cancellationToken);
+
+        var tocHtml = InteriorFrontMatterBuilder.BuildTocHtml(chapters, phBase, chapterStartPages, pdfTargetCounters: false);
         var html = BookPreviewPrintHtmlBuilder.Build(
             title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
             copyrightHtml, tocHtml, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
             _env.WebRootPath,
-            ComputeContentHeightPx(layout));
+            contentHeightPx);
 
         if (ChapterContentNormalizer.LooksLikeJsonEnvelope(html))
             _logger.LogWarning("Render HTML still contains JSON wrapper for book {BookId}.", details.BookId);

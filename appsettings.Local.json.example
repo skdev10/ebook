@@ -6,5 +6,8 @@
     "UseLocalFallbackConnection": true,
     "FallbackDatabase": "ebookpublications",
     "FallbackPassword": "YOUR_PASSWORD"
+  },
+  "ExternalApi": {
+    "ApiKey": "AK-proj-...paste-your-key-here..."
   }
 }

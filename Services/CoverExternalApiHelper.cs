@@ -92,6 +92,14 @@ namespace EBookDashboard.Services
                     AddUrl(ib64.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ? ib64 : "data:image/png;base64," + ib64);
                 }
 
+                var fullCoverB64 = jo["full_cover_base64"]?.ToString();
+                if (!string.IsNullOrEmpty(fullCoverB64))
+                {
+                    AddUrl(fullCoverB64.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+                        ? fullCoverB64
+                        : "data:image/png;base64," + fullCoverB64);
+                }
+
                 WalkArray(jo["options"] as JArray);
                 WalkArray(jo["urls"] as JArray);
                 WalkArray(jo["images"] as JArray);
@@ -180,6 +188,7 @@ namespace EBookDashboard.Services
                     NormalizeImageRef(obj["wrap"]?.ToString()),
                     NormalizeImageRef(obj["full_wrap"]?.ToString()),
                     NormalizeImageRef(obj["full_cover"]?.ToString()),
+                    NormalizeImageRef(obj["full_cover_base64"]?.ToString()),
                     NormalizeImageRef(obj["cover_url"]?.ToString()),
                     NormalizeImageRef(obj["image_url"]?.ToString()),
                     NormalizeImageRef(obj["url"]?.ToString()));
@@ -218,5 +227,26 @@ namespace EBookDashboard.Services
 
         public static List<string> Dedupe(List<string> urls) =>
             urls.Where(u => !string.IsNullOrWhiteSpace(u)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+        /// <summary>Best-effort user-facing message from a non-success upstream JSON body.</summary>
+        public static string? TryExtractErrorMessage(string? responseData)
+        {
+            if (string.IsNullOrWhiteSpace(responseData)) return null;
+            try
+            {
+                if (JToken.Parse(responseData) is not JObject jo) return null;
+                foreach (var key in new[] { "message", "error", "detail", "details", "reason" })
+                {
+                    var val = jo[key]?.ToString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(val)) return val;
+                }
+            }
+            catch
+            {
+                // ignore malformed JSON
+            }
+
+            return null;
+        }
     }
 }

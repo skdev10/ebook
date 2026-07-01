@@ -34,6 +34,10 @@
 <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <script src="~/js/book-interior-preview.js" asp-append-version="true"></script>
 <script src="~/js/ai-writer-read-mode.js" asp-append-version="true"></script>
+@if (ViewBag.InteriorThemeCss is string interiorThemeCss && !string.IsNullOrWhiteSpace(interiorThemeCss))
+{
+<style id="ai-writer-interior-tokens">@Html.Raw(interiorThemeCss.Replace("#book-formatter-root", "#bookResult", StringComparison.Ordinal).Replace("#fmt-book-result", "#bookResult", StringComparison.Ordinal))</style>
+}
 <style>
 
     body { font-family: 'Inter', sans-serif; }
@@ -206,7 +210,7 @@
     #bookResult .paginated-reader-shell.book-page-preview-shell {
         display: flex;
         flex-direction: column;
-        background: linear-gradient(135deg, #eef1fc 0%, #ebe4fa 55%, #e7daf8 100%);
+        background: var(--ilt-page-bg, var(--page-bg, #ffffff));
         border: none;
         border-radius: 18px;
         box-shadow: 0 30px 60px -30px rgba(91, 33, 182, 0.30);
@@ -383,9 +387,9 @@
     }
     #bookResult .reader-chapter-block p {
         margin: 0 0 0.65rem 0;
-        color: #475569;
-        line-height: 1.65;
-        font-size: 0.8125rem;
+        color: var(--body-color, inherit);
+        line-height: var(--ilt-body-lh, 1.65);
+        font-size: var(--ilt-body-px, 0.8125rem);
     }
     #bookResult .reader-chapter-block p:last-child {
         margin-bottom: 0;
@@ -644,9 +648,9 @@
     }
     #bookResult .reader-chapter-content,
     #bookResult .chapter-body {
-        color: #475569 !important;
-        font-size: 0.8125rem;
-        line-height: 1.65;
+        color: var(--body-color, inherit) !important;
+        font-size: var(--ilt-body-px, 0.8125rem);
+        line-height: var(--ilt-body-lh, 1.65);
         background: transparent !important;
         padding: 0;
         margin: 0;
@@ -656,10 +660,10 @@
     #bookResult .reader-chapter-content p:last-child { margin-bottom: 0; }
     /* Manuscript / page-flip: markdown-style headings + horizontal rules */
     #bookResult .book-page-content .manuscript-chapter-heading {
-        color: #334155; font-size: 0.9375rem; font-weight: 600; margin: 0 0 0.65rem 0;
+        color: var(--heading-color, #334155); font-size: 0.9375rem; font-weight: 600; margin: 0 0 0.65rem 0;
         letter-spacing: -0.01em;
     }
-    #bookResult .book-page-content .manuscript-heading { color: #1e293b; font-weight: 600; margin: 1.15rem 0 0.65rem 0; line-height: 1.25; break-after: avoid; page-break-after: avoid; }
+    #bookResult .book-page-content .manuscript-heading { color: var(--heading-color, #1e293b); font-weight: 600; margin: 1.15rem 0 0.65rem 0; line-height: 1.25; break-after: avoid; page-break-after: avoid; }
     #bookResult #preview-content .reader-chapter-block {
         display: flex;
         flex-direction: column;

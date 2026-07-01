@@ -21,6 +21,8 @@ public class ExternalApiOptions
     public string ApproveUrl { get; set; } = "";
     public string GenerateCoverUrl { get; set; } = "";
     public string GenerateSpineBookCoverUrl { get; set; } = "";
+    /// <summary>Split spine/back generation using the saved front cover (Publish step).</summary>
+    public string GenerateSpineBookCoverSplitUrl { get; set; } = "";
     public string EditCoverUrl { get; set; } = "";
     public string AudioUrl { get; set; } = "";
     public string QueueDataUrl { get; set; } = "";

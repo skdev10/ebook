@@ -205,6 +205,9 @@ namespace EBookDashboard.Controllers
             var typicalMins = int.TryParse(_configuration["ChapterGeneration:TypicalGenerationMinutes"], out var tm) ? tm : 5;
             typicalMins = Math.Clamp(typicalMins, 1, 30);
             ViewBag.ChapterGenerateEstimatedSeconds = typicalMins * 60;
+            var exportOpt = await LoadExportOptionsForBookAsync(userId.Value, bookId.Value, CancellationToken.None);
+            ViewBag.InteriorThemeCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt)
+                + InteriorExportTheme.BuildAiWriterThemeBridgeCss(exportOpt);
             return View(model);
         }
 
@@ -350,7 +353,8 @@ namespace EBookDashboard.Controllers
                     return Json(new { success = false, message = result?.Message ?? "No book found." });
 
                 var exportOpt = await LoadExportOptionsForBookAsync(effectiveUserId, bookId, CancellationToken.None);
-                var interiorCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt);
+                var interiorCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt)
+                    + InteriorExportTheme.BuildAiWriterThemeBridgeCss(exportOpt);
 
                 return Json(new
                 {

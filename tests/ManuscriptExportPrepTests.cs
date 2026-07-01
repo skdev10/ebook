@@ -53,6 +53,7 @@ public class ManuscriptExportPrepTests
         Assert.Contains("page-header", html, StringComparison.Ordinal);
         Assert.Contains("page-body", html, StringComparison.Ordinal);
         Assert.Contains("book-page-running-head", html, StringComparison.Ordinal);
+        Assert.Contains("TOCMEASURE_1_END", html, StringComparison.Ordinal);
         Assert.DoesNotContain("chapter-heading", html, StringComparison.Ordinal);
     }
 
@@ -410,6 +411,66 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void BuildTocHtml_includes_measured_page_numbers()
+    {
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Test Book", null, null, "Fiction", "Author");
+        var chapters = new List<ChapterDto>
+        {
+            new() { ChapterNumber = 1, Title = "Opening", Content = "<p class=\"manuscript-p\">Body</p>" },
+            new() { ChapterNumber = 2, Title = "Next", Content = "<p class=\"manuscript-p\">More</p>" }
+        };
+        var pages = new List<int> { 7, 19 };
+        var html = InteriorFrontMatterBuilder.BuildTocHtml(chapters, ph, pages);
+
+        Assert.Equal(2, pages.Count);
+        Assert.Contains(">7</span>", html, StringComparison.Ordinal);
+        Assert.Contains(">19</span>", html, StringComparison.Ordinal);
+        Assert.Contains("href=\"#ch-1\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("…", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildTocHtml_pdfTargetCounters_emits_counter_spans_without_baked_numbers()
+    {
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Test Book", null, null, "Fiction", "Author");
+        var chapters = new List<ChapterDto>
+        {
+            new() { ChapterNumber = 1, Title = "Opening", Content = "<p class=\"manuscript-p\">Body</p>" }
+        };
+        var html = InteriorFrontMatterBuilder.BuildTocHtml(chapters, ph, pdfTargetCounters: true);
+
+        Assert.Contains("toc-page-ref--counter", html, StringComparison.Ordinal);
+        Assert.Contains("href=\"#ch-1\" class=\"toc-page-ref toc-page-ref--counter\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">5</span>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("…", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildPdfThemeCss_includes_toc_target_counter_rules()
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.Contains("target-counter", css, StringComparison.Ordinal);
+        Assert.Contains("toc-page-ref--counter", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildAiWriterThemeBridgeCss_sets_body_and_heading_color_variables()
+    {
+        var css = InteriorExportTheme.BuildAiWriterThemeBridgeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.Contains("--body-color:", css, StringComparison.Ordinal);
+        Assert.Contains("--heading-color:", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildFormatterInteriorCss_uses_theme_color_variables()
+    {
+        var css = InteriorExportTheme.BuildFormatterInteriorCss();
+        Assert.Contains("var(--heading-color", css, StringComparison.Ordinal);
+        Assert.Contains("var(--body-color", css, StringComparison.Ordinal);
+    }
+
+
+    [Fact]
     public void BookFormattingSettings_round_trips_export_options()
     {
         var opt = new BookPdfExportOptions
@@ -444,7 +505,11 @@ public class ManuscriptExportPrepTests
     public async Task BuildBookHtml_includes_print_theme_and_chapter_structure()
     {
         var env = new FakeWebHostEnvironment { WebRootPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot") };
-        var svc = new BookRenderService(env, new ConfigurationBuilder().Build(), NullLogger<BookRenderService>.Instance);
+        var svc = new BookRenderService(
+            env,
+            new ConfigurationBuilder().Build(),
+            NullLogger<BookRenderService>.Instance,
+            new FixedTocPageNumberMeasurer(firstPage: 7));
         var details = new BookDetailsResponseDto
         {
             Success = true,
@@ -469,6 +534,9 @@ public class ManuscriptExportPrepTests
         Assert.Contains("book-pdf-body", render.Html, StringComparison.Ordinal);
         Assert.Contains("reader-chapter-block", render.Html, StringComparison.Ordinal);
         Assert.Contains("Palatino", render.Html, StringComparison.Ordinal);
+        Assert.Contains("toc-page-ref", render.Html, StringComparison.Ordinal);
+        Assert.Contains("class=\"toc-page-ref\">", render.Html, StringComparison.Ordinal);
+        Assert.Contains("href=\"#ch-1\"", render.Html, StringComparison.Ordinal);
         // Novel is the 5×8 mass-market trim (matches the per-style preview shape).
         Assert.Contains("5in", render.Layout.PageSizeCss, StringComparison.Ordinal);
         Assert.Equal("Novel", render.Settings.InteriorStyle);
@@ -556,6 +624,41 @@ public class ManuscriptExportPrepTests
         });
         Assert.Contains("Libre Baskerville", t.BodyFontStack, StringComparison.Ordinal);
         Assert.Equal("11", t.BodyFontSizePt);
+    }
+
+    [Fact]
+    public void ExtractNamedCoverAssets_reads_full_cover_base64_from_split_api()
+    {
+        var json = """{"status":"success","full_cover_base64":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="}""";
+        var assets = CoverExternalApiHelper.ExtractNamedCoverAssetsFromApiResponse(json);
+        Assert.StartsWith("data:image/png;base64,", assets.Wrap, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class FixedTocPageNumberMeasurer : ITocPageNumberMeasurer
+    {
+        private readonly int _firstPage;
+        private readonly int _pageStep;
+
+        public FixedTocPageNumberMeasurer(int firstPage = 7, int pageStep = 12)
+        {
+            _firstPage = firstPage;
+            _pageStep = pageStep;
+        }
+
+        public Task<IReadOnlyList<int>> MeasureChapterStartPagesAsync(
+            string fullBookHtml,
+            BookPdfExportOptions exportOptions,
+            BookPdfPlatformLayout.PdfLayoutSpec layout,
+            string bookTitle,
+            IReadOnlyList<string> chapterTitles,
+            int expectedChapterCount,
+            CancellationToken cancellationToken = default)
+        {
+            var pages = new List<int>(expectedChapterCount);
+            for (var i = 0; i < expectedChapterCount; i++)
+                pages.Add(_firstPage + i * _pageStep);
+            return Task.FromResult<IReadOnlyList<int>>(pages);
+        }
     }
 
     private sealed class FakeWebHostEnvironment : Microsoft.AspNetCore.Hosting.IWebHostEnvironment

@@ -59,8 +59,37 @@ App__PublicBaseUrl=http://138.197.76.70:5000
 | 9 | Improve a cover prompt | `POST /api/refine_cover_prompt` | Fast |
 | 10 | Cover idea from chapter notes | `POST /api/suggest-cover-prompt-from-highlights` | Fast |
 | 11 | Full print cover (spine + back + front) | `POST /api/generate-spine-book-cover` | Slow (minutes) |
+| 12 | Print wrap from saved front (Publish step) | `POST /api/generate-spine-book-cover-split` | Slow (minutes) |
 
 **Full base address for all:** `http://162.229.248.26:8001`
+
+---
+
+## Cover Design workflow (print books)
+
+For **Paperback** or **Both** format:
+
+| Step | What the user sees | What happens in the background |
+|------|-------------------|--------------------------------|
+| **Cover Design** | One **Generate Cover** button only | Front cover via `/api/generate-cover`. Full wrap is **queued automatically** (no button). |
+| **Publish** | Files for the selected format only | Wrap finishes in background; export waits if needed. |
+
+**Full wrap** always uses the saved front cover as `encoded_image` on `/api/generate-spine-book-cover-split` — the front panel matches Cover Design.
+
+**Publish exports by format:**
+
+| Format | Files shown / exported |
+|--------|------------------------|
+| Ebook only | Front cover + EPUB (2) |
+| Paperback only | Front cover + full wrap + PDF (3) |
+| Both | Front cover + EPUB + full wrap + PDF (4) |
+
+**Important:**
+- Do **not** skip front cover generation — split needs `encoded_image` from the saved front cover.
+- `page_count` for wrap should be **24–100** (values above ~100 can return HTTP 500 on the live server).
+- Full wrap runs **automatically** when paperback is selected — users never see a wrap button.
+
+**Legacy:** `POST /api/generate-spine-book-cover` generates front + spine + back in one call (older flow; front may not match Cover Design).
 
 **Cover image sizes you can use:**
 - `1024x1024`
@@ -416,6 +445,53 @@ Saved in **Temporary_database** column `suggest_chapter_name`.
 
 ---
 
+## 12. Generate print wrap from front cover (split)
+
+**What it does:** Builds spine + back + full wrap for paperback **from a saved front cover**. The front panel in the wrap is the same image you generated in Step 1 (`encoded_image`).
+
+**URL:** `http://162.229.248.26:8001/api/generate-spine-book-cover-split`  
+**Method:** POST  
+**Header:** `X-API-Key: your-key`  
+**Speed:** Slow (~1–2 minutes when queue is idle)
+
+**Send this:**
+
+```json
+{
+  "title": "The Iqbal Day",
+  "author_name": "Sara Khan",
+  "encoded_image": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "size": "1536x1024",
+  "quality": "high",
+  "Interior_trim_size": "6 x 9 in",
+  "paper_type": "white",
+  "page_count": 40
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `title` | Book title |
+| `author_name` | Author name on cover |
+| `encoded_image` | **Required** — raw Base64 of the saved front cover from Cover Design Step 1 (no `data:image/...` prefix) |
+| `size` | Image size (`1536x1024` is typical for wrap) |
+| `quality` | `low`, `medium`, `high`, or `auto` |
+| `Interior_trim_size` | Trim size (example: `6 x 9 in`) |
+| `paper_type` | `white`, `cream`, or color paper token |
+| `page_count` | Interior page count for spine width — use **24–100** on live server |
+
+**Success response:** JSON includes `full_cover_base64` (full wrap image). The EbookAI app saves this to your book settings.
+
+**When to use split vs full (`generate-spine-book-cover`):**
+
+| Endpoint | When |
+|----------|------|
+| `generate-cover` | Cover Design **Step 1** — front cover only |
+| `generate-spine-book-cover-split` | Cover Design **Step 2** — wrap from saved front + calculated spine |
+| `generate-spine-book-cover` | Legacy — generates front + spine + back together (may not match Step 1 front) |
+
+---
+
 # Database tables (where data is saved)
 
 These tables live on the Book API server (MySQL).
@@ -505,8 +581,9 @@ You use the website. The website calls the Book API for you.
 | AI Writer → Edit | Calls `/api/edit` |
 | Approve chapter | Calls `/api/approve` |
 | Upload audio | Calls `/api/audio` |
-| Cover Design → Generate | Calls `/api/generate-cover` |
+| Cover Design → Generate Cover | Calls `/api/generate-cover`; auto-queues `/api/generate-spine-book-cover-split` when format is Paperback/Both |
 | Cover Design → Edit | Calls `/api/edit-cover` |
+| Publish → export print pack (if wrap missing) | Calls `/api/generate-spine-book-cover-split` via `/Dashboard/GeneratePrintReadyWrapFromFront` |
 | Cover prompt help | Calls `/api/refine_cover_prompt` |
 | Chapter name ideas | Calls `/api/book_chapters_name` |
 
@@ -549,6 +626,8 @@ cd /opt/EbookAI && bash deploy/verify-all-apis.sh
 | Login stops working after deploy | Log in again once |
 | Audio fails | Upload file through website, do not use a path on your PC |
 | Cover edit fails | Check image is valid base64 and size is correct |
+| Full wrap never appears on Publish | Complete Cover Design Step 1 (front), then Step 2 (full wrap). Set `ExternalApi:ApiKey`. Keep `page_count` ≤ 100. |
+| Wrap API returns 500 | Often caused by `page_count` above ~100 — lower page count or open Book Formatting to refresh page estimate |
 | 401 error | Wrong API key — fix key in `/etc/default/ebookai` |
 
 ---

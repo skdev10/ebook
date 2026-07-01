@@ -41,12 +41,13 @@
     var isBothFormat = publishBookFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
     var isPaperbackFormat = publishBookFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase);
     var isEbookFormat = publishBookFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase);
-    var isPrintReadyFlow = isPaperbackFormat;
+    var isPrintReadyFlow = (ViewBag.PublishPrintReadyMode as bool? ?? false) || isPaperbackFormat;
     var showPrintExports = isPaperbackFormat || isBothFormat;
     var showEbookExports = isEbookFormat || isBothFormat;
     var displayCoverUrl = CoverUrl((isPaperbackFormat || isBothFormat) && hasSavedCoverWrap ? pbCoverWrap : pbCover);
     var publishPrimaryPlatform = ViewBag.PublishPrimaryPlatform as string ?? "Amazon KDP";
     var displayCoverIsWrap = (isPaperbackFormat || isBothFormat) && hasSavedCoverWrap;
+    var externalApiConfigured = ViewBag.ExternalApiConfigured as bool? ?? false;
 }
 
 <style>
@@ -693,11 +694,12 @@
     .publish-wrap-preview {
         border: 1px solid #e2e8f0;
         border-radius: 0.85rem;
-        background: #f8fafc;
-        min-height: 140px;
-        padding: 0.75rem;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        min-height: 160px;
+        padding: 1rem;
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: stretch;
         justify-content: center;
         overflow: hidden;
     }
@@ -708,6 +710,49 @@
         object-fit: contain;
         object-position: center;
         display: block;
+        border-radius: 0.5rem;
+        background: #fff;
+    }
+    .publish-wrap-preview .publish-wrap-empty {
+        width: 100%;
+        text-align: center;
+        padding: 1.5rem 1rem;
+        color: #64748b;
+        font-size: 0.875rem;
+        line-height: 1.55;
+    }
+    .publish-wrap-preview .publish-wrap-empty i {
+        display: block;
+        font-size: 1.75rem;
+        color: #c4b5fd;
+        margin-bottom: 0.65rem;
+    }
+    .publish-wrap-status {
+        border-radius: 0.75rem;
+        padding: 0.65rem 0.85rem;
+        font-size: 0.8125rem;
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+    }
+    .publish-wrap-status--warn {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+    }
+    .publish-wrap-status--info {
+        background: #f5f3ff;
+        border: 1px solid #ddd6fe;
+        color: #5b21b6;
+    }
+    .publish-wrap-status--error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+    }
+    .publish-wrap-status a {
+        color: inherit;
+        font-weight: 600;
+        text-decoration: underline;
     }
     @@media (max-width: 1024px) {
         .publish-printready-shell {
@@ -1080,7 +1125,7 @@
         <div>
             <p class="publish-kicker">Publish</p>
             <h1 id="publishHeroTitle" class="publish-hero-title text-3xl lg:text-4xl font-medium text-slate-900 tracking-tight">@(isEbookFormat && !isBothFormat ? "Download your ebook" : isPrintReadyFlow && !isBothFormat ? "Download your print-ready files" : "Export your book")</h1>
-            <p id="publishHeroCopy" class="publish-hero-copy">@(isEbookFormat && !isBothFormat ? "Front cover + EPUB for ebook stores. No full wrap or spine." : isPrintReadyFlow && !isBothFormat ? "Full wrap cover + 6×9″ interior PDF for paperback upload." : "Choose a format below — ebook (front cover + EPUB) or paperback (full wrap + interior PDF).")</p>
+            <p id="publishHeroCopy" class="publish-hero-copy">@(isEbookFormat && !isBothFormat ? "Front cover + EPUB for ebook stores." : isPrintReadyFlow && !isBothFormat ? "Front cover + full wrap + interior PDF for paperback upload." : "Ebook: front cover + EPUB · Paperback: front cover + full wrap + PDF · Both: all four files.")</p>
         </div>
         <div class="publish-hero-meta">
             <span class="publish-chip @(alreadyListed ? "publish-chip-ready" : "publish-chip-neutral")">
@@ -1163,15 +1208,18 @@
                     <div class="publish-quick-actions" aria-label="Edit and navigation">
                         @if (alreadyListed)
                         {
-                            <p class="publish-locked-note"><i class="fas fa-lock" aria-hidden="true"></i> This book is published — formatting &amp; cover editing are locked. Continue from the Dashboard.</p>
-                            <a href="/Dashboard" id="publishFinishBtnLocked" class="publish-finish-btn publish-quick-btn publish-quick-btn--primary" data-finish-toast="This book is published and safely saved. Manage it anytime from My Books."><i class="fas fa-check-circle" aria-hidden="true"></i> Done — Go to Dashboard</a>
+                            <p class="publish-locked-note"><i class="fas fa-info-circle" aria-hidden="true"></i> This book is published. You can still edit it — changes are saved automatically.</p>
+                        }
+                        <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-quick-btn publish-leave-to-writer"><i class="fas fa-pen-nib" aria-hidden="true"></i> Edit in AI Writer</a>
+                        <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-book-open" aria-hidden="true"></i> Book Formatting</a>
+                        <a href="/Dashboard/CoverDesign?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-image" aria-hidden="true"></i> Cover Design</a>
+                        @if (alreadyListed)
+                        {
                             <a href="/Dashboard/MyBooks" class="publish-quick-btn"><i class="fas fa-book" aria-hidden="true"></i> View in My Books</a>
+                            <a href="/Dashboard" id="publishFinishBtnLocked" class="publish-finish-btn publish-quick-btn publish-quick-btn--primary" data-finish-toast="This book is published and safely saved. Manage it anytime from My Books."><i class="fas fa-check-circle" aria-hidden="true"></i> Done — Go to Dashboard</a>
                         }
                         else
                         {
-                            <a href="/Books/AIGenerateBook?bookId=@bookId" class="publish-quick-btn publish-leave-to-writer"><i class="fas fa-pen-nib" aria-hidden="true"></i> Edit in AI Writer</a>
-                            <a href="/BookDesign/CoverDesignCalculatorFixing?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-book-open" aria-hidden="true"></i> Book Formatting</a>
-                            <a href="/Dashboard/CoverDesign?bookId=@bookId" class="publish-quick-btn"><i class="fas fa-image" aria-hidden="true"></i> Cover Design</a>
                             <button type="button" id="publishFinalizeBtn" data-book-id="@bookId" class="publish-quick-btn publish-quick-btn--primary"><i class="fas fa-flag-checkered" aria-hidden="true"></i> Finalize</button>
                         }
                     </div>
@@ -1204,9 +1252,23 @@
         <section class="publish-card publish-card--printready mb-8 p-5 md:p-6" id="publishSavedCoverSection">
             <div class="mb-3">
                 <h2 class="text-lg font-semibold text-slate-900">Your print cover</h2>
-                <p class="text-sm text-slate-600 mt-1">This is the cover from <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a>. Export downloads the <strong>full wrap</strong> (back + spine + front) at KDP size@(pbEstimatedPages > 0 ? (" for " + pbEstimatedPages + " pages") : "").</p>
+                <p class="text-sm text-slate-600 mt-1">Front cover from <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a>. Export uses the <strong>full wrap</strong> (back + spine + front) at KDP size@(pbEstimatedPages > 0 ? (" for " + pbEstimatedPages + " pages") : "").</p>
             </div>
+            @if (!externalApiConfigured)
+            {
+                <div class="publish-wrap-status publish-wrap-status--warn" role="alert">
+                    <strong>Book API key missing.</strong> Full wrap generation needs <code>ExternalApi:ApiKey</code> in <code>appsettings.Local.json</code> (see <a href="/Books/ApiDocumentation">API docs</a>). Without it, only the front cover is saved — wrap cannot be built.
+                </div>
+            }
+            else if (!hasSavedCoverWrap && hasSavedFrontCover)
+            {
+                <div class="publish-wrap-status publish-wrap-status--info" id="publishWrapBuildHint">
+                    Front cover saved. Full wrap builds automatically when you open this page — this can take several minutes if the AI queue is busy.
+                </div>
+            }
             <div class="publish-wrap-preview">
+                <p id="publishWrapPreloadStatus" class="publish-wrap-status publish-wrap-status--info hidden" aria-live="polite"></p>
+                <p id="publishWrapPreloadError" class="publish-wrap-status publish-wrap-status--error hidden" role="alert"></p>
                 @if (hasSavedCoverWrap)
                 {
                     <img id="publishWrapPreview" src="@CoverUrl(pbCoverWrap)" alt="Full cover wrap from Cover Design" />
@@ -1215,7 +1277,10 @@
                 else
                 {
                     <img id="publishWrapPreview" class="hidden" alt="Full cover wrap from Cover Design" />
-                    <span id="publishWrapPlaceholder" class="text-sm text-slate-500 text-center px-4">No print wrap saved yet. Open <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a>, generate your cover, then return here.</span>
+                    <div id="publishWrapPlaceholder" class="publish-wrap-empty">
+                        <i class="fas fa-book-open" aria-hidden="true"></i>
+                        <span>No print wrap saved yet. Open <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a>, generate your cover, then return here — the wrap will build in the background when possible.</span>
+                    </div>
                 }
             </div>
         </section>
@@ -1229,15 +1294,15 @@
             {
                 @if (isBothFormat)
                 {
-                    <p class="publish-export-hint" id="publishExportHint">Both format selected: export front cover + EPUB and print-ready files (full wrap + print-ready ZIP).</p>
+                    <p class="publish-export-hint" id="publishExportHint">Both formats — 4 files: front cover, EPUB, full wrap cover, and interior PDF.</p>
                 }
                 else if (isPrintReadyFlow)
                 {
-                    <p class="publish-export-hint" id="publishExportHint">Print-ready mode: download your <strong>full wrap cover (PNG)</strong> and <strong>formatted interior PDF</strong> for KDP upload.</p>
+                    <p class="publish-export-hint" id="publishExportHint">Paperback output — 3 files: <strong>front cover</strong>, <strong>full wrap</strong> (back + spine + same front), and <strong>interior PDF</strong>.</p>
                 }
                 else
                 {
-                    <p class="publish-export-hint" id="publishExportHint">Ebook output — exactly 2 files: front cover image + EPUB.</p>
+                    <p class="publish-export-hint" id="publishExportHint">Ebook output — 2 files: front cover image + EPUB.</p>
                 }
                 <div class="publish-export-grid">
                 <div class="publish-output-manifest @(isBothFormat ? "publish-output-manifest--dual" : "")" id="publishOutputManifest">
@@ -1256,6 +1321,7 @@
                         <article class="publish-output-card @(isEbookFormat && !isBothFormat ? "hidden" : "")" id="publishOutputPrint" data-output-kind="print">
                             <h3>Paperback output</h3>
                             <ul>
+                                <li><i class="fas fa-image" aria-hidden="true"></i><span><strong>Front cover</strong> — same image from Cover Design (also on the wrap front panel)</span></li>
                                 <li><i class="fas fa-book-open" aria-hidden="true"></i><span><strong>Full wrap cover</strong> — back + spine + front at 300 DPI with 0.125″ bleed</span></li>
                                 <li><i class="fas fa-file-pdf" aria-hidden="true"></i><span><strong>Interior PDF</strong> — 6×9″ trim, KDP-safe margins for Amazon paperback upload</span></li>
                                 @if (isBothFormat)
@@ -1267,20 +1333,23 @@
                     }
                 </div>
                 <div class="publish-export-actions">
-                    <button type="button" data-export-kind="print" id="btnExportCoverWrap" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                        <i class="fas fa-book-open" aria-hidden="true"></i> Full wrap cover (back · spine · front)
-                    </button>
-                    <button type="button" data-export-kind="print" id="btnPrintReadyPublishPrimary" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                        <i class="fas fa-file-pdf" aria-hidden="true"></i> Interior PDF (6×9 KDP)
-                    </button>
-                    <button type="button" data-export-kind="print" id="btnExportPrintBundle" class="@((showPrintExports && (isBothFormat || !isPrintReadyFlow)) ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl @(isBothFormat ? "bg-violet-600 text-white border-2 border-violet-600 hover:bg-violet-700 shadow-md shadow-violet-500/25" : "border-2 border-violet-300 bg-white text-violet-800 hover:bg-violet-50") font-semibold px-5 py-2.5 text-sm w-full sm:w-auto">
-                        <i class="fas fa-file-archive" aria-hidden="true"></i> @(isBothFormat ? "Publish both — download everything (ZIP)" : "Download print pack (ZIP)")
-                    </button>
                     <button type="button" data-export-kind="ebook" id="btnExportFrontCover" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                        <i class="fas fa-image" aria-hidden="true"></i> Front cover only
+                        <i class="fas fa-download" aria-hidden="true"></i> Download front cover
                     </button>
                     <button type="button" data-export-kind="ebook" id="btnExportEpub" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                        <i class="fas fa-book" aria-hidden="true"></i> EPUB file
+                        <i class="fas fa-download" aria-hidden="true"></i> Download EPUB
+                    </button>
+                    <button type="button" data-export-kind="print" id="btnExportFrontCoverPrint" class="@(showPrintExports && !showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                        <i class="fas fa-download" aria-hidden="true"></i> Download front cover
+                    </button>
+                    <button type="button" data-export-kind="print" id="btnExportCoverWrap" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                        <i class="fas fa-download" aria-hidden="true"></i> Download full wrap cover
+                    </button>
+                    <button type="button" data-export-kind="print" id="btnPrintReadyPublishPrimary" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                        <i class="fas fa-download" aria-hidden="true"></i> Download interior PDF
+                    </button>
+                    <button type="button" data-export-kind="print" id="btnExportPrintBundle" class="@(isBothFormat ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-300 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                        <i class="fas fa-file-archive" aria-hidden="true"></i> Download all files (ZIP)
                     </button>
                 </div>
                 </div>
@@ -1339,7 +1408,9 @@
     var publishReady = @(publishReady.ToString().ToLowerInvariant());
     var alreadyListed = @(alreadyListed.ToString().ToLowerInvariant());
     var isPrintReadyFlow = @(isPrintReadyFlow.ToString().ToLowerInvariant());
+    var isPaperbackFormat = @(isPaperbackFormat.ToString().ToLowerInvariant());
     var isBothFormat = @(isBothFormat.ToString().ToLowerInvariant());
+    var forcedPrintReadyFlow = @(isPrintReadyFlow.ToString().ToLowerInvariant());
     var showPrintExports = @(showPrintExports.ToString().ToLowerInvariant());
     var showEbookExports = @(showEbookExports.ToString().ToLowerInvariant());
     var publishableKey = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishableKey));
@@ -1361,6 +1432,81 @@
         }
         return res.text().then(function (t) {
             throw new Error(t || fallbackMsg);
+        });
+    }
+
+    /** Dashboard JSON endpoints sometimes return HTML (504 gateway, login page) — parse safely. */
+    function parseDashboardJsonResponse(res, fallbackMsg) {
+        return res.text().then(function (text) {
+            if (!text) return {};
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                if (text.indexOf('<!DOCTYPE') >= 0 || text.indexOf('<html') >= 0) {
+                    if (res.status === 401) throw new Error('Please sign in again, then retry.');
+                    throw new Error(fallbackMsg || ('Server error (HTTP ' + res.status + '). Please refresh and try again.'));
+                }
+                throw new Error((text && text.length < 240) ? text : (fallbackMsg || 'Invalid server response.'));
+            }
+        });
+    }
+
+    function fetchPrintReadyCoverAssets() {
+        return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId), {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        }).then(function (r) {
+            return parseDashboardJsonResponse(r, 'Could not load cover assets.').then(function (j) {
+                if (!r.ok || j.success === false) throw new Error((j && j.message) ? j.message : 'Could not load cover assets.');
+                return j;
+            });
+        });
+    }
+
+    function queuePrintWrapGeneration(waitForResult) {
+        var pageCount = resolvePublishPageCount(pbEstimatedPages > 0 ? pbEstimatedPages : getLocalFormatterPageCount(bookId));
+        if (pageCount > 100) pageCount = 100;
+        if (pageCount > 0 && pageCount < 24) pageCount = 24;
+        return fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                bookId: bookId,
+                pageCount: pageCount > 0 ? pageCount : null,
+                force: true,
+                wait: !!waitForResult,
+                title: pbTitle || '',
+                author: '',
+                genre: pbGenre || ''
+            })
+        }).then(function (r) {
+            return parseDashboardJsonResponse(r, waitForResult ? 'Full wrap generation failed.' : 'Could not start full wrap generation.').then(function (j) {
+                if (!r.ok || j.success === false) throw new Error((j && j.message) ? j.message : 'Full wrap generation failed.');
+                if (waitForResult) {
+                    var wrap = j && j.cover ? (j.cover.wrap || '').trim() : '';
+                    if (!wrap) throw new Error('Full wrap was not returned. Generate a cover in Cover Design first, then retry.');
+                }
+                return j;
+            });
+        });
+    }
+
+    function pollForPrintWrap(maxMs, intervalMs) {
+        var started = Date.now();
+        return new Promise(function (resolve, reject) {
+            function tick() {
+                fetchPrintReadyCoverAssets().then(function (data) {
+                    var wrap = data && data.cover ? (data.cover.wrap || '').trim() : '';
+                    if (wrap) return resolve(data);
+                    if (Date.now() - started > maxMs) {
+                        reject(new Error('Full wrap is still building. Wait a few minutes and refresh — or check ExternalApi:ApiKey in appsettings.Local.json.'));
+                        return;
+                    }
+                    setTimeout(tick, intervalMs);
+                }).catch(reject);
+            }
+            tick();
         });
     }
 
@@ -1516,15 +1662,26 @@
         var printOnly = isPrintReadyFlow && !isBothFormat;
         section.querySelectorAll('[data-export-kind]').forEach(function (el) {
             var kind = el.getAttribute('data-export-kind');
-            var show = kind === 'print' ? showPrintExports : showEbookExports;
+            var show = false;
+            if (el.id === 'btnExportFrontCover') {
+                show = showEbookExports;
+            } else if (el.id === 'btnExportFrontCoverPrint') {
+                show = showPrintExports && !showEbookExports;
+            } else if (el.id === 'btnExportEpub') {
+                show = showEbookExports;
+            } else if (el.id === 'btnExportPrintBundle') {
+                show = isBothFormat;
+            } else if (kind === 'print') {
+                show = showPrintExports;
+            }
             if (printOnly && el.id === 'btnExportPrintBundle') show = false;
             el.classList.toggle('hidden', !show);
         });
         if (title) title.textContent = printOnly ? 'Export print-ready files' : 'Export your book';
         if (hint && printOnly) {
-            hint.innerHTML = 'Paperback output — 2 files: <strong>full wrap cover</strong> (back + spine + front) and <strong>6×9 interior PDF</strong> for Amazon KDP.';
+            hint.innerHTML = 'Paperback output — 3 files: <strong>front cover</strong>, <strong>full wrap cover</strong>, and <strong>6×9 interior PDF</strong>.';
         } else if (hint && isBothFormat) {
-            hint.textContent = 'Both formats: ebook (front cover + EPUB) and paperback (full wrap + interior PDF).';
+            hint.textContent = 'Both formats — 4 files: front cover, EPUB, full wrap cover, and interior PDF.';
         } else if (hint && showEbookExports && !showPrintExports) {
             hint.textContent = 'Ebook output — 2 files: front cover image + EPUB.';
         }
@@ -1552,10 +1709,10 @@
         }
         if (copyEl) {
             copyEl.textContent = fmt === 'Ebook'
-                ? 'Front cover + EPUB for ebook stores. No full wrap or spine.'
+                ? 'Front cover + EPUB for ebook stores.'
                 : (fmt === 'Paperback'
-                    ? 'Full wrap cover + 6×9″ interior PDF for paperback upload.'
-                    : 'Choose ebook (front cover + EPUB) or paperback (full wrap + interior PDF) exports below.');
+                    ? 'Front cover + full wrap + interior PDF for paperback upload.'
+                    : 'Ebook: front cover + EPUB · Paperback: front cover + full wrap + PDF · Both: all four files.');
         }
     }
 
@@ -1566,7 +1723,9 @@
         var fmt = (publishBookFormat || 'Ebook').trim();
         if (fmt === 'Print') fmt = 'Paperback';
         var useWrap = fmt === 'Paperback' || fmt === 'Both';
-        var url = useWrap ? (assets.wrap || '').trim() : (assets.front || assets.wrap || '').trim();
+        var url = useWrap
+            ? ((assets.wrap || '').trim() || (assets.front || pbCoverRef || '').trim())
+            : ((assets.front || assets.wrap || pbCoverRef || '').trim());
         if (!img) return;
         if (!url) return;
         img.src = url;
@@ -1621,9 +1780,10 @@
     function syncPublishModeFromContext() {
         var fmt = (publishBookFormat || 'Ebook').trim();
         if (fmt === 'Print') fmt = 'Paperback';
+        isPaperbackFormat = fmt === 'Paperback';
         isBothFormat = fmt === 'Both';
-        isPrintReadyFlow = fmt === 'Paperback';
-        showPrintExports = fmt === 'Paperback' || fmt === 'Both';
+        isPrintReadyFlow = isPaperbackFormat || forcedPrintReadyFlow;
+        showPrintExports = isPaperbackFormat || isBothFormat || forcedPrintReadyFlow;
         showEbookExports = fmt === 'Ebook' || fmt === 'Both';
         applyPublishExportModeUi();
     }
@@ -1907,6 +2067,24 @@
         });
     }
 
+    function needsPrintWrapGeneration() {
+        return isPaperbackFormat || isBothFormat || isPrintReadyFlow;
+    }
+
+    function ensurePrintWrapGenerated() {
+        if (!bookId || bookId <= 0) return Promise.reject(new Error('Select a book first.'));
+        if (!needsPrintWrapGeneration()) return Promise.resolve({ skipped: true });
+        return fetchPrintReadyCoverAssets().then(function (assets) {
+            var wrap = assets && assets.cover ? (assets.cover.wrap || '').trim() : '';
+            if (wrap) return assets;
+            return queuePrintWrapGeneration(true).catch(function () {
+                return queuePrintWrapGeneration(false).then(function () {
+                    return pollForPrintWrap(600000, 8000);
+                });
+            });
+        });
+    }
+
     function runPrintBundleExport(triggerBtn) {
         if (!bookId || bookId <= 0) {
             showTransientMessage('warning', 'Select a book first.');
@@ -1917,6 +2095,7 @@
         startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing your print pack',
             'Building your print-ready ZIP (interior PDF + full wrap cover). This can take a few minutes — please keep this tab open…');
         ensureFormatterSavedOnServer(2).then(function () {
+        return ensurePrintWrapGenerated().then(function () {
         return fetch('/Books/ExportPrintReadyBundle', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1954,6 +2133,7 @@
             .finally(function () {
                 clearPublishButtonBusy(triggerBtn);
             });
+        });
         });
     }
 
@@ -2060,8 +2240,7 @@
                         redirectToDashboardAfterExport('Front cover downloaded.');
                     });
                 }
-                return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
-                    .then(function (assetsResp) { return assetsResp.json(); })
+                return fetchPrintReadyCoverAssets()
                     .then(function (assets) {
                         var c = assets && assets.cover ? assets.cover : null;
                         var frontUrl = (c && c.front ? c.front : '').trim();
@@ -2166,8 +2345,7 @@
         startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing your full wrap cover',
             'Building your full wrap cover (back + spine + front) at 300 DPI. This can take a few minutes — please keep this tab open…');
 
-        fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
-            .then(function (r) { return r.json(); })
+        ensurePrintWrapGenerated()
             .then(function (assets) { return buildPrintWrapFromAssets(assets); })
             .then(function (out) {
                 downloadBlobAsFile(out.blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.png');
@@ -2502,12 +2680,51 @@
         }
     }
 
+    /** Silently pre-generate full wrap when front cover exists but wrap is missing (print/both flow). */
+    function preloadPrintWrapIfNeeded() {
+        if (!bookId || bookId <= 0 || !needsPrintWrapGeneration()) return;
+        var assets = window._publishCoverAssets || {};
+        if ((assets.wrap || pbCoverWrapRef || '').trim()) return;
+        if (!(assets.front || pbCoverRef || '').trim()) return;
+        var statusEl = document.getElementById('publishWrapPreloadStatus');
+        var errorEl = document.getElementById('publishWrapPreloadError');
+        var hintEl = document.getElementById('publishWrapBuildHint');
+        if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+        if (statusEl) {
+            statusEl.textContent = 'Building full wrap from your front cover in the background…';
+            statusEl.classList.remove('hidden');
+        }
+        queuePrintWrapGeneration(false)
+            .then(function () { return pollForPrintWrap(600000, 8000); })
+            .then(function (data) {
+                if (!data || data.skipped) return;
+                var wrap = (data.cover && data.cover.wrap) ? data.cover.wrap.trim() : '';
+                if (wrap) {
+                    window._publishCoverAssets = window._publishCoverAssets || {};
+                    window._publishCoverAssets.wrap = wrap;
+                    applySavedCoverPreview(wrap);
+                    applyPublishCoverForFormat();
+                    if (hintEl) hintEl.classList.add('hidden');
+                }
+            })
+            .catch(function (err) {
+                if (errorEl) {
+                    errorEl.textContent = (err && err.message) ? err.message : 'Full wrap is still building — retry export in a minute.';
+                    errorEl.classList.remove('hidden');
+                }
+            })
+            .finally(function () {
+                if (statusEl) {
+                    statusEl.textContent = '';
+                    statusEl.classList.add('hidden');
+                }
+            });
+    }
+
     function loadSavedCoverPreview() {
         if (!bookId || bookId <= 0) return;
-        fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(bookId))
-            .then(function (r) { return r.json(); })
+        fetchPrintReadyCoverAssets()
             .then(function (data) {
-                if (!data || data.success === false) return;
                 var c = data.cover || {};
                 var wrap = (c.wrap || '').trim();
                 var front = (c.front || '').trim();
@@ -2520,16 +2737,21 @@
                 if (wrap) applySavedCoverPreview(wrap);
                 applyPublishCoverForFormat();
             })
-            .catch(function () { /* non-fatal */ });
+            .catch(function () { /* non-fatal */ })
+            .finally(function () { preloadPrintWrapIfNeeded(); });
     }
 
     var exportEpubBtn = document.getElementById('btnExportEpub');
     var exportFrontCoverBtn = document.getElementById('btnExportFrontCover');
+    var exportFrontCoverPrintBtn = document.getElementById('btnExportFrontCoverPrint');
     var exportPrintBundleBtn = document.getElementById('btnExportPrintBundle');
     var exportCoverWrapBtn = document.getElementById('btnExportCoverWrap');
     var printReadyPrimaryBtn = document.getElementById('btnPrintReadyPublishPrimary');
     if (exportFrontCoverBtn) {
         exportFrontCoverBtn.addEventListener('click', function () { runFrontCoverDownload(exportFrontCoverBtn); });
+    }
+    if (exportFrontCoverPrintBtn) {
+        exportFrontCoverPrintBtn.addEventListener('click', function () { runFrontCoverDownload(exportFrontCoverPrintBtn); });
     }
     if (exportEpubBtn) {
         exportEpubBtn.addEventListener('click', function () { runEbookExport(exportEpubBtn, 'epub'); });

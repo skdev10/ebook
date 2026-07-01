@@ -21,6 +21,7 @@ ExternalApi__QueueDataUrl=http://162.229.248.26:8001/api/queue-data
 ExternalApi__GenerateCoverUrl=http://162.229.248.26:8001/api/generate-cover
 ExternalApi__EditCoverUrl=http://162.229.248.26:8001/api/edit-cover
 ExternalApi__GenerateSpineBookCoverUrl=http://162.229.248.26:8001/api/generate-spine-book-cover
+ExternalApi__GenerateSpineBookCoverSplitUrl=http://162.229.248.26:8001/api/generate-spine-book-cover-split
 ExternalApi__BookChaptersNameUrl=http://162.229.248.26:8001/api/book_chapters_name
 ExternalApi__RefineCoverPromptUrl=http://162.229.248.26:8001/api/refine_cover_prompt
 ExternalApi__SuggestCoverPromptFromHighlightsUrl=http://162.229.248.26:8001/api/suggest-cover-prompt-from-highlights

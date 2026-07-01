@@ -13,17 +13,6 @@ public sealed class ChromiumPdfExporter
 {
     private readonly ILogger _logger;
     private readonly IConfiguration _configuration;
-    private static readonly SemaphoreSlim FetchLock = new(1, 1);
-    private static bool _fetched;
-
-    private static readonly string[] LinuxBrowserCandidates =
-    [
-        "/usr/bin/google-chrome-stable",
-        "/usr/bin/google-chrome",
-        "/usr/bin/chromium-browser",
-        "/usr/bin/chromium",
-        "/snap/bin/chromium"
-    ];
 
     public ChromiumPdfExporter(ILogger logger, IConfiguration configuration)
     {
@@ -39,7 +28,7 @@ public sealed class ChromiumPdfExporter
         string footerTemplate,
         CancellationToken cancellationToken = default)
     {
-        var executablePath = await ResolveBrowserExecutableAsync(cancellationToken);
+        var executablePath = await ChromiumLaunchHelper.ResolveExecutableAsync(_configuration, cancellationToken);
         var launchOptions = new LaunchOptions
         {
             Headless = true,
@@ -126,53 +115,5 @@ public sealed class ChromiumPdfExporter
         }
 
         return o;
-    }
-
-    private async Task<string?> ResolveBrowserExecutableAsync(CancellationToken cancellationToken)
-    {
-        var configured = _configuration["Puppeteer:ExecutablePath"]
-            ?? Environment.GetEnvironmentVariable("PUPPETEER_EXECUTABLE_PATH");
-        if (!string.IsNullOrWhiteSpace(configured) && File.Exists(configured))
-            return configured;
-
-        if (OperatingSystem.IsLinux())
-        {
-            foreach (var candidate in LinuxBrowserCandidates)
-            {
-                if (File.Exists(candidate))
-                    return candidate;
-            }
-        }
-
-        foreach (var win in new[]
-                 {
-                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chrome.exe"),
-                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Google", "Chrome", "Application", "chrome.exe"),
-                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft", "Edge", "Application", "msedge.exe"),
-                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft", "Edge", "Application", "msedge.exe")
-                 })
-        {
-            if (File.Exists(win)) return win;
-        }
-
-        await EnsureChromiumAsync(cancellationToken);
-        return null;
-    }
-
-    private static async Task EnsureChromiumAsync(CancellationToken cancellationToken)
-    {
-        if (_fetched) return;
-        await FetchLock.WaitAsync(cancellationToken);
-        try
-        {
-            if (_fetched) return;
-            var bf = new BrowserFetcher();
-            await bf.DownloadAsync();
-            _fetched = true;
-        }
-        finally
-        {
-            FetchLock.Release();
-        }
     }
 }

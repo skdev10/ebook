@@ -132,6 +132,45 @@ public static class InteriorExportTheme
             tplCss);
     }
 
+    /// <summary>Theme color/font tokens for AI Writer preview (#bookResult) — pairs with <see cref="InteriorLayoutTokens.BuildFormatterSyncCss"/>.</summary>
+    public static string BuildAiWriterThemeBridgeCss(BookPdfExportOptions opt)
+    {
+        var interior = NormalizeInteriorStyle(opt.InteriorStyle);
+        var pageBg = opt.ResolvePageBackgroundColor();
+        var theme = ResolveTheme(interior) with { PageBackground = pageBg };
+        var accent = NormalizeAccentHex(opt.PreviewAccent);
+        var accentCss = string.IsNullOrEmpty(accent) ? "" : string.Concat("--fmt-accent: ", accent, "; ");
+
+        return string.Concat(
+            ":root, #bookResult { ",
+            "--page-bg: ", pageBg, "; ",
+            "--body-color: ", theme.BodyColor, "; ",
+            "--heading-color: ", theme.HeadingColor, "; ",
+            "--body-font: ", theme.BodyFont, "; ",
+            "--heading-font: ", theme.HeadingFont, "; ",
+            "--ilt-page-bg: ", pageBg, "; ",
+            "--export-page-bg: ", pageBg, "; ",
+            accentCss,
+            "} ",
+            "#bookResult[data-interior-mode=\"web\"] #preview-content.chapter-preview-viewport { ",
+            "background: var(--page-bg) !important; color: var(--body-color) !important; ",
+            "font-family: var(--body-font) !important; font-size: var(--ilt-body-px, inherit) !important; ",
+            "line-height: var(--ilt-body-lh, inherit) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
+            "#bookResult #preview-content .reader-page-body, ",
+            "#bookResult #preview-content .reader-page-body p, ",
+            "#bookResult #preview-content .reader-page-body .manuscript-p { ",
+            "color: var(--body-color) !important; font-family: var(--body-font) !important; ",
+            "font-size: var(--ilt-body-pt, var(--ilt-body-px, inherit)) !important; ",
+            "line-height: var(--ilt-body-lh, inherit) !important; text-align: var(--ilt-text-align, inherit) !important; ",
+            "-webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
+            "#bookResult #preview-content .reader-page-title, ",
+            "#bookResult #preview-content .manuscript-chapter-heading.reader-page-title { ",
+            "font-family: var(--heading-font) !important; color: var(--heading-color) !important; } ",
+            "#bookResult[data-interior-mode=\"web\"] .front-matter-page, ",
+            "#bookResult[data-interior-mode=\"web\"] .writer-cover-page { ",
+            "background: var(--page-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } ");
+    }
+
     /// <summary>Default book-preview-sheet background per interior (matches Book Formatter).</summary>
     public static string ResolveDefaultPageBackground(string? interiorStyle) =>
         NormalizeInteriorStyle(interiorStyle) switch
@@ -341,23 +380,23 @@ public static class InteriorExportTheme
 
     private static string BuildInteriorTypographyCss(string scope) =>
         string.Concat(
-            scope, ".interior-novel .reader-page-title { font-family: 'Playfair Display', Georgia, serif; color: #6f2f10; font-weight: 700; text-align: center; border-bottom: 1px solid rgba(111, 47, 16, 0.18); } ",
-            scope, ".interior-novel .reader-page-body { font-family: 'Merriweather', Georgia, serif; color: #2c2118; } ",
+            scope, ".interior-novel .reader-page-title { font-family: var(--heading-font, 'Playfair Display', Georgia, serif); color: var(--heading-color, #6f2f10); font-weight: 700; text-align: center; border-bottom: 1px solid rgba(111, 47, 16, 0.18); } ",
+            scope, ".interior-novel .reader-page-body { font-family: var(--body-font, 'Merriweather', Georgia, serif); color: var(--body-color, #2c2118); } ",
             scope, ".interior-novel .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
-            scope, ".interior-modern .reader-page-title { font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 800; color: #334155; text-align: left; border-bottom: none; } ",
-            scope, ".interior-modern .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #334155; } ",
+            scope, ".interior-modern .reader-page-title { font-family: var(--heading-font, 'Inter', system-ui, sans-serif); text-transform: uppercase; letter-spacing: 0.18em; font-weight: 800; color: var(--heading-color, #334155); text-align: left; border-bottom: none; } ",
+            scope, ".interior-modern .reader-page-body { font-family: var(--body-font, 'Inter', system-ui, sans-serif); color: var(--body-color, #334155); } ",
             scope, ".interior-modern .reader-page-body p { text-indent: 0; border-left: 3px solid #6366f1; padding-left: 0.9em; margin-bottom: 0.85em; } ",
-            scope, ".interior-classic .reader-page-title { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; font-style: italic; font-variant: small-caps; letter-spacing: 0.12em; text-align: center; border-bottom: 3px double #d6c4a8; } ",
-            scope, ".interior-classic .reader-page-body { font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; text-align: justify; color: #231f1a; } ",
+            scope, ".interior-classic .reader-page-title { font-family: var(--heading-font, 'Cormorant Garamond', 'Times New Roman', Times, serif); font-style: italic; font-variant: small-caps; letter-spacing: 0.12em; text-align: center; border-bottom: 3px double #d6c4a8; color: var(--heading-color, #000000); } ",
+            scope, ".interior-classic .reader-page-body { font-family: var(--body-font, 'Cormorant Garamond', 'Times New Roman', Times, serif); text-align: justify; color: var(--body-color, #231f1a); } ",
             scope, ".interior-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter, ",
-            scope, ".interior-classic .reader-page-body p.classic-first-para::first-letter { float: left; font-size: 3.4em; line-height: 0.8; padding-right: 0.1em; font-weight: 600; color: #111; font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif; } ",
-            scope, ".interior-minimalist .reader-page-title { font-family: 'Inter', system-ui, sans-serif; font-weight: 600; color: #111827; text-align: left; border-bottom: 1px solid #ececec; } ",
-            scope, ".interior-minimalist .reader-page-body { font-family: 'Inter', system-ui, sans-serif; color: #3f3f46; } ",
+            scope, ".interior-classic .reader-page-body p.classic-first-para::first-letter { float: left; font-size: 3.4em; line-height: 0.8; padding-right: 0.1em; font-weight: 600; color: var(--heading-color, #111); font-family: var(--heading-font, 'Cormorant Garamond', 'Times New Roman', Times, serif); } ",
+            scope, ".interior-minimalist .reader-page-title { font-family: var(--heading-font, 'Inter', system-ui, sans-serif); font-weight: 600; color: var(--heading-color, #111827); text-align: left; border-bottom: 1px solid #ececec; } ",
+            scope, ".interior-minimalist .reader-page-body { font-family: var(--body-font, 'Inter', system-ui, sans-serif); color: var(--body-color, #3f3f46); } ",
             scope, ".interior-minimalist .reader-page-body p { text-indent: 0; margin-bottom: 1.1em; } ",
-            scope, ".interior-elegant-trade .reader-page-title { font-family: 'Lora', 'Times New Roman', serif; font-weight: 600; letter-spacing: 0.06em; color: #3d2914; text-align: center; border-bottom: 1px solid #c8b08e; } ",
-            scope, ".interior-elegant-trade .reader-page-body { font-family: 'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif; text-align: justify; color: #29211b; } ",
+            scope, ".interior-elegant-trade .reader-page-title { font-family: var(--heading-font, 'Lora', 'Times New Roman', serif); font-weight: 600; letter-spacing: 0.06em; color: var(--heading-color, #3d2914); text-align: center; border-bottom: 1px solid #c8b08e; } ",
+            scope, ".interior-elegant-trade .reader-page-body { font-family: var(--body-font, 'EB Garamond', Baskerville, 'Palatino Linotype', Palatino, Georgia, serif); text-align: justify; color: var(--body-color, #29211b); } ",
             scope, ".interior-elegant-trade .reader-page-body p { text-indent: var(--ilt-text-indent); margin-bottom: var(--ilt-para-space); } ",
-            scope, ".interior-elegant-trade .reader-page-body .manuscript-heading { font-family: 'Lora', serif; color: #4a3728; text-indent: 0; } ",
+            scope, ".interior-elegant-trade .reader-page-body .manuscript-heading { font-family: var(--heading-font, 'Lora', serif); color: var(--heading-color, #4a3728); text-indent: 0; } ",
             // In-body sub-headings must never inherit justified body text (justify stretches short
             // heading lines into ugly word gaps, e.g. "The   Bullet   That   Couldn't"). Force a
             // natural left edge for all in-chapter headings across every interior style.

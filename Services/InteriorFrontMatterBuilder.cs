@@ -32,9 +32,13 @@ public static class InteriorFrontMatterBuilder
     }
 
     /// <summary>Print-style table of contents with dotted leaders and page references.</summary>
+    /// <param name="chapterStartPages">Optional 1-based start pages per chapter (formatter preview). Ignored when <paramref name="pdfTargetCounters"/> is true.</param>
+    /// <param name="pdfTargetCounters">When true, page numbers are resolved at PDF print time via CSS <c>target-counter</c> (accurate pagination).</param>
     public static string BuildTocHtml(
         IReadOnlyList<ChapterDto> chapters,
-        BookManuscriptHtmlFormatter.PlaceholderContext phBase)
+        BookManuscriptHtmlFormatter.PlaceholderContext phBase,
+        IReadOnlyList<int>? chapterStartPages = null,
+        bool pdfTargetCounters = false)
     {
         var sb = new StringBuilder();
         sb.AppendLine("""<div class="front-matter-page toc-page">""");
@@ -59,8 +63,27 @@ public static class InteriorFrontMatterBuilder
             var subHeadings = ExtractHeadingsFromChapterBodyHtml(bodyHtml);
 
             sb.AppendLine("""<li class="toc-item">""");
+            var refClass = pdfTargetCounters ? "toc-page-ref toc-page-ref--counter" : "toc-page-ref";
+            string pageRef;
+            string pageRefInner;
+            if (pdfTargetCounters)
+            {
+                pageRef = "";
+                pageRefInner = $"""<a href="#ch-{sectionId}" class="{refClass}" aria-hidden="true"></a>""";
+            }
+            else if (chapterStartPages != null && i < chapterStartPages.Count)
+            {
+                pageRef = chapterStartPages[i].ToString(CultureInfo.InvariantCulture);
+                pageRefInner = $"""<span class="{refClass}">{pageRef}</span>""";
+            }
+            else
+            {
+                pageRef = "…";
+                pageRefInner = $"""<span class="{refClass}">{pageRef}</span>""";
+            }
+
             sb.AppendLine(CultureInvariant(
-                $"""<div class="toc-chapter-line"><span class="toc-entry-text"><a href="#ch-{sectionId}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a></span><span class="toc-leader" aria-hidden="true"></span><span class="toc-page-ref" data-target="ch-{sectionId}">…</span></div>"""));
+                $"""<div class="toc-chapter-line"><span class="toc-entry-text"><a href="#ch-{sectionId}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a></span><span class="toc-leader" aria-hidden="true"></span>{pageRefInner}</div>"""));
 
             if (subHeadings.Count > 0)
             {

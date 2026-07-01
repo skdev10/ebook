@@ -117,6 +117,12 @@ namespace EBookDashboard.Models.DTO
 
         /// <summary>Paperback (KDP) or Hardcover (case-bound: 1" wrap + 3/8" hinges).</summary>
         public string? BindingType { get; set; }
+
+        /// <summary>When true, rebuild wrap even if one is already saved (e.g. after a new front cover).</summary>
+        public bool Force { get; set; }
+
+        /// <summary>When true, wait for upstream split API and return saved assets. When false, queue background generation.</summary>
+        public bool Wait { get; set; }
     }
 
     /// <summary>POST /Dashboard/SavePrintReadyComposedWrap — persist client-side KDP-calibrated wrap PNG.</summary>

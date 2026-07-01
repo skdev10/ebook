@@ -1,3 +1,4 @@
+using EBookDashboard.Interfaces;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
 using EBookDashboard.Services.PdfExport;
@@ -16,8 +17,9 @@ public class BookPdfSmokeTests
     {
         var env = new StubEnv();
         var cfg = new ConfigurationBuilder().Build();
+        var renderSvc = new BookRenderService(
+            env, cfg, NullLogger<BookRenderService>.Instance, new FixedTocPageNumberMeasurer());
         var resolver = new PdfHtmlExportServiceResolver(cfg, NullLoggerFactory.Instance);
-        var renderSvc = new BookRenderService(env, cfg, NullLogger<BookRenderService>.Instance);
         var svc = new BookPdfService(env, NullLogger<BookPdfService>.Instance, cfg, resolver, renderSvc);
         var details = new BookDetailsResponseDto
         {
@@ -54,5 +56,21 @@ public class BookPdfSmokeTests
         public string EnvironmentName { get; set; } = "Development";
         public string ContentRootPath { get; set; } = Directory.GetCurrentDirectory();
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class FixedTocPageNumberMeasurer : ITocPageNumberMeasurer
+    {
+        public Task<IReadOnlyList<int>> MeasureChapterStartPagesAsync(
+            string fullBookHtml,
+            BookPdfExportOptions exportOptions,
+            BookPdfPlatformLayout.PdfLayoutSpec layout,
+            string bookTitle,
+            IReadOnlyList<string> chapterTitles,
+            int expectedChapterCount,
+            CancellationToken cancellationToken = default)
+        {
+            var pages = Enumerable.Range(0, expectedChapterCount).Select(i => 6 + i * 10).ToList();
+            return Task.FromResult<IReadOnlyList<int>>(pages);
+        }
     }
 }

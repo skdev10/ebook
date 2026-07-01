@@ -49,6 +49,8 @@ namespace EBookDashboard.Controllers
         private readonly BookFlowStateService _bookFlow;
         private readonly IEditorDraftResetService _draftReset;
         private readonly ICurrentUserAccessor _currentUser;
+        private readonly IPrintWrapPregenerationQueue _printWrapPregenerationQueue;
+        private readonly IPrintWrapGenerationService _printWrapGenerationService;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -66,7 +68,9 @@ namespace EBookDashboard.Controllers
             IKdpCoverDimensionService kdpCoverDimensions,
             BookFlowStateService bookFlow,
             IEditorDraftResetService draftReset,
-            ICurrentUserAccessor currentUser)
+            ICurrentUserAccessor currentUser,
+            IPrintWrapPregenerationQueue printWrapPregenerationQueue,
+            IPrintWrapGenerationService printWrapGenerationService)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -84,6 +88,8 @@ namespace EBookDashboard.Controllers
             _bookFlow = bookFlow;
             _draftReset = draftReset;
             _currentUser = currentUser;
+            _printWrapPregenerationQueue = printWrapPregenerationQueue;
+            _printWrapGenerationService = printWrapGenerationService;
         }
 
         [Route("")]
@@ -1911,6 +1917,19 @@ namespace EBookDashboard.Controllers
         [Route("GetPrintReadyCoverAssets")]
         public async Task<IActionResult> GetPrintReadyCoverAssets(int bookId, CancellationToken cancellationToken = default)
         {
+            try
+            {
+                return await GetPrintReadyCoverAssetsCoreAsync(bookId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GetPrintReadyCoverAssets failed for book {BookId}", bookId);
+                return Json(new { success = false, message = "Could not load cover assets. Please refresh and try again." });
+            }
+        }
+
+        private async Task<IActionResult> GetPrintReadyCoverAssetsCoreAsync(int bookId, CancellationToken cancellationToken)
+        {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
@@ -2312,7 +2331,13 @@ namespace EBookDashboard.Controllers
                 if (!response.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("GeneratePrintReadyCover HTTP {Code} for book {BookId}: {Body}", (int)response.StatusCode, req.BookId, responseData);
-                    return Json(new { success = false, status = "error", message = $"Cover service returned {(int)response.StatusCode}." });
+                    var upstreamMsg = CoverExternalApiHelper.TryExtractErrorMessage(responseData);
+                    return Json(new
+                    {
+                        success = false,
+                        status = "error",
+                        message = upstreamMsg ?? $"Cover service returned {(int)response.StatusCode}. The AI queue may be busy — try again in a few minutes."
+                    });
                 }
 
                 var urls = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(responseData);
@@ -2404,6 +2429,94 @@ namespace EBookDashboard.Controllers
                 _logger.LogError(ex, "GeneratePrintReadyCover failed for book {BookId}", req.BookId);
                 return Json(new { success = false, status = "error", message = ex.Message });
             }
+        }
+
+        /// <summary>
+        /// Builds full print wrap from the saved front cover. Default: queues background work (fast JSON).
+        /// Set <see cref="PrintReadyCoverRequest.Wait"/> to wait for upstream and return saved assets.
+        /// </summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Route("GeneratePrintReadyWrapFromFront")]
+        [Microsoft.AspNetCore.Http.Timeouts.RequestTimeout("CoverGeneration")]
+        public async Task<IActionResult> GeneratePrintReadyWrapFromFront([FromBody] PrintReadyCoverRequest req)
+        {
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, status = "error", message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, status = "error", message = "Please sign in." });
+
+            var book = await _context.Books
+                .AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value);
+            if (book == null)
+                return Json(new { success = false, status = "error", message = "Book not found." });
+
+            var assetKeys = new[]
+            {
+                $"book:{req.BookId}:printReadyCoverFront",
+                $"book:{req.BookId}:aiCoverLastPreview"
+            };
+            var assetRows = await _context.Settings.AsNoTracking()
+                .Where(s => assetKeys.Contains(s.Key))
+                .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
+            var savedFront = BookCoverRefResolver.ResolveEbookFrontCoverRef(
+                assetRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverFront"),
+                assetRows.GetValueOrDefault($"book:{req.BookId}:aiCoverLastPreview"),
+                book.CoverImagePath,
+                null);
+            if (string.IsNullOrWhiteSpace(savedFront))
+                return Json(new { success = false, status = "error", message = "Generate a front cover in Cover Design first." });
+
+            if (string.IsNullOrEmpty(ExternalApiKeyResolver.Resolve(_configuration)))
+                return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
+
+            if (req.PageCount is > 0)
+            {
+                await UpsertDashboardSettingAsync(
+                    $"book:{req.BookId}:printReadyPageCount",
+                    req.PageCount.Value.ToString(CultureInfo.InvariantCulture),
+                    "Book",
+                    CancellationToken.None);
+            }
+
+            if (!req.Wait)
+            {
+                if (req.Force)
+                    await ClearPrintWrapCacheAsync(req.BookId, CancellationToken.None);
+
+                _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(sessionUserId.Value, req.BookId);
+
+                return Json(new
+                {
+                    success = true,
+                    status = "queued",
+                    queued = true,
+                    bookId = req.BookId,
+                    message = "Full wrap is building from your saved front cover."
+                });
+            }
+
+            var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
+                sessionUserId.Value,
+                req.BookId,
+                req.PageCount,
+                req.Force,
+                CancellationToken.None);
+
+            if (!ok)
+            {
+                return Json(new
+                {
+                    success = false,
+                    status = "error",
+                    message = "Full wrap generation failed. Confirm your front cover is saved and retry in a moment."
+                });
+            }
+
+            return await GetPrintReadyCoverAssetsCoreAsync(req.BookId, CancellationToken.None);
         }
 
         private async Task<BookPdfExportOptions> LoadExportOptionsAsync(int userId, int bookId, CancellationToken cancellationToken)
@@ -2619,6 +2732,22 @@ namespace EBookDashboard.Controllers
             await _context.SaveChangesAsync(cancellationToken);
         }
 
+        /// <summary>Removes saved full-wrap assets so the next Publish/export rebuilds from the current front cover.</summary>
+        private async Task ClearPrintWrapCacheAsync(int bookId, CancellationToken cancellationToken)
+        {
+            var keys = new[]
+            {
+                $"book:{bookId}:printReadyCoverWrap",
+                $"book:{bookId}:printReadyCoverWrapApi",
+                $"book:{bookId}:printReadyCoverBack",
+                $"book:{bookId}:printReadyCoverSpine"
+            };
+            var rows = await _context.Settings.Where(s => keys.Contains(s.Key)).ToListAsync(cancellationToken);
+            if (rows.Count == 0) return;
+            _context.Settings.RemoveRange(rows);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         /// <summary>Data URLs and remote http(s) URLs are saved under wwwroot/uploads; local paths are returned as-is.</summary>
         private async Task<string?> TryPersistCoverReferenceAsync(int userId, int bookId, string imageRef, CancellationToken cancellationToken)
         {
@@ -2644,9 +2773,18 @@ namespace EBookDashboard.Controllers
         }
 
         /// <summary>Persists front-cover preview keys and updates <see cref="Book.CoverImagePath"/> when stored locally.</summary>
-        private async Task SaveFrontCoverPreviewAsync(int userId, int bookId, string persisted, CancellationToken cancellationToken)
+        private async Task SaveFrontCoverPreviewAsync(
+            int userId,
+            int bookId,
+            string persisted,
+            CancellationToken cancellationToken,
+            bool invalidateCachedWrap = true)
         {
             if (string.IsNullOrWhiteSpace(persisted)) return;
+
+            if (invalidateCachedWrap)
+                await ClearPrintWrapCacheAsync(bookId, cancellationToken);
+
             if (persisted.Length <= Models.Settings.DbCompatMaxValueLength)
             {
                 await UpsertDashboardSettingAsync($"book:{bookId}:aiCoverLastPreview", persisted, "Book", cancellationToken);
@@ -2660,6 +2798,9 @@ namespace EBookDashboard.Controllers
             }
 
             await UpdateBookCoverImagePathIfLocalAsync(userId, bookId, persisted, cancellationToken);
+
+            if (invalidateCachedWrap)
+                _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(userId, bookId);
         }
 
         private async Task UpdateBookCoverImagePathIfLocalAsync(int userId, int bookId, string persisted, CancellationToken cancellationToken)
@@ -2807,6 +2948,7 @@ namespace EBookDashboard.Controllers
             ViewBag.PublishBookWordCount = 0;
             ViewBag.PublishBookReady = false;
             ViewBag.PublishPrintReadyMode = false;
+            ViewBag.ExternalApiConfigured = !string.IsNullOrEmpty(ExternalApiKeyResolver.Resolve(_configuration));
 
             var forcedPrintReadyFlow = string.Equals((flow ?? "").Trim(), "printready", StringComparison.OrdinalIgnoreCase);
 

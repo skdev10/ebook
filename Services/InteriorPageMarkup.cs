@@ -25,13 +25,16 @@ public static class InteriorPageMarkup
             ? "reader-page-body"
             : $"reader-page-body {bodyExtraClass}";
 
+        var measureMarker = FormattableString.Invariant(
+            $"""<span class="toc-measure-marker" data-toc-measure="{sectionId}" aria-hidden="true">TOCMEASURE_{sectionId}_END</span>""");
+
         return FormattableString.Invariant($"""
 <section class="chapter" id="ch-{sectionId}">
   <div class="book-preview-sheet">
     <div class="page-header book-page-running-head" aria-hidden="false">{head}</div>
     <div class="page-body">
       <div class="reader-chapter-block" data-chapter-start="1">
-        <article class="reader-page-title">{titleHtml}</article>
+        <article class="reader-page-title">{titleHtml}{measureMarker}</article>
         <section class="{bodyClass}">{bodyHtml}</section>
       </div>
     </div>

@@ -777,15 +777,21 @@ public static class InteriorLayoutTokens
 
             ".toc-item-empty { color: #64748b; font-style: italic; } ",
 
-            ".toc-chapter-line { display: flex; align-items: baseline; gap: 0.12in; font-weight: 600; color: #1c1917; } ",
+            ".toc-chapter-line { display: flex; align-items: baseline; gap: 0.12in; font-weight: 600; color: var(--heading-color, #1c1917); padding-right: 0.04in; } ",
 
-            ".toc-entry-text { flex: 0 1 auto; min-width: 0; } ",
+            ".toc-entry-text { flex: 0 1 auto; min-width: 0; max-width: calc(100% - 0.85in); } ",
 
-            ".toc-leader { flex: 1 1 auto; min-width: 0.35in; border-bottom: 1px dotted rgba(100, 116, 139, 0.65); ",
+            ".toc-leader { flex: 1 1 auto; min-width: 0.25in; border-bottom: 1px dotted rgba(100, 116, 139, 0.65); ",
 
-            "transform: translateY(-0.14em); margin: 0 0.08in; } ",
+            "transform: translateY(-0.14em); margin: 0 0.06in; } ",
 
-            ".toc-page-ref { flex: 0 0 auto; min-width: 0.35in; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: #334155; } ",
+            ".toc-page-ref { flex: 0 0 auto; min-width: 0.5in; padding-left: 0.04in; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--body-color, #334155); } ",
+
+            ".book-pdf-body a.toc-page-ref--counter { font-size: 0; line-height: 0; color: transparent; min-width: 0.45in; text-decoration: none; display: inline-block; } ",
+
+            ".book-pdf-body a.toc-page-ref--counter::after { content: target-counter(attr(href url), page); font-size: 10.5pt; line-height: 1.4; ",
+
+            "font-weight: 600; font-variant-numeric: tabular-nums; color: var(--body-color, #334155); display: inline-block; min-width: 0.45in; text-align: right; } ",
 
             ".toc-subheadings { list-style: none; margin: 0.14in 0 0; padding: 0 0 0 0.28in; } ",
 
@@ -796,6 +802,9 @@ public static class InteriorLayoutTokens
             ".toc-link { color: inherit; text-decoration: none; } ",
 
             ".toc-link:hover { text-decoration: underline; } ",
+
+            ".toc-measure-marker { display: inline; font-size: 7pt; line-height: 7pt; color: #fefefe; letter-spacing: 0; opacity: 1; ",
+            "-webkit-print-color-adjust: exact; print-color-adjust: exact; user-select: none; } ",
 
             "[data-interior-mode=\"web\"] .toc-page { padding-top: var(--ilt-front-pad-top); min-height: auto; display: block; } ",
 
