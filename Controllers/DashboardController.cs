@@ -3177,8 +3177,10 @@ namespace EBookDashboard.Controllers
                             || p.Equals("Publishable Book", StringComparison.OrdinalIgnoreCase));
                     var isPaperbackFormat = publishFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase);
                     var isBothFormatFlag = publishFormat.Equals("Both", StringComparison.OrdinalIgnoreCase);
-                    // Print-ready platform or ?flow=printready must win even when format dropdown still says Ebook.
-                    var isPrintReadyFlow = forcedPrintReadyFlow || hasPrintReadyPlatform || isPaperbackFormat;
+                    var isEbookOnly = publishFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase);
+                    // Print wrap exports only for Paperback/Both — never for Ebook-only, even with ?flow=printready.
+                    var isPrintReadyFlow = isPaperbackFormat || isBothFormatFlag
+                        || (!isEbookOnly && (hasPrintReadyPlatform || forcedPrintReadyFlow));
                     ViewBag.PublishPrintReadyMode = isPrintReadyFlow;
                     ViewBag.PublishBothFormat = isBothFormatFlag;
                     var canExport = hasChapterContent;

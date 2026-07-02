@@ -55,27 +55,25 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
 
         using var frontImage = Image.Load<Rgba32>(request.FrontCoverBytes);
         using var canvas = new Image<Rgba32>(canvasW, canvasH);
-        canvas.Mutate(ctx => ctx.BackgroundColor(Color.White));
+        canvas.Mutate(ctx => ctx.BackgroundColor(Color.Black));
 
-        var panelBg = SampleEdgeColor(frontImage, sampleLeftEdge: true);
         var theme = request.Theme ?? BookTheme.FromExportOptions(new BookPdfExportOptions());
-        var textColor = ParseHexColor(theme.BodyTextColor, Color.FromRgb(51, 65, 85));
-        var headingColor = ParseHexColor(theme.HeadingColor, Color.FromRgb(28, 25, 23));
+        var titleColor = Color.FromRgb(245, 240, 230);
+        var bodyColor = Color.FromRgb(220, 215, 205);
 
-        // Back panel background + description + barcode reserve zone.
+        // Back panel — extend front-cover artwork (blurred/darkened) so wrap matches the front design.
         canvas.Mutate(ctx =>
         {
-            ctx.Fill(panelBg, new RectangleF(backX, panelY, backW, panelH));
+            DrawBackPanelArt(ctx, frontImage, new Rectangle(backX, panelY, backW, panelH));
             DrawBackCoverContent(ctx, layout, dpi, backX, panelY, backW, panelH,
-                request.Title, request.Author, request.Description, textColor, headingColor);
+                request.Title, request.Author, request.Description, bodyColor, titleColor);
         });
 
-        // Spine — solid color from front edge; optional vertical title when wide enough.
-        var spineBg = SampleEdgeColor(frontImage, sampleLeftEdge: true);
+        // Spine — color strip from front cover's spine edge + optional vertical title.
         var spineTitle = layout.SpineWidth >= MinSpineTextWidthInches
             ? TruncateSpineTitle(request.Title)
             : null;
-        using (var spineImg = _spineRenderer.Render(spineW, panelH, spineBg, spineTitle, Color.White))
+        using (var spineImg = RenderSpineFromFront(frontImage, spineW, panelH, spineTitle))
         {
             canvas.Mutate(ctx => ctx.DrawImage(spineImg, new Point(spineX, panelY), 1f));
         }
@@ -102,6 +100,47 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
             FrontPanelHeight = panelH,
             DescriptionMissing = string.IsNullOrWhiteSpace(request.Description)
         };
+    }
+
+    /// <summary>Back panel art — blurred, darkened extension of the front cover (matches KDP wrap look).</summary>
+    private static void DrawBackPanelArt(IImageProcessingContext ctx, Image<Rgba32> front, Rectangle target)
+    {
+        if (target.Width <= 0 || target.Height <= 0) return;
+
+        using var backArt = front.CloneAs<Rgba32>();
+        backArt.Mutate(c =>
+        {
+            c.Resize(new ResizeOptions
+            {
+                Size = new Size(target.Width, target.Height),
+                Mode = ResizeMode.Crop,
+                Position = AnchorPositionMode.Center,
+                Sampler = KnownResamplers.Lanczos3
+            });
+            c.GaussianBlur(18);
+            c.Brightness(0.42f);
+            c.Contrast(1.08f);
+        });
+        ctx.DrawImage(backArt, new Point(target.X, target.Y), 1f);
+    }
+
+    /// <summary>Spine strip sampled from the front cover edge (seamless with front panel).</summary>
+    private Image<Rgba32> RenderSpineFromFront(Image<Rgba32> front, int spineW, int panelH, string? spineTitle)
+    {
+        var stripW = Math.Clamp(Math.Max(4, front.Width / 6), 4, front.Width);
+        using var edgeStrip = front.Clone(c => c.Crop(new Rectangle(0, 0, stripW, front.Height)));
+        using var resized = edgeStrip.Clone(c => c.Resize(spineW, panelH));
+        var spine = new Image<Rgba32>(spineW, panelH);
+        spine.Mutate(c => c.DrawImage(resized, new Point(0, 0), 1f));
+
+        if (!string.IsNullOrWhiteSpace(spineTitle) && spineW >= 12)
+        {
+            using var titled = _spineRenderer.Render(
+                spineW, panelH, Color.Transparent, spineTitle, Color.FromRgb(245, 240, 230));
+            spine.Mutate(c => c.DrawImage(titled, new Point(0, 0), 1f));
+        }
+
+        return spine;
     }
 
     /// <summary>Cover-fill draw used for both wrap front panel and verification helpers.</summary>

@@ -146,7 +146,7 @@
         padding: 16px;
         box-shadow: 0 8px 24px -12px rgba(91, 33, 182, 0.25);
     }
-    #covFullWrapImg { max-height: 280px; width: auto; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12); }
+    #covFullWrapImg { width: 100%; max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12); }
     .cov-wrap-view-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
     .cov-wrap-view-tab { padding: 5px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; }
     .cov-wrap-view-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
@@ -564,7 +564,22 @@
     var bookPublishFormat = '';
 
     function needsPrintWrapAutoBuild() {
-        return bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both' || coverFlowPrintReady || isPrintReadyPlatform();
+        return bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both';
+    }
+
+    function syncPrintWrapUiVisibility() {
+        var show = needsPrintWrapAutoBuild();
+        var banner = document.getElementById('covWrapBuildBanner');
+        var section = document.getElementById('covFullWrapSection');
+        var tabs = document.getElementById('covWrapViewTabs');
+        var col = document.getElementById('covPreviewColumn');
+        if (banner) banner.classList.toggle('hidden', !show);
+        if (!show) {
+            if (section) section.classList.add('hidden');
+            if (tabs) tabs.classList.add('hidden');
+            if (col) col.classList.remove('cov-show-full-wrap');
+            setCovWrapView('front');
+        }
     }
 
     var covWrapBuildInFlight = false;
@@ -1103,6 +1118,10 @@
                             var fmt = (fd.data.format || '').trim();
                             if (fmt === 'Print') fmt = 'Paperback';
                             bookPublishFormat = fmt;
+                            syncPrintWrapUiVisibility();
+                            if (needsPrintWrapAutoBuild() && (selectedPath || (b.aiCoverLastPreview || b.coverImagePath))) {
+                                buildPrintWrapNow(false);
+                            }
                         }
                     })
                     .catch(function () {});
@@ -2118,8 +2137,7 @@
         var bid = selectedBook.bookId;
         try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (_) {}
         var publishUrl = '/Dashboard/Publish?bookId=' + encodeURIComponent(bid);
-        var isPrintFmt = bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both';
-        if (coverFlowPrintReady || isPrintReadyPlatform() || isPrintFmt) publishUrl += '&flow=printready';
+        if (bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both') publishUrl += '&flow=printready';
         window.location.href = publishUrl;
     });
 
@@ -2132,6 +2150,7 @@
         }
         loadBooks();
         updatePublishGate();
+        syncPrintWrapUiVisibility();
         if (coverType === 'both') {
             if (btnGoToPublish) btnGoToPublish.innerHTML = '<i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i> Continue to Publish with both files';
         }

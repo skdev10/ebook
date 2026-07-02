@@ -1875,8 +1875,8 @@
         if (fmt === 'Print') fmt = 'Paperback';
         isPaperbackFormat = fmt === 'Paperback';
         isBothFormat = fmt === 'Both';
-        isPrintReadyFlow = isPaperbackFormat || forcedPrintReadyFlow;
-        showPrintExports = isPaperbackFormat || isBothFormat || forcedPrintReadyFlow;
+        isPrintReadyFlow = isPaperbackFormat || isBothFormat;
+        showPrintExports = isPaperbackFormat || isBothFormat;
         showEbookExports = fmt === 'Ebook' || fmt === 'Both';
         applyPublishExportModeUi();
     }
@@ -2164,7 +2164,7 @@
     }
 
     function needsPrintWrapGeneration() {
-        return isPaperbackFormat || isBothFormat || isPrintReadyFlow;
+        return isPaperbackFormat || isBothFormat;
     }
 
     function ensurePrintWrapGenerated() {
