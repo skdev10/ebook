@@ -137,8 +137,21 @@
     .cov-target-tab { padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
     .cov-target-tab:hover { background: #ede9fe; border-color: #c4b5fd; }
     .cov-target-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-    #covFullWrapSection .cov-full-wrap-stage { max-width: 100%; overflow-x: auto; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; padding: 12px; }
-    #covFullWrapImg { max-height: 220px; width: auto; display: block; margin: 0 auto; }
+    #covFullWrapSection .cov-full-wrap-stage {
+        max-width: 100%;
+        overflow-x: auto;
+        border-radius: 16px;
+        border: 1px solid #ddd6fe;
+        background: linear-gradient(180deg, #faf5ff 0%, #f8fafc 100%);
+        padding: 16px;
+        box-shadow: 0 8px 24px -12px rgba(91, 33, 182, 0.25);
+    }
+    #covFullWrapImg { max-height: 280px; width: auto; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12); }
+    .cov-wrap-view-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .cov-wrap-view-tab { padding: 5px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; }
+    .cov-wrap-view-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    #covPreviewColumn.cov-show-full-wrap .cov-preview-book-stage { display: none; }
+    #covPreviewColumn.cov-show-full-wrap #covFullWrapSection { display: block !important; }
     #covPreviewColumn.cov-target-print .cov-preview-book-stage { max-width: 340px; }
     #covPreviewColumn.cov-target-ebook .cov-preview-book-stage { max-width: 280px; }
     .cov-preview-book-stage {
@@ -413,14 +426,26 @@
                     </div>
             </div>
 
-            <div id="covFullWrapSection" class="hidden mt-4 w-full shrink-0">
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="w-5 h-0.5 bg-violet-500 rounded-full"></span>
-                    <span class="text-violet-600 font-medium text-sm tracking-wide">Full print wrap</span>
-                    <span id="covWrapSavedBadge" class="hidden text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Ready for Publish</span>
+            <div id="covWrapViewTabs" class="cov-wrap-view-tabs hidden shrink-0" role="group" aria-label="Cover preview mode">
+                <button type="button" class="cov-wrap-view-tab is-active" data-wrap-view="front">Front panel</button>
+                <button type="button" class="cov-wrap-view-tab" data-wrap-view="full">Full print wrap</button>
+            </div>
+
+            <div id="covFullWrapSection" class="hidden mt-2 w-full shrink-0">
+                <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-0.5 bg-violet-500 rounded-full"></span>
+                        <span class="text-violet-700 font-semibold text-sm tracking-wide">Full print wrap</span>
+                        <span id="covWrapSavedBadge" class="hidden text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Ready — export from Publish</span>
+                    </div>
+                    <span id="covWrapPageHint" class="text-[11px] text-slate-500"></span>
                 </div>
                 <div class="cov-full-wrap-stage">
                     <img id="covFullWrapImg" src="" alt="Full print wrap — back, spine, and front" class="hidden" />
+                    <div id="covFullWrapBuilding" class="hidden flex flex-col items-center justify-center gap-2 py-10 text-violet-800">
+                        <span class="w-8 h-8 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></span>
+                        <span class="text-sm font-medium">Building full wrap…</span>
+                    </div>
                     <p id="covFullWrapPlaceholder" class="text-sm text-slate-500 text-center py-6">Full wrap appears here after your front cover is saved.</p>
                 </div>
             </div>
@@ -545,6 +570,29 @@
     var covWrapBuildInFlight = false;
     var covWrapBuildPromise = null;
 
+    function setCovWrapView(mode) {
+        mode = mode === 'full' ? 'full' : 'front';
+        var col = document.getElementById('covPreviewColumn');
+        var tabs = document.getElementById('covWrapViewTabs');
+        if (col) col.classList.toggle('cov-show-full-wrap', mode === 'full');
+        if (tabs) {
+            tabs.querySelectorAll('.cov-wrap-view-tab').forEach(function (b) {
+                var on = b.getAttribute('data-wrap-view') === mode;
+                b.classList.toggle('is-active', on);
+            });
+        }
+    }
+
+    (function bindCovWrapViewTabs() {
+        var tabs = document.getElementById('covWrapViewTabs');
+        if (!tabs) return;
+        tabs.addEventListener('click', function (e) {
+            var b = e.target && e.target.closest ? e.target.closest('.cov-wrap-view-tab') : null;
+            if (!b) return;
+            setCovWrapView(b.getAttribute('data-wrap-view'));
+        });
+    })();
+
     function buildPrintWrapNow(forceRebuild) {
         if (!selectedBook || !selectedBook.bookId || !needsPrintWrapAutoBuild()) return Promise.resolve(null);
         if (covWrapBuildInFlight && covWrapBuildPromise) return covWrapBuildPromise;
@@ -552,10 +600,11 @@
         updateCovWrapBuildBanner({ wrapCoverStatus: 'Generating' });
         showCovFullWrapSection(true);
         var placeholder = document.getElementById('covFullWrapPlaceholder');
-        if (placeholder) {
-            placeholder.textContent = 'Building full print wrap (back + spine + front)…';
-            placeholder.classList.remove('hidden');
-        }
+        var building = document.getElementById('covFullWrapBuilding');
+        var tabs = document.getElementById('covWrapViewTabs');
+        if (placeholder) { placeholder.classList.add('hidden'); }
+        if (building) building.classList.remove('hidden');
+        if (tabs) tabs.classList.remove('hidden');
 
         covWrapBuildInFlight = true;
         covWrapBuildPromise = resolveWrapPageCount().then(function (pageCount) {
@@ -575,10 +624,10 @@
             });
         }).then(function (r) { return r.json(); })
         .then(function (d) {
-            if (d && d.success && d.cover) {
+                if (d && d.success && d.cover) {
                 var wrap = (d.cover.wrap || '').trim();
                 if (wrap) {
-                    showCovFullWrapPreview(wrap);
+                    showCovFullWrapPreview(wrap, d.pageCount || 0);
                     coverWraparoundRef = wrap;
                     setPrintWrapSaved(true);
                 }
@@ -595,6 +644,8 @@
         .finally(function () {
             covWrapBuildInFlight = false;
             covWrapBuildPromise = null;
+            var building = document.getElementById('covFullWrapBuilding');
+            if (building) building.classList.add('hidden');
         });
 
         return covWrapBuildPromise;
@@ -609,17 +660,24 @@
         if (section) section.classList.toggle('hidden', !show || !needsPrintWrapAutoBuild());
     }
 
-    function showCovFullWrapPreview(wrapUrl) {
+    function showCovFullWrapPreview(wrapUrl, pageCount) {
         wrapUrl = (wrapUrl || '').trim();
         if (!wrapUrl) return;
         showCovFullWrapSection(true);
         var img = document.getElementById('covFullWrapImg');
         var placeholder = document.getElementById('covFullWrapPlaceholder');
+        var building = document.getElementById('covFullWrapBuilding');
+        var tabs = document.getElementById('covWrapViewTabs');
+        var hint = document.getElementById('covWrapPageHint');
+        if (building) building.classList.add('hidden');
+        if (tabs) tabs.classList.remove('hidden');
+        if (hint && pageCount) hint.textContent = pageCount + ' pages · KDP print wrap';
         if (img) {
             img.src = toUrl(wrapUrl) + (toUrl(wrapUrl).indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
             img.classList.remove('hidden');
             img.onload = function () {
                 if (placeholder) placeholder.classList.add('hidden');
+                setCovWrapView('full');
             };
         }
         setPrintWrapSaved(true);
@@ -635,7 +693,7 @@
         var hasFront = !!(selectedPath || (data && data.cover && data.cover.front) || (selectedBook && selectedBook.aiCoverLastPreview));
         if (wrap || status === 'Ready') {
             banner.classList.add('hidden');
-            if (wrap) showCovFullWrapPreview(wrap);
+                if (wrap) showCovFullWrapPreview(wrap, d.pageCount || 0);
             return;
         }
         if (!hasFront) {
@@ -1219,7 +1277,7 @@
                 if (c.wrap) coverWraparoundRef = c.wrap;
                 updateCovWrapBuildBanner(d);
                 if (c.wrap) {
-                    showCovFullWrapPreview(c.wrap);
+                    showCovFullWrapPreview(c.wrap, d.pageCount || 0);
                 } else if (needsPrintWrapAutoBuild() && c.front) {
                     buildPrintWrapNow(false);
                 }

@@ -288,42 +288,65 @@ public static class InteriorExportTheme
                + InteriorLayoutTokens.BuildPerInteriorCss(interior)
                + BuildFormatterInteriorCss() + BuildHeadingKeepWithNextCss()
                + BuildPdfInteriorParityCss(interior)
-               + BuildColoredChapterOpenerPdfCss(interior)
+               + BuildFormatterChapterOpenerPdfCss(interior)
                + BuildRunningChromeCompensationCss(opt, interior);
     }
 
-    /// <summary>PDF chapter opener colors for Elegant Trade, Fine Book, and Contemporary (matches formatter preview).</summary>
-    private static string BuildColoredChapterOpenerPdfCss(string interior)
+    /// <summary>Chapter opener CSS for PDF — mirrors Book Formatter <c>fmt-chapter-opener</c> per interior style.</summary>
+    private static string BuildFormatterChapterOpenerPdfCss(string interior)
     {
         var wrap = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(interior);
-        if (interior is not ("ElegantTrade" or "ElegantTradePOD" or "FineBook" or "Contemporary"))
-            return "";
-
         var gold = "#C9A84C";
         var blue = "#3B82F6";
-        var sb = new System.Text.StringBuilder(2048);
-        sb.Append(".book-pdf-body .reader-page-title .fmt-chapter-opener { display: block; text-align: center; margin: 0 0 0.35in; } ");
+        var sb = new System.Text.StringBuilder(8192);
+
+        sb.Append(".book-pdf-body .reader-page-title:has(.fmt-chapter-opener) { border: none !important; padding-top: 0 !important; text-align: inherit; background: transparent; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener { display: block; text-align: center; margin: 0 0 0.35in; padding: 0; border: 0; line-height: 1.2; } ");
         sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-flourish { display: none; } ");
-        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-eyebrow { display: block; font-size: 9pt; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 0.18in; font-weight: 600; } ");
-        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-title { display: block; font-family: var(--heading-font); font-weight: 600; margin: 0 0 0.12in; line-height: 1.25; } ");
-        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-rule { display: block; height: 2px; margin: 0.14in auto 0; width: 2.25in; max-width: 55%; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-rule { display: none; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-eyebrow { display: block; font-size: 9pt; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.72; margin-bottom: 0.16in; font-weight: 600; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-title { display: block; font-family: var(--heading-font); font-weight: 600; font-size: 16pt; line-height: 1.15; margin: 0; } ");
 
-        if (interior is "ElegantTrade" or "ElegantTradePOD" or "FineBook")
-        {
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(gold).Append("; } ");
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-title { color: var(--heading-color, #1c1c1c); font-variant: small-caps; letter-spacing: 0.06em; } ");
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-rule { background: ").Append(gold).Append("; } ");
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .reader-page-body > p:first-of-type::first-letter { color: ").Append(gold).Append(" !important; } ");
-        }
+        // Novel / Traditional family
+        sb.Append(".book-pdf-body.interior-novel .fmt-chapter-opener .fmt-ch-eyebrow, .book-pdf-body.interior-traditional .fmt-chapter-opener .fmt-ch-eyebrow { font-variant: small-caps; color: #6b5742; } ");
+        sb.Append(".book-pdf-body.interior-novel .fmt-chapter-opener .fmt-ch-title, .book-pdf-body.interior-traditional .fmt-chapter-opener .fmt-ch-title { font-variant: small-caps; letter-spacing: 0.04em; color: #2a2620; text-align: center; } ");
 
-        if (interior == "Contemporary")
+        // Classic / Fine Book
+        sb.Append(".book-pdf-body.interior-classic .fmt-chapter-opener .fmt-ch-flourish, .book-pdf-body.interior-fine-book .fmt-chapter-opener .fmt-ch-flourish { display: block; font-size: 14pt; color: #8a6f3f; margin-bottom: 0.12in; } ");
+        sb.Append(".book-pdf-body.interior-classic .fmt-chapter-opener .fmt-ch-eyebrow, .book-pdf-body.interior-fine-book .fmt-chapter-opener .fmt-ch-eyebrow { font-style: italic; text-transform: none; letter-spacing: 0.1em; color: #5f4a33; } ");
+        sb.Append(".book-pdf-body.interior-classic .fmt-chapter-opener .fmt-ch-title, .book-pdf-body.interior-fine-book .fmt-chapter-opener .fmt-ch-title { font-style: italic; font-size: 18pt; color: #241c16; } ");
+
+        // Minimalist / Clean / Modern
+        sb.Append(".book-pdf-body.interior-minimalist .fmt-chapter-opener, .book-pdf-body.interior-clean .fmt-chapter-opener, .book-pdf-body.interior-modern .fmt-chapter-opener, .book-pdf-body.interior-contemporary .fmt-chapter-opener, .book-pdf-body.interior-pod .fmt-chapter-opener { text-align: left; } ");
+        sb.Append(".book-pdf-body.interior-minimalist .fmt-chapter-opener .fmt-ch-eyebrow { letter-spacing: 0.3em; opacity: 0.5; color: #71717a; } ");
+        sb.Append(".book-pdf-body.interior-minimalist .fmt-chapter-opener .fmt-ch-title { font-weight: 800; letter-spacing: -0.01em; color: #1d1d1f; } ");
+        sb.Append(".book-pdf-body.interior-modern .fmt-chapter-opener .fmt-ch-title { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 800; color: #334155; } ");
+        sb.Append(".book-pdf-body.interior-clean .fmt-chapter-opener .fmt-ch-title { font-weight: 600; color: #374151; } ");
+        sb.Append(".book-pdf-body.interior-pod .fmt-chapter-opener .fmt-ch-rule { display: block; height: 1px; background: #ccc; width: 1.5in; max-width: 40%; margin: 0.12in 0 0; } ");
+
+        // Elegant Trade + POD variant
+        sb.Append(".book-pdf-body.interior-elegant-trade .fmt-chapter-opener .fmt-ch-eyebrow, .book-pdf-body.interior-elegant-trade-pod .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(gold).Append("; letter-spacing: 0.2em; } ");
+        sb.Append(".book-pdf-body.interior-elegant-trade .fmt-chapter-opener .fmt-ch-title, .book-pdf-body.interior-elegant-trade-pod .fmt-chapter-opener .fmt-ch-title { font-variant: small-caps; letter-spacing: 0.06em; color: #2c241a; } ");
+        sb.Append(".book-pdf-body.interior-elegant-trade .fmt-chapter-opener .fmt-ch-rule, .book-pdf-body.interior-elegant-trade-pod .fmt-chapter-opener .fmt-ch-rule, .book-pdf-body.interior-fine-book .fmt-chapter-opener .fmt-ch-rule { display: block; height: 2px; background: ").Append(gold).Append("; width: 1.6in; max-width: 45%; margin: 0.14in auto 0; } ");
+        sb.Append(".book-pdf-body.interior-elegant-trade .reader-page-body > p:first-of-type::first-letter, .book-pdf-body.interior-elegant-trade-pod .reader-page-body > p:first-of-type::first-letter, .book-pdf-body.interior-fine-book .reader-page-body > p:first-of-type::first-letter { color: ").Append(gold).Append(" !important; } ");
+
+        // Contemporary (blue accents)
+        sb.Append(".book-pdf-body.interior-contemporary .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(blue).Append("; letter-spacing: 0.25em; text-transform: uppercase; } ");
+        sb.Append(".book-pdf-body.interior-contemporary .fmt-chapter-opener .fmt-ch-title { text-transform: uppercase; letter-spacing: 0.08em; color: #1f2937; } ");
+        sb.Append(".book-pdf-body.interior-contemporary .fmt-chapter-opener .fmt-ch-rule { display: block; height: 2px; background: ").Append(blue).Append("; width: 2in; max-width: 55%; margin: 0.14in 0 0; } ");
+
+        // Chapter sink — opener starts partway down the page (matches formatter dropPct).
+        var sink = interior switch
         {
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener { text-align: left; } ");
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(blue).Append("; letter-spacing: 0.25em; } ");
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-title { color: var(--heading-color, #1f2937); text-transform: uppercase; letter-spacing: 0.08em; text-align: left; } ");
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-rule { background: ").Append(blue).Append("; margin-left: 0; margin-right: auto; width: 2.5in; max-width: 70%; } ");
-            sb.Append(".book-pdf-body.").Append(wrap).Append(" .reader-page-title { border-bottom: none !important; padding-bottom: 0 !important; } ");
-        }
+            "ElegantTrade" or "FineBook" or "ElegantTradePOD" => "2.4rem",
+            "Traditional" or "Classic" => "2rem",
+            "Minimalist" => "3.2rem",
+            "Contemporary" => "1.8rem",
+            "Modern" => "1.5rem",
+            "Clean" => "1.2rem",
+            _ => "1.7rem"
+        };
+        sb.Append(".book-pdf-body.").Append(wrap).Append(" .reader-chapter-block[data-chapter-start=\"1\"] .fmt-chapter-opener { padding-top: ").Append(sink).Append("; } ");
 
         return sb.ToString();
     }
@@ -387,12 +410,12 @@ public static class InteriorExportTheme
         };
 
         var css = string.Concat(
-            // Chapter heading starts partway down the chapter's first page (real-book sink).
-            ".book-pdf-body.", wrap, " .reader-page-title { padding-top: ", sink.ToString(System.Globalization.CultureInfo.InvariantCulture), "vh; } ",
+            // When structured opener is present, sink is on .fmt-chapter-opener (see BuildFormatterChapterOpenerPdfCss).
+            ".book-pdf-body.", wrap, " .reader-page-title:not(:has(.fmt-chapter-opener)) { padding-top: ", sink.ToString(System.Globalization.CultureInfo.InvariantCulture), "vh; } ",
             // Body text must never touch the chapter heading.
             ".book-pdf-body .reader-page-title + .reader-page-body { margin-top: 12mm; } ");
 
-        if (interior is "ElegantTrade" or "ElegantTradePOD" or "Traditional")
+        if (interior is "ElegantTrade" or "ElegantTradePOD" or "Traditional" or "FineBook")
         {
             css = string.Concat(css,
                 ".book-pdf-body.", wrap, " .reader-page-body > p:first-of-type::first-letter { ",

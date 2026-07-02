@@ -57,15 +57,10 @@ public static class InteriorPageMarkup
     }
 
     /// <summary>
-    /// Colored chapter opener (eyebrow + title + rule) for PDF — matches Book Formatter preview
-    /// for Elegant Trade, Fine Book, and Contemporary interiors.
+    /// Structured chapter opener (flourish / eyebrow / title / rule) — same DOM as Book Formatter preview.
     /// </summary>
-    public static string BuildColoredChapterTitleHtml(string displayHeading, int narrativeOrdinal, string? interiorStyle)
+    public static string BuildFormatterChapterTitleHtml(string displayHeading, int narrativeOrdinal, string? interiorStyle = null)
     {
-        var interior = InteriorExportTheme.NormalizeInteriorStyle(interiorStyle);
-        if (interior is not ("ElegantTrade" or "ElegantTradePOD" or "FineBook" or "Contemporary"))
-            return BookManuscriptHtmlFormatter.EscapeHtml(displayHeading);
-
         var eyebrow = FormattableString.Invariant($"Chapter {narrativeOrdinal}");
         var title = (displayHeading ?? "").Trim();
         var showTitle = !string.IsNullOrEmpty(title)
@@ -74,8 +69,9 @@ public static class InteriorPageMarkup
 
         var sb = new System.Text.StringBuilder();
         sb.Append("<header class=\"fmt-chapter-opener manuscript-chapter-heading\">");
+        sb.Append("""<span class="fmt-ch-flourish" aria-hidden="true">❦</span>""");
         sb.Append(FormattableString.Invariant(
-            $"""<span class="fmt-ch-eyebrow">{WebUtility.HtmlEncode(eyebrow.ToUpperInvariant())}</span>"""));
+            $"""<span class="fmt-ch-eyebrow">{WebUtility.HtmlEncode(eyebrow)}</span>"""));
         if (showTitle)
             sb.Append(FormattableString.Invariant(
                 $"""<span class="fmt-ch-title">{WebUtility.HtmlEncode(title)}</span>"""));
@@ -83,4 +79,5 @@ public static class InteriorPageMarkup
         sb.Append("</header>");
         return sb.ToString();
     }
+
 }

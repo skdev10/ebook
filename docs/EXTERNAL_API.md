@@ -1,110 +1,78 @@
-# Book API — Simple Guide
+# Book API — Complete Reference
 
-This guide explains all APIs used by the EbookAI app.  
-Written in plain English so anyone can read and understand it.
+This guide documents every external Book API endpoint used by EbookAI, plus how the website maps each screen to those calls.
+
+**Base URL:** `http://162.229.248.26:8001`
+
+**Authentication (all endpoints):**
+
+```http
+X-API-Key: YOUR_API_KEY_HERE
+Content-Type: application/json
+```
+
+Store the key in `/etc/default/ebookai` as `ExternalApi__ApiKey=...` on the server, or in git-ignored `appsettings.Local.json` locally. **Never commit the live key to git.**
 
 ---
 
-## Two servers — know the difference
+## Two servers
 
 | What | Address | Who uses it |
 |------|---------|-------------|
-| **Website (EbookAI)** | `http://138.197.76.70:5000` | You in the browser — login required |
-| **Book API (AI backend)** | `http://162.229.248.26:8001` | The website talks to this in the background |
-
-You normally use the **website**. You only call the **Book API** directly if you are testing or building integrations.
+| **Website (EbookAI)** | Your deployed site (e.g. `http://138.197.76.70:5000`) | Browser — login required |
+| **Book API (AI backend)** | `http://162.229.248.26:8001` | Website background jobs + direct integrations |
 
 ---
 
-## Password / API Key
+## Quick reference
 
-Every call to the Book API needs this header:
+| # | Endpoint | Method | Purpose | Typical speed |
+|---|----------|--------|---------|---------------|
+| 1 | `/api/generate_chapter` | POST | AI writes a chapter | Slow (queue) |
+| 2 | `/api/edit` | POST | Edit chapter text | Slow (queue) |
+| 3 | `/api/audio` | POST | Transcribe audio → text | Medium |
+| 4 | `/api/approve` | POST | Confirm chapter (draft → final) | Fast |
+| 5 | `/api/queue-data` | GET | Queue status | Fast |
+| 6 | `/api/generate-cover` | POST | Front cover image | Slow (queue) |
+| 7 | `/api/edit-cover` | POST | Edit cover from base64 | Slow (queue) |
+| 8 | `/api/book_chapters_name` | POST | Suggest next chapter names | Fast |
+| 9 | `/api/refine_cover_prompt` | POST | Improve cover prompt | Fast |
+| 10 | `/api/suggest-cover-prompt-from-highlights` | POST | Cover prompt from summaries | Fast |
+| 11 | `/api/generate-spine-book-cover` | POST | Legacy full wrap (AI) | Slow |
+| 12 | `/api/generate-spine-book-cover-split` | POST | Legacy wrap from front (AI) | Slow |
 
-```
-X-API-Key: your-secret-key
-```
+**Print wrap in EbookAI (2026):** Paperback/Both books build the **full wrap locally** (ImageSharp) from the saved front cover — spine + back blurb + exact front panel. Endpoints 11–12 are legacy/fallback only; the live app does not depend on them for export.
 
-- The key is like a password. Do not share it in chat or commit it to git.
-- On the live server it is saved in `/etc/default/ebookai` as `ExternalApi__ApiKey`.
-- On your own PC (local dev) put it in `appsettings.Local.json` (this file is git-ignored):
-  ```json
-  { "ExternalApi": { "ApiKey": "AK-proj-...your-key..." } }
-  ```
-- No spaces before or after the key.
-- **Rotating the key:** when the key changes you only update the value in these two places
-  (server env var + local `appsettings.Local.json`). **No code change is needed** — every
-  endpoint reads the same key automatically.
+**Valid cover sizes:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`
 
-**Your server file should look like this:**
+**Valid cover quality:** `low`, `medium`, `high`, `auto`
 
-```
-ExternalApi__ApiKey=your-key-here
-App__PublicBaseUrl=http://138.197.76.70:5000
-```
-
----
-
-## All APIs at a glance
-
-| # | What it does | URL | Fast or slow? |
-|---|--------------|-----|---------------|
-| 1 | Write a new chapter with AI | `POST /api/generate_chapter` | Slow (minutes) |
-| 2 | Change / fix a chapter | `POST /api/edit` | Slow (minutes) |
-| 3 | Turn audio file into text | `POST /api/audio` | Medium |
-| 4 | User confirms a chapter | `POST /api/approve` | Fast |
-| 5 | See how many jobs are waiting | `GET /api/queue-data` | Fast |
-| 6 | Make a book cover image | `POST /api/generate-cover` | Slow (minutes) |
-| 7 | Change a cover image | `POST /api/edit-cover` | Slow (minutes) |
-| 8 | Suggest chapter names | `POST /api/book_chapters_name` | Fast |
-| 9 | Improve a cover prompt | `POST /api/refine_cover_prompt` | Fast |
-| 10 | Cover idea from chapter notes | `POST /api/suggest-cover-prompt-from-highlights` | Fast |
-| 11 | Full print cover (spine + back + front) | `POST /api/generate-spine-book-cover` | Slow (minutes) |
-| 12 | Print wrap from saved front (Publish step) | `POST /api/generate-spine-book-cover-split` | Slow (minutes) |
-
-**Full base address for all:** `http://162.229.248.26:8001`
+**Valid audio formats:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
 
 ---
 
-## Cover Design workflow (print books)
+## Cover Design workflow (EbookAI)
 
-For **Paperback** or **Both** format:
+| Step | User sees | Backend |
+|------|-----------|---------|
+| Cover Design | Generate front cover | `POST /api/generate-cover` |
+| Cover Design | Full wrap preview (back + spine + front) | **Local compositor** (~seconds) — not AI queue |
+| Publish | Download front / wrap / PDF / EPUB | Saved assets + Chromium PDF |
 
-| Step | What the user sees | What happens in the background |
-|------|-------------------|--------------------------------|
-| **Cover Design** | One **Generate Cover** button only | Front cover via `/api/generate-cover`. Full wrap is **queued automatically** (no button). |
-| **Publish** | Files for the selected format only | Wrap finishes in background; export waits if needed. |
+**Interior PDF:** Export uses the **same HTML/CSS pipeline** as Book Formatter preview (WYSIWYG). Selected interior style, text size, line spacing, and colors in the formatter match the downloaded PDF.
 
-**Full wrap** is composed **locally** (ImageSharp) from the saved front cover bytes — spine + back blurb + exact front panel. Upstream `/api/generate-spine-book-cover-split` is no longer used for the final wrap file (it was regenerating a different front image despite `encoded_image`).
+---
 
-**Publish exports by format:**
+## Standard error responses
 
-| Format | Files shown / exported |
-|--------|------------------------|
-| Ebook only | Front cover + EPUB (2) |
-| Paperback only | Front cover + full wrap + PDF (3) |
-| Both | Front cover + EPUB + full wrap + PDF (4) |
+| HTTP | Meaning | Action |
+|------|---------|--------|
+| 401 | Invalid or missing `X-API-Key` | Fix key in server env / `appsettings.Local.json` |
+| 422 | Invalid JSON or missing required field | Check request body |
+| 500 | Server error (often bad `page_count` on legacy wrap APIs) | Retry; check `/api/queue-data` |
+| Timeout | Queue busy | Wait; poll `/api/queue-data` |
 
-**Important:**
-- Do **not** skip front cover generation — split needs `encoded_image` from the saved front cover.
-- `page_count` for wrap should be **24–100** (values above ~100 can return HTTP 500 on the live server).
-- Full wrap runs **automatically** when paperback is selected — users never see a wrap button.
-
-**Legacy:** `POST /api/generate-spine-book-cover` generates front + spine + back in one call (older flow; front may not match Cover Design).
-
-**Cover image sizes you can use:**
-- `1024x1024`
-- `1536x1024`
-- `1024x1536`
-- `auto`
-
-**Cover quality you can use:**
-- `low`
-- `medium`
-- `high`
-- `auto`
-
-**Audio file types you can use:**
-`.mp3` `.mp4` `.mpeg` `.mpga` `.m4a` `.wav` `.webm`
+Successful JSON responses usually include a `status` or payload field; chapter endpoints return generated `content` and `chapter_name`.
 
 ---
 
@@ -134,10 +102,10 @@ Simple picture:
 
 **URL:** `http://162.229.248.26:8001/api/generate_chapter`  
 **Method:** POST  
-**Header:** `X-API-Key: your-key`  
+**Header:** `X-API-Key: YOUR_API_KEY_HERE`  
 **Body type:** JSON
 
-**Send this:**
+**Request:**
 
 ```json
 {
@@ -147,6 +115,20 @@ Simple picture:
   "user_input": "how gravity descover"
 }
 ```
+
+**Example response:**
+
+```json
+{
+  "content": "The gravitational force is invented in 8790...",
+  "chapter_name": "The gravitational force is invented in 8790",
+  "status": "success"
+}
+```
+
+Saved to **Temporary_database** until the user approves.
+
+---
 
 | Field | Meaning |
 |-------|---------|
@@ -583,7 +565,7 @@ You use the website. The website calls the Book API for you.
 | Upload audio | Calls `/api/audio` |
 | Cover Design → Generate Cover | Calls `/api/generate-cover`; auto-queues `/api/generate-spine-book-cover-split` when format is Paperback/Both |
 | Cover Design → Edit | Calls `/api/edit-cover` |
-| Publish → export print pack (if wrap missing) | Calls `/api/generate-spine-book-cover-split` via `/Dashboard/GeneratePrintReadyWrapFromFront` |
+| Publish → export print pack | Local wrap + Chromium PDF (wrap built on Cover Design) |
 | Cover prompt help | Calls `/api/refine_cover_prompt` |
 | Chapter name ideas | Calls `/api/book_chapters_name` |
 

@@ -33,7 +33,7 @@ public static class InteriorPrintDocumentBuilder
             var displayHeading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
             var titleHtml = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber)
                 ? BookManuscriptHtmlFormatter.EscapeHtml(displayHeading)
-                : InteriorPageMarkup.BuildColoredChapterTitleHtml(displayHeading, phNum, interior);
+                : InteriorPageMarkup.BuildFormatterChapterTitleHtml(displayHeading, phNum, interior);
             var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, displayHeading);
             var bodyClass = string.IsNullOrEmpty(bodyExtraClass) ? null : bodyExtraClass;
             var sectionId = i + 1;

@@ -54,7 +54,8 @@ public class ManuscriptExportPrepTests
         Assert.Contains("page-body", html, StringComparison.Ordinal);
         Assert.Contains("book-page-running-head", html, StringComparison.Ordinal);
         Assert.Contains("TOCMEASURE_1_END", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("chapter-heading", html, StringComparison.Ordinal);
+        Assert.Contains("fmt-chapter-opener", html, StringComparison.Ordinal);
+        Assert.Contains("fmt-ch-eyebrow", html, StringComparison.Ordinal);
     }
 
     [Fact]
