@@ -270,7 +270,7 @@ namespace EBookDashboard.Controllers
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
             var flow = await _bookFlow.GetResumeStepAsync(bookId);
-            BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
+            BookResumeUrlHelper.BootstrapOwnedBookSession(HttpContext, bookId, ownsBook.Status, flow.Step);
 
             string resumeUrl;
             var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(bookId);
@@ -1158,17 +1158,6 @@ namespace EBookDashboard.Controllers
             var requestedFlow = (flow ?? string.Empty).Trim();
             var requestedCoverType = (coverType ?? string.Empty).Trim();
             // flow=printready selects print-ready cover mode on this page (do not skip Cover Design).
-            var formattingDone = HttpContext.Session.GetString("FormattingDone") == "1";
-            var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
-            if (!hasGeneratedBook || !formattingDone)
-            {
-                var lockBookQ = bookId.HasValue && bookId.Value > 0 ? $"?bookId={bookId.Value}" : "";
-                ViewBag.LockMessage = !hasGeneratedBook ? "Select a book from the Dashboard first." : "Complete Book Formatting first, then AI Cover Design will unlock.";
-                ViewBag.LockGoto = !hasGeneratedBook
-                    ? "/Dashboard"
-                    : $"/BookDesign/CoverDesignCalculatorFixing{lockBookQ}";
-                ViewBag.LockButtonText = !hasGeneratedBook ? "Go to Dashboard" : "Go to Formatting";
-            }
             ViewBag.UserName = User.Identity?.Name ?? "User";
             ViewBag.BookId = bookId ?? 0;
             ViewBag.CoverFlow = requestedFlow;
@@ -1189,13 +1178,12 @@ namespace EBookDashboard.Controllers
                 TempData["InfoMessage"] = "Select a book from the Dashboard to continue cover design.";
                 return RedirectToAction("Index");
             }
+            Books? ownedBookRow = null;
             if (user != null)
             {
-                var ownedBook = await _context.Books.AsNoTracking()
-                    .Where(b => b.BookId == bookId.Value && b.UserId == user.UserId)
-                    .Select(b => new { b.BookId, b.Status })
-                    .FirstOrDefaultAsync();
-                if (ownedBook == null)
+                ownedBookRow = await _context.Books.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.BookId == bookId.Value && b.UserId == user.UserId);
+                if (ownedBookRow == null)
                 {
                     TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
                     return RedirectToAction("Index");
@@ -1203,28 +1191,38 @@ namespace EBookDashboard.Controllers
                 // Published books stay editable — author can revisit Cover Design and re-publish.
             }
 
-            if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId.Value))
-            {
-                if (!formattingDone)
-                {
-                    TempData["InfoMessage"] = "Select a book from the Dashboard first, then continue your project.";
-                    return RedirectToAction(nameof(Index));
-                }
-                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
-            }
+            // Deep links (Publish / My Books → Cover Design) must not require Dashboard pick first.
+            HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
+            HttpContext.Session.SetInt32("LastSelectedBookId", bookId.Value);
 
             var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId.Value);
+            var isReEditableBook = ownedBookRow != null
+                && BookPublishReadinessService.IsPublishReadyBookStatus(ownedBookRow.Status);
+            var formattingDone = HttpContext.Session.GetString("FormattingDone") == "1";
+            var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
+            if (isReEditableBook)
+            {
+                BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, BookFlowStateService.StepPublish);
+                hasGeneratedBook = true;
+                formattingDone = true;
+            }
+            else
+            {
+                BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, savedFlowStep);
+                BookResumeUrlHelper.HydrateSessionFromFlowStep(HttpContext, savedFlowStep, ref hasGeneratedBook, ref formattingDone);
+            }
+
             if (BookFlowStateService.SessionEntryMatches(HttpContext, bookId.Value)
                 || BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepFormat))
             {
-                BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, savedFlowStep);
                 formattingDone = HttpContext.Session.GetString("FormattingDone") == "1";
                 hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
             }
 
             var savedRank = BookFlowStateService.StepRank(savedFlowStep);
             var formatRank = BookFlowStateService.StepRank(BookFlowStateService.StepFormat);
-            var canOpenCover = BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepCover)
+            var canOpenCover = isReEditableBook
+                || BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepCover)
                 || (formattingDone && savedRank == formatRank);
             if (!canOpenCover)
             {
@@ -1232,6 +1230,16 @@ namespace EBookDashboard.Controllers
                     ? "Complete Book Formatting first, then continue from the Dashboard."
                     : "Continue your project from the Dashboard.";
                 return Redirect(_bookFlow.BuildResumeUrl(bookId.Value, savedFlowStep, savedFlowPath));
+            }
+
+            if (!isReEditableBook && (!hasGeneratedBook || !formattingDone))
+            {
+                var lockBookQ = $"?bookId={bookId.Value}";
+                ViewBag.LockMessage = !hasGeneratedBook ? "Select a book from the Dashboard first." : "Complete Book Formatting first, then AI Cover Design will unlock.";
+                ViewBag.LockGoto = !hasGeneratedBook
+                    ? "/Dashboard"
+                    : $"/BookDesign/CoverDesignCalculatorFixing{lockBookQ}";
+                ViewBag.LockButtonText = !hasGeneratedBook ? "Go to Dashboard" : "Go to Formatting";
             }
 
             if (user != null)
@@ -1951,7 +1959,8 @@ namespace EBookDashboard.Controllers
                 $"book:{bookId}:aiCoverLastPreview",
                 $"book:{bookId}:printReadyPageCount",
                 $"book:{bookId}:printReadyTrimSize",
-                $"book:{bookId}:printReadySpineInches"
+                $"book:{bookId}:printReadySpineInches",
+                $"book:{bookId}:printReadyCoverWrapStatus"
             };
             var rows = await _context.Settings.AsNoTracking()
                 .Where(s => keys.Contains(s.Key))
@@ -1982,6 +1991,9 @@ namespace EBookDashboard.Controllers
             if (string.IsNullOrWhiteSpace(trimSize)) trimSize = "6 x 9 in";
 
             var kdp = hasKnownPageCount ? CalculatePrintReadyKdp(pageCount, trimSize) : null;
+            var wrapStatusRaw = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapStatus", "").Trim();
+            var frontStatus = ResolveFrontCoverStatus(rows, bookId);
+            var wrapStatus = ResolveWrapCoverStatus(rows, bookId, frontStatus, wrapStatusRaw);
 
             return Json(new
             {
@@ -1989,6 +2001,8 @@ namespace EBookDashboard.Controllers
                 bookId,
                 pageCount,
                 trimSize,
+                frontCoverStatus = frontStatus,
+                wrapCoverStatus = wrapStatus,
                 kdp = kdp == null ? null : new
                 {
                     spineInches = (double)kdp.SpineWidth,
@@ -2021,6 +2035,32 @@ namespace EBookDashboard.Controllers
                 },
                 cover = await BuildCoverUrls(bookId, sessionUserId.Value, rows, cancellationToken)
             });
+        }
+
+        private static string ResolveFrontCoverStatus(Dictionary<string, string> rows, int bookId)
+        {
+            var savedFront = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", "").Trim();
+            var aiPreview = rows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview", "").Trim();
+            return !string.IsNullOrWhiteSpace(savedFront) || !string.IsNullOrWhiteSpace(aiPreview)
+                ? "Ready"
+                : "Missing";
+        }
+
+        private static string ResolveWrapCoverStatus(
+            Dictionary<string, string> rows,
+            int bookId,
+            string frontStatus,
+            string wrapStatusRaw)
+        {
+            var wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", "").Trim();
+            // Prefer locally composed wrap — legacy API wrap can have a different front panel.
+            if (string.IsNullOrWhiteSpace(wrap))
+                wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi", "").Trim();
+            if (!string.IsNullOrWhiteSpace(wrap))
+                return PrintWrapGenerationService.StatusReady;
+            if (!string.IsNullOrWhiteSpace(wrapStatusRaw))
+                return wrapStatusRaw;
+            return frontStatus == PrintWrapGenerationService.StatusReady ? PrintWrapGenerationService.StatusGenerating : "Missing";
         }
 
         private async Task<object> BuildCoverUrls(int bookId, int userId, Dictionary<string, string> rows, CancellationToken ct)
@@ -2245,16 +2285,33 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
-            // Do not tie long-running cover generation to the browser/proxy connection (avoids nginx 504 canceling upstream work).
-            var dbCancel = HttpContext.RequestAborted;
-
             var book = await _context.Books
                 .AsNoTracking()
-                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, dbCancel);
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value);
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
-            await _draftReset.ClearCoverAssetsAsync(req.BookId, dbCancel);
+            var assetRows = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == $"book:{req.BookId}:printReadyCoverFront"
+                    || s.Key == $"book:{req.BookId}:aiCoverLastPreview")
+                .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
+            var savedFront = BookCoverRefResolver.ResolveEbookFrontCoverRef(
+                assetRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverFront"),
+                assetRows.GetValueOrDefault($"book:{req.BookId}:aiCoverLastPreview"),
+                book.CoverImagePath,
+                null);
+
+            // Saved front cover → local compositor only (front panel stays pixel-identical).
+            if (!string.IsNullOrWhiteSpace(savedFront))
+            {
+                req.Force = true;
+                req.Wait = true;
+                return await GeneratePrintReadyWrapFromFront(req);
+            }
+
+            // No saved front — formatter may request a full AI cover set (legacy path).
+            var dbCancel = HttpContext.RequestAborted;
+            await ClearPrintWrapCacheAsync(req.BookId, dbCancel);
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
@@ -2470,8 +2527,17 @@ namespace EBookDashboard.Controllers
             if (string.IsNullOrWhiteSpace(savedFront))
                 return Json(new { success = false, status = "error", message = "Generate a front cover in Cover Design first." });
 
-            if (string.IsNullOrEmpty(ExternalApiKeyResolver.Resolve(_configuration)))
-                return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
+            var description = (book.Description ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                return Json(new
+                {
+                    success = false,
+                    status = "needs_description",
+                    needsDescription = true,
+                    message = "Add a book description in AI Writer before generating your print cover — the back cover needs blurb text."
+                });
+            }
 
             if (req.PageCount is > 0)
             {
@@ -2789,6 +2855,14 @@ namespace EBookDashboard.Controllers
             {
                 await UpsertDashboardSettingAsync($"book:{bookId}:aiCoverLastPreview", persisted, "Book", cancellationToken);
                 await UpsertDashboardSettingAsync($"book:{bookId}:printReadyCoverFront", persisted, "Book", cancellationToken);
+                await UpsertDashboardSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", persisted, "Book", cancellationToken);
+                var frontBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                    persisted, webRootPath: null, _httpClientFactory, cancellationToken);
+                if (frontBytes is { Length: > 0 })
+                {
+                    var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(frontBytes));
+                    await UpsertDashboardSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", hash, "Book", cancellationToken);
+                }
             }
             else
             {
@@ -2989,6 +3063,14 @@ namespace EBookDashboard.Controllers
                 var pb = await _context.Books.AsNoTracking().FirstOrDefaultAsync(b => b.BookId == bookId.Value && b.UserId == user.UserId);
                 if (pb != null)
                 {
+                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
+                    HttpContext.Session.SetInt32("LastSelectedBookId", bookId.Value);
+                    var (publishFlowStep, _) = await _bookFlow.GetStepAsync(bookId.Value);
+                    if (BookPublishReadinessService.IsPublishReadyBookStatus(pb.Status))
+                        BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, BookFlowStateService.StepPublish);
+                    else
+                        BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, publishFlowStep);
+
                     ViewBag.PublishBookTitle = pb.Title;
                     ViewBag.PublishBookDescription = pb.Description;
                     ViewBag.PublishBookGenre = pb.Genre;
@@ -3101,7 +3183,9 @@ namespace EBookDashboard.Controllers
                         lineSpacing = exportOptForMode.LineSpacing,
                         bookFormat = exportOptForMode.Format,
                         publishingPlatform = primaryPlatform,
-                        publishingPlatforms = platformCsv
+                        publishingPlatforms = platformCsv,
+                        previewAccent = exportOptForMode.PreviewAccent ?? "",
+                        pageBackgroundColor = exportOptForMode.ResolvePageBackgroundColor()
                     });
                     ViewBag.PublishPrimaryPlatform = string.IsNullOrWhiteSpace(primaryPlatform) ? "Amazon KDP" : primaryPlatform;
                     var selectedPlatforms = platformCsv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

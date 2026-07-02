@@ -49,6 +49,12 @@ public static class KdpPaperbackConstants
     /// <summary>Barcode clearance on back cover (from trim edge).</summary>
     public const decimal BarcodeMarginInches = 0.25m;
 
+    /// <summary>KDP reserved barcode area width (inches) — must remain clear of text/art.</summary>
+    public const decimal BarcodeZoneWidthInches = 2.0m;
+
+    /// <summary>KDP reserved barcode area height (inches) — must remain clear of text/art.</summary>
+    public const decimal BarcodeZoneHeightInches = 1.2m;
+
     /// <summary>Decimal places for inch dimensions in API responses (matches KDP calculator display).</summary>
     public const int InchDecimalPlaces = 3;
 }

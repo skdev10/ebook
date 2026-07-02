@@ -441,8 +441,27 @@
 #bookResult .front-matter-page.copyright-page {
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
-    padding-bottom: 0.75rem;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: var(--ilt-pad-top, 0.75in) var(--ilt-pad-right, 0.75in) var(--ilt-pad-bottom, 0.75in) var(--ilt-pad-left, 0.75in);
+}
+
+#bookResult .front-matter-page.copyright-page .copyright-block {
+    text-align: center;
+    width: 100%;
+    max-width: var(--ilt-text-max, 4.5in);
+    margin-inline: auto;
+}
+
+#bookResult .front-matter-page.copyright-page .cr-meta,
+#bookResult .front-matter-page.copyright-page .cr-legal {
+    text-align: center;
+}
+
+#bookResult .front-matter-page.toc-page {
+    padding: var(--ilt-pad-top, 0.75in) var(--ilt-pad-right, 0.75in) var(--ilt-pad-bottom, 0.75in) var(--ilt-pad-left, 0.75in);
+    box-sizing: border-box;
 }
 
 #bookResult .front-matter-page.copyright-page .cr-meta {

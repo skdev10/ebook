@@ -661,6 +661,47 @@ public class ManuscriptExportPrepTests
         }
     }
 
+    [Fact]
+    public void BookTheme_maps_export_options_and_toc_style()
+    {
+        var theme = BookTheme.FromExportOptions(new BookPdfExportOptions
+        {
+            InteriorStyle = "Classic",
+            PreviewAccent = "#b45309",
+            PageBackgroundColor = "#fff7ed"
+        });
+
+        Assert.Equal("Classic", theme.InteriorStyle);
+        Assert.Equal("classic", theme.TocStyle);
+        Assert.Equal("#b45309", theme.AccentColor, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal("#fff7ed", theme.PageBackgroundColor, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Times New Roman", theme.BodyFont, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OverlayFromDraftJson_preserves_theme_colors()
+    {
+        var draft = """{"interiorStyle":"Novel","previewAccent":"#7c3aed","pageBackgroundColor":"#faf5ff"}""";
+        var opt = new BookPdfExportOptions { InteriorStyle = "Classic" };
+        opt.OverlayFromDraftJson(draft);
+
+        Assert.Equal("Novel", opt.InteriorStyle);
+        Assert.Equal("#7c3aed", opt.PreviewAccent, StringComparer.OrdinalIgnoreCase);
+        Assert.Equal("#faf5ff", opt.PageBackgroundColor, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildTocCss_variants_differ_by_interior_style()
+    {
+        var classic = InteriorLayoutTokens.BuildTocCss(new BookPdfExportOptions { InteriorStyle = "Classic" });
+        var modern = InteriorLayoutTokens.BuildTocCss(new BookPdfExportOptions { InteriorStyle = "Modern" });
+        var minimal = InteriorLayoutTokens.BuildTocCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+
+        Assert.Contains("small-caps", classic, StringComparison.Ordinal);
+        Assert.Contains("var(--fmt-accent", modern, StringComparison.Ordinal);
+        Assert.Contains("font-weight: 500", minimal, StringComparison.Ordinal);
+    }
+
     private sealed class FakeWebHostEnvironment : Microsoft.AspNetCore.Hosting.IWebHostEnvironment
     {
         public string ApplicationName { get; set; } = "Tests";

@@ -31,7 +31,9 @@ public static class InteriorPrintDocumentBuilder
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
             var displayHeading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
-            var titleHtml = BookManuscriptHtmlFormatter.EscapeHtml(displayHeading);
+            var titleHtml = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber)
+                ? BookManuscriptHtmlFormatter.EscapeHtml(displayHeading)
+                : InteriorPageMarkup.BuildColoredChapterTitleHtml(displayHeading, phNum, interior);
             var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, displayHeading);
             var bodyClass = string.IsNullOrEmpty(bodyExtraClass) ? null : bodyExtraClass;
             var sectionId = i + 1;

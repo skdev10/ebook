@@ -264,6 +264,8 @@ builder.Services.AddScoped<IBookRenderService, BookRenderService>();
 builder.Services.AddScoped<ITocPageNumberMeasurer, ChromiumTocPageNumberMeasurer>();
 builder.Services.AddScoped<IBookPdfService, BookPdfService>();
 builder.Services.AddScoped<IPrintWrapGenerationService, PrintWrapGenerationService>();
+builder.Services.AddSingleton<SpineRenderer>();
+builder.Services.AddScoped<IPrintWrapCompositor, PrintWrapCompositor>();
 builder.Services.AddSingleton<IPrintWrapPregenerationQueue, PrintWrapPregenerationQueue>();
 builder.Services.AddHostedService<ChromiumPdfWarmupHostedService>();
 builder.Services.AddScoped<IEpubExportService, EpubExportService>();

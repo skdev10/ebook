@@ -74,7 +74,7 @@ For **Paperback** or **Both** format:
 | **Cover Design** | One **Generate Cover** button only | Front cover via `/api/generate-cover`. Full wrap is **queued automatically** (no button). |
 | **Publish** | Files for the selected format only | Wrap finishes in background; export waits if needed. |
 
-**Full wrap** always uses the saved front cover as `encoded_image` on `/api/generate-spine-book-cover-split` — the front panel matches Cover Design.
+**Full wrap** is composed **locally** (ImageSharp) from the saved front cover bytes — spine + back blurb + exact front panel. Upstream `/api/generate-spine-book-cover-split` is no longer used for the final wrap file (it was regenerating a different front image despite `encoded_image`).
 
 **Publish exports by format:**
 

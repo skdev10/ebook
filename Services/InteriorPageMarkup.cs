@@ -55,4 +55,32 @@ public static class InteriorPageMarkup
         if (string.IsNullOrEmpty(s)) return "";
         return s.Length <= max ? s : s.Substring(0, max - 1) + "…";
     }
+
+    /// <summary>
+    /// Colored chapter opener (eyebrow + title + rule) for PDF — matches Book Formatter preview
+    /// for Elegant Trade, Fine Book, and Contemporary interiors.
+    /// </summary>
+    public static string BuildColoredChapterTitleHtml(string displayHeading, int narrativeOrdinal, string? interiorStyle)
+    {
+        var interior = InteriorExportTheme.NormalizeInteriorStyle(interiorStyle);
+        if (interior is not ("ElegantTrade" or "ElegantTradePOD" or "FineBook" or "Contemporary"))
+            return BookManuscriptHtmlFormatter.EscapeHtml(displayHeading);
+
+        var eyebrow = FormattableString.Invariant($"Chapter {narrativeOrdinal}");
+        var title = (displayHeading ?? "").Trim();
+        var showTitle = !string.IsNullOrEmpty(title)
+            && !System.Text.RegularExpressions.Regex.IsMatch(title, @"^chapter\s+\d+\s*:?\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
+            && !title.Equals(eyebrow, StringComparison.OrdinalIgnoreCase);
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<header class=\"fmt-chapter-opener manuscript-chapter-heading\">");
+        sb.Append(FormattableString.Invariant(
+            $"""<span class="fmt-ch-eyebrow">{WebUtility.HtmlEncode(eyebrow.ToUpperInvariant())}</span>"""));
+        if (showTitle)
+            sb.Append(FormattableString.Invariant(
+                $"""<span class="fmt-ch-title">{WebUtility.HtmlEncode(title)}</span>"""));
+        sb.Append("""<span class="fmt-ch-rule" aria-hidden="true"></span>""");
+        sb.Append("</header>");
+        return sb.ToString();
+    }
 }

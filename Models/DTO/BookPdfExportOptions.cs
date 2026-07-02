@@ -144,6 +144,8 @@ public class BookPdfExportOptions
         if (!string.IsNullOrWhiteSpace(draft.Format)) Format = draft.Format;
         if (!string.IsNullOrWhiteSpace(draft.PublishingPlatform)) PublishingPlatform = draft.PublishingPlatform.Trim();
         if (!string.IsNullOrWhiteSpace(draft.PublishingPlatforms)) PublishingPlatforms = draft.PublishingPlatforms;
+        if (!string.IsNullOrWhiteSpace(draft.PreviewAccent)) PreviewAccent = draft.PreviewAccent;
+        if (!string.IsNullOrWhiteSpace(draft.PageBackgroundColor)) PageBackgroundColor = draft.PageBackgroundColor;
         Normalize();
     }
 

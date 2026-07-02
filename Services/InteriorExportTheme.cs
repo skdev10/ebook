@@ -92,7 +92,12 @@ public static class InteriorExportTheme
         var interior = NormalizeInteriorStyle(opt.InteriorStyle);
         var fontSize = ResolveBodyFontSizePx(interior, opt.TextSize);
         var lineHeight = ResolveLineHeight(opt.LineSpacing);
-        var theme = ResolveTheme(interior);
+        var pageBg = opt.ResolvePageBackgroundColor();
+        var theme = ResolveTheme(interior) with { PageBackground = pageBg };
+        var accent = NormalizeAccentHex(opt.PreviewAccent);
+        var accentCss = string.IsNullOrEmpty(accent)
+            ? ""
+            : string.Concat("a { color: ", accent, "; } h1, h2, h3 { border-color: ", accent, "; } ");
 
         var tplCss = interior switch
         {
@@ -126,6 +131,7 @@ public static class InteriorExportTheme
             "} ",
             "p:first-of-type, h1 + p, h2 + p, h4 + p { text-indent: 0; } ",
             theme.ExtraRules,
+            accentCss,
             "img { max-width: 100%; height: auto; page-break-inside: avoid; break-inside: avoid; } ",
             "[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             "blockquote { ", theme.BlockquoteRules, " } ",
@@ -209,7 +215,13 @@ public static class InteriorExportTheme
         var interior = NormalizeInteriorStyle(opt.InteriorStyle);
         var pageBg = opt.ResolvePageBackgroundColor();
         var theme = ResolveTheme(interior) with { PageBackground = pageBg };
-        var accent = NormalizeAccentHex(opt.PreviewAccent);
+        var defaultAccent = interior switch
+        {
+            "ElegantTrade" or "ElegantTradePOD" or "FineBook" => "#C9A84C",
+            "Contemporary" => "#3B82F6",
+            _ => null
+        };
+        var accent = NormalizeAccentHex(opt.PreviewAccent) ?? defaultAccent;
         var accentCss = string.IsNullOrEmpty(accent)
             ? ""
             : string.Concat("--fmt-accent: ", accent, "; ");
@@ -233,7 +245,7 @@ public static class InteriorExportTheme
             ".front-matter-page, .title-page, .copyright-page, .manuscript-root > section.chapter, ",
             ".reader-chapter-block, .reader-page-title, .reader-page-body { background-color: var(--page-bg) !important; box-sizing: border-box; } ",
             InteriorLayoutTokens.BuildSharedReaderLayoutCss(),
-            InteriorLayoutTokens.BuildTocCss(),
+            InteriorLayoutTokens.BuildTocCss(opt),
             ".front-matter-page { background: var(--page-bg); min-height: 100vh; } ",
             ".title-page { min-height: 100vh; background: var(--page-bg); padding: var(--ilt-title-page-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); ",
             "display: flex; flex-direction: column; justify-content: center; text-align: center; page-break-after: always; } ",
@@ -276,7 +288,44 @@ public static class InteriorExportTheme
                + InteriorLayoutTokens.BuildPerInteriorCss(interior)
                + BuildFormatterInteriorCss() + BuildHeadingKeepWithNextCss()
                + BuildPdfInteriorParityCss(interior)
+               + BuildColoredChapterOpenerPdfCss(interior)
                + BuildRunningChromeCompensationCss(opt, interior);
+    }
+
+    /// <summary>PDF chapter opener colors for Elegant Trade, Fine Book, and Contemporary (matches formatter preview).</summary>
+    private static string BuildColoredChapterOpenerPdfCss(string interior)
+    {
+        var wrap = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(interior);
+        if (interior is not ("ElegantTrade" or "ElegantTradePOD" or "FineBook" or "Contemporary"))
+            return "";
+
+        var gold = "#C9A84C";
+        var blue = "#3B82F6";
+        var sb = new System.Text.StringBuilder(2048);
+        sb.Append(".book-pdf-body .reader-page-title .fmt-chapter-opener { display: block; text-align: center; margin: 0 0 0.35in; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-flourish { display: none; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-eyebrow { display: block; font-size: 9pt; letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 0.18in; font-weight: 600; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-title { display: block; font-family: var(--heading-font); font-weight: 600; margin: 0 0 0.12in; line-height: 1.25; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-rule { display: block; height: 2px; margin: 0.14in auto 0; width: 2.25in; max-width: 55%; } ");
+
+        if (interior is "ElegantTrade" or "ElegantTradePOD" or "FineBook")
+        {
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(gold).Append("; } ");
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-title { color: var(--heading-color, #1c1c1c); font-variant: small-caps; letter-spacing: 0.06em; } ");
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-rule { background: ").Append(gold).Append("; } ");
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .reader-page-body > p:first-of-type::first-letter { color: ").Append(gold).Append(" !important; } ");
+        }
+
+        if (interior == "Contemporary")
+        {
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener { text-align: left; } ");
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(blue).Append("; letter-spacing: 0.25em; } ");
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-title { color: var(--heading-color, #1f2937); text-transform: uppercase; letter-spacing: 0.08em; text-align: left; } ");
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .fmt-chapter-opener .fmt-ch-rule { background: ").Append(blue).Append("; margin-left: 0; margin-right: auto; width: 2.5in; max-width: 70%; } ");
+            sb.Append(".book-pdf-body.").Append(wrap).Append(" .reader-page-title { border-bottom: none !important; padding-bottom: 0 !important; } ");
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -415,6 +464,19 @@ public static class InteriorExportTheme
         return System.Text.RegularExpressions.Regex.IsMatch(s, @"^#[0-9A-Fa-f]{6}$") ? s : null;
     }
 
+    /// <summary>Resolved typography/color tokens for a normalized interior style (preview + PDF + EPUB).</summary>
+    public static ExportThemeTokens ResolveExportThemeTokens(string? interiorStyle)
+    {
+        var interior = NormalizeInteriorStyle(interiorStyle);
+        var theme = ResolveTheme(interior);
+        return new ExportThemeTokens(
+            theme.BodyFont,
+            theme.HeadingFont,
+            theme.HeadingColor,
+            theme.BodyColor,
+            ResolveDefaultPageBackground(interior));
+    }
+
     private static ThemeSpec ResolveTheme(string interior) => interior switch
     {
         // STYLE 5 — Modern: DM Sans body / Outfit headings, clean grid, blue accent.
@@ -528,6 +590,14 @@ public static class InteriorExportTheme
             "border-bottom: none;",
             "")
     };
+
+    /// <summary>Public theme token snapshot for <see cref="Models.DTO.BookTheme"/> and API responses.</summary>
+    public sealed record ExportThemeTokens(
+        string BodyFont,
+        string HeadingFont,
+        string HeadingColor,
+        string BodyColor,
+        string DefaultPageBackground);
 
     private sealed record ThemeSpec(
         string BodyFont,

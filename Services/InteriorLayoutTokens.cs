@@ -635,9 +635,7 @@ public static class InteriorLayoutTokens
 
         sb.Append(".book-pdf-body .page-header + .page-body .reader-page-body, ");
 
-        sb.Append(".book-pdf-body .reader-page-title + .reader-page-body, ");
-
-        sb.Append(".book-pdf-body .title-page, .book-pdf-body .copyright-page, .book-pdf-body .toc-page { padding-top:0; } ");
+        sb.Append(".book-pdf-body .reader-page-title + .reader-page-body { padding-top:0; } ");
 
         sb.Append("} ");
 
@@ -744,24 +742,43 @@ public static class InteriorLayoutTokens
 
 
     /// <summary>Front matter + table of contents — identical in formatter preview and PDF export.</summary>
+    public static string ResolveTocStyle(string? interiorStyle) =>
+        InteriorExportTheme.NormalizeInteriorStyle(interiorStyle) switch
+        {
+            "Classic" or "ElegantTrade" or "ElegantTradePOD" or "Traditional" or "FineBook" => "classic",
+            "Modern" or "Contemporary" or "Clean" => "modern",
+            _ => "minimal"
+        };
 
-    public static string BuildTocCss()
-
+    /// <summary>Front matter + table of contents — identical in formatter preview and PDF export.</summary>
+    public static string BuildTocCss(BookPdfExportOptions? opt = null)
     {
+        var tocStyle = opt != null ? ResolveTocStyle(opt.InteriorStyle) : "minimal";
+        return string.Concat(BuildTocCssCore(), BuildTocVariantCss(tocStyle));
+    }
 
+    private static string BuildTocCssCore()
+    {
         return string.Concat(
-
-            ".front-matter-page { box-sizing: border-box; page-break-after: always; break-after: page; } ",
 
             ".copyright-page, .toc-page { display: block; text-align: left; min-height: auto; justify-content: flex-start; } ",
 
+            ".book-pdf-body .copyright-page.book-preview-sheet, .book-pdf-body .toc-page.book-preview-sheet { ",
+            "padding: var(--ilt-pad-top) var(--ilt-pad-right) var(--ilt-pad-bottom) var(--ilt-pad-left); ",
+            "box-sizing: border-box; min-height: 100vh; page-break-after: always; width: 100%; } ",
+
+            ".book-pdf-body .copyright-page { display: flex; flex-direction: column; justify-content: center; ",
+            "align-items: center; text-align: center; min-height: 100vh; } ",
+
             ".copyright-block, .toc-block { max-width: var(--ilt-text-max); margin-inline: auto; width: 100%; box-sizing: border-box; } ",
 
-            ".copyright-page .cr-meta { font-size: 11pt; margin: 0 0 0.35in; line-height: 1.45; } ",
+            ".book-pdf-body .copyright-page .copyright-block { text-align: center; } ",
 
-            ".copyright-page .cr-legal { font-size: 9.5pt; margin: 0.28in 0 0.18in; line-height: 1.55; color: #3f3a34; } ",
+            ".copyright-page .cr-meta { font-size: 11pt; margin: 0 0 0.35in; line-height: 1.45; text-align: center; } ",
 
-            ".copyright-page .cr-small { font-size: 8.5pt; color: #64748b; margin-top: 0.22in; } ",
+            ".copyright-page .cr-legal { font-size: 9.5pt; margin: 0.28in 0 0.18in; line-height: 1.55; color: #3f3a34; text-align: center; } ",
+
+            ".copyright-page .cr-small { font-size: 8.5pt; color: #64748b; margin-top: 0.22in; text-align: center; } ",
 
             ".toc-title { font-family: var(--heading-font, Georgia, serif); font-size: 17pt; font-weight: 600; ",
 
@@ -821,10 +838,27 @@ public static class InteriorLayoutTokens
             "[data-interior-mode=\"web\"] .title-page-genre, [data-interior-mode=\"web\"] .title-page .subtitle { ",
 
             "text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; color: #8a8175; margin-top: 0.35rem; } ");
-
     }
 
-
+    private static string BuildTocVariantCss(string tocStyle) => tocStyle switch
+    {
+        "classic" => string.Concat(
+            ".toc-title { font-variant: small-caps; letter-spacing: 0.14em; border-bottom-color: rgba(120, 96, 72, 0.45); } ",
+            ".toc-chapter-line { font-family: var(--heading-font, Georgia, serif); font-weight: 700; } ",
+            ".toc-leader { border-bottom-style: dotted; border-bottom-color: rgba(120, 96, 72, 0.55); } ",
+            ".toc-page-ref { color: var(--heading-color, #1c1917); } "),
+        "modern" => string.Concat(
+            ".toc-title { font-family: var(--heading-font, system-ui, sans-serif); text-transform: none; letter-spacing: 0.04em; ",
+            "border-bottom: 2px solid var(--fmt-accent, #6366f1); padding-bottom: 0.18in; } ",
+            ".toc-chapter-line { font-family: var(--heading-font, system-ui, sans-serif); font-weight: 600; } ",
+            ".toc-leader { border-bottom-style: solid; border-bottom-width: 1px; border-bottom-color: rgba(99, 102, 241, 0.35); } ",
+            ".toc-page-ref { color: var(--fmt-accent, #6366f1); } "),
+        _ => string.Concat(
+            ".toc-title { font-weight: 500; letter-spacing: 0.12em; border-bottom: none; padding-bottom: 0.12in; } ",
+            ".toc-chapter-line { font-weight: 500; } ",
+            ".toc-leader { border-bottom-style: dotted; opacity: 0.75; } ",
+            ".toc-page-ref { font-weight: 500; color: var(--body-color, #475569); } ")
+    };
 
     private static string MatClassForKey(string key) => key switch
     {
@@ -1137,7 +1171,7 @@ public static class InteriorLayoutTokens
 
         sb.Append(BuildSharedReaderLayoutCss());
 
-        sb.Append(BuildTocCss());
+        sb.Append(BuildTocCss(opt));
 
         sb.Append(BuildPreviewPageChromeCss());
 

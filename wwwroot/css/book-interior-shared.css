@@ -185,9 +185,20 @@
     box-sizing: border-box;
 }
 
-#bookResult #preview-content .front-matter-page.copyright-page,
+#bookResult #preview-content .front-matter-page.copyright-page {
+    justify-content: center;
+    overflow: hidden;
+    text-align: center;
+}
+
 #bookResult #preview-content .front-matter-page.toc-page {
     justify-content: flex-start;
     overflow: hidden;
+}
+
+#bookResult #preview-content .front-matter-page.copyright-page .copyright-block,
+#bookResult #preview-content .front-matter-page.copyright-page .cr-meta,
+#bookResult #preview-content .front-matter-page.copyright-page .cr-legal {
+    text-align: center;
 }
 

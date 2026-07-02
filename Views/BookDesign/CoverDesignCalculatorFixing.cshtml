@@ -2549,6 +2549,19 @@
     }
     window.syncFormatterPageCountUi = syncFormatterPageCountUi;
 
+    function getFormatterPageBackgroundColor() {
+        var root = document.getElementById('book-formatter-root');
+        if (root) {
+            var v = window.getComputedStyle(root).getPropertyValue('--ilt-page-bg').trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v;
+        }
+        var pageBgInput = document.getElementById('fmt-page-background');
+        if (pageBgInput && /^#[0-9A-Fa-f]{6}$/.test(String(pageBgInput.value || '').trim())) {
+            return String(pageBgInput.value).trim();
+        }
+        return null;
+    }
+
     function getFormatterStateFromUi() {
         var accentEl = document.getElementById('fmt-preview-accent');
         var fmt = (document.getElementById('format-select') && document.getElementById('format-select').value) || 'Ebook';
@@ -2560,6 +2573,7 @@
             publishingPlatforms: getSelectedPlatforms(),
             publishingPlatform: (getSelectedPlatformsArray()[0] || ''),
             previewAccent: (accentEl && accentEl.value) ? accentEl.value : '#5b21b6',
+            pageBackgroundColor: getFormatterPageBackgroundColor(),
             previewPageCount: getFormatterPreviewPageCount(),
             savedAtUtc: new Date().toISOString()
         };
@@ -2734,7 +2748,7 @@
             );
         }
         if (!items.length) items.push('<li class="toc-item toc-item-empty">No chapters yet.</li>');
-        return '<div class="front-matter-page toc-page"><div class="toc-block">' +
+        return '<div class="front-matter-page toc-page book-preview-sheet"><div class="toc-block">' +
             '<h1 class="toc-title">Contents</h1><nav class="toc-nav" aria-label="Table of contents">' +
             '<ol class="toc-list">' + items.join('') + '</ol></nav></div></div>';
     }
@@ -2757,7 +2771,7 @@
         var title = (ctx.bookTitle || '').trim() || 'Untitled';
         var author = (ctx.authorName || '').trim() || 'Author';
         var year = new Date().getFullYear();
-        return '<div class="front-matter-page copyright-page"><div class="copyright-block">' +
+        return '<div class="front-matter-page copyright-page book-preview-sheet"><div class="copyright-block">' +
             '<p class="cr-meta"><strong>' + escapeHtml(title) + '</strong></p>' +
             (ctx.authorName ? '<p class="cr-meta">' + escapeHtml(ctx.authorName) + '</p>' : '') +
             '<p class="cr-legal">Copyright &copy; ' + year + ' ' + escapeHtml(author) + '. All rights reserved.</p>' +
@@ -5965,6 +5979,10 @@
     function hydrateBookFromPayload(data, numId, options) {
         var opts = options || {};
         if (!data || !data.success) return false;
+        if (data.bookId && parseInt(data.bookId, 10) !== numId) {
+            console.error('[Book Formatter] bookId mismatch — refusing stale payload', data.bookId, numId);
+            return false;
+        }
         var nextSignature = JSON.stringify({
             id: numId,
             t: data.bookTitle || '',

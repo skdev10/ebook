@@ -67,6 +67,25 @@ public static class CoverImageRefLoader
         return Convert.ToBase64String(bytes);
     }
 
+    /// <summary>Loads cover reference as raw bytes (local path, data URL, remote URL, or raw base64).</summary>
+    public static async Task<byte[]?> TryReadAsBytesAsync(
+        string? imageRef,
+        string? webRootPath,
+        IHttpClientFactory httpClientFactory,
+        CancellationToken cancellationToken = default)
+    {
+        var b64 = await TryReadAsRawBase64Async(imageRef, webRootPath, httpClientFactory, cancellationToken);
+        if (string.IsNullOrEmpty(b64)) return null;
+        try
+        {
+            return Convert.FromBase64String(b64);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
     private static IEnumerable<string> WebRootCandidates(string? webRootPath)
     {
         if (!string.IsNullOrWhiteSpace(webRootPath))

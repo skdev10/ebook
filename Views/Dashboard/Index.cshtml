@@ -462,12 +462,12 @@
                             var pubResume = !string.IsNullOrWhiteSpace(pub.ResumeUrl)
                                 ? pub.ResumeUrl
                                 : (Url.Action("SelectBook", "Dashboard", new { bookId = pub.BookId }) ?? $"/Dashboard/SelectBook?bookId={pub.BookId}");
-                            var pubPublish = Url.Action("Publish", "Dashboard", new { bookId = pub.BookId });
+                            var pubEdit = pubResume;
                             <div class="dash-draft-card-wrap book-item dash-published-card" data-title="@pubTitle" data-book-id="@pub.BookId">
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @pubTitle" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@pubPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <a href="@pubEdit" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
                                         <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@pub.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>

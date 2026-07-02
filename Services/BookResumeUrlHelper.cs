@@ -60,4 +60,18 @@ public static class BookResumeUrlHelper
         hasGeneratedBook = true;
         formattingDone = true;
     }
+
+    /// <summary>Deep links with ?bookId= must not require Dashboard pick first.</summary>
+    public static void BootstrapOwnedBookSession(HttpContext context, int bookId, string? bookStatus, string? flowStep)
+    {
+        if (bookId <= 0) return;
+        context.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
+        context.Session.SetInt32("LastSelectedBookId", bookId);
+        if (BookPublishReadinessService.IsPublishReadyBookStatus(bookStatus))
+            SyncFlowSessionFlags(context, BookFlowStateService.StepPublish);
+        else if (!string.IsNullOrWhiteSpace(flowStep))
+            SyncFlowSessionFlags(context, flowStep);
+        else
+            context.Session.SetString("HasGeneratedBook", "1");
+    }
 }

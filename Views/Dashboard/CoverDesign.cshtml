@@ -391,6 +391,11 @@
                 <button type="button" class="cov-target-tab" data-target="ebook" aria-pressed="false">eBook Cover</button>
             </div>
 
+            <div id="covWrapBuildBanner" class="hidden mb-3 w-full rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 flex items-start gap-3 shrink-0" role="status" aria-live="polite">
+                <span class="cov-wrap-build-spinner w-4 h-4 mt-0.5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin shrink-0" aria-hidden="true"></span>
+                <span id="covWrapBuildBannerText">Building your full print wrap (back + spine + front) from your cover…</span>
+            </div>
+
             <div class="cov-preview-book-stage w-full flex justify-start items-start">
                     <div id="covPreviewShell" class="cov-preview-3d w-full aspect-[2/3] rounded-[28px] overflow-hidden relative shadow-xl shadow-slate-900/12 transition-all duration-500 border border-slate-200 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
                         <img id="covPreviewBgImg" src="" alt="" class="absolute inset-0 w-full h-full object-contain opacity-0 transition-opacity duration-500 pointer-events-none" />
@@ -527,6 +532,8 @@
 
     function queuePrintWrapInBackground() {
         if (!selectedBook || !selectedBook.bookId || !needsPrintWrapAutoBuild()) return;
+        updateCovWrapBuildBanner({ wrapCoverStatus: 'Generating' });
+        startCovWrapStatusPolling();
         resolveWrapPageCount().then(function (pageCount) {
             fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
                 method: 'POST',
@@ -545,6 +552,67 @@
         }).catch(function () {});
     }
 
+    var covWrapPollTimer = null;
+
+    function updateCovWrapBuildBanner(data) {
+        var banner = document.getElementById('covWrapBuildBanner');
+        var text = document.getElementById('covWrapBuildBannerText');
+        var spinner = banner ? banner.querySelector('.cov-wrap-build-spinner') : null;
+        if (!banner || !needsPrintWrapAutoBuild()) return;
+        var wrap = data && data.cover ? (String(data.cover.wrap || '').trim()) : (coverWraparoundRef || '').trim();
+        var status = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : '';
+        var hasFront = !!(selectedPath || (data && data.cover && data.cover.front) || (selectedBook && selectedBook.aiCoverLastPreview));
+        if (wrap || status === 'Ready') {
+            banner.classList.add('hidden');
+            if (covWrapPollTimer) { clearInterval(covWrapPollTimer); covWrapPollTimer = null; }
+            return;
+        }
+        if (!hasFront) {
+            banner.classList.add('hidden');
+            return;
+        }
+        banner.classList.remove('hidden');
+        banner.classList.remove('border-amber-200', 'bg-amber-50', 'text-amber-900');
+        banner.classList.add('border-violet-200', 'bg-violet-50', 'text-violet-900');
+        if (spinner) spinner.classList.remove('hidden');
+        if (status === 'NeedsDescription') {
+            banner.classList.remove('border-violet-200', 'bg-violet-50', 'text-violet-900');
+            banner.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-900');
+            if (spinner) spinner.classList.add('hidden');
+            if (text) text.textContent = 'Add a book description in AI Writer so we can build your print back cover.';
+            return;
+        }
+        if (status === 'Failed') {
+            banner.classList.remove('border-violet-200', 'bg-violet-50', 'text-violet-900');
+            banner.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-900');
+            if (spinner) spinner.classList.add('hidden');
+            if (text) text.textContent = 'Full wrap build failed. Regenerate your front cover, then we will retry automatically.';
+            return;
+        }
+        if (text) text.textContent = 'Building your full print wrap (back + spine + front) from your cover…';
+    }
+
+    function startCovWrapStatusPolling() {
+        if (!needsPrintWrapAutoBuild()) return;
+        function poll() {
+            if (!selectedBook || !selectedBook.bookId) return;
+            fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(selectedBook.bookId))
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d || !d.success) return;
+                    updateCovWrapBuildBanner(d);
+                    var wrap = d.cover ? (d.cover.wrap || '').trim() : '';
+                    if (wrap) {
+                        coverWraparoundRef = wrap;
+                        setPrintWrapSaved(true);
+                    }
+                })
+                .catch(function () {});
+        }
+        poll();
+        if (!covWrapPollTimer) covWrapPollTimer = setInterval(poll, 5000);
+    }
+
     async function resolveWrapPageCount() {
         var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.estimatedPages || selectedBook.totalPages)) || 0;
         if (!pageCount && selectedBook && selectedBook.bookId) {
@@ -557,7 +625,6 @@
                 }
             } catch (_) {}
         }
-        if (pageCount > 100) pageCount = 100;
         if (pageCount < 24) pageCount = 24;
         return pageCount;
     }
@@ -1103,6 +1170,12 @@
                 if (!c.front && !c.wrap) return;
 
                 if (c.wrap) coverWraparoundRef = c.wrap;
+                updateCovWrapBuildBanner(d);
+                if (!c.wrap && needsPrintWrapAutoBuild() && c.front) {
+                    queuePrintWrapInBackground();
+                } else if (!c.wrap && c.front) {
+                    startCovWrapStatusPolling();
+                }
                 printWrapAssets = {
                     front: c.front || '',
                     back: c.back || '',

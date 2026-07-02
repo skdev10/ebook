@@ -28,6 +28,7 @@ namespace EBookDashboard.Controllers
         private readonly BookFlowStateService _bookFlow;
         private readonly ILogger<BookDesignController> _logger;
         private readonly IBookRenderService _bookRenderService;
+        private readonly IPrintWrapPregenerationQueue _printWrapPregenerationQueue;
 
         public BookDesignController(
             ApplicationDbContext context,
@@ -37,7 +38,8 @@ namespace EBookDashboard.Controllers
             IConfiguration configuration,
             BookFlowStateService bookFlow,
             ILogger<BookDesignController> logger,
-            IBookRenderService bookRenderService)
+            IBookRenderService bookRenderService,
+            IPrintWrapPregenerationQueue printWrapPregenerationQueue)
         {
             _context = context;
             _bookDesignService = bookDesignService ?? throw new ArgumentNullException(nameof(bookDesignService));
@@ -47,6 +49,7 @@ namespace EBookDashboard.Controllers
             _bookFlow = bookFlow;
             _logger = logger;
             _bookRenderService = bookRenderService;
+            _printWrapPregenerationQueue = printWrapPregenerationQueue;
         }
         // GET: /BookDesign/CoverDesignCalculator
         public IActionResult Index(int bookId = 0)
@@ -442,6 +445,10 @@ namespace EBookDashboard.Controllers
 
                 await _context.SaveChangesAsync();
 
+                var previewAccent = draftOpt.PreviewAccent;
+                var pageBackgroundColor = draftOpt.PageBackgroundColor
+                    ?? InteriorExportTheme.ResolveDefaultPageBackground(existing.InteriorStyle);
+
                 var statePayload = JsonSerializer.Serialize(new
                 {
                     format = existing.Format ?? "Ebook",
@@ -450,6 +457,9 @@ namespace EBookDashboard.Controllers
                     lineSpacing = existing.LineSpacing ?? "1.6",
                     publishingPlatforms = existing.PublishingPlatforms ?? "",
                     publishingPlatform = existing.PublishingPlatform ?? primaryPlatform ?? "",
+                    previewAccent,
+                    pageBackgroundColor,
+                    previewPageCount = ResolvePreviewPageCount(req, req.DraftStateJson),
                     savedAtUtc = DateTime.UtcNow
                 });
                 var key = $"book:{req.BookId}:formattingDraft";
@@ -515,6 +525,27 @@ namespace EBookDashboard.Controllers
                     string.Equals(fmt, "Both", StringComparison.OrdinalIgnoreCase) ? "1" : "0");
                 var formatPath = ResolveFormatPath(fmt, existing.PublishingPlatform, existing.PublishingPlatforms);
                 await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepFormat, formatPath);
+
+                if (fmt.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                    || fmt.Equals("Both", StringComparison.OrdinalIgnoreCase))
+                {
+                    var frontKeys = new[]
+                    {
+                        $"book:{req.BookId}:printReadyCoverFront",
+                        $"book:{req.BookId}:aiCoverLastPreview"
+                    };
+                    var hasFront = await _context.Settings.AsNoTracking()
+                        .AnyAsync(s => frontKeys.Contains(s.Key) && s.Value != null && s.Value.Trim() != "", cancellationToken: default);
+                    if (!hasFront)
+                    {
+                        hasFront = await _context.Books.AsNoTracking()
+                            .AnyAsync(b => b.BookId == req.BookId && b.UserId == userId
+                                && b.CoverImagePath != null && b.CoverImagePath.Trim() != "", cancellationToken: default);
+                    }
+                    if (hasFront)
+                        _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(userId, req.BookId);
+                }
+
                 return Json(new { success = true, message = "Formatting saved.", previewPageCount = previewPages });
             }
             catch (Exception ex)
@@ -704,14 +735,6 @@ namespace EBookDashboard.Controllers
                 {
                     return RedirectToAction("UserLogin", "Account");
                 }
-                var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1"
-                    || await _context.Books.AnyAsync(b => b.UserId == userId);
-                if (!hasGeneratedBook)
-                {
-                    ViewBag.LockMessage = "Select a book from the Dashboard to start formatting.";
-                    ViewBag.LockGoto = "/Dashboard";
-                    ViewBag.LockButtonText = "Go to AI Writer";
-                }
                 // Get bookId from TempData, query param, or last selected from session
                 if (bookId == 0)
                     bookId = Convert.ToInt32(TempData["NextStepBookId"] ?? 0);
@@ -737,11 +760,20 @@ namespace EBookDashboard.Controllers
                     return RedirectToAction("Index", "Dashboard");
                 }
 
-                // Published books stay editable — author can revisit Book Formatting and re-publish.
-                if (!BookFlowStateService.SessionEntryMatches(HttpContext, bookId))
-                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
-
+                var isReEditableBook = BookPublishReadinessService.IsPublishReadyBookStatus(bookRow.Status);
                 var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId);
+                BookResumeUrlHelper.BootstrapOwnedBookSession(HttpContext, bookId, bookRow.Status, savedFlowStep);
+
+                var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1"
+                    || await _context.Books.AnyAsync(b => b.UserId == userId);
+                if (!isReEditableBook && !hasGeneratedBook)
+                {
+                    ViewBag.LockMessage = "Select a book from the Dashboard to start formatting.";
+                    ViewBag.LockGoto = "/Dashboard";
+                    ViewBag.LockButtonText = "Go to AI Writer";
+                }
+
+                // Published books stay editable — author can revisit Book Formatting and re-publish.
                 // User opened Book Formatting explicitly — do not bounce back to AI Writer when flow is still on generate.
                 if (BookFlowStateService.StepRank(savedFlowStep) < BookFlowStateService.StepRank(BookFlowStateService.StepFormat))
                 {

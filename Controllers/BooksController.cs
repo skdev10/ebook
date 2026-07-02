@@ -134,9 +134,12 @@ namespace EBookDashboard.Controllers
             var entryBookId = HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
             if (!entryBookId.HasValue || entryBookId.Value != bookId.Value)
             {
-                // Allow direct navigation after Create Book or deep links when the user owns this book.
-                HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId.Value);
-                HttpContext.Session.SetInt32("LastSelectedBookId", bookId.Value);
+                var (flowStep, _) = await _bookFlow.GetStepAsync(bookId.Value);
+                var bookStatus = await _context.Books.AsNoTracking()
+                    .Where(b => b.BookId == bookId.Value && b.UserId == userId.Value)
+                    .Select(b => b.Status)
+                    .FirstOrDefaultAsync();
+                BookResumeUrlHelper.BootstrapOwnedBookSession(HttpContext, bookId.Value, bookStatus, flowStep);
             }
             try
             {

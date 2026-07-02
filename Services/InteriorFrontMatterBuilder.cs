@@ -17,7 +17,7 @@ public static class InteriorFrontMatterBuilder
     {
         var y = DateTime.UtcNow.Year;
         var sb = new StringBuilder();
-        sb.AppendLine("""<div class="front-matter-page copyright-page">""");
+        sb.AppendLine("""<div class="front-matter-page copyright-page book-preview-sheet">""");
         sb.AppendLine("""<div class="copyright-block">""");
         sb.AppendLine(CultureInvariant($"""<p class="cr-meta"><strong>{WebUtility.HtmlEncode(title)}</strong></p>"""));
         if (!string.IsNullOrEmpty(author))
@@ -41,7 +41,7 @@ public static class InteriorFrontMatterBuilder
         bool pdfTargetCounters = false)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("""<div class="front-matter-page toc-page">""");
+        sb.AppendLine("""<div class="front-matter-page toc-page book-preview-sheet">""");
         sb.AppendLine("""<div class="toc-block">""");
         sb.AppendLine("""<h1 class="toc-title">Contents</h1>""");
         sb.AppendLine("""<nav class="toc-nav" aria-label="Table of contents">""");
