@@ -3,6 +3,7 @@ using EBookDashboard.Application.Kdp.DTOs;
 using EBookDashboard.Application.Kdp.Interfaces;
 using EBookDashboard.Application.Kdp.Services;
 using EBookDashboard.Interfaces;
+using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
 using SixLabors.ImageSharp;
@@ -91,5 +92,22 @@ public class PrintWrapCompositorTests
         Assert.Equal(2.0m, KdpPaperbackConstants.BarcodeZoneWidthInches);
         Assert.Equal(1.2m, KdpPaperbackConstants.BarcodeZoneHeightInches);
         Assert.Equal(0.25m, KdpPaperbackConstants.BarcodeMarginInches);
+    }
+
+    [Fact]
+    public void ResolveBackCoverDescription_uses_saved_description_when_present()
+    {
+        var book = new Books { Title = "My Book", Description = "  Saved blurb.  " };
+        var desc = PrintWrapGenerationService.ResolveBackCoverDescription(book, null);
+        Assert.Equal("Saved blurb.", desc);
+    }
+
+    [Fact]
+    public void ResolveBackCoverDescription_falls_back_without_blocking()
+    {
+        var book = new Books { Title = "Great Dictator", Genre = "Fantasy" };
+        var desc = PrintWrapGenerationService.ResolveBackCoverDescription(book, null);
+        Assert.Contains("Great Dictator", desc, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("fantasy", desc, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -137,6 +137,8 @@
     .cov-target-tab { padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
     .cov-target-tab:hover { background: #ede9fe; border-color: #c4b5fd; }
     .cov-target-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    #covFullWrapSection .cov-full-wrap-stage { max-width: 100%; overflow-x: auto; border-radius: 12px; border: 1px solid #e2e8f0; background: #f8fafc; padding: 12px; }
+    #covFullWrapImg { max-height: 220px; width: auto; display: block; margin: 0 auto; }
     #covPreviewColumn.cov-target-print .cov-preview-book-stage { max-width: 340px; }
     #covPreviewColumn.cov-target-ebook .cov-preview-book-stage { max-width: 280px; }
     .cov-preview-book-stage {
@@ -411,7 +413,17 @@
                     </div>
             </div>
 
-            <!-- Print-ready wrap modal removed — download print-ready from Publish page only -->
+            <div id="covFullWrapSection" class="hidden mt-4 w-full shrink-0">
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="w-5 h-0.5 bg-violet-500 rounded-full"></span>
+                    <span class="text-violet-600 font-medium text-sm tracking-wide">Full print wrap</span>
+                    <span id="covWrapSavedBadge" class="hidden text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Ready for Publish</span>
+                </div>
+                <div class="cov-full-wrap-stage">
+                    <img id="covFullWrapImg" src="" alt="Full print wrap — back, spine, and front" class="hidden" />
+                    <p id="covFullWrapPlaceholder" class="text-sm text-slate-500 text-center py-6">Full wrap appears here after your front cover is saved.</p>
+                </div>
+            </div>
 
             <input type="hidden" id="coverGeneratedPayload" value="" />
 
@@ -530,29 +542,88 @@
         return bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both' || coverFlowPrintReady || isPrintReadyPlatform();
     }
 
-    function queuePrintWrapInBackground() {
-        if (!selectedBook || !selectedBook.bookId || !needsPrintWrapAutoBuild()) return;
+    var covWrapBuildInFlight = false;
+    var covWrapBuildPromise = null;
+
+    function buildPrintWrapNow(forceRebuild) {
+        if (!selectedBook || !selectedBook.bookId || !needsPrintWrapAutoBuild()) return Promise.resolve(null);
+        if (covWrapBuildInFlight && covWrapBuildPromise) return covWrapBuildPromise;
+
         updateCovWrapBuildBanner({ wrapCoverStatus: 'Generating' });
-        startCovWrapStatusPolling();
-        resolveWrapPageCount().then(function (pageCount) {
-            fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
+        showCovFullWrapSection(true);
+        var placeholder = document.getElementById('covFullWrapPlaceholder');
+        if (placeholder) {
+            placeholder.textContent = 'Building full print wrap (back + spine + front)…';
+            placeholder.classList.remove('hidden');
+        }
+
+        covWrapBuildInFlight = true;
+        covWrapBuildPromise = resolveWrapPageCount().then(function (pageCount) {
+            return fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 credentials: 'same-origin',
                 body: JSON.stringify({
                     bookId: selectedBook.bookId,
                     pageCount: pageCount > 0 ? pageCount : null,
-                    force: true,
-                    wait: false,
+                    force: !!forceRebuild,
+                    wait: true,
                     title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
                     author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
                     genre: (bookCategory.value || '').trim()
                 })
-            }).catch(function () {});
-        }).catch(function () {});
+            });
+        }).then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d && d.success && d.cover) {
+                var wrap = (d.cover.wrap || '').trim();
+                if (wrap) {
+                    showCovFullWrapPreview(wrap);
+                    coverWraparoundRef = wrap;
+                    setPrintWrapSaved(true);
+                }
+                updateCovWrapBuildBanner(d);
+            } else {
+                updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+            }
+            return d;
+        })
+        .catch(function () {
+            updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+            return null;
+        })
+        .finally(function () {
+            covWrapBuildInFlight = false;
+            covWrapBuildPromise = null;
+        });
+
+        return covWrapBuildPromise;
     }
 
-    var covWrapPollTimer = null;
+    function queuePrintWrapInBackground() {
+        return buildPrintWrapNow(true);
+    }
+
+    function showCovFullWrapSection(show) {
+        var section = document.getElementById('covFullWrapSection');
+        if (section) section.classList.toggle('hidden', !show || !needsPrintWrapAutoBuild());
+    }
+
+    function showCovFullWrapPreview(wrapUrl) {
+        wrapUrl = (wrapUrl || '').trim();
+        if (!wrapUrl) return;
+        showCovFullWrapSection(true);
+        var img = document.getElementById('covFullWrapImg');
+        var placeholder = document.getElementById('covFullWrapPlaceholder');
+        if (img) {
+            img.src = toUrl(wrapUrl) + (toUrl(wrapUrl).indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
+            img.classList.remove('hidden');
+            img.onload = function () {
+                if (placeholder) placeholder.classList.add('hidden');
+            };
+        }
+        setPrintWrapSaved(true);
+    }
 
     function updateCovWrapBuildBanner(data) {
         var banner = document.getElementById('covWrapBuildBanner');
@@ -564,7 +635,7 @@
         var hasFront = !!(selectedPath || (data && data.cover && data.cover.front) || (selectedBook && selectedBook.aiCoverLastPreview));
         if (wrap || status === 'Ready') {
             banner.classList.add('hidden');
-            if (covWrapPollTimer) { clearInterval(covWrapPollTimer); covWrapPollTimer = null; }
+            if (wrap) showCovFullWrapPreview(wrap);
             return;
         }
         if (!hasFront) {
@@ -575,13 +646,6 @@
         banner.classList.remove('border-amber-200', 'bg-amber-50', 'text-amber-900');
         banner.classList.add('border-violet-200', 'bg-violet-50', 'text-violet-900');
         if (spinner) spinner.classList.remove('hidden');
-        if (status === 'NeedsDescription') {
-            banner.classList.remove('border-violet-200', 'bg-violet-50', 'text-violet-900');
-            banner.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-900');
-            if (spinner) spinner.classList.add('hidden');
-            if (text) text.textContent = 'Add a book description in AI Writer so we can build your print back cover.';
-            return;
-        }
         if (status === 'Failed') {
             banner.classList.remove('border-violet-200', 'bg-violet-50', 'text-violet-900');
             banner.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-900');
@@ -589,28 +653,11 @@
             if (text) text.textContent = 'Full wrap build failed. Regenerate your front cover, then we will retry automatically.';
             return;
         }
-        if (text) text.textContent = 'Building your full print wrap (back + spine + front) from your cover…';
+        if (text) text.textContent = 'Building your full print wrap (back + spine + front)…';
     }
 
     function startCovWrapStatusPolling() {
-        if (!needsPrintWrapAutoBuild()) return;
-        function poll() {
-            if (!selectedBook || !selectedBook.bookId) return;
-            fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(selectedBook.bookId))
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (!d || !d.success) return;
-                    updateCovWrapBuildBanner(d);
-                    var wrap = d.cover ? (d.cover.wrap || '').trim() : '';
-                    if (wrap) {
-                        coverWraparoundRef = wrap;
-                        setPrintWrapSaved(true);
-                    }
-                })
-                .catch(function () {});
-        }
-        poll();
-        if (!covWrapPollTimer) covWrapPollTimer = setInterval(poll, 5000);
+        /* Sync wrap build replaces slow background polling. */
     }
 
     async function resolveWrapPageCount() {
@@ -1171,10 +1218,10 @@
 
                 if (c.wrap) coverWraparoundRef = c.wrap;
                 updateCovWrapBuildBanner(d);
-                if (!c.wrap && needsPrintWrapAutoBuild() && c.front) {
-                    queuePrintWrapInBackground();
-                } else if (!c.wrap && c.front) {
-                    startCovWrapStatusPolling();
+                if (c.wrap) {
+                    showCovFullWrapPreview(c.wrap);
+                } else if (needsPrintWrapAutoBuild() && c.front) {
+                    buildPrintWrapNow(false);
                 }
                 printWrapAssets = {
                     front: c.front || '',

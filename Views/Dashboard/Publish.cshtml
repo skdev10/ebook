@@ -1463,7 +1463,7 @@
         });
     }
 
-    function queuePrintWrapGeneration(waitForResult) {
+    function queuePrintWrapGeneration(forceRebuild) {
         var pageCount = resolvePublishPageCount(pbEstimatedPages > 0 ? pbEstimatedPages : getLocalFormatterPageCount(bookId));
         if (pageCount > 0 && pageCount < 24) pageCount = 24;
         return fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
@@ -1473,25 +1473,26 @@
             body: JSON.stringify({
                 bookId: bookId,
                 pageCount: pageCount > 0 ? pageCount : null,
-                force: true,
-                wait: !!waitForResult,
+                force: !!forceRebuild,
+                wait: true,
                 title: pbTitle || '',
                 author: '',
                 genre: pbGenre || ''
             })
         }).then(function (r) {
-            return parseDashboardJsonResponse(r, waitForResult ? 'Full wrap generation failed.' : 'Could not start full wrap generation.').then(function (j) {
+            return parseDashboardJsonResponse(r, 'Full wrap generation failed.').then(function (j) {
                 if (!r.ok || j.success === false) throw new Error((j && j.message) ? j.message : 'Full wrap generation failed.');
-                if (waitForResult) {
-                    var wrap = j && j.cover ? (j.cover.wrap || '').trim() : '';
-                    if (!wrap) throw new Error('Full wrap was not returned. Generate a cover in Cover Design first, then retry.');
-                }
+                syncWrapReadyFromAssets(j);
+                var wrap = j && j.cover ? (j.cover.wrap || '').trim() : '';
+                if (wrap) applySavedCoverPreview(wrap);
                 return j;
             });
         });
     }
 
     function pollForPrintWrap(maxMs, intervalMs) {
+        maxMs = maxMs || 45000;
+        intervalMs = intervalMs || 1500;
         var started = Date.now();
         return new Promise(function (resolve, reject) {
             function tick() {
@@ -1567,15 +1568,6 @@
             }
             return;
         }
-        if (wrapStatus === 'NeedsDescription') {
-            if (errorEl) {
-                errorEl.textContent = 'Add a book description in AI Writer before your print back cover can be built.';
-                errorEl.classList.remove('hidden');
-            }
-            if (statusEl) { statusEl.textContent = ''; statusEl.classList.add('hidden'); }
-            if (hintEl) hintEl.classList.add('hidden');
-            return;
-        }
         if (wrapStatus === 'MissingFront') {
             if (errorEl) {
                 errorEl.textContent = 'Generate a front cover in Cover Design first — the full wrap uses that exact image.';
@@ -1608,7 +1600,7 @@
                     }
                 })
                 .catch(function () { /* non-fatal */ });
-        }, 5000);
+        }, 3000);
     }
 
     function validatePdfBlob(blob) {
@@ -2181,11 +2173,7 @@
         return fetchPrintReadyCoverAssets().then(function (assets) {
             var wrap = assets && assets.cover ? (assets.cover.wrap || '').trim() : '';
             if (wrap) return assets;
-            return queuePrintWrapGeneration(true).catch(function () {
-                return queuePrintWrapGeneration(false).then(function () {
-                    return pollForPrintWrap(600000, 8000);
-                });
-            });
+            return queuePrintWrapGeneration(false);
         });
     }
 
@@ -2474,10 +2462,6 @@
         }
 
         var wrapStatus = (window._publishCoverAssets && window._publishCoverAssets.wrapCoverStatus) || '';
-        if (wrapStatus === 'NeedsDescription') {
-            showTransientMessage('warning', 'Add a book description in AI Writer before your print back cover can be built.');
-            return;
-        }
         if (wrapStatus === 'MissingFront') {
             showTransientMessage('warning', 'Generate a front cover in Cover Design first.');
             return;
@@ -2487,13 +2471,10 @@
             triggerBtn.disabled = true;
             triggerBtn.innerHTML = wrapDownloadButtonLabel(false);
         }
-        showTransientMessage('info', 'Building your full wrap — download starts automatically when ready.');
 
-        queuePrintWrapGeneration(true)
-            .catch(function () { return pollForPrintWrap(120000, 3000); })
-            .then(function (data) {
-                syncWrapReadyFromAssets(data || {});
-                if (!publishWrapCoverReady) throw new Error('Full wrap is still building. Wait a moment and try again.');
+        queuePrintWrapGeneration(false)
+            .then(function () {
+                if (!publishWrapCoverReady) throw new Error('Full wrap could not be built. Open Cover Design and regenerate your front cover.');
                 return doDownload();
             })
             .catch(function (err) {
@@ -2843,8 +2824,7 @@
         var errorEl = document.getElementById('publishWrapPreloadError');
         if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
         updateWrapExportButtonState({ wrapCoverStatus: 'Generating' });
-        queuePrintWrapGeneration(false).catch(function () { /* background queue */ });
-        startWrapStatusPolling();
+        queuePrintWrapGeneration(false).catch(function () { /* non-fatal preload */ });
     }
 
     function loadSavedCoverPreview() {

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using EBookDashboard.Application.Kdp.Constants;
 using EBookDashboard.Application.Kdp.DTOs;
 using EBookDashboard.Application.Kdp.Interfaces;
@@ -91,14 +92,6 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             return false;
         }
 
-        var description = (book.Description ?? "").Trim();
-        if (string.IsNullOrWhiteSpace(description))
-        {
-            _logger.LogWarning("Print wrap blocked for book {BookId}: no book description for back cover.", bookId);
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusNeedsDescription, cancellationToken);
-            return false;
-        }
-
         var frontBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
             frontAssetRef, _env.WebRootPath, _httpClientFactory, cancellationToken);
         if (frontBytes == null || frontBytes.Length == 0)
@@ -171,6 +164,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var user = await _context.Users.AsNoTracking()
             .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
         var authorName = (user?.FullName ?? user?.UserEmail ?? userId.ToString(CultureInfo.InvariantCulture)).Trim();
+        var description = ResolveBackCoverDescription(book, details);
 
         var theme = BookTheme.FromExportOptions(exportOpt);
 
@@ -211,6 +205,36 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             return false;
         }
     }
+
+    /// <summary>
+    /// Back-cover blurb for print wrap — uses saved description when present; otherwise a short excerpt or title-based fallback.
+    /// Never blocks wrap generation.
+    /// </summary>
+    public static string ResolveBackCoverDescription(Books book, BookDetailsResponseDto? details)
+    {
+        var desc = (book.Description ?? details?.Description ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(desc)) return desc;
+
+        foreach (var ch in (details?.Chapters ?? []).OrderBy(c => c.ChapterNumber))
+        {
+            if (ch.ChapterNumber <= 0 || string.IsNullOrWhiteSpace(ch.Content)) continue;
+            var plain = HtmlTagRegex.Replace(ch.Content, " ").Trim();
+            plain = System.Net.WebUtility.HtmlDecode(plain);
+            plain = WhitespaceRegex.Replace(plain, " ").Trim();
+            if (plain.Length < 80) continue;
+            return plain.Length > 600 ? plain[..597] + "…" : plain;
+        }
+
+        var title = (details?.BookTitle ?? book.Title ?? "this book").Trim();
+        if (string.IsNullOrWhiteSpace(title)) title = "this book";
+        var genre = (book.Genre ?? details?.Genre ?? "").Trim();
+        return string.IsNullOrWhiteSpace(genre)
+            ? $"Discover {title} — an unforgettable read from the first page to the last."
+            : $"In {title}, experience a compelling {genre.ToLowerInvariant()} story that keeps you turning the pages.";
+    }
+
+    private static readonly Regex HtmlTagRegex = new("<[^>]+>", RegexOptions.Compiled);
+    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
 
     private async Task<BookPdfExportOptions> LoadExportOptionsAsync(int userId, int bookId, CancellationToken cancellationToken)
     {

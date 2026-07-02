@@ -2527,18 +2527,6 @@ namespace EBookDashboard.Controllers
             if (string.IsNullOrWhiteSpace(savedFront))
                 return Json(new { success = false, status = "error", message = "Generate a front cover in Cover Design first." });
 
-            var description = (book.Description ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(description))
-            {
-                return Json(new
-                {
-                    success = false,
-                    status = "needs_description",
-                    needsDescription = true,
-                    message = "Add a book description in AI Writer before generating your print cover — the back cover needs blurb text."
-                });
-            }
-
             if (req.PageCount is > 0)
             {
                 await UpsertDashboardSettingAsync(
@@ -2548,23 +2536,10 @@ namespace EBookDashboard.Controllers
                     CancellationToken.None);
             }
 
-            if (!req.Wait)
-            {
-                if (req.Force)
-                    await ClearPrintWrapCacheAsync(req.BookId, CancellationToken.None);
+            if (req.Force)
+                await ClearPrintWrapCacheAsync(req.BookId, CancellationToken.None);
 
-                _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(sessionUserId.Value, req.BookId);
-
-                return Json(new
-                {
-                    success = true,
-                    status = "queued",
-                    queued = true,
-                    bookId = req.BookId,
-                    message = "Full wrap is building from your saved front cover."
-                });
-            }
-
+            // Local compositor is fast — always build synchronously and return saved assets.
             var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
                 sessionUserId.Value,
                 req.BookId,
@@ -2574,12 +2549,18 @@ namespace EBookDashboard.Controllers
 
             if (!ok)
             {
-                return Json(new
+                var statusKey = $"book:{req.BookId}:printReadyCoverWrapStatus";
+                var statusRow = await _context.Settings.AsNoTracking()
+                    .Where(s => s.Key == statusKey)
+                    .Select(s => s.Value)
+                    .FirstOrDefaultAsync(CancellationToken.None);
+                var failMessage = (statusRow ?? "").Trim() switch
                 {
-                    success = false,
-                    status = "error",
-                    message = "Full wrap generation failed. Confirm your front cover is saved and retry in a moment."
-                });
+                    PrintWrapGenerationService.StatusMissingFront =>
+                        "Generate a front cover in Cover Design first — the full wrap uses that exact image.",
+                    _ => "Full wrap generation failed. Confirm your front cover is saved and retry."
+                };
+                return Json(new { success = false, status = "error", message = failMessage });
             }
 
             return await GetPrintReadyCoverAssetsCoreAsync(req.BookId, CancellationToken.None);
