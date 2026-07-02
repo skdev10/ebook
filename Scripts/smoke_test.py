@@ -124,6 +124,22 @@ CHECKS: list[EndpointCheck] = [
         expected_statuses=[200],
     ),
     EndpointCheck(
+        name="generate-spine-book-cover-split",
+        method="POST",
+        path="/api/generate-spine-book-cover-split",
+        body={
+            "title": "The Iqbal Day",
+            "author_name": "Sara Khan",
+            "encoded_image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+            "size": "1536x1024",
+            "quality": "high",
+            "Interior_trim_size": "6 x 9 in",
+            "paper_type": "white",
+            "page_count": 40,
+        },
+        expected_statuses=[200],
+    ),
+    EndpointCheck(
         name="edit-cover",
         method="POST",
         path="/api/edit-cover",

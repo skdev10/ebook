@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900" viewBox="0 0 600 900" role="img" aria-label="Cover design in progress">
+  <rect width="600" height="900" fill="#475569"/>
+  <rect x="48" y="120" width="504" height="48" rx="8" fill="rgba(255,255,255,0.18)"/>
+  <rect x="96" y="240" width="408" height="24" rx="6" fill="rgba(255,255,255,0.12)"/>
+  <rect x="96" y="288" width="360" height="24" rx="6" fill="rgba(255,255,255,0.10)"/>
+  <text x="300" y="780" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-family="Segoe UI, system-ui, sans-serif" font-size="28">Generating cover&</text>
+</svg>

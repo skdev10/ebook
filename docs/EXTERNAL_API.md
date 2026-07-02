@@ -38,10 +38,10 @@ Store the key in `/etc/default/ebookai` as `ExternalApi__ApiKey=...` on the serv
 | 8 | `/api/book_chapters_name` | POST | Suggest next chapter names | Fast |
 | 9 | `/api/refine_cover_prompt` | POST | Improve cover prompt | Fast |
 | 10 | `/api/suggest-cover-prompt-from-highlights` | POST | Cover prompt from summaries | Fast |
-| 11 | `/api/generate-spine-book-cover` | POST | Legacy full wrap (AI) | Slow |
-| 12 | `/api/generate-spine-book-cover-split` | POST | Legacy wrap from front (AI) | Slow |
+| 11 | `/api/generate-spine-book-cover` | POST | Full wrap (AI generates front+spine+back together) | Slow |
+| 12 | `/api/generate-spine-book-cover-split` | POST | **Full wrap from saved front cover** (recommended) | Slow (~1–2 min) |
 
-**Print wrap in EbookAI (2026):** Paperback/Both books build the **full wrap locally** (ImageSharp) from the saved front cover — spine + back blurb + exact front panel. Endpoints 11–12 are legacy/fallback only; the live app does not depend on them for export.
+**Print wrap in EbookAI:** When format is **Paperback** or **Both**, after you generate a front cover the app calls **`/api/generate-spine-book-cover-split`** with your saved front image (`encoded_image`). That produces a realistic full wrap (back + spine + front). If the upstream API is down, the app falls back to a local ImageSharp compositor.
 
 **Valid cover sizes:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`
 
@@ -53,11 +53,13 @@ Store the key in `/etc/default/ebookai` as `ExternalApi__ApiKey=...` on the serv
 
 ## Cover Design workflow (EbookAI)
 
-| Step | User sees | Backend |
-|------|-----------|---------|
-| Cover Design | Generate front cover | `POST /api/generate-cover` |
-| Cover Design | Full wrap preview (back + spine + front) | **Local compositor** (~seconds) — not AI queue |
-| Publish | Download front / wrap / PDF / EPUB | Saved assets + Chromium PDF |
+| Step | User action | Backend |
+|------|-------------|---------|
+| 1 | Write **Image Direction** → click **Generate Cover** | `POST /api/generate-cover` (front only) |
+| 2 | Wait for **Full print wrap** section (Paperback/Both only) | `POST /api/generate-spine-book-cover-split` with saved front `encoded_image` |
+| 3 | **Publish** → download wrap / PDF | Saved assets |
+
+**Important:** Full wrap never runs on page load. It starts only after Step 1 succeeds. Stale wraps (from an old front) are hidden until you regenerate.
 
 **Interior PDF:** Export uses the **same HTML/CSS pipeline** as Book Formatter preview (WYSIWYG). Selected interior style, text size, line spacing, and colors in the formatter match the downloaded PDF.
 
@@ -563,7 +565,8 @@ You use the website. The website calls the Book API for you.
 | AI Writer → Edit | Calls `/api/edit` |
 | Approve chapter | Calls `/api/approve` |
 | Upload audio | Calls `/api/audio` |
-| Cover Design → Generate Cover | Calls `/api/generate-cover`; auto-queues `/api/generate-spine-book-cover-split` when format is Paperback/Both |
+| Cover Design → Generate Cover | Calls `/api/generate-cover`; auto-calls `/api/generate-spine-book-cover-split` when format is Paperback/Both |
+| Cover Design → Full wrap preview | Upstream split API (~1–2 min); local fallback if API unavailable |
 | Cover Design → Edit | Calls `/api/edit-cover` |
 | Publish → export print pack | Local wrap + Chromium PDF (wrap built on Cover Design) |
 | Cover prompt help | Calls `/api/refine_cover_prompt` |

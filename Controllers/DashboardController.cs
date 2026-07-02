@@ -20,6 +20,7 @@ using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Text.Json;
@@ -1960,6 +1961,8 @@ namespace EBookDashboard.Controllers
                 $"book:{bookId}:printReadyPageCount",
                 $"book:{bookId}:printReadyTrimSize",
                 $"book:{bookId}:printReadySpineInches",
+                $"book:{bookId}:printReadyCoverFrontSha256",
+                $"book:{bookId}:printReadyCoverFrontAssetRef",
                 $"book:{bookId}:printReadyCoverWrapStatus"
             };
             var rows = await _context.Settings.AsNoTracking()
@@ -1993,7 +1996,8 @@ namespace EBookDashboard.Controllers
             var kdp = hasKnownPageCount ? CalculatePrintReadyKdp(pageCount, trimSize) : null;
             var wrapStatusRaw = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapStatus", "").Trim();
             var frontStatus = ResolveFrontCoverStatus(rows, bookId);
-            var wrapStatus = ResolveWrapCoverStatus(rows, bookId, frontStatus, wrapStatusRaw);
+            var wrapMatchesFront = await WrapMatchesSavedFrontAsync(bookId, rows, cancellationToken);
+            var wrapStatus = ResolveWrapCoverStatus(rows, bookId, frontStatus, wrapStatusRaw, wrapMatchesFront);
 
             return Json(new
             {
@@ -2003,6 +2007,7 @@ namespace EBookDashboard.Controllers
                 trimSize,
                 frontCoverStatus = frontStatus,
                 wrapCoverStatus = wrapStatus,
+                wrapMatchesFront,
                 kdp = kdp == null ? null : new
                 {
                     spineInches = (double)kdp.SpineWidth,
@@ -2050,17 +2055,51 @@ namespace EBookDashboard.Controllers
             Dictionary<string, string> rows,
             int bookId,
             string frontStatus,
-            string wrapStatusRaw)
+            string wrapStatusRaw,
+            bool wrapMatchesFront)
         {
             var wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", "").Trim();
-            // Prefer locally composed wrap — legacy API wrap can have a different front panel.
             if (string.IsNullOrWhiteSpace(wrap))
                 wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi", "").Trim();
-            if (!string.IsNullOrWhiteSpace(wrap))
+            if (!string.IsNullOrWhiteSpace(wrap) && wrapMatchesFront)
                 return PrintWrapGenerationService.StatusReady;
+            if (!string.IsNullOrWhiteSpace(wrap) && !wrapMatchesFront)
+                return "Stale";
             if (!string.IsNullOrWhiteSpace(wrapStatusRaw))
                 return wrapStatusRaw;
             return frontStatus == PrintWrapGenerationService.StatusReady ? PrintWrapGenerationService.StatusGenerating : "Missing";
+        }
+
+        /// <summary>True when saved wrap was built from the current <c>printReadyCoverFront</c> asset.</summary>
+        private async Task<bool> WrapMatchesSavedFrontAsync(
+            int bookId,
+            Dictionary<string, string> rows,
+            CancellationToken cancellationToken)
+        {
+            var wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", "").Trim();
+            if (string.IsNullOrWhiteSpace(wrap))
+                wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi", "").Trim();
+            if (string.IsNullOrWhiteSpace(wrap)) return false;
+
+            var frontRef = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", "").Trim();
+            if (string.IsNullOrWhiteSpace(frontRef))
+                frontRef = rows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview", "").Trim();
+            if (string.IsNullOrWhiteSpace(frontRef)) return false;
+
+            var storedSha = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFrontSha256", "").Trim();
+            var storedFrontRef = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFrontAssetRef", "").Trim();
+            if (string.IsNullOrEmpty(storedSha)) return true;
+
+            if (!string.IsNullOrEmpty(storedFrontRef)
+                && !string.Equals(storedFrontRef, frontRef, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var frontBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                frontRef, webRootPath: null, _httpClientFactory, cancellationToken);
+            if (frontBytes == null || frontBytes.Length == 0) return false;
+
+            var hash = Convert.ToHexString(SHA256.HashData(frontBytes));
+            return string.Equals(storedSha, hash, StringComparison.OrdinalIgnoreCase);
         }
 
         private async Task<object> BuildCoverUrls(int bookId, int userId, Dictionary<string, string> rows, CancellationToken ct)
@@ -2147,9 +2186,26 @@ namespace EBookDashboard.Controllers
             }
             else
             {
-                var row = await _context.Settings.AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Key == settingKey, cancellationToken);
-                refValue = (row?.Value ?? "").Trim();
+                if (partNorm == "wrap")
+                {
+                    var wrapKeys = new[]
+                    {
+                        $"book:{bookId}:printReadyCoverWrap",
+                        $"book:{bookId}:printReadyCoverWrapApi"
+                    };
+                    var wrapRows = await _context.Settings.AsNoTracking()
+                        .Where(s => wrapKeys.Contains(s.Key))
+                        .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+                    refValue = (wrapRows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap") ?? "").Trim();
+                    if (string.IsNullOrWhiteSpace(refValue))
+                        refValue = (wrapRows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi") ?? "").Trim();
+                }
+                else
+                {
+                    var row = await _context.Settings.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Key == settingKey, cancellationToken);
+                    refValue = (row?.Value ?? "").Trim();
+                }
             }
 
             if (string.IsNullOrWhiteSpace(refValue))
@@ -2157,39 +2213,39 @@ namespace EBookDashboard.Controllers
 
             await FinalizeBookAsPublishedAfterExportAsync(bookId, sessionUserId.Value, "print", cancellationToken);
 
-            // Load the referenced image into a byte buffer (data URL / remote / local file).
-            byte[]? bytes = null;
+            byte[]? bytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                refValue, webRootPath: null, _httpClientFactory, cancellationToken);
             var ext = "png";
             var contentType = "image/png";
 
-            if (refValue.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+            if (bytes == null || bytes.Length == 0)
             {
-                var comma = refValue.IndexOf(',', StringComparison.Ordinal);
-                if (comma < 0) return BadRequest("Invalid data URL.");
-                var meta = refValue.Substring(0, comma);
-                var b64 = refValue[(comma + 1)..].Trim();
-                bytes = Convert.FromBase64String(b64);
-                ext = meta.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
-                contentType = ext == "jpg" ? "image/jpeg" : "image/png";
+                if (refValue.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+                {
+                    var comma = refValue.IndexOf(',', StringComparison.Ordinal);
+                    if (comma >= 0)
+                    {
+                        try
+                        {
+                            bytes = Convert.FromBase64String(refValue[(comma + 1)..].Trim());
+                            ext = refValue.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
+                            contentType = ext == "jpg" ? "image/jpeg" : "image/png";
+                        }
+                        catch (FormatException)
+                        {
+                            return BadRequest("Invalid cover data URL.");
+                        }
+                    }
+                }
             }
-            else if (refValue.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || refValue.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+
+            if (bytes == null || bytes.Length == 0)
+                return NotFound("Cover file missing or could not be loaded.");
+
+            if (refValue.StartsWith("/", StringComparison.Ordinal))
             {
-                var client = _httpClientFactory.CreateClient();
-                var resp = await client.GetAsync(refValue, cancellationToken);
-                if (!resp.IsSuccessStatusCode)
-                    return BadRequest("Could not fetch remote cover asset.");
-                bytes = await resp.Content.ReadAsByteArrayAsync(cancellationToken);
-                contentType = resp.Content.Headers.ContentType?.MediaType ?? "image/png";
-                ext = contentType.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? "jpg" : "png";
-            }
-            else if (refValue.StartsWith("/", StringComparison.Ordinal))
-            {
-                var rel = refValue.TrimStart('/').Replace('/', Path.DirectorySeparatorChar);
-                var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", rel);
-                if (!System.IO.File.Exists(fullPath))
-                    return NotFound("Cover file missing on disk.");
-                bytes = await System.IO.File.ReadAllBytesAsync(fullPath, cancellationToken);
-                ext = Path.GetExtension(fullPath).ToLowerInvariant().TrimStart('.');
+                ext = Path.GetExtension(refValue).ToLowerInvariant().TrimStart('.');
+                if (string.IsNullOrEmpty(ext)) ext = "png";
                 contentType = ext switch
                 {
                     "jpg" or "jpeg" => "image/jpeg",
@@ -2198,9 +2254,6 @@ namespace EBookDashboard.Controllers
                     _ => "image/png"
                 };
             }
-
-            if (bytes == null || bytes.Length == 0)
-                return BadRequest("Unsupported cover asset reference.");
 
             // For the standalone front cover, crop the front panel out of a full wrap when needed
             // (Both/Paperback store only the wrap). EnsureFrontPanelBytes is a no-op for true fronts.
@@ -2539,7 +2592,7 @@ namespace EBookDashboard.Controllers
             if (req.Force)
                 await ClearPrintWrapCacheAsync(req.BookId, CancellationToken.None);
 
-            // Local compositor is fast — always build synchronously and return saved assets.
+            // Calls upstream split API (realistic AI wrap); falls back to local compositor if API fails.
             var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
                 sessionUserId.Value,
                 req.BookId,

@@ -2,7 +2,7 @@
     ViewData["Title"] = "AI Cover Design";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var initialBookId = ViewBag.BookId as int? ?? 0;
-    var coverProgressPlaceholder = Url.Content("~/images/books/cover-in-progress.png");
+    var coverProgressPlaceholder = Url.Content("~/images/books/cover-in-progress.svg");
 }
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -452,9 +452,8 @@
 
             <input type="hidden" id="coverGeneratedPayload" value="" />
 
-            <div id="optionsWrap" class="mt-6 hidden w-full">
-                <h3 class="text-sm font-semibold text-slate-800 mb-3">Cover options <span class="text-slate-400 font-normal">(tap to select your favorite)</span></h3>
-                <div id="optionsGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+            <div id="optionsWrap" class="mt-6 hidden w-full" aria-hidden="true" hidden>
+                <div id="optionsGrid" class="hidden"></div>
             </div>
             </div>
         </div>
@@ -567,6 +566,35 @@
         return bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both';
     }
 
+    /** Saved front cover on disk — required before any full-wrap API call. */
+    function hasSavedFrontForWrap() {
+        if (selectedPath && String(selectedPath).trim() && String(selectedPath).indexOf('data:') !== 0) return true;
+        var front = (selectedBook && (selectedBook.aiCoverLastPreview || selectedBook.coverImagePath)) || '';
+        return !!String(front).trim() && String(front).indexOf('data:') !== 0;
+    }
+
+    function resetPrintWrapPreviewUi() {
+        coverWraparoundRef = '';
+        setPrintWrapSaved(false);
+        showCovFullWrapSection(false);
+        var tabs = document.getElementById('covWrapViewTabs');
+        if (tabs) tabs.classList.add('hidden');
+        setCovWrapView('front');
+        var img = document.getElementById('covFullWrapImg');
+        if (img) { img.src = ''; img.classList.add('hidden'); }
+        var building = document.getElementById('covFullWrapBuilding');
+        if (building) building.classList.add('hidden');
+        var placeholder = document.getElementById('covFullWrapPlaceholder');
+        if (placeholder) {
+            placeholder.textContent = 'Full wrap appears here after you generate your front cover.';
+            placeholder.classList.remove('hidden');
+        }
+        var badge = document.getElementById('covWrapSavedBadge');
+        if (badge) badge.classList.add('hidden');
+        var banner = document.getElementById('covWrapBuildBanner');
+        if (banner) banner.classList.add('hidden');
+    }
+
     function syncPrintWrapUiVisibility() {
         var show = needsPrintWrapAutoBuild();
         var banner = document.getElementById('covWrapBuildBanner');
@@ -610,6 +638,10 @@
 
     function buildPrintWrapNow(forceRebuild) {
         if (!selectedBook || !selectedBook.bookId || !needsPrintWrapAutoBuild()) return Promise.resolve(null);
+        if (!hasSavedFrontForWrap()) {
+            resetPrintWrapPreviewUi();
+            return Promise.resolve(null);
+        }
         if (covWrapBuildInFlight && covWrapBuildPromise) return covWrapBuildPromise;
 
         updateCovWrapBuildBanner({ wrapCoverStatus: 'Generating' });
@@ -637,7 +669,16 @@
                     genre: (bookCategory.value || '').trim()
                 })
             });
-        }).then(function (r) { return r.json(); })
+        }).then(function (r) {
+            if (!r.ok) {
+                return r.text().then(function (t) {
+                    var msg = 'Full wrap generation failed.';
+                    try { var j = JSON.parse(t); if (j && j.message) msg = j.message; } catch (_) {}
+                    throw new Error(msg);
+                });
+            }
+            return r.json();
+        })
         .then(function (d) {
                 if (d && d.success && d.cover) {
                 var wrap = (d.cover.wrap || '').trim();
@@ -705,10 +746,16 @@
         if (!banner || !needsPrintWrapAutoBuild()) return;
         var wrap = data && data.cover ? (String(data.cover.wrap || '').trim()) : (coverWraparoundRef || '').trim();
         var status = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : '';
-        var hasFront = !!(selectedPath || (data && data.cover && data.cover.front) || (selectedBook && selectedBook.aiCoverLastPreview));
-        if (wrap || status === 'Ready') {
+        var wrapMatches = data && data.wrapMatchesFront !== false;
+        var hasFront = hasSavedFrontForWrap();
+        if (wrap && wrapMatches && (status === 'Ready' || status === '')) {
             banner.classList.add('hidden');
-                if (wrap) showCovFullWrapPreview(wrap, d.pageCount || 0);
+            showCovFullWrapPreview(wrap, data && data.pageCount ? data.pageCount : 0);
+            return;
+        }
+        if (status === 'Stale' || (wrap && !wrapMatches)) {
+            banner.classList.add('hidden');
+            resetPrintWrapPreviewUi();
             return;
         }
         if (!hasFront) {
@@ -726,7 +773,7 @@
             if (text) text.textContent = 'Full wrap build failed. Regenerate your front cover, then we will retry automatically.';
             return;
         }
-        if (text) text.textContent = 'Building your full print wrap (back + spine + front)…';
+        if (text) text.textContent = 'Building your full print wrap via AI (back + spine + front) — this can take 1–2 minutes…';
     }
 
     function startCovWrapStatusPolling() {
@@ -1119,9 +1166,7 @@
                             if (fmt === 'Print') fmt = 'Paperback';
                             bookPublishFormat = fmt;
                             syncPrintWrapUiVisibility();
-                            if (needsPrintWrapAutoBuild() && (selectedPath || (b.aiCoverLastPreview || b.coverImagePath))) {
-                                buildPrintWrapNow(false);
-                            }
+                            /* Full wrap builds only after front cover generate — not on page load. */
                         }
                     })
                     .catch(function () {});
@@ -1293,36 +1338,40 @@
                 var c = d.cover;
                 if (!c.front && !c.wrap) return;
 
-                if (c.wrap) coverWraparoundRef = c.wrap;
-                updateCovWrapBuildBanner(d);
-                if (c.wrap) {
+                var wrapMatches = d.wrapMatchesFront !== false;
+                if (c.wrap && wrapMatches) {
+                    coverWraparoundRef = c.wrap;
+                    updateCovWrapBuildBanner(d);
                     showCovFullWrapPreview(c.wrap, d.pageCount || 0);
-                } else if (needsPrintWrapAutoBuild() && c.front) {
-                    buildPrintWrapNow(false);
+                } else {
+                    resetPrintWrapPreviewUi();
+                    if (c.front && needsPrintWrapAutoBuild()) {
+                        updateCovWrapBuildBanner({ wrapCoverStatus: 'Missing', cover: { front: c.front } });
+                    }
                 }
                 printWrapAssets = {
                     front: c.front || '',
                     back: c.back || '',
                     spine: c.spine || '',
-                    wrap: c.wrap || '',
+                    wrap: wrapMatches ? (c.wrap || '') : '',
                     pageCount: d.pageCount || 0
                 };
-                setPrintWrapSaved(!!c.wrap);
+                setPrintWrapSaved(!!(c.wrap && wrapMatches));
                 coverHistory = [];
-                var latest = c.front || c.wrap;
-                if (latest) {
-                    applyBestFrontPreview(latest).catch(function () {
-                        selectedPath = latest;
-                        setCoverImageVisible(toUrl(latest));
+                var frontOnly = (c.front || '').trim();
+                if (frontOnly) {
+                    applyBestFrontPreview(frontOnly).catch(function () {
+                        selectedPath = frontOnly;
+                        setCoverImageVisible(toUrl(frontOnly));
                     });
-                    pushCoverHistory(latest);
+                    pushCoverHistory(frontOnly);
                     if (selectedBook && selectedBook.bookId) {
-                        selectedBook.aiCoverLastPreview = latest;
-                        if (latest.indexOf('data:') !== 0) selectedBook.coverImagePath = c.front || latest;
-                        persistCoverSelection(selectedBook.bookId, latest);
+                        selectedBook.aiCoverLastPreview = frontOnly;
+                        selectedBook.coverImagePath = frontOnly;
+                        persistCoverSelection(selectedBook.bookId, frontOnly);
                         patchBooksCache(selectedBook.bookId, {
-                            aiCoverLastPreview: latest,
-                            coverImagePath: c.front || selectedBook.coverImagePath
+                            aiCoverLastPreview: frontOnly,
+                            coverImagePath: frontOnly
                         });
                     }
                 }
@@ -1380,88 +1429,50 @@
         if (btnGenerate) btnGenerate.classList.toggle('hidden', ready);
     }
 
+    function hideCoverOptionsGrid() {
+        if (optionsWrap) {
+            optionsWrap.classList.add('hidden');
+            optionsWrap.setAttribute('hidden', 'hidden');
+        }
+        if (optionsGrid) optionsGrid.innerHTML = '';
+    }
+
     function pushCoverHistory(url) {
-        if (!url) return;
-        coverHistory = coverHistory.filter(function (u) { return u !== url; });
-        coverHistory.unshift(url);
-        if (coverHistory.length > MAX_HISTORY) coverHistory.length = MAX_HISTORY;
-        renderHistoryThumbnails();
+        /* Single front cover only — no multi-option grid. */
+        hideCoverOptionsGrid();
     }
 
     function renderHistoryThumbnails() {
-        if (!coverHistory.length) {
-            optionsWrap.classList.add('hidden');
-            optionsGrid.innerHTML = '';
-            return;
-        }
-        optionsWrap.classList.remove('hidden');
-        optionsGrid.innerHTML = coverHistory.map(function (p, idx) {
-            var u = toUrl(p).replace(/"/g, '&quot;');
-            var sel = (p === selectedPath) ? 'border-violet-600 ring-2 ring-violet-300' : 'border-slate-200';
-            return '<button type="button" class="option-tile relative rounded-2xl overflow-hidden border-2 ' + sel + ' hover:border-violet-500 transition-all focus:outline-none focus:ring-2 focus:ring-violet-400" data-path="' + (p || '').replace(/"/g, '&quot;') + '">' +
-                '<img src="' + u + '" alt="" class="w-full aspect-[2/3] object-cover" loading="lazy" />' +
-                '<span class="absolute bottom-2 right-2 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded-full">' + (idx + 1) + '</span></button>';
-        }).join('');
-
-        Array.prototype.forEach.call(optionsGrid.querySelectorAll('.option-tile'), function (btn) {
-            btn.addEventListener('click', function () {
-                if (selectedOptionEl) {
-                    selectedOptionEl.classList.remove('border-violet-600', 'ring-2', 'ring-violet-300');
-                    selectedOptionEl.classList.add('border-slate-200');
-                }
-                selectedOptionEl = btn;
-                btn.classList.add('border-violet-600', 'ring-2', 'ring-violet-300');
-                btn.classList.remove('border-slate-200');
-                selectedPath = btn.getAttribute('data-path') || '';
-                setCoverImageVisible(toUrl(selectedPath));
-                if (selectedBook && selectedBook.bookId) {
-                    persistCoverSelection(selectedBook.bookId, selectedPath);
-                    setServerActiveCover(selectedBook.bookId, selectedPath);
-                }
-                if (coverGeneratedPayload) coverGeneratedPayload.value = selectedPath.indexOf('data:') === 0 ? selectedPath.substring(0, 120) + '…' : selectedPath;
-                renderHistoryThumbnails();
-            });
-        });
-        refreshLucide();
+        hideCoverOptionsGrid();
     }
 
-    /** Normalize API response: supports { status, image_base64 }, { success, options }, { imageDataUrl }. */
+    /** Front cover URL only — never wrap/spine/back (those are separate). */
+    function pickFrontCoverUrl(d) {
+        if (!d) return '';
+        if (d.coverUrl) return d.coverUrl;
+        if (d.cover && d.cover.front) return d.cover.front;
+        if (d.status === 'success' && d.image_base64) return 'data:image/png;base64,' + d.image_base64;
+        if (d.imageDataUrl) return d.imageDataUrl;
+        if (d.options && d.options.length) return d.options[0];
+        return '';
+    }
+
+    /** Legacy alias — use pickFrontCoverUrl */
     function pickPreviewUrls(d) {
-        var urls = [];
-        if (!d) return urls;
-        if (d.coverUrl) urls.push(d.coverUrl);
-        if (d.cover) {
-            if (d.cover.wrap) urls.push(d.cover.wrap);
-            if (d.cover.front) urls.push(d.cover.front);
-            if (d.cover.back) urls.push(d.cover.back);
-            if (d.cover.spine) urls.push(d.cover.spine);
-        }
-        if (d.status === 'success' && d.image_base64) {
-            urls.push('data:image/png;base64,' + d.image_base64);
-        }
-        if (d.imageDataUrl) urls.push(d.imageDataUrl);
-        if (d.options && d.options.length) {
-            d.options.forEach(function (o) { if (o) urls.push(o); });
-        }
-        var seen = {};
-        return urls.filter(function (u) {
-            if (!u || seen[u]) return false;
-            seen[u] = true;
-            return true;
-        });
+        var u = pickFrontCoverUrl(d);
+        return u ? [u] : [];
     }
 
     function applyGenerationSuccess(d, label) {
-        var urls = pickPreviewUrls(d);
-        if (!urls.length) {
+        var primary = pickFrontCoverUrl(d);
+        if (!primary) {
             toast('error', (d && d.message) ? d.message : 'No image returned.');
             return;
         }
         hasAiCoverThisSession = true;
-        coverHistory = [];
-        var primary = urls[0];
-        pushCoverHistory(primary);
-        urls.slice(1).forEach(function (u) { pushCoverHistory(u); });
+        coverHistory = [primary];
+        selectedPath = primary;
+        hideCoverOptionsGrid();
         applyBestFrontPreview(primary).catch(function () {
             selectedPath = primary;
             setCoverImageVisible(toUrl(primary));
@@ -1470,6 +1481,7 @@
             selectedBook.aiCoverLastPreview = primary;
             if (primary.indexOf('data:') !== 0) selectedBook.coverImagePath = primary;
             persistCoverSelection(selectedBook.bookId, primary);
+            setServerActiveCover(selectedBook.bookId, primary);
             var cachePatch = { aiCoverLastPreview: primary };
             if (primary.indexOf('data:') !== 0) cachePatch.coverImagePath = primary;
             patchBooksCache(selectedBook.bookId, cachePatch);
@@ -1481,11 +1493,11 @@
                     : primary;
             }
         } catch (e) { /* ignore */ }
-        toast('success', label === 'edit' ? 'Cover updated.' : 'Cover ready.');
+        toast('success', label === 'edit' ? 'Cover updated.' : 'Front cover ready — building full print wrap…');
         updateLivePreview();
         setPrintWrapSaved(false);
-        if (needsPrintWrapAutoBuild()) queuePrintWrapInBackground();
-        setTimeout(function () { renderHistoryThumbnails(); }, 0);
+        resetPrintWrapPreviewUi();
+        if (needsPrintWrapAutoBuild() && hasSavedFrontForWrap()) buildPrintWrapNow(true);
     }
 
     function setBusy(busy, label) {
@@ -1674,7 +1686,7 @@
             if (imageDirection) imageDirection.focus();
             return;
         }
-        // Cover Design: one cover button; full wrap builds silently when format is Paperback/Both.
+        // Step 1: front cover only. Step 2: full wrap (Paperback/Both) runs after front succeeds.
         await generateFrontCoverOnly(endpointUrl);
     }
 
@@ -1753,6 +1765,7 @@
         coverHistory = [];
         hasAiCoverThisSession = false;
         selectedOptionEl = null;
+        resetPrintWrapPreviewUi();
         optionsWrap.classList.add('hidden');
         optionsGrid.innerHTML = '';
         updateLivePreview();

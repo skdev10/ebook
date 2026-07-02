@@ -1518,18 +1518,47 @@
     var publishWrapCoverReady = !!(String(pbCoverWrapRef || '').trim());
     var publishWrapPollTimer = null;
 
+    function normalizePublishCoverAssets(assets) {
+        if (!assets) return null;
+        if (assets.cover && ((assets.cover.wrap || '').trim() || (assets.cover.front || '').trim())) return assets;
+        var wrap = (assets.wrap || '').trim();
+        var front = (assets.front || pbCoverRef || '').trim();
+        if (!wrap && !front) return null;
+        return {
+            cover: {
+                wrap: wrap,
+                front: front,
+                spine: (assets.spine || '').trim(),
+                back: (assets.back || '').trim()
+            },
+            pageCount: assets.pageCount || pbEstimatedPages || 0,
+            layout: assets.layout || null,
+            trimSize: assets.trimSize || null
+        };
+    }
+
     function syncWrapReadyFromAssets(data) {
+        var prev = window._publishCoverAssets || {};
         var wrap = data && data.cover ? (data.cover.wrap || '').trim() : '';
         var status = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : '';
-        publishWrapCoverReady = !!wrap || status === 'Ready';
-        window._publishCoverAssets = window._publishCoverAssets || {};
-        window._publishCoverAssets.wrapCoverStatus = status;
-        if (wrap) window._publishCoverAssets.wrap = wrap;
-        if (data && data.cover) {
-            window._publishCoverAssets.front = (data.cover.front || window._publishCoverAssets.front || '').trim();
-            window._publishCoverAssets.spine = (data.cover.spine || window._publishCoverAssets.spine || '').trim();
-            window._publishCoverAssets.back = (data.cover.back || window._publishCoverAssets.back || '').trim();
+        publishWrapCoverReady = !!wrap;
+        if (!publishWrapCoverReady && status === 'Ready') {
+            var cached = (prev.cover && prev.cover.wrap) || String(pbCoverWrapRef || '').trim();
+            publishWrapCoverReady = !!cached;
+            if (publishWrapCoverReady && !wrap) wrap = cached;
         }
+        window._publishCoverAssets = {
+            cover: data && data.cover ? {
+                wrap: wrap,
+                front: (data.cover.front || prev.cover && prev.cover.front || pbCoverRef || '').trim(),
+                spine: (data.cover.spine || prev.cover && prev.cover.spine || '').trim(),
+                back: (data.cover.back || prev.cover && prev.cover.back || '').trim()
+            } : (prev.cover || { wrap: wrap, front: pbCoverRef || '', spine: '', back: '' }),
+            pageCount: (data && data.pageCount) || prev.pageCount || pbEstimatedPages || 0,
+            layout: (data && data.layout) || prev.layout || null,
+            trimSize: (data && data.trimSize) || prev.trimSize || null,
+            wrapCoverStatus: status
+        };
         updateWrapExportButtonState(data);
         return publishWrapCoverReady;
     }
@@ -1556,7 +1585,8 @@
             if (statusEl) { statusEl.textContent = ''; statusEl.classList.add('hidden'); }
             if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
             if (hintEl) hintEl.classList.add('hidden');
-            var wrap = data && data.cover ? (data.cover.wrap || '').trim() : (window._publishCoverAssets && window._publishCoverAssets.wrap) || '';
+            var wrap = data && data.cover ? (data.cover.wrap || '').trim()
+                : ((window._publishCoverAssets && window._publishCoverAssets.cover && window._publishCoverAssets.cover.wrap) || '').trim();
             if (wrap) applySavedCoverPreview(wrap);
             return;
         }
@@ -1812,19 +1842,20 @@
     function applyPublishCoverForFormat() {
         var img = document.getElementById('publishBookCoverImg');
         var shell = document.getElementById('publishBookCoverShell');
-        var assets = window._publishCoverAssets || { front: pbCoverRef || '', wrap: pbCoverWrapRef || '' };
+        var assets = window._publishCoverAssets || {};
+        var cover = assets.cover || {};
         var fmt = (publishBookFormat || 'Ebook').trim();
         if (fmt === 'Print') fmt = 'Paperback';
         var useWrap = fmt === 'Paperback' || fmt === 'Both';
         var url = useWrap
-            ? ((assets.wrap || '').trim() || (assets.front || pbCoverRef || '').trim())
-            : ((assets.front || assets.wrap || pbCoverRef || '').trim());
+            ? ((cover.wrap || '').trim() || (cover.front || pbCoverRef || '').trim())
+            : ((cover.front || cover.wrap || pbCoverRef || '').trim());
         if (!img) return;
         if (!url) return;
         img.src = url;
-        img.classList.toggle('publish-cover-img--wrap', useWrap && assets.wrap);
-        if (shell) shell.classList.toggle('book-cover--wrap', useWrap && assets.wrap);
-        if (!useWrap || !assets.wrap) markPublishCoverImage(img);
+        img.classList.toggle('publish-cover-img--wrap', useWrap && cover.wrap);
+        if (shell) shell.classList.toggle('book-cover--wrap', useWrap && cover.wrap);
+        if (!useWrap || !cover.wrap) markPublishCoverImage(img);
     }
 
     function persistPublishFormat(fmt) {
@@ -2364,7 +2395,10 @@
     }
 
     function buildPrintWrapFromAssets(assets) {
-        if (!assets || !assets.cover) return Promise.reject(new Error('Cover not available yet. Generate your cover in Cover Design first.'));
+        assets = normalizePublishCoverAssets(assets);
+        if (!assets || !assets.cover) {
+            return Promise.reject(new Error('Cover not available yet. Generate your cover in Cover Design first.'));
+        }
         var c = assets.cover;
         var frontUrl = (c.front || '').trim();
         var wrapUrl = (c.wrap || '').trim();
@@ -2447,7 +2481,12 @@
                         });
                     }
                     var assets = window._publishCoverAssets || {};
-                    return buildPrintWrapFromAssets(assets).then(function (out) {
+                    return fetchPrintReadyCoverAssets()
+                        .then(function (fresh) {
+                            syncWrapReadyFromAssets(fresh);
+                            return buildPrintWrapFromAssets(fresh || assets);
+                        })
+                        .then(function (out) {
                         downloadBlobAsFile(out.blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.png');
                         redirectToDashboardAfterExport('Full wrap cover downloaded.', 'print');
                     });
@@ -2754,7 +2793,10 @@
         });
     }
 
-    window._publishCoverAssets = { front: pbCoverRef || '', wrap: pbCoverWrapRef || '' };
+    window._publishCoverAssets = {
+        cover: { front: pbCoverRef || '', wrap: pbCoverWrapRef || '', spine: '', back: '' },
+        pageCount: pbEstimatedPages || 0
+    };
     setPublishFormat(publishBookFormat || 'Ebook', false);
 
     function setImgOrLabel(imgEl, labelEl, value) {
@@ -2817,8 +2859,9 @@
             return;
         }
         var assets = window._publishCoverAssets || {};
-        if (!(assets.front || pbCoverRef || '').trim()) {
-            updateWrapExportButtonState({ wrapCoverStatus: 'Missing' });
+        var cover = assets.cover || {};
+        if (!(cover.front || pbCoverRef || '').trim()) {
+            updateWrapExportButtonState({ wrapCoverStatus: 'MissingFront' });
             return;
         }
         var errorEl = document.getElementById('publishWrapPreloadError');
@@ -2835,10 +2878,15 @@
                 var wrap = (c.wrap || '').trim();
                 var front = (c.front || '').trim();
                 window._publishCoverAssets = {
-                    front: front || pbCoverRef || '',
-                    wrap: wrap || pbCoverWrapRef || '',
-                    spine: (c.spine || '').trim(),
-                    back: (c.back || '').trim()
+                    cover: {
+                        front: front || pbCoverRef || '',
+                        wrap: wrap || pbCoverWrapRef || '',
+                        spine: (c.spine || '').trim(),
+                        back: (c.back || '').trim()
+                    },
+                    pageCount: data.pageCount || pbEstimatedPages || 0,
+                    layout: data.layout || null,
+                    trimSize: data.trimSize || null
                 };
                 syncWrapReadyFromAssets(data);
                 if (wrap) applySavedCoverPreview(wrap);

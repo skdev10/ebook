@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using EBookDashboard.Application.Kdp.Constants;
 using EBookDashboard.Application.Kdp.DTOs;
@@ -8,15 +9,20 @@ using EBookDashboard.Infrastructure;
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
+using EBookDashboard.Models.Options;
+using EBookDashboard.Services.BookApi;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json.Linq;
 
 namespace EBookDashboard.Services;
 
 /// <summary>
-/// Builds full print wrap locally from the saved front cover bytes (ImageSharp compositing).
-/// Never stores upstream AI full-wrap images — the front panel is always the approved front asset.
+/// Builds full print wrap from the saved front cover via upstream
+/// <c>/api/generate-spine-book-cover-split</c>. Falls back to local ImageSharp compositing when the API is unavailable.
 /// </summary>
 public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
 {
@@ -30,6 +36,9 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
     private readonly IBookService _bookService;
     private readonly IBookPageMetricsService _pageMetrics;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IBookApiClient _bookApiClient;
+    private readonly IOptions<ExternalApiOptions> _externalApiOptions;
+    private readonly IConfiguration _configuration;
     private readonly IKdpCoverDimensionService _kdpCoverDimensions;
     private readonly IPrintWrapCompositor _wrapCompositor;
     private readonly IWebHostEnvironment _env;
@@ -40,6 +49,9 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         IBookService bookService,
         IBookPageMetricsService pageMetrics,
         IHttpClientFactory httpClientFactory,
+        IBookApiClient bookApiClient,
+        IOptions<ExternalApiOptions> externalApiOptions,
+        IConfiguration configuration,
         IKdpCoverDimensionService kdpCoverDimensions,
         IPrintWrapCompositor wrapCompositor,
         IWebHostEnvironment env,
@@ -49,6 +61,9 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         _bookService = bookService;
         _pageMetrics = pageMetrics;
         _httpClientFactory = httpClientFactory;
+        _bookApiClient = bookApiClient;
+        _externalApiOptions = externalApiOptions;
+        _configuration = configuration;
         _kdpCoverDimensions = kdpCoverDimensions;
         _wrapCompositor = wrapCompositor;
         _env = env;
@@ -164,8 +179,165 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var user = await _context.Users.AsNoTracking()
             .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
         var authorName = (user?.FullName ?? user?.UserEmail ?? userId.ToString(CultureInfo.InvariantCulture)).Trim();
-        var description = ResolveBackCoverDescription(book, details);
+        var frontHashFinal = Convert.ToHexString(SHA256.HashData(frontBytes));
 
+        if (await TryGenerateViaSplitApiAsync(
+                userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
+                title, authorName, trimSize, pageCount, kdp, cancellationToken))
+        {
+            return true;
+        }
+
+        _logger.LogWarning(
+            "Split wrap API failed for book {BookId}; falling back to local compositor.",
+            bookId);
+
+        return await TryGenerateViaLocalCompositorAsync(
+            userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
+            title, authorName, description: ResolveBackCoverDescription(book, details),
+            pageCount, trimSize, kdp, exportOpt, cancellationToken);
+    }
+
+    private async Task<bool> TryGenerateViaSplitApiAsync(
+        int userId,
+        int bookId,
+        byte[] frontBytes,
+        string frontAssetRef,
+        string frontHash,
+        string title,
+        string authorName,
+        string trimSize,
+        int pageCount,
+        KdpCalculateResponse kdp,
+        CancellationToken cancellationToken)
+    {
+        var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            _logger.LogWarning("Split wrap API skipped for book {BookId}: no ExternalApi API key configured.", bookId);
+            return false;
+        }
+
+        var opt = _externalApiOptions.Value;
+        var apiUrl = _bookApiClient.ResolveUrl(opt.GenerateSpineBookCoverSplitUrl, "/api/generate-spine-book-cover-split").Trim();
+        var size = BookApiInputValidation.NormalizeSize(
+            (opt.PrintReadyCoverSize ?? "1536x1024").Trim(),
+            "1536x1024");
+        var quality = BookApiInputValidation.NormalizeQuality(
+            (opt.PrintReadyCoverQuality ?? "high").Trim(),
+            "high");
+
+        var encodedImage = Convert.ToBase64String(frontBytes);
+        var payload = new JObject
+        {
+            ["title"] = title,
+            ["author_name"] = authorName,
+            ["encoded_image"] = encodedImage,
+            ["size"] = size,
+            ["quality"] = quality,
+            ["Interior_trim_size"] = trimSize,
+            ["paper_type"] = NormalizePaperTypeForExternalApi(kdp.PaperType),
+            ["page_count"] = pageCount
+        };
+
+        try
+        {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            httpRequest.Content = new StringContent(
+                payload.ToString(Newtonsoft.Json.Formatting.None),
+                Encoding.UTF8,
+                "application/json");
+
+            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, upstreamCts.Token);
+            var response = await _bookApiClient.SendAsync(
+                httpRequest, BookApiCallTimeoutKind.LongRunning, linkedCts.Token);
+            var responseData = await response.Content.ReadAsStringAsync(linkedCts.Token);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Split wrap API HTTP {Code} for book {BookId}: {Body}",
+                    (int)response.StatusCode, bookId,
+                    responseData.Length > 500 ? responseData[..500] + "…" : responseData);
+                return false;
+            }
+
+            var assets = CoverExternalApiHelper.ExtractNamedCoverAssetsFromApiResponse(responseData);
+            var urls = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(responseData);
+            var wrapRef = !string.IsNullOrWhiteSpace(assets.Wrap)
+                ? assets.Wrap
+                : (urls.FirstOrDefault() ?? "");
+
+            if (string.IsNullOrWhiteSpace(wrapRef))
+            {
+                _logger.LogWarning("Split wrap API returned no wrap image for book {BookId}.", bookId);
+                return false;
+            }
+
+            var persistedWrap = await PersistCoverRefAsync(userId, bookId, wrapRef, "wrap-api", cancellationToken);
+            if (string.IsNullOrWhiteSpace(persistedWrap))
+            {
+                _logger.LogWarning("Split wrap API response could not be persisted for book {BookId}.", bookId);
+                return false;
+            }
+
+            var persistedBack = string.IsNullOrWhiteSpace(assets.Back)
+                ? ""
+                : (await PersistCoverRefAsync(userId, bookId, assets.Back, "back-api", cancellationToken) ?? "");
+            var persistedSpine = string.IsNullOrWhiteSpace(assets.Spine)
+                ? ""
+                : (await PersistCoverRefAsync(userId, bookId, assets.Spine, "spine-api", cancellationToken) ?? "");
+
+            if (persistedWrap.Length <= Settings.DbCompatMaxValueLength)
+            {
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapApi", persistedWrap, cancellationToken);
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrap", persistedWrap, cancellationToken);
+            }
+            if (!string.IsNullOrWhiteSpace(persistedBack))
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverBack", persistedBack, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(persistedSpine))
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverSpine", persistedSpine, cancellationToken);
+
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", frontAssetRef, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", frontHash, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyPageCount", pageCount.ToString(CultureInfo.InvariantCulture), cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyTrimSize", trimSize, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, cancellationToken);
+
+            _logger.LogInformation(
+                "Print wrap generated via split API for book {BookId} ({Pages} pages, frontSha256={HashPrefix}…)",
+                bookId, pageCount, frontHash[..Math.Min(12, frontHash.Length)]);
+
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Split wrap API timed out for book {BookId}.", bookId);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Split wrap API call failed for book {BookId}.", bookId);
+            return false;
+        }
+    }
+
+    private async Task<bool> TryGenerateViaLocalCompositorAsync(
+        int userId,
+        int bookId,
+        byte[] frontBytes,
+        string frontAssetRef,
+        string frontHash,
+        string title,
+        string authorName,
+        string description,
+        int pageCount,
+        string trimSize,
+        KdpCalculateResponse kdp,
+        BookPdfExportOptions exportOpt,
+        CancellationToken cancellationToken)
+    {
         var theme = BookTheme.FromExportOptions(exportOpt);
 
         try
@@ -181,7 +353,6 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
                 Theme = theme
             });
 
-            var frontHash = Convert.ToHexString(SHA256.HashData(frontBytes));
             var persistedPath = await SaveCoverBytesToUploadsAsync(
                 userId, bookId, composed.PngBytes, ".png", cancellationToken);
 
@@ -193,8 +364,8 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, cancellationToken);
 
             _logger.LogInformation(
-                "Print wrap composed locally for book {BookId} ({Pages} pages, frontSha256={HashPrefix}…)",
-                bookId, pageCount, frontHash[..Math.Min(12, frontHash.Length)]);
+                "Print wrap composed locally (fallback) for book {BookId} ({Pages} pages).",
+                bookId, pageCount);
 
             return true;
         }
@@ -204,6 +375,30 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             _logger.LogError(ex, "Local print wrap compositing failed for book {BookId}", bookId);
             return false;
         }
+    }
+
+    private async Task<string?> PersistCoverRefAsync(
+        int userId,
+        int bookId,
+        string imageRef,
+        string filePrefix,
+        CancellationToken cancellationToken)
+    {
+        var normalized = CoverExternalApiHelper.NormalizeImageRef(imageRef);
+        if (string.IsNullOrWhiteSpace(normalized)) return null;
+
+        if (normalized.StartsWith("/", StringComparison.Ordinal))
+            return normalized;
+
+        var bytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+            normalized, _env.WebRootPath, _httpClientFactory, cancellationToken);
+        if (bytes == null || bytes.Length == 0) return null;
+
+        var ext = normalized.Contains("jpeg", StringComparison.OrdinalIgnoreCase)
+            || normalized.Contains("jpg", StringComparison.OrdinalIgnoreCase)
+            ? ".jpg"
+            : ".png";
+        return await SaveCoverBytesToUploadsAsync(userId, bookId, bytes, ext, filePrefix, cancellationToken);
     }
 
     /// <summary>
@@ -235,6 +430,13 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
 
     private static readonly Regex HtmlTagRegex = new("<[^>]+>", RegexOptions.Compiled);
     private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+
+    private static string NormalizePaperTypeForExternalApi(string? paperType)
+    {
+        if ((paperType ?? "").Contains("cream", StringComparison.OrdinalIgnoreCase))
+            return "cream";
+        return "white";
+    }
 
     private async Task<BookPdfExportOptions> LoadExportOptionsAsync(int userId, int bookId, CancellationToken cancellationToken)
     {
@@ -357,11 +559,20 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         byte[] bytes,
         string ext,
         CancellationToken cancellationToken)
+        => await SaveCoverBytesToUploadsAsync(userId, bookId, bytes, ext, "wrap-composed", cancellationToken);
+
+    private async Task<string> SaveCoverBytesToUploadsAsync(
+        int userId,
+        int bookId,
+        byte[] bytes,
+        string ext,
+        string filePrefix,
+        CancellationToken cancellationToken)
     {
         var relDir = Path.Combine("uploads", userId.ToString(CultureInfo.InvariantCulture), "books", bookId.ToString(CultureInfo.InvariantCulture), "covers");
         var absDir = Path.Combine(_env.WebRootPath, relDir);
         Directory.CreateDirectory(absDir);
-        var fileName = $"wrap-composed-{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
+        var fileName = $"{filePrefix}-{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
         var absPath = Path.Combine(absDir, fileName);
         await File.WriteAllBytesAsync(absPath, bytes, cancellationToken);
         return "/" + Path.Combine(relDir, fileName).Replace('\\', '/');
