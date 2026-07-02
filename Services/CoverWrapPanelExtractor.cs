@@ -72,4 +72,36 @@ public static class CoverWrapPanelExtractor
             return sourceBytes;
         }
     }
+
+    /// <summary>Returns true when the front panel cropped from a wrap matches the saved front cover image.</summary>
+    public static bool FrontPanelMatchesSavedFront(byte[] wrapBytes, byte[] frontBytes, int pageCount, string? trimSize)
+    {
+        if (wrapBytes.Length == 0 || frontBytes.Length == 0) return false;
+        try
+        {
+            var extracted = EnsureFrontPanelBytes(wrapBytes, pageCount, trimSize, assumeWrap: true);
+            using var ext = Image.Load<Rgba32>(extracted);
+            using var front = Image.Load<Rgba32>(frontBytes);
+            using var norm = front.Clone(c => c.Resize(ext.Width, ext.Height, KnownResamplers.Lanczos3));
+
+            var mismatches = 0;
+            var total = ext.Width * ext.Height;
+            for (var y = 0; y < ext.Height; y++)
+            {
+                for (var x = 0; x < ext.Width; x++)
+                {
+                    var a = ext[x, y];
+                    var b = norm[x, y];
+                    if (a.R != b.R || a.G != b.G || a.B != b.B || a.A != b.A)
+                        mismatches++;
+                }
+            }
+
+            return total <= 0 || (double)mismatches / total <= 0.02;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

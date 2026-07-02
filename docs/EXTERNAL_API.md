@@ -41,7 +41,7 @@ Store the key in `/etc/default/ebookai` as `ExternalApi__ApiKey=...` on the serv
 | 11 | `/api/generate-spine-book-cover` | POST | Full wrap (AI generates front+spine+back together) | Slow |
 | 12 | `/api/generate-spine-book-cover-split` | POST | **Full wrap from saved front cover** (recommended) | Slow (~1–2 min) |
 
-**Print wrap in EbookAI:** When format is **Paperback** or **Both**, after you generate a front cover the app calls **`/api/generate-spine-book-cover-split`** with your saved front image (`encoded_image`). That produces a realistic full wrap (back + spine + front). If the upstream API is down, the app falls back to a local ImageSharp compositor.
+**Print wrap in EbookAI:** Step 1 calls **`/api/generate-cover`** (front only). Step 2 builds the full wrap **locally** from that exact front image (back + spine extend the same art). The front panel in the wrap always matches your generated front cover.
 
 **Valid cover sizes:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`
 
@@ -56,7 +56,7 @@ Store the key in `/etc/default/ebookai` as `ExternalApi__ApiKey=...` on the serv
 | Step | User action | Backend |
 |------|-------------|---------|
 | 1 | Write **Image Direction** → click **Generate Cover** | `POST /api/generate-cover` (front only) |
-| 2 | Wait for **Full print wrap** section (Paperback/Both only) | `POST /api/generate-spine-book-cover-split` with saved front `encoded_image` |
+| 2 | Wait for **Full print wrap** (Paperback/Both only) | Local compositor from saved front (same art on front panel) |
 | 3 | **Publish** → download wrap / PDF | Saved assets |
 
 **Important:** Full wrap never runs on page load. It starts only after Step 1 succeeds. Stale wraps (from an old front) are hidden until you regenerate.

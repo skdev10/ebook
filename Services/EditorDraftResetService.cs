@@ -29,7 +29,10 @@ public sealed class EditorDraftResetService : IEditorDraftResetService
         "printReadyCoverSpine",
         "printReadySpineInches",
         "printReadyPageCount",
-        "printReadyTrimSize"
+        "printReadyTrimSize",
+        "printReadyCoverFrontSha256",
+        "printReadyCoverFrontAssetRef",
+        "printReadyCoverWrapStatus"
     ];
 
     public EditorDraftResetService(

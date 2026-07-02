@@ -21,8 +21,8 @@ using Newtonsoft.Json.Linq;
 namespace EBookDashboard.Services;
 
 /// <summary>
-/// Builds full print wrap from the saved front cover via upstream
-/// <c>/api/generate-spine-book-cover-split</c>. Falls back to local ImageSharp compositing when the API is unavailable.
+/// Builds full print wrap locally from the saved front cover (ImageSharp).
+/// Front panel pixels match generate-cover exactly; back and spine extend that same artwork.
 /// </summary>
 public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
 {
@@ -180,147 +180,12 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
         var authorName = (user?.FullName ?? user?.UserEmail ?? userId.ToString(CultureInfo.InvariantCulture)).Trim();
         var frontHashFinal = Convert.ToHexString(SHA256.HashData(frontBytes));
-
-        if (await TryGenerateViaSplitApiAsync(
-                userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
-                title, authorName, trimSize, pageCount, kdp, cancellationToken))
-        {
-            return true;
-        }
-
-        _logger.LogWarning(
-            "Split wrap API failed for book {BookId}; falling back to local compositor.",
-            bookId);
+        var description = ResolveBackCoverDescription(book, details);
 
         return await TryGenerateViaLocalCompositorAsync(
             userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
-            title, authorName, description: ResolveBackCoverDescription(book, details),
+            title, authorName, description,
             pageCount, trimSize, kdp, exportOpt, cancellationToken);
-    }
-
-    private async Task<bool> TryGenerateViaSplitApiAsync(
-        int userId,
-        int bookId,
-        byte[] frontBytes,
-        string frontAssetRef,
-        string frontHash,
-        string title,
-        string authorName,
-        string trimSize,
-        int pageCount,
-        KdpCalculateResponse kdp,
-        CancellationToken cancellationToken)
-    {
-        var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
-        if (string.IsNullOrEmpty(apiKey))
-        {
-            _logger.LogWarning("Split wrap API skipped for book {BookId}: no ExternalApi API key configured.", bookId);
-            return false;
-        }
-
-        var opt = _externalApiOptions.Value;
-        var apiUrl = _bookApiClient.ResolveUrl(opt.GenerateSpineBookCoverSplitUrl, "/api/generate-spine-book-cover-split").Trim();
-        var size = BookApiInputValidation.NormalizeSize(
-            (opt.PrintReadyCoverSize ?? "1536x1024").Trim(),
-            "1536x1024");
-        var quality = BookApiInputValidation.NormalizeQuality(
-            (opt.PrintReadyCoverQuality ?? "high").Trim(),
-            "high");
-
-        var encodedImage = Convert.ToBase64String(frontBytes);
-        var payload = new JObject
-        {
-            ["title"] = title,
-            ["author_name"] = authorName,
-            ["encoded_image"] = encodedImage,
-            ["size"] = size,
-            ["quality"] = quality,
-            ["Interior_trim_size"] = trimSize,
-            ["paper_type"] = NormalizePaperTypeForExternalApi(kdp.PaperType),
-            ["page_count"] = pageCount
-        };
-
-        try
-        {
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-            httpRequest.Content = new StringContent(
-                payload.ToString(Newtonsoft.Json.Formatting.None),
-                Encoding.UTF8,
-                "application/json");
-
-            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, upstreamCts.Token);
-            var response = await _bookApiClient.SendAsync(
-                httpRequest, BookApiCallTimeoutKind.LongRunning, linkedCts.Token);
-            var responseData = await response.Content.ReadAsStringAsync(linkedCts.Token);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogWarning(
-                    "Split wrap API HTTP {Code} for book {BookId}: {Body}",
-                    (int)response.StatusCode, bookId,
-                    responseData.Length > 500 ? responseData[..500] + "…" : responseData);
-                return false;
-            }
-
-            var assets = CoverExternalApiHelper.ExtractNamedCoverAssetsFromApiResponse(responseData);
-            var urls = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(responseData);
-            var wrapRef = !string.IsNullOrWhiteSpace(assets.Wrap)
-                ? assets.Wrap
-                : (urls.FirstOrDefault() ?? "");
-
-            if (string.IsNullOrWhiteSpace(wrapRef))
-            {
-                _logger.LogWarning("Split wrap API returned no wrap image for book {BookId}.", bookId);
-                return false;
-            }
-
-            var persistedWrap = await PersistCoverRefAsync(userId, bookId, wrapRef, "wrap-api", cancellationToken);
-            if (string.IsNullOrWhiteSpace(persistedWrap))
-            {
-                _logger.LogWarning("Split wrap API response could not be persisted for book {BookId}.", bookId);
-                return false;
-            }
-
-            var persistedBack = string.IsNullOrWhiteSpace(assets.Back)
-                ? ""
-                : (await PersistCoverRefAsync(userId, bookId, assets.Back, "back-api", cancellationToken) ?? "");
-            var persistedSpine = string.IsNullOrWhiteSpace(assets.Spine)
-                ? ""
-                : (await PersistCoverRefAsync(userId, bookId, assets.Spine, "spine-api", cancellationToken) ?? "");
-
-            if (persistedWrap.Length <= Settings.DbCompatMaxValueLength)
-            {
-                await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapApi", persistedWrap, cancellationToken);
-                await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrap", persistedWrap, cancellationToken);
-            }
-            if (!string.IsNullOrWhiteSpace(persistedBack))
-                await UpsertSettingAsync($"book:{bookId}:printReadyCoverBack", persistedBack, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(persistedSpine))
-                await UpsertSettingAsync($"book:{bookId}:printReadyCoverSpine", persistedSpine, cancellationToken);
-
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", frontAssetRef, cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", frontHash, cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyPageCount", pageCount.ToString(CultureInfo.InvariantCulture), cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyTrimSize", trimSize, cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, cancellationToken);
-
-            _logger.LogInformation(
-                "Print wrap generated via split API for book {BookId} ({Pages} pages, frontSha256={HashPrefix}…)",
-                bookId, pageCount, frontHash[..Math.Min(12, frontHash.Length)]);
-
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogWarning("Split wrap API timed out for book {BookId}.", bookId);
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Split wrap API call failed for book {BookId}.", bookId);
-            return false;
-        }
     }
 
     private async Task<bool> TryGenerateViaLocalCompositorAsync(
@@ -364,7 +229,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, cancellationToken);
 
             _logger.LogInformation(
-                "Print wrap composed locally (fallback) for book {BookId} ({Pages} pages).",
+                "Print wrap composed locally for book {BookId} ({Pages} pages).",
                 bookId, pageCount);
 
             return true;

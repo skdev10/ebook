@@ -1325,7 +1325,7 @@ namespace EBookDashboard.Controllers
             // D1: generate several cover variations so the user can choose one. The image API
             // returns one image per call and is stochastic, so N calls => up to N distinct options.
             var variationCount = Math.Clamp(
-                int.TryParse(_configuration["ExternalApi:CoverGenerateVariations"], out var vc) ? vc : 3,
+                int.TryParse(_configuration["ExternalApi:CoverGenerateVariations"], out var vc) ? vc : 1,
                 1, 4);
 
             // #8: vary the cover_style per call so the variations are visibly DISTINCT designs.
@@ -2088,7 +2088,7 @@ namespace EBookDashboard.Controllers
 
             var storedSha = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFrontSha256", "").Trim();
             var storedFrontRef = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFrontAssetRef", "").Trim();
-            if (string.IsNullOrEmpty(storedSha)) return true;
+            if (string.IsNullOrEmpty(storedSha)) return false;
 
             if (!string.IsNullOrEmpty(storedFrontRef)
                 && !string.Equals(storedFrontRef, frontRef, StringComparison.OrdinalIgnoreCase))
@@ -2099,7 +2099,19 @@ namespace EBookDashboard.Controllers
             if (frontBytes == null || frontBytes.Length == 0) return false;
 
             var hash = Convert.ToHexString(SHA256.HashData(frontBytes));
-            return string.Equals(storedSha, hash, StringComparison.OrdinalIgnoreCase);
+            if (!string.Equals(storedSha, hash, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            var wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                wrap, webRootPath: null, _httpClientFactory, cancellationToken);
+            if (wrapBytes == null || wrapBytes.Length == 0) return false;
+
+            var pageCountStr = rows.GetValueOrDefault($"book:{bookId}:printReadyPageCount", "").Trim();
+            var pageCount = int.TryParse(pageCountStr, out var parsedPages) && parsedPages > 0 ? parsedPages : 24;
+            var trimSize = rows.GetValueOrDefault($"book:{bookId}:printReadyTrimSize", "").Trim();
+            if (string.IsNullOrWhiteSpace(trimSize)) trimSize = "6 x 9 in";
+
+            return CoverWrapPanelExtractor.FrontPanelMatchesSavedFront(wrapBytes, frontBytes, pageCount, trimSize);
         }
 
         private async Task<object> BuildCoverUrls(int bookId, int userId, Dictionary<string, string> rows, CancellationToken ct)
@@ -2906,9 +2918,6 @@ namespace EBookDashboard.Controllers
             }
 
             await UpdateBookCoverImagePathIfLocalAsync(userId, bookId, persisted, cancellationToken);
-
-            if (invalidateCachedWrap)
-                _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(userId, bookId);
         }
 
         private async Task UpdateBookCoverImagePathIfLocalAsync(int userId, int bookId, string persisted, CancellationToken cancellationToken)
