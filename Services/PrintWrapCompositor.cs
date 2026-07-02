@@ -102,7 +102,7 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         };
     }
 
-    /// <summary>Back panel art — blurred, darkened extension of the front cover (matches KDP wrap look).</summary>
+    /// <summary>Back panel — mirrored front art with soft blur and readable text overlay.</summary>
     private static void DrawBackPanelArt(IImageProcessingContext ctx, Image<Rgba32> front, Rectangle target)
     {
         if (target.Width <= 0 || target.Height <= 0) return;
@@ -110,6 +110,7 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         using var backArt = front.CloneAs<Rgba32>();
         backArt.Mutate(c =>
         {
+            c.Flip(FlipMode.Horizontal);
             c.Resize(new ResizeOptions
             {
                 Size = new Size(target.Width, target.Height),
@@ -117,21 +118,29 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
                 Position = AnchorPositionMode.Center,
                 Sampler = KnownResamplers.Lanczos3
             });
-            c.GaussianBlur(18);
-            c.Brightness(0.42f);
-            c.Contrast(1.08f);
+            c.GaussianBlur(5);
+            c.Brightness(0.58f);
+            c.Contrast(1.04f);
         });
         ctx.DrawImage(backArt, new Point(target.X, target.Y), 1f);
+
+        // Dark vignette so synopsis text stays readable on busy covers.
+        ctx.Fill(Color.FromRgba(0, 0, 0, 110), new RectangleF(target.X, target.Y, target.Width, target.Height));
     }
 
-    /// <summary>Spine strip sampled from the front cover edge (seamless with front panel).</summary>
+    /// <summary>Spine strip from front edge — seamless with front panel.</summary>
     private Image<Rgba32> RenderSpineFromFront(Image<Rgba32> front, int spineW, int panelH, string? spineTitle)
     {
-        var stripW = Math.Clamp(Math.Max(4, front.Width / 6), 4, front.Width);
+        var stripW = Math.Clamp(Math.Max(6, front.Width / 5), 6, front.Width);
         using var edgeStrip = front.Clone(c => c.Crop(new Rectangle(0, 0, stripW, front.Height)));
         using var resized = edgeStrip.Clone(c => c.Resize(spineW, panelH));
         var spine = new Image<Rgba32>(spineW, panelH);
-        spine.Mutate(c => c.DrawImage(resized, new Point(0, 0), 1f));
+        spine.Mutate(c =>
+        {
+            c.DrawImage(resized, new Point(0, 0), 1f);
+            c.Brightness(0.72f);
+            c.Contrast(1.06f);
+        });
 
         if (!string.IsNullOrWhiteSpace(spineTitle) && spineW >= 12)
         {
@@ -154,16 +163,12 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
             return;
         }
 
-        var srcAspect = (double)source.Width / source.Height;
-        var tgtAspect = (double)target.Width / target.Height;
-        var aspectDelta = Math.Abs(srcAspect - tgtAspect) / Math.Max(srcAspect, tgtAspect);
-
         using var resized = source.CloneAs<Rgba32>();
         resized.Mutate(c => c.Resize(new ResizeOptions
         {
             Size = new Size(target.Width, target.Height),
-            // Same aspect as panel → scale only (full artwork visible, matches Cover Design preview).
-            Mode = aspectDelta < 0.04 ? ResizeMode.Stretch : ResizeMode.Crop,
+            // KDP front panel: center-crop to fill bleed+trim (matches print export).
+            Mode = ResizeMode.Crop,
             Position = AnchorPositionMode.Center,
             Sampler = KnownResamplers.Lanczos3
         }));
