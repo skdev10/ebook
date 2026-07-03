@@ -2700,6 +2700,53 @@ namespace EBookDashboard.Controllers
             return "White paper";
         }
 
+        /// <summary>
+        /// Saves the user's publishing format chosen on the Publish page.
+        /// Ebook → front cover + EPUB; Paperback → full wrap + interior PDF; Both → all files.
+        /// Writes BookFormatting.Format, which wins over any stale formatter draft.
+        /// </summary>
+        [HttpPost]
+        [Route("Dashboard/SetPublishFormat")]
+        public async Task<IActionResult> SetPublishFormat([FromBody] SetPublishFormatRequest req, CancellationToken cancellationToken)
+        {
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+
+            var format = (req.Format ?? "").Trim();
+            if (format.Equals("Print", StringComparison.OrdinalIgnoreCase)) format = "Paperback";
+            if (!format.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
+                && !format.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                && !format.Equals("Both", StringComparison.OrdinalIgnoreCase))
+                return Json(new { success = false, message = "Format must be Ebook, Paperback, or Both." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return Json(new { success = false, message = "Book not found." });
+
+            var row = await _context.BookFormatting
+                .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == sessionUserId.Value, cancellationToken);
+            if (row == null)
+            {
+                row = new BookFormatting
+                {
+                    BookId = req.BookId,
+                    UserId = sessionUserId.Value,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.BookFormatting.Add(row);
+            }
+            row.Format = char.ToUpperInvariant(format[0]) + format.Substring(1).ToLowerInvariant();
+            row.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return Json(new { success = true, format = row.Format });
+        }
+
         [HttpPost]
         [Route("SavePrintReadyComposedWrap")]
         public async Task<IActionResult> SavePrintReadyComposedWrap([FromBody] SavePrintReadyWrapRequest req, CancellationToken cancellationToken)

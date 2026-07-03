@@ -20,8 +20,11 @@ namespace EBookDashboard.Services
         /// or genre alone was enough to produce cartoonish fronts on production).
         /// </summary>
         public const string RealisticStyleDirective =
-            "Photorealistic, ultra-detailed, professional book cover photography with cinematic lighting. "
-            + "Strictly NO cartoon, NO anime, NO comic, NO flat vector illustration, NO childish drawing style.";
+            "PHOTOREALISTIC ONLY: ultra-detailed professional book cover photography, shot on a professional camera, "
+            + "cinematic lighting, realistic materials and textures, natural skin and surfaces, depth of field, 8k detail. "
+            + "STRICTLY FORBIDDEN: cartoon, anime, comic, manga, flat vector illustration, clipart, 3D cartoon render, "
+            + "childish drawing, doodle, sticker art, chibi, caricature. The result must look like a real photograph "
+            + "or cinematic movie poster, never an illustration.";
 
         public static string MapCoverStyleForExternalApi(string styleKey, string? imageDirection)
         {

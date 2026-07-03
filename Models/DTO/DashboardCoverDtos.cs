@@ -136,4 +136,14 @@ namespace EBookDashboard.Models.DTO
         public int? PageCount { get; set; }
         public double? SpineInches { get; set; }
     }
+
+    /// <summary>POST /Dashboard/SetPublishFormat — user picks eBook / Paperback / Both on the Publish page.</summary>
+    public class SetPublishFormatRequest
+    {
+        [Required]
+        public int BookId { get; set; }
+
+        /// <summary>"Ebook", "Paperback", or "Both".</summary>
+        public string? Format { get; set; }
+    }
 }

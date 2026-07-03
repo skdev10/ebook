@@ -331,6 +331,82 @@
     }
     .publish-chip-neutral { background: rgba(255, 255, 255, 0.12); color: #ede9fe; border-color: rgba(255, 255, 255, 0.22); }
     .publish-chip-ready { background: rgba(52, 211, 153, 0.18); color: #a7f3d0; border-color: rgba(110, 231, 183, 0.45); }
+    .publish-format-picker {
+        border: 1px solid #ddd6fe;
+        background: linear-gradient(180deg, #ffffff 0%, #faf7ff 100%);
+        border-radius: 1.4rem;
+        padding: 1.25rem 1.4rem 1.4rem;
+        box-shadow: 0 18px 36px -28px rgba(76, 29, 149, 0.5);
+    }
+    .publish-format-picker-title {
+        margin: 0 0 0.2rem;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: #5b21b6;
+    }
+    .publish-format-picker-sub {
+        margin: 0 0 0.9rem;
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    .publish-format-options {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.8rem;
+    }
+    .publish-format-option {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+        text-align: left;
+        padding: 1rem 1.1rem;
+        border-radius: 1rem;
+        border: 2px solid #e9e4f8;
+        background: #ffffff;
+        cursor: pointer;
+        transition: transform 0.18s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .publish-format-option:hover {
+        transform: translateY(-2px);
+        border-color: #c4b5fd;
+        box-shadow: 0 16px 30px -22px rgba(76, 29, 149, 0.55);
+    }
+    .publish-format-option.is-selected {
+        border-color: #7c3aed;
+        background: linear-gradient(180deg, #faf5ff 0%, #f3eefe 100%);
+        box-shadow: 0 18px 34px -22px rgba(91, 33, 182, 0.6);
+    }
+    .publish-format-option.is-selected .publish-format-icon {
+        background: linear-gradient(135deg, #7c3aed, #5b21b6);
+        color: #ffffff;
+    }
+    .publish-format-icon {
+        width: 2.4rem;
+        height: 2.4rem;
+        border-radius: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f3ff;
+        color: #6d28d9;
+        font-size: 1rem;
+        margin-bottom: 0.25rem;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+    .publish-format-name {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #1e1b4b;
+    }
+    .publish-format-desc {
+        font-size: 0.78rem;
+        color: #64748b;
+        line-height: 1.4;
+    }
+    .publish-format-option[disabled] { opacity: 0.6; cursor: wait; }
     .publish-stat-strip {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1221,6 +1297,31 @@
         </div>
     </section>
 
+    @if (bookId > 0)
+    {
+        <section class="publish-format-picker mb-6 sm:mb-8" aria-labelledby="publishFormatPickerTitle">
+            <h2 id="publishFormatPickerTitle" class="publish-format-picker-title">Publishing format</h2>
+            <p class="publish-format-picker-sub">Choose what you are publishing — the downloads below change to match.</p>
+            <div class="publish-format-options" role="radiogroup" aria-label="Publishing format">
+                <button type="button" class="publish-format-option @(isEbookFormat ? "is-selected" : "")" data-publish-format="Ebook" role="radio" aria-checked="@(isEbookFormat ? "true" : "false")">
+                    <span class="publish-format-icon"><i class="fas fa-tablet-alt" aria-hidden="true"></i></span>
+                    <span class="publish-format-name">eBook</span>
+                    <span class="publish-format-desc">Front cover + EPUB</span>
+                </button>
+                <button type="button" class="publish-format-option @(isPaperbackFormat ? "is-selected" : "")" data-publish-format="Paperback" role="radio" aria-checked="@(isPaperbackFormat ? "true" : "false")">
+                    <span class="publish-format-icon"><i class="fas fa-book" aria-hidden="true"></i></span>
+                    <span class="publish-format-name">Paperback</span>
+                    <span class="publish-format-desc">Full wrap cover + interior PDF</span>
+                </button>
+                <button type="button" class="publish-format-option @(isBothFormat ? "is-selected" : "")" data-publish-format="Both" role="radio" aria-checked="@(isBothFormat ? "true" : "false")">
+                    <span class="publish-format-icon"><i class="fas fa-layer-group" aria-hidden="true"></i></span>
+                    <span class="publish-format-name">eBook + Paperback</span>
+                    <span class="publish-format-desc">All four files together</span>
+                </button>
+            </div>
+        </section>
+    }
+
     <section class="publish-stat-strip mb-6 sm:mb-8" data-guided-tour="pub-status">
         <article class="publish-stat">
             <p class="publish-stat-label">Selection</p>
@@ -1509,6 +1610,34 @@
             throw new Error(t || fallbackMsg);
         });
     }
+
+    // Publishing format picker — persists the choice, then reloads so every
+    // export section/cover preview re-renders for the selected format.
+    (function bindPublishFormatPicker() {
+        var options = document.querySelectorAll('.publish-format-option');
+        if (!options.length || !bookId) return;
+        options.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var fmt = btn.getAttribute('data-publish-format');
+                if (!fmt || btn.classList.contains('is-selected')) return;
+                options.forEach(function (b) { b.disabled = true; });
+                fetch('/Dashboard/SetPublishFormat', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ bookId: bookId, format: fmt })
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                    if (d && d.success) { window.location.reload(); return; }
+                    options.forEach(function (b) { b.disabled = false; });
+                    if (typeof showNotification === 'function') showNotification((d && d.message) || 'Could not change format.', 'error');
+                    else alert((d && d.message) || 'Could not change format.');
+                }).catch(function () {
+                    options.forEach(function (b) { b.disabled = false; });
+                    if (typeof showNotification === 'function') showNotification('Could not change format. Try again.', 'error');
+                });
+            });
+        });
+    })();
 
     /** Dashboard JSON endpoints sometimes return HTML (504 gateway, login page) — parse safely. */
     function parseDashboardJsonResponse(res, fallbackMsg) {
