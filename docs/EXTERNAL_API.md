@@ -635,12 +635,50 @@ cd /opt/EbookAI && bash deploy/verify-all-apis.sh
 
 # Deploy (keep the app updated)
 
-On the server:
+**Server path:** `/root/latest/EbookAI`  
+**Live site:** http://138.197.76.70:5000
+
+### One-shot deploy (recommended)
+
+Run on the server. Replace `PASTE_YOUR_API_KEY_HERE` with your trimmed `X-API-Key` (no spaces):
 
 ```bash
-cd /opt/EbookAI
+APP_DIR=/root/latest/EbookAI
+ENV_FILE=/etc/default/ebookai
+
+# 1) API key + env (required — app crashes without ExternalApi__ApiKey)
+if [ ! -f "$ENV_FILE" ]; then
+  cp "$APP_DIR/deploy/etc-default-ebookai.example" "$ENV_FILE"
+fi
+grep -q '^ExternalApi__ApiKey=' "$ENV_FILE" \
+  && sed -i 's|^ExternalApi__ApiKey=.*|ExternalApi__ApiKey=PASTE_YOUR_API_KEY_HERE|' "$ENV_FILE" \
+  || echo 'ExternalApi__ApiKey=PASTE_YOUR_API_KEY_HERE' >> "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+
+# 2) Pull + publish + restart
+cd "$APP_DIR"
 git pull origin Clean_Code
-bash deploy/do-deploy.sh
+dotnet publish -c Release -r linux-x64 --self-contained true -maxcpucount:1 -o publish
+kill -9 $(netstat -tpln | awk '/:5000/ {print $7}' | cut -d'/' -f1 | head -1) 2>/dev/null
+fuser -k 5000/tcp 2>/dev/null
+sleep 2
+cd publish
+set -a && source "$ENV_FILE" && set +a
+export ASPNETCORE_ENVIRONMENT=Production
+: > ../nohup.out
+nohup dotnet EBookDashboard.dll --urls http://0.0.0.0:5000 >> ../nohup.out 2>&1 &
+sleep 6
+curl -s -o /dev/null -w "HTTP %{http_code}\n" http://127.0.0.1:5000/
+tail -25 ../nohup.out
+```
+
+Expect `HTTP 200`. If you see `ExternalApi:ApiKey is not set`, the key line in `/etc/default/ebookai` is missing or empty.
+
+### Alternative (uses project deploy scripts)
+
+```bash
+cd /root/latest/EbookAI
+APP_DIR=/root/latest/EbookAI bash deploy/do-deploy.sh
 ```
 
 ---
