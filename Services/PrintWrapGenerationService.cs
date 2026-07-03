@@ -182,6 +182,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var frontHashFinal = Convert.ToHexString(SHA256.HashData(frontBytes));
         var description = ResolveBackCoverDescription(book, details);
 
+        // 1) Split API keeps the exact saved front (best) — only exists on some API builds.
         if (await TryGenerateViaSplitApiAsync(
                 userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
                 title, authorName, trimSize, pageCount, kdp, cancellationToken))
@@ -189,10 +190,135 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             return true;
         }
 
+        // 2) Documented full-wrap API (generate-spine-book-cover). It invents its own front,
+        //    so on success the saved front cover is re-synced FROM the wrap's front panel —
+        //    front preview and wrap always show the same art.
+        if (await TryGenerateViaFullSpineApiAsync(
+                userId, bookId, title, authorName, trimSize, pageCount, kdp, cancellationToken))
+        {
+            return true;
+        }
+
+        // 3) Local compositor — offline fallback, front pixels preserved exactly.
         return await TryGenerateViaLocalCompositorAsync(
             userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
             title, authorName, description,
             pageCount, trimSize, kdp, exportOpt, cancellationToken);
+    }
+
+    /// <summary>
+    /// Calls the documented <c>/api/generate-spine-book-cover</c> endpoint (title/author/trim/pages —
+    /// no encoded_image). The AI draws front+spine+back as one professional wrap; the wrap's front
+    /// panel is then extracted and saved as the book's front cover so both always match.
+    /// </summary>
+    private async Task<bool> TryGenerateViaFullSpineApiAsync(
+        int userId,
+        int bookId,
+        string title,
+        string authorName,
+        string trimSize,
+        int pageCount,
+        KdpCalculateResponse kdp,
+        CancellationToken cancellationToken)
+    {
+        var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
+        if (string.IsNullOrEmpty(apiKey)) return false;
+
+        var opt = _externalApiOptions.Value;
+        var apiUrl = _bookApiClient.ResolveUrl(opt.GenerateSpineBookCoverUrl, "/api/generate-spine-book-cover").Trim();
+        var size = BookApiInputValidation.NormalizeSize((opt.PrintReadyCoverSize ?? "1536x1024").Trim(), "1536x1024");
+        var quality = BookApiInputValidation.NormalizeQuality((opt.PrintReadyCoverQuality ?? "high").Trim(), "high");
+
+        // Exact documented payload — page_count above ~100 is known to 500 on the live API.
+        var payload = new JObject
+        {
+            ["title"] = title,
+            ["author_name"] = authorName,
+            ["size"] = size,
+            ["quality"] = quality,
+            ["Interior_trim_size"] = trimSize,
+            ["page_count"] = Math.Clamp(pageCount, KdpPaperbackConstants.MinPageCount, 100),
+            ["paper_type"] = NormalizePaperTypeForExternalApi(kdp.PaperType)
+        };
+
+        try
+        {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+            httpRequest.Content = new StringContent(
+                payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
+
+            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, upstreamCts.Token);
+            var response = await _bookApiClient.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, linkedCts.Token);
+            var responseData = await response.Content.ReadAsStringAsync(linkedCts.Token);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Full spine wrap API HTTP {Code} for book {BookId}: {Body}",
+                    (int)response.StatusCode, bookId,
+                    responseData.Length > 300 ? responseData[..300] + "…" : responseData);
+                return false;
+            }
+
+            var assets = CoverExternalApiHelper.ExtractNamedCoverAssetsFromApiResponse(responseData);
+            var urls = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(responseData);
+            var wrapRef = !string.IsNullOrWhiteSpace(assets.Wrap) ? assets.Wrap : (urls.FirstOrDefault() ?? "");
+            if (string.IsNullOrWhiteSpace(wrapRef)) return false;
+
+            var persistedWrap = await PersistCoverRefAsync(userId, bookId, wrapRef, "wrap-api", cancellationToken);
+            if (string.IsNullOrWhiteSpace(persistedWrap)) return false;
+
+            var wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                persistedWrap, _env.WebRootPath, _httpClientFactory, cancellationToken);
+            if (wrapBytes == null || wrapBytes.Length == 0) return false;
+
+            // Re-sync the front cover from the wrap's front panel so preview/exports match the wrap.
+            var newFrontBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(wrapBytes, pageCount, trimSize, assumeWrap: true);
+            var persistedFront = await SaveCoverBytesToUploadsAsync(
+                userId, bookId, newFrontBytes, ".png", "front-from-wrap", cancellationToken);
+            var newFrontHash = Convert.ToHexString(SHA256.HashData(newFrontBytes));
+
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapApi", persistedWrap, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrap", persistedWrap, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFront", persistedFront, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:aiCoverLastPreview", persistedFront, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", persistedFront, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", newFrontHash, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyPageCount", pageCount.ToString(CultureInfo.InvariantCulture), cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyTrimSize", trimSize, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(assets.Back))
+            {
+                var back = await PersistCoverRefAsync(userId, bookId, assets.Back, "back-api", cancellationToken);
+                if (!string.IsNullOrWhiteSpace(back))
+                    await UpsertSettingAsync($"book:{bookId}:printReadyCoverBack", back, cancellationToken);
+            }
+            if (!string.IsNullOrWhiteSpace(assets.Spine))
+            {
+                var spine = await PersistCoverRefAsync(userId, bookId, assets.Spine, "spine-api", cancellationToken);
+                if (!string.IsNullOrWhiteSpace(spine))
+                    await UpsertSettingAsync($"book:{bookId}:printReadyCoverSpine", spine, cancellationToken);
+            }
+
+            var trackedBook = await _context.Books
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+            if (trackedBook != null)
+            {
+                trackedBook.CoverImagePath = persistedFront;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, cancellationToken);
+            _logger.LogInformation(
+                "Full spine wrap API accepted for book {BookId}; front cover re-synced from wrap panel.",
+                bookId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Full spine wrap API failed for book {BookId}.", bookId);
+            return false;
+        }
     }
 
     /// <summary>

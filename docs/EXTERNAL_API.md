@@ -41,7 +41,13 @@ Store the key in `/etc/default/ebookai` as `ExternalApi__ApiKey=...` on the serv
 | 11 | `/api/generate-spine-book-cover` | POST | Full wrap (AI generates front+spine+back together) | Slow |
 | 12 | `/api/generate-spine-book-cover-split` | POST | **Full wrap from saved front cover** (recommended) | Slow (~1–2 min) |
 
-**Print wrap in EbookAI:** Step 1 calls **`/api/generate-cover`** (front only). Step 2 builds the full wrap **locally** from that exact front image (back + spine extend the same art). The front panel in the wrap always matches your generated front cover.
+**Print wrap in EbookAI (fallback chain):**
+
+1. **`/api/generate-spine-book-cover-split`** — keeps your exact front (only on some API builds)
+2. **`/api/generate-spine-book-cover`** — documented full AI wrap; the wrap's front panel is then saved as the book's front cover so preview and wrap always match
+3. **Local compositor** — offline fallback built from the saved front image
+
+Whichever succeeds first wins. The front cover shown in Cover Design always matches the wrap's front panel.
 
 **Valid cover sizes:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`
 
@@ -575,8 +581,8 @@ You use the website. The website calls the Book API for you.
 | AI Writer → Edit | Calls `/api/edit` |
 | Approve chapter | Calls `/api/approve` |
 | Upload audio | Calls `/api/audio` |
-| Cover Design → Generate Cover | Calls `/api/generate-cover`; auto-calls `/api/generate-spine-book-cover-split` when format is Paperback/Both |
-| Cover Design → Full wrap preview | Upstream split API (~1–2 min); local fallback if API unavailable |
+| Cover Design → Generate Cover | Calls `/api/generate-cover`; then builds full wrap when format is Paperback/Both |
+| Cover Design → Full wrap preview | Chain: split API → `/api/generate-spine-book-cover` → local compositor (front re-synced from wrap) |
 | Cover Design → Edit | Calls `/api/edit-cover` |
 | Publish → export print pack | Local wrap + Chromium PDF (wrap built on Cover Design) |
 | Cover prompt help | Calls `/api/refine_cover_prompt` |

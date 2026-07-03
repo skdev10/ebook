@@ -694,6 +694,13 @@
                     coverWraparoundRef = wrap;
                     setPrintWrapSaved(true);
                 }
+                // The wrap API may re-sync the front cover from the wrap's front panel —
+                // refresh the front preview so both always show the same art.
+                var newFront = (d.cover.front || '').trim();
+                if (newFront) {
+                    var frontUrl = toUrl(newFront);
+                    setCoverImageVisible(frontUrl + (frontUrl.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now());
+                }
                 updateCovWrapBuildBanner(d);
             } else {
                 updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
