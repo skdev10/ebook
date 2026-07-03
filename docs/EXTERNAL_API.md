@@ -411,14 +411,12 @@ Saved in **Temporary_database** column `suggest_chapter_name`.
 **URL:** `http://162.229.248.26:8001/api/generate-spine-book-cover`  
 **Method:** POST
 
-**Send this:**
+**Send this (exact payload):**
 
 ```json
 {
   "title": "Peter Pan",
   "author_name": "J. M. Barrie",
-  "category": "Children's Fantasy",
-  "cover_style": "Victorian ornamental",
   "size": "1536x1024",
   "quality": "high",
   "Interior_trim_size": "6 x 9 in",
@@ -426,6 +424,18 @@ Saved in **Temporary_database** column `suggest_chapter_name`.
   "paper_type": "white"
 }
 ```
+
+| Field | Meaning |
+|-------|---------|
+| `title` | Book title |
+| `author_name` | Author name on cover |
+| `size` | Image size — `1536x1024` (landscape) for wrap |
+| `quality` | `low`, `medium`, `high`, or `auto` |
+| `Interior_trim_size` | Trim size (example: `6 x 9 in`) — note capital `I` |
+| `page_count` | Interior page count (spine width) — keep 24–100 |
+| `paper_type` | `white` or `cream` |
+
+**Note:** This endpoint invents front + spine + back together — the front will NOT match a cover made earlier with `/api/generate-cover`. For a wrap that keeps your existing front, use endpoint 12 (split).
 
 ---
 
@@ -641,4 +651,4 @@ bash deploy/do-deploy.sh
 
 ---
 
-*Last updated Jun 2026 (Clean_Code branch) — verified against the latest API key + endpoint spec. Keep your API key secret.*
+*Last updated Jul 2026 (Clean_Code branch) — verified against the latest endpoint spec. Keep your API key secret — never paste it in chat, commits, or client-side code; if it leaks, rotate it on the Book API server and update `/etc/default/ebookai`.*

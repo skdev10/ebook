@@ -73,31 +73,47 @@ public static class CoverWrapPanelExtractor
         }
     }
 
-    /// <summary>Returns true when the front panel cropped from a wrap matches the saved front cover image.</summary>
+    /// <summary>
+    /// Returns true when the front panel cropped from a wrap matches the saved front cover image.
+    /// Comparison is tolerance-based on a downscaled copy: upstream APIs re-encode/rescale the
+    /// same artwork (small per-pixel drift), which must PASS, while genuinely different art
+    /// (different composition/colors) must FAIL. Exact pixel equality rejected every legitimate
+    /// upstream wrap and forced the plain local fallback on production.
+    /// </summary>
     public static bool FrontPanelMatchesSavedFront(byte[] wrapBytes, byte[] frontBytes, int pageCount, string? trimSize)
     {
         if (wrapBytes.Length == 0 || frontBytes.Length == 0) return false;
         try
         {
             var extracted = EnsureFrontPanelBytes(wrapBytes, pageCount, trimSize, assumeWrap: true);
+            const int compareW = 96;
+            const int compareH = 144;
             using var ext = Image.Load<Rgba32>(extracted);
             using var front = Image.Load<Rgba32>(frontBytes);
-            using var norm = front.Clone(c => c.Resize(ext.Width, ext.Height, KnownResamplers.Lanczos3));
+            using var a = ext.Clone(c => c.Resize(compareW, compareH, KnownResamplers.Lanczos3));
+            using var b = front.Clone(c => c.Resize(compareW, compareH, KnownResamplers.Lanczos3));
 
-            var mismatches = 0;
-            var total = ext.Width * ext.Height;
-            for (var y = 0; y < ext.Height; y++)
+            long totalDiff = 0;
+            var bigDiffPixels = 0;
+            for (var y = 0; y < compareH; y++)
             {
-                for (var x = 0; x < ext.Width; x++)
+                for (var x = 0; x < compareW; x++)
                 {
-                    var a = ext[x, y];
-                    var b = norm[x, y];
-                    if (a.R != b.R || a.G != b.G || a.B != b.B || a.A != b.A)
-                        mismatches++;
+                    var pa = a[x, y];
+                    var pb = b[x, y];
+                    var d = Math.Abs(pa.R - pb.R) + Math.Abs(pa.G - pb.G) + Math.Abs(pa.B - pb.B);
+                    totalDiff += d;
+                    if (d > 96) bigDiffPixels++;
                 }
             }
 
-            return total <= 0 || (double)mismatches / total <= 0.02;
+            var totalPixels = compareW * compareH;
+            var meanDiff = (double)totalDiff / totalPixels;          // 0..765
+            var bigDiffRatio = (double)bigDiffPixels / totalPixels;   // fraction of clearly-different pixels
+
+            // Same art re-encoded: meanDiff ~ 2-20, bigDiffRatio ~ 0.
+            // Different art: meanDiff typically 80+, bigDiffRatio 0.3+.
+            return meanDiff <= 40 && bigDiffRatio <= 0.10;
         }
         catch
         {
