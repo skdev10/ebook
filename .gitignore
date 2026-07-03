@@ -19,6 +19,7 @@ msbuild*.log
 
 ## Publish and internal check outputs (regenerate with dotnet publish)
 publish/
+publish-check/
 app-out/
 artifacts/
 **/artifacts/publish-release/
