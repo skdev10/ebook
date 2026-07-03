@@ -442,11 +442,17 @@
                 </div>
                 <div class="cov-full-wrap-stage">
                     <img id="covFullWrapImg" src="" alt="Full print wrap — back, spine, and front" class="hidden" />
-                    <div id="covFullWrapBuilding" class="hidden flex flex-col items-center justify-center gap-2 py-10 text-violet-800">
-                        <span class="w-8 h-8 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></span>
-                        <span class="text-sm font-medium">Building full wrap…</span>
+                    <div id="covFullWrapBuilding" class="hidden flex flex-col items-center justify-center gap-3 py-6 text-violet-800">
+                        <img src="@coverProgressPlaceholder" alt="Cover design in progress" class="w-36 sm:w-48 rounded-lg shadow-md" />
+                        <span class="flex items-center gap-2">
+                            <span class="w-5 h-5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin"></span>
+                            <span class="text-sm font-medium">Building full wrap…</span>
+                        </span>
                     </div>
-                    <p id="covFullWrapPlaceholder" class="text-sm text-slate-500 text-center py-6">Full wrap appears here after your front cover is saved.</p>
+                    <div id="covFullWrapPlaceholder" class="flex flex-col items-center justify-center gap-3 py-6">
+                        <img src="@coverProgressPlaceholder" alt="Cover design in progress" class="w-36 sm:w-48 rounded-lg shadow-md" />
+                        <p id="covFullWrapPlaceholderText" class="text-sm text-slate-500 text-center">Full wrap appears here after your front cover is saved.</p>
+                    </div>
                 </div>
             </div>
 
@@ -586,7 +592,8 @@
         if (building) building.classList.add('hidden');
         var placeholder = document.getElementById('covFullWrapPlaceholder');
         if (placeholder) {
-            placeholder.textContent = 'Full wrap appears here after you generate your front cover.';
+            var phText = document.getElementById('covFullWrapPlaceholderText');
+            if (phText) phText.textContent = 'Full wrap appears here after you generate your front cover.';
             placeholder.classList.remove('hidden');
         }
         var badge = document.getElementById('covWrapSavedBadge');
@@ -1503,6 +1510,17 @@
     function setBusy(busy, label) {
         previewBusy.classList.toggle('hidden', !busy);
         if (previewBusyText) previewBusyText.textContent = label || 'Generating…';
+        // While generating, keep the "cover in progress" artwork on the front preview.
+        // On finish the new cover's onload hides it again (or it stays if generation failed
+        // and there is no usable cover art).
+        if (covPreviewPlaceholderImg) {
+            if (busy) {
+                covPreviewPlaceholderImg.src = coverProgressPlaceholder;
+                covPreviewPlaceholderImg.classList.remove('opacity-0');
+            } else if (covPreviewBgImg && covPreviewBgImg.src && covPreviewBgImg.classList.contains('opacity-100')) {
+                covPreviewPlaceholderImg.classList.add('opacity-0');
+            }
+        }
         btnGenerate.disabled = busy;
         if (btnRegenerate) btnRegenerate.disabled = busy;
         if (btnEditCover) btnEditCover.disabled = busy;

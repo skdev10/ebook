@@ -1,7 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="600" height="900" viewBox="0 0 600 900" role="img" aria-label="Cover design in progress">
-  <rect width="600" height="900" fill="#475569"/>
-  <rect x="48" y="120" width="504" height="48" rx="8" fill="rgba(255,255,255,0.18)"/>
-  <rect x="96" y="240" width="408" height="24" rx="6" fill="rgba(255,255,255,0.12)"/>
-  <rect x="96" y="288" width="360" height="24" rx="6" fill="rgba(255,255,255,0.10)"/>
-  <text x="300" y="780" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-family="Segoe UI, system-ui, sans-serif" font-size="28">Generating cover&</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4c1d95"/>
+      <stop offset="0.55" stop-color="#6d28d9"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="rgba(255,255,255,0)"/>
+      <stop offset="0.5" stop-color="rgba(255,255,255,0.14)"/>
+      <stop offset="1" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="900" fill="url(#bg)"/>
+  <rect width="600" height="900" fill="url(#shine)"/>
+  <rect x="24" y="24" width="552" height="852" rx="18" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2" stroke-dasharray="10 8"/>
+
+  <!-- open book icon -->
+  <g transform="translate(300,360)" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0,-52 C -34,-74 -86,-74 -112,-58 L -112,44 C -86,28 -34,28 0,50 Z"/>
+    <path d="M0,-52 C 34,-74 86,-74 112,-58 L 112,44 C 86,28 34,28 0,50 Z"/>
+    <line x1="0" y1="-52" x2="0" y2="50"/>
+  </g>
+
+  <!-- sparkle -->
+  <g fill="rgba(255,255,255,0.85)">
+    <path d="M448 176 l7 20 20 7 -20 7 -7 20 -7 -20 -20 -7 20 -7 z"/>
+    <path d="M150 210 l5 14 14 5 -14 5 -5 14 -5 -14 -14 -5 14 -5 z" fill="rgba(255,255,255,0.55)"/>
+  </g>
+
+  <text x="300" y="560" text-anchor="middle" fill="#ffffff" font-family="Segoe UI, system-ui, sans-serif" font-size="40" font-weight="600">Cover in progress</text>
+  <text x="300" y="614" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-family="Segoe UI, system-ui, sans-serif" font-size="24">Your AI cover is being created&#8230;</text>
+
+  <!-- skeleton title/author lines -->
+  <rect x="150" y="700" width="300" height="18" rx="9" fill="rgba(255,255,255,0.28)"/>
+  <rect x="195" y="736" width="210" height="14" rx="7" fill="rgba(255,255,255,0.18)"/>
 </svg>
