@@ -401,11 +401,6 @@
             </div>
             <h2 id="covPreviewHeaderTitle" class="font-serif text-xl md:text-2xl text-slate-900 font-medium tracking-tight mb-3 shrink-0">Your book</h2>
 
-            <div id="coverTargetTabs" class="cov-target-tabs mb-3 shrink-0" role="group" aria-label="Cover target">
-                <button type="button" class="cov-target-tab is-active" data-target="print" aria-pressed="true">Print Cover</button>
-                <button type="button" class="cov-target-tab" data-target="ebook" aria-pressed="false">eBook Cover</button>
-            </div>
-
             <div id="covWrapBuildBanner" class="hidden mb-3 w-full rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900 flex items-start gap-3 shrink-0" role="status" aria-live="polite">
                 <span class="cov-wrap-build-spinner w-4 h-4 mt-0.5 border-2 border-violet-600 border-t-transparent rounded-full animate-spin shrink-0" aria-hidden="true"></span>
                 <span id="covWrapBuildBannerText">Building your full print wrap (back + spine + front) from your cover…</span>
@@ -1121,9 +1116,10 @@
     }
     window.getActiveCoverTarget = function () { return coverTarget; };
     (function bindCoverTargetTabs() {
+        // Target tabs removed from UI — always Print Cover layout (single unified preview).
+        setCoverTargetUi('print');
         var tabs = document.getElementById('coverTargetTabs');
         if (!tabs) return;
-        setCoverTargetUi('print'); // default Print Cover
         tabs.addEventListener('click', function (e) {
             var b = e.target && e.target.closest ? e.target.closest('.cov-target-tab') : null;
             if (!b) return;

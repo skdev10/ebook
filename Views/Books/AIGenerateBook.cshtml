@@ -1583,9 +1583,6 @@
                         <button id="addChapterBtn" type="button" class="chapter-inline-action chapter-inline-add add-chapter-btn-inline" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">
                             <i class="fas fa-plus text-[11px]" aria-hidden="true"></i>
                         </button>
-                        <button id="deleteChapterBtn" type="button" class="chapter-inline-action chapter-inline-remove" onclick="confirmDeleteCurrentChapter()" title="Remove the selected chapter" aria-label="Remove chapter">
-                            <i class="fas fa-trash-alt text-[11px]" aria-hidden="true"></i>
-                        </button>
                     </div>
                     <div class="flex items-center gap-2 pt-1">
                         <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.text,.md,.markdown,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" aria-label="Upload document (PDF, Word, TXT, or Markdown)" />
@@ -3882,7 +3879,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (Number.isFinite(n) && n > maxExistingNo) maxExistingNo = n;
         });
         // Renumber imported chapters so they continue after the last existing chapter.
-        if (hasExisting) {
+        // Skip when the server already saved them with final numbers (numbersAuthoritative).
+        if (hasExisting && !meta.numbersAuthoritative) {
             mapped.forEach(function (c, i) { c.chapterNo = maxExistingNo + i + 1; });
         }
 
@@ -4049,6 +4047,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 setDocProgress(90, 'Adding chapters…');
                 try {
+                    // Chapters are now saved server-side — adopt the book id the server used
+                    // so chapter select / formatting / preview all read the same saved data.
+                    if (data.saved && data.bookId) {
+                        var bidEl = document.getElementById('BookId');
+                        if (bidEl && (!bidEl.value || bidEl.value === '0')) bidEl.value = String(data.bookId);
+                        var bookDdl = document.getElementById('savedResponsesDropdown');
+                        if (bookDdl && (!bookDdl.value || bookDdl.value === '0')) {
+                            var hasOpt = false;
+                            for (var bo = 0; bo < bookDdl.options.length; bo++) {
+                                if (bookDdl.options[bo].value === String(data.bookId)) { hasOpt = true; break; }
+                            }
+                            if (!hasOpt) {
+                                var newOpt = document.createElement('option');
+                                newOpt.value = String(data.bookId);
+                                newOpt.textContent = (data.suggestedBookTitle || 'Imported book');
+                                bookDdl.appendChild(newOpt);
+                            }
+                            bookDdl.value = String(data.bookId);
+                        }
+                        if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(String(data.bookId));
+                    }
                     var multi = Array.isArray(data.chapters) ? data.chapters : [];
                     // Structured (list) path when multiple chapters OR embedded images — keeps the
                     // HTML body (with <img>) and APPENDS to the existing chapter list.
@@ -4056,7 +4075,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         typeof window.applyImportedMultiChapterDocument === 'function') {
                         window.applyImportedMultiChapterDocument(multi, {
                             suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
-                            fileName: (f && f.name) ? f.name : ''
+                            fileName: (f && f.name) ? f.name : '',
+                            numbersAuthoritative: !!data.saved
                         });
                     } else {
                         window.applyImportedChapterDocument(data.text, {
@@ -4077,6 +4097,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             var fd = new FormData();
             fd.append('file', f);
+            // Send the current book id so the server saves the chapters into THIS book
+            // (or creates a new book when none is selected).
+            fd.append('bookId', getCurrentBookId() || '0');
             xhr.send(fd);
         });
     }

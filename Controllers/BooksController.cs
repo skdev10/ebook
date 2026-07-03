@@ -3261,8 +3261,71 @@ namespace EBookDashboard.Controllers
                 var suggestedBookTitle = ChapterDocumentImportService.ResolveSuggestedBookTitle(bytes, ext, file.FileName, text);
                 var (suggestedChapterNo, suggestedChapterTitle) = ChapterDocumentImportService.SuggestChapterFromBodyText(
                     string.IsNullOrWhiteSpace(text) ? (splitChapters.FirstOrDefault()?.Title ?? "Imported chapter") : text);
+
+                // Persist every imported chapter server-side (same pipeline as generated chapters:
+                // APIRawResponse row + chapter_iterations current version). Without this the chapters
+                // only lived in the browser — chapter select showed nothing and Ebook Formatting lost them.
+                var userId = sessionUserId.Value;
+                var bookId = int.TryParse(Request.Form["bookId"].FirstOrDefault(), out var bidParsed) && bidParsed > 0 ? bidParsed : 0;
+                var persisted = false;
+                var savedNumbers = new List<int>();
+                try
+                {
+                    if (bookId > 0 && !await _context.Books.AsNoTracking()
+                            .AnyAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken))
+                    {
+                        bookId = 0; // not the caller's book — never write into someone else's
+                    }
+
+                    if (bookId == 0)
+                    {
+                        var newBook = new Books
+                        {
+                            UserId = userId,
+                            AuthorId = userId,
+                            Title = string.IsNullOrWhiteSpace(suggestedBookTitle)
+                                ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
+                                : suggestedBookTitle,
+                            Status = "Draft",
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.Books.Add(newBook);
+                        await _context.SaveChangesAsync(cancellationToken);
+                        bookId = newBook.BookId;
+                    }
+
+                    var lastChapterNo = await _context.APIRawResponse.AsNoTracking()
+                        .Where(r => r.UserId == userId && r.BookId == bookId)
+                        .Select(r => (int?)r.Chapter)
+                        .MaxAsync(cancellationToken) ?? 0;
+
+                    foreach (var sc in splitChapters)
+                    {
+                        var no = ++lastChapterNo;
+                        var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {no}" : sc.Title.Trim();
+                        var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
+                            userId, bookId, no, chTitle, sc.Body, null, "doc-import", cancellationToken);
+                        if (responseId > 0)
+                            await _chapterIterationService.PromoteAsCurrentVersionAsync(userId, bookId, no, responseId, cancellationToken);
+                        savedNumbers.Add(no);
+                    }
+                    persisted = savedNumbers.Count > 0;
+                    if (persisted)
+                        HttpContext.Session.SetString("HasGeneratedBook", "1");
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogWarning(saveEx, "ImportChapterFile: could not persist imported chapters for book {BookId}", bookId);
+                }
+
                 var chapters = splitChapters
-                    .Select(c => new { chapterNo = c.ChapterNo, title = c.Title, text = c.Body, characterCount = c.Body.Length })
+                    .Select((c, i) => new
+                    {
+                        chapterNo = persisted && i < savedNumbers.Count ? savedNumbers[i] : c.ChapterNo,
+                        title = c.Title,
+                        text = c.Body,
+                        characterCount = c.Body.Length
+                    })
                     .ToList();
                 var hasImages = chapters.Any(c => c.text.Contains("<img", StringComparison.OrdinalIgnoreCase));
 
@@ -3273,11 +3336,13 @@ namespace EBookDashboard.Controllers
                     text,
                     characterCount = text.Length,
                     suggestedBookTitle,
-                    suggestedChapterNo,
+                    suggestedChapterNo = persisted && savedNumbers.Count > 0 ? savedNumbers[0] : suggestedChapterNo,
                     suggestedChapterTitle,
                     chapters,
                     chapterCount = chapters.Count,
-                    hasImages
+                    hasImages,
+                    saved = persisted,
+                    bookId = persisted ? bookId : (int?)null
                 });
             }
             catch (Exception ex)

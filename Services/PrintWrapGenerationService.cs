@@ -193,8 +193,14 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         // 2) Documented full-wrap API (generate-spine-book-cover). It invents its own front,
         //    so on success the saved front cover is re-synced FROM the wrap's front panel —
         //    front preview and wrap always show the same art.
+        var imageDirection = (await _context.Settings.AsNoTracking()
+            .Where(s => s.Key == $"book:{bookId}:aiCoverPrompt")
+            .Select(s => s.Value)
+            .FirstOrDefaultAsync(cancellationToken) ?? "").Trim();
+        var category = (book.Genre ?? "General").Trim();
         if (await TryGenerateViaFullSpineApiAsync(
-                userId, bookId, title, authorName, trimSize, pageCount, kdp, cancellationToken))
+                userId, bookId, title, authorName, category, imageDirection,
+                trimSize, pageCount, kdp, cancellationToken))
         {
             return true;
         }
@@ -216,6 +222,8 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         int bookId,
         string title,
         string authorName,
+        string category,
+        string imageDirection,
         string trimSize,
         int pageCount,
         KdpCalculateResponse kdp,
@@ -229,11 +237,13 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var size = BookApiInputValidation.NormalizeSize((opt.PrintReadyCoverSize ?? "1536x1024").Trim(), "1536x1024");
         var quality = BookApiInputValidation.NormalizeQuality((opt.PrintReadyCoverQuality ?? "high").Trim(), "high");
 
-        // Exact documented payload — page_count above ~100 is known to 500 on the live API.
+        // page_count above ~100 is known to 500 on the live API.
         var payload = new JObject
         {
             ["title"] = title,
             ["author_name"] = authorName,
+            ["category"] = string.IsNullOrWhiteSpace(category) ? "General" : category,
+            ["cover_style"] = BuildWrapCoverStyleDirective(imageDirection, kdp),
             ["size"] = size,
             ["quality"] = quality,
             ["Interior_trim_size"] = trimSize,
@@ -551,6 +561,27 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         if ((paperType ?? "").Contains("cream", StringComparison.OrdinalIgnoreCase))
             return "cream";
         return "white";
+    }
+
+    /// <summary>
+    /// cover_style for the full-spine wrap API: user's Image Direction (realistic-biased) plus
+    /// mandatory one-continuous-design wrap rules and exact KDP dimensions.
+    /// </summary>
+    private static string BuildWrapCoverStyleDirective(string imageDirection, KdpCalculateResponse kdp)
+    {
+        var style = CoverExternalApiHelper.MapCoverStyleForExternalApi("modern", imageDirection);
+
+        var cohesion = string.Join(" ",
+            "MANDATORY PRINT WRAP RULES:",
+            "Create ONE continuous wraparound design (back + spine + front) with identical palette, textures, gradients, and ornamental language on all three panels.",
+            "The back cover MUST repeat the same background colors and decorative frame system as the front — never a different color scheme on the back.",
+            "The spine strip must visually continue the front/back background seamlessly across the exact spine width.",
+            $"Paperback layout: {kdp.Bleed:F3} in bleed, spine {kdp.SpineWidth:F3} in for {kdp.PageCount} pages.",
+            $"Full cover canvas: {kdp.FullCoverWidth:F3} in x {kdp.FullCoverHeight:F3} in.",
+            "Panel order left-to-right: back cover, spine, front cover.",
+            "No unrelated artwork on the back; back continues the front design with synopsis-safe space.");
+
+        return style + " " + cohesion;
     }
 
     private async Task<BookPdfExportOptions> LoadExportOptionsAsync(int userId, int bookId, CancellationToken cancellationToken)
