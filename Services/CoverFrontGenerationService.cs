@@ -243,12 +243,18 @@ public sealed class CoverFrontGenerationService : ICoverFrontGenerationService
         if (key.Contains("aiCoverPrompt", StringComparison.OrdinalIgnoreCase))
             value = Settings.ClampValueLength(value, Settings.DbCompatMaxValueLength) ?? "";
         else
-            value = Settings.ClampValueLength(value, Settings.DbCompatMaxValueLength) ?? value;
+            value = Settings.ClampValueLength(value, Settings.MaxShortValueLength) ?? "";
 
         var row = await _context.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
         if (row == null)
         {
-            row = new Settings { Key = key, Category = "Book", CreatedAt = DateTime.UtcNow };
+            row = new Settings
+            {
+                SettingId = await _context.NextSettingIdAsync(cancellationToken),
+                Key = key,
+                Category = "Book",
+                CreatedAt = DateTime.UtcNow
+            };
             _context.Settings.Add(row);
         }
         row.Value = value;
@@ -295,12 +301,19 @@ public sealed class CoverFrontGenerationService : ICoverFrontGenerationService
 
         if (persisted.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
         {
-            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
-            if (book != null)
+            try
             {
-                book.CoverImagePath = persisted.Trim();
-                book.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync(cancellationToken);
+                var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+                if (book != null)
+                {
+                    book.CoverImagePath = persisted.Trim();
+                    book.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not update Books.CoverImagePath for book {BookId} (cover file was saved)", bookId);
             }
         }
     }

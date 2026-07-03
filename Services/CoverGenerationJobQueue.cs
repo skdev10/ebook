@@ -100,13 +100,20 @@ public sealed class CoverGenerationJobQueue : ICoverGenerationJobQueue
                 var err = new CoverGenerationJobSnapshot
                 {
                     Status = "error",
-                    Message = ex.Message,
+                    Message = FormatSaveError(ex),
                     UpdatedUtc = DateTime.UtcNow
                 };
                 Jobs[key] = err;
                 await PersistSnapshotAsync(reqCopy.BookId, err);
             }
         });
+    }
+
+    private static string FormatSaveError(Exception ex)
+    {
+        if (ex is Microsoft.EntityFrameworkCore.DbUpdateException dbEx && dbEx.InnerException != null)
+            return dbEx.InnerException.Message;
+        return ex.Message;
     }
 
     public CoverGenerationJobSnapshot? GetStatus(int userId, int bookId)
@@ -152,9 +159,10 @@ public sealed class CoverGenerationJobQueue : ICoverGenerationJobQueue
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             await UpsertAsync(db, StatusKey(bookId), snap.Status);
-            await UpsertAsync(db, MessageKey(bookId), snap.Message ?? "");
-            await UpsertAsync(db, CoverUrlKey(bookId), snap.CoverUrl ?? "");
+            await UpsertAsync(db, MessageKey(bookId), Settings.ClampValueLength(snap.Message ?? "", Settings.MaxShortValueLength) ?? "");
+            await UpsertAsync(db, CoverUrlKey(bookId), Settings.ClampValueLength(snap.CoverUrl ?? "", Settings.MaxShortValueLength) ?? "");
             var optJson = snap.Options.Length > 0 ? JsonSerializer.Serialize(snap.Options) : "";
+            optJson = Settings.ClampValueLength(optJson, Settings.MaxShortValueLength) ?? "";
             await UpsertAsync(db, OptionsKey(bookId), optJson);
             await db.SaveChangesAsync();
         }
@@ -166,13 +174,20 @@ public sealed class CoverGenerationJobQueue : ICoverGenerationJobQueue
 
     private static async Task UpsertAsync(ApplicationDbContext db, string key, string value)
     {
+        value = Settings.ClampValueLength(value ?? "", Settings.MaxShortValueLength) ?? "";
         var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key);
         if (row == null)
         {
-            row = new Settings { Key = key, Category = "Book", CreatedAt = DateTime.UtcNow };
+            row = new Settings
+            {
+                SettingId = await db.NextSettingIdAsync(),
+                Key = key,
+                Category = "Book",
+                CreatedAt = DateTime.UtcNow
+            };
             db.Settings.Add(row);
         }
-        row.Value = value ?? "";
+        row.Value = value;
         row.UpdatedAt = DateTime.UtcNow;
     }
 }
