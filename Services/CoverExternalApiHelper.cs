@@ -14,23 +14,38 @@ namespace EBookDashboard.Services
             public string Wrap { get; set; } = "";
         }
 
+        /// <summary>
+        /// Appended to every non-cartoon style so the image API renders photorealistic covers.
+        /// Without this the model drifts toward flat/cartoon illustration (word "illustration"
+        /// or genre alone was enough to produce cartoonish fronts on production).
+        /// </summary>
+        public const string RealisticStyleDirective =
+            "Photorealistic, ultra-detailed, professional book cover photography with cinematic lighting. "
+            + "Strictly NO cartoon, NO anime, NO comic, NO flat vector illustration, NO childish drawing style.";
+
         public static string MapCoverStyleForExternalApi(string styleKey, string? imageDirection)
         {
             var k = (styleKey ?? "modern").Trim().ToLowerInvariant();
             var label = k switch
             {
-                "minimal" => "Minimalist",
-                "bold" => "Bold Typography",
-                "elegant" => "Elegant",
-                "modern" => "Modern Illustration",
-                "vintage" => "Vintage",
+                "minimal" => "Minimalist, clean photographic composition",
+                "bold" => "Bold typography over a striking photorealistic image",
+                "elegant" => "Elegant, refined, cinematic photographic style",
+                "modern" => "Modern, sleek, photorealistic design",
+                "vintage" => "Vintage, aged realistic photographic style",
                 "cartoon" => "Children's book cartoon style, bright bold colors, thick outlines, playful bubbly typography, fun illustrated background",
                 _ => styleKey.Trim()
             };
+
+            // Cartoon is the only style the user can explicitly opt into for illustrated art;
+            // everything else must stay realistic.
+            if (k != "cartoon")
+                label = $"{label}. {RealisticStyleDirective}";
+
             var dir = (imageDirection ?? "").Trim();
             if (string.IsNullOrEmpty(dir)) return label;
             if (dir.Length > 400) dir = dir.Substring(0, 400) + "…";
-            return $"{label}. Visual direction: {dir}";
+            return $"{label} Visual direction: {dir}";
         }
 
         public static List<string> ExtractCoverImageUrlsFromApiResponse(string? responseData)

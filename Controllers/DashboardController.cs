@@ -1336,7 +1336,7 @@ namespace EBookDashboard.Controllers
             {
                 coverStyleLabel,
                 coverStyleLabel + ", minimalist composition, bold modern typography",
-                coverStyleLabel + ", dramatic cinematic lighting, rich illustrative detail",
+                coverStyleLabel + ", dramatic cinematic lighting, rich photographic detail",
                 coverStyleLabel + ", elegant classic layout, refined color palette"
             };
 
