@@ -10,7 +10,7 @@ public static class BookCoverResolver
 
     /// <summary>Placeholder shown until the user generates a cover (Dashboard Continue Editing only).</summary>
 
-    public const string PlaceholderWebPath = "/images/books/cover-in-progress.svg";
+    public const string PlaceholderWebPath = "/images/books/cover-in-progress.png";
 
 
 

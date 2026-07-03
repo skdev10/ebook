@@ -102,15 +102,25 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         };
     }
 
-    /// <summary>Back panel — mirrored front art with soft blur and readable text overlay.</summary>
+    /// <summary>
+    /// Back panel — heavily blurred, zoomed center-crop of the front art so the palette and mood
+    /// carry over but NO front text remains legible (no mirror flip: flipped titles read backwards).
+    /// </summary>
     private static void DrawBackPanelArt(IImageProcessingContext ctx, Image<Rgba32> front, Rectangle target)
     {
         if (target.Width <= 0 || target.Height <= 0) return;
 
-        using var backArt = front.CloneAs<Rgba32>();
+        // Crop the middle band of the front (drop top 35% / bottom 15% where title/author text
+        // usually sits), then zoom it to fill the back panel.
+        var cropY = (int)(front.Height * 0.35);
+        var cropH = Math.Max(1, (int)(front.Height * 0.50));
+        var srcRect = new Rectangle(0, Math.Min(cropY, front.Height - 1), front.Width, Math.Min(cropH, front.Height - cropY));
+
+        using var backArt = front.Clone(c => c.Crop(srcRect));
+        // Blur radius scales with output size so text is destroyed at print resolution too.
+        var blurSigma = Math.Max(16f, target.Width / 40f);
         backArt.Mutate(c =>
         {
-            c.Flip(FlipMode.Horizontal);
             c.Resize(new ResizeOptions
             {
                 Size = new Size(target.Width, target.Height),
@@ -118,28 +128,37 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
                 Position = AnchorPositionMode.Center,
                 Sampler = KnownResamplers.Lanczos3
             });
-            c.GaussianBlur(5);
-            c.Brightness(0.58f);
-            c.Contrast(1.04f);
+            c.GaussianBlur(blurSigma);
+            c.Brightness(0.52f);
+            c.Saturate(0.9f);
         });
         ctx.DrawImage(backArt, new Point(target.X, target.Y), 1f);
 
-        // Dark vignette so synopsis text stays readable on busy covers.
-        ctx.Fill(Color.FromRgba(0, 0, 0, 110), new RectangleF(target.X, target.Y, target.Width, target.Height));
+        // Dark overlay so the synopsis text stays readable on busy artwork.
+        ctx.Fill(Color.FromRgba(0, 0, 0, 120), new RectangleF(target.X, target.Y, target.Width, target.Height));
     }
 
-    /// <summary>Spine strip from front edge — seamless with front panel.</summary>
+    /// <summary>
+    /// Spine — solid strip from the front artwork's average color (edge strips are often
+    /// near-black and made the spine disappear), with subtle shading and optional vertical title.
+    /// </summary>
     private Image<Rgba32> RenderSpineFromFront(Image<Rgba32> front, int spineW, int panelH, string? spineTitle)
     {
-        var stripW = Math.Clamp(Math.Max(6, front.Width / 5), 6, front.Width);
-        using var edgeStrip = front.Clone(c => c.Crop(new Rectangle(0, 0, stripW, front.Height)));
-        using var resized = edgeStrip.Clone(c => c.Resize(spineW, panelH));
+        var avg = SampleAverageColor(front);
+        var baseColor = Color.FromRgb(
+            (byte)Math.Clamp((int)(avg.R * 0.82), 12, 255),
+            (byte)Math.Clamp((int)(avg.G * 0.82), 12, 255),
+            (byte)Math.Clamp((int)(avg.B * 0.82), 12, 255));
+
         var spine = new Image<Rgba32>(spineW, panelH);
         spine.Mutate(c =>
         {
-            c.DrawImage(resized, new Point(0, 0), 1f);
-            c.Brightness(0.72f);
-            c.Contrast(1.06f);
+            c.BackgroundColor(baseColor);
+            // Soft edge shading so the spine reads as a rounded book edge, not a flat bar.
+            var edge = Math.Max(1, spineW / 8);
+            c.Fill(Color.FromRgba(0, 0, 0, 70), new RectangleF(0, 0, edge, panelH));
+            c.Fill(Color.FromRgba(0, 0, 0, 70), new RectangleF(spineW - edge, 0, edge, panelH));
+            c.Fill(Color.FromRgba(255, 255, 255, 18), new RectangleF(edge, 0, Math.Max(1, spineW - edge * 2), panelH));
         });
 
         if (!string.IsNullOrWhiteSpace(spineTitle) && spineW >= 12)
@@ -150,6 +169,25 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         }
 
         return spine;
+    }
+
+    private static Rgba32 SampleAverageColor(Image<Rgba32> source)
+    {
+        long r = 0, g = 0, b = 0;
+        var count = 0;
+        var stepX = Math.Max(1, source.Width / 48);
+        var stepY = Math.Max(1, source.Height / 48);
+        for (var y = 0; y < source.Height; y += stepY)
+        {
+            for (var x = 0; x < source.Width; x += stepX)
+            {
+                var px = source[x, y];
+                r += px.R; g += px.G; b += px.B;
+                count++;
+            }
+        }
+        if (count == 0) return new Rgba32(60, 50, 45);
+        return new Rgba32((byte)(r / count), (byte)(g / count), (byte)(b / count));
     }
 
     /// <summary>Cover-fill draw used for both wrap front panel and verification helpers.</summary>
@@ -227,30 +265,63 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         if (!SystemFonts.Families.Any()) return;
 
         var family = SystemFonts.Families.First();
-        var titleFont = family.CreateFont(Math.Clamp(backW * 0.045f, 18f, 42f), FontStyle.Bold);
-        var bodyFont = family.CreateFont(Math.Clamp(backW * 0.028f, 12f, 22f), FontStyle.Regular);
-        var authorFont = family.CreateFont(Math.Clamp(backW * 0.024f, 11f, 18f), FontStyle.Italic);
+        // Font sizes scale with panel width (print DPI aware) — previous clamps topped out at
+        // 42px on a ~2700px-tall panel, which printed microscopically small.
+        var titleFont = family.CreateFont(Math.Clamp(backW * 0.052f, 24f, 120f), FontStyle.Bold);
+        var bodyFont = family.CreateFont(Math.Clamp(backW * 0.030f, 16f, 64f), FontStyle.Regular);
+        var authorFont = family.CreateFont(Math.Clamp(backW * 0.026f, 14f, 56f), FontStyle.Italic);
 
-        var textPad = InchesToPixels(0.2m, dpi);
+        var textPad = InchesToPixels(0.35m, dpi);
         var maxTextWidth = trimRight - trimLeft - textPad * 2;
         var maxTextBottom = barcodeY - textPad;
-        float y = trimTop + textPad;
+        float y = trimTop + textPad * 1.5f;
 
         if (!string.IsNullOrWhiteSpace(title))
         {
-            y = DrawWrappedText(ctx, titleFont, title.Trim(), headingColor, trimLeft + textPad, y, maxTextWidth);
-            y += textPad / 2;
+            y = DrawWrappedTextCentered(ctx, titleFont, title.Trim(), headingColor, trimLeft + textPad, y, maxTextWidth);
+            y += textPad * 0.4f;
         }
 
         if (!string.IsNullOrWhiteSpace(author))
         {
-            y = DrawWrappedText(ctx, authorFont, author.Trim(), bodyColor, trimLeft + textPad, y, maxTextWidth);
-            y += textPad / 2;
+            y = DrawWrappedTextCentered(ctx, authorFont, "by " + author.Trim(), bodyColor, trimLeft + textPad, y, maxTextWidth);
+            y += textPad * 0.3f;
         }
+
+        // Thin divider under the heading block.
+        var divW = maxTextWidth * 0.28f;
+        ctx.Fill(Color.FromRgba(255, 255, 255, 90),
+            new RectangleF(trimLeft + textPad + (maxTextWidth - divW) / 2f, y, divW, Math.Max(2, dpi / 100)));
+        y += textPad * 0.8f;
 
         var desc = description.Trim();
         if (y < maxTextBottom)
             DrawWrappedText(ctx, bodyFont, desc, bodyColor, trimLeft + textPad, y, maxTextWidth, maxTextBottom - y);
+    }
+
+    private static float DrawWrappedTextCentered(
+        IImageProcessingContext ctx,
+        Font font,
+        string text,
+        Color color,
+        float x,
+        float y,
+        float maxWidth)
+    {
+        var lineHeight = TextMeasurer.MeasureSize("Ag", new TextOptions(font)).Height * 1.25f;
+        foreach (var line in WrapText(text, font, maxWidth))
+        {
+            var size = TextMeasurer.MeasureSize(line, new TextOptions(font));
+            var lineX = x + Math.Max(0, (maxWidth - size.Width) / 2f);
+            ctx.DrawText(new RichTextOptions(font)
+            {
+                Origin = new PointF(lineX, y),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Top
+            }, line, color);
+            y += lineHeight;
+        }
+        return y;
     }
 
     private static float DrawWrappedText(
@@ -263,7 +334,7 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         float maxWidth,
         float? maxHeight = null)
     {
-        var lineHeight = TextMeasurer.MeasureSize("Ag", new TextOptions(font)).Height;
+        var lineHeight = TextMeasurer.MeasureSize("Ag", new TextOptions(font)).Height * 1.35f;
         var lines = WrapText(text, font, maxWidth);
         foreach (var line in lines)
         {

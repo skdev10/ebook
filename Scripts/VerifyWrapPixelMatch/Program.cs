@@ -3,6 +3,7 @@ using EBookDashboard.Application.Kdp.Constants;
 using EBookDashboard.Application.Kdp.DTOs;
 using EBookDashboard.Application.Kdp.Interfaces;
 using EBookDashboard.Application.Kdp.Services;
+using EBookDashboard.Interfaces;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
 using SixLabors.ImageSharp;
