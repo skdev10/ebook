@@ -1346,6 +1346,7 @@ namespace EBookDashboard.Controllers
             try
             {
                 var client = _bookApiClient;
+                var lastUpstreamError = "";
 
                 async Task<string?> GenerateOneCoverAsync(int variantIndex)
                 {
@@ -1360,19 +1361,47 @@ namespace EBookDashboard.Controllers
                         ["quality"] = quality
                     };
                     var variantJson = variantPayload.ToString(Newtonsoft.Json.Formatting.None);
-                    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                    httpRequest.Content = new StringContent(variantJson, Encoding.UTF8, "application/json");
-                    using var oneCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-                    var resp = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, oneCts.Token);
-                    var body = await resp.Content.ReadAsStringAsync(oneCts.Token);
-                    if (!resp.IsSuccessStatusCode)
+                    try
                     {
-                        _logger.LogWarning("GenerateCover HTTP {Code}: {Body}", (int)resp.StatusCode,
-                            body?.Length > 500 ? body.Substring(0, 500) + "…" : body);
+                        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
+                        httpRequest.Content = new StringContent(variantJson, Encoding.UTF8, "application/json");
+                        using var oneCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
+                        var resp = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, oneCts.Token);
+                        var body = await resp.Content.ReadAsStringAsync(oneCts.Token);
+                        if (!resp.IsSuccessStatusCode)
+                        {
+                            _logger.LogWarning("GenerateCover HTTP {Code}: {Body}", (int)resp.StatusCode,
+                                body?.Length > 500 ? body.Substring(0, 500) + "…" : body);
+                            var detail = CoverExternalApiHelper.TryExtractErrorMessage(body);
+                            lastUpstreamError = string.IsNullOrWhiteSpace(detail)
+                                ? $"Cover API returned HTTP {(int)resp.StatusCode}."
+                                : $"Cover API: {detail}";
+                            return null;
+                        }
+                        var got = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(body);
+                        if (got.Count == 0)
+                        {
+                            _logger.LogWarning("GenerateCover: success response had no image. Body: {Body}",
+                                body?.Length > 500 ? body.Substring(0, 500) + "…" : body);
+                            var detail = CoverExternalApiHelper.TryExtractErrorMessage(body);
+                            lastUpstreamError = string.IsNullOrWhiteSpace(detail)
+                                ? "Cover API responded without an image (queue may be busy)."
+                                : $"Cover API: {detail}";
+                            return null;
+                        }
+                        return got[0];
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        lastUpstreamError = "Cover API timed out — the AI queue is busy. Please try again in a minute.";
                         return null;
                     }
-                    var got = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(body);
-                    return got.Count > 0 ? got[0] : null;
+                    catch (HttpRequestException ex)
+                    {
+                        _logger.LogWarning(ex, "GenerateCover: cover API unreachable");
+                        lastUpstreamError = "Cover API is unreachable right now. Please try again shortly.";
+                        return null;
+                    }
                 }
 
                 var genTasks = Enumerable.Range(0, variationCount).Select(i => GenerateOneCoverAsync(i)).ToArray();
@@ -1384,8 +1413,21 @@ namespace EBookDashboard.Controllers
                 foreach (var r in genResults)
                     if (!string.IsNullOrWhiteSpace(r) && seenRaw.Add(r!)) rawUrls.Add(r!);
 
+                // One automatic retry — a single transient queue hiccup should not surface as an error.
                 if (rawUrls.Count == 0)
-                    return Json(new { success = false, status = "error", message = "No image in API response." });
+                {
+                    _logger.LogInformation("GenerateCover: first attempt returned no image, retrying once (bookId={BookId})", req.BookId);
+                    var retry = await GenerateOneCoverAsync(0);
+                    if (!string.IsNullOrWhiteSpace(retry)) rawUrls.Add(retry!);
+                }
+
+                if (rawUrls.Count == 0)
+                {
+                    var msg = string.IsNullOrWhiteSpace(lastUpstreamError)
+                        ? "The AI could not produce a cover image. Please try again in a minute."
+                        : lastUpstreamError;
+                    return Json(new { success = false, status = "error", message = msg });
+                }
 
                 HttpContext.Session.SetString("CoverDesignHasGenerated", "1");
                 HttpContext.Session.SetString("CoverDesignLastBookId", req.BookId.ToString());
