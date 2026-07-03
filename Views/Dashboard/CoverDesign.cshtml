@@ -1613,6 +1613,30 @@
         }
     }
 
+    async function pollGenerateCoverStatus(maxMs, intervalMs) {
+        var deadline = Date.now() + (maxMs || 900000);
+        var interval = intervalMs || 3000;
+        while (Date.now() < deadline) {
+            await new Promise(function (r) { setTimeout(r, interval); });
+            try {
+                var st = await fetch('/Dashboard/GenerateCoverStatus?bookId=' + encodeURIComponent(selectedBook.bookId), {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                });
+                var sd = await st.json();
+                if (sd.status === 'complete' && sd.success !== false) {
+                    return sd;
+                }
+                if (sd.status === 'error') {
+                    throw new Error(sd.message || 'Cover generation failed.');
+                }
+            } catch (pollErr) {
+                if (pollErr && pollErr.message && pollErr.message.indexOf('failed') >= 0) throw pollErr;
+            }
+        }
+        throw new Error('Cover generation is taking longer than expected. Please wait and refresh the page.');
+    }
+
     async function generateFrontCoverOnly(endpointUrl) {
         var url = endpointUrl || '/Dashboard/GenerateCover';
         var prompt = buildStructuredPrompt();
@@ -1642,11 +1666,15 @@
                 d = { success: false, message: frontMsg };
             }
             if (!r.ok && !d.message) d.message = 'HTTP ' + r.status;
+            if (d.status === 'processing') {
+                setBusy(true, 'AI is generating your cover — please wait…');
+                d = await pollGenerateCoverStatus(900000, 3000);
+            }
             if (d.status === 'error' || d.success === false) {
                 toast('error', d.message || 'Generation failed.');
                 return false;
             }
-            if (!(d.status === 'success' || d.success === true)) {
+            if (!(d.status === 'success' || d.status === 'complete' || d.success === true)) {
                 toast('error', d.message || 'Unexpected response.');
                 return false;
             }

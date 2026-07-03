@@ -52,6 +52,8 @@ namespace EBookDashboard.Controllers
         private readonly ICurrentUserAccessor _currentUser;
         private readonly IPrintWrapPregenerationQueue _printWrapPregenerationQueue;
         private readonly IPrintWrapGenerationService _printWrapGenerationService;
+        private readonly ICoverGenerationJobQueue _coverGenerationJobQueue;
+        private readonly ICoverFrontGenerationService _coverFrontGenerationService;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -71,7 +73,9 @@ namespace EBookDashboard.Controllers
             IEditorDraftResetService draftReset,
             ICurrentUserAccessor currentUser,
             IPrintWrapPregenerationQueue printWrapPregenerationQueue,
-            IPrintWrapGenerationService printWrapGenerationService)
+            IPrintWrapGenerationService printWrapGenerationService,
+            ICoverGenerationJobQueue coverGenerationJobQueue,
+            ICoverFrontGenerationService coverFrontGenerationService)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -91,6 +95,8 @@ namespace EBookDashboard.Controllers
             _currentUser = currentUser;
             _printWrapPregenerationQueue = printWrapPregenerationQueue;
             _printWrapGenerationService = printWrapGenerationService;
+            _coverGenerationJobQueue = coverGenerationJobQueue;
+            _coverFrontGenerationService = coverFrontGenerationService;
         }
 
         [Route("")]
@@ -1272,11 +1278,12 @@ namespace EBookDashboard.Controllers
         }
 
         /// <summary>
-        /// AI cover generation for Cover Design page. Calls the same external service as Books/GenerateAICoverPreview.
-        /// Returns { success, status, image_base64?, imageDataUrl?, options[] } for the front-end preview.
+        /// AI cover generation for Cover Design. Default: background job + client poll (avoids nginx 504).
+        /// Pass <c>wait=true</c> on the request body to block until the upstream API finishes.
         /// </summary>
         [HttpPost]
         [Route("GenerateCover")]
+        [Microsoft.AspNetCore.Http.Timeouts.RequestTimeout("CoverGeneration")]
         public async Task<IActionResult> GenerateCover([FromBody] DashboardGenerateCoverRequest req, CancellationToken cancellationToken)
         {
             if (req == null || req.BookId <= 0)
@@ -1286,201 +1293,39 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
-            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            var book = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
-            await _draftReset.ClearCoverAssetsAsync(req.BookId, cancellationToken);
-
-            var description = (req.Description ?? "").Trim();
-            // Stored prompt must fit legacy VARCHAR(1000); full description still drives MapCoverStyleForExternalApi below.
-            await UpsertDashboardSettingAsync($"book:{req.BookId}:aiCoverPrompt",
-                Models.Settings.ClampValueLength(description, Models.Settings.DbCompatMaxValueLength) ?? "", "Book", cancellationToken);
-
-            var title = string.IsNullOrWhiteSpace(req.Title) ? (book.Title ?? "").Trim() : req.Title!.Trim();
-            if (string.IsNullOrEmpty(title)) title = "My Book";
-
-            var authorName = (req.Author ?? "").Trim();
-            if (string.IsNullOrEmpty(authorName))
+            if (!req.Wait)
             {
-                var u = await _context.Users.AsNoTracking().FirstOrDefaultAsync(x => x.UserId == book.UserId, cancellationToken);
-                authorName = u?.FullName ?? u?.UserEmail ?? book.UserId.ToString();
+                _coverGenerationJobQueue.Start(sessionUserId.Value, req);
+                return Json(new
+                {
+                    success = true,
+                    status = "processing",
+                    message = "Generating front cover — this may take a few minutes while the AI queue runs."
+                });
             }
-
-            var category = string.IsNullOrWhiteSpace(req.Genre) ? (book.Genre ?? "General").Trim() : req.Genre!.Trim();
-            var styleKey = string.IsNullOrWhiteSpace(req.Style) ? "modern" : req.Style.Trim();
-            var coverStyleLabel = CoverExternalApiHelper.MapCoverStyleForExternalApi(styleKey, description);
-
-            var size = BookApiInputValidation.NormalizeSize(
-                (_configuration["ExternalApi:CoverGenerateSize"] ?? "1024x1536").Trim(),
-                "1024x1536");
-            var quality = BookApiInputValidation.NormalizeQuality(
-                (_configuration["ExternalApi:CoverGenerateQuality"] ?? "medium").Trim(),
-                "medium");
-            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateCoverUrl, "/api/generate-cover").Trim();
-            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
-            if (string.IsNullOrEmpty(apiKey))
-                return Json(new { success = false, status = "error", message = ExternalApiKeyResolver.MissingKeyUserMessage });
-
-            // D1: generate several cover variations so the user can choose one. The image API
-            // returns one image per call and is stochastic, so N calls => up to N distinct options.
-            var variationCount = Math.Clamp(
-                int.TryParse(_configuration["ExternalApi:CoverGenerateVariations"], out var vc) ? vc : 1,
-                1, 4);
-
-            // #8: vary the cover_style per call so the variations are visibly DISTINCT designs.
-            // Previously every call sent the same cover_style, so the results deduped down to ~1
-            // image and the picker effectively showed a single option. Variation 0 keeps the
-            // user's chosen style so the default/first cover is unchanged.
-            var styleVariants = new[]
-            {
-                coverStyleLabel,
-                coverStyleLabel + ", minimalist composition, bold modern typography",
-                coverStyleLabel + ", dramatic cinematic lighting, rich photographic detail",
-                coverStyleLabel + ", elegant classic layout, refined color palette"
-            };
-
-            _logger.LogInformation("[Dashboard/GenerateCover] bookId={BookId} url={Url} variations={N} promptChars={Chars}",
-                req.BookId, apiUrl, variationCount, (req.Prompt ?? "").Length);
 
             try
             {
-                var client = _bookApiClient;
-                var lastUpstreamError = "";
-
-                async Task<string?> GenerateOneCoverAsync(int variantIndex)
-                {
-                    var styleForVariant = styleVariants[variantIndex % styleVariants.Length];
-                    var variantPayload = new JObject
-                    {
-                        ["title"] = title,
-                        ["author_name"] = authorName,
-                        ["category"] = category,
-                        ["cover_style"] = styleForVariant,
-                        ["size"] = size,
-                        ["quality"] = quality
-                    };
-                    var variantJson = variantPayload.ToString(Newtonsoft.Json.Formatting.None);
-                    try
-                    {
-                        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl);
-                        httpRequest.Content = new StringContent(variantJson, Encoding.UTF8, "application/json");
-                        using var oneCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-                        var resp = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, oneCts.Token);
-                        var body = await resp.Content.ReadAsStringAsync(oneCts.Token);
-                        if (!resp.IsSuccessStatusCode)
-                        {
-                            _logger.LogWarning("GenerateCover HTTP {Code}: {Body}", (int)resp.StatusCode,
-                                body?.Length > 500 ? body.Substring(0, 500) + "…" : body);
-                            var detail = CoverExternalApiHelper.TryExtractErrorMessage(body);
-                            lastUpstreamError = string.IsNullOrWhiteSpace(detail)
-                                ? $"Cover API returned HTTP {(int)resp.StatusCode}."
-                                : $"Cover API: {detail}";
-                            return null;
-                        }
-                        var got = CoverExternalApiHelper.ExtractCoverImageUrlsFromApiResponse(body);
-                        if (got.Count == 0)
-                        {
-                            _logger.LogWarning("GenerateCover: success response had no image. Body: {Body}",
-                                body?.Length > 500 ? body.Substring(0, 500) + "…" : body);
-                            var detail = CoverExternalApiHelper.TryExtractErrorMessage(body);
-                            lastUpstreamError = string.IsNullOrWhiteSpace(detail)
-                                ? "Cover API responded without an image (queue may be busy)."
-                                : $"Cover API: {detail}";
-                            return null;
-                        }
-                        return got[0];
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        lastUpstreamError = "Cover API timed out — the AI queue is busy. Please try again in a minute.";
-                        return null;
-                    }
-                    catch (HttpRequestException ex)
-                    {
-                        _logger.LogWarning(ex, "GenerateCover: cover API unreachable");
-                        lastUpstreamError = "Cover API is unreachable right now. Please try again shortly.";
-                        return null;
-                    }
-                }
-
-                var genTasks = Enumerable.Range(0, variationCount).Select(i => GenerateOneCoverAsync(i)).ToArray();
-                var genResults = await Task.WhenAll(genTasks);
-
-                // Distinct, non-empty image refs in arrival order.
-                var rawUrls = new List<string>();
-                var seenRaw = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var r in genResults)
-                    if (!string.IsNullOrWhiteSpace(r) && seenRaw.Add(r!)) rawUrls.Add(r!);
-
-                // One automatic retry — a single transient queue hiccup should not surface as an error.
-                if (rawUrls.Count == 0)
-                {
-                    _logger.LogInformation("GenerateCover: first attempt returned no image, retrying once (bookId={BookId})", req.BookId);
-                    var retry = await GenerateOneCoverAsync(0);
-                    if (!string.IsNullOrWhiteSpace(retry)) rawUrls.Add(retry!);
-                }
-
-                if (rawUrls.Count == 0)
-                {
-                    var msg = string.IsNullOrWhiteSpace(lastUpstreamError)
-                        ? "The AI could not produce a cover image. Please try again in a minute."
-                        : lastUpstreamError;
-                    return Json(new { success = false, status = "error", message = msg });
-                }
+                var result = await _coverFrontGenerationService.GenerateAsync(sessionUserId.Value, req, CancellationToken.None);
+                if (!result.Success)
+                    return Json(new { success = false, status = "error", message = result.Message });
 
                 HttpContext.Session.SetString("CoverDesignHasGenerated", "1");
                 HttpContext.Session.SetString("CoverDesignLastBookId", req.BookId.ToString());
-
-                // Persist each variation to disk (sequentially → unique timestamped filenames) so the
-                // client receives stable, displayable URLs for the option picker instead of huge base64.
-                var optionUrls = new List<string>();
-                foreach (var raw in rawUrls)
-                {
-                    var urlForClient = raw;
-                    try
-                    {
-                        var persisted = await TryPersistCoverReferenceAsync(sessionUserId.Value, req.BookId, raw, cancellationToken);
-                        if (!string.IsNullOrEmpty(persisted)) urlForClient = persisted!;
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Could not persist AI cover variation for book {BookId}", req.BookId);
-                    }
-                    optionUrls.Add(urlForClient);
-                }
-
-                var firstRaw = rawUrls[0];
-                var firstOption = optionUrls[0];
-
-                // Default-select the first variation so existing single-cover behavior is preserved;
-                // the user can switch to another option in the picker (which re-persists their choice).
-                try
-                {
-                    if (firstOption.StartsWith("/", StringComparison.Ordinal) || firstOption.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                        await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, firstOption, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Could not persist default AI cover for book {BookId}", req.BookId);
-                }
-
-                string? imageBase64 = null;
-                if (firstRaw.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
-                {
-                    var idx = firstRaw.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
-                    if (idx >= 0)
-                        imageBase64 = firstRaw[(idx + "base64,".Length)..];
-                }
 
                 return Json(new
                 {
                     success = true,
                     status = "success",
-                    coverUrl = firstOption,
-                    image_base64 = imageBase64,
-                    imageDataUrl = firstRaw.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ? firstRaw : (string?)null,
-                    options = optionUrls.ToArray()
+                    coverUrl = result.CoverUrl,
+                    image_base64 = result.ImageBase64,
+                    imageDataUrl = result.ImageDataUrl,
+                    options = result.Options
                 });
             }
             catch (OperationCanceledException)
@@ -1492,6 +1337,40 @@ namespace EBookDashboard.Controllers
                 _logger.LogError(ex, "GenerateCover failed for book {BookId}", req.BookId);
                 return Json(new { success = false, status = "error", message = ex.Message });
             }
+        }
+
+        /// <summary>Poll background front-cover generation started by POST /Dashboard/GenerateCover.</summary>
+        [HttpGet]
+        [Route("GenerateCoverStatus")]
+        public IActionResult GenerateCoverStatus(int bookId)
+        {
+            if (bookId <= 0)
+                return Json(new { success = false, status = "error", message = "BookId is required." });
+
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, status = "error", message = "Please sign in." });
+
+            var snap = _coverGenerationJobQueue.GetStatus(sessionUserId.Value, bookId);
+            if (snap == null)
+                return Json(new { success = true, status = "idle", message = "No cover job in progress." });
+
+            if (snap.Status == "complete")
+            {
+                HttpContext.Session.SetString("CoverDesignHasGenerated", "1");
+                HttpContext.Session.SetString("CoverDesignLastBookId", bookId.ToString());
+            }
+
+            return Json(new
+            {
+                success = snap.Status != "error",
+                status = snap.Status,
+                message = snap.Message,
+                coverUrl = snap.CoverUrl,
+                image_base64 = snap.ImageBase64,
+                imageDataUrl = snap.ImageDataUrl,
+                options = snap.Options
+            });
         }
 
         /// <summary>Same body as <see cref="GenerateCover"/> — alias for clients that call a dedicated regenerate action.</summary>

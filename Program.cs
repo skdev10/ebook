@@ -267,6 +267,8 @@ builder.Services.AddScoped<IPrintWrapGenerationService, PrintWrapGenerationServi
 builder.Services.AddSingleton<SpineRenderer>();
 builder.Services.AddScoped<IPrintWrapCompositor, PrintWrapCompositor>();
 builder.Services.AddSingleton<IPrintWrapPregenerationQueue, PrintWrapPregenerationQueue>();
+builder.Services.AddSingleton<ICoverGenerationJobQueue, CoverGenerationJobQueue>();
+builder.Services.AddScoped<ICoverFrontGenerationService, CoverFrontGenerationService>();
 builder.Services.AddHostedService<ChromiumPdfWarmupHostedService>();
 builder.Services.AddScoped<IEpubExportService, EpubExportService>();
 builder.Services.AddScoped<IDocxExportService, DocxExportService>();

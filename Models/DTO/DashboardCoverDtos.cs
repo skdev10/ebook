@@ -17,6 +17,9 @@ namespace EBookDashboard.Models.DTO
         public string? Genre { get; set; }
         public string? Style { get; set; }
         public string? Description { get; set; }
+
+        /// <summary>When true, block until the upstream API returns (may hit gateway timeout). Default is background + poll.</summary>
+        public bool Wait { get; set; }
     }
 
     /// <summary>POST /Dashboard/SetActiveCover — persist the cover variation the user picked from the grid.</summary>

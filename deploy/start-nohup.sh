@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/EbookAI}"
+APP_DIR="${APP_DIR:-/root/latest/EbookAI}"
 PORT="${PORT:-5000}"
 ENV_FILE="${ENV_FILE:-/etc/default/ebookai}"
 
