@@ -1282,6 +1282,7 @@ namespace EBookDashboard.Controllers
         /// Pass <c>wait=true</c> on the request body to block until the upstream API finishes.
         /// </summary>
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         [Route("GenerateCover")]
         [Microsoft.AspNetCore.Http.Timeouts.RequestTimeout("CoverGeneration")]
         public async Task<IActionResult> GenerateCover([FromBody] DashboardGenerateCoverRequest req, CancellationToken cancellationToken)
@@ -1341,8 +1342,9 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Poll background front-cover generation started by POST /Dashboard/GenerateCover.</summary>
         [HttpGet]
+        [IgnoreAntiforgeryToken]
         [Route("GenerateCoverStatus")]
-        public IActionResult GenerateCoverStatus(int bookId)
+        public async Task<IActionResult> GenerateCoverStatus(int bookId, CancellationToken cancellationToken)
         {
             if (bookId <= 0)
                 return Json(new { success = false, status = "error", message = "BookId is required." });
@@ -1351,7 +1353,8 @@ namespace EBookDashboard.Controllers
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
-            var snap = _coverGenerationJobQueue.GetStatus(sessionUserId.Value, bookId);
+            var snap = _coverGenerationJobQueue.GetStatus(sessionUserId.Value, bookId)
+                ?? await _coverGenerationJobQueue.LoadStatusFromDbAsync(bookId, cancellationToken);
             if (snap == null)
                 return Json(new { success = true, status = "idle", message = "No cover job in progress." });
 
@@ -1419,6 +1422,8 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Edit / refine cover via external POST /api/edit-cover (base64 image + direction).</summary>
         [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Microsoft.AspNetCore.Http.Timeouts.RequestTimeout("CoverGeneration")]
         [Route("EditCover")]
         public async Task<IActionResult> EditCover([FromBody] DashboardEditCoverRequest req, CancellationToken cancellationToken)
         {
@@ -2524,6 +2529,17 @@ namespace EBookDashboard.Controllers
 
             if (req.Force)
                 await ClearPrintWrapCacheAsync(req.BookId, CancellationToken.None);
+
+            if (!req.Wait)
+            {
+                _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(sessionUserId.Value, req.BookId);
+                return Json(new
+                {
+                    success = true,
+                    status = "processing",
+                    message = "Building full print wrap in background — poll GetPrintReadyCoverAssets."
+                });
+            }
 
             // Calls upstream split API (realistic AI wrap); falls back to local compositor if API fails.
             var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(

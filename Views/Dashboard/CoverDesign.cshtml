@@ -604,6 +604,34 @@
         });
     })();
 
+    function pollPrintWrapUntilReady(maxMs, intervalMs) {
+        maxMs = maxMs || 900000;
+        intervalMs = intervalMs || 3000;
+        var started = Date.now();
+        return new Promise(function (resolve, reject) {
+            function tick() {
+                if (!selectedBook || !selectedBook.bookId) {
+                    reject(new Error('No book loaded.'));
+                    return;
+                }
+                fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(selectedBook.bookId), {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' }
+                }).then(function (r) { return r.json(); }).then(function (d) {
+                    var wrap = d && d.cover ? (d.cover.wrap || '').trim() : '';
+                    var st = d && d.wrapCoverStatus ? String(d.wrapCoverStatus) : '';
+                    if (wrap && d.wrapMatchesFront !== false) return resolve(d);
+                    if (st === 'Failed' || st === 'MissingFront')
+                        return reject(new Error(d.message || 'Full wrap generation failed.'));
+                    if (Date.now() - started > maxMs)
+                        return reject(new Error('Full wrap is still building. Please wait and refresh.'));
+                    setTimeout(tick, intervalMs);
+                }).catch(reject);
+            }
+            tick();
+        });
+    }
+
     function buildPrintWrapNow(forceRebuild) {
         if (!selectedBook || !selectedBook.bookId || !needsPrintWrapAutoBuild()) return Promise.resolve(null);
         if (!hasSavedFrontForWrap()) {
@@ -631,7 +659,7 @@
                     bookId: selectedBook.bookId,
                     pageCount: pageCount > 0 ? pageCount : null,
                     force: !!forceRebuild,
-                    wait: true,
+                    wait: false,
                     title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
                     author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
                     genre: (bookCategory.value || '').trim()
@@ -646,6 +674,9 @@
                 });
             }
             return r.json();
+        }).then(function (d) {
+            if (d && d.status === 'processing') return pollPrintWrapUntilReady(900000, 3000);
+            return d;
         })
         .then(function (d) {
                 if (d && d.success && d.cover) {
@@ -668,8 +699,9 @@
             }
             return d;
         })
-        .catch(function () {
+        .catch(function (err) {
             updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+            if (err && err.message) toast('error', err.message);
             return null;
         })
         .finally(function () {
@@ -1427,7 +1459,8 @@
         if (!d) return '';
         if (d.coverUrl) return d.coverUrl;
         if (d.cover && d.cover.front) return d.cover.front;
-        if (d.status === 'success' && d.image_base64) return 'data:image/png;base64,' + d.image_base64;
+        if ((d.status === 'success' || d.status === 'complete') && d.image_base64)
+            return 'data:image/png;base64,' + d.image_base64;
         if (d.imageDataUrl) return d.imageDataUrl;
         if (d.options && d.options.length) return d.options[0];
         return '';
@@ -1616,6 +1649,7 @@
     async function pollGenerateCoverStatus(maxMs, intervalMs) {
         var deadline = Date.now() + (maxMs || 900000);
         var interval = intervalMs || 3000;
+        var sawProcessing = false;
         while (Date.now() < deadline) {
             await new Promise(function (r) { setTimeout(r, interval); });
             try {
@@ -1624,14 +1658,13 @@
                     headers: { 'Accept': 'application/json' }
                 });
                 var sd = await st.json();
-                if (sd.status === 'complete' && sd.success !== false) {
-                    return sd;
-                }
-                if (sd.status === 'error') {
-                    throw new Error(sd.message || 'Cover generation failed.');
-                }
+                if (sd.status === 'processing') sawProcessing = true;
+                if (sd.status === 'complete' && sd.success !== false) return sd;
+                if (sd.status === 'error') throw new Error(sd.message || 'Cover generation failed.');
+                if (sd.status === 'idle' && sawProcessing)
+                    throw new Error('Cover job was lost. Please click Generate Cover again.');
             } catch (pollErr) {
-                if (pollErr && pollErr.message && pollErr.message.indexOf('failed') >= 0) throw pollErr;
+                if (pollErr && pollErr.message) throw pollErr;
             }
         }
         throw new Error('Cover generation is taking longer than expected. Please wait and refresh the page.');
