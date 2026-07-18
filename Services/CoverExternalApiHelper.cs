@@ -213,8 +213,25 @@ namespace EBookDashboard.Services
             }
 
             var fallbacks = ExtractCoverImageUrlsFromApiResponse(responseData);
-            if (string.IsNullOrWhiteSpace(bundle.Wrap) && fallbacks.Count > 0) bundle.Wrap = fallbacks[0];
-            if (string.IsNullOrWhiteSpace(bundle.Front) && fallbacks.Count > 0) bundle.Front = fallbacks[0];
+            // Never assign the same single image as BOTH wrap and front — a portrait front
+            // stuffed into the wrap slot is what makes Ebook+Paperback covers look "weird".
+            if (string.IsNullOrWhiteSpace(bundle.Wrap) && fallbacks.Count > 0)
+            {
+                // Prefer a landscape-looking distinct URL when front is already filled.
+                var wrapCandidate = fallbacks.FirstOrDefault(u =>
+                    !string.Equals(u, bundle.Front, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(wrapCandidate))
+                    bundle.Wrap = wrapCandidate;
+                else if (string.IsNullOrWhiteSpace(bundle.Front))
+                    bundle.Wrap = fallbacks[0];
+                // else: leave Wrap empty — caller must use local compositor from the front.
+            }
+            if (string.IsNullOrWhiteSpace(bundle.Front) && fallbacks.Count > 0)
+            {
+                var frontCandidate = fallbacks.FirstOrDefault(u =>
+                    !string.Equals(u, bundle.Wrap, StringComparison.OrdinalIgnoreCase));
+                bundle.Front = !string.IsNullOrWhiteSpace(frontCandidate) ? frontCandidate : fallbacks[0];
+            }
 
             return bundle;
         }

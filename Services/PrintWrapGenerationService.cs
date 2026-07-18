@@ -190,26 +190,29 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             return true;
         }
 
-        // 2) Documented full-wrap API (generate-spine-book-cover). It invents its own front,
-        //    so on success the saved front cover is re-synced FROM the wrap's front panel —
-        //    front preview and wrap always show the same art.
+        // 2) Local compositor — ALWAYS preferred over the full-spine AI invent path.
+        //    Front panel = exact saved front cover pixels (what the user approved).
+        //    The full-spine API invents a brand-new wrap (often mismatched / "weird" art)
+        //    and used to overwrite the saved front — that is what broke Ebook+Paperback.
+        if (await TryGenerateViaLocalCompositorAsync(
+                userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
+                title, authorName, description,
+                pageCount, trimSize, kdp, exportOpt, cancellationToken))
+        {
+            return true;
+        }
+
+        // 3) Last resort: documented full-wrap API (generate-spine-book-cover). Only used
+        //    when local compositing fails. It invents its own front, so on success the saved
+        //    front cover is re-synced FROM the wrap's front panel.
         var imageDirection = (await _context.Settings.AsNoTracking()
             .Where(s => s.Key == $"book:{bookId}:aiCoverPrompt")
             .Select(s => s.Value)
             .FirstOrDefaultAsync(cancellationToken) ?? "").Trim();
         var category = (book.Genre ?? "General").Trim();
-        if (await TryGenerateViaFullSpineApiAsync(
+        return await TryGenerateViaFullSpineApiAsync(
                 userId, bookId, title, authorName, category, imageDirection,
-                trimSize, pageCount, kdp, cancellationToken))
-        {
-            return true;
-        }
-
-        // 3) Local compositor — offline fallback, front pixels preserved exactly.
-        return await TryGenerateViaLocalCompositorAsync(
-            userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
-            title, authorName, description,
-            pageCount, trimSize, kdp, exportOpt, cancellationToken);
+                trimSize, pageCount, kdp, cancellationToken);
     }
 
     /// <summary>

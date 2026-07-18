@@ -3223,7 +3223,8 @@ window.syncPreviewToSelectedChapter = function (chapterNo) {
         }
         return;
     }
-    if (idx === window._previewChapterIndex) return;
+    // Always re-apply so a re-selection of the same index still refreshes content
+    // (stale meta used to leave the previous chapter body on screen).
     if (typeof window.applyPreviewChapterIndex === 'function') {
         window.applyPreviewChapterIndex(idx, { initialPage: 0 });
     }
@@ -4553,9 +4554,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     var hadContent = !!(c.content && String(c.content).trim());
                     if (hadContent) {
                         var txt = (typeof getContentFromPossibleJson === 'function' ? getContentFromPossibleJson(c.content) : c.content) || '';
-                        var chNum = parseInt(c.chapterNumber || c.ChapterNumber || chapterNo, 10);
+                        // API returns chapterNo / chapterTitle (GetBookChapterResponse) — accept both shapes.
+                        var chNum = parseInt(c.chapterNo || c.chapterNumber || c.ChapterNumber || chapterNo, 10);
                         if (!Number.isFinite(chNum)) chNum = parseInt(String(chapterNo), 10) || 1;
-                        var titleRaw = (c.title || c.Title || '').trim();
+                        var titleRaw = (c.chapterTitle || c.title || c.Title || '').trim();
                         var escT = typeof window.escapeHtml === 'function' ? window.escapeHtml : function (s) {
                             return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         };
@@ -4616,9 +4618,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // can rebuild the reader for a selected chapter that isn't currently in it.
     window.loadChapterPreview = loadChapterPreview;
 
+    // Chapter dropdown already paints via onchange="loadBookChapterNos(...)" → showBookContent.
+    // Do NOT also call loadChapterPreview here — that raced, wiped meta mid-load, and left
+    // the previous chapter on screen (or an empty flash). Autosave only.
     inputChapterNo.addEventListener('change', function() {
-        var bookId = getBookId();
-        if (bookId > 0) loadChapterPreview(bookId, getChapterNo());
         queueWriterAutosave(700);
     });
 
@@ -5641,7 +5644,6 @@ document.addEventListener('DOMContentLoaded', function() {
                   const statusCode = latestChapter ? latestChapter.statusCode : "Draft";
                   checkAndDisableButtonsForReadOnly(statusCode);
 
-                  // Only update form; do NOT call showBookContent here (book already shown by loadSelectedResponse)
                   populateBookForm(result);
                   if (typeof refreshChapterIterationsDropdown === 'function') {
                       refreshChapterIterationsDropdown(document.getElementById('ResponseId') && document.getElementById('ResponseId').value);
@@ -5650,8 +5652,22 @@ document.addEventListener('DOMContentLoaded', function() {
                   if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                   if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
                       window.markChapterAsGenerated();
-                      // Bug #5: move the preview card to the chapter the user just selected.
-                      if (typeof window.syncPreviewToSelectedChapter === 'function') {
+                      // Always paint the selected chapter body into the preview (same path as
+                      // iteration switch). Previously we only reindexed a stale _previewChaptersMeta
+                      // cache, so switching chapters left the old chapter on screen.
+                      if (typeof showBookContent === 'function') {
+                          showBookContent({
+                              bookId: result.bookId,
+                              bookTitle: result.bookTitle,
+                              chapters: [{
+                                  chapterNo: latestChapter.chapterNo,
+                                  chapterTitle: latestChapter.chapterTitle,
+                                  title: latestChapter.chapterTitle,
+                                  content: latestChapter.content,
+                                  responseData: latestChapter.requestData
+                              }]
+                          });
+                      } else if (typeof window.syncPreviewToSelectedChapter === 'function') {
                           window.syncPreviewToSelectedChapter(parseInt(selectedValue, 10));
                       }
                   } else {
