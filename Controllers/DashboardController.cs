@@ -150,9 +150,15 @@ namespace EBookDashboard.Controllers
                     await SetActiveBookForUserAsync(user.UserId, inProgress.BookId);
                     HttpContext.Session.SetInt32("LastSelectedBookId", inProgress.BookId);
                     HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, inProgress.BookId);
-                    var flow = await _bookFlow.GetResumeStepAsync(inProgress.BookId);
+                    var flow = await _bookFlow.GetStepAsync(inProgress.BookId);
                     BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
-                    var resumeUrl = _bookFlow.BuildResumeUrl(inProgress.BookId, flow.Step, flow.Path);
+                    var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(inProgress.BookId);
+                    var perBookUrl = await _context.Settings.AsNoTracking()
+                        .Where(s => s.Key == perBookKey)
+                        .Select(s => s.Value)
+                        .FirstOrDefaultAsync();
+                    var resumeUrl = BookResumeUrlHelper.ResolveResumeUrl(
+                        inProgress.BookId, perBookUrl, flow.Step, flow.Path, _bookFlow);
                     if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
                         return Redirect(resumeUrl);
                     return RedirectToAction("AIGenerateBook", "Books", new { bookId = inProgress.BookId });
@@ -276,27 +282,18 @@ namespace EBookDashboard.Controllers
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
-            var flow = await _bookFlow.GetResumeStepAsync(bookId);
+            // Prefer the screen the author was last on (lastWorkUrl / current flow step) —
+            // NOT flowMaxStep/Publish, or Continue Editing always dumps them on Publish.
+            var flow = await _bookFlow.GetStepAsync(bookId);
             BookResumeUrlHelper.BootstrapOwnedBookSession(HttpContext, bookId, ownsBook.Status, flow.Step);
 
-            string resumeUrl;
             var perBookKey = BookResumeUrlHelper.PerBookSettingsKey(bookId);
             var perBookUrl = await _context.Settings.AsNoTracking()
                 .Where(s => s.Key == perBookKey)
                 .Select(s => s.Value)
                 .FirstOrDefaultAsync();
-            // Bug #17: honour the last-work URL only when it is at least as far as the furthest step,
-            // so backward navigation can't make resume land on an earlier step.
-            if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
-                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId
-                && BookFlowStateService.StepRank(BookFlowStateService.StepFromWorkUrl(perBookUrl)) >= BookFlowStateService.StepRank(flow.Step))
-            {
-                resumeUrl = perBookUrl!.Trim();
-            }
-            else
-            {
-                resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
-            }
+            var resumeUrl = BookResumeUrlHelper.ResolveResumeUrl(
+                bookId, perBookUrl, flow.Step, flow.Path, _bookFlow);
 
             if (!string.IsNullOrWhiteSpace(resumeUrl) && resumeUrl.StartsWith('/'))
                 return Redirect(resumeUrl);
@@ -326,8 +323,7 @@ namespace EBookDashboard.Controllers
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
 
-            string? resumeUrl = null;
-            var flow = await _bookFlow.GetResumeStepAsync(bookId);
+            var flow = await _bookFlow.GetStepAsync(bookId);
             var flowStep = flow.Step;
             BookResumeUrlHelper.SyncFlowSessionFlags(HttpContext, flow.Step);
 
@@ -336,17 +332,8 @@ namespace EBookDashboard.Controllers
                 .Where(s => s.Key == perBookKey)
                 .Select(s => s.Value)
                 .FirstOrDefaultAsync();
-            // Bug #17: never resume earlier than the furthest step reached.
-            if (BookResumeUrlHelper.IsSafeResumePath(perBookUrl)
-                && BookResumeUrlHelper.TryParseBookIdFromWorkUrl(perBookUrl!) == bookId
-                && BookFlowStateService.StepRank(BookFlowStateService.StepFromWorkUrl(perBookUrl)) >= BookFlowStateService.StepRank(flow.Step))
-            {
-                resumeUrl = perBookUrl!.Trim();
-            }
-            else
-            {
-                resumeUrl = _bookFlow.BuildResumeUrl(bookId, flow.Step, flow.Path);
-            }
+            var resumeUrl = BookResumeUrlHelper.ResolveResumeUrl(
+                bookId, perBookUrl, flow.Step, flow.Path, _bookFlow);
 
             return Json(new
             {
@@ -599,6 +586,7 @@ namespace EBookDashboard.Controllers
             var pendingBooks = meaningfulDraftBooks;
             var allUserBookIds = books.Where(b => !IsDemoSeedTitle(b.Title)).Select(b => b.BookId).ToList();
             var flowMap = await LoadBookFlowMapAsync(allUserBookIds);
+            var lastWorkByBookId = await LoadLastWorkUrlsByBookIdAsync(allUserBookIds);
             var epubByBookId = await LoadEpubPathsByBookIdAsync(publishedBooks.Select(b => b.BookId).ToList());
             var demoPublished = EnrichPublishedWithResume(
                 GetDemoPublishedBooks(publishedBooks, ResolveBookCover, epubByBookId),
@@ -607,7 +595,8 @@ namespace EBookDashboard.Controllers
             var visibleDraftBooks = userDraftBooks
                 .Where(b => !IsGhostBook(b, chaptersGeneratedByBookId))
                 .ToList();
-            var demoDrafts = EnrichDraftsWithFlow(GetDemoDrafts(visibleDraftBooks, aiCoverByBookId), flowMap, _bookFlow);
+            var demoDrafts = EnrichDraftsWithFlow(
+                GetDemoDrafts(visibleDraftBooks, aiCoverByBookId), flowMap, lastWorkByBookId, _bookFlow);
             string? heroDisplayTitle = null;
             if (lastWorkedBook != null)
             {
@@ -655,7 +644,12 @@ namespace EBookDashboard.Controllers
                         ProgressPercentage = progressPct,
                         ProgressText = progressText,
                         FlowStepLabel = stepLabel,
-                        ResumeUrl = _bookFlow.BuildResumeUrl(b.BookId, flow.Step, flow.Path),
+                        ResumeUrl = BookResumeUrlHelper.ResolveResumeUrl(
+                            b.BookId,
+                            lastWorkByBookId.GetValueOrDefault(b.BookId),
+                            flow.Step,
+                            flow.Path,
+                            _bookFlow),
                         CoverImagePath = ResolveContinueEditingCover(b),
                         LastEditedAt = b.UpdatedAt ?? b.CreatedAt,
                         LastEditedText = FormatLastEditedText(b.UpdatedAt ?? b.CreatedAt)
@@ -791,15 +785,22 @@ namespace EBookDashboard.Controllers
         private static List<DemoDraftViewModel> EnrichDraftsWithFlow(
             List<DemoDraftViewModel> drafts,
             Dictionary<int, (string Step, string Path)> flowMap,
+            Dictionary<int, string> lastWorkByBookId,
             BookFlowStateService bookFlow)
         {
             foreach (var d in drafts)
             {
                 var flow = flowMap.GetValueOrDefault(d.BookId, (Step: BookFlowStateService.StepGenerate, Path: "ebook"));
-                d.FlowStepLabel = BookFlowStateService.StepToLabel(flow.Step);
-                d.FlowStepPercent = BookFlowStateService.StepToPercent(flow.Step);
+                var lastWork = lastWorkByBookId.GetValueOrDefault(d.BookId);
+                var resumeStep = !string.IsNullOrWhiteSpace(lastWork)
+                    ? BookFlowStateService.StepFromWorkUrl(lastWork)
+                    : "";
+                if (string.IsNullOrEmpty(resumeStep)) resumeStep = flow.Step;
+                d.FlowStepLabel = BookFlowStateService.StepToLabel(resumeStep);
+                d.FlowStepPercent = BookFlowStateService.StepToPercent(resumeStep);
                 d.Subtitle = $"Continue at {d.FlowStepLabel} ({d.FlowStepPercent}% complete)";
-                d.ResumeUrl = bookFlow.BuildResumeUrl(d.BookId, flow.Step, flow.Path);
+                d.ResumeUrl = BookResumeUrlHelper.ResolveResumeUrl(
+                    d.BookId, lastWork, flow.Step, flow.Path, bookFlow);
             }
             return drafts;
         }
@@ -817,21 +818,38 @@ namespace EBookDashboard.Controllers
         {
             var map = new Dictionary<int, (string Step, string Path)>();
             if (bookIds.Count == 0) return map;
-            var keys = bookIds.SelectMany(id => new[] { $"book:{id}:flowStep", $"book:{id}:flowMaxStep", $"book:{id}:flowPath" }).ToList();
+            // Current step only — do not substitute flowMaxStep (that forced Publish after one visit).
+            var keys = bookIds.SelectMany(id => new[] { $"book:{id}:flowStep", $"book:{id}:flowPath" }).ToList();
             var rows = await _context.Settings.AsNoTracking()
                 .Where(s => keys.Contains(s.Key))
                 .ToListAsync();
             foreach (var id in bookIds)
             {
                 var step = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowStep")?.Value?.Trim() ?? "";
-                var maxStep = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowMaxStep")?.Value?.Trim() ?? "";
                 var path = rows.FirstOrDefault(r => r.Key == $"book:{id}:flowPath")?.Value?.Trim() ?? "";
                 if (string.IsNullOrEmpty(step)) step = BookFlowStateService.StepGenerate;
                 if (string.IsNullOrEmpty(path)) path = "ebook";
-                // Bug #17: resume at the furthest step reached, not the last (possibly backward) step.
-                if (BookFlowStateService.StepRank(maxStep) > BookFlowStateService.StepRank(step))
-                    step = maxStep;
                 map[id] = (step, path);
+            }
+            return map;
+        }
+
+        private async Task<Dictionary<int, string>> LoadLastWorkUrlsByBookIdAsync(List<int> bookIds)
+        {
+            var map = new Dictionary<int, string>();
+            if (bookIds.Count == 0) return map;
+            var keys = bookIds.Select(BookResumeUrlHelper.PerBookSettingsKey).ToList();
+            var rows = await _context.Settings.AsNoTracking()
+                .Where(s => keys.Contains(s.Key))
+                .Select(s => new { s.Key, s.Value })
+                .ToListAsync();
+            foreach (var row in rows)
+            {
+                if (string.IsNullOrWhiteSpace(row.Value)) continue;
+                if (!BookResumeUrlHelper.IsSafeResumePath(row.Value)) continue;
+                var bookId = BookResumeUrlHelper.TryParseBookIdFromWorkUrl(row.Value);
+                if (bookId <= 0) continue;
+                map[bookId] = row.Value.Trim();
             }
             return map;
         }

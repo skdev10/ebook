@@ -74,4 +74,19 @@ public static class BookResumeUrlHelper
         else
             context.Session.SetString("HasGeneratedBook", "1");
     }
+
+    /// <summary>
+    /// Resume where the author actually last worked — not the furthest step ever reached.
+    /// Visiting Publish once must not force every later "Continue Editing" back to Publish.
+    /// </summary>
+    public static string ResolveResumeUrl(int bookId, string? lastWorkUrl, string flowStep, string flowPath, BookFlowStateService bookFlow)
+    {
+        if (bookId <= 0) return "/Dashboard";
+        if (IsSafeResumePath(lastWorkUrl)
+            && TryParseBookIdFromWorkUrl(lastWorkUrl!) == bookId)
+        {
+            return lastWorkUrl!.Trim();
+        }
+        return bookFlow.BuildResumeUrl(bookId, flowStep, flowPath);
+    }
 }
