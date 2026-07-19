@@ -5780,6 +5780,7 @@
         const fmtEl = document.getElementById('format-select');
         const fmt = (fmtEl && fmtEl.value) || 'Ebook';
         if (fmt === 'Both') renderBothPreviews(-1); else renderPreviewContent(-1);
+        if (typeof window.FmtIpvJumpToChapter === 'function') window.FmtIpvJumpToChapter(ci - 1);
         persistReaderPosition();
     }
 
@@ -5790,6 +5791,7 @@
         const fmtEl = document.getElementById('format-select');
         const fmt = (fmtEl && fmtEl.value) || 'Ebook';
         if (fmt === 'Both') renderBothPreviews(1); else renderPreviewContent(1);
+        if (typeof window.FmtIpvJumpToChapter === 'function') window.FmtIpvJumpToChapter(ci + 1);
         persistReaderPosition();
     }
 
@@ -6440,6 +6442,11 @@
             var fmtEl = document.getElementById('format-select');
             var fmt = (fmtEl && fmtEl.value) || 'Ebook';
             if (fmt === 'Both') renderBothPreviews(0); else renderPreviewContent(0);
+            // Visible tablet is the IPV overlay — must jump it too or dropdown changes
+            // while the page below stays on the previous chapter.
+            if (typeof window.FmtIpvJumpToChapter === 'function') {
+                window.FmtIpvJumpToChapter(ch);
+            }
             persistReaderPosition();
             showToast('Chapter ' + (ch + 1));
         });
@@ -6826,7 +6833,7 @@
             var ch = chs[i] || {};
             var no = (ch.chapterNo != null) ? ch.chapterNo : (i + 1);
             var title = (ch.chapterTitle && String(ch.chapterTitle).trim()) || ('Chapter ' + no);
-            out.push({ type:'chapter', num:'Chapter ' + no, title:title });
+            out.push({ type:'chapter', num:'Chapter ' + no, title:title, chapterIndex:i });
             var blocks = parseChapterContent(ch.content || '', title);
             for (var j = 0; j < blocks.length; j++) out.push(blocks[j]);
         }
@@ -7016,15 +7023,17 @@
         var pages = [];
         var pageBlocks = [];
         var currentChapter = bookTitleOrDefault();
+        var currentChapterIdx = -1;
 
         function reset() { measure.innerHTML = ''; host = makeHost(); measure.appendChild(host); }
-        function commit() { pages.push({ blocks:pageBlocks, chapter:currentChapter }); pageBlocks = []; reset(); }
+        function commit() { pages.push({ blocks:pageBlocks, chapter:currentChapter, chapterIndex:currentChapterIdx }); pageBlocks = []; reset(); }
 
         for (var k = 0; k < blocks.length; k++) {
             var blk = blocks[k];
             if (blk.type === 'chapter') {
                 if (pageBlocks.length) commit();
                 currentChapter = blk.title;
+                currentChapterIdx = (blk.chapterIndex != null && Number.isFinite(blk.chapterIndex)) ? blk.chapterIndex : currentChapterIdx;
                 host.appendChild(renderBlock(blk));
                 pageBlocks.push(blk);
                 continue;
@@ -7069,9 +7078,32 @@
                 } else pageBlocks.push(blk);
             }
         }
-        if (pageBlocks.length) pages.push({ blocks:pageBlocks, chapter:currentChapter });
+        if (pageBlocks.length) pages.push({ blocks:pageBlocks, chapter:currentChapter, chapterIndex:currentChapterIdx });
         return pages;
     }
+
+    /** Jump the on-screen IPV tablet to the first page of chapter index (0-based). */
+    window.FmtIpvJumpToChapter = function (chIdx) {
+        chIdx = parseInt(chIdx, 10);
+        if (!Number.isFinite(chIdx) || chIdx < 0) return false;
+        if (!PAGES.length) doRender();
+        for (var i = 0; i < PAGES.length; i++) {
+            var p = PAGES[i];
+            if (!p) continue;
+            if (p.chapterIndex === chIdx) {
+                currentPage = i;
+                renderPage(currentPage);
+                return true;
+            }
+            var b0 = p.blocks && p.blocks[0];
+            if (b0 && b0.type === 'chapter' && b0.chapterIndex === chIdx) {
+                currentPage = i;
+                renderPage(currentPage);
+                return true;
+            }
+        }
+        return false;
+    };
 
     function renderPage(idx) {
         var page = el('ipvPage');
@@ -7130,6 +7162,12 @@
             if (fpiTop) {
                 fpiTop.textContent = 'Page ' + (idx + 1) + ' of ' + PAGES.length;
                 fpiTop.classList.toggle('hidden', PAGES.length === 0);
+            }
+            // Keep CHAPTER dropdown in sync when flipping IPV pages.
+            var jumpSel = document.getElementById('reader-chapter-jump');
+            if (jumpSel && data && data.chapterIndex != null && data.chapterIndex >= 0) {
+                var want = String(data.chapterIndex);
+                if (jumpSel.value !== want) jumpSel.value = want;
             }
         } catch (eTop) {}
         el('ipvPrev').disabled = idx === 0;
