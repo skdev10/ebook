@@ -1746,11 +1746,18 @@
         var prev = window._publishCoverAssets || {};
         var wrap = data && data.cover ? (data.cover.wrap || '').trim() : '';
         var status = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : '';
-        publishWrapCoverReady = !!wrap;
-        if (!publishWrapCoverReady && status === 'Ready') {
+        var matchesFront = !(data && data.wrapMatchesFront === false);
+        // Same rule as Cover Design: stale / mismatched wraps are not "ready" for download.
+        publishWrapCoverReady = !!(wrap && matchesFront && status !== 'Stale' && status !== 'Failed' && status !== 'MissingFront');
+        if (!publishWrapCoverReady && status === 'Ready' && matchesFront) {
             var cached = (prev.cover && prev.cover.wrap) || String(pbCoverWrapRef || '').trim();
             publishWrapCoverReady = !!cached;
             if (publishWrapCoverReady && !wrap) wrap = cached;
+        }
+        if (!matchesFront || status === 'Stale') {
+            wrap = '';
+            publishWrapCoverReady = false;
+            applySavedCoverPreview('');
         }
         window._publishCoverAssets = {
             cover: data && data.cover ? {
@@ -1762,7 +1769,8 @@
             pageCount: (data && data.pageCount) || prev.pageCount || pbEstimatedPages || 0,
             layout: (data && data.layout) || prev.layout || null,
             trimSize: (data && data.trimSize) || prev.trimSize || null,
-            wrapCoverStatus: status
+            wrapCoverStatus: status,
+            wrapMatchesFront: matchesFront
         };
         updateWrapExportButtonState(data);
         return publishWrapCoverReady;
@@ -1780,7 +1788,8 @@
         var hintEl = document.getElementById('publishWrapBuildHint');
         if (!btn || !showPrintExports) return;
         var wrapStatus = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : (publishWrapCoverReady ? 'Ready' : 'Generating');
-        var ready = publishWrapCoverReady || wrapStatus === 'Ready';
+        var matchesFront = !(data && data.wrapMatchesFront === false);
+        var ready = publishWrapCoverReady && wrapStatus !== 'Stale' && matchesFront;
         btn.classList.remove('opacity-60', 'cursor-not-allowed');
         btn.disabled = false;
         btn.setAttribute('aria-disabled', 'false');
@@ -1793,6 +1802,14 @@
             var wrap = data && data.cover ? (data.cover.wrap || '').trim()
                 : ((window._publishCoverAssets && window._publishCoverAssets.cover && window._publishCoverAssets.cover.wrap) || '').trim();
             if (wrap) applySavedCoverPreview(wrap);
+            return;
+        }
+        if (wrapStatus === 'Stale') {
+            if (statusEl) {
+                statusEl.textContent = 'Updating full wrap to match your latest front cover…';
+                statusEl.classList.remove('hidden');
+            }
+            if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
             return;
         }
         if (wrapStatus === 'Failed') {
@@ -1827,6 +1844,11 @@
             fetchPrintReadyCoverAssets()
                 .then(function (data) {
                     syncWrapReadyFromAssets(data);
+                    var st = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : '';
+                    if (st === 'Stale' || st === 'Generating') {
+                        // Keep polling / queue rebuild until preview matches export asset.
+                        return;
+                    }
                     if (publishWrapCoverReady && publishWrapPollTimer) {
                         clearInterval(publishWrapPollTimer);
                         publishWrapPollTimer = null;
@@ -2405,9 +2427,12 @@
         if (!bookId || bookId <= 0) return Promise.reject(new Error('Select a book first.'));
         if (!needsPrintWrapGeneration()) return Promise.resolve({ skipped: true });
         return fetchPrintReadyCoverAssets().then(function (assets) {
+            syncWrapReadyFromAssets(assets);
             var wrap = assets && assets.cover ? (assets.cover.wrap || '').trim() : '';
-            if (wrap) return assets;
-            return queuePrintWrapGeneration(false);
+            var matches = !(assets && assets.wrapMatchesFront === false);
+            var st = assets && assets.wrapCoverStatus ? String(assets.wrapCoverStatus) : '';
+            if (wrap && matches && st !== 'Stale') return assets;
+            return queuePrintWrapGeneration(st === 'Stale' || !matches);
         });
     }
 
@@ -2598,72 +2623,17 @@
     }
 
     function buildPrintWrapFromAssets(assets) {
+        // Always use the server-saved wrap (same file as #publishWrapPreview). Never
+        // client-recompose — that produced a different PNG than the preview strip.
         assets = normalizePublishCoverAssets(assets);
         if (!assets || !assets.cover) {
             return Promise.reject(new Error('Cover not available yet. Generate your cover in Cover Design first.'));
         }
-        var c = assets.cover;
-        var frontUrl = (c.front || '').trim();
-        var wrapUrl = (c.wrap || '').trim();
-        var spineUrl = (c.spine || '').trim();
-        var backUrl = (c.back || '').trim();
-        if (!wrapUrl && !frontUrl) return Promise.reject(new Error('No cover image found. Generate a cover in Cover Design first.'));
-
-        function composeAtKdp() {
-            var realPages = resolvePublishPageCount(assets.pageCount);
-            if (!realPages || realPages <= 0) {
-                return Promise.reject(new Error('Page count is unknown. Open Book Formatting first, then try again.'));
-            }
-            if (!window.CoverKdpExport || typeof window.CoverKdpExport.composePrintWrapFromParts !== 'function') {
-                return Promise.reject(new Error('Cover export module not loaded.'));
-            }
-            return window.CoverKdpExport.composePrintWrapFromParts(frontUrl, spineUrl, backUrl, {
-                pageCount: realPages,
-                dpi: 300,
-                trimKey: '6x9',
-                paperType: 'White paper',
-                title: pbTitle || 'My Book',
-                useApiSpineArt: !!spineUrl,
-                useApiBackArt: !!backUrl
-            });
+        var wrapUrl = (assets.cover.wrap || '').trim();
+        if (!wrapUrl) {
+            return Promise.reject(new Error('Full wrap is not ready yet. Wait for generation, then try again.'));
         }
-
-        if (wrapUrl) {
-            return loadImageAspectRatio(wrapUrl).then(function (ratio) {
-                if (isFullWrapAspectRatio(ratio)) {
-                    return imageRefToBlob(wrapUrl).then(function (blob) { return { blob: blob, composed: null }; });
-                }
-                return composeAtKdp().then(function (result) {
-                    if (!result || !result.dataUrl) throw new Error('Could not build full wrap from saved cover.');
-                    var dataUrl = result.dataUrl;
-                    var byteString = atob(dataUrl.split(',')[1]);
-                    var ab = new ArrayBuffer(byteString.length);
-                    var ia = new Uint8Array(ab);
-                    for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-                    return { blob: new Blob([ab], { type: 'image/png' }), composed: result };
-                });
-            }).catch(function () {
-                return composeAtKdp().then(function (result) {
-                    if (!result || !result.dataUrl) throw new Error('Could not build full wrap from saved cover.');
-                    var dataUrl = result.dataUrl;
-                    var byteString = atob(dataUrl.split(',')[1]);
-                    var ab = new ArrayBuffer(byteString.length);
-                    var ia = new Uint8Array(ab);
-                    for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-                    return { blob: new Blob([ab], { type: 'image/png' }), composed: result };
-                });
-            });
-        }
-
-        return composeAtKdp().then(function (result) {
-            if (!result || !result.dataUrl) throw new Error('Could not build full wrap from saved cover.');
-            var dataUrl = result.dataUrl;
-            var byteString = atob(dataUrl.split(',')[1]);
-            var ab = new ArrayBuffer(byteString.length);
-            var ia = new Uint8Array(ab);
-            for (var i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-            return { blob: new Blob([ab], { type: 'image/png' }), composed: result };
-        });
+        return imageRefToBlob(wrapUrl).then(function (blob) { return { blob: blob, composed: null }; });
     }
 
     function runCoverWrapDownload(triggerBtn) {
@@ -2683,38 +2653,24 @@
                             redirectToDashboardAfterExport('Full wrap cover downloaded.', 'print');
                         });
                     }
-                    var assets = window._publishCoverAssets || {};
-                    return fetchPrintReadyCoverAssets()
-                        .then(function (fresh) {
-                            syncWrapReadyFromAssets(fresh);
-                            return buildPrintWrapFromAssets(fresh || assets);
-                        })
-                        .then(function (out) {
-                        downloadBlobAsFile(out.blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.png');
-                        redirectToDashboardAfterExport('Full wrap cover downloaded.', 'print');
+                    // Server rebuilds wrap when missing — regenerate once, then retry download only.
+                    return queuePrintWrapGeneration(true).then(function () {
+                        return fetch(serverUrl).then(function (r2) {
+                            if (!r2.ok) throw new Error('Full wrap download failed after rebuild. Open Cover Design and regenerate.');
+                            return r2.blob().then(function (blob) {
+                                var ext = (r2.headers.get('content-disposition') || '').indexOf('.jpg') >= 0 ? 'jpg' : 'png';
+                                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.' + ext);
+                                redirectToDashboardAfterExport('Full wrap cover downloaded.', 'print');
+                            });
+                        });
                     });
                 });
         }
 
-        if (publishWrapCoverReady) {
-            doDownload().catch(function (err) {
-                showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
-            });
-            return;
-        }
+        startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing full wrap cover',
+            'Using the same full cover shown in preview. This usually takes a moment…');
 
-        var wrapStatus = (window._publishCoverAssets && window._publishCoverAssets.wrapCoverStatus) || '';
-        if (wrapStatus === 'MissingFront') {
-            showTransientMessage('warning', 'Generate a front cover in Cover Design first.');
-            return;
-        }
-
-        if (triggerBtn) {
-            triggerBtn.disabled = true;
-            triggerBtn.innerHTML = wrapDownloadButtonLabel(false);
-        }
-
-        queuePrintWrapGeneration(false)
+        ensurePrintWrapGenerated()
             .then(function () {
                 if (!publishWrapCoverReady) throw new Error('Full wrap could not be built. Open Cover Design and regenerate your front cover.');
                 return doDownload();
@@ -2723,10 +2679,8 @@
                 showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
             })
             .finally(function () {
-                if (triggerBtn) {
-                    triggerBtn.disabled = false;
-                    updateWrapExportButtonState(window._publishCoverAssets || {});
-                }
+                clearPublishButtonBusy(triggerBtn);
+                if (triggerBtn) updateWrapExportButtonState(window._publishCoverAssets || {});
             });
     }
 
@@ -3066,11 +3020,11 @@
         }
     }
 
-    /** Silently pre-generate full wrap when front cover exists but wrap is missing (print/both flow). */
+    /** Silently pre-generate full wrap when front cover exists but wrap is missing/stale (print/both flow). */
     function preloadPrintWrapIfNeeded() {
         if (!bookId || bookId <= 0 || !needsPrintWrapGeneration()) return;
         if (publishWrapCoverReady) {
-            updateWrapExportButtonState({ wrapCoverStatus: 'Ready' });
+            updateWrapExportButtonState(window._publishCoverAssets || { wrapCoverStatus: 'Ready' });
             return;
         }
         var assets = window._publishCoverAssets || {};
@@ -3081,8 +3035,10 @@
         }
         var errorEl = document.getElementById('publishWrapPreloadError');
         if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+        var forceRebuild = assets.wrapCoverStatus === 'Stale' || assets.wrapMatchesFront === false;
         updateWrapExportButtonState({ wrapCoverStatus: 'Generating' });
-        queuePrintWrapGeneration(false).catch(function () { /* non-fatal preload */ });
+        queuePrintWrapGeneration(forceRebuild).catch(function () { /* non-fatal preload */ });
+        startWrapStatusPolling();
     }
 
     function loadSavedCoverPreview() {

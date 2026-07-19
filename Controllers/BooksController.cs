@@ -63,6 +63,7 @@ namespace EBookDashboard.Controllers
         private readonly BookFlowStateService _bookFlow;
         private readonly IUpstreamQueueProbe _queueProbe;
         private readonly IBookGeneratorService _bookGeneratorService;
+        private readonly IPrintWrapGenerationService _printWrapGenerationService;
 
         public BooksController(
             IBookService bookService,
@@ -82,7 +83,8 @@ namespace EBookDashboard.Controllers
             BookPublishReadinessService publishReadiness,
             IWebHostEnvironment hostEnvironment,
             BookFlowStateService bookFlow,
-            IBookGeneratorService bookGeneratorService)
+            IBookGeneratorService bookGeneratorService,
+            IPrintWrapGenerationService printWrapGenerationService)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -103,6 +105,7 @@ namespace EBookDashboard.Controllers
             _hostEnvironment = hostEnvironment;
             _bookFlow = bookFlow;
             _bookGeneratorService = bookGeneratorService;
+            _printWrapGenerationService = printWrapGenerationService;
         }
         //===========================================
         //           On Page Load 
@@ -2959,32 +2962,27 @@ namespace EBookDashboard.Controllers
                 var wrapRows = await _context.Settings.AsNoTracking()
                     .Where(s => s.Key == wrapKey || s.Key == wrapApiKey)
                     .ToListAsync(cancellationToken);
-                byte[]? wrapBytes = null;
                 var wrapVal = (wrapRows.FirstOrDefault(s => s.Key == wrapKey)?.Value
                     ?? wrapRows.FirstOrDefault(s => s.Key == wrapApiKey)?.Value
                     ?? "").Trim();
-                if (wrapVal.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+                byte[]? wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                    wrapVal, _hostEnvironment.WebRootPath, _httpClientFactory, cancellationToken);
+                if (wrapBytes == null || wrapBytes.Length == 0)
                 {
-                    var ix = wrapVal.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
-                    if (ix >= 0) wrapBytes = Convert.FromBase64String(wrapVal[(ix + 7)..]);
-                }
-                else if (wrapVal.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || wrapVal.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                {
-                    try
+                    // Rebuild the same wrap Cover Design / Publish preview uses, then re-read.
+                    var rebuilt = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
+                        sessionUserId.Value, req.BookId, pageCountOverride: null, forceRegenerate: true, cancellationToken);
+                    if (rebuilt)
                     {
-                        using var client = _httpClientFactory.CreateClient();
-                        wrapBytes = await client.GetByteArrayAsync(wrapVal, cancellationToken);
+                        wrapRows = await _context.Settings.AsNoTracking()
+                            .Where(s => s.Key == wrapKey || s.Key == wrapApiKey)
+                            .ToListAsync(cancellationToken);
+                        wrapVal = (wrapRows.FirstOrDefault(s => s.Key == wrapKey)?.Value
+                            ?? wrapRows.FirstOrDefault(s => s.Key == wrapApiKey)?.Value
+                            ?? "").Trim();
+                        wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                            wrapVal, _hostEnvironment.WebRootPath, _httpClientFactory, cancellationToken);
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "ExportPrintReadyBundle wrap fetch failed for book {BookId}", req.BookId);
-                    }
-                }
-                else if (wrapVal.StartsWith("/"))
-                {
-                    var physical = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", wrapVal.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                    if (System.IO.File.Exists(physical))
-                        wrapBytes = await System.IO.File.ReadAllBytesAsync(physical, cancellationToken);
                 }
 
                 // "Both" (ebook + paperback): also ship the standalone ebook front cover image,
@@ -3138,40 +3136,33 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
+            // Full wrap only — never fall back to front/aiCoverLastPreview (that made export ≠ preview).
             var wrapKey = $"book:{req.BookId}:printReadyCoverWrap";
-            var wrapRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == wrapKey, cancellationToken);
-            var wrapVal = (wrapRow?.Value ?? "").Trim();
-            if (string.IsNullOrWhiteSpace(wrapVal))
-            {
-                var aiKey = $"book:{req.BookId}:aiCoverLastPreview";
-                var aiRow = await _context.Settings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == aiKey, cancellationToken);
-                wrapVal = (aiRow?.Value ?? "").Trim();
-            }
+            var wrapApiKey = $"book:{req.BookId}:printReadyCoverWrapApi";
+            var wrapRows = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == wrapKey || s.Key == wrapApiKey)
+                .ToListAsync(cancellationToken);
+            var wrapVal = (wrapRows.FirstOrDefault(s => s.Key == wrapKey)?.Value
+                ?? wrapRows.FirstOrDefault(s => s.Key == wrapApiKey)?.Value
+                ?? "").Trim();
 
-            byte[]? wrapBytes = null;
-            var fileName = "cover-wrap.png";
-            if (wrapVal.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+            var wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                wrapVal, _hostEnvironment.WebRootPath, _httpClientFactory, cancellationToken);
+            if (wrapBytes == null || wrapBytes.Length == 0)
             {
-                var ix = wrapVal.IndexOf("base64,", StringComparison.OrdinalIgnoreCase);
-                if (ix >= 0) wrapBytes = Convert.FromBase64String(wrapVal[(ix + 7)..]);
-            }
-            else if (wrapVal.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || wrapVal.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-            {
-                try
+                var rebuilt = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
+                    sessionUserId.Value, req.BookId, pageCountOverride: null, forceRegenerate: true, cancellationToken);
+                if (rebuilt)
                 {
-                    using var client = _httpClientFactory.CreateClient();
-                    wrapBytes = await client.GetByteArrayAsync(wrapVal, cancellationToken);
+                    wrapRows = await _context.Settings.AsNoTracking()
+                        .Where(s => s.Key == wrapKey || s.Key == wrapApiKey)
+                        .ToListAsync(cancellationToken);
+                    wrapVal = (wrapRows.FirstOrDefault(s => s.Key == wrapKey)?.Value
+                        ?? wrapRows.FirstOrDefault(s => s.Key == wrapApiKey)?.Value
+                        ?? "").Trim();
+                    wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                        wrapVal, _hostEnvironment.WebRootPath, _httpClientFactory, cancellationToken);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "ExportPrintReadyCoverImage fetch failed for book {BookId}", req.BookId);
-                }
-            }
-            else if (wrapVal.StartsWith("/"))
-            {
-                var physical = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", wrapVal.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
-                if (System.IO.File.Exists(physical))
-                    wrapBytes = await System.IO.File.ReadAllBytesAsync(physical, cancellationToken);
             }
 
             if (wrapBytes == null || wrapBytes.Length == 0)
@@ -3182,7 +3173,7 @@ namespace EBookDashboard.Controllers
             var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
             safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
             if (string.IsNullOrEmpty(safe)) safe = "book";
-            fileName = $"{safe}-cover-wrap-{req.BookId}.png";
+            var fileName = $"{safe}-cover-wrap-{req.BookId}.png";
             await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
             await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, "print", cancellationToken);
             return File(wrapBytes, "image/png", fileName);

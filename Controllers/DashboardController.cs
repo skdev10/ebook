@@ -8,6 +8,7 @@ using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -54,6 +55,7 @@ namespace EBookDashboard.Controllers
         private readonly IPrintWrapGenerationService _printWrapGenerationService;
         private readonly ICoverGenerationJobQueue _coverGenerationJobQueue;
         private readonly ICoverFrontGenerationService _coverFrontGenerationService;
+        private readonly IWebHostEnvironment _env;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -75,7 +77,8 @@ namespace EBookDashboard.Controllers
             IPrintWrapPregenerationQueue printWrapPregenerationQueue,
             IPrintWrapGenerationService printWrapGenerationService,
             ICoverGenerationJobQueue coverGenerationJobQueue,
-            ICoverFrontGenerationService coverFrontGenerationService)
+            ICoverFrontGenerationService coverFrontGenerationService,
+            IWebHostEnvironment env)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -97,6 +100,7 @@ namespace EBookDashboard.Controllers
             _printWrapGenerationService = printWrapGenerationService;
             _coverGenerationJobQueue = coverGenerationJobQueue;
             _coverFrontGenerationService = coverFrontGenerationService;
+            _env = env;
         }
 
         [Route("")]
@@ -1986,6 +1990,21 @@ namespace EBookDashboard.Controllers
             });
         }
 
+        private async Task<string> ResolvePrintReadyWrapRefAsync(int bookId, CancellationToken cancellationToken)
+        {
+            var wrapKeys = new[]
+            {
+                $"book:{bookId}:printReadyCoverWrap",
+                $"book:{bookId}:printReadyCoverWrapApi"
+            };
+            var wrapRows = await _context.Settings.AsNoTracking()
+                .Where(s => wrapKeys.Contains(s.Key))
+                .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+            var wrap = (wrapRows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap") ?? "").Trim();
+            if (!string.IsNullOrWhiteSpace(wrap)) return wrap;
+            return (wrapRows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi") ?? "").Trim();
+        }
+
         private static string ResolveFrontCoverStatus(Dictionary<string, string> rows, int bookId)
         {
             var savedFront = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", "").Trim();
@@ -2144,17 +2163,32 @@ namespace EBookDashboard.Controllers
             {
                 if (partNorm == "wrap")
                 {
-                    var wrapKeys = new[]
+                    refValue = await ResolvePrintReadyWrapRefAsync(bookId, cancellationToken);
+                    var wrapBytesProbe = string.IsNullOrWhiteSpace(refValue)
+                        ? null
+                        : await CoverImageRefLoader.TryReadAsBytesAsync(
+                            refValue, _env.WebRootPath, _httpClientFactory, cancellationToken);
+                    var wrapKeysForMatch = new[]
                     {
                         $"book:{bookId}:printReadyCoverWrap",
-                        $"book:{bookId}:printReadyCoverWrapApi"
+                        $"book:{bookId}:printReadyCoverWrapApi",
+                        $"book:{bookId}:printReadyCoverFront",
+                        $"book:{bookId}:printReadyCoverFrontSha256",
+                        $"book:{bookId}:printReadyCoverFrontAssetRef"
                     };
-                    var wrapRows = await _context.Settings.AsNoTracking()
-                        .Where(s => wrapKeys.Contains(s.Key))
+                    var matchRows = await _context.Settings.AsNoTracking()
+                        .Where(s => wrapKeysForMatch.Contains(s.Key))
                         .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
-                    refValue = (wrapRows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap") ?? "").Trim();
-                    if (string.IsNullOrWhiteSpace(refValue))
-                        refValue = (wrapRows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi") ?? "").Trim();
+                    var wrapMatches = await WrapMatchesSavedFrontAsync(bookId, matchRows, cancellationToken);
+                    // Preview and download must share the same saved wrap file. Rebuild when
+                    // missing, unreadable, or stale vs the approved front cover.
+                    if (wrapBytesProbe is not { Length: > 0 } || !wrapMatches)
+                    {
+                        var rebuilt = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
+                            sessionUserId.Value, bookId, pageCountOverride: null, forceRegenerate: true, cancellationToken);
+                        if (rebuilt)
+                            refValue = await ResolvePrintReadyWrapRefAsync(bookId, cancellationToken);
+                    }
                 }
                 else
                 {
@@ -2170,7 +2204,7 @@ namespace EBookDashboard.Controllers
             await FinalizeBookAsPublishedAfterExportAsync(bookId, sessionUserId.Value, "print", cancellationToken);
 
             byte[]? bytes = await CoverImageRefLoader.TryReadAsBytesAsync(
-                refValue, webRootPath: null, _httpClientFactory, cancellationToken);
+                refValue, _env.WebRootPath, _httpClientFactory, cancellationToken);
             var ext = "png";
             var contentType = "image/png";
 

@@ -182,18 +182,9 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var frontHashFinal = Convert.ToHexString(SHA256.HashData(frontBytes));
         var description = ResolveBackCoverDescription(book, details);
 
-        // 1) Split API keeps the exact saved front (best) — only exists on some API builds.
-        if (await TryGenerateViaSplitApiAsync(
-                userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
-                title, authorName, trimSize, pageCount, kdp, cancellationToken))
-        {
-            return true;
-        }
-
-        // 2) Local compositor — ALWAYS preferred over the full-spine AI invent path.
-        //    Front panel = exact saved front cover pixels (what the user approved).
-        //    The full-spine API invents a brand-new wrap (often mismatched / "weird" art)
-        //    and used to overwrite the saved front — that is what broke Ebook+Paperback.
+        // 1) Local compositor FIRST — fast, and front panel = exact saved front pixels
+        //    (same art the Cover Design / Publish preview shows). Upstream APIs are slower
+        //    and historically produced wraps that did not match the preview on download.
         if (await TryGenerateViaLocalCompositorAsync(
                 userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
                 title, authorName, description,
@@ -202,9 +193,15 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             return true;
         }
 
-        // 3) Last resort: documented full-wrap API (generate-spine-book-cover). Only used
-        //    when local compositing fails. It invents its own front, so on success the saved
-        //    front cover is re-synced FROM the wrap's front panel.
+        // 2) Split API (keeps exact saved front) — only on some API builds.
+        if (await TryGenerateViaSplitApiAsync(
+                userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
+                title, authorName, trimSize, pageCount, kdp, cancellationToken))
+        {
+            return true;
+        }
+
+        // 3) Last resort: full-wrap AI invent. Re-syncs front from wrap panel on success.
         var imageDirection = (await _context.Settings.AsNoTracking()
             .Where(s => s.Key == $"book:{bookId}:aiCoverPrompt")
             .Select(s => s.Value)
@@ -483,6 +480,15 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
 
             var persistedPath = await SaveCoverBytesToUploadsAsync(
                 userId, bookId, composed.PngBytes, ".png", cancellationToken);
+
+            // Drop any older API wrap so preview/download never fall back to mismatched art.
+            var staleApi = await _context.Settings
+                .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:printReadyCoverWrapApi", cancellationToken);
+            if (staleApi != null)
+            {
+                _context.Settings.Remove(staleApi);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrap", persistedPath, cancellationToken);
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", frontAssetRef, cancellationToken);
