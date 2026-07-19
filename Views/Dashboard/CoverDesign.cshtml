@@ -146,12 +146,24 @@
         padding: 16px;
         box-shadow: 0 8px 24px -12px rgba(91, 33, 182, 0.25);
     }
-    #covFullWrapImg { width: 100%; max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 8px; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12); }
+    #covFullWrapImg {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+        object-fit: contain;
+        object-position: center;
+        background: #fff;
+    }
     .cov-wrap-view-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
     .cov-wrap-view-tab { padding: 5px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; }
     .cov-wrap-view-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-    #covPreviewColumn.cov-show-full-wrap .cov-preview-book-stage { display: none; }
     #covPreviewColumn.cov-show-full-wrap #covFullWrapSection { display: block !important; }
+    /* Keep front + wrap visible together so preview matches what Publish exports. */
+    #covPreviewColumn.cov-show-full-wrap .cov-preview-book-stage { display: flex; }
     #covPreviewColumn.cov-target-print .cov-preview-book-stage { max-width: 340px; }
     #covPreviewColumn.cov-target-ebook .cov-preview-book-stage { max-width: 280px; }
     .cov-preview-book-stage {
@@ -416,7 +428,37 @@
                     </div>
             </div>
 
-            <!-- Full print wrap is built silently in the background and exported from Publish. -->
+            <div id="covWrapViewTabs" class="cov-wrap-view-tabs mt-4 hidden" role="group" aria-label="Cover view">
+                <button type="button" class="cov-wrap-view-tab is-active" data-wrap-view="front">Front cover</button>
+                <button type="button" class="cov-wrap-view-tab" data-wrap-view="full">Full wrap (export)</button>
+            </div>
+
+            <div id="covWrapBuildBanner" class="hidden mt-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900" role="status">
+                <span class="cov-wrap-build-spinner inline-block w-3.5 h-3.5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin mr-2 align-middle"></span>
+                <span id="covWrapBuildBannerText">Building full print wrap…</span>
+            </div>
+
+            <!-- Full wrap preview = EXACT asset exported on Publish (back + spine + front). -->
+            <div id="covFullWrapSection" class="hidden mt-4 w-full">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800 mb-0">Full wrap (KDP print cover)</p>
+                        <p class="text-xs text-slate-500 mb-0" id="covWrapPageHint">Back · spine · front — same file you download on Publish</p>
+                    </div>
+                    <span id="covWrapSavedBadge" class="hidden text-[11px] font-semibold uppercase tracking-wide text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1">Saved for export</span>
+                </div>
+                <div class="cov-full-wrap-stage">
+                    <div id="covFullWrapBuilding" class="hidden text-center py-8 text-sm text-violet-700">
+                        <span class="inline-block w-8 h-8 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin mb-2"></span>
+                        <p class="mb-0">Building full wrap from your front cover…</p>
+                    </div>
+                    <div id="covFullWrapPlaceholder" class="text-center py-8 text-sm text-slate-500">
+                        <p id="covFullWrapPlaceholderText" class="mb-0">Full wrap appears here after you generate your front cover.</p>
+                    </div>
+                    <img id="covFullWrapImg" class="hidden" alt="Full KDP print wrap — same file exported on Publish" />
+                </div>
+            </div>
+
             <input type="hidden" id="coverGeneratedPayload" value="" />
 
             <div id="optionsWrap" class="mt-6 hidden w-full" aria-hidden="true" hidden>
@@ -740,7 +782,9 @@
             img.classList.remove('hidden');
             img.onload = function () {
                 if (placeholder) placeholder.classList.add('hidden');
-                setCovWrapView('front');
+                // Show the full wrap strip (do NOT flip back to front-only — that hid the
+                // export asset and made preview ≠ download).
+                setCovWrapView('full');
             };
         }
         setPrintWrapSaved(true);

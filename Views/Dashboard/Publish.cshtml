@@ -44,9 +44,10 @@
     var isPrintReadyFlow = (ViewBag.PublishPrintReadyMode as bool? ?? false) || isPaperbackFormat;
     var showPrintExports = isPaperbackFormat || isBothFormat;
     var showEbookExports = isEbookFormat || isBothFormat;
-    var displayCoverUrl = CoverUrl((isPaperbackFormat || isBothFormat) && hasSavedCoverWrap ? pbCoverWrap : pbCover);
+    // Hero book card = front panel only. Full wrap is shown in #publishWrapPreview (same file as export).
+    var displayCoverUrl = CoverUrl(pbCover);
     var publishPrimaryPlatform = ViewBag.PublishPrimaryPlatform as string ?? "Amazon KDP";
-    var displayCoverIsWrap = (isPaperbackFormat || isBothFormat) && hasSavedCoverWrap;
+    var displayCoverIsWrap = false;
     var externalApiConfigured = ViewBag.ExternalApiConfigured as bool? ?? false;
 }
 
@@ -1427,8 +1428,8 @@
     {
         <section class="publish-card publish-card--printready mb-8 p-5 md:p-6" id="publishSavedCoverSection">
             <div class="mb-3">
-                <h2 class="text-lg font-semibold text-slate-900">Your print cover</h2>
-                <p class="text-sm text-slate-600 mt-1">Front cover from <a href="/Dashboard/CoverDesign?bookId=@bookId" class="text-violet-700 font-semibold underline">Cover Design</a>. Export uses the <strong>full wrap</strong> (back + spine + front) at KDP size@(pbEstimatedPages > 0 ? (" for " + pbEstimatedPages + " pages") : "").</p>
+                <h2 class="text-lg font-semibold text-slate-900">Your print cover (full wrap)</h2>
+                <p class="text-sm text-slate-600 mt-1">This is the <strong>exact full wrap</strong> file exported below (back + spine + front) at KDP size@(pbEstimatedPages > 0 ? (" for " + pbEstimatedPages + " pages") : ""). The book card above shows the front panel only.</p>
             </div>
             @if (!externalApiConfigured)
             {
@@ -2048,18 +2049,16 @@
         var shell = document.getElementById('publishBookCoverShell');
         var assets = window._publishCoverAssets || {};
         var cover = assets.cover || {};
-        var fmt = (publishBookFormat || 'Ebook').trim();
-        if (fmt === 'Print') fmt = 'Paperback';
-        var useWrap = fmt === 'Paperback' || fmt === 'Both';
-        var url = useWrap
-            ? ((cover.wrap || '').trim() || (cover.front || pbCoverRef || '').trim())
-            : ((cover.front || cover.wrap || pbCoverRef || '').trim());
+        // Hero book card ALWAYS shows the front panel (2:3). Full wrap lives only in
+        // #publishWrapPreview — same URL the wrap download endpoint serves — so preview
+        // and export never disagree.
+        var url = ((cover.front || '').trim() || (pbCoverRef || '').trim() || (cover.wrap || '').trim());
         if (!img) return;
         if (!url) return;
         img.src = url;
-        img.classList.toggle('publish-cover-img--wrap', useWrap && cover.wrap);
-        if (shell) shell.classList.toggle('book-cover--wrap', useWrap && cover.wrap);
-        if (!useWrap || !cover.wrap) markPublishCoverImage(img);
+        img.classList.remove('publish-cover-img--wrap', 'is-wrap-cover');
+        if (shell) shell.classList.remove('book-cover--wrap');
+        markPublishCoverImage(img);
     }
 
     function persistPublishFormat(fmt) {
@@ -3026,6 +3025,11 @@
 
     function markPublishCoverImage(img) {
         if (!img || img.classList.contains('publish-cover-img--wrap')) return;
+        // Never CSS-crop the dedicated wrap strip — that must match the exported file 1:1.
+        if (img.id === 'publishWrapPreview') {
+            img.classList.remove('is-wrap-cover');
+            return;
+        }
         var apply = function () {
             var w = img.naturalWidth || 0;
             var h = img.naturalHeight || 0;
@@ -3045,8 +3049,15 @@
         var wrapPlaceholder = document.getElementById('publishWrapPlaceholder');
         wrapUrl = (wrapUrl || '').trim();
         if (wrapImg && wrapUrl) {
-            wrapImg.src = wrapUrl;
-            wrapImg.classList.remove('hidden');
+            // Cache-bust so the strip always matches the freshly saved export asset.
+            var src = wrapUrl;
+            if (src.indexOf('data:') !== 0) {
+                src = src + (src.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
+            }
+            wrapImg.src = src;
+            wrapImg.classList.remove('hidden', 'is-wrap-cover');
+            wrapImg.style.objectFit = 'contain';
+            wrapImg.style.objectPosition = 'center';
             if (wrapPlaceholder) wrapPlaceholder.classList.add('hidden');
         } else if (wrapImg) {
             wrapImg.src = '';
