@@ -4,13 +4,17 @@ namespace EBookDashboard.Interfaces;
 public interface IPrintWrapGenerationService
 {
     /// <summary>
-    /// When format is Paperback/Both and no wrap exists, calls upstream split API and saves wrap assets.
-    /// Returns true when a wrap was generated or already present.
+    /// Builds a full KDP wrap from the saved front cover (local ImageSharp compositor).
+    /// Returns true when a wrap was generated or a matching wrap already exists.
     /// </summary>
+    /// <param name="allowNonPrintFormat">
+    /// When true, generate even if book format is still Ebook (explicit Cover Design / Publish request).
+    /// </param>
     Task<bool> TryGenerateFromSavedFrontAsync(
         int userId,
         int bookId,
         int? pageCountOverride = null,
         bool forceRegenerate = false,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool allowNonPrintFormat = false);
 }

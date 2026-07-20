@@ -574,7 +574,11 @@
     var bookPublishFormat = '';
 
     function needsPrintWrapAutoBuild() {
-        return bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both';
+        return bookPublishFormat === 'Paperback'
+            || bookPublishFormat === 'Both'
+            || coverType === 'both'
+            || coverType === 'paperback'
+            || coverType === 'print';
     }
 
     /** Saved front cover on disk — required before any full-wrap API call. */
@@ -716,7 +720,12 @@
             if (!r.ok) {
                 return r.text().then(function (t) {
                     var msg = 'Full wrap generation failed.';
-                    try { var j = JSON.parse(t); if (j && j.message) msg = j.message; } catch (_) {}
+                    try {
+                        var j = JSON.parse(t);
+                        if (j && j.message) msg = j.message;
+                    } catch (_) {
+                        if (t && t.length < 240 && t.indexOf('<') < 0) msg = t;
+                    }
                     throw new Error(msg);
                 });
             }
@@ -987,6 +996,9 @@
 
     function toUrl(path) {
         if (!path) return '';
+        // Strip BOM / replacement chars that produce 404s like /%EF%BF%BD
+        path = String(path).replace(/^[\uFEFF\uFFFD]+|[\uFEFF\uFFFD]+$/g, '').trim();
+        if (!path || path === '\uFFFD') return '';
         if (path.indexOf('http') === 0 || path.indexOf('data:') === 0) return path;
         return path.indexOf('/') === 0 ? path : '/' + path;
     }

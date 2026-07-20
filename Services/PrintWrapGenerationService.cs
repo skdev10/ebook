@@ -76,13 +76,43 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         int bookId,
         int? pageCountOverride = null,
         bool forceRegenerate = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool allowNonPrintFormat = false)
+    {
+        try
+        {
+            return await TryGenerateFromSavedFrontCoreAsync(
+                userId, bookId, pageCountOverride, forceRegenerate, allowNonPrintFormat, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "TryGenerateFromSavedFrontAsync crashed for book {BookId}", bookId);
+            try
+            {
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusFailed, CancellationToken.None);
+            }
+            catch (Exception persistEx)
+            {
+                _logger.LogWarning(persistEx, "Could not persist Failed wrap status for book {BookId}", bookId);
+            }
+            return false;
+        }
+    }
+
+    private async Task<bool> TryGenerateFromSavedFrontCoreAsync(
+        int userId,
+        int bookId,
+        int? pageCountOverride,
+        bool forceRegenerate,
+        bool allowNonPrintFormat,
+        CancellationToken cancellationToken)
     {
         var exportOpt = await LoadExportOptionsAsync(userId, bookId, cancellationToken);
         var fmt = (exportOpt.Format ?? "Ebook").Trim();
         if (fmt.Equals("Print", StringComparison.OrdinalIgnoreCase))
             fmt = "Paperback";
-        if (!fmt.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+        if (!allowNonPrintFormat
+            && !fmt.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
             && !fmt.Equals("Both", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogDebug("Skip print wrap pregeneration for book {BookId}: format={Format}", bookId, fmt);
@@ -94,16 +124,18 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         if (book == null) return false;
 
         // Resolve front the same way Cover Design / Publish do — not only printReadyCoverFront.
-        // Race: wrap was often queued before SetActiveCover finished writing printReadyCoverFront,
-        // which left status MissingFront / Generating forever with a broken preview image.
         var frontKeys = new[]
         {
             $"book:{bookId}:printReadyCoverFront",
             $"book:{bookId}:aiCoverLastPreview"
         };
-        var frontRows = await _context.Settings.AsNoTracking()
+        var frontRowsList = await _context.Settings.AsNoTracking()
             .Where(s => frontKeys.Contains(s.Key))
-            .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+            .Select(s => new { s.Key, s.Value })
+            .ToListAsync(cancellationToken);
+        var frontRows = frontRowsList
+            .GroupBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Value ?? "", StringComparer.OrdinalIgnoreCase);
         var frontAssetRef = BookCoverRefResolver.ResolveEbookFrontCoverRef(
             frontRows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront"),
             frontRows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview"),
@@ -145,9 +177,13 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
                 $"book:{bookId}:printReadyCoverFrontAssetRef",
                 $"book:{bookId}:printReadyPageCount"
             };
-            var cacheRows = await _context.Settings.AsNoTracking()
+            var cacheRowsList = await _context.Settings.AsNoTracking()
                 .Where(s => cacheKeys.Contains(s.Key))
-                .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+                .Select(s => new { s.Key, s.Value })
+                .ToListAsync(cancellationToken);
+            var cacheRows = cacheRowsList
+                .GroupBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Value ?? "", StringComparer.OrdinalIgnoreCase);
             var existingWrap = (cacheRows.GetValueOrDefault(wrapKey) ?? "").Trim();
             if (!string.IsNullOrWhiteSpace(existingWrap))
             {
@@ -199,11 +235,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var frontHashFinal = Convert.ToHexString(SHA256.HashData(frontBytes));
         var description = ResolveBackCoverDescription(book, details);
 
-        // Local compositor ONLY for wrap-from-front.
-        // Upstream AI APIs use a 30+ minute LongRunning budget and were leaving
-        // printReadyCoverWrapStatus stuck on "Generating" for 15 minutes while the
-        // Cover Design banner spun. Local compose is seconds and keeps the exact
-        // approved front panel (preview ≡ export).
+        // Local compositor ONLY for wrap-from-front (seconds; preview ≡ export).
         var localOk = await TryGenerateViaLocalCompositorAsync(
                 userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
                 title, authorName, description,
@@ -691,26 +723,39 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
     private async Task UpsertSettingAsync(string key, string value, CancellationToken cancellationToken)
     {
         value = Settings.ClampValueLength(value, Settings.MaxShortValueLength) ?? "";
-        var setting = await _context.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
-        if (setting == null)
+        for (var attempt = 0; attempt < 4; attempt++)
         {
-            _context.Settings.Add(new Settings
+            try
             {
-                SettingId = await _context.NextSettingIdAsync(cancellationToken),
-                Key = key,
-                Value = value,
-                Category = "Book",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            });
-        }
-        else
-        {
-            setting.Value = value;
-            setting.UpdatedAt = DateTime.UtcNow;
-        }
+                var setting = await _context.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+                if (setting == null)
+                {
+                    _context.Settings.Add(new Settings
+                    {
+                        SettingId = await _context.NextSettingIdAsync(cancellationToken),
+                        Key = key,
+                        Value = value,
+                        Category = "Book",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    });
+                }
+                else
+                {
+                    setting.Value = value;
+                    setting.UpdatedAt = DateTime.UtcNow;
+                }
 
-        await _context.SaveChangesAsync(cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
+                return;
+            }
+            catch (DbUpdateException ex) when (attempt < 3)
+            {
+                _logger.LogWarning(ex, "Settings upsert conflict for {Key} (attempt {Attempt}) — retrying", key, attempt + 1);
+                foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                    entry.State = EntityState.Detached;
+            }
+        }
     }
 
     private async Task<string> SaveCoverBytesToUploadsAsync(

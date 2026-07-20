@@ -2058,7 +2058,7 @@ namespace EBookDashboard.Controllers
                 return false;
 
             var frontBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
-                frontRef, webRootPath: null, _httpClientFactory, cancellationToken);
+                frontRef, _env.WebRootPath, _httpClientFactory, cancellationToken);
             if (frontBytes == null || frontBytes.Length == 0) return false;
 
             var hash = Convert.ToHexString(SHA256.HashData(frontBytes));
@@ -2066,7 +2066,7 @@ namespace EBookDashboard.Controllers
                 return false;
 
             var wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
-                wrap, webRootPath: null, _httpClientFactory, cancellationToken);
+                wrap, _env.WebRootPath, _httpClientFactory, cancellationToken);
             if (wrapBytes == null || wrapBytes.Length == 0) return false;
 
             var pageCountStr = rows.GetValueOrDefault($"book:{bookId}:printReadyPageCount", "").Trim();
@@ -2541,6 +2541,24 @@ namespace EBookDashboard.Controllers
         [Microsoft.AspNetCore.Http.Timeouts.RequestTimeout("CoverGeneration")]
         public async Task<IActionResult> GeneratePrintReadyWrapFromFront([FromBody] PrintReadyCoverRequest req)
         {
+            try
+            {
+                return await GeneratePrintReadyWrapFromFrontCoreAsync(req);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GeneratePrintReadyWrapFromFront crashed for book {BookId}", req?.BookId);
+                return Json(new
+                {
+                    success = false,
+                    status = "error",
+                    message = "Full wrap generation failed: " + (ex.GetBaseException().Message ?? ex.Message)
+                });
+            }
+        }
+
+        private async Task<IActionResult> GeneratePrintReadyWrapFromFrontCoreAsync(PrintReadyCoverRequest req)
+        {
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, status = "error", message = "BookId is required." });
 
@@ -2559,9 +2577,13 @@ namespace EBookDashboard.Controllers
                 $"book:{req.BookId}:printReadyCoverFront",
                 $"book:{req.BookId}:aiCoverLastPreview"
             };
-            var assetRows = await _context.Settings.AsNoTracking()
+            var assetRowsList = await _context.Settings.AsNoTracking()
                 .Where(s => assetKeys.Contains(s.Key))
-                .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
+                .Select(s => new { s.Key, s.Value })
+                .ToListAsync();
+            var assetRows = assetRowsList
+                .GroupBy(s => s.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().Value ?? "", StringComparer.OrdinalIgnoreCase);
             var savedFront = BookCoverRefResolver.ResolveEbookFrontCoverRef(
                 assetRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverFront"),
                 assetRows.GetValueOrDefault($"book:{req.BookId}:aiCoverLastPreview"),
@@ -2599,12 +2621,14 @@ namespace EBookDashboard.Controllers
             }
 
             // Local ImageSharp wrap from saved front (preview ≡ export). Fast path.
+            // Explicit Cover Design / Publish request: allow wrap even if format row is still "Ebook".
             var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
                 sessionUserId.Value,
                 req.BookId,
                 req.PageCount,
                 req.Force,
-                CancellationToken.None);
+                CancellationToken.None,
+                allowNonPrintFormat: true);
 
             if (!ok)
             {
