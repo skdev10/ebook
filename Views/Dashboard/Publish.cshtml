@@ -1539,7 +1539,7 @@
                 @if (isPrintReadyFlow && hasSavedCoverWrap)
                 {
                     <div class="publish-export-actions mt-3">
-                        <button type="button" id="btnExportCoverWrap" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
+                        <button type="button" id="btnExportCoverWrapNoChapters" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
                             <i class="fas fa-image" aria-hidden="true"></i> Download full wrap cover (PNG)
                         </button>
                     </div>
@@ -1776,9 +1776,10 @@
         return publishWrapCoverReady;
     }
 
-    function wrapDownloadButtonLabel(ready) {
-        if (ready) return '<i class="fas fa-download" aria-hidden="true"></i> Download full wrap cover';
-        return '<span class="inline-flex items-center justify-center gap-2"><span class="w-3.5 h-3.5 border-2 border-white/80 border-t-transparent rounded-full animate-spin" aria-hidden="true"></span> Building wrap…</span>';
+    function wrapDownloadButtonLabel() {
+        // Stable CTA — never swap to "Building wrap…" (that flickered during format
+        // selection / background preload). Progress belongs in the download UX on click.
+        return '<i class="fas fa-download" aria-hidden="true"></i> Download full wrap cover';
     }
 
     function updateWrapExportButtonState(data) {
@@ -1790,10 +1791,14 @@
         var wrapStatus = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : (publishWrapCoverReady ? 'Ready' : 'Generating');
         var matchesFront = !(data && data.wrapMatchesFront === false);
         var ready = publishWrapCoverReady && wrapStatus !== 'Stale' && matchesFront;
+        var busy = btn.getAttribute('aria-busy') === 'true';
         btn.classList.remove('opacity-60', 'cursor-not-allowed');
-        btn.disabled = false;
-        btn.setAttribute('aria-disabled', 'false');
-        btn.innerHTML = wrapDownloadButtonLabel(ready);
+        if (!busy) {
+            btn.disabled = false;
+            btn.setAttribute('aria-disabled', 'false');
+            btn.innerHTML = wrapDownloadButtonLabel();
+            if (btn.dataset.publishOriginalHtml) btn.dataset.publishOriginalHtml = btn.innerHTML;
+        }
 
         if (ready) {
             if (statusEl) { statusEl.textContent = ''; statusEl.classList.add('hidden'); }
@@ -1805,10 +1810,8 @@
             return;
         }
         if (wrapStatus === 'Stale') {
-            if (statusEl) {
-                statusEl.textContent = 'Updating full wrap to match your latest front cover…';
-                statusEl.classList.remove('hidden');
-            }
+            // Quiet background refresh — keep preview empty until the matching wrap lands.
+            if (statusEl) { statusEl.textContent = ''; statusEl.classList.add('hidden'); }
             if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
             return;
         }
@@ -1829,11 +1832,9 @@
             }
             return;
         }
+        // Background generate/preload: no "Building wrap…" chrome — download click finishes it.
         if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
-        if (statusEl) {
-            statusEl.textContent = 'Building full wrap from your front cover…';
-            statusEl.classList.remove('hidden');
-        }
+        if (statusEl) { statusEl.textContent = ''; statusEl.classList.add('hidden'); }
         if (hintEl) hintEl.classList.add('hidden');
     }
 
@@ -2667,6 +2668,22 @@
                 });
         }
 
+        function finishErr(err) {
+            showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
+        }
+
+        function finishFinally() {
+            clearPublishButtonBusy(triggerBtn);
+            if (triggerBtn) updateWrapExportButtonState(window._publishCoverAssets || {});
+        }
+
+        // Fast path: wrap already matches preview — download the same server file immediately.
+        if (publishWrapCoverReady) {
+            setPublishButtonBusy(triggerBtn, 'Downloading…');
+            doDownload().catch(finishErr).finally(finishFinally);
+            return;
+        }
+
         startPublishDownloadUx(triggerBtn, 'Preparing…', 'Preparing full wrap cover',
             'Using the same full cover shown in preview. This usually takes a moment…');
 
@@ -2675,13 +2692,8 @@
                 if (!publishWrapCoverReady) throw new Error('Full wrap could not be built. Open Cover Design and regenerate your front cover.');
                 return doDownload();
             })
-            .catch(function (err) {
-                showTransientMessage('error', err && err.message ? err.message : 'Cover wrap download failed.');
-            })
-            .finally(function () {
-                clearPublishButtonBusy(triggerBtn);
-                if (triggerBtn) updateWrapExportButtonState(window._publishCoverAssets || {});
-            });
+            .catch(finishErr)
+            .finally(finishFinally);
     }
 
     function parseTrimSize(label) {
@@ -3090,6 +3102,10 @@
     }
     if (exportCoverWrapBtn) {
         exportCoverWrapBtn.addEventListener('click', function () { runCoverWrapDownload(exportCoverWrapBtn); });
+    }
+    var exportCoverWrapNoChaptersBtn = document.getElementById('btnExportCoverWrapNoChapters');
+    if (exportCoverWrapNoChaptersBtn) {
+        exportCoverWrapNoChaptersBtn.addEventListener('click', function () { runCoverWrapDownload(exportCoverWrapNoChaptersBtn); });
     }
 
     document.querySelectorAll('img.publish-cover-img:not(.publish-cover-img--wrap)').forEach(markPublishCoverImage);
