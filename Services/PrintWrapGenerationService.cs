@@ -182,40 +182,28 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var frontHashFinal = Convert.ToHexString(SHA256.HashData(frontBytes));
         var description = ResolveBackCoverDescription(book, details);
 
-        // 1) Local compositor FIRST — fast, and front panel = exact saved front pixels
-        //    (same art the Cover Design / Publish preview shows). Upstream APIs are slower
-        //    and historically produced wraps that did not match the preview on download.
-        if (await TryGenerateViaLocalCompositorAsync(
+        // Local compositor ONLY for wrap-from-front.
+        // Upstream AI APIs use a 30+ minute LongRunning budget and were leaving
+        // printReadyCoverWrapStatus stuck on "Generating" for 15 minutes while the
+        // Cover Design banner spun. Local compose is seconds and keeps the exact
+        // approved front panel (preview ≡ export).
+        var localOk = await TryGenerateViaLocalCompositorAsync(
                 userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
                 title, authorName, description,
-                pageCount, trimSize, kdp, exportOpt, cancellationToken))
-        {
+                pageCount, trimSize, kdp, exportOpt, cancellationToken);
+        if (localOk)
             return true;
-        }
 
-        // 2) Split API (keeps exact saved front) — only on some API builds.
-        if (await TryGenerateViaSplitApiAsync(
-                userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
-                title, authorName, trimSize, pageCount, kdp, cancellationToken))
-        {
-            return true;
-        }
-
-        // 3) Last resort: full-wrap AI invent. Re-syncs front from wrap panel on success.
-        var imageDirection = (await _context.Settings.AsNoTracking()
-            .Where(s => s.Key == $"book:{bookId}:aiCoverPrompt")
-            .Select(s => s.Value)
-            .FirstOrDefaultAsync(cancellationToken) ?? "").Trim();
-        var category = (book.Genre ?? "General").Trim();
-        return await TryGenerateViaFullSpineApiAsync(
-                userId, bookId, title, authorName, category, imageDirection,
-                trimSize, pageCount, kdp, cancellationToken);
+        await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusFailed, cancellationToken);
+        _logger.LogWarning(
+            "Local print wrap compositing failed for book {BookId} — not falling back to long-running AI wrap APIs.",
+            bookId);
+        return false;
     }
 
     /// <summary>
     /// Calls the documented <c>/api/generate-spine-book-cover</c> endpoint (title/author/trim/pages —
-    /// no encoded_image). The AI draws front+spine+back as one professional wrap; the wrap's front
-    /// panel is then extracted and saved as the book's front cover so both always match.
+    /// no encoded_image). Used only by full AI print-cover flows, not wrap-from-front.
     /// </summary>
     private async Task<bool> TryGenerateViaFullSpineApiAsync(
         int userId,

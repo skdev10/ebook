@@ -1,4 +1,7 @@
 using EBookDashboard.Interfaces;
+using EBookDashboard.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EBookDashboard.Services;
 
@@ -43,6 +46,35 @@ public sealed class PrintWrapPregenerationQueue : IPrintWrapPregenerationQueue
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Background print wrap queue failed for book {BookId} user {UserId}", bookId, userId);
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    var key = $"book:{bookId}:printReadyCoverWrapStatus";
+                    var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key);
+                    if (row == null)
+                    {
+                        db.Settings.Add(new Models.Settings
+                        {
+                            SettingId = await db.NextSettingIdAsync(),
+                            Key = key,
+                            Value = PrintWrapGenerationService.StatusFailed,
+                            Category = "Book",
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        row.Value = PrintWrapGenerationService.StatusFailed;
+                        row.UpdatedAt = DateTime.UtcNow;
+                    }
+                    await db.SaveChangesAsync();
+                }
+                catch (Exception persistEx)
+                {
+                    _logger.LogWarning(persistEx, "Could not persist Failed wrap status for book {BookId}", bookId);
+                }
             }
         });
     }

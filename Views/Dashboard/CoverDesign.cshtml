@@ -435,7 +435,7 @@
 
             <div id="covWrapBuildBanner" class="hidden mt-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900" role="status">
                 <span class="cov-wrap-build-spinner inline-block w-3.5 h-3.5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin mr-2 align-middle"></span>
-                <span id="covWrapBuildBannerText">Building full print wrap…</span>
+                <span id="covWrapBuildBannerText">Building full print wrap from your front cover…</span>
             </div>
 
             <!-- Full wrap preview = EXACT asset exported on Publish (back + spine + front). -->
@@ -694,6 +694,8 @@
         covWrapBuildInFlight = true;
         updatePublishGate();
         covWrapBuildPromise = resolveWrapPageCount().then(function (pageCount) {
+            // wait:true — local ImageSharp wrap finishes in seconds. wait:false used to
+            // queue background AI fallbacks that hung for 15+ minutes on "Generating".
             return fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -702,7 +704,7 @@
                     bookId: selectedBook.bookId,
                     pageCount: pageCount > 0 ? pageCount : null,
                     force: !!forceRebuild,
-                    wait: false,
+                    wait: true,
                     title: (bookTitle.value || '').trim() || selectedBook.title || 'My Book',
                     author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
                     genre: (bookCategory.value || '').trim()
@@ -718,7 +720,7 @@
             }
             return r.json();
         }).then(function (d) {
-            if (d && d.status === 'processing') return pollPrintWrapUntilReady(900000, 3000);
+            if (d && d.status === 'processing') return pollPrintWrapUntilReady(90000, 2000);
             return d;
         })
         .then(function (d) {
@@ -826,7 +828,7 @@
             if (text) text.textContent = 'Full wrap build failed. Regenerate your front cover, then we will retry automatically.';
             return;
         }
-        if (text) text.textContent = 'Building your full print wrap via AI (back + spine + front) — this can take 1–2 minutes…';
+        if (text) text.textContent = 'Building full print wrap from your front cover (usually a few seconds)…';
     }
 
     function startCovWrapStatusPolling() {
@@ -1589,7 +1591,7 @@
                     : primary;
             }
         } catch (e) { /* ignore */ }
-        toast('success', label === 'edit' ? 'Cover updated.' : 'Front cover ready — building full print wrap…');
+        toast('success', label === 'edit' ? 'Cover updated.' : 'Front cover ready — composing full print wrap…');
         updateLivePreview();
         setPrintWrapSaved(false);
         resetPrintWrapPreviewUi();
