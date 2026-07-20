@@ -1516,11 +1516,11 @@
                     <button type="button" data-export-kind="ebook" id="btnExportEpub" class="@(showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                         <i class="fas fa-download" aria-hidden="true"></i> Download EPUB
                     </button>
-                    <button type="button" data-export-kind="print" id="btnExportFrontCoverPrint" class="@(showPrintExports && !showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                        <i class="fas fa-download" aria-hidden="true"></i> Download front cover
-                    </button>
                     <button type="button" data-export-kind="print" id="btnExportCoverWrap" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                         <i class="fas fa-download" aria-hidden="true"></i> Download full wrap cover
+                    </button>
+                    <button type="button" data-export-kind="print" id="btnExportFrontCoverPrint" class="@(showPrintExports && !showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
+                        <i class="fas fa-download" aria-hidden="true"></i> Download front cover
                     </button>
                     <button type="button" data-export-kind="print" id="btnPrintReadyPublishPrimary" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                         <i class="fas fa-download" aria-hidden="true"></i> Download interior PDF

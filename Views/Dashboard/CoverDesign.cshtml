@@ -397,11 +397,11 @@
                 </div>
             </div>
 
-            <a href="#" id="btnGoToPublish" class="mt-1 w-full rounded-[14px] bg-violet-700 text-white py-3 text-sm font-semibold shadow-md shadow-violet-500/20 hover:bg-violet-800 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book">
+            <a href="#" id="btnGoToPublish" class="mt-1 w-full rounded-[14px] bg-violet-700 text-white py-3 text-sm font-semibold shadow-md shadow-violet-500/20 hover:bg-violet-800 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book" aria-disabled="true" style="pointer-events:none;opacity:0.5">
                 <i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i>
                 Continue to Publish
             </a>
-            <p class="mt-1 text-[11px] text-slate-400 leading-snug">Step 4 is Publish — continue when your cover looks right.</p>
+            <p id="btnGoToPublishHint" class="mt-1 text-[11px] text-slate-400 leading-snug">Generate your cover first — for paperback, wait until the full wrap is ready.</p>
         </div>
 
         <!-- Preview -->
@@ -692,6 +692,7 @@
         if (tabs) tabs.classList.remove('hidden');
 
         covWrapBuildInFlight = true;
+        updatePublishGate();
         covWrapBuildPromise = resolveWrapPageCount().then(function (pageCount) {
             return fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
                 method: 'POST',
@@ -751,6 +752,7 @@
             covWrapBuildPromise = null;
             var building = document.getElementById('covFullWrapBuilding');
             if (building) building.classList.add('hidden');
+            updatePublishGate();
         });
 
         return covWrapBuildPromise;
@@ -1218,6 +1220,7 @@
                             if (fmt === 'Print') fmt = 'Paperback';
                             bookPublishFormat = fmt;
                             syncPrintWrapUiVisibility();
+                            updatePublishGate();
                             /* Full wrap builds only after front cover generate — not on page load. */
                         }
                     })
@@ -1292,6 +1295,7 @@
         printWrapSaved = !!saved;
         var badge = document.getElementById('covWrapSavedBadge');
         if (badge) badge.classList.toggle('hidden', !printWrapSaved);
+        updatePublishGate();
     }
 
     function isLikelyWrapCoverPath(path) {
@@ -1458,27 +1462,66 @@
         updatePublishGate();
     }
 
-    // Bug #15: "Continue to Publish" stays disabled until a cover actually exists for this book.
-    function coverIsReady() {
+    // Front cover exists (ebook) — or for paperback/both, full wrap must also be saved.
+    function frontCoverIsReady() {
         if (coverGeneratedPayload && (coverGeneratedPayload.value || '').trim()) return true;
         if (selectedPath && String(selectedPath).trim()) return true;
         if (selectedBook && (selectedBook.coverImagePath || selectedBook.aiCoverLastPreview)) return true;
         return false;
     }
 
+    function fullWrapIsReady() {
+        return !!(printWrapSaved && String(coverWraparoundRef || '').trim());
+    }
+
+    /** Publish is allowed only when export assets for the selected format are ready. */
+    function coverIsReady() {
+        if (!frontCoverIsReady()) return false;
+        // Paperback / Both: block Continue until the exact full wrap Publish will export exists.
+        if (needsPrintWrapAutoBuild()) return fullWrapIsReady();
+        return true;
+    }
+
     function updatePublishGate() {
         if (!btnGoToPublish) return;
         if (btnGoToPublish.getAttribute('data-busy') === 'true') return;
+        var frontReady = frontCoverIsReady();
         var ready = coverIsReady();
+        var needsWrap = needsPrintWrapAutoBuild();
         btnGoToPublish.setAttribute('aria-disabled', ready ? 'false' : 'true');
         btnGoToPublish.style.pointerEvents = ready ? '' : 'none';
         btnGoToPublish.style.opacity = ready ? '' : '0.5';
-        btnGoToPublish.title = ready ? 'Open Publish with this same book' : 'Generate a cover first to continue';
-        // Bug #16: Regenerate becomes available only after a cover exists.
-        if (btnRegenerate) btnRegenerate.classList.toggle('hidden', !ready);
-        // After a cover exists, hide "Generate Cover" so only "Regenerate Cover" remains
-        // (single clear primary action; avoids the dual-CTA confusion).
-        if (btnGenerate) btnGenerate.classList.toggle('hidden', ready);
+        if (ready) {
+            btnGoToPublish.title = needsWrap
+                ? 'Full wrap ready — open Publish to download front + full wrap'
+                : 'Open Publish with this same book';
+        } else if (needsWrap && frontReady && !fullWrapIsReady()) {
+            btnGoToPublish.title = 'Wait until the full wrap cover finishes building';
+        } else {
+            btnGoToPublish.title = 'Generate a cover first to continue';
+        }
+        var hint = document.getElementById('btnGoToPublishHint');
+        if (hint) {
+            if (ready && needsWrap) {
+                hint.textContent = 'Full wrap saved — Publish export will download this same file.';
+                hint.classList.remove('text-amber-700');
+                hint.classList.add('text-emerald-700');
+            } else if (needsWrap && frontReady && !fullWrapIsReady()) {
+                hint.textContent = 'Full wrap is still building — Continue to Publish stays disabled until it is ready.';
+                hint.classList.add('text-amber-700');
+                hint.classList.remove('text-emerald-700');
+            } else if (!frontReady) {
+                hint.textContent = 'Generate your cover first — for paperback, wait until the full wrap is ready.';
+                hint.classList.remove('text-amber-700', 'text-emerald-700');
+            } else {
+                hint.textContent = 'Step 4 is Publish — continue when your cover looks right.';
+                hint.classList.remove('text-amber-700', 'text-emerald-700');
+            }
+        }
+        // Bug #16: Regenerate becomes available only after a front cover exists.
+        if (btnRegenerate) btnRegenerate.classList.toggle('hidden', !frontReady);
+        // After a cover exists, hide "Generate Cover" so only "Regenerate Cover" remains.
+        if (btnGenerate) btnGenerate.classList.toggle('hidden', frontReady);
     }
 
     function hideCoverOptionsGrid() {
@@ -2230,7 +2273,11 @@
         if (btnGoToPublish.getAttribute('aria-disabled') === 'true') {
             e.preventDefault();
             if (btnGoToPublish.getAttribute('data-busy') !== 'true') {
-                toast('info', 'Generate a cover first, then continue to Publish.');
+                if (needsPrintWrapAutoBuild() && frontCoverIsReady() && !fullWrapIsReady()) {
+                    toast('info', 'Full wrap is still building. Continue to Publish unlocks when the full cover is ready for export.');
+                } else {
+                    toast('info', 'Generate a cover first, then continue to Publish.');
+                }
             }
             return;
         }
