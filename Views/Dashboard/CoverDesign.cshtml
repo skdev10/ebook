@@ -668,7 +668,7 @@
                 }).then(function (r) { return r.json(); }).then(function (d) {
                     var wrap = d && d.cover ? (d.cover.wrap || '').trim() : '';
                     var st = d && d.wrapCoverStatus ? String(d.wrapCoverStatus) : '';
-                    if (wrap && d.wrapMatchesFront !== false) return resolve(d);
+                    if (wrap && (d.wrapMatchesFront !== false || String(d.wrapCoverStatus || '') === 'Ready')) return resolve(d);
                     if (st === 'Failed' || st === 'MissingFront')
                         return reject(new Error(d.message || 'Full wrap generation failed.'));
                     if (Date.now() - started > maxMs)
@@ -842,15 +842,19 @@
         var wrapMatches = data && data.wrapMatchesFront !== false;
         var hasFront = hasSavedFrontForWrap();
         if (retryBtn) retryBtn.classList.add('hidden');
-        if (wrap && wrapMatches && (status === 'Ready' || status === '')) {
+        if (wrap && (wrapMatches || status === 'Ready' || status === '')) {
             banner.classList.add('hidden');
             showCovFullWrapPreview(wrap, data && data.pageCount ? data.pageCount : 0);
             return;
         }
-        if (status === 'Stale' || (wrap && !wrapMatches)) {
+        if (status === 'Stale' && !wrap) {
             banner.classList.add('hidden');
             resetPrintWrapPreviewUi();
             return;
+        }
+        // Stale with a wrap URL still present: keep showing it while rebuild runs.
+        if (status === 'Stale' && wrap) {
+            showCovFullWrapPreview(wrap, data && data.pageCount ? data.pageCount : 0);
         }
         if (!hasFront && status !== 'Failed' && status !== 'MissingFront') {
             banner.classList.add('hidden');
@@ -1453,7 +1457,8 @@
                 if (!c.front && !c.wrap) return;
 
                 var wrapMatches = d.wrapMatchesFront !== false;
-                if (c.wrap && wrapMatches) {
+                var st = d.wrapCoverStatus ? String(d.wrapCoverStatus) : '';
+                if (c.wrap && (wrapMatches || st === 'Ready')) {
                     coverWraparoundRef = c.wrap;
                     updateCovWrapBuildBanner(d);
                     showCovFullWrapPreview(c.wrap, d.pageCount || 0);
@@ -1467,10 +1472,10 @@
                     front: c.front || '',
                     back: c.back || '',
                     spine: c.spine || '',
-                    wrap: wrapMatches ? (c.wrap || '') : '',
+                    wrap: (c.wrap || ''),
                     pageCount: d.pageCount || 0
                 };
-                setPrintWrapSaved(!!(c.wrap && wrapMatches));
+                setPrintWrapSaved(!!(c.wrap && (wrapMatches || st === 'Ready')));
                 coverHistory = [];
                 var frontOnly = (c.front || '').trim();
                 if (frontOnly) {

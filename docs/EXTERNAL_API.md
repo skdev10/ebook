@@ -1,15 +1,35 @@
-# EbookAI Book API — Documentation
+# EbookAI Book API — Complete Documentation
 
 **Base URL:** `http://162.229.248.26:8001`
 
-**Authentication (every request):**
+## Authentication
+
+Every request needs:
 
 ```http
-X-API-Key: <your-api-key>
+X-API-Key: YOUR_API_KEY
 Content-Type: application/json
 ```
 
-Configure the key on the EbookAI server as `ExternalApi__ApiKey` (e.g. `/etc/default/ebookai` or git-ignored `appsettings.Local.json`). **Do not commit the live key to git.**
+Set the key on the EbookAI server (recommended):
+
+```bash
+# /etc/default/ebookai or environment
+ExternalApi__ApiKey=YOUR_API_KEY
+```
+
+Or local git-ignored `appsettings.Local.json`:
+
+```json
+{
+  "ExternalApi": {
+    "ApiKey": "YOUR_API_KEY",
+    "BaseUrl": "http://162.229.248.26:8001"
+  }
+}
+```
+
+**Do not commit the live API key to git.** Rotate the key if it was shared in chat/docs.
 
 ---
 
@@ -17,18 +37,66 @@ Configure the key on the EbookAI server as `ExternalApi__ApiKey` (e.g. `/etc/def
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/generate_chapter` | Generate chapter text from user input |
-| POST | `/api/edit` | Edit a particular chapter |
-| POST | `/api/audio` | Transcribe audio → chapter text |
-| POST | `/api/approve` | Confirm / approve a chapter |
-| GET | `/api/queue-data` | Running + waiting queue counts |
-| POST | `/api/generate-cover` | Generate front cover image |
-| POST | `/api/edit-cover` | Edit cover from base64 image |
-| POST | `/api/book_chapters_name` | Suggest chapter names from highlights |
+| POST | `/api/generate_chapter` | Generate chapter text |
+| POST | `/api/edit` | Edit a chapter |
+| POST | `/api/audio` | Transcribe audio → text |
+| POST | `/api/approve` | Confirm / approve chapter |
+| GET | `/api/queue-data` | Running + waiting queue |
+| POST | `/api/generate-cover` | Front cover only |
+| POST | `/api/edit-cover` | Edit front cover (base64) |
+| POST | `/api/book_chapters_name` | Suggest chapter names |
+| POST | `/api/generate-spine-book-cover-split` | **Full wrap** (back + spine + front) |
+| POST | `/api/generate-spine-book-cover` | **Full wrap** (AI one-shot) |
 
-**Cover sizes (`VALID_SIZES`):** `1024x1024`, `1536x1024`, `1024x1536`, `auto`  
-**Cover quality (`VALID_QUALITIES`):** `low`, `medium`, `high`, `auto`  
-**Audio formats:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
+**VALID_SIZES:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`  
+**VALID_QUALITIES:** `low`, `medium`, `high`, `auto`  
+**Audio:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
+
+---
+
+## Full print wrap (spine + back + front)
+
+### A) Split wrap (recommended when you already have a front cover)
+
+`POST /api/generate-spine-book-cover-split`
+
+```json
+{
+  "title": "The Iqbal Day",
+  "author_name": "Sara Khan",
+  "size": "1536x1024",
+  "quality": "high",
+  "Interior_trim_size": "6 x 9 in",
+  "paper_type": "white",
+  "page_count": 40
+}
+```
+
+EbookAI may also send `encoded_image` (base64 of the saved front cover) so the wrap keeps your approved front art.
+
+### B) Full spine wrap (AI draws back + spine + front together)
+
+`POST /api/generate-spine-book-cover`
+
+```json
+{
+  "title": "Peter Pan",
+  "author_name": "J. M. Barrie",
+  "size": "1536x1024",
+  "quality": "high",
+  "Interior_trim_size": "6 x 9 in",
+  "page_count": 40,
+  "paper_type": "white"
+}
+```
+
+### EbookAI wrap pipeline (Cover Design → Publish)
+
+1. **Local ImageSharp compositor** (seconds) — uses exact saved front  
+2. If that fails → **`/api/generate-spine-book-cover-split`** (max ~2 min)  
+3. If that fails → **`/api/generate-spine-book-cover`** (max ~2 min)  
+
+Saved file key: `printReadyCoverWrap` — same file shown in Cover Design preview and downloaded on Publish.
 
 ---
 
@@ -45,26 +113,15 @@ Configure the key on the EbookAI server as `ExternalApi__ApiKey` (e.g. `/etc/def
 }
 ```
 
-**Example result:** heading like `"The gravitational force is invented in 8790"`.
+Example result heading: `"The gravitational force is invented in 8790"`.
 
-Temporary rows are stored in `Temporary_database` (including `suggest_chapter_name` for up to 5 name suggestions).
+Stored in `Temporary_database` (includes `suggest_chapter_name` for ~5 name suggestions).
 
 ---
 
 ## 2. Edit chapter
 
 `POST /api/edit`
-
-```json
-{
-  "user_id": "u123",
-  "book_id": "b456",
-  "chapter": "18",
-  "changes": "change the title something else"
-}
-```
-
-**Example:** replace `8790` with `6789` in the heading:
 
 ```json
 {
@@ -90,8 +147,8 @@ Temporary rows are stored in `Temporary_database` (including `suggest_chapter_na
 }
 ```
 
-Supported extensions: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`.  
-Rows are stored in `audio_transcriptions`.
+Supported: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`  
+Table: `audio_transcriptions`
 
 ---
 
@@ -108,7 +165,7 @@ Rows are stored in `audio_transcriptions`.
 }
 ```
 
-Moves confirmed content into `User_confirm`.
+Moves data into `User_confirm`.
 
 ---
 
@@ -117,11 +174,11 @@ Moves confirmed content into `User_confirm`.
 `GET /api/queue-data`
 
 Returns how many requests are **running** and how many are **waiting**.  
-Mirrored / logged in `queue_monitor`.
+Logged in `queue_monitor`.
 
 ---
 
-## 6. Generate cover (front)
+## 6. Generate front cover
 
 `POST /api/generate-cover`
 
@@ -135,8 +192,6 @@ Mirrored / logged in `queue_monitor`.
   "quality": "medium"
 }
 ```
-
-EbookAI Cover Design calls this for the **front panel only**. For Paperback/Both, the website then builds the **full KDP wrap locally** from that saved front (back + spine + front) so preview matches export.
 
 ---
 
@@ -152,7 +207,7 @@ EbookAI Cover Design calls this for the **front panel only**. For Paperback/Both
 }
 ```
 
-`encoded_image` = base64 of the image to edit (no `data:` prefix required by some clients; EbookAI normalizes both forms).
+`encoded_image` = base64 of the image to edit.
 
 ---
 
@@ -168,13 +223,11 @@ EbookAI Cover Design calls this for the **front panel only**. For Paperback/Both
 }
 ```
 
-`highlights` is a list of `HighlightItem` objects from prior chapters. Suggestions can be stored in `Temporary_database.suggest_chapter_name`.
-
 ---
 
 ## Database tables
 
-### 1. `Temporary_database` (draft / in-progress)
+### 1. `Temporary_database` (draft)
 
 | Column | Type | Notes |
 |--------|------|--------|
@@ -185,12 +238,12 @@ EbookAI Cover Design calls this for the **front panel only**. For Paperback/Both
 | chapter_name | VARCHAR(255) | |
 | user_input | TEXT | |
 | content | LONGTEXT | |
-| suggest_chapter_name | TEXT | Suggests ~5 chapter names; user picks → name stored |
+| suggest_chapter_name | TEXT | Suggests ~5 names; user picks → stored |
 | highlight_of_previous_chapter | LONGTEXT | |
 | date | DATE DEFAULT CURRENT_DATE | |
 | time | TIME DEFAULT CURRENT_TIME | |
 
-### 2. `User_confirm` (approved chapters)
+### 2. `User_confirm` (approved)
 
 | Column | Type |
 |--------|------|
@@ -247,54 +300,37 @@ EbookAI Cover Design calls this for the **front panel only**. For Paperback/Both
 
 ---
 
-## EbookAI website mapping
-
-| Screen | Uses |
-|--------|------|
-| AI Writer — generate chapter | `POST /api/generate_chapter` |
-| AI Writer — edit chapter | `POST /api/edit` |
-| AI Writer — audio | `POST /api/audio` |
-| AI Writer — approve | `POST /api/approve` |
-| Cover Design — Generate Cover | `POST /api/generate-cover` |
-| Cover Design — Edit cover | `POST /api/edit-cover` |
-| Cover Design — Full wrap (Paperback/Both) | **Local ImageSharp compositor** from saved front (not the long AI wrap APIs) |
-| Publish — download wrap | Saved `printReadyCoverWrap` file (same as Cover Design preview) |
-| Dashboard queue probe | `GET /api/queue-data` |
-
-### Cover Design → Publish gate
-
-1. Generate **front** cover (`/api/generate-cover`).
-2. Website saves front to Settings (`printReadyCoverFront`).
-3. For **Paperback / Both**, website composes full wrap locally (seconds).
-4. **Continue to Publish** stays disabled until that wrap file is ready and visible.
-5. Publish **Download full wrap cover** downloads that same file.
-
----
-
 ## cURL examples
 
 ```bash
+export API_KEY='YOUR_API_KEY'
+export BASE='http://162.229.248.26:8001'
+
 # Queue
-curl -s -H "X-API-Key: $API_KEY" \
-  http://162.229.248.26:8001/api/queue-data
+curl -s -H "X-API-Key: $API_KEY" "$BASE/api/queue-data"
 
-# Generate chapter
-curl -s -X POST http://162.229.248.26:8001/api/generate_chapter \
+# Full wrap (split)
+curl -s -X POST "$BASE/api/generate-spine-book-cover-split" \
   -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
-  -d '{"user_id":"u123","book_id":"b456","chapter":"18","user_input":"how gravity descover"}'
+  -d '{"title":"The Iqbal Day","author_name":"Sara Khan","size":"1536x1024","quality":"high","Interior_trim_size":"6 x 9 in","paper_type":"white","page_count":40}'
 
-# Generate cover
-curl -s -X POST http://162.229.248.26:8001/api/generate-cover \
+# Full wrap (one-shot)
+curl -s -X POST "$BASE/api/generate-spine-book-cover" \
+  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -d '{"title":"Peter Pan","author_name":"J. M. Barrie","size":"1536x1024","quality":"high","Interior_trim_size":"6 x 9 in","page_count":40,"paper_type":"white"}'
+
+# Front cover
+curl -s -X POST "$BASE/api/generate-cover" \
   -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
   -d '{"title":"The Power of Gravity","author_name":"Hasan Rahim","category":"Science","cover_style":"Modern Illustration","size":"1024x1536","quality":"medium"}'
 ```
 
 ---
 
-## Common errors
+## Common HTTP errors
 
-| HTTP | Meaning |
+| Code | Meaning |
 |------|---------|
 | 401 | Missing/invalid `X-API-Key` |
-| 422 | Invalid / incomplete JSON body |
-| 500 | Upstream error — check `error_logs` and `/api/queue-data` |
+| 422 | Bad JSON / missing fields |
+| 500 | Upstream error — check `error_logs` + `/api/queue-data` |

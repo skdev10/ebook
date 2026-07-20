@@ -2051,6 +2051,24 @@ namespace EBookDashboard.Controllers
 
             var storedSha = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFrontSha256", "").Trim();
             var storedFrontRef = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFrontAssetRef", "").Trim();
+
+            // Fast path: local compositor stamps front asset ref + SHA when it builds the wrap.
+            // Trust that — pixel compare often fails after cover-fill crop/resize and was
+            // clearing a perfectly good wrap in the Cover Design UI (Stale → empty preview).
+            if (!string.IsNullOrEmpty(storedSha)
+                && !string.IsNullOrEmpty(storedFrontRef)
+                && string.Equals(storedFrontRef, frontRef, StringComparison.OrdinalIgnoreCase))
+            {
+                var frontBytesQuick = await CoverImageRefLoader.TryReadAsBytesAsync(
+                    frontRef, _env.WebRootPath, _httpClientFactory, cancellationToken);
+                if (frontBytesQuick is { Length: > 0 })
+                {
+                    var hashQuick = Convert.ToHexString(SHA256.HashData(frontBytesQuick));
+                    if (string.Equals(storedSha, hashQuick, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+
             if (string.IsNullOrEmpty(storedSha)) return false;
 
             if (!string.IsNullOrEmpty(storedFrontRef)

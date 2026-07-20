@@ -235,7 +235,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         var frontHashFinal = Convert.ToHexString(SHA256.HashData(frontBytes));
         var description = ResolveBackCoverDescription(book, details);
 
-        // Local compositor ONLY for wrap-from-front (seconds; preview ≡ export).
+        // 1) Local compositor FIRST (seconds) — exact saved front on the front panel.
         var localOk = await TryGenerateViaLocalCompositorAsync(
                 userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
                 title, authorName, description,
@@ -243,9 +243,25 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         if (localOk)
             return true;
 
+        // 2) Official spine APIs (short timeout — never hang 15–30 min).
+        if (await TryGenerateViaSplitApiAsync(
+                userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
+                title, authorName, trimSize, pageCount, kdp, cancellationToken))
+            return true;
+
+        var imageDirection = (await _context.Settings.AsNoTracking()
+            .Where(s => s.Key == $"book:{bookId}:aiCoverPrompt")
+            .Select(s => s.Value)
+            .FirstOrDefaultAsync(cancellationToken) ?? "").Trim();
+        var category = (book.Genre ?? "General").Trim();
+        if (await TryGenerateViaFullSpineApiAsync(
+                userId, bookId, title, authorName, category, imageDirection,
+                trimSize, pageCount, kdp, cancellationToken))
+            return true;
+
         await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusFailed, cancellationToken);
         _logger.LogWarning(
-            "Local print wrap compositing failed for book {BookId} — not falling back to long-running AI wrap APIs.",
+            "All wrap paths failed for book {BookId} (local + split + full spine).",
             bookId);
         return false;
     }
@@ -294,8 +310,8 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             httpRequest.Content = new StringContent(
                 payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
 
-            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, upstreamCts.Token);
+            using var wrapCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, wrapCts.Token);
             var response = await _bookApiClient.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, linkedCts.Token);
             var responseData = await response.Content.ReadAsStringAsync(linkedCts.Token);
             if (!response.IsSuccessStatusCode)
@@ -410,8 +426,8 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             httpRequest.Content = new StringContent(
                 payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
 
-            using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, upstreamCts.Token);
+            using var wrapCts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, wrapCts.Token);
             var response = await _bookApiClient.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, linkedCts.Token);
             var responseData = await response.Content.ReadAsStringAsync(linkedCts.Token);
             if (!response.IsSuccessStatusCode) return false;
@@ -426,13 +442,32 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
 
             var wrapBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
                 persistedWrap, _env.WebRootPath, _httpClientFactory, cancellationToken);
-            if (wrapBytes == null || !CoverWrapPanelExtractor.FrontPanelMatchesSavedFront(wrapBytes, frontBytes, pageCount, trimSize))
+            if (wrapBytes == null || wrapBytes.Length == 0) return false;
+
+            // Prefer keeping the approved front; if the API re-drew the front panel, re-sync from wrap.
+            var frontMatches = CoverWrapPanelExtractor.FrontPanelMatchesSavedFront(
+                wrapBytes, frontBytes, pageCount, trimSize);
+            string persistFrontRef = frontAssetRef;
+            string persistFrontHash = frontHash;
+            if (!frontMatches)
             {
-                _logger.LogWarning(
-                    "Split wrap API front panel mismatch for book {BookId} — using local compositor.",
+                _logger.LogInformation(
+                    "Split wrap front panel differs for book {BookId} — re-syncing front from wrap panel.",
                     bookId);
-                await ClearWrapOnlyAsync(bookId, cancellationToken);
-                return false;
+                var newFrontBytes = CoverWrapPanelExtractor.EnsureFrontPanelBytes(
+                    wrapBytes, pageCount, trimSize, assumeWrap: true);
+                persistFrontRef = await SaveCoverBytesToUploadsAsync(
+                    userId, bookId, newFrontBytes, ".png", "front-from-wrap", cancellationToken);
+                persistFrontHash = Convert.ToHexString(SHA256.HashData(newFrontBytes));
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverFront", persistFrontRef, cancellationToken);
+                await UpsertSettingAsync($"book:{bookId}:aiCoverLastPreview", persistFrontRef, cancellationToken);
+                var trackedBook = await _context.Books
+                    .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+                if (trackedBook != null)
+                {
+                    trackedBook.CoverImagePath = persistFrontRef;
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
             }
 
             if (persistedWrap.Length <= Settings.DbCompatMaxValueLength)
@@ -453,12 +488,12 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
                     await UpsertSettingAsync($"book:{bookId}:printReadyCoverSpine", spine, cancellationToken);
             }
 
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", frontAssetRef, cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", frontHash, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", persistFrontRef, cancellationToken);
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", persistFrontHash, cancellationToken);
             await UpsertSettingAsync($"book:{bookId}:printReadyPageCount", pageCount.ToString(CultureInfo.InvariantCulture), cancellationToken);
             await UpsertSettingAsync($"book:{bookId}:printReadyTrimSize", trimSize, cancellationToken);
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, cancellationToken);
-            _logger.LogInformation("Split wrap API accepted for book {BookId} (front panel verified).", bookId);
+            _logger.LogInformation("Split wrap API accepted for book {BookId}.", bookId);
             return true;
         }
         catch (Exception ex)

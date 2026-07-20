@@ -1747,14 +1747,18 @@
         var wrap = data && data.cover ? (data.cover.wrap || '').trim() : '';
         var status = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : '';
         var matchesFront = !(data && data.wrapMatchesFront === false);
-        // Same rule as Cover Design: stale / mismatched wraps are not "ready" for download.
+        // Local wraps stamp front SHA/ref — treat Ready + wrap as ready even if pixel compare flaked.
         publishWrapCoverReady = !!(wrap && matchesFront && status !== 'Stale' && status !== 'Failed' && status !== 'MissingFront');
+        if (!publishWrapCoverReady && status === 'Ready' && wrap) {
+            publishWrapCoverReady = true;
+            matchesFront = true;
+        }
         if (!publishWrapCoverReady && status === 'Ready' && matchesFront) {
             var cached = (prev.cover && prev.cover.wrap) || String(pbCoverWrapRef || '').trim();
             publishWrapCoverReady = !!cached;
             if (publishWrapCoverReady && !wrap) wrap = cached;
         }
-        if (!matchesFront || status === 'Stale') {
+        if ((status === 'Stale' || data && data.wrapMatchesFront === false) && !publishWrapCoverReady) {
             wrap = '';
             publishWrapCoverReady = false;
             applySavedCoverPreview('');
