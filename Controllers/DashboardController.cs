@@ -7,6 +7,7 @@ using EBookDashboard.Infrastructure;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
+using EBookDashboard.Services.PdfExport;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -2131,7 +2132,11 @@ namespace EBookDashboard.Controllers
 
         [HttpGet]
         [Route("DownloadPrintReadyCoverAsset")]
-        public async Task<IActionResult> DownloadPrintReadyCoverAsset(int bookId, string? part = null, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> DownloadPrintReadyCoverAsset(
+            int bookId,
+            string? part = null,
+            string? format = null,
+            CancellationToken cancellationToken = default)
         {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (sessionUserId == null) return Unauthorized();
@@ -2296,6 +2301,21 @@ namespace EBookDashboard.Controllers
                 catch (Exception cropEx)
                 {
                     _logger.LogWarning(cropEx, "Front-panel crop failed for book {BookId}; serving original image.", bookId);
+                }
+            }
+
+            // Full wrap PDF when explicitly requested (Publish export). Default remains PNG for previews.
+            var formatNorm = (format ?? "").Trim().ToLowerInvariant();
+            if (partNorm == "wrap" && formatNorm is "pdf" or "application/pdf")
+            {
+                try
+                {
+                    var pdfBytes = WrapCoverPdfExporter.ToSinglePagePdf(bytes);
+                    return File(pdfBytes, "application/pdf", $"book-{bookId}-cover-wrap-full.pdf");
+                }
+                catch (Exception pdfEx)
+                {
+                    _logger.LogError(pdfEx, "Wrap→PDF failed for book {BookId}; falling back to image.", bookId);
                 }
             }
 

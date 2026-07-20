@@ -1517,7 +1517,7 @@
                         <i class="fas fa-download" aria-hidden="true"></i> Download EPUB
                     </button>
                     <button type="button" data-export-kind="print" id="btnExportCoverWrap" class="@(showPrintExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
-                        <i class="fas fa-download" aria-hidden="true"></i> Download full wrap cover
+                        <i class="fas fa-download" aria-hidden="true"></i> Download full wrap cover (PDF)
                     </button>
                     <button type="button" data-export-kind="print" id="btnExportFrontCoverPrint" class="@(showPrintExports && !showEbookExports ? "" : "hidden ")inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 text-white font-semibold px-5 py-2.5 text-sm hover:bg-violet-700 shadow-md shadow-violet-500/25 w-full sm:w-auto">
                         <i class="fas fa-download" aria-hidden="true"></i> Download front cover
@@ -1530,7 +1530,7 @@
                     </button>
                 </div>
                 </div>
-                <p class="publish-export-tip mt-3 mb-0 @(showPrintExports && isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipPrint">KDP paperback: upload the <strong>interior PDF</strong> (6×9 trim, safe margins) as manuscript and the <strong>full wrap PNG</strong> as cover — spine width matches your page count.</p>
+                <p class="publish-export-tip mt-3 mb-0 @(showPrintExports && isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipPrint">KDP paperback: upload the <strong>interior PDF</strong> (6×9 trim, safe margins) as manuscript and the <strong>full wrap PDF</strong> (or PNG) as cover — spine width matches your page count.</p>
                 <p class="publish-export-tip mt-3 mb-0 @(showEbookExports && !isPrintReadyFlow && !isBothFormat ? "" : "hidden")" id="publishExportTipEbook">KDP ebook: upload the <strong>EPUB</strong> as manuscript and the <strong>front cover JPG/PNG</strong> as cover art.</p>
             }
             else
@@ -1540,7 +1540,7 @@
                 {
                     <div class="publish-export-actions mt-3">
                         <button type="button" id="btnExportCoverWrapNoChapters" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-violet-400 bg-white text-violet-800 font-semibold px-5 py-2.5 text-sm hover:bg-violet-50 w-full sm:w-auto">
-                            <i class="fas fa-image" aria-hidden="true"></i> Download full wrap cover (PNG)
+                            <i class="fas fa-file-pdf" aria-hidden="true"></i> Download full wrap cover (PDF)
                         </button>
                     </div>
                     <p class="publish-export-tip mt-2 mb-0">Cover wrap is ready. Add chapters in AI Writer to export the interior PDF@(isBothFormat ? " and print pack" : "").</p>
@@ -2648,24 +2648,22 @@
         }
 
         function doDownload() {
-            var serverUrl = '/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bookId) + '&part=wrap';
+            var serverUrl = '/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bookId) + '&part=wrap&format=pdf';
             return fetch(serverUrl)
                 .then(function (r) {
                     if (r.ok) {
                         return r.blob().then(function (blob) {
-                            var ext = (r.headers.get('content-disposition') || '').indexOf('.jpg') >= 0 ? 'jpg' : 'png';
-                            downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.' + ext);
-                            redirectToDashboardAfterExport('Full wrap cover downloaded.', 'print');
+                            downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.pdf');
+                            redirectToDashboardAfterExport('Full wrap cover PDF downloaded.', 'print');
                         });
                     }
                     // Server rebuilds wrap when missing — regenerate once, then retry download only.
                     return queuePrintWrapGeneration(true).then(function () {
                         return fetch(serverUrl).then(function (r2) {
-                            if (!r2.ok) throw new Error('Full wrap download failed after rebuild. Open Cover Design and regenerate.');
+                            if (!r2.ok) throw new Error('Full wrap PDF download failed after rebuild. Open Cover Design and regenerate.');
                             return r2.blob().then(function (blob) {
-                                var ext = (r2.headers.get('content-disposition') || '').indexOf('.jpg') >= 0 ? 'jpg' : 'png';
-                                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.' + ext);
-                                redirectToDashboardAfterExport('Full wrap cover downloaded.', 'print');
+                                downloadBlobAsFile(blob, safeBookSlug() + '-' + bookId + '-kdp-full-wrap.pdf');
+                                redirectToDashboardAfterExport('Full wrap cover PDF downloaded.', 'print');
                             });
                         });
                     });

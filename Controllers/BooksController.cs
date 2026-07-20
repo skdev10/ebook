@@ -6,6 +6,7 @@ using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Models.ViewModels;
 using EBookDashboard.Services;
+using EBookDashboard.Services.PdfExport;
 using static EBookDashboard.Services.CoverExternalApiHelper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
@@ -3082,6 +3083,18 @@ namespace EBookDashboard.Controllers
                         var coverEntry = zip.CreateEntry("cover-wrap-full.png");
                         await using (var es = coverEntry.Open())
                             await es.WriteAsync(wrapBytes, cancellationToken);
+
+                        try
+                        {
+                            var wrapPdf = WrapCoverPdfExporter.ToSinglePagePdf(wrapBytes);
+                            var coverPdfEntry = zip.CreateEntry("cover-wrap-full.pdf");
+                            await using var es = coverPdfEntry.Open();
+                            await es.WriteAsync(wrapPdf, cancellationToken);
+                        }
+                        catch (Exception pdfEx)
+                        {
+                            _logger.LogWarning(pdfEx, "ZIP wrap→PDF skipped for book {BookId}", req.BookId);
+                        }
                     }
                     else
                     {
@@ -3118,7 +3131,7 @@ namespace EBookDashboard.Controllers
             }
         }
 
-        /// <summary>Print-ready full wrap cover only (PNG) — second file for dual export.</summary>
+        /// <summary>Print-ready full wrap cover as a single-page PDF (300 DPI canvas).</summary>
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Route("Books/ExportPrintReadyCoverImage")]
@@ -3168,15 +3181,26 @@ namespace EBookDashboard.Controllers
             if (wrapBytes == null || wrapBytes.Length == 0)
                 return BadRequest(new { success = false, message = "No print wrap cover found. Generate it in Cover Design (print-ready flow) first." });
 
+            byte[] pdfBytes;
+            try
+            {
+                pdfBytes = WrapCoverPdfExporter.ToSinglePagePdf(wrapBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExportPrintReadyCoverImage wrap→PDF failed for book {BookId}", req.BookId);
+                return StatusCode(500, new { success = false, message = "Could not build full wrap PDF." });
+            }
+
             var book = await _context.Books.AsNoTracking().FirstOrDefaultAsync(b => b.BookId == req.BookId, cancellationToken);
             var rawName = (book?.Title ?? "book").Trim();
             var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
             safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
             if (string.IsNullOrEmpty(safe)) safe = "book";
-            var fileName = $"{safe}-cover-wrap-{req.BookId}.png";
+            var fileName = $"{safe}-cover-wrap-{req.BookId}.pdf";
             await _bookService.MarkPublishedAsync(req.BookId, sessionUserId.Value, cancellationToken);
             await _bookFlow.SaveStepAsync(req.BookId, BookFlowStateService.StepPublish, "print", cancellationToken);
-            return File(wrapBytes, "image/png", fileName);
+            return File(pdfBytes, "application/pdf", fileName);
         }
 
         /// <summary>Extract plain text from an uploaded .txt / .md or .pdf (first pass) for chapter import.</summary>
