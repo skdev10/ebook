@@ -10,11 +10,15 @@ public interface IPrintWrapGenerationService
     /// <param name="allowNonPrintFormat">
     /// When true, generate even if book format is still Ebook (explicit Cover Design / Publish request).
     /// </param>
+    /// <param name="localOnly">
+    /// When true, only run the local ImageSharp compositor (no spine AI APIs). Use for interactive UI.
+    /// </param>
     Task<bool> TryGenerateFromSavedFrontAsync(
         int userId,
         int bookId,
         int? pageCountOverride = null,
         bool forceRegenerate = false,
         CancellationToken cancellationToken = default,
-        bool allowNonPrintFormat = false);
+        bool allowNonPrintFormat = false,
+        bool localOnly = false);
 }

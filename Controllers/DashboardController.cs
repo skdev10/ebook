@@ -1898,6 +1898,9 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return Json(new { success = false, message = "Book not found." });
 
+            // Re-bind orphan wrap files before reading Settings (fixes Failed UI with files on disk).
+            await TryRecoverLocalWrapFileAsync(sessionUserId.Value, bookId, cancellationToken);
+
             var keys = new[]
             {
                 $"book:{bookId}:printReadyCoverWrap",
@@ -2049,6 +2052,12 @@ namespace EBookDashboard.Controllers
                 wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi", "").Trim();
             if (string.IsNullOrWhiteSpace(wrap)) return false;
 
+            // Local composed wraps are built from the saved front — treat as matching so
+            // missing SHA metadata (recover path) never marks them Stale and clears the UI.
+            var wrapFile = Path.GetFileName(wrap.Replace('\\', '/'));
+            if (wrapFile.StartsWith("wrap-composed-", StringComparison.OrdinalIgnoreCase))
+                return true;
+
             var frontRef = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront", "").Trim();
             if (string.IsNullOrWhiteSpace(frontRef))
                 frontRef = rows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview", "").Trim();
@@ -2058,8 +2067,6 @@ namespace EBookDashboard.Controllers
             var storedFrontRef = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverFrontAssetRef", "").Trim();
 
             // Fast path: local compositor stamps front asset ref + SHA when it builds the wrap.
-            // Trust that — pixel compare often fails after cover-fill crop/resize and was
-            // clearing a perfectly good wrap in the Cover Design UI (Stale → empty preview).
             if (!string.IsNullOrEmpty(storedSha)
                 && !string.IsNullOrEmpty(storedFrontRef)
                 && string.Equals(storedFrontRef, frontRef, StringComparison.OrdinalIgnoreCase))
@@ -2074,7 +2081,7 @@ namespace EBookDashboard.Controllers
                 }
             }
 
-            if (string.IsNullOrEmpty(storedSha)) return false;
+            if (string.IsNullOrEmpty(storedSha)) return true; // wrap exists; don't block Continue
 
             if (!string.IsNullOrEmpty(storedFrontRef)
                 && !string.Equals(storedFrontRef, frontRef, StringComparison.OrdinalIgnoreCase))
@@ -2613,12 +2620,17 @@ namespace EBookDashboard.Controllers
                 book.CoverImagePath,
                 null);
             if (string.IsNullOrWhiteSpace(savedFront))
-                return Json(new { success = false, status = "error", message = "Generate a front cover in Cover Design first." });
+            {
+                // Last resort: use newest cover_ai_*.png on disk for this book.
+                savedFront = TryFindLatestFrontCoverFile(sessionUserId.Value, req.BookId) ?? "";
+                if (string.IsNullOrWhiteSpace(savedFront))
+                    return Json(new { success = false, status = "error", message = "Generate a front cover in Cover Design first." });
+                await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, savedFront, CancellationToken.None, invalidateCachedWrap: false);
+            }
 
-            // Persist canonical front key before compose (fixes race where wrap ran before SetActiveCover).
             var storedFront = (assetRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverFront") ?? "").Trim();
             if (!string.Equals(storedFront, savedFront, StringComparison.OrdinalIgnoreCase))
-                await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, savedFront, CancellationToken.None, invalidateCachedWrap: req.Force);
+                await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, savedFront, CancellationToken.None, invalidateCachedWrap: false);
 
             if (req.PageCount is > 0)
             {
@@ -2627,6 +2639,14 @@ namespace EBookDashboard.Controllers
                     req.PageCount.Value.ToString(CultureInfo.InvariantCulture),
                     "Book",
                     CancellationToken.None);
+            }
+
+            // Fast path: reuse an existing wrap on disk/settings unless Force rebuild was requested.
+            if (!req.Force)
+            {
+                var existing = await TryRecoverLocalWrapFileAsync(sessionUserId.Value, req.BookId, CancellationToken.None);
+                if (!string.IsNullOrWhiteSpace(existing))
+                    return await BuildWrapReadyJsonAsync(req.BookId, sessionUserId.Value, savedFront, existing!);
             }
 
             if (req.Force)
@@ -2643,75 +2663,184 @@ namespace EBookDashboard.Controllers
                 });
             }
 
-            // Local ImageSharp wrap from saved front (preview ≡ export). Fast path.
-            // Explicit Cover Design / Publish request: allow wrap even if format row is still "Ebook".
+            // Wait path: LOCAL ONLY (seconds). Never call slow spine AI APIs here — they hang the UI.
             var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
                 sessionUserId.Value,
                 req.BookId,
                 req.PageCount,
                 req.Force,
                 CancellationToken.None,
-                allowNonPrintFormat: true);
+                allowNonPrintFormat: true,
+                localOnly: true);
+
+            var wrapPath = await TryRecoverLocalWrapFileAsync(sessionUserId.Value, req.BookId, CancellationToken.None);
+            if (!string.IsNullOrWhiteSpace(wrapPath))
+                return await BuildWrapReadyJsonAsync(req.BookId, sessionUserId.Value, savedFront, wrapPath!);
 
             if (!ok)
             {
-                // Recovery: compose often wrote wrap-composed-*.png even when a later Settings
-                // race flipped status to Failed. Re-attach the newest local wrap if present.
-                var recoveredPath = await TryRecoverLocalWrapFileAsync(
-                    sessionUserId.Value, req.BookId, CancellationToken.None);
-                if (!string.IsNullOrWhiteSpace(recoveredPath))
-                    return await GetPrintReadyCoverAssetsCoreAsync(req.BookId, CancellationToken.None);
-
-                var statusKey = $"book:{req.BookId}:printReadyCoverWrapStatus";
-                var statusRow = await _context.Settings.AsNoTracking()
-                    .Where(s => s.Key == statusKey)
-                    .Select(s => s.Value)
-                    .FirstOrDefaultAsync(CancellationToken.None);
-                var failMessage = (statusRow ?? "").Trim() switch
+                return Json(new
                 {
-                    PrintWrapGenerationService.StatusMissingFront =>
-                        "Generate a front cover in Cover Design first — the full wrap uses that exact image.",
-                    _ => "Full wrap generation failed. Confirm your front cover is saved and click Retry wrap."
-                };
-                return Json(new { success = false, status = "error", message = failMessage });
+                    success = false,
+                    status = "error",
+                    message = "Full wrap generation failed. Regenerate your front cover, then click Retry wrap."
+                });
             }
 
             return await GetPrintReadyCoverAssetsCoreAsync(req.BookId, CancellationToken.None);
         }
 
+        private async Task<IActionResult> BuildWrapReadyJsonAsync(int bookId, int userId, string frontRef, string wrapRef)
+        {
+            var pageCount = 0;
+            var pageRow = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == $"book:{bookId}:printReadyPageCount")
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+            _ = int.TryParse(pageRow, out pageCount);
+            if (pageCount <= 0) pageCount = 24;
+
+            await UpsertDashboardSettingAsync(
+                $"book:{bookId}:printReadyCoverWrapStatus",
+                PrintWrapGenerationService.StatusReady,
+                "Book",
+                CancellationToken.None);
+
+            // Stamp match metadata so later GetPrintReadyCoverAssets stays Ready.
+            try
+            {
+                var frontBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                    frontRef, _env.WebRootPath, _httpClientFactory, CancellationToken.None);
+                if (frontBytes is { Length: > 0 })
+                {
+                    await UpsertDashboardSettingAsync(
+                        $"book:{bookId}:printReadyCoverFrontAssetRef", frontRef, "Book", CancellationToken.None);
+                    await UpsertDashboardSettingAsync(
+                        $"book:{bookId}:printReadyCoverFrontSha256",
+                        Convert.ToHexString(SHA256.HashData(frontBytes)),
+                        "Book",
+                        CancellationToken.None);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not stamp wrap front SHA for book {BookId}", bookId);
+            }
+
+            return Json(new
+            {
+                success = true,
+                bookId,
+                pageCount,
+                wrapCoverStatus = PrintWrapGenerationService.StatusReady,
+                wrapMatchesFront = true,
+                cover = new
+                {
+                    wrap = wrapRef,
+                    front = frontRef,
+                    spine = "",
+                    back = ""
+                }
+            });
+        }
+
+        private string? TryFindLatestFrontCoverFile(int userId, int bookId)
+        {
+            var dirs = new List<string>
+            {
+                Path.Combine(_env.WebRootPath, "uploads", userId.ToString(CultureInfo.InvariantCulture), "books", bookId.ToString(CultureInfo.InvariantCulture)),
+                Path.Combine(_env.WebRootPath, "uploads", userId.ToString(CultureInfo.InvariantCulture), "books", bookId.ToString(CultureInfo.InvariantCulture), "covers")
+            };
+            // Also scan other user folders for this book id (recovery).
+            var uploadsRoot = Path.Combine(_env.WebRootPath, "uploads");
+            if (Directory.Exists(uploadsRoot))
+            {
+                foreach (var userDir in Directory.GetDirectories(uploadsRoot))
+                {
+                    dirs.Add(Path.Combine(userDir, "books", bookId.ToString(CultureInfo.InvariantCulture)));
+                    dirs.Add(Path.Combine(userDir, "books", bookId.ToString(CultureInfo.InvariantCulture), "covers"));
+                }
+            }
+
+            FileInfo? latest = null;
+            foreach (var dir in dirs.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!Directory.Exists(dir)) continue;
+                foreach (var pattern in new[] { "cover_ai_*.png", "cover_ai_*.jpg", "front-*.png", "front-*.jpg", "cover_*.png" })
+                {
+                    foreach (var f in new DirectoryInfo(dir).GetFiles(pattern))
+                    {
+                        if (f.Name.StartsWith("wrap-", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (latest == null || f.LastWriteTimeUtc > latest.LastWriteTimeUtc)
+                            latest = f;
+                    }
+                }
+            }
+
+            if (latest == null) return null;
+            return "/" + Path.GetRelativePath(_env.WebRootPath, latest.FullName).Replace('\\', '/');
+        }
+
         /// <summary>
-        /// If Settings lost the wrap path but <c>wrap-composed-*.png</c> exists on disk, re-bind it.
+        /// If Settings lost the wrap path but wrap files exist on disk, re-bind the newest one.
         /// </summary>
         private async Task<string?> TryRecoverLocalWrapFileAsync(int userId, int bookId, CancellationToken cancellationToken)
         {
             var wrapKey = $"book:{bookId}:printReadyCoverWrap";
-            var existing = await _context.Settings.AsNoTracking()
+            var existingRows = await _context.Settings.AsNoTracking()
                 .Where(s => s.Key == wrapKey || s.Key == $"book:{bookId}:printReadyCoverWrapApi")
-                .Select(s => s.Value)
-                .FirstOrDefaultAsync(cancellationToken);
-            if (!string.IsNullOrWhiteSpace(existing))
+                .Select(s => new { s.Key, s.Value })
+                .ToListAsync(cancellationToken);
+            foreach (var row in existingRows.OrderBy(r => r.Key == wrapKey ? 0 : 1))
             {
-                await UpsertDashboardSettingAsync(
-                    $"book:{bookId}:printReadyCoverWrapStatus",
-                    PrintWrapGenerationService.StatusReady,
-                    "Book",
-                    cancellationToken);
-                return existing.Trim();
+                var candidate = (row.Value ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(candidate)) continue;
+                var bytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                    candidate, _env.WebRootPath, _httpClientFactory, cancellationToken);
+                if (bytes is { Length: > 0 })
+                {
+                    if (!string.Equals(row.Key, wrapKey, StringComparison.OrdinalIgnoreCase))
+                        await UpsertDashboardSettingAsync(wrapKey, candidate, "Book", cancellationToken);
+                    await UpsertDashboardSettingAsync(
+                        $"book:{bookId}:printReadyCoverWrapStatus",
+                        PrintWrapGenerationService.StatusReady,
+                        "Book",
+                        cancellationToken);
+                    return candidate;
+                }
             }
 
-            var absDir = Path.Combine(
-                _env.WebRootPath,
-                "uploads",
-                userId.ToString(CultureInfo.InvariantCulture),
-                "books",
-                bookId.ToString(CultureInfo.InvariantCulture),
-                "covers");
-            if (!Directory.Exists(absDir)) return null;
+            FileInfo? latest = null;
+            var dirs = new List<string>
+            {
+                Path.Combine(
+                    _env.WebRootPath, "uploads",
+                    userId.ToString(CultureInfo.InvariantCulture),
+                    "books", bookId.ToString(CultureInfo.InvariantCulture), "covers")
+            };
+            var uploadsRoot = Path.Combine(_env.WebRootPath, "uploads");
+            if (Directory.Exists(uploadsRoot))
+            {
+                foreach (var userDir in Directory.GetDirectories(uploadsRoot))
+                {
+                    dirs.Add(Path.Combine(
+                        userDir, "books", bookId.ToString(CultureInfo.InvariantCulture), "covers"));
+                }
+            }
 
-            var latest = new DirectoryInfo(absDir)
-                .GetFiles("wrap-composed-*.png")
-                .OrderByDescending(f => f.LastWriteTimeUtc)
-                .FirstOrDefault();
+            foreach (var absDir in dirs.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!Directory.Exists(absDir)) continue;
+                foreach (var pattern in new[] { "wrap-composed-*.png", "wrap-composed-*.jpg", "wrap-api-*.png", "wrap-api-*.jpg" })
+                {
+                    foreach (var f in new DirectoryInfo(absDir).GetFiles(pattern))
+                    {
+                        if (latest == null || f.LastWriteTimeUtc > latest.LastWriteTimeUtc)
+                            latest = f;
+                    }
+                }
+            }
+
             if (latest == null) return null;
 
             var rel = "/" + Path.GetRelativePath(_env.WebRootPath, latest.FullName).Replace('\\', '/');

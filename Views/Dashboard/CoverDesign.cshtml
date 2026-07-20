@@ -806,7 +806,7 @@
     }
 
     function queuePrintWrapInBackground() {
-        return buildPrintWrapNow(true);
+        return buildPrintWrapNow(false);
     }
 
     function showCovFullWrapSection(show) {
@@ -918,7 +918,13 @@
         if (!retryBtn) return;
         retryBtn.addEventListener('click', function () {
             if (covWrapBuildInFlight) return;
-            buildPrintWrapNow(true);
+            // force:false first — recover existing wrap / rebuild without clearing Settings.
+            // Only force-clear if that returns empty.
+            buildPrintWrapNow(false).then(function (d) {
+                var wrap = d && d.cover ? (d.cover.wrap || '').trim() : '';
+                if (wrap) return d;
+                return buildPrintWrapNow(true);
+            });
         });
     })();
 
@@ -1492,7 +1498,7 @@
 
                 var wrapMatches = d.wrapMatchesFront !== false;
                 var st = d.wrapCoverStatus ? String(d.wrapCoverStatus) : '';
-                if (c.wrap && (wrapMatches || st === 'Ready')) {
+                if (c.wrap && (wrapMatches || st === 'Ready' || st === 'Stale')) {
                     coverWraparoundRef = c.wrap;
                     updateCovWrapBuildBanner(d);
                     showCovFullWrapPreview(c.wrap, d.pageCount || 0);
@@ -1509,7 +1515,7 @@
                     wrap: (c.wrap || ''),
                     pageCount: d.pageCount || 0
                 };
-                setPrintWrapSaved(!!(c.wrap && (wrapMatches || st === 'Ready')));
+                setPrintWrapSaved(!!(c.wrap && (wrapMatches || st === 'Ready' || st === 'Stale')));
                 coverHistory = [];
                 var frontOnly = (c.front || '').trim();
                 if (frontOnly) {

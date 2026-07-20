@@ -77,12 +77,13 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         int? pageCountOverride = null,
         bool forceRegenerate = false,
         CancellationToken cancellationToken = default,
-        bool allowNonPrintFormat = false)
+        bool allowNonPrintFormat = false,
+        bool localOnly = false)
     {
         try
         {
             return await TryGenerateFromSavedFrontCoreAsync(
-                userId, bookId, pageCountOverride, forceRegenerate, allowNonPrintFormat, cancellationToken);
+                userId, bookId, pageCountOverride, forceRegenerate, allowNonPrintFormat, localOnly, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -105,6 +106,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         int? pageCountOverride,
         bool forceRegenerate,
         bool allowNonPrintFormat,
+        bool localOnly,
         CancellationToken cancellationToken)
     {
         var exportOpt = await LoadExportOptionsAsync(userId, bookId, cancellationToken);
@@ -208,16 +210,27 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
 
         await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusGenerating, cancellationToken);
 
-        var details = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
-        if (details == null || !details.Success)
+        // Book details are nice-to-have for page metrics / blurb — never block local compose on them.
+        BookDetailsResponseDto? details = null;
+        try
         {
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusFailed, cancellationToken);
-            return false;
+            details = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
+            if (details is { Success: false }) details = null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Book details unavailable for wrap on book {BookId}; continuing with local defaults.", bookId);
         }
 
-        var metrics = _pageMetrics.Estimate(details, exportOpt);
+        var metricsPageCount = 0;
+        if (details != null)
+        {
+            try { metricsPageCount = _pageMetrics.Estimate(details, exportOpt).PageCount; }
+            catch { /* ignore */ }
+        }
+
         var pageCount = pageCountOverride is > 0 ? pageCountOverride.Value : await ResolvePrintReadyPageCountAsync(bookId, cancellationToken);
-        pageCount = pageCount > 0 ? pageCount : (metrics.PageCount > 0 ? metrics.PageCount : KdpPaperbackConstants.MinPageCount);
+        pageCount = pageCount > 0 ? pageCount : (metricsPageCount > 0 ? metricsPageCount : KdpPaperbackConstants.MinPageCount);
         pageCount = Math.Clamp(pageCount, KdpPaperbackConstants.MinPageCount, KdpPaperbackConstants.MaxPageCount);
 
         var savedTrim = await _context.Settings.AsNoTracking()
@@ -226,7 +239,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             .FirstOrDefaultAsync(cancellationToken);
         var trimSize = NormalizeTrimSizeForApi((savedTrim ?? "").Trim(), exportOpt);
         var kdp = CalculatePrintReadyKdp(pageCount, trimSize);
-        var title = (details.BookTitle ?? book.Title ?? "My Book").Trim();
+        var title = (details?.BookTitle ?? book.Title ?? "My Book").Trim();
         if (string.IsNullOrWhiteSpace(title)) title = "My Book";
 
         var user = await _context.Users.AsNoTracking()
@@ -243,7 +256,15 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
         if (localOk)
             return true;
 
-        // 2) Official spine APIs (short timeout — never hang 15–30 min).
+        // Interactive Cover Design / Retry: never hang on spine AI APIs.
+        if (localOnly)
+        {
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusFailed, cancellationToken);
+            _logger.LogWarning("Local wrap compose failed for book {BookId} (localOnly=true).", bookId);
+            return false;
+        }
+
+        // 2) Official spine APIs (short timeout — never hang 15–30 min). Background queue only.
         if (await TryGenerateViaSplitApiAsync(
                 userId, bookId, frontBytes, frontAssetRef, frontHashFinal,
                 title, authorName, trimSize, pageCount, kdp, cancellationToken))
