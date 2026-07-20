@@ -45,11 +45,13 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         var backX = 0;
         var spineX = InchesToPixels(layout.SpineXInches, dpi);
         var frontX = InchesToPixels(layout.FrontPanelXInches, dpi);
-        var panelY = InchesToPixels(layout.PanelTopYInches, dpi);
+        // Paint into full canvas height (top + bottom bleed). Using PanelTopY left a black strip
+        // across the top bleed and cropped the front panel incorrectly.
+        var panelY = 0;
         var backW = Math.Max(1, spineX - backX);
         var spineW = Math.Max(1, frontX - spineX);
         var frontW = Math.Max(1, canvasW - frontX);
-        var panelH = Math.Max(1, canvasH - panelY);
+        var panelH = Math.Max(1, canvasH);
 
         var frontHash = Convert.ToHexString(SHA256.HashData(request.FrontCoverBytes));
 
@@ -201,13 +203,16 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
             return;
         }
 
+        // Pad (not center-crop) so title/author on the front are not silently clipped.
+        // Remaining bleed strips use the front's average edge color.
+        var pad = SampleAverageColor(source);
         using var resized = source.CloneAs<Rgba32>();
         resized.Mutate(c => c.Resize(new ResizeOptions
         {
             Size = new Size(target.Width, target.Height),
-            // KDP front panel: center-crop to fill bleed+trim (matches print export).
-            Mode = ResizeMode.Crop,
+            Mode = ResizeMode.Pad,
             Position = AnchorPositionMode.Center,
+            PadColor = Color.FromRgb(pad.R, pad.G, pad.B),
             Sampler = KnownResamplers.Lanczos3
         }));
         ctx.DrawImage(resized, new Point(target.X, target.Y), 1f);

@@ -73,6 +73,38 @@ public class PrintWrapCompositorTests
     }
 
     [Fact]
+    public void Compose_fills_top_bleed_not_black_bar()
+    {
+        using var front = new Image<Rgba32>(800, 1200);
+        front.Mutate(ctx => ctx.BackgroundColor(SixLabors.ImageSharp.Color.FromRgb(40, 140, 220)));
+
+        using var ms = new MemoryStream();
+        front.SaveAsPng(ms);
+        var frontBytes = ms.ToArray();
+
+        var layout = LayoutForPages(40);
+        var compositor = new PrintWrapCompositor(new SpineRenderer());
+        var result = compositor.Compose(new PrintWrapComposeRequest
+        {
+            FrontCoverBytes = frontBytes,
+            FrontCoverAssetRef = "/uploads/test/front.png",
+            Layout = layout,
+            Title = "Blue Book",
+            Author = "Tester",
+            Description = "Synopsis text for the back cover panel.",
+            Theme = BookTheme.FromExportOptions(new BookPdfExportOptions { InteriorStyle = "Classic" })
+        });
+
+        using var wrap = Image.Load<Rgba32>(result.PngBytes);
+        Assert.Equal(0, result.FrontPanelY);
+        Assert.Equal(wrap.Height, result.FrontPanelHeight);
+
+        // Top-left of the front panel should not be pure black (old bug: black top bleed strip).
+        var sample = wrap[result.FrontPanelX + 8, 2];
+        Assert.True(sample.R + sample.G + sample.B > 30, $"Expected painted top bleed, got RGB({sample.R},{sample.G},{sample.B})");
+    }
+
+    [Fact]
     public void Compose_without_front_asset_ref_throws()
     {
         var compositor = new PrintWrapCompositor(new SpineRenderer());

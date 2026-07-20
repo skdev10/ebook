@@ -129,12 +129,17 @@ namespace EBookDashboard.Services
 
         private static double GetSpineInchesPerPage(string paper, string interior)
         {
+            // Align with KdpCoverDimensionService / KDP paperback facts.
+            if (interior == "Premium color")
+                return 0.002347;
+            if (interior == "Standard color" && paper == "White paper")
+                return 0.002252;
             if (interior is "Standard color" or "Premium color")
                 return 0.002347;
 
             return paper switch
             {
-                "Cream paper" => CaseSpineInchesPerPage,
+                "Cream paper" => 0.0025,
                 _ => 0.002252
             };
         }

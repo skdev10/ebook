@@ -2,23 +2,30 @@
 
 **Base URL:** `http://162.229.248.26:8001`
 
+---
+
 ## Authentication
 
-Every request needs:
+Every request must include:
 
 ```http
 X-API-Key: YOUR_API_KEY
 Content-Type: application/json
 ```
 
-Set the key on the EbookAI server (recommended):
+Header name: **`X-API-Key`**
+
+### Configure the key on EbookAI (ASP.NET)
+
+**Recommended (Linux / Production)** — environment variable:
 
 ```bash
-# /etc/default/ebookai or environment
+# /etc/default/ebookai
 ExternalApi__ApiKey=YOUR_API_KEY
+ExternalApi__BaseUrl=http://162.229.248.26:8001
 ```
 
-Or local git-ignored `appsettings.Local.json`:
+**Local development** — git-ignored `appsettings.Local.json`:
 
 ```json
 {
@@ -29,7 +36,7 @@ Or local git-ignored `appsettings.Local.json`:
 }
 ```
 
-**Do not commit the live API key to git.** Rotate the key if it was shared in chat/docs.
+**Do not commit the live API key to git.** If a key was pasted in chat, email, or docs, rotate it.
 
 ---
 
@@ -37,28 +44,32 @@ Or local git-ignored `appsettings.Local.json`:
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| POST | `/api/generate_chapter` | Generate chapter text |
-| POST | `/api/edit` | Edit a chapter |
-| POST | `/api/audio` | Transcribe audio → text |
+| POST | `/api/generate_chapter` | Generate chapter text from user input |
+| POST | `/api/edit` | Edit a particular chapter |
+| POST | `/api/audio` | Transcribe audio → chapter text |
 | POST | `/api/approve` | Confirm / approve chapter |
-| GET | `/api/queue-data` | Running + waiting queue |
+| GET | `/api/queue-data` | Running + waiting queue status |
 | POST | `/api/generate-cover` | Front cover only |
-| POST | `/api/edit-cover` | Edit front cover (base64) |
-| POST | `/api/book_chapters_name` | Suggest chapter names |
-| POST | `/api/generate-spine-book-cover-split` | **Full wrap** (back + spine + front) |
-| POST | `/api/generate-spine-book-cover` | **Full wrap** (AI one-shot) |
+| POST | `/api/edit-cover` | Edit front cover (base64 image) |
+| POST | `/api/book_chapters_name` | Suggest chapter names from highlights |
+| POST | `/api/generate-spine-book-cover-split` | Full wrap: spine + back + front |
+| POST | `/api/generate-spine-book-cover` | Full wrap: one-shot AI wrap |
 
 **VALID_SIZES:** `1024x1024`, `1536x1024`, `1024x1536`, `auto`  
 **VALID_QUALITIES:** `low`, `medium`, `high`, `auto`  
-**Audio:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
+**Audio formats:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`
 
 ---
 
 ## Full print wrap (spine + back + front)
 
-### A) Split wrap (recommended when you already have a front cover)
+These endpoints design the **full paperback wrap**: back cover | spine | front cover.
 
-`POST /api/generate-spine-book-cover-split`
+### A) Split wrap — `/api/generate-spine-book-cover-split`
+
+Use when you already have (or will send) a front cover. EbookAI sends optional `encoded_image` (base64 of the saved front) so the wrap keeps your approved front art.
+
+`POST http://162.229.248.26:8001/api/generate-spine-book-cover-split`
 
 ```json
 {
@@ -72,11 +83,19 @@ Or local git-ignored `appsettings.Local.json`:
 }
 ```
 
-EbookAI may also send `encoded_image` (base64 of the saved front cover) so the wrap keeps your approved front art.
+Optional (sent by EbookAI when composing from a saved front):
 
-### B) Full spine wrap (AI draws back + spine + front together)
+```json
+{
+  "encoded_image": "<base64 of front cover PNG/JPG>"
+}
+```
 
-`POST /api/generate-spine-book-cover`
+### B) Full spine wrap — `/api/generate-spine-book-cover`
+
+AI draws back + spine + front together in one image.
+
+`POST http://162.229.248.26:8001/api/generate-spine-book-cover`
 
 ```json
 {
@@ -90,19 +109,23 @@ EbookAI may also send `encoded_image` (base64 of the saved front cover) so the w
 }
 ```
 
-### EbookAI wrap pipeline (Cover Design → Publish)
+### How EbookAI uses these (Cover Design → Publish)
 
-1. **Local ImageSharp compositor** (seconds) — uses exact saved front  
-2. If that fails → **`/api/generate-spine-book-cover-split`** (max ~2 min)  
-3. If that fails → **`/api/generate-spine-book-cover`** (max ~2 min)  
+1. **Local ImageSharp compositor** (seconds) — places your exact saved front on the front panel; builds back + spine locally  
+2. Background fallback (if local fails): **`/api/generate-spine-book-cover-split`** (~2 min max)  
+3. Then: **`/api/generate-spine-book-cover`** (~2 min max)  
 
-Saved file key: `printReadyCoverWrap` — same file shown in Cover Design preview and downloaded on Publish.
+Saved Settings key: `printReadyCoverWrap` — same file for Cover Design preview and Publish download.
 
 ---
 
-## 1. Generate chapter
+## Chapters
 
-`POST /api/generate_chapter`
+### 1. Generate chapter — `/api/generate_chapter`
+
+From user input, generate chapter content.
+
+`POST http://162.229.248.26:8001/api/generate_chapter`
 
 ```json
 {
@@ -113,15 +136,17 @@ Saved file key: `printReadyCoverWrap` — same file shown in Cover Design previe
 }
 ```
 
-Example result heading: `"The gravitational force is invented in 8790"`.
+**Example result:** heading such as `"The gravitational force is invented in 8790"`.
 
-Stored in `Temporary_database` (includes `suggest_chapter_name` for ~5 name suggestions).
+Stored in **`Temporary_database`** (includes `suggest_chapter_name` for ~5 name suggestions).
 
 ---
 
-## 2. Edit chapter
+### 2. Edit chapter — `/api/edit`
 
-`POST /api/edit`
+Edit a particular chapter (title/body) using a natural-language change instruction.
+
+`POST http://162.229.248.26:8001/api/edit`
 
 ```json
 {
@@ -132,11 +157,13 @@ Stored in `Temporary_database` (includes `suggest_chapter_name` for ~5 name sugg
 }
 ```
 
+**Example:** change year `8790` → `6789` by describing that replacement in `changes`.
+
 ---
 
-## 3. Audio transcription
+### 3. Audio transcription — `/api/audio`
 
-`POST /api/audio`
+`POST http://162.229.248.26:8001/api/audio`
 
 ```json
 {
@@ -147,14 +174,16 @@ Stored in `Temporary_database` (includes `suggest_chapter_name` for ~5 name sugg
 }
 ```
 
-Supported: `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`  
-Table: `audio_transcriptions`
+**Supported formats:** `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.wav`, `.webm`  
+Table: **`audio_transcriptions`**
 
 ---
 
-## 4. Approve chapter
+### 4. Approve chapter — `/api/approve`
 
-`POST /api/approve`
+Confirm the chapter (moves draft → confirmed).
+
+`POST http://162.229.248.26:8001/api/approve`
 
 ```json
 {
@@ -165,22 +194,24 @@ Table: `audio_transcriptions`
 }
 ```
 
-Moves data into `User_confirm`.
+Moves data into **`User_confirm`**.
 
 ---
 
-## 5. Queue status
+### 5. Queue status — `/api/queue-data`
 
-`GET /api/queue-data`
+`GET http://162.229.248.26:8001/api/queue-data`
 
-Returns how many requests are **running** and how many are **waiting**.  
-Logged in `queue_monitor`.
+Returns how many requests are **running** and how many people are **waiting**.  
+Logged in **`queue_monitor`**.
 
 ---
 
-## 6. Generate front cover
+## Covers (front only)
 
-`POST /api/generate-cover`
+### 6. Generate front cover — `/api/generate-cover`
+
+`POST http://162.229.248.26:8001/api/generate-cover`
 
 ```json
 {
@@ -193,11 +224,13 @@ Logged in `queue_monitor`.
 }
 ```
 
+Sizes: `VALID_SIZES` · Qualities: `VALID_QUALITIES`
+
 ---
 
-## 7. Edit cover
+### 7. Edit cover — `/api/edit-cover`
 
-`POST /api/edit-cover`
+`POST http://162.229.248.26:8001/api/edit-cover`
 
 ```json
 {
@@ -211,9 +244,9 @@ Logged in `queue_monitor`.
 
 ---
 
-## 8. Chapter name suggestions
+### 8. Chapter name suggestions — `/api/book_chapters_name`
 
-`POST /api/book_chapters_name`
+`POST http://162.229.248.26:8001/api/book_chapters_name`
 
 ```json
 {
@@ -223,31 +256,39 @@ Logged in `queue_monitor`.
 }
 ```
 
+`highlights` is a list of highlight items used to suggest chapter names.
+
 ---
 
 ## Database tables
 
-### 1. `Temporary_database` (draft)
+### 1. `Temporary_database` (draft / temporary)
+
+Used to save temporary chapter data.
 
 | Column | Type | Notes |
 |--------|------|--------|
-| id | INT AUTO_INCREMENT PK | |
+| id | INT AUTO_INCREMENT PRIMARY KEY | |
 | user_id | VARCHAR(255) | |
 | book_id | VARCHAR(255) | |
 | chapter | INT | |
 | chapter_name | VARCHAR(255) | |
 | user_input | TEXT | |
 | content | LONGTEXT | |
-| suggest_chapter_name | TEXT | Suggests ~5 names; user picks → stored |
+| suggest_chapter_name | TEXT | Suggests ~5 chapter names; user picks → stored |
 | highlight_of_previous_chapter | LONGTEXT | |
-| date | DATE DEFAULT CURRENT_DATE | |
-| time | TIME DEFAULT CURRENT_TIME | |
+| date | DATE DEFAULT (CURRENT_DATE) | |
+| time | TIME DEFAULT (CURRENT_TIME) | |
+
+**Note:** `suggest_chapter_name` suggests about 5 chapter names; after user input, the chosen name is stored in the DB.
 
 ### 2. `User_confirm` (approved)
 
+Confirm data saved when the user approves.
+
 | Column | Type |
 |--------|------|
-| id | INT AUTO_INCREMENT PK |
+| id | INT AUTO_INCREMENT PRIMARY KEY |
 | user_id | VARCHAR(255) |
 | book_id | VARCHAR(255) |
 | chapter | INT |
@@ -255,16 +296,16 @@ Logged in `queue_monitor`.
 | user_input | TEXT |
 | content | LONGTEXT |
 | highlight_of_previous_chapter | LONGTEXT |
-| date | DATE DEFAULT CURRENT_DATE |
-| time | TIME DEFAULT CURRENT_TIME |
+| date | DATE DEFAULT (CURRENT_DATE) |
+| time | TIME DEFAULT (CURRENT_TIME) |
 
 ### 3. `audio_transcriptions`
 
 | Column | Type |
 |--------|------|
-| id | INT AUTO_INCREMENT PK |
-| date | DATE DEFAULT CURRENT_DATE |
-| time | TIME DEFAULT CURRENT_TIME |
+| id | INT AUTO_INCREMENT PRIMARY KEY |
+| date | DATE DEFAULT (CURRENT_DATE) |
+| time | TIME DEFAULT (CURRENT_TIME) |
 | user_input | TEXT |
 | book_id | VARCHAR(50) |
 | chapter | INT |
@@ -275,7 +316,7 @@ Logged in `queue_monitor`.
 
 | Column | Type |
 |--------|------|
-| id | INT AUTO_INCREMENT PK |
+| id | INT AUTO_INCREMENT PRIMARY KEY |
 | status_running | INT |
 | status_waiting | INT |
 | status_max_concurrent | INT |
@@ -284,19 +325,19 @@ Logged in `queue_monitor`.
 | user_id | VARCHAR(50) |
 | book_id | VARCHAR(50) |
 | chapter | INT |
-| log_date | DATE DEFAULT CURRENT_DATE |
-| log_time | TIME DEFAULT CURRENT_TIME |
+| log_date | DATE DEFAULT (CURRENT_DATE) |
+| log_time | TIME DEFAULT (CURRENT_TIME) |
 
 ### 5. `error_logs`
 
 | Column | Type |
 |--------|------|
-| id | INT AUTO_INCREMENT PK |
+| id | INT AUTO_INCREMENT PRIMARY KEY |
 | line_number | INT |
 | error | TEXT |
 | filename | VARCHAR(255) |
-| error_date | DATE DEFAULT CURRENT_DATE |
-| error_time | TIME DEFAULT CURRENT_TIME |
+| error_date | DATE DEFAULT (CURRENT_DATE) |
+| error_time | TIME DEFAULT (CURRENT_TIME) |
 
 ---
 
@@ -323,6 +364,11 @@ curl -s -X POST "$BASE/api/generate-spine-book-cover" \
 curl -s -X POST "$BASE/api/generate-cover" \
   -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
   -d '{"title":"The Power of Gravity","author_name":"Hasan Rahim","category":"Science","cover_style":"Modern Illustration","size":"1024x1536","quality":"medium"}'
+
+# Generate chapter
+curl -s -X POST "$BASE/api/generate_chapter" \
+  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -d '{"user_id":"u123","book_id":"b456","chapter":"18","user_input":"how gravity descover"}'
 ```
 
 ---
@@ -331,6 +377,18 @@ curl -s -X POST "$BASE/api/generate-cover" \
 
 | Code | Meaning |
 |------|---------|
-| 401 | Missing/invalid `X-API-Key` |
+| 401 | Missing or invalid `X-API-Key` |
 | 422 | Bad JSON / missing fields |
-| 500 | Upstream error — check `error_logs` + `/api/queue-data` |
+| 500 | Upstream error — check `error_logs` and `/api/queue-data` |
+
+---
+
+## Related EbookAI app settings
+
+| Setting | Purpose |
+|---------|---------|
+| `ExternalApi:BaseUrl` | Book API host |
+| `ExternalApi:ApiKey` | Value for `X-API-Key` |
+| `ExternalApi:GenerateCoverUrl` | Front cover path (default `/api/generate-cover`) |
+| `ExternalApi:GenerateSpineBookCoverSplitUrl` | Full wrap split |
+| `ExternalApi:GenerateSpineBookCoverUrl` | Full wrap one-shot |

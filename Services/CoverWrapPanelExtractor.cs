@@ -1,3 +1,6 @@
+using EBookDashboard.Application.Kdp.Constants;
+using EBookDashboard.Application.Kdp.DTOs;
+using EBookDashboard.Application.Kdp.Services;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
@@ -22,23 +25,53 @@ public static class CoverWrapPanelExtractor
         return ms.ToArray();
     }
 
-    /// <summary>Crops the front panel region from a loaded wrap image.</summary>
+    /// <summary>
+    /// Crops the bleed-inclusive front panel (right-hand panel through right edge, full height).
+    /// Uses the same dimension service as <see cref="PrintWrapCompositor"/>.
+    /// </summary>
     public static Image<Rgba32> CropFrontPanel(Image<Rgba32> wrapImage, KdpPrintCoverCalculator.CoverLayoutSpec layout)
     {
-        var layoutW = layout.WrapWidthInches;
-        var layoutH = layout.WrapHeightInches;
-        var frontX = layout.FrontPanelXInches;
-        var y = layout.PanelTopYInches;
-        var pw = layout.TrimWidthInches;
-        var ph = layout.TrimHeightInches;
+        var pages = Math.Clamp(
+            layout.PageCount > 0 ? layout.PageCount : KdpPaperbackConstants.MinPageCount,
+            KdpPaperbackConstants.MinPageCount,
+            KdpPaperbackConstants.MaxPageCount);
+        return CropFrontPanelBleedInclusive(
+            wrapImage,
+            pages,
+            (decimal)layout.TrimWidthInches,
+            (decimal)layout.TrimHeightInches);
+    }
 
-        var xPx = (int)Math.Round((frontX / layoutW) * wrapImage.Width);
-        var yPx = (int)Math.Round((y / layoutH) * wrapImage.Height);
-        var wPx = Math.Max(1, (int)Math.Round((pw / layoutW) * wrapImage.Width));
-        var hPx = Math.Max(1, (int)Math.Round((ph / layoutH) * wrapImage.Height));
+    /// <summary>Crops the front panel region using <see cref="KdpCoverDimensionService"/>.</summary>
+    public static Image<Rgba32> CropFrontPanelBleedInclusive(
+        Image<Rgba32> wrapImage,
+        int pageCount,
+        decimal trimWidth,
+        decimal trimHeight)
+    {
+        var kdp = new KdpCoverDimensionService().Calculate(new KdpCalculateRequest
+        {
+            PageCount = pageCount,
+            TrimWidth = trimWidth,
+            TrimHeight = trimHeight,
+            Dpi = KdpConstants.Dpi,
+            Bleed = true,
+            InteriorType = KdpPaperbackConstants.InteriorTypeStandardColor,
+            PaperType = KdpPaperbackConstants.PaperTypeWhite
+        });
+
+        var layoutW = (double)kdp.FullCoverWidth;
+        var layoutH = (double)kdp.FullCoverHeight;
+        if (layoutW <= 0 || layoutH <= 0)
+            throw new InvalidOperationException("Invalid KDP wrap layout for front-panel crop.");
+
+        // Match compositor: front art from FrontPanelX → right edge, Y = 0 → full height.
+        var xPx = (int)Math.Round(((double)kdp.FrontPanelXInches / layoutW) * wrapImage.Width);
+        var yPx = 0;
+        var wPx = Math.Max(1, wrapImage.Width - xPx);
+        var hPx = wrapImage.Height;
 
         xPx = Math.Clamp(xPx, 0, Math.Max(0, wrapImage.Width - 1));
-        yPx = Math.Clamp(yPx, 0, Math.Max(0, wrapImage.Height - 1));
         wPx = Math.Min(wPx, wrapImage.Width - xPx);
         hPx = Math.Min(hPx, wrapImage.Height - yPx);
 
@@ -61,11 +94,15 @@ public static class CoverWrapPanelExtractor
             if (!assumeWrap && !IsLikelyWrapImage(probe.Width, probe.Height))
                 return sourceBytes;
 
-            var pages = Math.Clamp(pageCount > 0 ? pageCount : KdpPrintCoverCalculator.MinPages,
-                KdpPrintCoverCalculator.MinPages,
-                KdpPrintCoverCalculator.MaxPagesPaperback);
-            var layout = KdpPrintCoverCalculator.Calculate(pages, trimSize);
-            return ExtractFrontPanel(sourceBytes, layout);
+            var pages = Math.Clamp(
+                pageCount > 0 ? pageCount : KdpPaperbackConstants.MinPageCount,
+                KdpPaperbackConstants.MinPageCount,
+                KdpPaperbackConstants.MaxPageCount);
+            var trim = ParseTrimInches(trimSize);
+            using var cropped = CropFrontPanelBleedInclusive(probe, pages, trim.W, trim.H);
+            using var ms = new MemoryStream();
+            cropped.Save(ms, PngFormat.Instance);
+            return ms.ToArray();
         }
         catch
         {
@@ -119,5 +156,13 @@ public static class CoverWrapPanelExtractor
         {
             return false;
         }
+    }
+
+    private static (decimal W, decimal H) ParseTrimInches(string? trimSize)
+    {
+        var src = (trimSize ?? "").Trim().ToLowerInvariant().Replace(" ", "");
+        if (src.Contains("5.5") && src.Contains("8.5")) return (5.5m, 8.5m);
+        if (src.Contains("8.5") && src.Contains("11")) return (8.5m, 11m);
+        return (6m, 9m);
     }
 }
