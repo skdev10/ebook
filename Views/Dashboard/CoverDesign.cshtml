@@ -742,16 +742,50 @@
                     coverWraparoundRef = wrap;
                     setPrintWrapSaved(true);
                 }
-                // The wrap API may re-sync the front cover from the wrap's front panel —
-                // refresh the front preview so both always show the same art.
                 var newFront = (d.cover.front || '').trim();
                 if (newFront) {
                     var frontUrl = toUrl(newFront);
                     setCoverImageVisible(frontUrl + (frontUrl.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now());
                 }
                 updateCovWrapBuildBanner(d);
+                if (!wrap) {
+                    // success but empty wrap — try assets endpoint once more
+                    return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(selectedBook.bookId), {
+                        credentials: 'same-origin', headers: { 'Accept': 'application/json' }
+                    }).then(function (r) { return r.json(); }).then(function (assets) {
+                        var w = assets && assets.cover ? (assets.cover.wrap || '').trim() : '';
+                        if (w) {
+                            showCovFullWrapPreview(w, assets.pageCount || 0);
+                            coverWraparoundRef = w;
+                            setPrintWrapSaved(true);
+                            updateCovWrapBuildBanner(assets);
+                        } else {
+                            updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+                        }
+                        return assets || d;
+                    }).catch(function () { return d; });
+                }
             } else {
-                updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+                // Hard fail from server — still try to recover an existing wrap asset.
+                return fetch('/Dashboard/GetPrintReadyCoverAssets?bookId=' + encodeURIComponent(selectedBook.bookId), {
+                    credentials: 'same-origin', headers: { 'Accept': 'application/json' }
+                }).then(function (r) { return r.json(); }).then(function (assets) {
+                    var w = assets && assets.cover ? (assets.cover.wrap || '').trim() : '';
+                    if (w) {
+                        showCovFullWrapPreview(w, assets.pageCount || 0);
+                        coverWraparoundRef = w;
+                        setPrintWrapSaved(true);
+                        updateCovWrapBuildBanner(assets);
+                        toast('success', 'Full wrap recovered and ready.');
+                        return assets;
+                    }
+                    updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+                    if (d && d.message) toast('error', d.message);
+                    return d;
+                }).catch(function () {
+                    updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+                    return d;
+                });
             }
             return d;
         })

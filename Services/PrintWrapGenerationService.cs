@@ -554,31 +554,63 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
                 userId, bookId, composed.PngBytes, ".png", cancellationToken);
 
             // Drop any older API wrap so preview/download never fall back to mismatched art.
-            var staleApi = await _context.Settings
-                .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:printReadyCoverWrapApi", cancellationToken);
-            if (staleApi != null)
+            try
             {
-                _context.Settings.Remove(staleApi);
-                await _context.SaveChangesAsync(cancellationToken);
+                var staleApi = await _context.Settings
+                    .FirstOrDefaultAsync(s => s.Key == $"book:{bookId}:printReadyCoverWrapApi", cancellationToken);
+                if (staleApi != null)
+                {
+                    _context.Settings.Remove(staleApi);
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
+            }
+            catch (Exception cleanEx)
+            {
+                _logger.LogWarning(cleanEx, "Could not remove stale API wrap for book {BookId}", bookId);
+                foreach (var entry in _context.ChangeTracker.Entries().ToList())
+                    entry.State = EntityState.Detached;
             }
 
+            // Persist wrap path + Ready FIRST — even if later metadata upserts fail,
+            // Cover Design must see a usable wrap (orphan files were the prior failure mode).
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrap", persistedPath, cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", frontAssetRef, cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", frontHash, cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyPageCount", pageCount.ToString(CultureInfo.InvariantCulture), cancellationToken);
-            await UpsertSettingAsync($"book:{bookId}:printReadyTrimSize", trimSize, cancellationToken);
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, cancellationToken);
+            try
+            {
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontAssetRef", frontAssetRef, cancellationToken);
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverFrontSha256", frontHash, cancellationToken);
+                await UpsertSettingAsync($"book:{bookId}:printReadyPageCount", pageCount.ToString(CultureInfo.InvariantCulture), cancellationToken);
+                await UpsertSettingAsync($"book:{bookId}:printReadyTrimSize", trimSize, cancellationToken);
+            }
+            catch (Exception metaEx)
+            {
+                _logger.LogWarning(metaEx, "Wrap metadata upsert partial failure for book {BookId} — wrap file is saved.", bookId);
+            }
 
             _logger.LogInformation(
-                "Print wrap composed locally for book {BookId} ({Pages} pages).",
-                bookId, pageCount);
+                "Print wrap composed locally for book {BookId} ({Pages} pages) → {Path}",
+                bookId, pageCount, persistedPath);
 
             return true;
         }
         catch (Exception ex)
         {
-            await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusFailed, cancellationToken);
             _logger.LogError(ex, "Local print wrap compositing failed for book {BookId}", bookId);
+            // If a wrap was already saved earlier in this attempt, keep Ready — don't flip to Failed.
+            try
+            {
+                var existing = await _context.Settings.AsNoTracking()
+                    .Where(s => s.Key == $"book:{bookId}:printReadyCoverWrap")
+                    .Select(s => s.Value)
+                    .FirstOrDefaultAsync(CancellationToken.None);
+                if (!string.IsNullOrWhiteSpace(existing))
+                {
+                    await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusReady, CancellationToken.None);
+                    return true;
+                }
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusFailed, CancellationToken.None);
+            }
+            catch { /* ignore */ }
             return false;
         }
     }

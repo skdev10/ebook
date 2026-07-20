@@ -2024,13 +2024,18 @@ namespace EBookDashboard.Controllers
             var wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrap", "").Trim();
             if (string.IsNullOrWhiteSpace(wrap))
                 wrap = rows.GetValueOrDefault($"book:{bookId}:printReadyCoverWrapApi", "").Trim();
-            if (!string.IsNullOrWhiteSpace(wrap) && wrapMatchesFront)
-                return PrintWrapGenerationService.StatusReady;
-            if (!string.IsNullOrWhiteSpace(wrap) && !wrapMatchesFront)
-                return "Stale";
-            if (!string.IsNullOrWhiteSpace(wrapStatusRaw))
+            // A saved wrap file always wins over a stale Failed flag (compose often wrote the PNG
+            // then a later Settings upsert raced and flipped status to Failed).
+            if (!string.IsNullOrWhiteSpace(wrap))
+                return wrapMatchesFront ? PrintWrapGenerationService.StatusReady : "Stale";
+            if (!string.IsNullOrWhiteSpace(wrapStatusRaw)
+                && !string.Equals(wrapStatusRaw, PrintWrapGenerationService.StatusFailed, StringComparison.OrdinalIgnoreCase))
                 return wrapStatusRaw;
-            return frontStatus == PrintWrapGenerationService.StatusReady ? PrintWrapGenerationService.StatusGenerating : "Missing";
+            if (string.Equals(wrapStatusRaw, PrintWrapGenerationService.StatusFailed, StringComparison.OrdinalIgnoreCase))
+                return PrintWrapGenerationService.StatusFailed;
+            return frontStatus == PrintWrapGenerationService.StatusReady
+                ? PrintWrapGenerationService.StatusGenerating
+                : "Missing";
         }
 
         /// <summary>True when saved wrap was built from the current <c>printReadyCoverFront</c> asset.</summary>
@@ -2650,6 +2655,13 @@ namespace EBookDashboard.Controllers
 
             if (!ok)
             {
+                // Recovery: compose often wrote wrap-composed-*.png even when a later Settings
+                // race flipped status to Failed. Re-attach the newest local wrap if present.
+                var recoveredPath = await TryRecoverLocalWrapFileAsync(
+                    sessionUserId.Value, req.BookId, CancellationToken.None);
+                if (!string.IsNullOrWhiteSpace(recoveredPath))
+                    return await GetPrintReadyCoverAssetsCoreAsync(req.BookId, CancellationToken.None);
+
                 var statusKey = $"book:{req.BookId}:printReadyCoverWrapStatus";
                 var statusRow = await _context.Settings.AsNoTracking()
                     .Where(s => s.Key == statusKey)
@@ -2659,12 +2671,60 @@ namespace EBookDashboard.Controllers
                 {
                     PrintWrapGenerationService.StatusMissingFront =>
                         "Generate a front cover in Cover Design first — the full wrap uses that exact image.",
-                    _ => "Full wrap generation failed. Confirm your front cover is saved and retry."
+                    _ => "Full wrap generation failed. Confirm your front cover is saved and click Retry wrap."
                 };
                 return Json(new { success = false, status = "error", message = failMessage });
             }
 
             return await GetPrintReadyCoverAssetsCoreAsync(req.BookId, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// If Settings lost the wrap path but <c>wrap-composed-*.png</c> exists on disk, re-bind it.
+        /// </summary>
+        private async Task<string?> TryRecoverLocalWrapFileAsync(int userId, int bookId, CancellationToken cancellationToken)
+        {
+            var wrapKey = $"book:{bookId}:printReadyCoverWrap";
+            var existing = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == wrapKey || s.Key == $"book:{bookId}:printReadyCoverWrapApi")
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(existing))
+            {
+                await UpsertDashboardSettingAsync(
+                    $"book:{bookId}:printReadyCoverWrapStatus",
+                    PrintWrapGenerationService.StatusReady,
+                    "Book",
+                    cancellationToken);
+                return existing.Trim();
+            }
+
+            var absDir = Path.Combine(
+                _env.WebRootPath,
+                "uploads",
+                userId.ToString(CultureInfo.InvariantCulture),
+                "books",
+                bookId.ToString(CultureInfo.InvariantCulture),
+                "covers");
+            if (!Directory.Exists(absDir)) return null;
+
+            var latest = new DirectoryInfo(absDir)
+                .GetFiles("wrap-composed-*.png")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .FirstOrDefault();
+            if (latest == null) return null;
+
+            var rel = "/" + Path.GetRelativePath(_env.WebRootPath, latest.FullName).Replace('\\', '/');
+            await UpsertDashboardSettingAsync(wrapKey, rel, "Book", cancellationToken);
+            await UpsertDashboardSettingAsync(
+                $"book:{bookId}:printReadyCoverWrapStatus",
+                PrintWrapGenerationService.StatusReady,
+                "Book",
+                cancellationToken);
+            _logger.LogWarning(
+                "Recovered orphan local wrap for book {BookId}: {Path}",
+                bookId, rel);
+            return rel;
         }
 
         private async Task<BookPdfExportOptions> LoadExportOptionsAsync(int userId, int bookId, CancellationToken cancellationToken)
