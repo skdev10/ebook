@@ -2570,6 +2570,11 @@ namespace EBookDashboard.Controllers
             if (string.IsNullOrWhiteSpace(savedFront))
                 return Json(new { success = false, status = "error", message = "Generate a front cover in Cover Design first." });
 
+            // Persist canonical front key before compose (fixes race where wrap ran before SetActiveCover).
+            var storedFront = (assetRows.GetValueOrDefault($"book:{req.BookId}:printReadyCoverFront") ?? "").Trim();
+            if (!string.Equals(storedFront, savedFront, StringComparison.OrdinalIgnoreCase))
+                await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, savedFront, CancellationToken.None, invalidateCachedWrap: req.Force);
+
             if (req.PageCount is > 0)
             {
                 await UpsertDashboardSettingAsync(
@@ -2593,7 +2598,7 @@ namespace EBookDashboard.Controllers
                 });
             }
 
-            // Calls upstream split API (realistic AI wrap); falls back to local compositor if API fails.
+            // Local ImageSharp wrap from saved front (preview ≡ export). Fast path.
             var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
                 sessionUserId.Value,
                 req.BookId,

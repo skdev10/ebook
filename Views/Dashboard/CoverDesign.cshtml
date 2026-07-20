@@ -436,6 +436,7 @@
             <div id="covWrapBuildBanner" class="hidden mt-3 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-900" role="status">
                 <span class="cov-wrap-build-spinner inline-block w-3.5 h-3.5 border-2 border-violet-400 border-t-transparent rounded-full animate-spin mr-2 align-middle"></span>
                 <span id="covWrapBuildBannerText">Building full print wrap from your front cover…</span>
+                <button type="button" id="btnRetryPrintWrap" class="hidden ml-2 underline font-semibold text-violet-800 hover:text-violet-950">Retry wrap</button>
             </div>
 
             <!-- Full wrap preview = EXACT asset exported on Publish (back + spine + front). -->
@@ -512,15 +513,16 @@
     // #8: persist the user's chosen cover variation on the SERVER so Publish/export uses it
     // (sessionStorage alone would leave the default first variation as the stored active cover).
     function setServerActiveCover(bookId, url) {
-        if (!bookId || !url) return;
-        if (String(url).indexOf('data:') === 0) return; // transient preview, not a stored image
-        try {
-            fetch('/Dashboard/SetActiveCover', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ bookId: bookId, url: url })
-            }).catch(function () {});
-        } catch (_) {}
+        if (!bookId || !url) return Promise.resolve(false);
+        if (String(url).indexOf('data:') === 0) return Promise.resolve(false); // transient preview
+        return fetch('/Dashboard/SetActiveCover', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ bookId: bookId, url: url })
+        }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) {
+            return !!(r.ok && j && j.success !== false);
+        }); }).catch(function () { return false; });
     }
 
     function readPersistedCoverUrl(bookId) {
@@ -782,27 +784,55 @@
         if (tabs) tabs.classList.remove('hidden');
         if (hint && pageCount) hint.textContent = pageCount + ' pages · KDP print wrap';
         if (img) {
-            img.src = toUrl(wrapUrl) + (toUrl(wrapUrl).indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
-            img.classList.remove('hidden');
+            var src = toUrl(wrapUrl);
+            if (!src) {
+                img.src = '';
+                img.classList.add('hidden');
+                if (placeholder) {
+                    var phText = document.getElementById('covFullWrapPlaceholderText');
+                    if (phText) phText.textContent = 'Full wrap path was empty. Click Retry wrap below.';
+                    placeholder.classList.remove('hidden');
+                }
+                setPrintWrapSaved(false);
+                return;
+            }
+            src = src + (src.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
             img.onload = function () {
+                img.classList.remove('hidden');
                 if (placeholder) placeholder.classList.add('hidden');
-                // Show the full wrap strip (do NOT flip back to front-only — that hid the
-                // export asset and made preview ≠ download).
                 setCovWrapView('full');
+                setPrintWrapSaved(true);
             };
+            img.onerror = function () {
+                img.classList.add('hidden');
+                img.removeAttribute('src');
+                if (placeholder) {
+                    var phText = document.getElementById('covFullWrapPlaceholderText');
+                    if (phText) phText.textContent = 'Full wrap file could not be loaded. Click Retry wrap.';
+                    placeholder.classList.remove('hidden');
+                }
+                coverWraparoundRef = '';
+                setPrintWrapSaved(false);
+                updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+            };
+            img.src = src;
+        } else {
+            setPrintWrapSaved(true);
         }
-        setPrintWrapSaved(true);
+        coverWraparoundRef = wrapUrl;
     }
 
     function updateCovWrapBuildBanner(data) {
         var banner = document.getElementById('covWrapBuildBanner');
         var text = document.getElementById('covWrapBuildBannerText');
         var spinner = banner ? banner.querySelector('.cov-wrap-build-spinner') : null;
+        var retryBtn = document.getElementById('btnRetryPrintWrap');
         if (!banner || !needsPrintWrapAutoBuild()) return;
         var wrap = data && data.cover ? (String(data.cover.wrap || '').trim()) : (coverWraparoundRef || '').trim();
         var status = data && data.wrapCoverStatus ? String(data.wrapCoverStatus) : '';
         var wrapMatches = data && data.wrapMatchesFront !== false;
         var hasFront = hasSavedFrontForWrap();
+        if (retryBtn) retryBtn.classList.add('hidden');
         if (wrap && wrapMatches && (status === 'Ready' || status === '')) {
             banner.classList.add('hidden');
             showCovFullWrapPreview(wrap, data && data.pageCount ? data.pageCount : 0);
@@ -813,7 +843,7 @@
             resetPrintWrapPreviewUi();
             return;
         }
-        if (!hasFront) {
+        if (!hasFront && status !== 'Failed' && status !== 'MissingFront') {
             banner.classList.add('hidden');
             return;
         }
@@ -821,15 +851,29 @@
         banner.classList.remove('border-amber-200', 'bg-amber-50', 'text-amber-900');
         banner.classList.add('border-violet-200', 'bg-violet-50', 'text-violet-900');
         if (spinner) spinner.classList.remove('hidden');
-        if (status === 'Failed') {
+        if (status === 'Failed' || status === 'MissingFront' || status === 'Missing') {
             banner.classList.remove('border-violet-200', 'bg-violet-50', 'text-violet-900');
             banner.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-900');
             if (spinner) spinner.classList.add('hidden');
-            if (text) text.textContent = 'Full wrap build failed. Regenerate your front cover, then we will retry automatically.';
+            if (retryBtn) retryBtn.classList.remove('hidden');
+            if (text) {
+                text.textContent = status === 'MissingFront' || status === 'Missing'
+                    ? 'Front cover not saved yet. Regenerate cover, then Retry wrap.'
+                    : 'Full wrap build failed. Click Retry wrap — usually finishes in a few seconds.';
+            }
             return;
         }
         if (text) text.textContent = 'Building full print wrap from your front cover (usually a few seconds)…';
     }
+
+    (function bindRetryPrintWrap() {
+        var retryBtn = document.getElementById('btnRetryPrintWrap');
+        if (!retryBtn) return;
+        retryBtn.addEventListener('click', function () {
+            if (covWrapBuildInFlight) return;
+            buildPrintWrapNow(true);
+        });
+    })();
 
     function startCovWrapStatusPolling() {
         /* Sync wrap build replaces slow background polling. */
@@ -1579,7 +1623,6 @@
             selectedBook.aiCoverLastPreview = primary;
             if (primary.indexOf('data:') !== 0) selectedBook.coverImagePath = primary;
             persistCoverSelection(selectedBook.bookId, primary);
-            setServerActiveCover(selectedBook.bookId, primary);
             var cachePatch = { aiCoverLastPreview: primary };
             if (primary.indexOf('data:') !== 0) cachePatch.coverImagePath = primary;
             patchBooksCache(selectedBook.bookId, cachePatch);
@@ -1595,7 +1638,22 @@
         updateLivePreview();
         setPrintWrapSaved(false);
         resetPrintWrapPreviewUi();
-        if (needsPrintWrapAutoBuild() && hasSavedFrontForWrap()) buildPrintWrapNow(true);
+        // Wait for front to be saved server-side BEFORE wrap compose — otherwise wrap
+        // hits MissingFront and the Full wrap tab shows a broken image forever.
+        var afterFrontSaved = (selectedBook && selectedBook.bookId && primary.indexOf('data:') !== 0)
+            ? setServerActiveCover(selectedBook.bookId, primary)
+            : Promise.resolve(false);
+        afterFrontSaved.then(function () {
+            if (needsPrintWrapAutoBuild()) {
+                if (hasSavedFrontForWrap() || (primary && primary.indexOf('data:') !== 0)) {
+                    buildPrintWrapNow(true);
+                } else {
+                    updateCovWrapBuildBanner({ wrapCoverStatus: 'MissingFront' });
+                    updatePublishGate();
+                    toast('info', 'Save a front cover image first, then the full wrap can build.');
+                }
+            }
+        });
     }
 
     function setBusy(busy, label) {

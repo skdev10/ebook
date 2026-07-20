@@ -93,19 +93,36 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
         if (book == null) return false;
 
-        var frontAssetRef = await _context.Settings.AsNoTracking()
-            .Where(s => s.Key == $"book:{bookId}:printReadyCoverFront")
-            .Select(s => s.Value)
-            .FirstOrDefaultAsync(cancellationToken);
+        // Resolve front the same way Cover Design / Publish do — not only printReadyCoverFront.
+        // Race: wrap was often queued before SetActiveCover finished writing printReadyCoverFront,
+        // which left status MissingFront / Generating forever with a broken preview image.
+        var frontKeys = new[]
+        {
+            $"book:{bookId}:printReadyCoverFront",
+            $"book:{bookId}:aiCoverLastPreview"
+        };
+        var frontRows = await _context.Settings.AsNoTracking()
+            .Where(s => frontKeys.Contains(s.Key))
+            .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+        var frontAssetRef = BookCoverRefResolver.ResolveEbookFrontCoverRef(
+            frontRows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront"),
+            frontRows.GetValueOrDefault($"book:{bookId}:aiCoverLastPreview"),
+            book.CoverImagePath,
+            null);
         frontAssetRef = (frontAssetRef ?? "").Trim();
         if (string.IsNullOrWhiteSpace(frontAssetRef))
         {
             _logger.LogWarning(
-                "Print wrap requires printReadyCoverFront for book {BookId} — generate front cover in Cover Design first.",
+                "Print wrap requires a saved front cover for book {BookId} — generate front cover in Cover Design first.",
                 bookId);
             await UpsertSettingAsync($"book:{bookId}:printReadyCoverWrapStatus", StatusMissingFront, cancellationToken);
             return false;
         }
+
+        // Ensure the canonical front key exists so later downloads / match checks stay consistent.
+        var storedPrintFront = (frontRows.GetValueOrDefault($"book:{bookId}:printReadyCoverFront") ?? "").Trim();
+        if (!string.Equals(storedPrintFront, frontAssetRef, StringComparison.OrdinalIgnoreCase))
+            await UpsertSettingAsync($"book:{bookId}:printReadyCoverFront", frontAssetRef, cancellationToken);
 
         var frontBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
             frontAssetRef, _env.WebRootPath, _httpClientFactory, cancellationToken);
