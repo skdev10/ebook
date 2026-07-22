@@ -4048,36 +4048,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 setDocProgress(90, 'Adding chapters…');
                 try {
-                    // Chapters are now saved server-side — adopt the book id the server used
-                    // so chapter select / formatting / preview all read the same saved data.
-                    if (data.saved && data.bookId) {
-                        var bidEl = document.getElementById('BookId');
-                        if (bidEl && (!bidEl.value || bidEl.value === '0')) bidEl.value = String(data.bookId);
-                        var bookDdl = document.getElementById('savedResponsesDropdown');
-                        if (bookDdl && (!bookDdl.value || bookDdl.value === '0')) {
-                            var hasOpt = false;
-                            for (var bo = 0; bo < bookDdl.options.length; bo++) {
-                                if (bookDdl.options[bo].value === String(data.bookId)) { hasOpt = true; break; }
-                            }
-                            if (!hasOpt) {
-                                var newOpt = document.createElement('option');
-                                newOpt.value = String(data.bookId);
-                                newOpt.textContent = (data.suggestedBookTitle || 'Imported book');
-                                bookDdl.appendChild(newOpt);
-                            }
-                            bookDdl.value = String(data.bookId);
+                    if (!data.saved || !data.bookId) {
+                        if (typeof showNotification === 'function') {
+                            showNotification(data.message || 'File read OK but chapters were not saved. Please try again.', 'error');
                         }
-                        if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(String(data.bookId));
+                        hideDocProgress(0);
+                        setDocUploadBusy(false);
+                        return;
                     }
+
+                    // Adopt the saved book so formatting / chapter select use the same id.
+                    var bidEl = document.getElementById('BookId');
+                    if (bidEl) bidEl.value = String(data.bookId);
+                    var bookDdl = document.getElementById('savedResponsesDropdown');
+                    if (bookDdl) {
+                        var hasOpt = false;
+                        for (var bo = 0; bo < bookDdl.options.length; bo++) {
+                            if (bookDdl.options[bo].value === String(data.bookId)) { hasOpt = true; break; }
+                        }
+                        if (!hasOpt) {
+                            var newOpt = document.createElement('option');
+                            newOpt.value = String(data.bookId);
+                            newOpt.textContent = (data.suggestedBookTitle || 'Imported book');
+                            bookDdl.appendChild(newOpt);
+                        }
+                        bookDdl.value = String(data.bookId);
+                    }
+                    if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(String(data.bookId));
+
                     var multi = Array.isArray(data.chapters) ? data.chapters : [];
-                    // Structured (list) path when multiple chapters OR embedded images — keeps the
-                    // HTML body (with <img>) and APPENDS to the existing chapter list.
-                    if ((multi.length > 1 || (data.hasImages && multi.length >= 1)) &&
-                        typeof window.applyImportedMultiChapterDocument === 'function') {
+                    // Always prefer structured chapters when the server saved them (1 or many).
+                    if (multi.length >= 1 && typeof window.applyImportedMultiChapterDocument === 'function') {
                         window.applyImportedMultiChapterDocument(multi, {
                             suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
                             fileName: (f && f.name) ? f.name : '',
-                            numbersAuthoritative: !!data.saved
+                            numbersAuthoritative: true
                         });
                     } else {
                         window.applyImportedChapterDocument(data.text, {
@@ -4086,8 +4091,16 @@ document.addEventListener('DOMContentLoaded', function() {
                             suggestedChapterNo: data.suggestedChapterNo
                         });
                     }
+
+                    // Unlock Book Formatting — uploaded chapters count as book content.
+                    if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
+                    if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+
                     var cc = data.chapterCount || multi.length || 1;
-                    setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' added');
+                    setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved');
+                    if (typeof showNotification === 'function') {
+                        showNotification(cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved. Book Formatting is unlocked.', 'success');
+                    }
                 } catch (e) {
                     if (typeof showNotification === 'function') showNotification('Import processing failed.', 'error');
                 } finally {

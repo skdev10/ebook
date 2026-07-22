@@ -479,6 +479,21 @@ public static class ChapterDocumentImportService
     public sealed record ImportedChapter(int ChapterNo, string Title, string Body);
 
     /// <summary>
+    /// Insert newlines before mid-paragraph chapter headings. PdfPig often returns page text
+    /// with almost no line breaks, so line-based splitters would see only one chapter.
+    /// </summary>
+    public static string NormalizeInlineChapterHeadings(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text ?? "";
+        // Break before "Chapter 2" / "PART III" when stuck in the middle of a run of text.
+        return Regex.Replace(
+            text,
+            @"(?<![\n\r])\s+((?:Chapter|CHAPTER|Part|PART|Section|SECTION)\s+(?:[0-9]+|[IVXLC]+|[A-Za-z]+)\b)",
+            "\n\n$1",
+            RegexOptions.None);
+    }
+
+    /// <summary>
     /// Split imported text into chapters by detecting headings:
     /// markdown headings (<c># ...</c>), "Chapter N[: Title]" lines, or short ALL-CAPS / Title-Case
     /// heading-like lines. Returns a single chapter when no reliable boundaries are found.
@@ -489,6 +504,7 @@ public static class ChapterDocumentImportService
         if (string.IsNullOrWhiteSpace(text))
             return result;
 
+        text = NormalizeInlineChapterHeadings(text);
         var lines = text.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
 
         // Collect indices of lines that look like a chapter heading.
@@ -512,15 +528,18 @@ public static class ChapterDocumentImportService
             if (chMatch.Success && line.Length <= 120)
             {
                 var rest = chMatch.Groups[2].Value.Trim();
-                var title = string.IsNullOrEmpty(rest) ? line : $"{line}";
                 boundaries.Add((i, TruncateSuggestedTitle(string.IsNullOrEmpty(rest) ? line : rest)));
                 continue;
             }
         }
 
-        // Need at least 2 boundaries to justify a multi-chapter split, otherwise treat as one chapter.
+        // Fallback: scan full string for chapter markers when line-based detection found < 2.
         if (boundaries.Count < 2)
         {
+            var inline = SplitByInlineChapterMarkers(text);
+            if (inline.Count >= 2)
+                return inline;
+
             var (no, title) = SuggestChapterFromBodyText(text);
             result.Add(new ImportedChapter(no, title, text.Trim()));
             return result;
@@ -530,10 +549,18 @@ public static class ChapterDocumentImportService
         var chapterNo = 0;
         for (var b = 0; b < boundaries.Count; b++)
         {
-            var startLine = boundaries[b].lineIdx + 1;
+            var headingLineIdx = boundaries[b].lineIdx;
             var endLine = b + 1 < boundaries.Count ? boundaries[b + 1].lineIdx : lines.Length;
             var bodyBuilder = new StringBuilder();
-            for (var l = startLine; l < endLine; l++)
+
+            // PDF/import often puts "Chapter 1 Title … body…" on ONE line. Include trailing
+            // text after the heading token so we don't drop the whole chapter body.
+            var headingLine = lines[headingLineIdx];
+            var afterHeading = StripChapterHeadingPrefix(headingLine);
+            if (!string.IsNullOrWhiteSpace(afterHeading))
+                bodyBuilder.AppendLine(afterHeading);
+
+            for (var l = headingLineIdx + 1; l < endLine; l++)
                 bodyBuilder.AppendLine(lines[l]);
 
             var body = bodyBuilder.ToString().Trim();
@@ -552,6 +579,68 @@ public static class ChapterDocumentImportService
         {
             var (no, title) = SuggestChapterFromBodyText(text);
             result.Add(new ImportedChapter(no, title, text.Trim()));
+        }
+
+        return result;
+    }
+
+    /// <summary>Removes a leading Chapter/Part/Section heading from a line, leaving the body text.</summary>
+    private static string StripChapterHeadingPrefix(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return "";
+        var m = Regex.Match(
+            line.Trim(),
+            @"^(?:Chapter|CHAPTER|Part|PART|Section|SECTION)\s+(?:[0-9]+|[IVXLC]+|[A-Za-z]+)\s*[:\.\-–—]?\s*(.*)$",
+            RegexOptions.IgnoreCase);
+        if (!m.Success) return line.Trim();
+        return (m.Groups[1].Value ?? "").Trim();
+    }
+
+    /// <summary>Split on every <c>Chapter N</c> / <c>Part N</c> occurrence in the full text (PDF-friendly).</summary>
+    private static List<ImportedChapter> SplitByInlineChapterMarkers(string text)
+    {
+        var result = new List<ImportedChapter>();
+        var rx = new Regex(
+            @"\b((?:Chapter|Part|Section)\s+(?:[0-9]+|[IVXLC]+))\b(?:\s*[:\.\-–—]\s*([^\r\n]{0,80}))?",
+            RegexOptions.IgnoreCase);
+        var matches = rx.Matches(text);
+        if (matches.Count < 2)
+            return result;
+
+        // Drop markers that are too close together (< 40 chars) — usually false positives.
+        var starts = new List<(int Index, string Title)>();
+        foreach (Match m in matches)
+        {
+            if (starts.Count > 0 && m.Index - starts[^1].Index < 40)
+                continue;
+            var rest = m.Groups[2].Success ? m.Groups[2].Value.Trim() : "";
+            var title = TruncateSuggestedTitle(string.IsNullOrEmpty(rest) ? m.Groups[1].Value.Trim() : rest);
+            starts.Add((m.Index, title));
+        }
+
+        if (starts.Count < 2)
+            return result;
+
+        for (var i = 0; i < starts.Count; i++)
+        {
+            var contentStart = starts[i].Index;
+            // Skip the heading itself — body starts after the match line-ish end.
+            var headingEnd = contentStart;
+            var nl = text.IndexOf('\n', contentStart);
+            if (nl > contentStart && nl - contentStart < 120)
+                headingEnd = nl + 1;
+            else
+            {
+                // No newline: advance past the matched heading token + optional title.
+                var m = rx.Match(text, contentStart);
+                headingEnd = m.Success ? m.Index + m.Length : contentStart;
+            }
+
+            var end = i + 1 < starts.Count ? starts[i + 1].Index : text.Length;
+            if (headingEnd > end) headingEnd = contentStart;
+            var body = text[headingEnd..end].Trim();
+            if (body.Length == 0) continue;
+            result.Add(new ImportedChapter(result.Count + 1, starts[i].Title, body));
         }
 
         return result;

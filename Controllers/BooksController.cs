@@ -3277,13 +3277,12 @@ namespace EBookDashboard.Controllers
                 var (suggestedChapterNo, suggestedChapterTitle) = ChapterDocumentImportService.SuggestChapterFromBodyText(
                     string.IsNullOrWhiteSpace(text) ? (splitChapters.FirstOrDefault()?.Title ?? "Imported chapter") : text);
 
-                // Persist every imported chapter server-side (same pipeline as generated chapters:
-                // APIRawResponse row + chapter_iterations current version). Without this the chapters
-                // only lived in the browser — chapter select showed nothing and Ebook Formatting lost them.
+                // Persist every imported chapter server-side (APIRawResponse + chapter_iterations + chapters).
                 var userId = sessionUserId.Value;
                 var bookId = int.TryParse(Request.Form["bookId"].FirstOrDefault(), out var bidParsed) && bidParsed > 0 ? bidParsed : 0;
                 var persisted = false;
                 var savedNumbers = new List<int>();
+                string? persistError = null;
                 try
                 {
                     if (bookId > 0 && !await _context.Books.AsNoTracking()
@@ -3309,6 +3308,37 @@ namespace EBookDashboard.Controllers
                         bookId = newBook.BookId;
                     }
 
+                    // Save the original upload so the manuscript is not lost.
+                    try
+                    {
+                        var relDir = Path.Combine(
+                            "uploads",
+                            userId.ToString(CultureInfo.InvariantCulture),
+                            "books",
+                            bookId.ToString(CultureInfo.InvariantCulture),
+                            "manuscripts");
+                        var absDir = Path.Combine(_hostEnvironment.WebRootPath, relDir);
+                        Directory.CreateDirectory(absDir);
+                        var safeFile = Regex.Replace(Path.GetFileName(file.FileName ?? $"import{ext}"), @"[^\w\.\-]+", "_");
+                        if (string.IsNullOrWhiteSpace(safeFile)) safeFile = $"import{ext}";
+                        var stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+                        var absPath = Path.Combine(absDir, $"{stamp}-{safeFile}");
+                        await System.IO.File.WriteAllBytesAsync(absPath, bytes, cancellationToken);
+                        var manuscriptUrl = "/" + Path.Combine(relDir, Path.GetFileName(absPath)).Replace('\\', '/');
+                        var bookRow = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+                        if (bookRow != null)
+                        {
+                            bookRow.ManuscriptPath = manuscriptUrl;
+                            if (string.IsNullOrWhiteSpace(bookRow.Title) && !string.IsNullOrWhiteSpace(suggestedBookTitle))
+                                bookRow.Title = suggestedBookTitle;
+                            await _context.SaveChangesAsync(cancellationToken);
+                        }
+                    }
+                    catch (Exception msEx)
+                    {
+                        _logger.LogWarning(msEx, "ImportChapterFile: manuscript file save failed for book {BookId}", bookId);
+                    }
+
                     var lastChapterNo = await _context.APIRawResponse.AsNoTracking()
                         .Where(r => r.UserId == userId && r.BookId == bookId)
                         .Select(r => (int?)r.Chapter)
@@ -3320,23 +3350,61 @@ namespace EBookDashboard.Controllers
                         var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {no}" : sc.Title.Trim();
                         var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
                             userId, bookId, no, chTitle, sc.Body, null, "doc-import", cancellationToken);
-                        if (responseId > 0)
-                            await _chapterIterationService.PromoteAsCurrentVersionAsync(userId, bookId, no, responseId, cancellationToken);
+                        if (responseId <= 0)
+                            throw new InvalidOperationException($"Could not save chapter {no} to the database.");
+
+                        // Finalize + upsert into chapters table so formatting / export see the content.
+                        var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
+                            userId, bookId, no, responseId, cancellationToken);
+                        if (!promoted)
+                        {
+                            // Fallback: keep iteration current even if library upsert fails.
+                            await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                                userId, bookId, no, responseId, cancellationToken);
+                        }
                         savedNumbers.Add(no);
                     }
+
                     persisted = savedNumbers.Count > 0;
                     if (persisted)
+                    {
                         HttpContext.Session.SetString("HasGeneratedBook", "1");
+                        try
+                        {
+                            await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepGenerate, "upload", cancellationToken);
+                        }
+                        catch (Exception flowEx)
+                        {
+                            _logger.LogDebug(flowEx, "ImportChapterFile: flow step save skipped for book {BookId}", bookId);
+                        }
+                    }
                 }
                 catch (Exception saveEx)
                 {
-                    _logger.LogWarning(saveEx, "ImportChapterFile: could not persist imported chapters for book {BookId}", bookId);
+                    persistError = saveEx.GetBaseException().Message;
+                    _logger.LogError(saveEx, "ImportChapterFile: could not persist imported chapters for book {BookId}", bookId);
+                }
+
+                if (!persisted)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = string.IsNullOrWhiteSpace(persistError)
+                            ? "File was read but chapters could not be saved. Please try again."
+                            : ("File was read but chapters could not be saved: " + persistError),
+                        fileName = file.FileName,
+                        suggestedBookTitle,
+                        chapterCount = splitChapters.Count,
+                        saved = false,
+                        bookId = bookId > 0 ? bookId : (int?)null
+                    });
                 }
 
                 var chapters = splitChapters
                     .Select((c, i) => new
                     {
-                        chapterNo = persisted && i < savedNumbers.Count ? savedNumbers[i] : c.ChapterNo,
+                        chapterNo = i < savedNumbers.Count ? savedNumbers[i] : c.ChapterNo,
                         title = c.Title,
                         text = c.Body,
                         characterCount = c.Body.Length
@@ -3351,13 +3419,14 @@ namespace EBookDashboard.Controllers
                     text,
                     characterCount = text.Length,
                     suggestedBookTitle,
-                    suggestedChapterNo = persisted && savedNumbers.Count > 0 ? savedNumbers[0] : suggestedChapterNo,
+                    suggestedChapterNo = savedNumbers.Count > 0 ? savedNumbers[0] : suggestedChapterNo,
                     suggestedChapterTitle,
                     chapters,
                     chapterCount = chapters.Count,
                     hasImages,
-                    saved = persisted,
-                    bookId = persisted ? bookId : (int?)null
+                    saved = true,
+                    bookId,
+                    unlockFormatting = true
                 });
             }
             catch (Exception ex)

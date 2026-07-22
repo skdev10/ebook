@@ -147,4 +147,21 @@ public class ChapterDocumentImportTests
         var text = ChapterDocumentImportService.ExtractPdfTextAsPlain(bytes);
         Assert.False(string.IsNullOrWhiteSpace(text));
     }
+
+    [Fact]
+    public void SplitIntoChapters_splits_inline_chapter_markers_without_newlines()
+    {
+        // Mimics PdfPig output: almost no line breaks between chapters.
+        var text = "Preface text here. Chapter 1 The Beginning Once upon a time there was a story. Chapter 2 The Middle More story continues here. Chapter 3 The End Final words.";
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 3, $"Expected >= 3 chapters, got {chapters.Count}");
+    }
+
+    [Fact]
+    public void NormalizeInlineChapterHeadings_inserts_breaks()
+    {
+        var raw = "Hello Chapter 2 World";
+        var norm = ChapterDocumentImportService.NormalizeInlineChapterHeadings(raw);
+        Assert.Contains("\n\nChapter 2", norm);
+    }
 }
