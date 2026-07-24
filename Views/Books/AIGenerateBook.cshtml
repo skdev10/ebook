@@ -1571,7 +1571,7 @@
 
     /* ===== Writer book preview — physical book on desk (final overrides) ===== */
     #bookResult #chapterPreviewScrollHost.book-preview-stage {
-        background: var(--book-preview-stage-bg) !important;
+        background: #edf0f4 !important;
         border-radius: 14px !important;
         border: 1px solid rgba(68, 48, 36, 0.35);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
@@ -1790,12 +1790,12 @@
                     </div>
                     <div class="flex items-center gap-2 pt-1" data-guided-tour="ai-upload">
                         <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.text,.md,.markdown,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" aria-label="Upload document (PDF, Word, TXT, or Markdown)" />
-                        <input type="file" id="chapterOcrImageInput" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,image/png,image/jpeg,image/webp,image/tiff" class="hidden" aria-label="Upload image for book preview" />
+                        <input type="file" id="chapterOcrImageInput" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,image/png,image/jpeg,image/webp,image/tiff" class="hidden" multiple aria-label="Upload one or more page images — text is extracted into the book preview" />
                         <button type="button" id="chapterDocUploadBtn" class="writer-upload-icon-btn writer-upload-icon-btn--doc" title="Upload manuscript (PDF, Word, TXT, Markdown)" aria-label="Upload manuscript">
                             <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
                         </button>
-                        <button type="button" id="chapterOcrImageBtn" class="writer-upload-icon-btn writer-upload-icon-btn--img" title="Upload page image to book preview" aria-label="Upload image to book preview">
-                            <i class="fas fa-image" aria-hidden="true"></i>
+                        <button type="button" id="chapterOcrImageBtn" class="writer-upload-icon-btn writer-upload-icon-btn--img" title="Select one or more book page images — text fills Book Title, Chapter Title, topic, and preview" aria-label="Upload page images to book preview">
+                            <i class="fas fa-images" aria-hidden="true"></i>
                         </button>
                         <p id="chapterOcrStatus" class="text-[11px] text-slate-400 mb-0 min-h-[1em] flex-1 truncate" aria-live="polite"></p>
                     </div>
@@ -4108,100 +4108,367 @@ document.addEventListener('DOMContentLoaded', function() {
         var ocrStatus = document.getElementById('chapterOcrStatus');
         if (!ocrInput || !ocrBtn) return;
 
+        // Keep multi-select enabled even if markup is cached without it.
+        ocrInput.setAttribute('multiple', 'multiple');
+
         function setOcrStatus(msg, ok) {
             if (!ocrStatus) return;
             ocrStatus.textContent = msg || '';
             ocrStatus.className = 'text-[11px] mb-0 min-h-[1em] ' + (ok === false ? 'text-rose-600' : (ok ? 'text-emerald-700' : 'text-slate-400'));
         }
 
+        function isImageFile(file) {
+            if (!file) return false;
+            return /^image\//i.test(file.type || '') || /\.(png|jpe?g|webp|tiff?|bmp)$/i.test(file.name || '');
+        }
+
+        function textToManuscriptHtml(text) {
+            var t = (text || '').trim();
+            if (!t) return '';
+            if (typeof window.formatManuscriptBodyToHtml === 'function') {
+                return window.formatManuscriptBodyToHtml(t);
+            }
+            return '<p class="manuscript-p">' + t
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/\n\n+/g, '</p><p class="manuscript-p">')
+                .replace(/\n/g, '<br/>') + '</p>';
+        }
+
+        function firstMeaningfulLine(text) {
+            var lines = String(text || '').split(/\r?\n/);
+            for (var i = 0; i < lines.length; i++) {
+                var line = String(lines[i] || '').replace(/\s+/g, ' ').trim();
+                if (line.length >= 3) return line;
+            }
+            return '';
+        }
+
+        function suggestTitlesFromOcr(plainText, fileName, pageCount) {
+            var firstLine = firstMeaningfulLine(plainText);
+            var fromFile = String(fileName || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+            var bookTitle = firstLine || fromFile || (pageCount > 1 ? ('Scanned book (' + pageCount + ' pages)') : 'Scanned book');
+            if (bookTitle.length > 80) bookTitle = bookTitle.slice(0, 77).trim() + '…';
+            var chapterTitle = pageCount > 1 ? 'Chapter 1' : (firstLine && firstLine !== bookTitle ? firstLine : 'Chapter 1');
+            if (chapterTitle.length > 120) chapterTitle = chapterTitle.slice(0, 117).trim() + '…';
+            var brief = String(plainText || '').replace(/\s+/g, ' ').trim();
+            if (brief.length > 420) brief = brief.slice(0, 417).trim() + '…';
+            if (!brief) brief = 'Imported from scanned book page image(s).';
+            return { bookTitle: bookTitle, chapterTitle: chapterTitle, brief: brief };
+        }
+
+        function syncWriterImageUploadAvailability() {
+            var bid = 0;
+            try { bid = parseInt(String(typeof getCurrentBookId === 'function' ? getCurrentBookId() : ''), 10) || 0; } catch (e) { bid = 0; }
+            if (!bid) {
+                var bidEl = document.getElementById('BookId');
+                bid = parseInt(String((bidEl && bidEl.value) || '0'), 10) || 0;
+            }
+            if (!bid) {
+                var writerSel = document.getElementById('ai-writer-book-select');
+                bid = parseInt(String((writerSel && writerSel.value) || '0'), 10) || 0;
+            }
+            var hasBook = bid > 0;
+            ocrBtn.disabled = hasBook;
+            ocrInput.disabled = hasBook;
+            ocrBtn.setAttribute('aria-disabled', hasBook ? 'true' : 'false');
+            ocrBtn.title = hasBook
+                ? 'Image import is only available when no book is selected (New book — start blank).'
+                : 'Select one or more book page images — text fills Book Title, Chapter Title, topic, and preview';
+            if (hasBook && ocrStatus && /Reading text|loaded as text|Image text/i.test(ocrStatus.textContent || '') === false) {
+                /* keep existing status unless idle */
+            }
+            if (hasBook && !(ocrStatus && (ocrStatus.textContent || '').trim())) {
+                setOcrStatus('Select “New book — start blank” to import from images.', null);
+            } else if (!hasBook && /Select “New book/i.test((ocrStatus && ocrStatus.textContent) || '')) {
+                setOcrStatus('', null);
+            }
+        }
+        window.syncWriterImageUploadAvailability = syncWriterImageUploadAvailability;
+
+        async function ocrOneFile(file) {
+            var fd = new FormData();
+            fd.append('file', file);
+            var res = await fetch('/Books/OcrChapterImage', { method: 'POST', body: fd, credentials: 'same-origin' });
+            var data = await res.json().catch(function () { return null; });
+            if (!res.ok || !data || !data.success) {
+                throw new Error((data && data.message) || ('Could not read text from ' + (file.name || 'image')));
+            }
+            return String(data.text || '').trim();
+        }
+
+        async function ensureDraftBookForOcr(bookTitle) {
+            var uid = parseInt(String((document.getElementById('UserId') && document.getElementById('UserId').value) || '0'), 10) || 0;
+            if (!uid) throw new Error('Please sign in to import images.');
+            var token = (document.querySelector('input[name="__RequestVerificationToken"]') || {}).value || '';
+            var createRes = await fetch('/Books/CreateBook', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token, Accept: 'application/json' },
+                body: JSON.stringify({
+                    UserId: uid,
+                    AuthorId: uid,
+                    CategoryId: 1,
+                    Title: bookTitle || 'Scanned book',
+                    Description: '',
+                    Dedication: '',
+                    Ghostwriting: '',
+                    Epigraph: '',
+                    Genre: 'General',
+                    LanguageId: 1,
+                    WordCount: 0,
+                    CoverImagePath: '',
+                    ManuscriptPath: '',
+                    Subtitle: '',
+                    AuthorCode: '',
+                    BookCode: ''
+                })
+            });
+            var createJson = await createRes.json().catch(function () { return null; });
+            if (!createRes.ok || !createJson || !createJson.bookId) {
+                throw new Error((createJson && createJson.message) || 'Could not create book for scanned images.');
+            }
+            return parseInt(String(createJson.bookId), 10) || 0;
+        }
+
+        function fillWriterInputsFromOcr(meta) {
+            meta = meta || {};
+            var bookId = parseInt(String(meta.bookId || '0'), 10) || 0;
+            var bookTitle = String(meta.bookTitle || '').trim();
+            var chapterTitle = String(meta.chapterTitle || 'Chapter 1').trim();
+            var chapterNo = parseInt(String(meta.chapterNo || '1'), 10) || 1;
+            var brief = String(meta.brief || '').trim();
+
+            var bidEl = document.getElementById('BookId');
+            if (bidEl && bookId > 0) bidEl.value = String(bookId);
+
+            var writerSel = document.getElementById('ai-writer-book-select');
+            if (writerSel && bookId > 0) {
+                var hasOpt = false;
+                for (var i = 0; i < writerSel.options.length; i++) {
+                    if (writerSel.options[i].value === String(bookId)) { hasOpt = true; break; }
+                }
+                if (!hasOpt) {
+                    var opt = document.createElement('option');
+                    opt.value = String(bookId);
+                    opt.textContent = bookTitle || ('Book #' + bookId);
+                    writerSel.appendChild(opt);
+                }
+                writerSel.value = String(bookId);
+            }
+
+            var hiddenDdl = document.getElementById('savedResponsesDropdown');
+            if (hiddenDdl && bookId > 0) {
+                var found = false;
+                for (var j = 0; j < hiddenDdl.options.length; j++) {
+                    if (hiddenDdl.options[j].value === String(bookId)) { found = true; break; }
+                }
+                if (!found) {
+                    var o2 = document.createElement('option');
+                    o2.value = String(bookId);
+                    o2.textContent = bookTitle || ('Book #' + bookId);
+                    hiddenDdl.appendChild(o2);
+                }
+                hiddenDdl.value = String(bookId);
+            }
+
+            var btEl = document.getElementById('BookTitle');
+            if (btEl) btEl.value = bookTitle;
+
+            var titleEl = document.getElementById('Title');
+            if (titleEl) titleEl.value = chapterTitle;
+            if (typeof window.syncVisibleChapterTitle === 'function') window.syncVisibleChapterTitle(chapterTitle);
+            else {
+                var vis = document.getElementById('ChapterTitleVisible');
+                if (vis) vis.value = chapterTitle;
+            }
+
+            var chHidden = document.getElementById('ChapterNo');
+            if (chHidden) chHidden.value = String(chapterNo);
+            if (typeof ensureChapterDropdownOption === 'function') ensureChapterDropdownOption(chapterNo);
+            else {
+                var ddl = document.getElementById('ChapterDropdown');
+                if (ddl) {
+                    var s = String(chapterNo), exists = false, k;
+                    for (k = 0; k < ddl.options.length; k++) {
+                        if (ddl.options[k].value === s) { exists = true; break; }
+                    }
+                    if (!exists) {
+                        var chOpt = document.createElement('option');
+                        chOpt.value = s;
+                        chOpt.textContent = typeof window.formatChapterDropdownLabel === 'function'
+                            ? window.formatChapterDropdownLabel(chapterNo, chapterTitle)
+                            : (chapterNo + ' — ' + chapterTitle);
+                        ddl.appendChild(chOpt);
+                    }
+                    ddl.value = s;
+                }
+            }
+
+            var topicEl = document.getElementById('UserInput');
+            if (topicEl) topicEl.value = brief;
+
+            var statusEl = document.getElementById('Status');
+            if (statusEl) statusEl.value = 'Draft';
+
+            if (typeof window.persistFormatterBookId === 'function' && bookId > 0) window.persistFormatterBookId(bookId);
+            try {
+                var u = new URL(window.location.href);
+                if (bookId > 0) u.searchParams.set('bookId', String(bookId));
+                window.history.replaceState({}, '', u.toString());
+            } catch (eHist) { /* ignore */ }
+        }
+
         ocrBtn.addEventListener('click', function () {
-            if (ocrBtn.disabled) return;
+            if (ocrBtn.disabled) {
+                setOcrStatus('Clear the selected book first (choose New book — start blank).', false);
+                return;
+            }
             ocrInput.click();
         });
 
         ocrInput.addEventListener('change', async function () {
-            var file = ocrInput.files && ocrInput.files[0];
+            var list = ocrInput.files ? Array.prototype.slice.call(ocrInput.files) : [];
             ocrInput.value = '';
-            if (!file) return;
-            if (!/^image\//i.test(file.type || '') && !/\.(png|jpe?g|webp|tiff?|bmp)$/i.test(file.name || '')) {
-                setOcrStatus('Use a PNG or JPG image.', false);
+            if (!list.length) return;
+
+            if ((parseInt(String(typeof getCurrentBookId === 'function' ? getCurrentBookId() : '0'), 10) || 0) > 0) {
+                setOcrStatus('Image import works only when no book is selected.', false);
+                syncWriterImageUploadAvailability();
                 return;
             }
+
+            var files = list.filter(isImageFile);
+            if (!files.length) {
+                setOcrStatus('Use PNG or JPG images.', false);
+                return;
+            }
+
             ocrBtn.disabled = true;
-            setOcrStatus('Reading text from image…', true);
+            var plainPages = [];
+            var parts = [];
+            var failed = 0;
+            var totalChars = 0;
+
             try {
-                var dataUrl = await new Promise(function (resolve, reject) {
-                    var reader = new FileReader();
-                    reader.onload = function () { resolve(String(reader.result || '')); };
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-                var fd = new FormData();
-                fd.append('file', file);
-                var bidEl = document.getElementById('BookId');
-                if (bidEl && bidEl.value) fd.append('bookId', bidEl.value);
-                var res = await fetch('/Books/OcrChapterImage', { method: 'POST', body: fd, credentials: 'same-origin' });
-                var data = await res.json().catch(function () { return null; });
-                if (!res.ok || !data || !data.success) {
-                    setOcrStatus((data && data.message) || 'Could not extract text.', false);
-                    return;
+                for (var i = 0; i < files.length; i++) {
+                    var file = files[i];
+                    setOcrStatus('Reading text from image ' + (i + 1) + ' of ' + files.length + '…', true);
+                    try {
+                        var text = await ocrOneFile(file);
+                        if (!text) {
+                            failed++;
+                            continue;
+                        }
+                        totalChars += text.length;
+                        plainPages.push(text);
+                        var pageHtml = textToManuscriptHtml(text);
+                        if (files.length > 1) {
+                            parts.push(
+                                '<div class="writer-ocr-page" data-ocr-page="' + (i + 1) + '">'
+                                + '<p class="writer-ocr-page-label">Page ' + (i + 1) + '</p>'
+                                + pageHtml
+                                + '</div>'
+                            );
+                        } else {
+                            parts.push(pageHtml);
+                        }
+                    } catch (oneErr) {
+                        failed++;
+                        console.warn('OCR image failed', file && file.name, oneErr);
+                    }
                 }
-                var text = (data.text || '').trim();
-                var fig = dataUrl
-                    ? ('<figure class="writer-upload-figure"><img class="writer-upload-img" src="' + String(dataUrl).replace(/"/g, '&quot;') + '" alt="Uploaded chapter image" loading="eager" /></figure>')
-                    : '';
-                var bodyHtml = text
-                    ? (typeof window.formatManuscriptBodyToHtml === 'function'
-                        ? window.formatManuscriptBodyToHtml(text)
-                        : ('<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br/>') + '</p>'))
-                    : '';
-                var contentHtml = fig + bodyHtml;
-                if (!contentHtml.trim()) {
-                    setOcrStatus('No text found in image.', false);
+
+                if (!parts.length) {
+                    setOcrStatus(failed ? 'No readable text found in the selected images.' : 'No text found in image.', false);
                     return;
                 }
 
-                // Like PDF/DOCX import: put content in the book preview only — never paste into the topic textarea.
+                var plainAll = plainPages.join('\n\n');
+                var suggestions = suggestTitlesFromOcr(plainAll, files[0] && files[0].name, plainPages.length);
+                setOcrStatus('Creating book and filling fields…', true);
+                var newBookId = await ensureDraftBookForOcr(suggestions.bookTitle);
+                if (!newBookId) throw new Error('Book was not created.');
+
+                fillWriterInputsFromOcr({
+                    bookId: newBookId,
+                    bookTitle: suggestions.bookTitle,
+                    chapterTitle: suggestions.chapterTitle,
+                    chapterNo: 1,
+                    brief: suggestions.brief
+                });
+
+                var contentHtml = parts.join('');
                 var applied = false;
                 if (typeof window.applyImportedChapterDocument === 'function') {
                     applied = !!window.applyImportedChapterDocument(contentHtml, {
-                        suggestedChapterTitle: 'From scanned image'
+                        suggestedBookTitle: suggestions.bookTitle,
+                        suggestedChapterTitle: suggestions.chapterTitle,
+                        suggestedChapterNo: 1
                     });
                 }
                 if (!applied && typeof window.showBookContent === 'function') {
-                    var chEl = document.getElementById('ChapterNo');
-                    var ch = parseInt(chEl && chEl.value, 10) || 1;
-                    var titleEl = document.getElementById('Title');
-                    var title = (titleEl && titleEl.value.trim()) ? titleEl.value.trim() : 'From scanned image';
-                    if (titleEl && !titleEl.value.trim()) titleEl.value = title;
-                    var btEl = document.getElementById('BookTitle');
                     window.showBookContent({
-                        bookTitle: (btEl && btEl.value) ? btEl.value.trim() : '',
-                        chapters: [{ chapterNo: ch, chapterTitle: title, title: title, content: contentHtml }]
+                        bookTitle: suggestions.bookTitle,
+                        chapters: [{ chapterNo: 1, chapterTitle: suggestions.chapterTitle, title: suggestions.chapterTitle, content: contentHtml }]
                     });
                     applied = true;
                 }
                 if (!applied) {
-                    setOcrStatus('Could not load image into book preview.', false);
+                    setOcrStatus('Could not load text into book preview.', false);
                     return;
+                }
+
+                var uid = parseInt(String((document.getElementById('UserId') && document.getElementById('UserId').value) || '0'), 10) || 0;
+                try {
+                    await fetch('/Books/SaveChapterContent', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify({
+                            userId: String(uid),
+                            bookId: String(newBookId),
+                            chapter: '1',
+                            chapterTitle: suggestions.chapterTitle,
+                            newContent: contentHtml,
+                            topic: suggestions.brief,
+                            bookTitle: suggestions.bookTitle,
+                            recordVersion: true
+                        })
+                    });
+                } catch (saveErr) {
+                    console.warn('OCR save chapter failed', saveErr);
                 }
 
                 var apiRaw = document.getElementById('APIRawResponse');
                 if (apiRaw) apiRaw.value = contentHtml;
+                window.__bookHasGeneratedContent = true;
                 if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
                 if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+                if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
+                if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
                 if (typeof window.queueWriterAutosave === 'function') window.queueWriterAutosave(400);
-
                 if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
-                setOcrStatus('Image loaded in book preview' + (text ? (' · ' + (data.charCount || text.length) + ' characters') : '') + '.', true);
-                if (typeof showToast === 'function') showToast('Image added to book preview (like a document upload).');
-                else if (typeof showNotification === 'function') showNotification('Image added to book preview.', 'success');
+
+                syncWriterImageUploadAvailability();
+
+                var okMsg = plainPages.length + ' of ' + files.length + ' image(s) imported · fields filled · ' + totalChars + ' characters';
+                if (failed) okMsg += ' · ' + failed + ' skipped';
+                setOcrStatus(okMsg + '.', true);
+                if (typeof showToast === 'function') showToast('Images imported — title, chapter, and topic filled.');
+                else if (typeof showNotification === 'function') showNotification('Images imported — form fields filled.', 'success');
             } catch (err) {
-                setOcrStatus('Network error during OCR.', false);
+                console.error('OCR batch failed', err);
+                setOcrStatus((err && err.message) || 'Network error while reading images.', false);
             } finally {
-                ocrBtn.disabled = false;
+                syncWriterImageUploadAvailability();
             }
         });
+
+        var writerSel = document.getElementById('ai-writer-book-select');
+        if (writerSel) writerSel.addEventListener('change', syncWriterImageUploadAvailability);
+        var hiddenDdl = document.getElementById('savedResponsesDropdown');
+        if (hiddenDdl) hiddenDdl.addEventListener('change', syncWriterImageUploadAvailability);
+        syncWriterImageUploadAvailability();
     })();
 
     // Only auto-fill the book title from an upload when the user hasn't already set one,
@@ -5522,6 +5789,7 @@ document.addEventListener('DOMContentLoaded', function() {
                // Book Formatting unlocks only once the book actually has generated content.
                window.__bookHasGeneratedContent = hasRealChapterContent;
                if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+               if (typeof window.syncWriterImageUploadAvailability === 'function') window.syncWriterImageUploadAvailability();
                // A5 fix (+#13): restore Version History when returning to Step 1 (full page reload).
                // loadSelectedResponse selects the latest chapter but never repopulated the
                // iterations dropdown, so the Version History panel stayed hidden until the

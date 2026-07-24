@@ -266,7 +266,7 @@
             'font-family: var(--heading-font, Georgia, serif); color: var(--heading-color, inherit);' +
             'text-align: center; margin: 0 0 0.65rem; font-weight: 600; }' +
             '#bookResult #chapterPreviewScrollHost.book-preview-stage {' +
-            'background: var(--book-preview-stage-bg) !important; align-items: center !important; }';
+            'background: #edf0f4 !important; align-items: center !important; }';
     }
 
     /** Match formatter DOM: reader-chapter-block > reader-page-title + reader-page-body */

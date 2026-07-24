@@ -132,6 +132,24 @@
     background: #fff;
 }
 
+/* OCR multi-page scan → manuscript text in book preview */
+.writer-ocr-page {
+    margin: 0 0 1.15em;
+}
+.writer-ocr-page + .writer-ocr-page {
+    padding-top: 0.85em;
+    border-top: 1px solid rgba(68, 48, 36, 0.18);
+}
+.writer-ocr-page-label {
+    margin: 0 0 0.55em !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #78716c !important;
+    text-align: center;
+}
+
 .book-page-preview-measure {
     padding: 0;
     box-sizing: border-box;
@@ -353,7 +371,7 @@
 }
 
 #bookResult #chapterPreviewScrollHost.book-preview-stage {
-    background: var(--book-preview-stage-bg) !important;
+    background: #edf0f4 !important;
     align-items: center !important;
     justify-content: flex-start !important;
     z-index: 1;

@@ -1248,6 +1248,21 @@
         transform: translateY(-1px);
         background: #ede9fe;
     }
+    .fmt-ms-icon-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .fmt-ms-icon-btn--images {
+        border-color: #cbd5e1;
+        background: #f8fafc;
+        color: #475569;
+    }
+    .fmt-ms-icon-btn--images:hover:not(:disabled) {
+        border-color: #c4b5fd;
+        background: #f5f3ff;
+        color: #6d28d9;
+    }
     .fmt-ms-drop-hint {
         display: inline-flex;
         align-items: center;
@@ -2211,6 +2226,14 @@
                                 <label for="fmt-book-select" class="block text-xs font-semibold text-gray-500 mb-2.5">Change book <span class="font-normal text-gray-400">(optional)</span></label>
                                 <div class="relative">
                                     <select id="fmt-book-select" class="fmt-book-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3.5 pl-4 pr-10 text-sm cursor-pointer shadow-sm appearance-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 outline-none" aria-label="Select book to format">
+                                        @if (bookId <= 0)
+                                        {
+                                            <option value="0" selected>No book — start blank</option>
+                                        }
+                                        else
+                                        {
+                                            <option value="0">No book — start blank</option>
+                                        }
                                         @foreach (var b in Model.UserBooks)
                                         {
                                             if (b.BookId == bookId)
@@ -2232,8 +2255,12 @@
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Manuscript</label>
                             <div class="fmt-ms-row">
                                 <input type="file" id="fmt-ms-file" accept=".docx,.pdf,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" />
+                                <input type="file" id="fmt-ms-image-file" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,image/png,image/jpeg,image/webp,image/tiff" class="hidden" multiple aria-label="Select one or more book page images" />
                                 <button type="button" id="fmt-ms-upload-btn" class="fmt-ms-icon-btn" title="Upload manuscript (DOCX / PDF)" aria-label="Upload manuscript">
                                     <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" id="fmt-ms-image-btn" class="fmt-ms-icon-btn fmt-ms-icon-btn--images" title="Select one or more book page images — text is extracted into the preview" aria-label="Upload book page images">
+                                    <i class="fas fa-images" aria-hidden="true"></i>
                                 </button>
                                 <div id="fmt-ms-dropzone" class="fmt-ms-drop-hint" tabindex="0" role="button" aria-label="Drop manuscript file here" title="Drop DOCX or PDF here">
                                     <span class="fmt-ms-drop-hint__icon" aria-hidden="true"><i class="fas fa-cloud-arrow-up"></i></span>
@@ -6269,13 +6296,19 @@
         var sel = document.getElementById('fmt-book-select');
         if (!sel) return;
         sel.addEventListener('change', function() {
-            var id = parseInt(sel.value || '0', 10);
-            if (!id || id <= 0) return;
+            var id = parseInt(sel.value || '0', 10) || 0;
             var currentId = resolveFormatterBookId();
-            if (id === currentId) return;
+            if (id === currentId) {
+                if (typeof window.syncFmtImageUploadAvailability === 'function') window.syncFmtImageUploadAvailability();
+                return;
+            }
             var fmtEl = document.getElementById('format-select');
             var fmt = (fmtEl && fmtEl.value) || formatFromUrl || 'Ebook';
-            window.location.assign('/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(id) + '&format=' + encodeURIComponent(fmt));
+            if (id > 0) {
+                window.location.assign('/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(id) + '&format=' + encodeURIComponent(fmt));
+            } else {
+                window.location.assign('/BookDesign/CoverDesignCalculatorFixing?format=' + encodeURIComponent(fmt));
+            }
         });
     }
 
@@ -6870,6 +6903,228 @@
                     var files = e.dataTransfer && e.dataTransfer.files;
                     if (files && files[0]) uploadManuscriptFile(files[0]);
                 });
+            }
+
+            var imageInput = document.getElementById('fmt-ms-image-file');
+            var imageBtn = document.getElementById('fmt-ms-image-btn');
+            if (imageInput && imageBtn) {
+                imageInput.setAttribute('multiple', 'multiple');
+
+                function firstMeaningfulLine(text) {
+                    var lines = String(text || '').split(/\r?\n/);
+                    for (var i = 0; i < lines.length; i++) {
+                        var line = String(lines[i] || '').replace(/\s+/g, ' ').trim();
+                        if (line.length >= 3) return line;
+                    }
+                    return '';
+                }
+
+                function syncFmtImageUploadAvailability() {
+                    var hasBook = currentBookId() > 0;
+                    imageBtn.disabled = hasBook;
+                    imageInput.disabled = hasBook;
+                    imageBtn.setAttribute('aria-disabled', hasBook ? 'true' : 'false');
+                    imageBtn.title = hasBook
+                        ? 'Image import is only available when no book is selected (No book — start blank).'
+                        : 'Select one or more book page images — text fills title/preview automatically';
+                }
+                window.syncFmtImageUploadAvailability = syncFmtImageUploadAvailability;
+
+                async function createBookForScannedImages(title) {
+                    if (!userId || userId <= 0) throw new Error('Please sign in to import images.');
+                    var token = (document.querySelector('input[name="__RequestVerificationToken"]') || {}).value || '';
+                    var createRes = await fetch('/Books/CreateBook', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token, Accept: 'application/json' },
+                        body: JSON.stringify({
+                            UserId: userId,
+                            AuthorId: userId,
+                            CategoryId: 1,
+                            Title: title || 'Scanned book',
+                            Description: '',
+                            Dedication: '',
+                            Ghostwriting: '',
+                            Epigraph: '',
+                            Genre: 'General',
+                            LanguageId: 1,
+                            WordCount: 0,
+                            CoverImagePath: '',
+                            ManuscriptPath: '',
+                            Subtitle: '',
+                            AuthorCode: '',
+                            BookCode: ''
+                        })
+                    });
+                    var createJson = await createRes.json().catch(function () { return null; });
+                    if (!createRes.ok || !createJson || !createJson.bookId) {
+                        throw new Error((createJson && createJson.message) || 'Could not create book.');
+                    }
+                    return parseInt(String(createJson.bookId), 10) || 0;
+                }
+
+                function adoptCreatedBook(newBid, bookTitle) {
+                    var hid = document.getElementById('selected-book-id');
+                    if (hid) hid.value = String(newBid);
+                    var root = document.getElementById('book-formatter-root');
+                    if (root) root.setAttribute('data-book-id', String(newBid));
+                    try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(newBid)); } catch (e) {}
+                    var sel = document.getElementById('fmt-book-select');
+                    if (sel) {
+                        var found = false;
+                        for (var i = 0; i < sel.options.length; i++) {
+                            if (sel.options[i].value === String(newBid)) { found = true; break; }
+                        }
+                        if (!found) {
+                            var opt = document.createElement('option');
+                            opt.value = String(newBid);
+                            opt.textContent = bookTitle || ('Book #' + newBid);
+                            sel.appendChild(opt);
+                        }
+                        sel.value = String(newBid);
+                    }
+                    bookPreviewContext.bookTitle = bookTitle || '';
+                    formatterBookTitle = bookTitle || '';
+                    syncFmtSelectedBookLabel(bookTitle);
+                    syncFormatterSwitchBookLink(newBid);
+                    try {
+                        var url = new URL(window.location.href);
+                        url.searchParams.set('bookId', String(newBid));
+                        window.history.replaceState({}, '', url.toString());
+                    } catch (eHist) { /* ignore */ }
+                }
+
+                imageBtn.addEventListener('click', function () {
+                    if (imageBtn.disabled) {
+                        setMsStatus('Clear the selected book first (No book — start blank).', false);
+                        return;
+                    }
+                    imageInput.click();
+                });
+
+                imageInput.addEventListener('change', async function () {
+                    var selected = imageInput.files ? Array.prototype.slice.call(imageInput.files) : [];
+                    imageInput.value = '';
+                    if (currentBookId() > 0) {
+                        setMsStatus('Image import works only when no book is selected.', false);
+                        syncFmtImageUploadAvailability();
+                        return;
+                    }
+                    var images = selected.filter(function (file) {
+                        return file && (/^image\//i.test(file.type || '') || /\.(png|jpe?g|webp|tiff?|bmp)$/i.test(file.name || ''));
+                    });
+                    if (!images.length) {
+                        setMsStatus('Select PNG or JPG book page images.', false);
+                        return;
+                    }
+
+                    imageBtn.disabled = true;
+                    uploadBtn.disabled = true;
+                    var extractedPages = [];
+                    var failed = 0;
+                    try {
+                        for (var i = 0; i < images.length; i++) {
+                            setMsStatus('Reading image ' + (i + 1) + ' of ' + images.length + '…', true);
+                            try {
+                                var fd = new FormData();
+                                fd.append('file', images[i]);
+                                var response = await fetch('/Books/OcrChapterImage', {
+                                    method: 'POST',
+                                    body: fd,
+                                    credentials: 'same-origin'
+                                });
+                                var result = await response.json().catch(function () { return null; });
+                                if (!response.ok || !result || !result.success || !String(result.text || '').trim()) {
+                                    failed++;
+                                    continue;
+                                }
+                                extractedPages.push(String(result.text).trim());
+                            } catch (ocrError) {
+                                failed++;
+                                console.warn('Formatting OCR image failed', images[i] && images[i].name, ocrError);
+                            }
+                        }
+
+                        if (!extractedPages.length) {
+                            setMsStatus('No readable text found in the selected images.', false);
+                            return;
+                        }
+
+                        var firstLine = firstMeaningfulLine(extractedPages[0]);
+                        var fromFile = String((images[0] && images[0].name) || '').replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+                        var bookTitle = firstLine || fromFile || (extractedPages.length > 1 ? ('Scanned book (' + extractedPages.length + ' pages)') : 'Scanned book');
+                        if (bookTitle.length > 80) bookTitle = bookTitle.slice(0, 77).trim() + '…';
+                        var chapterTitle = extractedPages.length > 1 ? 'Chapter 1' : (firstLine || 'Chapter 1');
+                        if (chapterTitle.length > 120) chapterTitle = chapterTitle.slice(0, 117).trim() + '…';
+                        var content = extractedPages.map(function (text, index) {
+                            return extractedPages.length > 1
+                                ? ('Page ' + (index + 1) + '\n\n' + text)
+                                : text;
+                        }).join('\n\n');
+
+                        setMsStatus('Creating book and filling fields…', true);
+                        var newBid = await createBookForScannedImages(bookTitle);
+                        if (!newBid) throw new Error('Book was not created.');
+                        adoptCreatedBook(newBid, bookTitle);
+
+                        bookChapters = [{
+                            chapterNo: 1,
+                            chapterTitle: chapterTitle,
+                            content: content
+                        }];
+                        try { window.__fmtBookChapters = bookChapters; window.__fmtPreviewContext = bookPreviewContext; } catch (e0) {}
+                        currentChapterIdx = 0;
+                        currentPageIdx = 0;
+                        readerPages = [];
+                        readerPageChapterIdx = [];
+                        ensureReaderPages(true);
+                        populateChapterJump();
+                        renderPreviewContent(0);
+                        syncFormatterPageCountUi();
+
+                        if (userId > 0) {
+                            var saveResponse = await fetch('/Books/SaveChapterContent', {
+                                method: 'POST',
+                                credentials: 'same-origin',
+                                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                                body: JSON.stringify({
+                                    userId: String(userId),
+                                    bookId: String(newBid),
+                                    chapter: '1',
+                                    chapterTitle: chapterTitle,
+                                    newContent: content,
+                                    topic: 'Imported from scanned book page images',
+                                    bookTitle: bookTitle,
+                                    recordVersion: true
+                                })
+                            });
+                            var saveResult = await saveResponse.json().catch(function () { return null; });
+                            if (!saveResponse.ok || !saveResult || !saveResult.success) {
+                                setMsStatus('Text is in preview, but could not be saved.', false);
+                                return;
+                            }
+                            try {
+                                if (typeof formatterBookPayloadKey === 'function') {
+                                    sessionStorage.removeItem(formatterBookPayloadKey(newBid));
+                                }
+                            } catch (cacheError) { /* optional */ }
+                        }
+
+                        var message = extractedPages.length + ' of ' + images.length + ' image(s) imported · title/chapter filled';
+                        if (failed) message += ' · ' + failed + ' skipped';
+                        setMsStatus(message + '.', true);
+                        if (typeof showToast === 'function') showToast('Images imported — fields filled');
+                        if (lastEl) lastEl.textContent = 'Imported from ' + extractedPages.length + ' scanned page image(s)';
+                    } catch (err) {
+                        console.error('Formatting OCR import failed', err);
+                        setMsStatus((err && err.message) || 'Could not import images.', false);
+                    } finally {
+                        uploadBtn.disabled = false;
+                        syncFmtImageUploadAvailability();
+                    }
+                });
+
+                syncFmtImageUploadAvailability();
             }
         })();
 
