@@ -2210,10 +2210,17 @@
                 <div id="fmt-left-config-column" class="w-full lg:w-[480px] flex-shrink-0 flex flex-col">
                     <div class="mb-4 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-white px-4 py-3" data-guided-tour="fmt-modules">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-violet-700 mb-1">Book Formatting</p>
-                        <div class="flex flex-wrap gap-2 text-xs font-semibold">
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
                             <a href="/Books/Writer?bookId=@bookId" class="rounded-lg px-2.5 py-1 text-slate-600 hover:bg-white hover:text-violet-700" data-unsaved-ignore="true">AI Writer</a>
                             <span class="rounded-lg bg-violet-600 px-2.5 py-1 text-white">Formatting</span>
                             <a href="/Books/Cover/@bookId" class="rounded-lg px-2.5 py-1 text-slate-600 hover:bg-white hover:text-violet-700" data-unsaved-ignore="true">Cover Design</a>
+                            <span class="hidden sm:inline-block w-px h-5 bg-violet-200 mx-0.5" aria-hidden="true"></span>
+                            <button type="button" id="fmt-btn-export-print-pdf" class="rounded-lg px-2.5 py-1 bg-white border border-violet-200 text-violet-800 hover:bg-violet-50 inline-flex items-center gap-1.5" title="Download print-ready interior PDF">
+                                <i class="fas fa-file-pdf text-[10px]" aria-hidden="true"></i> Print PDF
+                            </button>
+                            <button type="button" id="fmt-btn-export-epub" class="rounded-lg px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 inline-flex items-center gap-1.5" title="Download EPUB ebook">
+                                <i class="fas fa-book text-[10px]" aria-hidden="true"></i> EPUB
+                            </button>
                         </div>
                     </div>
                     <div class="fmt-left-scroll space-y-6 flex-1 pr-1 pb-4">
@@ -2416,12 +2423,6 @@
                     </div>
 
                     <div class="mt-4 flex flex-col gap-3" data-guided-tour="fmt-actions" id="fmt-actions-panel">
-                        <button type="button" id="fmt-btn-export-print-pdf" class="formatter-ui-radius w-full bg-violet-600 hover:bg-violet-700 text-white font-semibold py-2.5 px-6 transition-colors inline-flex items-center justify-center gap-2" title="Download print-ready interior PDF">
-                            <i class="fas fa-file-pdf text-xs" aria-hidden="true"></i> Download Book — Print PDF
-                        </button>
-                        <button type="button" id="fmt-btn-export-epub" class="formatter-ui-radius w-full border border-slate-200 bg-white text-slate-700 hover:bg-violet-50 hover:border-violet-300 font-semibold py-2.5 px-6 transition-colors inline-flex items-center justify-center gap-2" title="Download EPUB ebook">
-                            <i class="fas fa-book text-xs" aria-hidden="true"></i> Download Book — EPUB
-                        </button>
                         <button type="button" id="btn-next-cover" class="formatter-ui-radius w-full border-2 border-violet-300 text-violet-800 hover:bg-violet-50 font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
                             Next: AI Cover Design <i class="fas fa-arrow-right"></i>
                         </button>

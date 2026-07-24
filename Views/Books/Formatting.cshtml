@@ -33,6 +33,8 @@
         <div class="fmt-actions-row">
             <a class="fmt-btn secondary" href="/Books/Writer?bookId=@Model.BookId" data-unsaved-ignore="true">AI Writer</a>
             <a class="fmt-btn secondary" href="/Books/Cover/@Model.BookId" data-unsaved-ignore="true">Book Cover</a>
+            <button type="button" class="fmt-btn" id="fmtExportPrintPdf" data-format="PrintPdf" title="Download interior print PDF">Print PDF</button>
+            <button type="button" class="fmt-btn secondary" id="fmtExportEpub" data-format="Epub" title="Download EPUB ebook">EPUB</button>
         </div>
     </header>
 
@@ -207,8 +209,6 @@
                 </div>
 
                 <div class="fmt-options-footer">
-                    <button type="button" class="fmt-btn" id="fmtExportPrintPdf" data-format="PrintPdf" title="Download interior print PDF">Download Book — Print PDF</button>
-                    <button type="button" class="fmt-btn secondary" id="fmtExportEpub" data-format="Epub" title="Download EPUB ebook">Download Book — EPUB</button>
                     <a class="fmt-btn fmt-btn-next" href="/Books/Cover/@Model.BookId" data-unsaved-ignore="true">Next: Book Cover →</a>
                 </div>
             </div>

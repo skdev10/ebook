@@ -140,6 +140,14 @@
         sidebarFormatUrl = "/Books/Formatting";
         sidebarAiWriterUrl = "/Books/Writer";
     }
+    else
+    {
+        // Book is open on this page — Publish / My Books must not show the "select a book" lock.
+        hasGeneratedBook = true;
+        publishUnlocked = true;
+        if (string.IsNullOrWhiteSpace(sidebarPublishUrl) || sidebarPublishUrl == "/Dashboard")
+            sidebarPublishUrl = $"/Dashboard/Publish?bookId={sidebarActiveBookId}";
+    }
 
     // Dashboard home: sidebar opens fully expanded by default (other pages keep the hover-rail behavior).
     var sidebarRouteController = ViewContext.RouteData.Values["Controller"]?.ToString() ?? "";
@@ -4972,7 +4980,7 @@
                 { sel: '[data-guided-tour="fmt-format"]', title: 'Ebook · Paperback · Both', body: 'Pick your format on one row. Ebook, Paperback, or Both (premium).' },
                 { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Choose a look — the open book on the right updates live.' },
                 { sel: '[data-guided-tour="fmt-preview"]', title: 'Open-book preview', body: 'Two pages on a brown desk. Flip with the arrows to check layout.' },
-                { sel: '[data-guided-tour="fmt-actions"]', title: 'Save & continue', body: 'Choices save automatically. Tap Next when you are ready for Cover Design.' }
+                { sel: '[data-guided-tour="fmt-actions"]', title: 'Save & continue', body: 'Choices save automatically. Use Print PDF / EPUB next to Cover Design, then tap Next when ready.' }
             ],
             'cover-design': [
                 { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Cover Design', body: 'Make your cover here, then go to Publish to download files.' },
@@ -5403,78 +5411,16 @@
         }
     </script>
 
-    <!-- Render any additional scripts from individual pages -->
+    <!-- Soft modules: free navigation between Writer / Formatting / Cover / Publish when a book is open.
+         Only keep a light Back-button helper — do NOT block sidebar clicks. -->
     @if (flowBookId > 0 && !string.IsNullOrWhiteSpace(flowStep))
     {
         <script>
             (function () {
-                var flowBookId = @flowBookId;
-                var flowStep = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(flowStep));
                 var flowBackUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(string.IsNullOrWhiteSpace(flowBackUrl) ? "/Dashboard" : flowBackUrl));
-                var profilePaths = ['/Dashboard/Profile', '/Account/Profile'];
-                var currentPath = (window.location.pathname || '').toLowerCase();
-
-                function normalizePath(href) {
-                    if (!href || href === '#' || href.indexOf('javascript:') === 0) return '';
-                    return href.split('?')[0].toLowerCase().replace(/\/$/, '');
-                }
-
-                function isDashboardPath(path) {
-                    return path === '/dashboard' || path === '/dashboard/index';
-                }
-
-                function isAiWriterPath(path) {
-                    return path.indexOf('/books/aigeneratebook') >= 0;
-                }
-
-                function isLogoutPath(path) {
-                    return path === '/account/logout';
-                }
-
-                function isAllowedHref(href) {
-                    if (!href || href === '#' || href.indexOf('javascript:') === 0) return true;
-                    var path = normalizePath(href);
-                    if (!path) return true;
-                    if (isDashboardPath(path)) return false;
-                    if (isLogoutPath(path)) return true;
-                    if (path.indexOf('/books/ebookhub') >= 0) return false;
-                    if (profilePaths.some(function (p) { return path.indexOf(p.toLowerCase()) >= 0; })) return true;
-                    if (path === currentPath.replace(/\/$/, '')) return true;
-                    return false;
-                }
-
-                function hardNavigate(url) {
-                    var target = url || flowBackUrl || '/Dashboard';
-                    try {
-                        if ('caches' in window) caches.keys().then(function (keys) { keys.forEach(function (k) { caches.delete(k); }); });
-                    } catch (_) {}
-                    window.location.replace(target + (target.indexOf('?') >= 0 ? '&' : '?') + '_r=' + Date.now());
-                }
-
-                function clearAllFlowClientState() {
-                    if (window.EditorDraftReset && typeof window.EditorDraftReset.clearAllClientState === 'function') {
-                        window.EditorDraftReset.clearAllClientState(flowBookId);
-                    }
-                }
-
-                function showFlowBlockedAlert() {
-                    if (window.FlowNavGuard && typeof window.FlowNavGuard.showSkippedStepAlert === 'function') {
-                        return window.FlowNavGuard.showSkippedStepAlert('This menu item', '/Dashboard');
-                    }
-                    if (typeof window.showFollowStepsAlert === 'function') {
-                        window.showFollowStepsAlert();
-                    }
-                    return Promise.resolve();
-                }
 
                 function confirmFlowLeave(targetUrl) {
                     var target = targetUrl || flowBackUrl || '/Dashboard';
-                    var path = (target.split('?')[0] || '').toLowerCase();
-                    var goingDashboard = path === '/dashboard' || path === '/dashboard/index';
-                    if (goingDashboard && window.FlowNavGuard && typeof window.FlowNavGuard.confirmLeaveToDashboard === 'function') {
-                        return window.FlowNavGuard.confirmLeaveToDashboard(target);
-                    }
-                    // Soft leave — never block with an unsaved-changes dialog.
                     if (window.EbookUnsavedGuard && typeof window.EbookUnsavedGuard.confirmLeave === 'function') {
                         return window.EbookUnsavedGuard.confirmLeave(target).then(function () {
                             window.location.href = target;
@@ -5485,71 +5431,16 @@
                     return Promise.resolve(true);
                 }
 
-                function confirmLeaveToAiWriter(targetUrl) {
-                    return confirmFlowLeave(targetUrl);
-                }
-                window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
-
-                // Soft back — navigate freely; background save may still run.
-                function confirmFlowBack(targetUrl) {
-                    var target = targetUrl || flowBackUrl || '/Dashboard';
-                    var path = (target.split('?')[0] || '').toLowerCase();
-                    var goingDashboard = path === '/dashboard' || path === '/dashboard/index';
-                    if (goingDashboard && window.FlowNavGuard && typeof window.FlowNavGuard.confirmLeaveToDashboard === 'function') {
-                        return window.FlowNavGuard.confirmLeaveToDashboard(target);
-                    }
-                    if (window.EbookUnsavedGuard && typeof window.EbookUnsavedGuard.confirmLeave === 'function') {
-                        return window.EbookUnsavedGuard.confirmLeave(target).then(function () {
-                            window.location.href = target;
-                            return true;
-                        });
-                    }
-                    window.location.href = target;
-                    return Promise.resolve(true);
-                }
-                window.confirmFlowBack = confirmFlowBack;
+                window.confirmLeaveToAiWriter = function (targetUrl) { return confirmFlowLeave(targetUrl); };
+                window.confirmFlowBack = function (targetUrl) { return confirmFlowLeave(targetUrl || flowBackUrl); };
 
                 document.addEventListener('DOMContentLoaded', function () {
-                    document.querySelectorAll('.sidebar-menu a[href], .sidebar-footer a[href]').forEach(function (a) {
-                        if (a.classList.contains('sidebar-locked-feature')) return;
-                        if (a.classList.contains('logout-btn')) return;
-                        a.addEventListener('click', function (e) {
-                            var href = a.getAttribute('href') || '';
-                            var path = normalizePath(href);
-                            if (isDashboardPath(path)) {
-                                e.preventDefault();
-                                confirmFlowLeave(href || '/Dashboard');
-                                return;
-                            }
-                            if (isAllowedHref(href)) return;
-                            e.preventDefault();
-                            if ((flowStep === 'publish' || flowStep === 'format') && isAiWriterPath(path)) {
-                                confirmLeaveToAiWriter(href);
-                                return;
-                            }
-                            showFlowBlockedAlert();
-                        });
-                    });
-
                     document.querySelectorAll('[data-flow-back]').forEach(function (btn) {
                         btn.addEventListener('click', function (e) {
                             e.preventDefault();
-                            var target = btn.getAttribute('data-flow-back') || flowBackUrl;
-                            window.confirmFlowBack(target);
+                            window.confirmFlowBack(btn.getAttribute('data-flow-back') || flowBackUrl);
                         });
                     });
-
-                    if (window.history && window.history.pushState) {
-                        history.pushState({ flowGuard: true }, '');
-                        window.addEventListener('popstate', function () {
-                            history.pushState({ flowGuard: true }, '');
-                            if (flowStep === 'generate') {
-                                window.confirmFlowBack('/Dashboard');
-                                return;
-                            }
-                            window.confirmFlowBack(flowBackUrl);
-                        });
-                    }
                 });
             })();
         </script>
@@ -5557,4 +5448,5 @@
     <partial name="_MobileBlockOverlay" />
     @RenderSection("Scripts", required: false)
 </body>
+</html>
 </html>

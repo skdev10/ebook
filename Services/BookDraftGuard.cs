@@ -3,6 +3,18 @@ using Microsoft.EntityFrameworkCore;
 
 namespace EBookDashboard.Services;
 
+/// <summary>Thrown when the user already has a book with the same title.</summary>
+public sealed class DuplicateBookTitleException : InvalidOperationException
+{
+    public string Title { get; }
+
+    public DuplicateBookTitleException(string title)
+        : base($"A book titled \"{title}\" already exists. Please choose a different title or open the existing book.")
+    {
+        Title = title;
+    }
+}
+
 /// <summary>
 /// Prevents duplicate near-empty Untitled drafts — reuse one placeholder until the user adds real content.
 /// </summary>
@@ -12,6 +24,43 @@ public static class BookDraftGuard
     private const int MinApiResponseChars = 30;
 
     public static bool IsPlaceholderTitle(string? title) => BookTitleResolver.IsPlaceholderTitle(title);
+
+    /// <summary>
+    /// True when this user already has another book with the same title (case-insensitive, trimmed).
+    /// Placeholder titles ("Untitled", etc.) are ignored — those reuse empty drafts instead.
+    /// </summary>
+    public static async Task<bool> TitleExistsForUserAsync(
+        ApplicationDbContext context,
+        int userId,
+        string? title,
+        int? excludeBookId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId <= 0 || string.IsNullOrWhiteSpace(title) || IsPlaceholderTitle(title))
+            return false;
+
+        var normalized = title.Trim();
+        var rows = await context.Books.AsNoTracking()
+            .Where(b => b.UserId == userId && b.Title != null)
+            .Select(b => new { b.BookId, b.Title })
+            .ToListAsync(cancellationToken);
+
+        return rows.Any(b =>
+            (!excludeBookId.HasValue || b.BookId != excludeBookId.Value)
+            && string.Equals((b.Title ?? string.Empty).Trim(), normalized, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Throws <see cref="DuplicateBookTitleException"/> when the title is already used by this user.</summary>
+    public static async Task EnsureUniqueTitleAsync(
+        ApplicationDbContext context,
+        int userId,
+        string? title,
+        int? excludeBookId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (await TitleExistsForUserAsync(context, userId, title, excludeBookId, cancellationToken))
+            throw new DuplicateBookTitleException(title!.Trim());
+    }
 
     private static async Task<bool> HasChapterManuscriptAsync(
         ApplicationDbContext context,

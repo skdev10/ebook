@@ -205,9 +205,22 @@ public class BookDraftGuardTests
     }
 
     [Fact]
-    public async Task CreateBookFromRequest_allows_duplicate_real_titles_as_distinct_books()
+    public async Task TitleExistsForUserAsync_detects_same_title_case_insensitive()
     {
-        await using var ctx = CreateContext(nameof(CreateBookFromRequest_allows_duplicate_real_titles_as_distinct_books));
+        await using var ctx = CreateContext(nameof(TitleExistsForUserAsync_detects_same_title_case_insensitive));
+        ctx.Books.Add(new Books { BookId = 1, UserId = 10, Title = "My Novel", Status = "Draft" });
+        await ctx.SaveChangesAsync();
+
+        Assert.True(await BookDraftGuard.TitleExistsForUserAsync(ctx, 10, "my novel"));
+        Assert.False(await BookDraftGuard.TitleExistsForUserAsync(ctx, 10, "Other Novel"));
+        Assert.False(await BookDraftGuard.TitleExistsForUserAsync(ctx, 11, "My Novel"));
+        Assert.False(await BookDraftGuard.TitleExistsForUserAsync(ctx, 10, "Untitled Book"));
+    }
+
+    [Fact]
+    public async Task CreateBookFromRequest_rejects_duplicate_real_titles()
+    {
+        await using var ctx = CreateContext(nameof(CreateBookFromRequest_rejects_duplicate_real_titles));
         var service = new BookService(ctx, chapterIterations: null!, env: null!);
 
         CreateBookRequest MakeRequest() => new()
@@ -221,12 +234,10 @@ public class BookDraftGuardTests
         };
 
         var first = await service.CreateBookFromRequestAsync(MakeRequest());
-        var second = await service.CreateBookFromRequestAsync(MakeRequest());
+        var ex = await Assert.ThrowsAsync<DuplicateBookTitleException>(() => service.CreateBookFromRequestAsync(MakeRequest()));
 
-        // Same real title is allowed: two separate rows, each with its own BookId.
-        Assert.NotEqual(first.BookId, second.BookId);
-        Assert.Equal("India vs Pakistan War", first.Title);
-        Assert.Equal("India vs Pakistan War", second.Title);
-        Assert.Equal(2, await ctx.Books.CountAsync(b => b.UserId == 10 && b.Title == "India vs Pakistan War"));
+        Assert.Equal(first.BookId, (await ctx.Books.SingleAsync(b => b.UserId == 10)).BookId);
+        Assert.Contains("already exists", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(1, await ctx.Books.CountAsync(b => b.UserId == 10 && b.Title == "India vs Pakistan War"));
     }
 }

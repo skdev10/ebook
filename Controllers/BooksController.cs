@@ -683,6 +683,10 @@ namespace EBookDashboard.Controllers
                     bookId = book.BookId
                 });
             }
+            catch (DuplicateBookTitleException dupEx)
+            {
+                return Conflict(new { success = false, message = dupEx.Message });
+            }
             catch (DbUpdateException dbEx)
             {
                 _logger.LogError(dbEx, "Database error creating book for user {UserId}", request?.UserId);
@@ -3696,13 +3700,22 @@ namespace EBookDashboard.Controllers
 
                     if (bookId == 0)
                     {
+                        var newTitle = string.IsNullOrWhiteSpace(suggestedBookTitle)
+                            ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
+                            : suggestedBookTitle.Trim();
+                        if (await BookDraftGuard.TitleExistsForUserAsync(_context, userId, newTitle, cancellationToken: cancellationToken))
+                        {
+                            return Json(new
+                            {
+                                success = false,
+                                message = $"A book titled \"{newTitle}\" already exists. Open that book or use a different file/title."
+                            });
+                        }
                         var newBook = new Books
                         {
                             UserId = userId,
                             AuthorId = userId,
-                            Title = string.IsNullOrWhiteSpace(suggestedBookTitle)
-                                ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
-                                : suggestedBookTitle,
+                            Title = newTitle,
                             Status = "Draft",
                             CreatedAt = DateTime.UtcNow
                         };
@@ -4401,13 +4414,22 @@ namespace EBookDashboard.Controllers
                 // Soft entry: no book yet — create one from the upload (same as Writer ImportChapterFile).
                 if (book == null)
                 {
+                    var newTitle = string.IsNullOrWhiteSpace(suggestedBookTitle)
+                        ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
+                        : suggestedBookTitle.Trim();
+                    if (await BookDraftGuard.TitleExistsForUserAsync(_context, userId, newTitle, cancellationToken: cancellationToken))
+                    {
+                        return Json(new
+                        {
+                            success = false,
+                            message = $"A book titled \"{newTitle}\" already exists. Select that book first or use a different title."
+                        });
+                    }
                     book = new Books
                     {
                         UserId = userId,
                         AuthorId = userId,
-                        Title = string.IsNullOrWhiteSpace(suggestedBookTitle)
-                            ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
-                            : suggestedBookTitle,
+                        Title = newTitle,
                         Status = "Draft",
                         CreatedAt = DateTime.UtcNow
                     };

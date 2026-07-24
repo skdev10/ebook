@@ -187,6 +187,10 @@ namespace EBookDashboard.Services
                     return reusable;
                 }
             }
+            else
+            {
+                await BookDraftGuard.EnsureUniqueTitleAsync(_context, request.UserId, request.Title);
+            }
 
             var book = new Books
             {
@@ -220,6 +224,8 @@ namespace EBookDashboard.Services
             book.CreatedAt = DateTime.UtcNow;
             book.UpdatedAt = DateTime.UtcNow;
             book.Status = book.Status ?? BookStatus.Draft.ToString();
+            if (!BookDraftGuard.IsPlaceholderTitle(book.Title))
+                await BookDraftGuard.EnsureUniqueTitleAsync(_context, book.UserId, book.Title);
 
             _context.Books.Add(book);
             await _context.SaveChangesAsync();

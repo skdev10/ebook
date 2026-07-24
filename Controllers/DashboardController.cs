@@ -195,6 +195,27 @@ namespace EBookDashboard.Controllers
                 HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, book.BookId);
                 return RedirectToAction("AIGenerateBook", "Books", new { bookId = book.BookId });
             }
+            catch (DuplicateBookTitleException dupEx)
+            {
+                _logger.LogInformation(dupEx, "StartNewBook: duplicate title for user {UserId}", user.UserId);
+                var existing = await BookFlowStateService.WhereNotPublished(_context.Books.AsNoTracking())
+                    .Where(b => b.UserId == user.UserId && b.Title != null)
+                    .OrderByDescending(b => b.CreatedAt)
+                    .ToListAsync();
+                var fallback = existing
+                    .FirstOrDefault(b => string.Equals((b.Title ?? "").Trim(), trimmedTitle, StringComparison.OrdinalIgnoreCase))
+                    ?.BookId ?? 0;
+                if (fallback > 0)
+                {
+                    await SetActiveBookForUserAsync(user.UserId, fallback);
+                    HttpContext.Session.SetInt32("LastSelectedBookId", fallback);
+                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, fallback);
+                    TempData["InfoMessage"] = $"A book titled \"{trimmedTitle}\" already exists — opened that book instead.";
+                    return RedirectToAction("AIGenerateBook", "Books", new { bookId = fallback });
+                }
+                TempData["InfoMessage"] = dupEx.Message;
+                return RedirectToAction(nameof(Index));
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "StartNewBook failed for user {UserId}", user.UserId);
