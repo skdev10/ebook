@@ -2107,7 +2107,7 @@
     #book-formatter-root #fmt-preview-scroll-host {
         padding: 4px 0 8px !important;
     }
-    /* Brown desk mat behind the book — keep physical-book feel */
+    /* Light neutral mat behind the book — matches AI Writer preview (#edf0f4) */
     #book-formatter-root #fmt-studio-stage,
     #book-formatter-root #fmt-preview-scroll-host,
     #book-formatter-root #preview-single {
@@ -2116,12 +2116,10 @@
         box-shadow: none !important;
     }
     #book-formatter-root #fmt-preview-scroll-host.book-preview-stage {
-        background:
-            radial-gradient(ellipse at 50% 12%, rgba(255, 255, 255, 0.28), transparent 55%),
-            linear-gradient(165deg, #6b5344 0%, #4a3728 42%, #3b2a1f 100%) !important;
-        border: 1px solid rgba(68, 48, 36, 0.35) !important;
+        background: #edf0f4 !important;
+        border: 1px solid #dce2ea !important;
         border-radius: 14px !important;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
         padding: 1rem 1.15rem 1.2rem !important;
         align-items: center !important;
         justify-content: center !important;
@@ -3452,14 +3450,32 @@
 
     function getFmtMeasureShellWidth() {
         var shell = document.getElementById('paginatedReaderShell');
-        if (shell && shell.clientWidth > 48) return shell.clientWidth;
-        shell = document.getElementById('paginatedReaderShellEbook');
-        if (shell && shell.clientWidth > 48) return shell.clientWidth;
+        if (!shell || shell.clientWidth <= 48) {
+            shell = document.getElementById('paginatedReaderShellEbook');
+        }
+        var root = document.getElementById('book-formatter-root');
+        var isSpread = (shell && shell.classList.contains('is-open-spread'))
+            || (root && root.getAttribute('data-spread') === '1');
+        if (shell && shell.clientWidth > 48) {
+            // Open-book spread is two faces + spine — measure one face only.
+            if (isSpread) return Math.max(48, Math.floor((shell.clientWidth - 10) / 2));
+            return shell.clientWidth;
+        }
         var host = document.getElementById('fmt-preview-scroll-host');
-        if (host && host.clientWidth > 48) return host.clientWidth;
+        if (host && host.clientWidth > 48) {
+            return isSpread ? Math.max(48, Math.floor((host.clientWidth - 10) / 2)) : host.clientWidth;
+        }
         var pane = document.querySelector('.fmt-preview-pane');
-        if (pane && pane.clientWidth > 48) return pane.clientWidth;
-        return Math.floor(window.innerWidth * 0.68);
+        if (pane && pane.clientWidth > 48) {
+            return isSpread ? Math.max(48, Math.floor((pane.clientWidth - 10) / 2)) : pane.clientWidth;
+        }
+        return Math.floor(window.innerWidth * (isSpread ? 0.34 : 0.68));
+    }
+
+    function getFmtReaderPageChromeY() {
+        var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        // .book-open-running-head + .book-open-folio + page-inner vertical padding
+        return Math.ceil(2.55 * rem) + 1 + Math.ceil(1.35 * rem) + Math.ceil(0.7 * rem);
     }
 
     function syncPageRunningHead(headEl, pageIdx) {
@@ -3547,7 +3563,7 @@
         return 520;
     }
 
-    /** Match AI Book Writer `getReaderPageMaxHeight` — usable height inside `#preview-content`. */
+    /** Match AI Book Writer `getReaderPageMaxHeight` — usable height inside one open-book face. */
     function getFmtReaderPageMaxHeight() {
         var shell = document.getElementById('paginatedReaderShell');
         var viewport = document.getElementById('preview-content')
@@ -3557,15 +3573,27 @@
         var vs = window.getComputedStyle(viewport);
         var padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
         var blockPad = 0;
-        var sample = viewport.querySelector('.reader-chapter-block, .book-preview-sheet');
+        var sample = viewport.querySelector('.reader-chapter-block, .book-preview-sheet, .book-open-page-inner');
         if (sample) {
             var bs = window.getComputedStyle(sample);
             blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
         }
-        var usable = Math.max(0, viewport.clientHeight - padY - blockPad - 8);
+        var chromeY = 0;
+        var root = document.getElementById('book-formatter-root');
+        var isSpread = (shell && shell.classList.contains('is-open-spread'))
+            || (root && root.getAttribute('data-spread') === '1');
+        if (isSpread) {
+            chromeY = getFmtReaderPageChromeY();
+            var liveInner = viewport.querySelector('.book-open-page-inner');
+            if (liveInner) {
+                var is = window.getComputedStyle(liveInner);
+                padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
+            }
+        }
+        var usable = Math.max(0, viewport.clientHeight - padY - blockPad - chromeY - 8);
         if (usable >= 32) return usable;
         if (!shell || shell.clientHeight < 48) return getFmtContentAreaHeightPx();
-        return Math.max(0, shell.clientHeight - padY - blockPad - 8);
+        return Math.max(0, shell.clientHeight - padY - blockPad - chromeY - 8);
     }
 
     function getFmtPageMaxHeightPx() {
@@ -8123,9 +8151,7 @@
         /* Width/height set by BookInteriorPreview.syncPreviewLayout — do not force width:auto */
     }
     #book-formatter-root #fmt-preview-scroll-host.book-preview-stage {
-        background:
-            radial-gradient(ellipse at 50% 12%, rgba(255, 255, 255, 0.28), transparent 55%),
-            linear-gradient(165deg, #6b5344 0%, #4a3728 42%, #3b2a1f 100%) !important;
+        background: #edf0f4 !important;
         padding: 1rem 1.15rem 1.2rem !important;
         border-radius: 14px !important;
         justify-content: center !important;

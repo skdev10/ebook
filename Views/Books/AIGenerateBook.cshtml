@@ -2327,41 +2327,104 @@ window.splitOversizedHtmlSegment = function (segmentHtml, maxH, mh) {
     return out.length ? out : ['<div class="reader-chapter-block">' + segmentHtml + '</div>'];
 };
 
-/** Usable inner height for one 6×9 page (matches viewport padding; no scroll). */
-window.getReaderPageMaxHeight = function (shellEl, viewportEl) {
-    if (!viewportEl) return 0;
-    var vs = window.getComputedStyle(viewportEl);
-    var padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
-    var blockPad = 0;
-    var sample = viewportEl.querySelector('.reader-chapter-block');
-    if (sample) {
-        var bs = window.getComputedStyle(sample);
-        blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
+/**
+ * Measure box for one physical page face.
+ * Open-book spread shells are 12×9 (two faces + spine) — pagination MUST measure at
+ * half-width / face-height, otherwise Total pages undercounts and text overflows.
+ */
+window.getReaderPageMeasureBox = function (shellEl, viewportEl) {
+    var SPINE_PX = 10;
+    var isSpread = !!(shellEl && shellEl.classList && shellEl.classList.contains('is-open-spread'));
+    var shellW = shellEl ? shellEl.clientWidth : 0;
+    var shellH = shellEl ? shellEl.clientHeight : 0;
+    var faceW = shellW;
+    if (isSpread && shellW >= 48) {
+        faceW = Math.max(48, Math.floor((shellW - SPINE_PX) / 2));
     }
-    var usable = Math.max(0, viewportEl.clientHeight - padY - blockPad - 8);
-    if (usable >= 32) return usable;
-    if (!shellEl || shellEl.clientHeight < 48) return 0;
-    return Math.max(0, shellEl.clientHeight - padY - blockPad - 8);
+
+    var padY = 0;
+    var blockPad = 0;
+    var fontSize = '';
+    var lineHeight = '';
+    var padding = '';
+
+    if (viewportEl) {
+        var vs = window.getComputedStyle(viewportEl);
+        padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
+        fontSize = vs.fontSize;
+        lineHeight = vs.lineHeight;
+        padding = vs.padding;
+        var sample = viewportEl.querySelector('.reader-chapter-block');
+        if (sample) {
+            var bs = window.getComputedStyle(sample);
+            blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
+        }
+    }
+
+    var chromeY = 0;
+    if (isSpread) {
+        // Match .book-open-running-head + .book-open-folio + page-inner vertical padding.
+        var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+        var headH = Math.ceil(2.55 * rem) + 1; // min-height + padding + border
+        var folioH = Math.ceil(1.35 * rem);
+        var innerPadY = Math.ceil(0.7 * rem);
+        chromeY = headH + folioH + innerPadY;
+        // Prefer face typography from a live page-inner when present.
+        var liveInner = viewportEl && viewportEl.querySelector('.book-open-page-inner');
+        if (liveInner) {
+            var is = window.getComputedStyle(liveInner);
+            fontSize = is.fontSize || fontSize;
+            lineHeight = is.lineHeight || lineHeight;
+            padding = is.padding || padding;
+            padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
+        } else {
+            // Approximate .book-open-page-inner before first paint.
+            fontSize = fontSize || (Math.max(11.5, Math.min(14.1, shellW * 0.0105)) + 'px');
+            lineHeight = lineHeight || '1.55';
+            padding = '0.45rem 0.95rem 0.15rem';
+            padY = Math.ceil(0.6 * rem);
+        }
+    }
+
+    var baseH = 0;
+    if (viewportEl && viewportEl.clientHeight >= 32) baseH = viewportEl.clientHeight;
+    else if (shellH >= 48) baseH = shellH;
+    var maxH = Math.max(0, baseH - padY - blockPad - chromeY - 8);
+
+    return {
+        isSpread: isSpread,
+        width: faceW,
+        maxHeight: maxH,
+        fontSize: fontSize,
+        lineHeight: lineHeight,
+        padding: padding
+    };
+};
+
+/** Usable inner height for one page face (matches open-spread chrome; no scroll). */
+window.getReaderPageMaxHeight = function (shellEl, viewportEl) {
+    var box = window.getReaderPageMeasureBox(shellEl, viewportEl);
+    return box ? box.maxHeight : 0;
 };
 
 window.getReaderLayoutCacheKey = function (shellEl, viewportEl) {
     if (!shellEl) return '';
-    var maxH = window.getReaderPageMaxHeight(shellEl, viewportEl);
-    return shellEl.clientWidth + 'x' + shellEl.clientHeight + '@@' + maxH;
+    var box = window.getReaderPageMeasureBox(shellEl, viewportEl);
+    return shellEl.clientWidth + 'x' + shellEl.clientHeight + '@@' + (box ? (box.width + 'x' + box.maxHeight) : '0');
 };
 
 /** Split full chapter HTML into page fragments that fit the fixed reader viewport (no scroll). */
 window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
     var mh = document.getElementById('previewMeasureHost');
     if (!mh || !shellEl || !viewportEl) return [fullHtml];
-    var w = shellEl.clientWidth;
-    var maxH = window.getReaderPageMaxHeight(shellEl, viewportEl);
+    var box = window.getReaderPageMeasureBox(shellEl, viewportEl);
+    var w = box.width;
+    var maxH = box.maxHeight;
     if (w < 48 || maxH < 48) return [fullHtml];
-    var vpStyles = window.getComputedStyle(viewportEl);
     mh.style.width = w + 'px';
-    mh.style.padding = vpStyles.padding;
-    mh.style.fontSize = vpStyles.fontSize;
-    mh.style.lineHeight = vpStyles.lineHeight;
+    mh.style.padding = box.padding || '';
+    mh.style.fontSize = box.fontSize || '';
+    mh.style.lineHeight = box.lineHeight || '';
     mh.style.boxSizing = 'border-box';
     mh.innerHTML = fullHtml;
     var block = mh.firstElementChild;
@@ -2924,16 +2987,20 @@ window.refreshAiWriterTotalPages = async function () {
             wrap.classList.add('hidden');
         }
     };
+    // Live open-book pagination is the source of truth on AI Writer.
+    if (localPages > 0 && window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
+        showCount(localPages);
+        return;
+    }
     if (localPages > 0) showCount(localPages);
     try {
         var r = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         var d = await r.json().catch(function () { return {}; });
         var apiCount = (d && d.success && d.pageCount > 0) ? parseInt(String(d.pageCount), 10) : 0;
-        // B3/B4: when the server count comes from saved Book Formatting (the measured reader
-        // pages), it is the single source of truth — show it directly so the AI Writer total
-        // matches the Publish page exactly. Otherwise fall back to the prior max() heuristic.
-        if (apiCount > 0 && d && d.pageCountSource === 'formatter') showCount(apiCount);
-        else if (apiCount > 0) showCount(Math.max(apiCount, localPages));
+        // Prefer saved Formatting count only when we do not yet have a live page build.
+        if (apiCount > 0 && d && d.pageCountSource === 'formatter' && localPages <= 0) showCount(apiCount);
+        else if (apiCount > 0 && localPages <= 0) showCount(apiCount);
+        else if (apiCount > 0 && localPages > 0) showCount(Math.max(apiCount, localPages));
         else if (!localPages) showCount(0);
     } catch (e) {
         if (!localPages) showCount(0);

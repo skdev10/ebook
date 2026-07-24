@@ -114,10 +114,9 @@
 .fmt-workspace--studio .fmt-preview-panel {
     max-height: calc(100vh - 160px);
     min-height: 520px;
-    background:
-        radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.35), transparent 55%),
-        linear-gradient(165deg, #6b5344 0%, #4a3728 42%, #3b2a1f 100%);
-    border-color: #3b2a1f;
+    /* Light neutral stage (was brown desk-mat) — matches AI Writer preview */
+    background: #edf0f4;
+    border-color: #dce2ea;
 }
 
 .fmt-workspace--studio .fmt-preview-toolbar button {
@@ -126,13 +125,13 @@
 
 .fmt-workspace--studio #fmtSpreadLabel,
 .fmt-workspace--studio .fmt-preview-meta-line {
-    color: rgba(255, 248, 240, 0.82);
+    color: #475569;
 }
 
 .fmt-workspace--studio .fmt-preview-mode-badge {
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff8f0;
-    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.85);
+    color: #334155;
+    border-color: #cbd5e1;
 }
 
 .fmt-book-name {

@@ -548,6 +548,9 @@
 
         if (typeof global.invalidateReaderPageCaches === 'function') global.invalidateReaderPageCaches();
 
+        // Open-book mode: pagination must measure one face (half shell), not the full 12×9 spread.
+        shell.classList.add('is-open-spread');
+
         applyInteriorFormatting(formatting);
         if (formatting.interiorCss) ensureInteriorCss(formatting.interiorCss);
         else appendAiWriterInteriorBridge();
@@ -589,6 +592,9 @@
         start = Math.max(0, Math.min(start, allPages.length - 1));
         renderWriterPage(start);
         wireTocOnce();
+        if (typeof global.refreshAiWriterTotalPages === 'function') {
+            try { global.refreshAiWriterTotalPages(); } catch (e) { /* ignore */ }
+        }
         return true;
     }
 

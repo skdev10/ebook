@@ -8,9 +8,8 @@
     --book-preview-accent-hover: #6d28d9;
     --book-preview-accent-soft: #f5f3ff;
     --book-preview-accent-border: #c4b5fd;
-    --book-preview-stage-bg:
-        radial-gradient(ellipse at 50% 18%, rgba(255, 255, 255, 0.28), transparent 52%),
-        linear-gradient(165deg, #6b5344 0%, #4a3728 45%, #3b2a1f 100%);
+    /* Light neutral stage (was brown desk-mat) — matches AI Writer preview */
+    --book-preview-stage-bg: #edf0f4;
     --book-preview-page-bg: #fffef8;
     --book-preview-page-shadow:
         0 1px 0 rgba(255, 255, 255, 0.95) inset,

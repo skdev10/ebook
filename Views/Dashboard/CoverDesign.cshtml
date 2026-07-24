@@ -348,6 +348,70 @@
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         min-height: 16rem;
     }
+
+    /* ===== Split scrolling (desktop): each column scrolls on its own, the other
+       stays fixed, and no scrollbar is ever visible (wheel / touch still scroll). ===== */
+    @@media (min-width: 1024px) {
+        .dash-flow-main {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .dash-flow-main .dash-flow-inner,
+        .cover-design-page {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        #coverMain {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #covFormColumn,
+        #covPreviewColumn {
+            height: 100%;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        #covFormColumn::-webkit-scrollbar,
+        #covPreviewColumn::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
+        }
+    }
+
+    /* ===== Reference image (AI style match) ===== */
+    .cov-ref-drop {
+        border: 1.5px dashed #ddd6fe;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #faf9ff 0%, #ffffff 100%);
+        padding: 0.85rem;
+        transition: border-color 0.2s ease, background 0.2s ease;
+    }
+    .cov-ref-drop.has-image { border-style: solid; border-color: #c4b5fd; }
+    .cov-ref-thumb {
+        width: 3.5rem;
+        height: 4.75rem;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+        flex-shrink: 0;
+    }
+    .cov-ref-swatch {
+        display: inline-block;
+        width: 0.9rem;
+        height: 0.9rem;
+        border-radius: 9999px;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        vertical-align: middle;
+    }
 </style>
 
 <div class="dash-flow-page">
@@ -370,7 +434,7 @@
 
     <div id="coverMain" class="hidden cov-main-card bg-white rounded-[32px] shadow-sm w-full border border-slate-200/60 flex flex-col lg:flex-row gap-4 lg:gap-6 overflow-hidden items-stretch lg:items-start">
         <!-- Form -->
-        <div class="w-full lg:w-[42%] xl:w-[40%] p-4 md:p-6 lg:p-7 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
+        <div id="covFormColumn" class="w-full lg:w-[42%] xl:w-[40%] p-4 md:p-6 lg:p-7 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
             <div class="mb-4">@await Html.PartialAsync("_FlowStepper", 3)</div>
             <h1 class="font-serif text-2xl md:text-[1.65rem] text-slate-900 font-medium tracking-tight mb-1">AI Book Cover Creator</h1>
             <p class="text-sm text-slate-500 mb-4">Uses the same book as in AI Writer and Book Formatting. Adjust details, then generate your cover.</p>
@@ -433,6 +497,32 @@
             <div data-guided-tour="cov-prompt">
                 <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Image Direction</h2>
                 <p class="text-sm text-slate-500 mb-2 leading-snug">Mood, palette, main subject, and style references—the clearer you are, the stronger the cover.</p>
+
+                <!-- Reference image: AI matches its palette + mood when generating -->
+                <div id="covRefImageBlock" class="cov-ref-drop mb-3">
+                    <input type="file" id="covRefImageInput" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden" aria-label="Upload a reference cover image for the AI to match" />
+                    <div id="covRefEmpty" class="flex items-center gap-3">
+                        <button type="button" id="covRefPickBtn" class="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3.5 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 transition-colors shrink-0">
+                            <i data-lucide="image-plus" class="w-4 h-4" stroke-width="1.75"></i>
+                            Reference image
+                        </button>
+                        <p class="text-xs text-slate-500 mb-0 leading-snug">Optional — upload a cover you like. The AI reads its <strong>colours and mood</strong> and designs your cover in the same style.</p>
+                    </div>
+                    <div id="covRefPreview" class="hidden">
+                        <div class="flex items-start gap-3">
+                            <img id="covRefThumb" class="cov-ref-thumb" src="" alt="Reference cover image" />
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2 mb-1">
+                                    <span class="text-xs font-bold text-violet-800 uppercase tracking-wide">Reference understood</span>
+                                    <button type="button" id="covRefRemoveBtn" class="text-slate-400 hover:text-rose-500 transition-colors text-sm leading-none" title="Remove reference image" aria-label="Remove reference image">✕</button>
+                                </div>
+                                <p id="covRefSummary" class="text-xs text-slate-600 mb-1 leading-snug"></p>
+                                <div id="covRefSwatches" class="flex items-center gap-1.5" aria-hidden="true"></div>
+                                <p class="text-[11px] text-slate-400 mt-1 mb-0">The AI will match this palette and mood when you click Generate Cover.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="cov-image-direction-shell border border-slate-200 rounded-[20px] p-1.5 flex flex-col focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200 bg-white">
                     <textarea id="imageDirection" rows="10" placeholder="Example: Warm twilight over a quiet city skyline, deep indigo and amber, lone figure in silhouette, cinematic depth—no text on the image, no cluttered collage…" class="cov-image-direction-textarea w-full px-4 py-4 text-base text-slate-800 outline-none resize-none bg-slate-50/40 focus:bg-white transition-colors"></textarea>
                     <div class="bg-slate-50 rounded-[14px] flex flex-wrap justify-end items-center p-2.5 mt-1 border border-slate-100/90 gap-2">
@@ -1479,13 +1569,133 @@
             .catch(function () { /* offline / error: keep cached form */ });
     }
 
+    /* ===== Reference image: the AI matches its palette + mood ===== */
+    var covRefStyleNote = '';
+
+    /** Image Direction text + (when a reference image is uploaded) an AI style-match note. */
+    function covComposeDescription() {
+        var d = (imageDirection && imageDirection.value || '').trim();
+        if (covRefStyleNote) d = d ? (d + '\n\n' + covRefStyleNote) : covRefStyleNote;
+        return d;
+    }
+
+    (function initCoverReferenceImage() {
+        var input = document.getElementById('covRefImageInput');
+        var pickBtn = document.getElementById('covRefPickBtn');
+        var block = document.getElementById('covRefImageBlock');
+        var emptyEl = document.getElementById('covRefEmpty');
+        var previewEl = document.getElementById('covRefPreview');
+        var thumbEl = document.getElementById('covRefThumb');
+        var summaryEl = document.getElementById('covRefSummary');
+        var swatchesEl = document.getElementById('covRefSwatches');
+        var removeBtn = document.getElementById('covRefRemoveBtn');
+        if (!input || !pickBtn || !previewEl) return;
+
+        function toHex(v) { var h = Math.max(0, Math.min(255, Math.round(v))).toString(16); return h.length === 1 ? '0' + h : h; }
+
+        /** Dominant palette + tone via a small canvas sample. */
+        function analyzeImage(img) {
+            var w = 48, h = 64;
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            var data = ctx.getImageData(0, 0, w, h).data;
+            var buckets = {};
+            var lumSum = 0, satSum = 0, n = 0;
+            for (var i = 0; i < data.length; i += 4) {
+                var r = data[i], g = data[i + 1], b = data[i + 2];
+                if (data[i + 3] < 128) continue;
+                n++;
+                lumSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                var mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+                satSum += mx === 0 ? 0 : (mx - mn) / mx;
+                var key = (r >> 5) + ',' + (g >> 5) + ',' + (b >> 5);
+                if (!buckets[key]) buckets[key] = { r: 0, g: 0, b: 0, count: 0 };
+                buckets[key].r += r; buckets[key].g += g; buckets[key].b += b; buckets[key].count++;
+            }
+            if (!n) return null;
+            var top = Object.keys(buckets)
+                .map(function (k) { return buckets[k]; })
+                .sort(function (a, b2) { return b2.count - a.count; })
+                .slice(0, 3)
+                .map(function (bk) { return '#' + toHex(bk.r / bk.count) + toHex(bk.g / bk.count) + toHex(bk.b / bk.count); });
+            var avgLum = lumSum / n, avgSat = satSum / n;
+            var tone = avgLum > 170 ? 'bright, light and airy' : (avgLum < 85 ? 'dark, moody and dramatic' : 'balanced mid-tone');
+            var sat = avgSat > 0.45 ? 'vivid, saturated colours' : (avgSat < 0.18 ? 'muted, desaturated colours' : 'softly saturated colours');
+            return { colors: top, tone: tone, sat: sat };
+        }
+
+        function applyAnalysis(a) {
+            covRefStyleNote =
+                'STYLE REFERENCE (from the user\'s uploaded reference cover): design this cover in the same visual style — ' +
+                'dominant colours ' + a.colors.join(', ') + '; ' + a.tone + ' overall with ' + a.sat + '. ' +
+                'Match the reference\'s mood, palette and composition, but create an original cover for THIS book — do not copy the reference.';
+            if (summaryEl) summaryEl.textContent = 'Palette ' + a.colors.join(' · ') + ' — ' + a.tone + ', ' + a.sat + '.';
+            if (swatchesEl) {
+                swatchesEl.innerHTML = '';
+                a.colors.forEach(function (c) {
+                    var s = document.createElement('span');
+                    s.className = 'cov-ref-swatch';
+                    s.style.background = c;
+                    s.title = c;
+                    swatchesEl.appendChild(s);
+                });
+            }
+        }
+
+        function clearReference() {
+            covRefStyleNote = '';
+            input.value = '';
+            if (thumbEl) thumbEl.src = '';
+            if (previewEl) previewEl.classList.add('hidden');
+            if (emptyEl) emptyEl.classList.remove('hidden');
+            if (block) block.classList.remove('has-image');
+        }
+
+        pickBtn.addEventListener('click', function () { input.click(); });
+        if (removeBtn) removeBtn.addEventListener('click', clearReference);
+
+        input.addEventListener('change', function () {
+            var file = input.files && input.files[0];
+            if (!file) return;
+            if (file.size > 12 * 1024 * 1024) {
+                toast('error', 'Reference image is too large (max 12 MB).');
+                input.value = '';
+                return;
+            }
+            var reader = new FileReader();
+            reader.onload = function () {
+                var img = new Image();
+                img.onload = function () {
+                    var a = null;
+                    try { a = analyzeImage(img); } catch (e) { console.warn('[CoverDesign] reference analysis failed', e); }
+                    if (!a) {
+                        toast('error', 'Could not read that image. Try a PNG or JPG.');
+                        clearReference();
+                        return;
+                    }
+                    applyAnalysis(a);
+                    if (thumbEl) thumbEl.src = String(reader.result);
+                    if (emptyEl) emptyEl.classList.add('hidden');
+                    if (previewEl) previewEl.classList.remove('hidden');
+                    if (block) block.classList.add('has-image');
+                    toast('success', 'Reference understood — the AI will match its colours and mood.');
+                };
+                img.onerror = function () { toast('error', 'Could not read that image. Try a PNG or JPG.'); clearReference(); };
+                img.src = String(reader.result);
+            };
+            reader.readAsDataURL(file);
+        });
+    })();
+
     /** Structured prompt for logging / future models (also sent as Description separately). */
     function buildStructuredPrompt() {
         var title = (bookTitle.value || '').trim() || (selectedBook && selectedBook.title) || 'My Book';
         var author = (authorName.value || '').trim() || (selectedBook && selectedBook.authorName) || '';
         var genre = (bookCategory.value || '').trim();
         var style = (coverStyle.value || '').trim() || 'modern';
-        var description = (imageDirection.value || '').trim();
+        var description = covComposeDescription();
         return (
             'Book Title: ' + title + '\n' +
             'Author: ' + author + '\n' +
@@ -1875,9 +2085,9 @@
             toast('error', 'No book loaded.');
             return;
         }
-        var userPrompt = (imageDirection.value || '').trim();
+        var userPrompt = covComposeDescription();
         if (!userPrompt) {
-            toast('info', 'Write your Image Direction prompt first, then click Generate Cover.');
+            toast('info', 'Write your Image Direction or upload a reference image first, then click Generate Cover.');
             if (imageDirection) imageDirection.focus();
             return;
         }
@@ -2015,7 +2225,7 @@
             author: (authorName.value || '').trim() || (selectedBook.authorName || ''),
             genre: (bookCategory.value || '').trim(),
             style: (coverStyle.value || '').trim() || 'modern',
-            description: (imageDirection.value || '').trim()
+            description: covComposeDescription()
         };
         setBusy(true, 'Generating front cover…');
         try {
@@ -2063,9 +2273,9 @@
             toast('error', 'No book loaded.');
             return;
         }
-        var userPrompt = (imageDirection.value || '').trim();
+        var userPrompt = covComposeDescription();
         if (!userPrompt) {
-            toast('info', 'Write your Image Direction prompt first, then click Generate Cover.');
+            toast('info', 'Write your Image Direction or upload a reference image first, then click Generate Cover.');
             if (imageDirection) imageDirection.focus();
             return;
         }
