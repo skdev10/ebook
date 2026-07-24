@@ -349,43 +349,6 @@
         min-height: 16rem;
     }
 
-    /* ===== Split scrolling (desktop): each column scrolls on its own, the other
-       stays fixed, and no scrollbar is ever visible (wheel / touch still scroll). ===== */
-    @@media (min-width: 1024px) {
-        .dash-flow-main {
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .dash-flow-main .dash-flow-inner,
-        .cover-design-page {
-            flex: 1 1 auto;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-        }
-        #coverMain {
-            flex: 1 1 auto;
-            min-height: 0;
-            overflow: hidden;
-        }
-        #covFormColumn,
-        #covPreviewColumn {
-            height: 100%;
-            min-height: 0;
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-        }
-        #covFormColumn::-webkit-scrollbar,
-        #covPreviewColumn::-webkit-scrollbar {
-            display: none;
-            width: 0;
-            height: 0;
-        }
-    }
-
     /* ===== Reference image (AI style match) ===== */
     .cov-ref-drop {
         border: 1.5px dashed #ddd6fe;
@@ -434,7 +397,7 @@
 
     <div id="coverMain" class="hidden cov-main-card bg-white rounded-[32px] shadow-sm w-full border border-slate-200/60 flex flex-col lg:flex-row gap-4 lg:gap-6 overflow-hidden items-stretch lg:items-start">
         <!-- Form -->
-        <div id="covFormColumn" class="w-full lg:w-[42%] xl:w-[40%] p-4 md:p-6 lg:p-7 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
+        <div class="w-full lg:w-[42%] xl:w-[40%] p-4 md:p-6 lg:p-7 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
             <div class="mb-4">@await Html.PartialAsync("_FlowStepper", 3)</div>
             <h1 class="font-serif text-2xl md:text-[1.65rem] text-slate-900 font-medium tracking-tight mb-1">AI Book Cover Creator</h1>
             <p class="text-sm text-slate-500 mb-4">Uses the same book as in AI Writer and Book Formatting. Adjust details, then generate your cover.</p>
@@ -471,26 +434,6 @@
                         <button type="button" class="cov-style-card" data-style="cartoon" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#FFE566,#FF6B9D)"></span><span class="cov-style-card__label">🎨 Cartoon</span></button>
                     </div>
                 </div>
-                </div>
-            </div>
-
-            <div data-guided-tour="cov-upload" id="covUploadImagesBlock" class="mt-1">
-                <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Upload cover images</h2>
-                <p class="text-sm text-slate-500 mb-2 leading-snug">Upload a front image (PNG/JPG) to use as your cover. Back and spine are optional for print wrap.</p>
-                <div class="border border-slate-200 rounded-[16px] p-3 bg-white flex flex-col gap-2.5">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1" for="covUploadFront">Front image <span class="text-rose-500">*</span></label>
-                        <input type="file" id="covUploadFront" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-800 file:font-semibold hover:file:bg-violet-100" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-1" for="covUploadBack">Back image <span class="text-slate-400 font-normal">(optional)</span></label>
-                        <input type="file" id="covUploadBack" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-50 file:text-slate-700 file:font-semibold" />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-600 mb-1" for="covUploadSpine">Spine image <span class="text-slate-400 font-normal">(optional)</span></label>
-                        <input type="file" id="covUploadSpine" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-50 file:text-slate-700 file:font-semibold" />
-                    </div>
-                    <p id="covUploadStatus" class="text-[11px] text-slate-400 mb-0" aria-live="polite"></p>
                 </div>
             </div>
 
@@ -2768,7 +2711,7 @@
                     return;
                 }
                 if (part === 'front' && !frontCoverIsReady() && !fullWrapIsReady()) {
-                    toast('error', 'Upload or generate a cover first.');
+                    toast('error', 'Generate a cover first.');
                     return;
                 }
                 btn.disabled = true;
@@ -2787,76 +2730,6 @@
                 }
             });
         });
-    })();
-
-    (function initCoverImageUpload() {
-        var statusEl = document.getElementById('covUploadStatus');
-        function setUploadStatus(msg, ok) {
-            if (!statusEl) return;
-            statusEl.textContent = msg || '';
-            statusEl.className = 'text-[11px] mb-0 ' + (ok === false ? 'text-rose-600' : (ok ? 'text-emerald-700' : 'text-slate-400'));
-        }
-        async function uploadPart(part, fileInput) {
-            if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
-            var bid = selectedBook && selectedBook.bookId ? selectedBook.bookId : initialBookId;
-            if (!bid || bid <= 0) {
-                toast('error', 'No book loaded.');
-                return;
-            }
-            var file = fileInput.files[0];
-            if (!/\.(png|jpe?g|webp)$/i.test(file.name || '')) {
-                setUploadStatus('Use PNG, JPG, or WebP.', false);
-                return;
-            }
-            setUploadStatus('Uploading ' + part + '…', true);
-            try {
-                var fd = new FormData();
-                fd.append('file', file);
-                var r = await fetch('/Books/UploadCover?bookId=' + encodeURIComponent(bid) + '&part=' + encodeURIComponent(part), {
-                    method: 'POST',
-                    body: fd,
-                    credentials: 'same-origin'
-                });
-                var d = await r.json().catch(function () { return {}; });
-                if (!r.ok || !d.success) {
-                    setUploadStatus((d && d.message) || 'Upload failed.', false);
-                    return;
-                }
-                var path = d.path || '';
-                if (part === 'front') {
-                    selectedPath = path;
-                    if (selectedBook) {
-                        selectedBook.coverImagePath = path;
-                        selectedBook.aiCoverLastPreview = path;
-                    }
-                    persistCoverSelection(bid, path);
-                    setCoverImageVisible(toUrl(path));
-                    setUploadStatus('Front image applied to preview.', true);
-                    if (needsPrintWrapAutoBuild()) buildPrintWrapNow(true);
-                } else if (part === 'back') {
-                    if (selectedBook) selectedBook.backCoverPath = path;
-                    setUploadStatus('Back image saved. Rebuild wrap to apply.', true);
-                    if (needsPrintWrapAutoBuild() && frontCoverIsReady()) buildPrintWrapNow(true);
-                } else {
-                    if (selectedBook) selectedBook.spineCoverPath = path;
-                    setUploadStatus('Spine image saved. Rebuild wrap to apply.', true);
-                    if (needsPrintWrapAutoBuild() && frontCoverIsReady()) buildPrintWrapNow(true);
-                }
-                if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
-                updatePublishGate();
-                refreshLucide();
-            } catch (err) {
-                setUploadStatus('Network error during upload.', false);
-            } finally {
-                fileInput.value = '';
-            }
-        }
-        var front = document.getElementById('covUploadFront');
-        var back = document.getElementById('covUploadBack');
-        var spine = document.getElementById('covUploadSpine');
-        if (front) front.addEventListener('change', function () { uploadPart('front', front); });
-        if (back) back.addEventListener('change', function () { uploadPart('back', back); });
-        if (spine) spine.addEventListener('change', function () { uploadPart('spine', spine); });
     })();
 
     function getBackCoverSummaryText() {
