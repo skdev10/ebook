@@ -209,7 +209,7 @@
             <p id="ebookhub-preview-desc" class="text-sm text-gray-600 leading-relaxed mb-3"></p>
             <p id="ebookhub-preview-words" class="text-xs text-gray-400 mb-4"></p>
             <div class="flex flex-wrap gap-2 mb-4">
-                <a id="ebookhub-open-formatter" href="/BookDesign/CoverDesignCalculatorFixing" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-violet-200 text-violet-700 text-xs font-semibold hover:bg-violet-50">
+                <a id="ebookhub-open-formatter" href="/Books/Formatting" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-violet-200 text-violet-700 text-xs font-semibold hover:bg-violet-50">
                     <i class="fas fa-pencil-ruler" aria-hidden="true"></i> Open formatting
                 </a>
                 <a id="ebookhub-open-publish" href="/Dashboard/Publish" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-violet-200 text-violet-700 text-xs font-semibold hover:bg-violet-50">
@@ -304,7 +304,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('ebookhub-preview-words').textContent = (words && parseInt(words, 10) > 0) ? (parseInt(words, 10).toLocaleString() + ' words') : '';
         var formatterLink = document.getElementById('ebookhub-open-formatter');
         var publishLink = document.getElementById('ebookhub-open-publish');
-        if (formatterLink) formatterLink.setAttribute('href', '/BookDesign/CoverDesignCalculatorFixing?bookId=' + (bookId > 0 ? bookId : ''));
+        if (formatterLink) formatterLink.setAttribute('href', '/Books/Formatting/' + (bookId > 0 ? bookId : ''));
         if (publishLink) publishLink.setAttribute('href', '/Dashboard/Publish?bookId=' + (bookId > 0 ? bookId : ''));
         hubOverlay.classList.remove('hidden');
         hubOverlay.classList.add('flex');

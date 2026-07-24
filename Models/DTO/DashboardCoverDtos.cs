@@ -99,6 +99,28 @@ namespace EBookDashboard.Models.DTO
 
         /// <summary>Ebook export format: <c>epub</c> (default) or <c>docx</c> (Word document).</summary>
         public string? ExportFormat { get; set; }
+
+        /// <summary>Formatting workspace trim (inches). When set, print PDF uses this page size.</summary>
+        [JsonPropertyName("trimWidthIn")]
+        public double? TrimWidthIn { get; set; }
+
+        [JsonPropertyName("trimHeightIn")]
+        public double? TrimHeightIn { get; set; }
+
+        [JsonPropertyName("useBleed")]
+        public bool? UseBleed { get; set; }
+
+        [JsonPropertyName("marginTopIn")]
+        public double? MarginTopIn { get; set; }
+
+        [JsonPropertyName("marginBottomIn")]
+        public double? MarginBottomIn { get; set; }
+
+        [JsonPropertyName("marginInsideIn")]
+        public double? MarginInsideIn { get; set; }
+
+        [JsonPropertyName("marginOutsideIn")]
+        public double? MarginOutsideIn { get; set; }
     }
 
     /// <summary>POST /Dashboard/GeneratePrintReadyCover — auto-generate back+spine+front cover set.</summary>

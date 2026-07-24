@@ -1,10 +1,9 @@
 /**
- * Dashboard-first book flow — SweetAlert when users skip steps or risk losing work.
+ * Soft navigation helpers for module pages — no forced Writer → Format → Cover chain.
+ * Unsaved-work warning only when EbookUnsavedGuard reports dirty = true.
  */
 (function (global) {
     'use strict';
-
-    var FLOW_ORDER_HTML = '<b>AI Writer → Book Formatting → AI Cover Design → Publish</b>';
 
     function hasSwal() {
         return typeof global.Swal !== 'undefined';
@@ -12,9 +11,8 @@
 
     function showUseDashboardAlert(dashboardUrl) {
         var url = dashboardUrl || '/Dashboard';
-        var html = 'Open your book from the <b>Dashboard</b> under <b>Continue Editing</b>. '
-            + 'That keeps your chapters, formatting, and cover work safe.<br><br>'
-            + 'If you jump around without following the steps, <b>unsaved work can be lost or deleted</b>.';
+        var html = 'Pick a book from the <b>Dashboard</b> under <b>Continue Editing</b>, '
+            + 'or open <b>AI Writer</b>, <b>Formatting</b>, or <b>Book Cover</b> from the sidebar.';
 
         if (!hasSwal()) {
             if (global.confirm(html.replace(/<[^>]+>/g, ''))) global.location.href = url;
@@ -22,13 +20,13 @@
         }
 
         return global.Swal.fire({
-            title: 'Start from your Dashboard',
+            title: 'Choose a book',
             html: html,
             icon: 'info',
             showCancelButton: true,
             confirmButtonText: 'Go to Dashboard',
             cancelButtonText: 'Stay here',
-            confirmButtonColor: '#7c3aed',
+            confirmButtonColor: '#0f766e',
             cancelButtonColor: '#64748b',
             focusCancel: true
         }).then(function (r) {
@@ -37,12 +35,10 @@
     }
 
     function showSkippedStepAlert(featureName, gotoUrl) {
-        var name = (featureName && String(featureName).trim()) || 'This step';
-        var html = name + ' is not available yet on this path.<br><br>'
-            + 'Please follow the steps in order: ' + FLOW_ORDER_HTML + '.<br><br>'
-            + '<b>Warning:</b> skipping ahead or opening the wrong screen can cause '
-            + '<b>unsaved chapters, formatting, or cover work to be lost</b>. '
-            + 'Always continue from the <b>Dashboard → Continue Editing</b> card for your book.';
+        var name = (featureName && String(featureName).trim()) || 'This module';
+        var html = name + ' needs a selected book.<br><br>'
+            + 'Open it from the Dashboard, the sidebar, or <b>Continue Editing</b>. '
+            + 'You can use Writer, Formatting, and Cover in any order.';
 
         if (!hasSwal()) {
             global.alert(html.replace(/<[^>]+>/g, ''));
@@ -50,19 +46,17 @@
             return Promise.resolve();
         }
 
-        var buttons = {
-            icon: 'warning',
-            title: 'Follow your book flow',
+        return global.Swal.fire({
+            icon: 'info',
+            title: 'Select a book first',
             html: html,
-            confirmButtonText: gotoUrl ? 'Go to the right step' : 'OK',
-            confirmButtonColor: '#7c3aed',
+            confirmButtonText: gotoUrl ? 'Continue' : 'OK',
+            confirmButtonColor: '#0f766e',
             showCancelButton: true,
             cancelButtonText: 'Go to Dashboard',
             cancelButtonColor: '#64748b',
             focusCancel: true
-        };
-
-        return global.Swal.fire(buttons).then(function (r) {
+        }).then(function (r) {
             if (r.isConfirmed && gotoUrl) global.location.href = gotoUrl;
             else if (r.isDismissed && r.dismiss === global.Swal.DismissReason.cancel) {
                 global.location.href = '/Dashboard';
@@ -72,48 +66,21 @@
 
     function confirmLeaveToDashboard(targetUrl) {
         var url = targetUrl || '/Dashboard';
-        var isDirty = !!(global.EbookUnsavedGuard
-            && typeof global.EbookUnsavedGuard.isDirty === 'function'
-            && global.EbookUnsavedGuard.isDirty());
-
-        if (isDirty && global.EbookUnsavedGuard && typeof global.EbookUnsavedGuard.confirmLeave === 'function') {
-            return global.EbookUnsavedGuard.confirmLeave(url).then(function (ok) {
-                if (ok) global.location.href = url;
-                return ok;
-            });
-        }
-
-        if (!hasSwal()) {
-            global.location.href = url;
-            return Promise.resolve(true);
-        }
-
-        return global.Swal.fire({
-            title: 'Go back to Dashboard?',
-            html: 'Going back will <b>discard any work on this step that you haven\'t saved yet</b> '
-                + '(current chapter draft, formatting, or cover changes).<br><br>'
-                + 'Your already-saved chapters stay safe — reopen the book under '
-                + '<b>Continue Editing</b> to resume at the right step (' + FLOW_ORDER_HTML + ').',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Go back anyway',
-            cancelButtonText: 'Keep working',
-            confirmButtonColor: '#dc2626',
-            cancelButtonColor: '#64748b',
-            focusCancel: true
-        }).then(function (r) {
-            if (r.isConfirmed) {
+        // Soft leave: never block. Kick a background save if the page registered one.
+        if (global.EbookUnsavedGuard && typeof global.EbookUnsavedGuard.confirmLeave === 'function') {
+            return global.EbookUnsavedGuard.confirmLeave(url).then(function () {
                 global.location.href = url;
                 return true;
-            }
-            return false;
-        });
+            });
+        }
+        global.location.href = url;
+        return Promise.resolve(true);
     }
 
     function confirmNewBookWhileInProgress(customHtml) {
-        var html = customHtml || ('Starting a <b>new book</b> while another draft is in progress can confuse your workflow. '
-            + 'If you reset, <b>unsaved work on the current book may be deleted</b>.<br><br>'
-            + 'To continue an existing book, use <b>Dashboard → Continue Editing</b> instead.');
+        var html = customHtml || ('Starting a <b>new book</b> while another draft is open may leave '
+            + 'unsaved edits behind.<br><br>'
+            + 'To continue an existing book, use <b>Dashboard → Continue Editing</b>.');
 
         if (!hasSwal()) {
             return Promise.resolve(global.confirm(html.replace(/<[^>]+>/g, '')));
@@ -122,11 +89,11 @@
         return global.Swal.fire({
             title: 'Start a new book?',
             html: html,
-            icon: 'warning',
+            icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Start new book',
-            cancelButtonText: 'Continue current book',
-            confirmButtonColor: '#7c3aed',
+            cancelButtonText: 'Stay',
+            confirmButtonColor: '#0f766e',
             cancelButtonColor: '#64748b',
             focusCancel: true,
             allowOutsideClick: false
@@ -134,7 +101,7 @@
     }
 
     global.FlowNavGuard = {
-        FLOW_ORDER_HTML: FLOW_ORDER_HTML,
+        FLOW_ORDER_HTML: 'AI Writer, Formatting, and Book Cover (any order)',
         showUseDashboardAlert: showUseDashboardAlert,
         showSkippedStepAlert: showSkippedStepAlert,
         confirmLeaveToDashboard: confirmLeaveToDashboard,

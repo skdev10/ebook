@@ -118,7 +118,8 @@
         shell.style.maxWidth = '100%';
         shell.style.maxHeight = shellH + 'px';
         shell.style.flexShrink = '0';
-        shell.style.aspectRatio = '6 / 9';
+        // Keep CSS aspect-ratio in sync with the ratio used for sizing (single page 6/9, spread ~12/9).
+        shell.style.aspectRatio = String(ratio);
 
         if (opts.measureHost) {
             opts.measureHost.style.width = shellW + 'px';

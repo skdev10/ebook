@@ -34,6 +34,7 @@
 <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <script src="~/js/book-interior-preview.js" asp-append-version="true"></script>
 <script src="~/js/ai-writer-read-mode.js" asp-append-version="true"></script>
+<script src="~/js/module-export.js" asp-append-version="true"></script>
 @if (ViewBag.InteriorThemeCss is string interiorThemeCss && !string.IsNullOrWhiteSpace(interiorThemeCss))
 {
 <style id="ai-writer-interior-tokens">@Html.Raw(interiorThemeCss.Replace("#book-formatter-root", "#bookResult", StringComparison.Ordinal).Replace("#fmt-book-result", "#bookResult", StringComparison.Ordinal))</style>
@@ -196,24 +197,25 @@
     } */
     /* Preview card: fixed reading viewport (paginated); no growth from chapter length */
    
-    /* Book page card: matches the reference design — soft lavender gradient page,
-       chapter title inside the page, no border, deep soft shadow. */
+    /* Book page card: physical book sheet on desk mat (not a floating lavender card) */
     #bookResult[data-interior-mode="web"] .paginated-reader-shell.book-page-preview-shell {
-        background: var(--ilt-page-bg, var(--export-page-bg, #ffffff)) !important;
-        border: 1px solid rgba(148, 163, 184, 0.45) !important;
-        border-radius: 4px !important;
-        box-shadow: var(--book-preview-page-shadow, 0 12px 32px -8px rgba(15, 23, 42, 0.18)) !important;
+        background: var(--book-preview-page-bg, #fffef8) !important;
+        border: 1px solid rgba(68, 48, 36, 0.28) !important;
+        border-radius: 3px !important;
+        box-shadow: var(--book-preview-page-shadow) !important;
     }
     #bookResult[data-interior-mode="web"] #preview-content.chapter-preview-viewport.book-page-preview-content {
-        background: var(--ilt-page-bg, var(--export-page-bg, #ffffff));
+        background: var(--book-preview-page-bg, #fffef8);
     }
     #bookResult .paginated-reader-shell.book-page-preview-shell {
         display: flex;
         flex-direction: column;
-        background: var(--ilt-page-bg, var(--page-bg, #ffffff));
-        border: none;
-        border-radius: 18px;
-        box-shadow: 0 30px 60px -30px rgba(91, 33, 182, 0.30);
+        background: var(--book-preview-page-bg, #fffef8);
+        border: 1px solid rgba(68, 48, 36, 0.28);
+        border-radius: 3px;
+        box-shadow: var(--book-preview-page-shadow);
+        position: relative;
+        z-index: 2;
     }
     #bookResult #preview-chapter-header:not(.hidden) ~ #preview-content .manuscript-chapter-heading:first-child {
         display: none;
@@ -249,7 +251,7 @@
         font-size: 0.8125rem;
         line-height: 1.65;
     }
-    /* Preview wrap: transparent — the 6×9 page itself is the visible card (no mat behind it) */
+    /* Preview wrap: keep desk mat visible behind the book page */
     #bookResult {
         width: 100%;
         max-width: 100%;
@@ -257,9 +259,10 @@
         display: flex;
         flex-direction: column;
         align-items: stretch;
-        flex-shrink: 0;
+        flex: 1 1 auto;
         overflow: hidden;
         position: relative;
+        z-index: 1;
         border: none;
         box-shadow: none;
         background: transparent;
@@ -312,9 +315,11 @@
         min-height: 0;
         display: flex;
         flex-direction: column;
-        align-items: stretch;
+        align-items: center;
+        justify-content: flex-start;
         overflow: hidden;
         position: relative;
+        z-index: 1;
     }
     /* 6×9 shell — fixed trim; page turns via arrows (no inner scroll trap) */
     #bookResult .paginated-reader-shell.book-page-preview-shell {
@@ -1415,8 +1420,43 @@
     }
     .ai-writer-sidebar [data-guided-tour="ai-write-section"] > h2,
     .ai-writer-sidebar [data-guided-tour="ai-book-picker"] > h2 {
-        margin-bottom: 0 !important;
+        margin-bottom: 0.15rem;
     }
+    .writer-upload-icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 0.85rem;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+        flex-shrink: 0;
+    }
+    .writer-upload-icon-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+        border-color: #c4b5fd;
+        color: #6d28d9;
+        background: #f5f3ff;
+    }
+    .writer-upload-icon-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .writer-upload-icon-btn--doc {
+        border-color: #ddd6fe;
+        background: #f5f3ff;
+        color: #6d28d9;
+    }
+    .writer-upload-icon-btn--img {
+        border-color: #e2e8f0;
+        background: #fff;
+        color: #475569;
+    }
+    .writer-upload-icon-btn i { font-size: 0.95rem; line-height: 1; }
     .ai-writer-sidebar label.text-sm {
         margin-bottom: 0;
     }
@@ -1528,6 +1568,114 @@
      div#chapterVersionsSummary {
     display: none;
 }
+
+    /* ===== Writer book preview — physical book on desk (final overrides) ===== */
+    #bookResult #chapterPreviewScrollHost.book-preview-stage {
+        background: var(--book-preview-stage-bg) !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(68, 48, 36, 0.35);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+        padding: 1.15rem 1.35rem 1.35rem !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0.65rem;
+        min-height: 28rem;
+        z-index: 1;
+    }
+    #bookResult .paginated-reader-shell.book-page-preview-shell,
+    #bookResult .paginated-reader-shell.book-page-preview-shell.is-open-spread {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        z-index: 3 !important;
+        margin-inline: auto !important;
+        max-height: calc(100dvh - 10rem) !important;
+        aspect-ratio: 12 / 9 !important;
+        width: min(100%, 920px) !important;
+    }
+    #bookResult .paginated-reader-shell.book-page-preview-shell::before {
+        display: none !important;
+    }
+    #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
+        background: transparent !important;
+        color: #1c1917 !important;
+        font-family: Georgia, "Times New Roman", serif !important;
+        display: block !important;
+        height: 100%;
+        padding: 0 !important;
+        box-sizing: border-box;
+        z-index: 1;
+    }
+    #bookResult #preview-content .book-open-spread {
+        min-height: 100%;
+    }
+    #bookResult #preview-content .writer-page-sheet {
+        display: flex;
+        flex-direction: column;
+        flex: 1 1 auto;
+        min-height: 100%;
+        height: 100%;
+    }
+    #bookResult #preview-content .writer-page-sheet > .reader-chapter-block,
+    #bookResult #preview-content .writer-page-sheet > .front-matter-page {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+    }
+    #bookResult #preview-content .writer-page-folio {
+        flex-shrink: 0;
+        margin-top: auto;
+        padding-top: 0.45rem;
+        text-align: center;
+        font-size: 0.72rem;
+        letter-spacing: 0.14em;
+        color: #78716c;
+        font-variant-numeric: tabular-nums;
+    }
+    #bookResult .ai-writer-preview-side-nav {
+        z-index: 6 !important;
+    }
+    #bookResult .ai-writer-page-indicator,
+    #bookResult .ai-writer-total-pages {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-top: 0.15rem;
+        padding: 0.4rem 0.85rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #fff8f0;
+        background: rgba(28, 25, 23, 0.28);
+        border: 1px solid rgba(255, 248, 240, 0.22);
+        border-radius: 9999px;
+        letter-spacing: 0.02em;
+    }
+    #bookResult .ai-writer-page-indicator.hidden,
+    #bookResult .ai-writer-total-pages.hidden {
+        display: none !important;
+    }
+    .ai-writer-preview-meta {
+        text-align: center;
+        align-items: center;
+    }
+    .ai-writer-preview-meta #preview-book-title {
+        text-align: center;
+        width: 100%;
+    }
+    @@media (min-width: 1024px) {
+        .ai-writer-main-layout.book-preview-layout-row {
+            grid-template-columns: minmax(280px, 34%) minmax(0, 66%) !important;
+            gap: 1.25rem !important;
+            align-items: stretch !important;
+        }
+        .ai-writer-main-layout .ai-writer-preview-stack {
+            min-height: calc(100dvh - 6.5rem);
+        }
+        #bookResult #chapterPreviewScrollHost.book-preview-stage {
+            min-height: calc(100dvh - 12.5rem);
+        }
+    }
 </style>
 
 
@@ -1553,7 +1701,28 @@
                     <input type="text" id="ChapterNo" value="1">
                     <label for="Title">ChapterTitle:</label>
                     <input type="hidden" id="Title" value="" maxlength="200">
-                    <select id="savedResponsesDropdown" tabindex="-1"><option value="@(selectedBookId ?? 0)" selected>@selectedBookTitle</option></select>
+                    <select id="savedResponsesDropdown" tabindex="-1">
+                        <option value="0">New book</option>
+                        @if (Model?.UserBooks != null)
+                        {
+                            foreach (var b in Model.UserBooks)
+                            {
+                                var t = string.IsNullOrWhiteSpace(b.Title) ? "Untitled" : b.Title.Trim();
+                                if (selectedBookId > 0 && b.BookId == selectedBookId.Value)
+                                {
+                                    <option value="@b.BookId" selected>@t</option>
+                                }
+                                else
+                                {
+                                    <option value="@b.BookId">@t</option>
+                                }
+                            }
+                        }
+                        else if (selectedBookId > 0)
+                        {
+                            <option value="@(selectedBookId ?? 0)" selected>@selectedBookTitle</option>
+                        }
+                    </select>
                     <button type="button" id="bookSelectionPreviewBtn" tabindex="-1"></button>
                     <button type="button" id="createBookBtn" tabindex="-1"></button>
                 </div>
@@ -1569,26 +1738,66 @@
 
             <section class="flex flex-col gap-3" data-guided-tour="ai-write-section">
                 <h2 class="font-serif-custom text-xl font-medium tracking-tight text-slate-800">Write a New Book</h2>
+                @if (Model?.UserBooks != null && Model.UserBooks.Count > 0)
+                {
+                    <div class="flex flex-col gap-2" data-guided-tour="ai-book-select">
+                        <label for="ai-writer-book-select" class="text-sm font-medium text-slate-500">Change book <span class="font-normal text-slate-400">(optional)</span></label>
+                        <div class="relative">
+                            <select id="ai-writer-book-select" class="form-input-uniform w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3.5 pr-10 text-base text-slate-800 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm cursor-pointer" aria-label="Select a book to continue writing">
+                                @if (!(selectedBookId > 0))
+                                {
+                                    <option value="0" selected>New book — start blank</option>
+                                }
+                                else
+                                {
+                                    <option value="0">New book — start blank</option>
+                                }
+                                @foreach (var b in Model.UserBooks)
+                                {
+                                    var t = string.IsNullOrWhiteSpace(b.Title) ? "Untitled" : b.Title.Trim();
+                                    if (selectedBookId > 0 && b.BookId == selectedBookId.Value)
+                                    {
+                                        <option value="@b.BookId" selected>@t</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@b.BookId">@t</option>
+                                    }
+                                }
+                            </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" aria-hidden="true"></i>
+                        </div>
+                    </div>
+                }
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Book Title</label>
                     <input type="text" id="BookTitle" value="@initialBookTitle" placeholder="Enter Book Title" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
                 </div>
                 <div class="flex flex-col gap-2">
+                    <label for="ChapterTitleVisible" class="text-sm font-medium text-slate-500">Chapter Title</label>
+                    <input type="text" id="ChapterTitleVisible" value="" maxlength="200" placeholder="Chapter title loads when you pick a book / chapter" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm" autocomplete="off">
+                </div>
+                <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Chapter No.</label>
                     <div class="chapter-no-input-group flex w-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden focus-within:ring-2 focus-within:ring-purple-400 focus-within:border-purple-400 transition-all">
                         <select id="ChapterDropdown" class="chapter-no-select flex-1 min-w-[100px] appearance-none bg-transparent border-0 px-4 py-3.5 pr-8 text-base text-slate-700 focus:outline-none focus:ring-0 cursor-pointer" onchange="loadBookChapterNos(this.value)">
-                            <option value="1" selected>Click “Add a chapter” to start →</option>
+                            <option value="" selected disabled>Add a chapter → click +</option>
                         </select>
                         <span class="flex items-center px-1 text-slate-400 pointer-events-none"><i class="fas fa-chevron-down text-sm"></i></span>
                         <button id="addChapterBtn" type="button" class="chapter-inline-action chapter-inline-add add-chapter-btn-inline" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">
                             <i class="fas fa-plus text-[11px]" aria-hidden="true"></i>
                         </button>
                     </div>
-                    <div class="flex items-center gap-2 pt-1">
+                    <div class="flex items-center gap-2 pt-1" data-guided-tour="ai-upload">
                         <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.text,.md,.markdown,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" aria-label="Upload document (PDF, Word, TXT, or Markdown)" />
-                        <button type="button" id="chapterDocUploadBtn" class="inline-flex items-center justify-center gap-2 w-full text-xs font-semibold text-violet-800 px-3.5 py-2.5 rounded-xl border border-dashed border-violet-300 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" title="Import a PDF, Word (.docx), TXT, or Markdown file — chapters are detected and added automatically" aria-label="Import document file">
-                            <i class="fas fa-file-arrow-up text-sm" aria-hidden="true"></i> Import .docs file (auto-split into chapters)
+                        <input type="file" id="chapterOcrImageInput" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,image/png,image/jpeg,image/webp,image/tiff" class="hidden" aria-label="Upload image for book preview" />
+                        <button type="button" id="chapterDocUploadBtn" class="writer-upload-icon-btn writer-upload-icon-btn--doc" title="Upload manuscript (PDF, Word, TXT, Markdown)" aria-label="Upload manuscript">
+                            <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
                         </button>
+                        <button type="button" id="chapterOcrImageBtn" class="writer-upload-icon-btn writer-upload-icon-btn--img" title="Upload page image to book preview" aria-label="Upload image to book preview">
+                            <i class="fas fa-image" aria-hidden="true"></i>
+                        </button>
+                        <p id="chapterOcrStatus" class="text-[11px] text-slate-400 mb-0 min-h-[1em] flex-1 truncate" aria-live="polite"></p>
                     </div>
                     <div class="flex flex-col gap-2 pt-1 hidden" id="iterationPickerWrap">
                         <div id="chapterVersionsSummary" class="hidden rounded-lg border border-emerald-200/70 bg-emerald-50/90 px-2.5 py-2 text-xs text-emerald-900" role="status" aria-live="polite">
@@ -1655,13 +1864,14 @@
             <div class="ai-writer-preview-pane w-full flex flex-col min-h-0 flex-1">
             <div class="ai-writer-preview-column w-full flex flex-col gap-4 min-h-0 flex-1">
             <div class="ai-writer-preview-meta flex flex-col gap-2 mb-4 shrink-0">
-                <div class="flex items-center gap-2 text-sm font-semibold text-violet-600 tracking-wide">
+                <div class="flex items-center justify-center gap-2 text-sm font-semibold text-violet-600 tracking-wide">
                     <span class="h-px w-4 bg-violet-500 shrink-0"></span>
-                    Ebook AI
+                    Book preview
+                    <span class="h-px w-4 bg-violet-500 shrink-0"></span>
                 </div>
                 <h1 id="preview-book-title" class="font-serif-custom text-2xl lg:text-[1.65rem] font-medium tracking-tight text-slate-900 transition-all duration-300 m-0">Your Chapter's Preview</h1>
                 <p class="preview-intro-desc text-sm text-slate-500 leading-relaxed m-0">
-                    Your manuscript appears as a paginated ebook page. Use the side arrows to turn pages.
+                    Your manuscript appears as a real book page. Uploaded images show inside the preview. Use the side arrows to turn pages.
                 </p>
                 <div id="chatContainer" class="chat-container hidden flex-col flex-shrink-0" aria-live="polite"></div>
             </div>
@@ -1692,8 +1902,8 @@
                     <button type="button" id="btnAiWriterPrevSide" class="book-preview-nav-side book-preview-nav-side-prev ai-writer-preview-side-nav ai-writer-preview-side-prev" aria-label="Previous page" title="Previous page"><i class="fas fa-chevron-left w-4 h-4" aria-hidden="true"></i></button>
                     <button type="button" id="btnAiWriterNextSide" class="book-preview-nav-side book-preview-nav-side-next ai-writer-preview-side-nav ai-writer-preview-side-next" aria-label="Next page" title="Next page"><i class="fas fa-chevron-right w-4 h-4" aria-hidden="true"></i></button>
                     </div>
-                    <div id="aiWriterPageIndicator" class="ai-writer-page-indicator hidden" style="display:none !important;" aria-live="polite">Page 1 of 1</div>
-                    <div id="aiWriterTotalPages" class="ai-writer-total-pages hidden" style="display:none !important;" aria-live="polite">
+                    <div id="aiWriterPageIndicator" class="ai-writer-page-indicator" aria-live="polite">Page 1 of 1</div>
+                    <div id="aiWriterTotalPages" class="ai-writer-total-pages" aria-live="polite">
                         <i class="fas fa-book text-[11px]" aria-hidden="true"></i>
                         <span>Total pages: <strong id="aiWriterTotalPagesValue">—</strong></span>
                     </div>
@@ -1875,6 +2085,13 @@ window.persistFormatterBookId = function (bookId) {
     if (!bookId || bookId === '0') return;
     try { sessionStorage.setItem(window.EBOOK_FORMATTER_BOOK_KEY, String(bookId)); } catch (e) {}
 };
+window.clearFormatterBookId = function () {
+    try { sessionStorage.removeItem(window.EBOOK_FORMATTER_BOOK_KEY); } catch (e) {}
+};
+(function clearSoftBookIfBlankWriter() {
+    var bid = parseInt(String(@(selectedBookId ?? 0)), 10) || 0;
+    if (bid <= 0 && typeof window.clearFormatterBookId === 'function') window.clearFormatterBookId();
+})();
 
 /** JSON API fetch — sends auth-friendly headers so session expiry returns 401, not HTML login. */
 window.apiJsonFetch = function (url, opts) {
@@ -2235,6 +2452,8 @@ window.syncAiWriterPreviewLayout = function () {
     var viewport = document.getElementById('preview-content');
     var previewPane = document.querySelector('.ai-writer-preview-pane');
     if (!scrollHost || !shell) return;
+    shell.classList.add('is-open-spread');
+    scrollHost.classList.add('book-preview-stage');
 
     function syncPreviewPaneWidth(w) {
         if (!previewPane) return;
@@ -2266,7 +2485,8 @@ window.syncAiWriterPreviewLayout = function () {
             minHostHeightPx: minHostH,
             preferHeight: isDesktopPreview,
             maxHeightPx: isDesktopPreview ? maxShellH : 0,
-            widthFactor: 1,
+            aspectRatio: 12 / 9,
+            widthFactor: isDesktopPreview ? 0.98 : 0.96,
             syncMeasureTypography: true,
             onLayoutChange: function (changed) {
                 if (!changed) return;
@@ -2296,10 +2516,10 @@ window.syncAiWriterPreviewLayout = function () {
 
     var paneW = scrollHost.clientWidth || 320;
     var shellH = maxShellH;
-    var shellW = Math.floor(shellH * (6 / 9));
+    var shellW = Math.floor(shellH * (12 / 9));
     if (shellW > Math.floor(paneW)) {
         shellW = Math.floor(paneW);
-        shellH = Math.floor(shellW * (9 / 6));
+        shellH = Math.floor(shellW * (9 / 12));
     }
     syncPreviewPaneWidth(shellW);
     shell.style.width = shellW + 'px';
@@ -2347,12 +2567,35 @@ window.renderCurrentReaderPage = function () {
         if (window.AiWriterReadMode.rebuildIfPossible(meta, { useFlatPage: true, startPageIndex: flat })) return;
     }
     var viewport = document.getElementById('preview-content');
+    var shell = document.getElementById('paginatedReaderShell');
     var pages = window._previewChapterPages || [];
     var pi = Math.max(0, Math.min(window._previewPageIndex || 0, Math.max(0, pages.length - 1)));
+    pi = (pi % 2 === 0) ? pi : Math.max(0, pi - 1);
     window._previewPageIndex = pi;
-    var html = pages.length ? pages[pi] : '<div class="reader-chapter-block"><p class="text-slate-500">No content.</p></div>';
+    var right = pi + 1;
+    function faceHtml(idx, side) {
+        var sideClass = side === 'recto' ? 'book-open-page--recto' : 'book-open-page--verso';
+        if (idx < 0 || idx >= pages.length) {
+            return '<div class="book-open-page ' + sideClass + '" aria-hidden="true">' +
+                '<div class="book-open-running-head is-empty">&nbsp;</div>' +
+                '<div class="book-open-page-inner book-open-blank"></div>' +
+                '<div class="book-open-folio">&nbsp;</div></div>';
+        }
+        var pageNum = idx + 1;
+        var body = String(pages[idx] || '').replace(/<div[^>]*class="[^"]*writer-page-folio[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '');
+        return '<div class="book-open-page ' + sideClass + '">' +
+            '<div class="book-open-running-head is-muted">&nbsp;</div>' +
+            '<div class="book-open-page-inner">' + body + '</div>' +
+            '<div class="book-open-folio writer-page-folio" aria-label="Page ' + pageNum + '">' + pageNum + '</div></div>';
+    }
     if (viewport) {
-        viewport.innerHTML = html;
+        if (shell) shell.classList.add('is-open-spread');
+        viewport.innerHTML =
+            '<div class="book-open-spread" role="group" aria-label="Open book spread">' +
+                faceHtml(pi, 'verso') +
+                '<div class="book-open-spine" aria-hidden="true"></div>' +
+                faceHtml(right, 'recto') +
+            '</div>';
         viewport.scrollTop = 0;
     }
     window.updateChapterPreviewNavUI();
@@ -2369,8 +2612,9 @@ window.readerNavNext = function () {
     var ci = window._previewChapterIndex || 0;
     var pages = window._previewChapterPages || [];
     var list = window._previewChaptersMeta || [];
-    if (pi < pages.length - 1) {
-        window._previewPageIndex = pi + 1;
+    var left = (pi % 2 === 0) ? pi : Math.max(0, pi - 1);
+    if (left + 2 < pages.length) {
+        window._previewPageIndex = left + 2;
         window.renderCurrentReaderPage();
         window.requestAnimationFrame(function () {
             if (typeof window.scrollAiWriterChapterToTop === 'function') window.scrollAiWriterChapterToTop();
@@ -2389,8 +2633,9 @@ window.readerNavPrevious = function () {
     }
     var pi = window._previewPageIndex || 0;
     var ci = window._previewChapterIndex || 0;
-    if (pi > 0) {
-        window._previewPageIndex = pi - 1;
+    var left = (pi % 2 === 0) ? pi : Math.max(0, pi - 1);
+    if (left > 0) {
+        window._previewPageIndex = Math.max(0, left - 2);
         window.renderCurrentReaderPage();
         window.requestAnimationFrame(function () {
             if (typeof window.scrollAiWriterChapterToTop === 'function') window.scrollAiWriterChapterToTop();
@@ -2696,11 +2941,29 @@ window.refreshAiWriterTotalPages = async function () {
 };
 document.addEventListener('DOMContentLoaded', function () {
     if (typeof window.refreshAiWriterTotalPages === 'function') window.refreshAiWriterTotalPages();
+
+    (function wireVisibleChapterTitle() {
+        var vis = document.getElementById('ChapterTitleVisible');
+        var hid = document.getElementById('Title');
+        if (!vis || !hid) return;
+        if (hid.value && !vis.value) vis.value = hid.value;
+        vis.addEventListener('input', function () {
+            if (typeof window.syncVisibleChapterTitle === 'function') window.syncVisibleChapterTitle(vis.value);
+            else hid.value = vis.value;
+            if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
+            if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
+        });
+        hid.addEventListener('input', function () {
+            if (vis.value !== hid.value) vis.value = hid.value;
+        });
+    })();
+
+    })();
 });
 
 window.refreshBookFormattingButton = function (progressData) {
     var btn = document.getElementById('btnNextStep');
-    if (!btn) return;
+    var exportBtns = document.querySelectorAll('#module-quick-actions [data-format], #module-quick-actions [data-book-export]');
     var bidEl = document.getElementById('BookId');
     var fromField = (bidEl && bidEl.value) ? String(bidEl.value).trim() : '';
     var ddl = document.getElementById('savedResponsesDropdown');
@@ -2708,14 +2971,20 @@ window.refreshBookFormattingButton = function (progressData) {
     var hasBook = parseInt(fromField || fromDdl || '0', 10) > 0;
     var hasGenerated = window.__bookHasGeneratedContent === true;
     var allOk = progressData && progressData.allFinalized === true;
-    btn.disabled = !hasBook || !hasGenerated;
-    btn.title = !hasBook
-        ? 'Select a book first'
-        : (!hasGenerated
-            ? 'Generate at least one chapter first — Book Formatting unlocks once your book has content'
-            : (allOk
-                ? 'Open Book formatting to lock chapters and export PDF'
-                : 'Open Book formatting'));
+    if (btn) {
+        btn.disabled = !hasBook || !hasGenerated;
+        btn.title = !hasBook
+            ? 'Select a book first'
+            : (!hasGenerated
+                ? 'Generate at least one chapter first — Book Formatting unlocks once your book has content'
+                : (allOk
+                    ? 'Open Book formatting to lock chapters and export PDF'
+                    : 'Open Book formatting'));
+    }
+    exportBtns.forEach(function (exportBtn) {
+        exportBtn.disabled = !hasBook;
+        exportBtn.title = !hasBook ? 'Select a book first' : (exportBtn.getAttribute('title') || 'Export');
+    });
 };
 
 window.showPreviewEmptyState = function () {
@@ -2973,10 +3242,30 @@ window.updateGenerateBtnMode = function () {
 };
 window.getChapterTitleValue = function () {
     var titleEl = document.getElementById('Title');
-    return titleEl ? String(titleEl.value || '').trim() : '';
+    var vis = document.getElementById('ChapterTitleVisible');
+    var fromHidden = titleEl ? String(titleEl.value || '').trim() : '';
+    var fromVis = vis ? String(vis.value || '').trim() : '';
+    return fromVis || fromHidden;
+};
+window.syncVisibleChapterTitle = function (value) {
+    var clean = typeof window.sanitizeChapterTitleForInput === 'function'
+        ? window.sanitizeChapterTitleForInput(value)
+        : String(value == null ? '' : value).trim();
+    var titleEl = document.getElementById('Title');
+    var vis = document.getElementById('ChapterTitleVisible');
+    if (titleEl) titleEl.value = clean;
+    if (vis) vis.value = clean;
 };
 window.shakeChapterTitleRequired = function () {
     var group = document.querySelector('.chapter-no-input-group');
+    var titleField = document.getElementById('ChapterTitleVisible');
+    if (titleField) {
+        titleField.classList.remove('chapter-title-shake');
+        void titleField.offsetWidth;
+        titleField.classList.add('chapter-title-shake');
+        titleField.focus();
+        window.setTimeout(function () { titleField.classList.remove('chapter-title-shake'); }, 500);
+    }
     if (!group) return;
     group.classList.remove('chapter-title-shake');
     void group.offsetWidth;
@@ -2989,7 +3278,7 @@ window.requireChapterTitleForAction = function (actionLabel) {
     if (typeof Swal !== 'undefined') {
         Swal.fire({
             title: 'Chapter title required',
-            text: 'Click Add a chapter and enter a chapter title before you ' + (actionLabel || 'continue') + '.',
+            text: 'Enter a chapter title (or click + to add a chapter) before you ' + (actionLabel || 'continue') + '.',
             icon: 'warning',
             confirmButtonColor: '#7c3aed'
         });
@@ -3088,19 +3377,25 @@ window.updateChapterPreviewNavUI = function () {
         if (nsFull) nsFull.style.visibility = '';
         var pi = window._writerPageIndex || 0;
         var total = window._writerBookPages.length;
+        var left = (pi % 2 === 0) ? pi : (pi - 1);
+        if (left < 0) left = 0;
+        var right = left + 1;
+        var spreadLabel = right < total
+            ? ('Pages ' + (left + 1) + '–' + (right + 1) + ' of ' + total)
+            : ('Page ' + (left + 1) + ' of ' + total);
         var pageLabel = (window.AiWriterReadMode && typeof window.AiWriterReadMode.pageLabel === 'function')
-            ? window.AiWriterReadMode.pageLabel(pi)
-            : ('Page ' + (pi + 1));
-        if (label) label.textContent = pageLabel + ' · Page ' + (pi + 1) + ' / ' + total;
+            ? window.AiWriterReadMode.pageLabel(left)
+            : spreadLabel;
+        if (label) label.textContent = pageLabel + ' · ' + spreadLabel;
         if (pageInd) {
-            pageInd.textContent = 'Page ' + (pi + 1) + ' of ' + total;
+            pageInd.textContent = spreadLabel;
             pageInd.classList.remove('hidden');
         }
-        if (prev) prev.disabled = pi <= 0;
-        if (next) next.disabled = pi >= total - 1;
-        if (psFull) psFull.disabled = pi <= 0;
-        if (nsFull) nsFull.disabled = pi >= total - 1;
-        if (fill) fill.style.width = total ? ((pi + 1) / total * 100) + '%' : '0%';
+        if (prev) prev.disabled = left <= 0;
+        if (next) next.disabled = right >= total;
+        if (psFull) psFull.disabled = left <= 0;
+        if (nsFull) nsFull.disabled = right >= total;
+        if (fill) fill.style.width = total ? ((Math.min(right + 1, total)) / total * 100) + '%' : '0%';
         if (idxBtn) {
             idxBtn.style.display = list.length > 1 ? '' : 'none';
             idxBtn.disabled = list.length <= 1;
@@ -3137,6 +3432,11 @@ window.updateChapterPreviewNavUI = function () {
     var ch = list[chIdx] || {};
     var pageCount = (window._previewChapterPages && window._previewChapterPages.length) || 1;
     var chCount = list.length;
+    var leftPg = (pgIdx % 2 === 0) ? pgIdx : Math.max(0, pgIdx - 1);
+    var rightPg = leftPg + 1;
+    var spreadText = rightPg < pageCount
+        ? ('Pages ' + (leftPg + 1) + '–' + (rightPg + 1) + ' of ' + pageCount)
+        : ('Page ' + (leftPg + 1) + ' of ' + pageCount);
     if (label) {
         var chNum = (ch && ch.chapterNo != null && ch.chapterNo !== '') ? parseInt(ch.chapterNo, 10) : (chIdx + 1);
         if (!Number.isFinite(chNum)) chNum = chIdx + 1;
@@ -3146,13 +3446,13 @@ window.updateChapterPreviewNavUI = function () {
         if (!displayTitle) displayTitle = 'Untitled';
         label.textContent = ch.loading
             ? ('Loading… ' + displayTitle)
-            : (displayTitle + ' · Page ' + (pgIdx + 1) + ' / ' + pageCount);
+            : (displayTitle + ' · ' + spreadText);
     }
     if (pageInd) {
         if (ch.loading) {
             pageInd.classList.add('hidden');
         } else {
-            pageInd.textContent = 'Page ' + (pgIdx + 1) + ' of ' + pageCount;
+            pageInd.textContent = spreadText;
             pageInd.classList.remove('hidden');
         }
     }
@@ -3176,10 +3476,10 @@ window.updateChapterPreviewNavUI = function () {
         }
         return;
     }
-    if (prev) prev.disabled = (chIdx <= 0 && pgIdx <= 0);
-    if (next) next.disabled = (chIdx >= chCount - 1 && pgIdx >= pageCount - 1);
+    if (prev) prev.disabled = (chIdx <= 0 && leftPg <= 0);
+    if (next) next.disabled = (chIdx >= chCount - 1 && leftPg + 2 >= pageCount);
     if (fill) {
-        var frac = chCount ? ((chIdx + (pgIdx + 1) / pageCount) / chCount) : 0;
+        var frac = chCount ? ((chIdx + (Math.min(leftPg + 2, pageCount)) / pageCount) / chCount) : 0;
         fill.style.width = (Math.min(1, frac) * 100) + '%';
     }
     if (idxBtn) {
@@ -3704,8 +4004,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return '';
     }
     function navigateToBookFormatting(bid, fmt) {
-        var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
-        if (fmt) url += '&format=' + encodeURIComponent(fmt);
+        var url = '/Books/Formatting/' + encodeURIComponent(bid);
+        if (fmt) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'format=' + encodeURIComponent(fmt);
         window.location.href = url;
     }
     function goToCoverDesign(bookId, format) {
@@ -3803,6 +4103,109 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
     var importInput = document.getElementById('chapterImportFileInput');
     var docUploadBtn = document.getElementById('chapterDocUploadBtn');
+
+    (function initChapterOcrImage() {
+        var ocrInput = document.getElementById('chapterOcrImageInput');
+        var ocrBtn = document.getElementById('chapterOcrImageBtn');
+        var ocrStatus = document.getElementById('chapterOcrStatus');
+        if (!ocrInput || !ocrBtn) return;
+
+        function setOcrStatus(msg, ok) {
+            if (!ocrStatus) return;
+            ocrStatus.textContent = msg || '';
+            ocrStatus.className = 'text-[11px] mb-0 min-h-[1em] ' + (ok === false ? 'text-rose-600' : (ok ? 'text-emerald-700' : 'text-slate-400'));
+        }
+
+        ocrBtn.addEventListener('click', function () {
+            if (ocrBtn.disabled) return;
+            ocrInput.click();
+        });
+
+        ocrInput.addEventListener('change', async function () {
+            var file = ocrInput.files && ocrInput.files[0];
+            ocrInput.value = '';
+            if (!file) return;
+            if (!/^image\//i.test(file.type || '') && !/\.(png|jpe?g|webp|tiff?|bmp)$/i.test(file.name || '')) {
+                setOcrStatus('Use a PNG or JPG image.', false);
+                return;
+            }
+            ocrBtn.disabled = true;
+            setOcrStatus('Reading text from image…', true);
+            try {
+                var dataUrl = await new Promise(function (resolve, reject) {
+                    var reader = new FileReader();
+                    reader.onload = function () { resolve(String(reader.result || '')); };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                var fd = new FormData();
+                fd.append('file', file);
+                var bidEl = document.getElementById('BookId');
+                if (bidEl && bidEl.value) fd.append('bookId', bidEl.value);
+                var res = await fetch('/Books/OcrChapterImage', { method: 'POST', body: fd, credentials: 'same-origin' });
+                var data = await res.json().catch(function () { return null; });
+                if (!res.ok || !data || !data.success) {
+                    setOcrStatus((data && data.message) || 'Could not extract text.', false);
+                    return;
+                }
+                var text = (data.text || '').trim();
+                var fig = dataUrl
+                    ? ('<figure class="writer-upload-figure"><img class="writer-upload-img" src="' + String(dataUrl).replace(/"/g, '&quot;') + '" alt="Uploaded chapter image" loading="eager" /></figure>')
+                    : '';
+                var bodyHtml = text
+                    ? (typeof window.formatManuscriptBodyToHtml === 'function'
+                        ? window.formatManuscriptBodyToHtml(text)
+                        : ('<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br/>') + '</p>'))
+                    : '';
+                var contentHtml = fig + bodyHtml;
+                if (!contentHtml.trim()) {
+                    setOcrStatus('No text found in image.', false);
+                    return;
+                }
+
+                // Like PDF/DOCX import: put content in the book preview only — never paste into the topic textarea.
+                var applied = false;
+                if (typeof window.applyImportedChapterDocument === 'function') {
+                    applied = !!window.applyImportedChapterDocument(contentHtml, {
+                        suggestedChapterTitle: 'From scanned image'
+                    });
+                }
+                if (!applied && typeof window.showBookContent === 'function') {
+                    var chEl = document.getElementById('ChapterNo');
+                    var ch = parseInt(chEl && chEl.value, 10) || 1;
+                    var titleEl = document.getElementById('Title');
+                    var title = (titleEl && titleEl.value.trim()) ? titleEl.value.trim() : 'From scanned image';
+                    if (titleEl && !titleEl.value.trim()) titleEl.value = title;
+                    var btEl = document.getElementById('BookTitle');
+                    window.showBookContent({
+                        bookTitle: (btEl && btEl.value) ? btEl.value.trim() : '',
+                        chapters: [{ chapterNo: ch, chapterTitle: title, title: title, content: contentHtml }]
+                    });
+                    applied = true;
+                }
+                if (!applied) {
+                    setOcrStatus('Could not load image into book preview.', false);
+                    return;
+                }
+
+                var apiRaw = document.getElementById('APIRawResponse');
+                if (apiRaw) apiRaw.value = contentHtml;
+                if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
+                if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+                if (typeof window.queueWriterAutosave === 'function') window.queueWriterAutosave(400);
+
+                if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+                setOcrStatus('Image loaded in book preview' + (text ? (' · ' + (data.charCount || text.length) + ' characters') : '') + '.', true);
+                if (typeof showToast === 'function') showToast('Image added to book preview (like a document upload).');
+                else if (typeof showNotification === 'function') showNotification('Image added to book preview.', 'success');
+            } catch (err) {
+                setOcrStatus('Network error during OCR.', false);
+            } finally {
+                ocrBtn.disabled = false;
+            }
+        });
+    })();
+
     // Only auto-fill the book title from an upload when the user hasn't already set one,
     // so a real typed title is never clobbered by a filename/metadata guess.
     function isBlankBookTitleValue(v) {
@@ -4338,7 +4741,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!writerAutoSaveStatus) return;
         writerAutoSaveStatus.textContent = text || '';
         writerAutoSaveStatus.classList.toggle('text-red-600', !!isError);
-        writerAutoSaveStatus.classList.toggle('text-slate-400', !isError);
+        writerAutoSaveStatus.classList.toggle('text-emerald-600', !isError && !!text && /saved/i.test(text));
+        writerAutoSaveStatus.classList.toggle('text-slate-400', !isError && !(text && /saved/i.test(text)));
+        writerAutoSaveStatus.classList.toggle('font-semibold', !isError && !!text && /saved/i.test(text));
     }
 
     function parseWriterAutosaveResponse(r, text) {
@@ -4437,7 +4842,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (writerAutosaveStatusTimer) clearTimeout(writerAutosaveStatusTimer);
                 writerAutosaveStatusTimer = setTimeout(function () {
                     setWriterAutoSaveStatus('', false);
-                }, 1600);
+                }, 3200);
             } else {
                 var msg = (result.data && result.data.message) ? result.data.message : 'Could not autosave.';
                 setWriterAutoSaveStatus(msg, true);
@@ -4461,6 +4866,7 @@ document.addEventListener('DOMContentLoaded', function() {
             runWriterAutosaveNow();
         }, typeof delayMs === 'number' ? delayMs : 700);
     }
+    window.queueWriterAutosave = queueWriterAutosave;
 
     /** A blank/placeholder book title that must never be force-injected into the title input. */
     function isPlaceholderBookTitle(title) {
@@ -4679,6 +5085,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return new Promise(function (resolve) {
                 var payload = buildWriterAutosavePayload();
                 if (!payload) { resolve(true); return; }
+                setWriterAutoSaveStatus('Saving…', false);
                 fetch('/Books/SaveChapterContent', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4688,9 +5095,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     return r.text().then(function (t) { return parseWriterAutosaveResponse(r, t); });
                 }).then(function (result) {
                     var ok = result.ok && result.data && result.data.success;
-                    if (ok && window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+                    if (ok) {
+                        if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+                        setWriterAutoSaveStatus('Saved', false);
+                        if (writerAutosaveStatusTimer) clearTimeout(writerAutosaveStatusTimer);
+                        writerAutosaveStatusTimer = setTimeout(function () {
+                            setWriterAutoSaveStatus('', false);
+                        }, 3200);
+                    } else {
+                        setWriterAutoSaveStatus((result.data && result.data.message) || 'Could not save.', true);
+                    }
                     resolve(ok);
-                }).catch(function () { resolve(false); });
+                }).catch(function () {
+                    setWriterAutoSaveStatus('Could not save.', true);
+                    resolve(false);
+                });
             });
         });
     }
@@ -4810,6 +5229,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
           // Load books immediately
           await loadSavedBooksDropdown();
+
+          // Visible "Change book" select → same attach path as Formatting (URL bookId).
+          (function wireAiWriterBookSelect() {
+              var sel = document.getElementById('ai-writer-book-select');
+              if (!sel || sel.dataset.wired === '1') return;
+              sel.dataset.wired = '1';
+              sel.addEventListener('change', function () {
+                  var id = parseInt(sel.value || '0', 10) || 0;
+                  var current = parseInt(String(selectedBookId || 0), 10) || 0;
+                  if (id === current) return;
+                  if (id > 0) {
+                      window.location.assign('/Books/AIGenerateBook?bookId=' + encodeURIComponent(id));
+                  } else {
+                      window.location.assign('/Books/Writer');
+                  }
+              });
+          })();
 
           // When landing with ?bookId=X, load the book once (includes chapter list)
           if (selectedBookId && selectedBookId > 0) {
@@ -5021,6 +5457,9 @@ document.addEventListener('DOMContentLoaded', function() {
                        ? window.sanitizeChapterTitleForInput(latestChapter.chapterTitle)
                        : (latestChapter.chapterTitle || ""))
                    : "";
+               if (typeof window.syncVisibleChapterTitle === 'function') {
+                   window.syncVisibleChapterTitle(document.getElementById("Title").value);
+               }
                var topicText = window.parseChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : "", latestChapter && latestChapter.chapterTopic);
                document.getElementById("UserInput").value = topicText;
 
@@ -5059,9 +5498,19 @@ document.addEventListener('DOMContentLoaded', function() {
                    return String(c.content).replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().length > 0;
                });
                if (hasRealChapterContent) {
-                   showNotification("Book loaded. Click Preview to see the full book below, or edit chapters and Generate.", "success");
+                   showNotification("Book loaded — full preview is ready.", "success");
+                   var uidLoad = parseInt(String(document.getElementById('UserId')?.value || userId || '0'), 10) || 0;
+                   var bidLoad = parseInt(String(bookId || '0'), 10) || 0;
+                   if (uidLoad > 0 && bidLoad > 0 && typeof window.loadFullBookIntoPageFlip === 'function') {
+                       window.loadFullBookIntoPageFlip(uidLoad, bidLoad);
+                   }
                } else {
                    showNotification("Start writing your first chapter.", "info");
+               }
+               // Keep visible chapter title field in sync
+               var visibleTitle = document.getElementById('ChapterTitleVisible');
+               if (visibleTitle && document.getElementById('Title')) {
+                   visibleTitle.value = document.getElementById('Title').value || '';
                }
                if (typeof window.syncCoverFormFromBook === 'function') window.syncCoverFormFromBook(bookId);
                if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
@@ -5117,6 +5566,12 @@ document.addEventListener('DOMContentLoaded', function() {
       function closeCreateBookModal() {
           var m = document.getElementById('createBookModal');
           if (m) m.style.display = 'none';
+          // Cancel keeps Writer soft — no book attached unless user already had one from Continue Editing.
+          var bidEl = document.getElementById('BookId');
+          var bid = bidEl ? parseInt(bidEl.value || '0', 10) : 0;
+          if (!bid || bid <= 0) {
+              if (typeof window.clearFormatterBookId === 'function') window.clearFormatterBookId();
+          }
       }
       async function createBookFromModal() {
           var userIdEl = document.getElementById('UserId');
@@ -5342,10 +5797,58 @@ document.addEventListener('DOMContentLoaded', function() {
 
        async function addNewChapter() {
                 const userId = document.getElementById("UserId").value;
-                const bookId = document.getElementById('BookId').value;
+                let bookId = document.getElementById('BookId').value;
+                // Beginner blank Writer: create a draft book from the title field, then add chapter 1.
                 if (!bookId || bookId === "0") {
-                   Swal.fire("Select a book", "Please select or create a book first, then add a chapter.", "warning");
-                   return;
+                    if (!userId || userId === "0") {
+                        Swal.fire("Sign in required", "Please sign in to add a chapter.", "warning");
+                        return;
+                    }
+                    var draftTitle = (document.getElementById('BookTitle')?.value || '').trim() || 'Untitled Book';
+                    try {
+                        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                        var createRes = await fetch('/Books/CreateBook', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                            body: JSON.stringify({
+                                UserId: parseInt(userId, 10),
+                                AuthorId: parseInt(userId, 10),
+                                CategoryId: 1,
+                                Title: draftTitle,
+                                Description: '',
+                                Dedication: '',
+                                Ghostwriting: '',
+                                Epigraph: '',
+                                Genre: 'General',
+                                LanguageId: 1,
+                                WordCount: 0,
+                                CoverImagePath: '',
+                                ManuscriptPath: '',
+                                Subtitle: '',
+                                AuthorCode: '',
+                                BookCode: ''
+                            })
+                        });
+                        var createJson = await createRes.json().catch(function () { return null; });
+                        if (!createRes.ok || !createJson || !createJson.bookId) {
+                            Swal.fire("Could not start book", (createJson && createJson.message) || "Please try again.", "error");
+                            return;
+                        }
+                        bookId = String(createJson.bookId);
+                        var bookIdEl = document.getElementById('BookId');
+                        if (bookIdEl) bookIdEl.value = bookId;
+                        try {
+                            var u = new URL(window.location.href);
+                            u.searchParams.set('bookId', bookId);
+                            window.history.replaceState({}, '', u.toString());
+                        } catch (eHist) { /* ignore */ }
+                        if (document.getElementById('BookTitle') && !(document.getElementById('BookTitle').value || '').trim()) {
+                            document.getElementById('BookTitle').value = draftTitle;
+                        }
+                    } catch (createErr) {
+                        Swal.fire("Could not start book", "Network error. Please try again.", "error");
+                        return;
+                    }
                 }
 
           var chapterTitle = await promptNewChapterTitle();
@@ -5374,6 +5877,7 @@ document.addEventListener('DOMContentLoaded', function() {
           }
 
           document.getElementById("Title").value = chapterTitle;
+          if (typeof window.syncVisibleChapterTitle === 'function') window.syncVisibleChapterTitle(chapterTitle);
           document.getElementById("UserInput").value = "";
           document.getElementById("Status").value = "Draft";
           var cc = document.getElementById('chatContainer');
@@ -5652,6 +6156,12 @@ document.addEventListener('DOMContentLoaded', function() {
                        ? window.sanitizeChapterTitleForInput(latestChapter.chapterTitle)
                        : (latestChapter.chapterTitle || ""))
                    : "";
+                  if (typeof window.syncVisibleChapterTitle === 'function') {
+                      window.syncVisibleChapterTitle(document.getElementById("Title").value);
+                  } else {
+                      var visCh = document.getElementById('ChapterTitleVisible');
+                      if (visCh) visCh.value = document.getElementById("Title").value || '';
+                  }
                   var topicText = window.parseChapterTopicFromRequestData(latestChapter ? latestChapter.requestData : "", latestChapter && latestChapter.chapterTopic);
                   document.getElementById("UserInput").value = topicText;
                   const statusCode = latestChapter ? latestChapter.statusCode : "Draft";
@@ -6009,8 +6519,8 @@ document.addEventListener('DOMContentLoaded', function() {
        //===(6-21)=== Minimal client-side sanitizer to allow basic formatting tags only ==OK
        function sanitizeHtml(unsafeHtml) {
           try {
-                const allowedTags = new Set(['p','br','hr','ul','ol','li','strong','b','em','i','u','h1','h2','h3','h4','h5','h6','blockquote','code','pre','span','div']);
-                const allowedAttrs = new Set(['class','style']);
+                const allowedTags = new Set(['p','br','hr','ul','ol','li','strong','b','em','i','u','h1','h2','h3','h4','h5','h6','blockquote','code','pre','span','div','img','figure','figcaption']);
+                const allowedAttrs = new Set(['class','style','src','alt','title','width','height','loading','decoding']);
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(String(unsafeHtml), 'text/html');
                 const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_ELEMENT, null);
@@ -6031,10 +6541,19 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                             if (name === 'style' && /expression\(|javascript:|url\(/i.test(value)) {
                                    el.removeAttribute('style');
+                                   return;
+                            }
+                            if (name === 'src') {
+                                   var srcOk = /^(data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml);base64,|https?:\/\/|\/)/i.test(value);
+                                   if (!srcOk) el.removeAttribute('src');
                             }
                       });
                  }
-                 toRemove.forEach(n => n.replaceWith(n.textContent || ''));
+                 toRemove.forEach(n => {
+                      // Keep text from stripped tags, but drop unsafe media entirely
+                      if (/^(script|iframe|object|embed)$/i.test(n.tagName)) n.remove();
+                      else n.replaceWith(n.textContent || '');
+                 });
                  return doc.body.innerHTML;
           } catch (e) {
                  return escapeHtml(String(unsafeHtml));
@@ -6300,6 +6819,12 @@ document.addEventListener('DOMContentLoaded', function() {
              opt.value = s;
              opt.textContent = 'Chapter ' + String(n);
              ddl.appendChild(opt);
+         }
+         // Drop soft "Add a chapter" placeholder once a real chapter exists.
+         for (var p = ddl.options.length - 1; p >= 0; p--) {
+             if (ddl.options[p].value === '' || ddl.options[p].disabled) {
+                 ddl.remove(p);
+             }
          }
          ddl.value = s;
      }
@@ -6960,7 +7485,7 @@ document.addEventListener('DOMContentLoaded', function() {
               }
 
               // Clear and populate dropdown
-              dropdown.innerHTML = '<option value="">📚 Select saved book…</option>';
+              dropdown.innerHTML = '<option value="0">New book — start blank</option>';
 
               if (Array.isArray(books) && books.length > 0) {
                   books.forEach(book => {
@@ -6978,6 +7503,24 @@ document.addEventListener('DOMContentLoaded', function() {
                   dropdown.appendChild(option);
                //   console.log("❌ No books found for this user");
               }
+
+              // Keep visible Writer book select in sync with hidden dropdown.
+              var visibleSel = document.getElementById('ai-writer-book-select');
+              var curBid = String((document.getElementById('BookId') && document.getElementById('BookId').value) || selectedBookId || '0');
+              if (visibleSel && Array.isArray(books)) {
+                  visibleSel.innerHTML = '<option value="0">New book — start blank</option>';
+                  books.forEach(function (book) {
+                      var opt = document.createElement('option');
+                      opt.value = String(book.bookId);
+                      opt.textContent = book.bookTitle || ('Book #' + book.bookId);
+                      visibleSel.appendChild(opt);
+                  });
+                  if (curBid && curBid !== '0') visibleSel.value = curBid;
+                  else visibleSel.value = '0';
+              }
+              if (curBid && curBid !== '0') {
+                  dropdown.value = curBid;
+              }
           } catch (error) {
               console.error("❌ Error in loadSavedBooksDropdown:", error);
           }
@@ -6990,20 +7533,24 @@ document.addEventListener('DOMContentLoaded', function() {
          console.log("🔄 Loading loadBookAllChaptersNumbers Function");
 
          const userId = document.getElementById("UserId").value;
-         const bookId = document.getElementById('BookId').value;
+         const bookIdRaw = document.getElementById('BookId').value;
+         const bookIdNum = parseInt(bookIdRaw, 10) || 0;
          const ddl = document.getElementById("ChapterDropdown");
          const statusInput = document.getElementById("Status");
 
-           console.log("Fetching chapters for userId ==>>:", userId, "bookId:", bookId);
+           console.log("Fetching chapters for userId ==>>:", userId, "bookId:", bookIdRaw);
 
-         if (!userId || !bookId) {
-             console.log("Missing userId or bookId");
+         // No book yet — keep placeholder (do not invent "Chapter 1").
+         if (!userId || bookIdNum <= 0) {
+             if (ddl) {
+                 ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
+             }
              return;
          }
-         console.log("Fetching chapters for userId:", userId, "bookId:", bookId);
+         console.log("Fetching chapters for userId:", userId, "bookId:", bookIdNum);
 
          try {
-             const response = await fetch(`/Books/GetSavedChapterNos?userId=${userId}&bookId=${bookId}`);
+             const response = await fetch(`/Books/GetSavedChapterNos?userId=${userId}&bookId=${bookIdNum}`);
 
              if (!response.ok) {
                  throw new Error(`HTTP error! status: ${response.status}`);
@@ -7017,7 +7564,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
            if (!data || data.length === 0) {
                   console.log("No chapters found in response");
-                  ddl.innerHTML = `<option value="1" selected>Click “Add a chapter” to start →</option>`;
+                  ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
                   return;
               }
 
@@ -7058,9 +7605,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
           } catch (error) {
               console.error("Error loading chapters:", error);
-              // Fallback to default options
-              ddl.innerHTML = `<option value="1" selected>Chapter 1</option>`;
-              statusInput.value = "OK";
+              // Keep soft placeholder — never invent "Chapter 1" when load fails / no book.
+              ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
+              if (statusInput) statusInput.value = "OK";
           }
           if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
 

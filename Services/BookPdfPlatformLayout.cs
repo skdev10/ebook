@@ -29,20 +29,41 @@ public static class BookPdfPlatformLayout
         // insets are provided by .book-preview-sheet padding, identical to the formatter preview).
         var spec = ApplyMarginOverrides(Trim6x9Print(bleedHeavy), marginOverrides);
 
-        // Page SHAPE follows the selected interior style so the exported PDF trim matches what
-        // the user sees in the per-style preview (Novel 5×8, Elegant/Traditional/Classic/Contemporary/
-        // Minimalist/ElegantTradePOD 5.5×8.5, Modern/FineBook/Clean/POD 6×9).
-        var (tw, th) = TrimForInterior(opt.InteriorStyle);
+        // Explicit Formatting workspace trim wins over style-based trim.
+        string tw;
+        string th;
+        if (opt.TrimWidthIn is > 0 && opt.TrimHeightIn is > 0)
+        {
+            tw = FormatIn(opt.TrimWidthIn.Value);
+            th = FormatIn(opt.TrimHeightIn.Value);
+        }
+        else
+        {
+            (tw, th) = TrimForInterior(opt.InteriorStyle);
+        }
 
-        // POD styles carry a 0.125in bleed on every side → page grows by 0.25in per dimension.
-        // The interior CSS adds matching bleed padding so text stays in the safe zone inside trim.
+        // POD styles or explicit bleed → page grows by 0.25in per dimension.
         var style = InteriorExportTheme.NormalizeInteriorStyle(opt.InteriorStyle);
         var isPodBleed = style is "POD" or "ElegantTradePOD";
-        if (isPodBleed)
+        if (opt.UseBleed || isPodBleed)
         {
             tw = AddBleed(tw);
             th = AddBleed(th);
         }
+
+        var effectiveMargins = marginOverrides;
+        if (opt.MarginTopIn is > 0 || opt.MarginBottomIn is > 0 || opt.MarginInsideIn is > 0 || opt.MarginOutsideIn is > 0)
+        {
+            effectiveMargins = new BookPdfLayoutOptions
+            {
+                MarginTop = opt.MarginTopIn is > 0 ? FormatIn(opt.MarginTopIn.Value) : effectiveMargins?.MarginTop,
+                MarginBottom = opt.MarginBottomIn is > 0 ? FormatIn(opt.MarginBottomIn.Value) : effectiveMargins?.MarginBottom,
+                MarginInside = opt.MarginInsideIn is > 0 ? FormatIn(opt.MarginInsideIn.Value) : effectiveMargins?.MarginInside,
+                MarginOutside = opt.MarginOutsideIn is > 0 ? FormatIn(opt.MarginOutsideIn.Value) : effectiveMargins?.MarginOutside
+            };
+        }
+
+        spec = ApplyMarginOverrides(spec, effectiveMargins);
 
         spec = spec with
         {
@@ -50,12 +71,13 @@ public static class BookPdfPlatformLayout
             PdfWidth = tw,
             PdfHeight = th,
             UseBuiltInFormat = false,
-            // POD bleed → explicit Width/Height takes priority over CSS @page size; all other
-            // styles keep PreferCSSPageSize=true so the CSS @page trim is authoritative.
-            PreferCssPageSize = !isPodBleed
+            PreferCssPageSize = !(opt.UseBleed || isPodBleed)
         };
         return spec;
     }
+
+    private static string FormatIn(double inches) =>
+        string.Concat(inches.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture), "in");
 
     /// <summary>Adds a 0.125in bleed per side (0.25in total) to an inches CSS dimension like "6in".</summary>
     private static string AddBleed(string inches)

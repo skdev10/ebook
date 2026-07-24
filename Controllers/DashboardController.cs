@@ -1201,12 +1201,11 @@ namespace EBookDashboard.Controllers
 
             if (!bookId.HasValue || bookId.Value <= 0)
             {
-                var sessionBookId = HttpContext.Session.GetInt32("LastSelectedBookId")
-                    ?? HttpContext.Session.GetInt32(BookFlowStateService.SessionEntryBookIdKey);
-                if (sessionBookId is > 0)
-                    return RedirectToAction(nameof(CoverDesign), new { bookId = sessionBookId, flow = requestedFlow, coverType = requestedCoverType, skipPrintReadyAuto });
-                TempData["InfoMessage"] = "Select a book from the Dashboard to continue cover design.";
-                return RedirectToAction("Index");
+                // Soft module: empty Cover Design (no session auto-attach). Continue Editing / Writer attach later.
+                ViewBag.BookId = 0;
+                ViewBag.BookTitle = "";
+                ViewBag.SoftEmptyCover = true;
+                return View();
             }
             Books? ownedBookRow = null;
             if (user != null)
@@ -1249,27 +1248,12 @@ namespace EBookDashboard.Controllers
                 hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1";
             }
 
-            var savedRank = BookFlowStateService.StepRank(savedFlowStep);
-            var formatRank = BookFlowStateService.StepRank(BookFlowStateService.StepFormat);
-            var canOpenCover = isReEditableBook
-                || BookFlowStateService.IsStepAtLeast(savedFlowStep, BookFlowStateService.StepCover)
-                || (formattingDone && savedRank == formatRank);
-            if (!canOpenCover)
+            // Modules are independently reachable: Cover opens for any owned book.
+            // Soft tip only — do not bounce users back to Writer/Formatting.
+            if (!isReEditableBook && !hasGeneratedBook && !formattingDone)
             {
-                TempData["InfoMessage"] = savedRank < formatRank
-                    ? "Complete Book Formatting first, then continue from the Dashboard."
-                    : "Continue your project from the Dashboard.";
-                return Redirect(_bookFlow.BuildResumeUrl(bookId.Value, savedFlowStep, savedFlowPath));
-            }
-
-            if (!isReEditableBook && (!hasGeneratedBook || !formattingDone))
-            {
-                var lockBookQ = $"?bookId={bookId.Value}";
-                ViewBag.LockMessage = !hasGeneratedBook ? "Select a book from the Dashboard first." : "Complete Book Formatting first, then AI Cover Design will unlock.";
-                ViewBag.LockGoto = !hasGeneratedBook
-                    ? "/Dashboard"
-                    : $"/BookDesign/CoverDesignCalculatorFixing{lockBookQ}";
-                ViewBag.LockButtonText = !hasGeneratedBook ? "Go to Dashboard" : "Go to Formatting";
+                ViewBag.CoverTipMessage = "Tip: upload or generate a cover anytime. Writer and Formatting are optional siblings — open them when you need them.";
+                ViewBag.CoverTipGoto = $"/Books/Formatting/{bookId.Value}";
             }
 
             if (user != null)
@@ -1294,8 +1278,8 @@ namespace EBookDashboard.Controllers
             ViewBag.FlowStep = BookFlowStateService.StepCover;
             ViewBag.FlowPath = savedFlowPath;
             ViewBag.FlowBackUrl = savedFlowPath.Equals("print", StringComparison.OrdinalIgnoreCase)
-                ? $"/BookDesign/CoverDesignCalculatorFixing?bookId={bookId.Value}&format=Paperback"
-                : $"/BookDesign/CoverDesignCalculatorFixing?bookId={bookId.Value}&format=Ebook";
+                ? $"/Books/Formatting/{bookId.Value}?format=Paperback"
+                : $"/Books/Formatting/{bookId.Value}?format=Ebook";
 
             return View();
         }

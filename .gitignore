@@ -42,6 +42,7 @@ Desktop.ini
 ## User-generated uploads (do not commit)
 wwwroot/uploads/audio/
 wwwroot/uploads/**/cover_ai_*.png
+wwwroot/uploads/*/
 
 ## Local agent / git scratch files
 .cursor/

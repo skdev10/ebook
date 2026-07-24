@@ -744,12 +744,75 @@ namespace EBookDashboard.Controllers
                     if (!string.IsNullOrEmpty(q) && int.TryParse(q, out var qBookId))
                         bookId = qBookId;
                 }
-                if (bookId == 0)
-                    bookId = HttpContext.Session.GetInt32("LastSelectedBookId") ?? 0;
+                // Soft modules: empty Formatting studio when no book in URL (upload creates book).
+                // Never fall back to LastSelectedBookId — book comes from URL / Continue Editing only.
                 if (bookId <= 0)
                 {
-                    TempData["InfoMessage"] = "Select a book from the Dashboard to continue formatting.";
-                    return RedirectToAction("Index", "Dashboard");
+                    var emptyBooks = await _context.Books
+                        .Where(b => b.UserId == userId)
+                        .OrderByDescending(b => b.CreatedAt)
+                        .Select(b => new BookDropdownItem { BookId = b.BookId, Title = b.Title })
+                        .ToListAsync();
+                    var emptyFormat = string.IsNullOrWhiteSpace(format) ? "Ebook" : format.Trim();
+                    if (emptyFormat.Equals("Print", StringComparison.OrdinalIgnoreCase))
+                        emptyFormat = "Paperback";
+                    else if (!emptyFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
+                             && !emptyFormat.Equals("Both", StringComparison.OrdinalIgnoreCase)
+                             && !emptyFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase))
+                        emptyFormat = "Ebook";
+
+                    ViewBag.UserId = userId;
+                    ViewBag.SelectedBookId = 0;
+                    ViewBag.SelectedBookName = "";
+                    ViewBag.SelectedFormat = emptyFormat;
+                    ViewBag.FlowBookId = 0;
+                    ViewBag.FlowStep = BookFlowStateService.StepFormat;
+                    ViewBag.FlowPath = ResolveFormatPath(emptyFormat, null, null);
+                    ViewBag.FlowBackUrl = "/Books/Writer";
+                    var uEmpty = await _context.Users.AsNoTracking()
+                        .Where(u => u.UserId == userId)
+                        .Select(u => new { u.FullName, u.UserEmail })
+                        .FirstOrDefaultAsync();
+                    ViewBag.DisplayAuthorName = string.IsNullOrWhiteSpace(uEmpty?.FullName)
+                        ? (uEmpty?.UserEmail ?? "")
+                        : uEmpty!.FullName!.Trim();
+                    ViewBag.PrintReadyWhitePaperMultiplier = ParseDoubleSetting("PrintReadyCover:WhitePaperSpineInchesPerPage", 0.002252);
+                    ViewBag.PrintReadyCreamPaperMultiplier = ParseDoubleSetting("PrintReadyCover:CreamPaperSpineInchesPerPage", 0.002500);
+                    ViewBag.PrintReadyColorPaperMultiplier = ParseDoubleSetting("PrintReadyCover:ColorPaperSpineInchesPerPage", 0.002347);
+                    ViewBag.PrintReadyBleedInches = ParseDoubleSetting("PrintReadyCover:BleedInches", 0.125);
+                    ViewBag.PrintReadyDefaultTrimWidthInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimWidthInches", 6.0);
+                    ViewBag.PrintReadyDefaultTrimHeightInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimHeightInches", 9.0);
+
+                    List<BookCoverPages> emptyCoverPages;
+                    try
+                    {
+                        emptyCoverPages = await _context.BookCoverPages.AsNoTracking().OrderBy(x => x.Id).ToListAsync();
+                    }
+                    catch
+                    {
+                        emptyCoverPages = new List<BookCoverPages>();
+                    }
+                    ViewBag.BookCoverPages = emptyCoverPages;
+
+                    var emptyVm = new CoverDesignCalculatorVM
+                    {
+                        BookId = 0,
+                        UserId = userId,
+                        Title = "",
+                        BindingType = "paperback",
+                        InteriorType = "bw",
+                        PaperType = "white",
+                        MeasurementUnits = "inches",
+                        TrimSize = "6x9",
+                        Format = emptyFormat,
+                        InteriorStyle = "Novel",
+                        TextSize = "Medium",
+                        LineSpacing = "1.6",
+                        PublishingPlatforms = "",
+                        UserBooks = emptyBooks,
+                        BookCoverPages = emptyCoverPages
+                    };
+                    return View("CoverDesignCalculatorFixing", emptyVm);
                 }
 
                 var bookRow = await _context.Books.AsNoTracking()
@@ -773,8 +836,8 @@ namespace EBookDashboard.Controllers
                     ViewBag.LockButtonText = "Go to AI Writer";
                 }
 
-                // Published books stay editable — author can revisit Book Formatting and re-publish.
-                // User opened Book Formatting explicitly — do not bounce back to AI Writer when flow is still on generate.
+                // Published books stay editable ΓÇö author can revisit Book Formatting and re-publish.
+                // User opened Book Formatting explicitly ΓÇö do not bounce back to AI Writer when flow is still on generate.
                 if (BookFlowStateService.StepRank(savedFlowStep) < BookFlowStateService.StepRank(BookFlowStateService.StepFormat))
                 {
                     var earlyFormat = format;

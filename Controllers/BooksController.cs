@@ -65,6 +65,7 @@ namespace EBookDashboard.Controllers
         private readonly IUpstreamQueueProbe _queueProbe;
         private readonly IBookGeneratorService _bookGeneratorService;
         private readonly IPrintWrapGenerationService _printWrapGenerationService;
+        private readonly IImageOcrService _imageOcr;
 
         public BooksController(
             IBookService bookService,
@@ -85,7 +86,8 @@ namespace EBookDashboard.Controllers
             IWebHostEnvironment hostEnvironment,
             BookFlowStateService bookFlow,
             IBookGeneratorService bookGeneratorService,
-            IPrintWrapGenerationService printWrapGenerationService)
+            IPrintWrapGenerationService printWrapGenerationService,
+            IImageOcrService imageOcr)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -107,6 +109,7 @@ namespace EBookDashboard.Controllers
             _bookFlow = bookFlow;
             _bookGeneratorService = bookGeneratorService;
             _printWrapGenerationService = printWrapGenerationService;
+            _imageOcr = imageOcr;
         }
         //===========================================
         //           On Page Load 
@@ -121,11 +124,15 @@ namespace EBookDashboard.Controllers
                 // not logged in → redirect to login
                 return RedirectToAction("UserLogin", "Account");
             }
+
+            // Soft modules: never auto-attach a book from session.
+            // Book is only active when the URL carries bookId (Dashboard → Continue Editing / SelectBook).
             if (!bookId.HasValue || bookId.Value <= 0)
             {
-                TempData["InfoMessage"] = "Select a book from the Dashboard to continue your project.";
-                return RedirectToAction("Index", "Dashboard");
+                ClearSoftBookSession();
+                return await RenderAiWriterViewAsync(userId.Value, selectedBookId: 0, selectedBookTitle: "");
             }
+
             var ownsBook = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == bookId.Value && b.UserId == userId.Value);
             if (!ownsBook)
@@ -160,10 +167,21 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync();
             var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
                 _context, userId.Value, bookId.Value, bookTitle);
+            return await RenderAiWriterViewAsync(userId.Value, bookId.Value, displayTitle ?? "");
+        }
+
+        private void ClearSoftBookSession()
+        {
+            try { HttpContext.Session.Remove("LastSelectedBookId"); } catch { /* ignore */ }
+            try { HttpContext.Session.Remove(BookFlowStateService.SessionEntryBookIdKey); } catch { /* ignore */ }
+        }
+
+        private async Task<IActionResult> RenderAiWriterViewAsync(int userId, int selectedBookId, string selectedBookTitle)
+        {
             ViewBag.UserId = userId;
-            ViewBag.SelectedBookId = bookId;
-            ViewBag.SelectedBookTitle = displayTitle;
-            ViewBag.FlowBookId = bookId.Value;
+            ViewBag.SelectedBookId = selectedBookId > 0 ? selectedBookId : 0;
+            ViewBag.SelectedBookTitle = selectedBookId > 0 ? selectedBookTitle : "";
+            ViewBag.FlowBookId = selectedBookId > 0 ? selectedBookId : 0;
             ViewBag.FlowStep = BookFlowStateService.StepGenerate;
             ViewBag.FlowBackUrl = "/Dashboard";
 
@@ -172,7 +190,7 @@ namespace EBookDashboard.Controllers
             {
                 userBooks = await _context.Books
                     .AsNoTracking()
-                    .Where(b => b.UserId == userId.Value)
+                    .Where(b => b.UserId == userId)
                     .OrderByDescending(b => b.CreatedAt)
                     .Select(b => new BookDropdownItem
                     {
@@ -183,7 +201,7 @@ namespace EBookDashboard.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "AIGenerateBook: Books list query failed for user {UserId}.", userId.Value);
+                _logger.LogError(ex, "AIGenerateBook: Books list query failed for user {UserId}.", userId);
             }
 
             List<Plans> plans = new();
@@ -205,17 +223,178 @@ namespace EBookDashboard.Controllers
                 AvailablePlans = plans,
                 UserBooks = userBooks
             };
-            // Browser fetch() abort budget — must be ≥ typical chapter generation + Polly pipeline (see BookApiLong total timeout).
             var fetchMins = int.TryParse(_configuration["ChapterGeneration:BrowserFetchTimeoutMinutes"], out var fm) ? fm : 55;
             fetchMins = Math.Clamp(fetchMins, 5, 180);
             ViewBag.ChapterGenerateFetchTimeoutMs = fetchMins * 60 * 1000;
             var typicalMins = int.TryParse(_configuration["ChapterGeneration:TypicalGenerationMinutes"], out var tm) ? tm : 5;
             typicalMins = Math.Clamp(typicalMins, 1, 30);
             ViewBag.ChapterGenerateEstimatedSeconds = typicalMins * 60;
-            var exportOpt = await LoadExportOptionsForBookAsync(userId.Value, bookId.Value, CancellationToken.None);
-            ViewBag.InteriorThemeCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt)
-                + InteriorExportTheme.BuildAiWriterThemeBridgeCss(exportOpt);
-            return View(model);
+            if (selectedBookId > 0)
+            {
+                var exportOpt = await LoadExportOptionsForBookAsync(userId, selectedBookId, CancellationToken.None);
+                ViewBag.InteriorThemeCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt)
+                    + InteriorExportTheme.BuildAiWriterThemeBridgeCss(exportOpt);
+            }
+            else
+            {
+                ViewBag.InteriorThemeCss = "";
+            }
+            return View("AIGenerateBook", model);
+        }
+
+        /// <summary>Module entry: AI Writer (alias for <see cref="AIGenerateBook"/>).</summary>
+        [HttpGet]
+        [Route("Books/Writer")]
+        public IActionResult Writer(int? bookId = null)
+            => RedirectToAction(nameof(AIGenerateBook), new { bookId });
+
+        /// <summary>Module entry: Formatting workspace (3-zone TOC / book preview / settings).</summary>
+        [HttpGet]
+        [Route("Books/Formatting/{bookId:int}")]
+        [Route("Books/Formatting")]
+        public async Task<IActionResult> Formatting(int bookId = 0, string? format = null, CancellationToken cancellationToken = default)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return RedirectToAction("UserLogin", "Account");
+
+            // Soft modules: empty Formatting studio when no book — upload/create attaches later.
+            if (bookId <= 0)
+            {
+                if (!string.IsNullOrWhiteSpace(format))
+                    return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId = 0, format });
+                return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId = 0 });
+            }
+
+            var book = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId.Value, cancellationToken);
+            if (book == null)
+            {
+                TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
+                return RedirectToAction("Index", "Dashboard");
+            }
+
+            HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+            HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
+            HttpContext.Session.SetString("HasGeneratedBook", "1");
+
+            // Classic Formatting studio UI (interior styles + book preview) lives on CoverDesignCalculatorFixing.
+            if (!string.IsNullOrWhiteSpace(format))
+                return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId, format });
+            return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId });
+        }
+
+        private async Task<BookFormattingWorkspaceViewModel> BuildFormattingWorkspaceAsync(
+            int userId,
+            Books book,
+            string flowPath,
+            CancellationToken cancellationToken)
+        {
+            var bookId = book.BookId;
+            var fmtRow = await _context.BookFormatting.AsNoTracking()
+                .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId, cancellationToken);
+
+            var format = (fmtRow?.Format ?? "").Trim();
+            if (string.IsNullOrEmpty(format))
+                format = flowPath.Equals("print", StringComparison.OrdinalIgnoreCase) ? "Paperback" : "Ebook";
+
+            // Normalize legacy tokens
+            if (format.Equals("Print", StringComparison.OrdinalIgnoreCase))
+                format = "Paperback";
+
+            var binding = NormalizeBindingType(format);
+            var previewMode = binding.Equals("Ebook", StringComparison.OrdinalIgnoreCase) ? "ebook" : "print";
+
+            var chapterSource = new List<(int No, string Title, string Body)>();
+            try
+            {
+                var details = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
+                if (details?.Chapters != null)
+                {
+                    foreach (var ch in details.Chapters.OrderBy(c => c.ChapterNumber))
+                    {
+                        var title = string.IsNullOrWhiteSpace(ch.Title) ? $"Chapter {ch.ChapterNumber}" : ch.Title!;
+                        var body = ch.Content ?? "";
+                        if (string.IsNullOrWhiteSpace(body)) continue;
+                        chapterSource.Add((ch.ChapterNumber > 0 ? ch.ChapterNumber : chapterSource.Count + 1, title, body));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Formatting: could not load chapters for book {BookId}", bookId);
+            }
+
+            var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(chapterSource);
+            var versions = await ManuscriptVersionStore.LoadAsync(_context, bookId, cancellationToken);
+            var active = versions.FirstOrDefault(v => v.Active) ?? versions.FirstOrDefault();
+
+            return new BookFormattingWorkspaceViewModel
+            {
+                BookId = bookId,
+                BookTitle = string.IsNullOrWhiteSpace(book.Title) ? "Untitled Book" : book.Title!,
+                Format = format,
+                BindingType = binding,
+                PreviewMode = previewMode,
+                InteriorStyle = string.IsNullOrWhiteSpace(fmtRow?.InteriorStyle) ? "Novel" : fmtRow!.InteriorStyle,
+                TextSize = string.IsNullOrWhiteSpace(fmtRow?.TextSize) ? "Medium" : fmtRow!.TextSize,
+                LineSpacing = string.IsNullOrWhiteSpace(fmtRow?.LineSpacing) ? "1.6" : fmtRow!.LineSpacing,
+                TrimSizeLabel = "6 x 9 in",
+                MarginTopIn = (decimal)InteriorSpacingTheme.MarginTopIn,
+                MarginBottomIn = (decimal)InteriorSpacingTheme.MarginBottomIn,
+                MarginInsideIn = (decimal)InteriorSpacingTheme.MarginInsideIn,
+                MarginOutsideIn = (decimal)InteriorSpacingTheme.MarginOutsideIn,
+                ManuscriptPath = book.ManuscriptPath,
+                LastManuscriptUploadedAtUtc = active?.UploadedAtUtc,
+                LastManuscriptFileName = active?.FileName,
+                Chapters = chapters,
+                Toc = toc,
+                Pages = pages,
+                ManuscriptVersions = versions
+            };
+        }
+
+        private static string NormalizeBindingType(string format)
+        {
+            var f = (format ?? "").Trim();
+            if (f.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
+                || f.Equals("Hardback", StringComparison.OrdinalIgnoreCase)
+                || f.Equals("Case laminate", StringComparison.OrdinalIgnoreCase))
+                return "Hardcover";
+            if (f.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                || f.Equals("Print", StringComparison.OrdinalIgnoreCase)
+                || f.Equals("Both", StringComparison.OrdinalIgnoreCase)
+                || f.Equals("Ebook + Paperback", StringComparison.OrdinalIgnoreCase))
+                return "Paperback";
+            return "Ebook";
+        }
+
+        /// <summary>Module entry: Book Cover designer. Opens existing Cover Design page.</summary>
+        [HttpGet]
+        [Route("Books/Cover/{bookId:int}")]
+        [Route("Books/Cover")]
+        public async Task<IActionResult> Cover(int bookId = 0)
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return RedirectToAction("UserLogin", "Account");
+
+            // Soft modules: open Cover Design empty when no book — attach via Continue Editing or after writing.
+            if (bookId <= 0)
+                return RedirectToAction("CoverDesign", "Dashboard", new { bookId = 0 });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == userId.Value);
+            if (!owns)
+            {
+                TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
+                return RedirectToAction("Index", "Dashboard");
+            }
+
+            HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+            HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
+            HttpContext.Session.SetString("HasGeneratedBook", "1");
+            return RedirectToAction("CoverDesign", "Dashboard", new { bookId });
         }
 
         //// ✅ 1️⃣ — GET: Show the Razor view page ----1
@@ -2909,6 +3088,169 @@ namespace EBookDashboard.Controllers
             }
         }
 
+        /// <summary>
+        /// Writer module — optional draft export (DOCX or simple PDF). Does not mark the book published.
+        /// POST /Books/ExportDraft/{bookId}?format=Docx|Pdf
+        /// </summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [RequestSizeLimit(52_428_800)]
+        [Route("Books/ExportDraft/{bookId:int}")]
+        [Route("Books/ExportDraft")]
+        public async Task<IActionResult> ExportDraft(int bookId, string format = "Docx", CancellationToken cancellationToken = default)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            if (bookId <= 0 && Request.HasFormContentType)
+                _ = int.TryParse(Request.Form["bookId"].FirstOrDefault(), out bookId);
+            if (bookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, bookId);
+            if (details == null || !details.Success || details.Chapters == null
+                || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
+                return BadRequest(new { success = false, message = "No chapter content to export. Generate or paste text in AI Writer first." });
+
+            var fmt = (format ?? "Docx").Trim();
+            var rawName = (details.BookTitle ?? "draft").Trim();
+            var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
+            safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
+            if (string.IsNullOrEmpty(safe)) safe = "draft";
+
+            try
+            {
+                if (fmt.Equals("Pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    var exportOpt = new BookPdfExportOptions
+                    {
+                        IncludeCoverPage = false,
+                        Format = "Ebook",
+                        InteriorStyle = "Clean",
+                        TextSize = "Medium",
+                        LineSpacing = "1.6"
+                    };
+                    var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
+                        details, null, details.BookTitle, details.AuthorName, details.Genre,
+                        exportOpt, null, cancellationToken);
+                    if (pdfBytes == null || pdfBytes.Length < 64)
+                        return StatusCode(500, new { success = false, message = "Draft PDF generation failed." });
+                    return File(pdfBytes, "application/pdf", $"{safe}-{bookId}-draft.pdf");
+                }
+
+                // Default: Docx
+                var docx = _docxExportService.BuildDocx(details, details.BookTitle, details.AuthorName);
+                if (docx == null || docx.Length < 64)
+                    return StatusCode(500, new { success = false, message = "Draft Word export failed." });
+                return File(docx,
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    $"{safe}-{bookId}-draft.docx");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExportDraft failed for book {BookId} format {Format}", bookId, fmt);
+                return StatusCode(500, new { success = false, message = "Draft export failed." });
+            }
+        }
+
+        /// <summary>
+        /// Formatting module — full book export.
+        /// POST /Books/Export/{bookId}?format=PrintPdf|Epub
+        /// Body may include trim/margins/bleed from the Formatting workspace.
+        /// </summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [RequestSizeLimit(52_428_800)]
+        [Route("Books/Export/{bookId:int}")]
+        [Route("Books/Export")]
+        public async Task<IActionResult> ExportBookModule(
+            int bookId,
+            string format = "PrintPdf",
+            [FromBody] ExportBookPdfRequest? req = null,
+            CancellationToken cancellationToken = default)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+
+            req ??= new ExportBookPdfRequest();
+            if (bookId > 0) req.BookId = bookId;
+            if (req.BookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+
+            var fmt = (format ?? req.ExportFormat ?? "PrintPdf").Trim();
+            if (fmt.Equals("Epub", StringComparison.OrdinalIgnoreCase)
+                || fmt.Equals("Ebook", StringComparison.OrdinalIgnoreCase))
+            {
+                req.BookFormat = "Ebook";
+                return await ExportEpub(req, cancellationToken);
+            }
+
+            // Print PDF — paperback/hardcover interior (no cover page)
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
+            if (details == null || !details.Success)
+                return BadRequest(new { success = false, message = details?.Message ?? "Could not load book." });
+            if (details.Chapters == null || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
+                return BadRequest(new { success = false, message = "No chapter content to export." });
+
+            try
+            {
+                var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, req.BookId, cancellationToken);
+                exportOpt.ApplyRequestOverrides(req);
+                exportOpt.IncludeCoverPage = false;
+                exportOpt.Format = "Paperback";
+                if (string.IsNullOrWhiteSpace(exportOpt.PublishingPlatform))
+                    exportOpt.PublishingPlatform = "Amazon KDP";
+
+                // Default trim when Formatting UI did not send one
+                if (exportOpt.TrimWidthIn is null or <= 0 || exportOpt.TrimHeightIn is null or <= 0)
+                {
+                    exportOpt.TrimWidthIn = 6.0;
+                    exportOpt.TrimHeightIn = 9.0;
+                }
+
+                var userRow = await _context.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value, cancellationToken);
+                var publisherLabel = userRow?.FullName;
+                if (string.IsNullOrWhiteSpace(publisherLabel)) publisherLabel = userRow?.UserEmail;
+
+                var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
+                    details,
+                    null,
+                    (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
+                    (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
+                    (req.DisplayGenre ?? details.Genre ?? "").Trim(),
+                    exportOpt,
+                    publisherLabel,
+                    cancellationToken);
+
+                if (pdfBytes == null || pdfBytes.Length < 128)
+                    return StatusCode(500, new { success = false, message = "Print PDF generation failed." });
+
+                var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
+                var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
+                safe = Regex.Replace(safe, @"\s+", "-").Trim('-');
+                if (string.IsNullOrEmpty(safe)) safe = "book";
+                return File(pdfBytes, "application/pdf", $"{safe}-{req.BookId}-print.pdf");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ExportBookModule PrintPdf failed for book {BookId}", req.BookId);
+                return StatusCode(500, new { success = false, message = "Print PDF export failed." });
+            }
+        }
+
         /// <summary>Print-ready bundle: interior PDF (6×9) + full cover wrap ZIP in one download.</summary>
         [HttpPost]
         [IgnoreAntiforgeryToken]
@@ -3203,7 +3545,68 @@ namespace EBookDashboard.Controllers
             return File(pdfBytes, "application/pdf", fileName);
         }
 
-        /// <summary>Extract plain text from an uploaded .txt / .md or .pdf (first pass) for chapter import.</summary>
+        /// <summary>
+        /// Writer OCR — extract text from a scanned page / screenshot into the chapter draft.
+        /// POST multipart: file (image), optional bookId.
+        /// </summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [RequestSizeLimit(20_971_520)]
+        [Route("Books/OcrChapterImage")]
+        public async Task<IActionResult> OcrChapterImage(CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+
+            if (!Request.HasFormContentType)
+                return Json(new { success = false, message = "Upload an image file (PNG/JPG)." });
+
+            var file = Request.Form.Files["file"] ?? (Request.Form.Files.Count > 0 ? Request.Form.Files[0] : null);
+            if (file == null || file.Length == 0)
+                return Json(new { success = false, message = "Select a PNG or JPG image." });
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var allowed = new[] { ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp" };
+            if (!allowed.Contains(ext)
+                && !(file.ContentType ?? "").StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                return Json(new { success = false, message = "Use PNG, JPG, or WebP." });
+
+            if (file.Length > 15_000_000)
+                return Json(new { success = false, message = "Image too large (max 15 MB)." });
+
+            try
+            {
+                byte[] bytes;
+                await using (var ms = new MemoryStream())
+                {
+                    await file.CopyToAsync(ms, cancellationToken);
+                    bytes = ms.ToArray();
+                }
+
+                var text = await _imageOcr.ExtractTextAsync(bytes, cancellationToken);
+                text = ChapterDocumentImportService.SanitizeImportedText(text ?? "");
+                if (string.IsNullOrWhiteSpace(text))
+                    return Json(new { success = false, message = "No readable text found. Try a clearer photo or paste the text." });
+
+                if (text.Length > 100_000)
+                    text = text[..100_000];
+
+                return Json(new
+                {
+                    success = true,
+                    text,
+                    charCount = text.Length,
+                    message = "Text extracted — review it in the chapter brief, then Generate or save."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "OcrChapterImage failed for {Name}", file.FileName);
+                return Json(new { success = false, message = "Could not read text from that image." });
+            }
+        }
+
         [HttpPost]
         [IgnoreAntiforgeryToken]
         [RequestSizeLimit(52_428_800)]
@@ -3332,6 +3735,15 @@ namespace EBookDashboard.Controllers
                             if (string.IsNullOrWhiteSpace(bookRow.Title) && !string.IsNullOrWhiteSpace(suggestedBookTitle))
                                 bookRow.Title = suggestedBookTitle;
                             await _context.SaveChangesAsync(cancellationToken);
+                            try
+                            {
+                                await ManuscriptVersionStore.RecordAsync(
+                                    _context, bookId, manuscriptUrl, safeFile, cancellationToken);
+                            }
+                            catch (Exception verEx)
+                            {
+                                _logger.LogDebug(verEx, "ImportChapterFile: manuscript version record skipped for book {BookId}", bookId);
+                            }
                         }
                     }
                     catch (Exception msEx)
@@ -3732,12 +4144,14 @@ namespace EBookDashboard.Controllers
             return Json(new { success = true, redirectUrl });
         }
 
-        /// <summary>Redirects to the live Book Formatting workspace (interior + trim) for the selected book.</summary>
+        /// <summary>Redirects to the Formatting module workspace for the selected book.</summary>
         [HttpGet]
         public IActionResult AIGenerateBookFormat(int? bookId = null)
         {
             var bid = bookId ?? HttpContext.Session.GetInt32("LastSelectedBookId") ?? 0;
-            return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId = bid });
+            if (bid <= 0)
+                return RedirectToAction("Index", "Dashboard");
+            return RedirectToAction(nameof(Formatting), new { bookId = bid });
         }
 
         /// <summary>Marks linear publishing pipeline steps in session (demo: unlocks next UI stages).</summary>
@@ -3895,40 +4309,226 @@ namespace EBookDashboard.Controllers
             public string? ToneDescription { get; set; }
         }
 
-        // ========================== MANUSCRIPT UPLOAD ===========================
-        // Accept .docx, .pdf, .txt; save file path to DB tied to logged-in user
+        // ========================== MANUSCRIPT UPLOAD (Formatting workspace) ===========================
+        /// <summary>
+        /// Upload / re-upload manuscript for Formatting: parse DOCX/PDF, replace chapter structure,
+        /// record a ManuscriptVersion, return TOC + pages for the sidebar.
+        /// </summary>
         [HttpPost]
         [IgnoreAntiforgeryToken]
         [RequestSizeLimit(1024L * 1024L * 100L)] // 100 MB
-        public async Task<IActionResult> UploadManuscript(int bookId, IFormFile file)
+        [Route("Books/UploadManuscript/{bookId:int}")]
+        [Route("Books/UploadManuscript")]
+        public async Task<IActionResult> UploadManuscript(int bookId, IFormFile? file, CancellationToken cancellationToken = default)
         {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
-            if (sessionUserId == null) return Unauthorized();
-            if (file == null || file.Length == 0) return BadRequest("No file uploaded.");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
 
-            var allowed = new[] { ".docx", ".pdf", ".txt" };
-            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowed.Contains(ext)) return BadRequest("Only .docx, .pdf, .txt are allowed.");
+            if (bookId <= 0 && Request.HasFormContentType)
+                _ = int.TryParse(Request.Form["bookId"].FirstOrDefault(), out bookId);
 
-            var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value);
-            if (book == null) return NotFound("Book not found.");
-
-            var uploadsRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", sessionUserId.Value.ToString(), "books", bookId.ToString());
-            Directory.CreateDirectory(uploadsRoot);
-            var fileName = $"manuscript_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
-            var savePath = Path.Combine(uploadsRoot, fileName);
-            using (var stream = new FileStream(savePath, FileMode.Create))
+            if (file == null || file.Length == 0)
             {
-                await file.CopyToAsync(stream);
+                if (Request.HasFormContentType && Request.Form.Files.Count > 0)
+                {
+                    file = Request.Form.Files["file"]
+                        ?? Request.Form.Files["manuscript"]
+                        ?? Request.Form.Files[0];
+                }
             }
 
-            // Save relative path into DB
-            var relativePath = $"/uploads/{sessionUserId}/books/{bookId}/{fileName}";
-            book.ManuscriptPath = relativePath;
-            book.UpdatedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            if (file == null || file.Length == 0)
+                return Json(new { success = false, message = "Select a DOCX or PDF manuscript." });
 
-            return Ok(new { success = true, path = relativePath });
+            var userId = sessionUserId.Value;
+            Books? book = null;
+            if (bookId > 0)
+            {
+                book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+                if (book == null)
+                    return Json(new { success = false, message = "Book not found." });
+            }
+
+            byte[] bytes;
+            await using (var ms = new MemoryStream())
+            {
+                await file.CopyToAsync(ms, cancellationToken);
+                bytes = ms.ToArray();
+            }
+
+            if (bytes.Length == 0)
+                return Json(new { success = false, message = "This file appears empty." });
+
+            var ext = ChapterDocumentImportService.ResolveExtension(file.FileName, file.ContentType, bytes);
+            if (ext == ".doc")
+                return Json(new { success = false, message = "Old Word .doc files are not supported. Save as .docx and upload again." });
+
+            // Formatting accepts DOCX/PDF at minimum; also allow txt/md via the same pipeline.
+            if (!ChapterDocumentImportService.IsSupportedExtension(ext))
+                return Json(new { success = false, message = ChapterDocumentImportService.SupportedFormatsMessage() });
+
+            try
+            {
+                string text;
+                List<ChapterDocumentImportService.ImportedChapter> splitChapters;
+
+                if (ext == ".docx")
+                {
+                    var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
+                    text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
+                    var docxHasImages = docxChapters.Any(c => c.Body.Contains("<img", StringComparison.OrdinalIgnoreCase));
+                    if (docxChapters.Count > 0 && (docxHasImages || docxChapters.Count > 1))
+                        splitChapters = docxChapters;
+                    else
+                        splitChapters = ChapterDocumentImportService.SplitIntoChapters(
+                            string.IsNullOrWhiteSpace(text)
+                                ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
+                                : text);
+                }
+                else
+                {
+                    text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
+                    text = ChapterDocumentImportService.SanitizeImportedText(text);
+                    splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
+                }
+
+                if (string.IsNullOrWhiteSpace(text) && splitChapters.Count == 0)
+                    return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR)." });
+
+                var suggestedBookTitle = ChapterDocumentImportService.ResolveSuggestedBookTitle(bytes, ext, file.FileName, text);
+
+                // Soft entry: no book yet — create one from the upload (same as Writer ImportChapterFile).
+                if (book == null)
+                {
+                    book = new Books
+                    {
+                        UserId = userId,
+                        AuthorId = userId,
+                        Title = string.IsNullOrWhiteSpace(suggestedBookTitle)
+                            ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
+                            : suggestedBookTitle,
+                        Status = "Draft",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Books.Add(book);
+                    await _context.SaveChangesAsync(cancellationToken);
+                    bookId = book.BookId;
+                }
+
+                // Persist original file under manuscripts/ (keep previous files on disk).
+                var relDir = Path.Combine(
+                    "uploads",
+                    userId.ToString(CultureInfo.InvariantCulture),
+                    "books",
+                    bookId.ToString(CultureInfo.InvariantCulture),
+                    "manuscripts");
+                var absDir = Path.Combine(_hostEnvironment.WebRootPath, relDir);
+                Directory.CreateDirectory(absDir);
+                var safeFile = Regex.Replace(Path.GetFileName(file.FileName ?? $"manuscript{ext}"), @"[^\w\.\-]+", "_");
+                if (string.IsNullOrWhiteSpace(safeFile)) safeFile = $"manuscript{ext}";
+                var stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+                var absPath = Path.Combine(absDir, $"{stamp}-{safeFile}");
+                await System.IO.File.WriteAllBytesAsync(absPath, bytes, cancellationToken);
+                var manuscriptUrl = "/" + Path.Combine(relDir, Path.GetFileName(absPath)).Replace('\\', '/');
+
+                book.ManuscriptPath = manuscriptUrl;
+                book.UpdatedAt = DateTime.UtcNow;
+                if (string.IsNullOrWhiteSpace(book.Title) && !string.IsNullOrWhiteSpace(suggestedBookTitle))
+                    book.Title = suggestedBookTitle;
+                await _context.SaveChangesAsync(cancellationToken);
+
+                var versions = await ManuscriptVersionStore.RecordAsync(
+                    _context, bookId, manuscriptUrl, safeFile, cancellationToken);
+
+                // Re-upload replaces chapter structure so TOC matches the latest manuscript.
+                var existingNos = await _context.APIRawResponse.AsNoTracking()
+                    .Where(r => r.UserId == userId && r.BookId == bookId)
+                    .Select(r => r.Chapter)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                var chapterTableNos = await _context.Chapters.AsNoTracking()
+                    .Where(c => c.BookId == bookId)
+                    .Select(c => c.ChapterNumber)
+                    .ToListAsync(cancellationToken);
+                foreach (var no in existingNos.Concat(chapterTableNos).Distinct().Where(n => n > 0).OrderByDescending(n => n))
+                {
+                    await _bookService.DeleteWriterChapterAsync(userId, bookId, no, cancellationToken);
+                }
+
+                var savedNumbers = new List<int>();
+                var chapterNo = 0;
+                foreach (var sc in splitChapters)
+                {
+                    chapterNo++;
+                    var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {chapterNo}" : sc.Title.Trim();
+                    var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
+                        userId, bookId, chapterNo, chTitle, sc.Body, null, "doc-import", cancellationToken);
+                    if (responseId <= 0)
+                        throw new InvalidOperationException($"Could not save chapter {chapterNo}.");
+
+                    var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
+                        userId, bookId, chapterNo, responseId, cancellationToken);
+                    if (!promoted)
+                    {
+                        await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                            userId, bookId, chapterNo, responseId, cancellationToken);
+                    }
+                    savedNumbers.Add(chapterNo);
+                }
+
+                if (savedNumbers.Count == 0)
+                    return Json(new { success = false, message = "File was read but no chapters could be saved." });
+
+                HttpContext.Session.SetString("HasGeneratedBook", "1");
+                HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+                try
+                {
+                    await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, "upload", cancellationToken);
+                }
+                catch (Exception flowEx)
+                {
+                    _logger.LogDebug(flowEx, "UploadManuscript: flow step save skipped for book {BookId}", bookId);
+                }
+
+                var structureSource = splitChapters
+                    .Select((c, i) => (
+                        No: i < savedNumbers.Count ? savedNumbers[i] : i + 1,
+                        Title: string.IsNullOrWhiteSpace(c.Title) ? $"Chapter {i + 1}" : c.Title.Trim(),
+                        Body: c.Body ?? ""))
+                    .ToList();
+                var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(structureSource);
+                var active = versions.FirstOrDefault(v => v.Active) ?? versions.FirstOrDefault();
+                var chapterSummaries = chapters.Select(c => new
+                {
+                    c.ChapterNo,
+                    c.Title,
+                    c.Matter,
+                    c.WordCount,
+                    c.StartPage,
+                    c.PageCount
+                }).ToList();
+
+                return Json(new
+                {
+                    success = true,
+                    bookId,
+                    path = manuscriptUrl,
+                    fileName = safeFile,
+                    chapterCount = chapters.Count,
+                    lastUploadedAtUtc = active?.UploadedAtUtc,
+                    lastUploadedLabel = ManuscriptVersionStore.FormatUploadedLabel(active?.UploadedAtUtc),
+                    chapters = chapterSummaries,
+                    toc,
+                    pages,
+                    versions
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "UploadManuscript failed for book {BookId} file {Name}", bookId, file.FileName);
+                return Json(new { success = false, message = ChapterDocumentImportService.MapImportExceptionMessage(ex) });
+            }
         }
 
         // ========================== ANALYZE MANUSCRIPT ===========================
@@ -4116,34 +4716,54 @@ namespace EBookDashboard.Controllers
         // ========================== COVER ===========================
         [HttpPost]
         [IgnoreAntiforgeryToken]
-        public async Task<IActionResult> UploadCover(int bookId, IFormFile file)
+        public async Task<IActionResult> UploadCover(int bookId, IFormFile file, string? part = "front")
         {
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (sessionUserId == null) return Unauthorized();
-            if (file == null || file.Length == 0) return BadRequest("No file uploaded.");
+            if (file == null || file.Length == 0) return BadRequest(new { success = false, message = "No file uploaded." });
 
             var allowed = new[] { ".png", ".jpg", ".jpeg", ".webp" };
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowed.Contains(ext)) return BadRequest("Only image files are allowed.");
+            if (!allowed.Contains(ext))
+                return BadRequest(new { success = false, message = "Only PNG/JPG/WebP images are allowed." });
 
             var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value);
-            if (book == null) return NotFound("Book not found.");
+            if (book == null) return NotFound(new { success = false, message = "Book not found." });
 
-            var uploadsRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", sessionUserId.Value.ToString(), "books", bookId.ToString());
+            var partKey = (part ?? "front").Trim().ToLowerInvariant();
+            if (partKey is not ("front" or "back" or "spine"))
+                partKey = "front";
+
+            var uploadsRoot = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", sessionUserId.Value.ToString(), "books", bookId.ToString(), "covers");
             Directory.CreateDirectory(uploadsRoot);
-            var fileName = $"cover_{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
+            var fileName = $"{partKey}-upload-{DateTime.UtcNow:yyyyMMddHHmmss}{ext}";
             var savePath = Path.Combine(uploadsRoot, fileName);
-            using (var stream = new FileStream(savePath, FileMode.Create))
+            await using (var stream = new FileStream(savePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
             }
 
-            var relativePath = $"/uploads/{sessionUserId}/books/{bookId}/{fileName}";
-            book.CoverImagePath = relativePath;
-            book.UpdatedAt = DateTime.UtcNow;
+            var relativePath = $"/uploads/{sessionUserId}/books/{bookId}/covers/{fileName}";
+
+            if (partKey == "front")
+            {
+                book.CoverImagePath = relativePath;
+                book.UpdatedAt = DateTime.UtcNow;
+                await UpsertSettingAsync($"book:{bookId}:aiCoverLastPreview", relativePath, "Book");
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverFront", relativePath, "Book");
+            }
+            else if (partKey == "back")
+            {
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverBack", relativePath, "Book");
+            }
+            else
+            {
+                await UpsertSettingAsync($"book:{bookId}:printReadyCoverSpine", relativePath, "Book");
+            }
+
             await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, path = relativePath });
+            return Ok(new { success = true, path = relativePath, part = partKey });
         }
 
         [HttpPost]
@@ -4282,6 +4902,38 @@ namespace EBookDashboard.Controllers
             };
 
             return Json(new { success = true, book });
+        }
+
+        /// <summary>Persist back-cover summary text (Books.Description) used by print wrap export.</summary>
+        [HttpPost]
+        [Route("Books/SaveBackCoverSummary")]
+        public async Task<IActionResult> SaveBackCoverSummary([FromBody] SaveBackCoverSummaryRequest? req)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Unauthorized();
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, message = "bookId is required." });
+
+            var book = await _context.Books
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value);
+            if (book == null)
+                return Json(new { success = false, message = "Book not found." });
+
+            var summary = (req.BackSummary ?? req.Description ?? "").Trim();
+            if (summary.Length > 4000)
+                summary = summary[..4000];
+
+            book.Description = summary;
+            book.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Json(new
+            {
+                success = true,
+                bookId = book.BookId,
+                backSummary = book.Description ?? "",
+                tooLong = (req.BackSummary ?? req.Description ?? "").Trim().Length > 1200
+            });
         }
 
         /// <summary>Generate AI cover preview via external POST /api/generate-cover. Returns { success, options[] }.</summary>

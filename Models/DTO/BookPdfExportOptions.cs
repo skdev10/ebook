@@ -8,6 +8,21 @@ namespace EBookDashboard.Models.DTO;
 /// <summary>Interior options for PDF export — mirrors formatter draft JSON (camelCase) and BookFormatting rows.</summary>
 public class BookPdfExportOptions
 {
+    /// <summary>Optional explicit trim width in inches (Formatting workspace). When set with height, overrides style-based trim.</summary>
+    public double? TrimWidthIn { get; set; }
+
+    /// <summary>Optional explicit trim height in inches.</summary>
+    public double? TrimHeightIn { get; set; }
+
+    /// <summary>When true, add 0.125″ bleed on each side to the PDF page box.</summary>
+    public bool UseBleed { get; set; }
+
+    /// <summary>Optional margin overrides in inches (top/bottom/inside/outside).</summary>
+    public double? MarginTopIn { get; set; }
+    public double? MarginBottomIn { get; set; }
+    public double? MarginInsideIn { get; set; }
+    public double? MarginOutsideIn { get; set; }
+
     public bool IncludeCoverPage { get; set; } = true;
     public string InteriorStyle { get; set; } = "Novel";
     public string TextSize { get; set; } = "Medium";
@@ -118,6 +133,13 @@ public class BookPdfExportOptions
             PreviewAccent = NormalizeHexColor(req.PreviewAccent);
         if (!string.IsNullOrWhiteSpace(req.PageBackgroundColor))
             PageBackgroundColor = NormalizeHexColor(req.PageBackgroundColor);
+        if (req.TrimWidthIn is > 0) TrimWidthIn = req.TrimWidthIn;
+        if (req.TrimHeightIn is > 0) TrimHeightIn = req.TrimHeightIn;
+        if (req.UseBleed.HasValue) UseBleed = req.UseBleed.Value;
+        if (req.MarginTopIn is > 0) MarginTopIn = req.MarginTopIn;
+        if (req.MarginBottomIn is > 0) MarginBottomIn = req.MarginBottomIn;
+        if (req.MarginInsideIn is > 0) MarginInsideIn = req.MarginInsideIn;
+        if (req.MarginOutsideIn is > 0) MarginOutsideIn = req.MarginOutsideIn;
         Normalize();
     }
 

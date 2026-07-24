@@ -17,12 +17,18 @@
     var defaultCoverPlaceholder = Url.Content("~/images/books/cover-in-progress.png");
     var hasInProgressDrafts = draftBooks.Any() || demoDrafts.Any();
     var primaryDraft = draftBooks.OrderByDescending(d => d.LastEditedAt).FirstOrDefault();
-    var heroTitle = "Writing a New Book";
+    // Soft modules: never auto-attach a draft book. Writer opens blank; Format/Cover need Continue Editing.
+    var moduleWriterUrl = Url.Action("Writer", "Books") ?? "/Books/Writer";
+    var moduleFormatUrl = "/Books/Formatting";
+    var moduleCoverUrl = "/Books/Cover";
+    var heroTitle = "Format or write your book";
     var heroDesc = hasInProgressDrafts
-        ? "Start a new project here with Write Now. To continue an existing book, open it from Continue Editing below."
-        : "Start a fresh project with AI Writer — write chapters, format the interior, design a cover, and publish.";
-    var heroPrimaryUrl = startBookUrl;
-    var heroPrimaryLabel = "Write Now";
+        ? "Format a manuscript or write with AI. Resume any draft from Continue Editing below — books are not auto-selected."
+        : "Two clear ways to start: format a DOCX/PDF manuscript, or write chapters with AI. Then cover, preview, and export.";
+    var heroPrimaryUrl = moduleFormatUrl;
+    var heroPrimaryLabel = "Format manuscript";
+    var heroSecondaryUrl = moduleWriterUrl;
+    var heroSecondaryLabel = "Write with AI";
     var dashProfilePic = "";
     if (!string.IsNullOrEmpty(ViewBag.ProfilePicturePath as string))
         dashProfilePic = Url.Content((string)ViewBag.ProfilePicturePath) + "?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -296,8 +302,11 @@
                     <h1 id="dash-hero-title" class="font-serif text-4xl sm:text-5xl text-gray-900 mb-3 leading-tight tracking-tight">@heroTitle</h1>
                     <p id="dash-hero-desc" class="text-gray-500 text-base sm:text-lg mb-6 leading-relaxed max-w-lg">@heroDesc</p>
                     <div class="dash-hero-actions">
-                        <a id="dash-hero-cta" href="@heroPrimaryUrl" class="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-800 active:scale-95 text-white px-8 py-3.5 rounded-full font-semibold transition-all shadow-lg shadow-purple-200 text-base" data-editor-reset-new="1" data-book-id="0" data-unsaved-ignore="true">
-                            <i class="fas fa-pen-nib text-sm"></i> @heroPrimaryLabel
+                        <a id="dash-hero-cta" href="@heroPrimaryUrl" class="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-800 active:scale-95 text-white px-8 py-3.5 rounded-full font-semibold transition-all shadow-lg shadow-purple-200 text-base" data-unsaved-ignore="true">
+                            <i class="fas fa-file-alt text-sm"></i> @heroPrimaryLabel
+                        </a>
+                        <a id="dash-hero-cta-ai" href="@heroSecondaryUrl" class="inline-flex items-center gap-2 border-2 border-violet-200 bg-white hover:bg-violet-50 text-violet-800 px-7 py-3 rounded-full font-semibold transition-all text-base" data-editor-reset-new="1" data-book-id="0" data-unsaved-ignore="true">
+                            <i class="fas fa-pen-nib text-sm"></i> @heroSecondaryLabel
                         </a>
                     </div>
                 </div>
@@ -309,6 +318,33 @@
                 </div>
             </div>
 
+            <!-- Two primary modes + cover (Format highlighted per product spec) -->
+            <div class="mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <a href="@moduleFormatUrl" class="group rounded-2xl border-2 border-violet-300 bg-violet-50/40 p-5 shadow-sm hover:border-violet-500 hover:shadow-md transition-all ring-1 ring-violet-100" data-unsaved-ignore="true">
+                    <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center mb-3">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-violet-700 mb-1">Recommended</p>
+                    <h3 class="font-semibold text-gray-900 text-base mb-1">Format manuscript</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-0">Upload DOCX/PDF — layout, preview, export. No forced AI steps.</p>
+                </a>
+                <a href="@moduleWriterUrl" class="group rounded-2xl border border-sky-100 bg-white p-5 shadow-sm hover:border-sky-300 hover:shadow-md transition-all" data-unsaved-ignore="true">
+                    <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center mb-3 group-hover:bg-sky-600 group-hover:text-white transition-colors">
+                        <i class="fas fa-pen-nib"></i>
+                    </div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Optional</p>
+                    <h3 class="font-semibold text-gray-900 text-base mb-1">Write with AI</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-0">Write and edit chapters with AI when you need help.</p>
+                </a>
+                <a href="@moduleCoverUrl" class="group rounded-2xl border border-amber-100 bg-white p-5 shadow-sm hover:border-amber-300 hover:shadow-md transition-all" data-unsaved-ignore="true">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                        <i class="fas fa-image"></i>
+                    </div>
+                    <h3 class="font-semibold text-gray-900 text-base mb-1">Book Cover</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-0">Design your front cover or full print wrap.</p>
+                </a>
+            </div>
+
             @if (!Model.HasAnyBooks)
             {
                 <div class="mb-10 rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50 via-white to-purple-50 p-6 sm:p-8 shadow-sm">
@@ -318,9 +354,9 @@
                             <h2 class="font-serif text-2xl text-gray-900 mb-2">Start your first book in under a minute</h2>
                             <p class="text-gray-600 text-sm leading-relaxed mb-4">No manuscript needed yet. We create a draft project for you, then you write chapters with AI, format the interior, design a cover, and publish.</p>
                             <ol class="text-sm text-gray-600 space-y-2 mb-0 list-decimal list-inside">
-                                <li><strong class="text-gray-800">AI Writer</strong> — generate chapters</li>
-                                <li><strong class="text-gray-800">Book formatting</strong> — interior &amp; layout</li>
-                                <li><strong class="text-gray-800">AI Cover Design</strong> — front / print wrap</li>
+                                <li><strong class="text-gray-800">AI Writer</strong> — generate or upload chapters</li>
+                                <li><strong class="text-gray-800">Formatting</strong> — interior layout &amp; preview</li>
+                                <li><strong class="text-gray-800">Book Cover</strong> — front cover / print wrap</li>
                                 <li><strong class="text-gray-800">Publish</strong> — export EPUB or print PDF</li>
                             </ol>
                         </div>
@@ -344,7 +380,7 @@
                         </button>
                     }
                 </div>
-                <p class="text-sm text-slate-500 mb-6 max-w-2xl">Always open your book from here to write, format, design a cover, and publish. Following the steps keeps your work safe — skipping around can delete unsaved drafts.</p>
+                <p class="text-sm text-slate-500 mb-6 max-w-2xl">Resume where you left off — Writer, Formatting, or Book Cover. You can also open any module from the cards above or the sidebar.</p>
                 <div id="drafts-list" class="gap-4">
                     @if (draftBooksShow.Any())
                     {

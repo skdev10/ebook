@@ -56,6 +56,7 @@
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
     <PackageReference Include="System.Text.Json" Version="10.0.1" />
     <PackageReference Include="PdfPig" Version="0.1.15" />
+    <PackageReference Include="Tesseract" Version="5.2.0" />
   </ItemGroup>
 
   <!--
@@ -86,6 +87,10 @@
   <ItemGroup>
     <Content Include="Certificates\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="tessdata\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
     <!-- Ensure Razor views exist on disk for Production (no runtime compilation); fixes view lookup under dotnet exec/publish. -->
     <Content Update="Views\**\*.cshtml">

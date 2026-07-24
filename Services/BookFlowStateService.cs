@@ -124,9 +124,12 @@ public sealed class BookFlowStateService
         if (u.Length == 0) return "";
         var pathOnly = u.Split('?', 2)[0];
         if (pathOnly.Contains("/Dashboard/Publish", StringComparison.OrdinalIgnoreCase)) return StepPublish;
-        if (pathOnly.Contains("CoverDesignCalculatorFixing", StringComparison.OrdinalIgnoreCase)) return StepFormat;
-        if (pathOnly.Contains("/Dashboard/CoverDesign", StringComparison.OrdinalIgnoreCase)) return StepCover;
-        if (pathOnly.Contains("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase)) return StepGenerate;
+        if (pathOnly.Contains("CoverDesignCalculatorFixing", StringComparison.OrdinalIgnoreCase)
+            || pathOnly.Contains("/Books/Formatting", StringComparison.OrdinalIgnoreCase)) return StepFormat;
+        if (pathOnly.Contains("/Dashboard/CoverDesign", StringComparison.OrdinalIgnoreCase)
+            || pathOnly.Contains("/Books/Cover", StringComparison.OrdinalIgnoreCase)) return StepCover;
+        if (pathOnly.Contains("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase)
+            || pathOnly.Contains("/Books/Writer", StringComparison.OrdinalIgnoreCase)) return StepGenerate;
         return "";
     }
 
@@ -149,14 +152,12 @@ public sealed class BookFlowStateService
         var enc = Uri.EscapeDataString(bookId.ToString());
         return step switch
         {
-            StepFormat => formatPath.Equals("print", StringComparison.OrdinalIgnoreCase)
-                ? $"/BookDesign/CoverDesignCalculatorFixing?bookId={enc}&format=Paperback"
-                : $"/BookDesign/CoverDesignCalculatorFixing?bookId={enc}&format=Ebook",
-            StepCover => $"/Dashboard/CoverDesign?bookId={enc}",
+            StepFormat => $"/Books/Formatting/{enc}",
+            StepCover => $"/Books/Cover/{enc}",
             StepPublish => formatPath.Equals("print", StringComparison.OrdinalIgnoreCase)
                 ? $"/Dashboard/Publish?bookId={enc}&flow=printready"
                 : $"/Dashboard/Publish?bookId={enc}",
-            _ => $"/Books/AIGenerateBook?bookId={enc}"
+            _ => $"/Books/Writer?bookId={enc}"
         };
     }
 

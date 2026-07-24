@@ -26,10 +26,34 @@ public sealed class ExportPdfPageLayout
 
         var w = 6.0 * InchesToPt;
         var h = 9.0 * InchesToPt;
-        var top = ParseMarginMm(spec.MarginTop);
-        var bottom = ParseMarginMm(spec.MarginBottom);
-        var left = ParseMarginMm(spec.MarginLeft);
-        var right = ParseMarginMm(spec.MarginRight);
+        if (opt.TrimWidthIn is > 0 && opt.TrimHeightIn is > 0)
+        {
+            w = opt.TrimWidthIn.Value * InchesToPt;
+            h = opt.TrimHeightIn.Value * InchesToPt;
+        }
+        else
+        {
+            // Match BookPdfPlatformLayout style-based trim when no explicit trim is set.
+            var style = InteriorExportTheme.NormalizeInteriorStyle(opt.InteriorStyle);
+            (w, h) = style switch
+            {
+                "Novel" => (5.0 * InchesToPt, 8.0 * InchesToPt),
+                "ElegantTrade" or "Traditional" or "Contemporary" or "Classic"
+                    or "Minimalist" or "ElegantTradePOD" => (5.5 * InchesToPt, 8.5 * InchesToPt),
+                _ => (6.0 * InchesToPt, 9.0 * InchesToPt)
+            };
+        }
+
+        if (opt.UseBleed)
+        {
+            w += 0.25 * InchesToPt;
+            h += 0.25 * InchesToPt;
+        }
+
+        var top = opt.MarginTopIn is > 0 ? opt.MarginTopIn.Value * InchesToPt : ParseMarginMm(spec.MarginTop);
+        var bottom = opt.MarginBottomIn is > 0 ? opt.MarginBottomIn.Value * InchesToPt : ParseMarginMm(spec.MarginBottom);
+        var left = opt.MarginInsideIn is > 0 ? opt.MarginInsideIn.Value * InchesToPt : ParseMarginMm(spec.MarginLeft);
+        var right = opt.MarginOutsideIn is > 0 ? opt.MarginOutsideIn.Value * InchesToPt : ParseMarginMm(spec.MarginRight);
         return new ExportPdfPageLayout(w, h, left, right, top, bottom);
     }
 

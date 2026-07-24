@@ -560,6 +560,32 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
 
         try
         {
+            byte[]? backBytes = null;
+            byte[]? spineBytes = null;
+            try
+            {
+                var panelKeys = new[]
+                {
+                    $"book:{bookId}:printReadyCoverBack",
+                    $"book:{bookId}:printReadyCoverSpine"
+                };
+                var panelRows = await _context.Settings.AsNoTracking()
+                    .Where(s => panelKeys.Contains(s.Key))
+                    .ToDictionaryAsync(s => s.Key, s => s.Value ?? "", cancellationToken);
+                var backRef = panelRows.GetValueOrDefault($"book:{bookId}:printReadyCoverBack", "").Trim();
+                var spineRef = panelRows.GetValueOrDefault($"book:{bookId}:printReadyCoverSpine", "").Trim();
+                if (!string.IsNullOrEmpty(backRef))
+                    backBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                        backRef, _env.WebRootPath, _httpClientFactory, cancellationToken);
+                if (!string.IsNullOrEmpty(spineRef))
+                    spineBytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                        spineRef, _env.WebRootPath, _httpClientFactory, cancellationToken);
+            }
+            catch (Exception panelEx)
+            {
+                _logger.LogDebug(panelEx, "Optional back/spine panel load skipped for book {BookId}", bookId);
+            }
+
             var composed = _wrapCompositor.Compose(new PrintWrapComposeRequest
             {
                 FrontCoverBytes = frontBytes,
@@ -568,7 +594,9 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
                 Title = title,
                 Author = authorName,
                 Description = description,
-                Theme = theme
+                Theme = theme,
+                BackCoverBytes = backBytes is { Length: > 0 } ? backBytes : null,
+                SpineCoverBytes = spineBytes is { Length: > 0 } ? spineBytes : null
             });
 
             var persistedPath = await SaveCoverBytesToUploadsAsync(

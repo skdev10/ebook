@@ -277,6 +277,9 @@ namespace EBookDashboard.Middleware
             if (string.IsNullOrEmpty(path)) return false;
             var p = path.TrimEnd('/');
             return
+                p.StartsWith("/Books/Writer", StringComparison.OrdinalIgnoreCase) ||
+                p.StartsWith("/Books/Formatting", StringComparison.OrdinalIgnoreCase) ||
+                p.StartsWith("/Books/Cover", StringComparison.OrdinalIgnoreCase) ||
                 p.StartsWith("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase) ||
                 p.StartsWith("/BookDesign/CoverDesignCalculatorFixing", StringComparison.OrdinalIgnoreCase) ||
                 p.StartsWith("/Dashboard/CoverDesign", StringComparison.OrdinalIgnoreCase) ||

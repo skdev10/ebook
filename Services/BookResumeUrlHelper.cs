@@ -26,12 +26,28 @@ public static class BookResumeUrlHelper
         var pathOnly = path.Split('?', 2)[0].TrimEnd('/');
         return pathOnly.StartsWith("/Dashboard", StringComparison.OrdinalIgnoreCase)
                || pathOnly.StartsWith("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase)
+               || pathOnly.StartsWith("/Books/Writer", StringComparison.OrdinalIgnoreCase)
+               || pathOnly.StartsWith("/Books/Formatting", StringComparison.OrdinalIgnoreCase)
+               || pathOnly.StartsWith("/Books/Cover", StringComparison.OrdinalIgnoreCase)
                || pathOnly.StartsWith("/BookDesign/CoverDesignCalculatorFixing", StringComparison.OrdinalIgnoreCase);
     }
 
     public static int TryParseBookIdFromWorkUrl(string url)
     {
         if (string.IsNullOrWhiteSpace(url)) return 0;
+
+        // /Books/Formatting/12 or /Books/Cover/12
+        var pathOnly = url.Split('?', 2)[0].TrimEnd('/');
+        foreach (var prefix in new[] { "/Books/Formatting/", "/Books/Cover/" })
+        {
+            if (pathOnly.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                var tail = pathOnly[prefix.Length..];
+                if (int.TryParse(tail, out var pathBid) && pathBid > 0)
+                    return pathBid;
+            }
+        }
+
         var qIndex = url.IndexOf('?');
         if (qIndex < 0) return 0;
         var query = url[(qIndex + 1)..];

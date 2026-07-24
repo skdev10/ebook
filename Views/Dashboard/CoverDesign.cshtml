@@ -158,6 +158,40 @@
         object-position: center;
         background: #fff;
     }
+    #covFullWrapFrame { width: 100%; }
+    #covFullWrapFrame .cov-wrap-guides {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .cov-wrap-guide-label {
+        position: absolute;
+        top: 8px;
+        z-index: 2;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #fff;
+        background: rgba(15, 23, 42, 0.55);
+        border-radius: 4px;
+        padding: 2px 6px;
+    }
+    .cov-wrap-guide-label--back { left: 8%; }
+    .cov-wrap-guide-label--spine { left: 50%; transform: translateX(-50%); }
+    .cov-wrap-guide-label--front { right: 8%; }
+    .cov-wrap-guide-bleed {
+        position: absolute;
+        inset: 0;
+        box-shadow: inset 0 0 0 3px rgba(239, 68, 68, 0.28);
+    }
+    .cov-wrap-guide-safe {
+        position: absolute;
+        inset: 4.5% 3.5%;
+        border: 1px dashed rgba(16, 185, 129, 0.55);
+    }
     .cov-wrap-view-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
     .cov-wrap-view-tab { padding: 5px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; }
     .cov-wrap-view-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
@@ -321,7 +355,7 @@
         <div class="dash-flow-inner flex flex-col min-h-0">
 <div class="cover-design-page antialiased w-full">
     <div class="mb-4 flex flex-wrap items-center gap-3">
-        <button type="button" data-flow-back="@(ViewBag.FlowBackUrl ?? $"/BookDesign/CoverDesignCalculatorFixing?bookId={ViewBag.BookId ?? 0}")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Back</button>
+        <button type="button" data-flow-back="@(ViewBag.FlowBackUrl ?? $"/Books/Formatting/{ViewBag.BookId ?? 0}")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Back</button>
     </div>
     <!-- Loading -->
     <div id="screenLoading" class="cov-state-panel rounded-[32px] flex flex-col gap-3 animate-pulse">
@@ -376,6 +410,26 @@
                 </div>
             </div>
 
+            <div data-guided-tour="cov-upload" id="covUploadImagesBlock" class="mt-1">
+                <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Upload cover images</h2>
+                <p class="text-sm text-slate-500 mb-2 leading-snug">Upload a front image (PNG/JPG) to use as your cover. Back and spine are optional for print wrap.</p>
+                <div class="border border-slate-200 rounded-[16px] p-3 bg-white flex flex-col gap-2.5">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1" for="covUploadFront">Front image <span class="text-rose-500">*</span></label>
+                        <input type="file" id="covUploadFront" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-violet-50 file:text-violet-800 file:font-semibold hover:file:bg-violet-100" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1" for="covUploadBack">Back image <span class="text-slate-400 font-normal">(optional)</span></label>
+                        <input type="file" id="covUploadBack" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-50 file:text-slate-700 file:font-semibold" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1" for="covUploadSpine">Spine image <span class="text-slate-400 font-normal">(optional)</span></label>
+                        <input type="file" id="covUploadSpine" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-50 file:text-slate-700 file:font-semibold" />
+                    </div>
+                    <p id="covUploadStatus" class="text-[11px] text-slate-400 mb-0" aria-live="polite"></p>
+                </div>
+            </div>
+
             <div data-guided-tour="cov-prompt">
                 <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Image Direction</h2>
                 <p class="text-sm text-slate-500 mb-2 leading-snug">Mood, palette, main subject, and style references—the clearer you are, the stronger the cover.</p>
@@ -397,10 +451,32 @@
                 </div>
             </div>
 
+            <div data-guided-tour="cov-back-summary" id="covBackSummaryBlock">
+                <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Back cover summary</h2>
+                <p class="text-sm text-slate-500 mb-2 leading-snug">Description printed on the back panel of paperback/hardcover wraps. Not shown on ebook front covers.</p>
+                <div class="border border-slate-200 rounded-[20px] p-1.5 bg-white focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200">
+                    <textarea id="backCoverSummary" rows="6" maxlength="4000" placeholder="A short synopsis for the back cover — mood, stakes, and why readers should open the book…" class="w-full px-4 py-3 text-base text-slate-800 outline-none resize-y bg-slate-50/40 focus:bg-white transition-colors rounded-[14px] min-h-[7rem]"></textarea>
+                    <div class="flex flex-wrap items-center justify-between gap-2 px-2.5 py-2">
+                        <p id="backCoverSummaryHint" class="text-[11px] text-slate-400 mb-0">Shows on the back panel of the full wrap preview and print wrap PDF.</p>
+                        <span id="backCoverSummaryWarn" class="hidden text-[11px] font-semibold text-amber-700">Text may be too long for the back panel.</span>
+                    </div>
+                </div>
+            </div>
+
             <a href="#" id="btnGoToPublish" class="mt-1 w-full rounded-[14px] bg-violet-700 text-white py-3 text-sm font-semibold shadow-md shadow-violet-500/20 hover:bg-violet-800 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book" aria-disabled="true" style="pointer-events:none;opacity:0.5">
                 <i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i>
                 Continue to Publish
             </a>
+            <div class="relative mt-2 flex flex-col gap-2" id="covDownloadWrap">
+                <button type="button" id="btnDownloadCoverFront" class="cov-download-btn w-full rounded-[14px] border-2 border-violet-200 bg-white text-violet-800 py-2.5 text-sm font-semibold hover:bg-violet-50 transition-all flex items-center justify-center gap-2" data-part="front" data-format="png" title="Download front PNG" disabled>
+                    <i data-lucide="download" class="w-4 h-4" stroke-width="1.75"></i>
+                    Download Cover — PNG
+                </button>
+                <button type="button" id="btnDownloadCoverWrap" class="cov-download-btn w-full rounded-[14px] border-2 border-violet-200 bg-white text-violet-800 py-2.5 text-sm font-semibold hover:bg-violet-50 transition-all flex items-center justify-center gap-2" data-part="wrap" data-format="pdf" title="Download print-ready wrap PDF" disabled>
+                    <i data-lucide="file-text" class="w-4 h-4" stroke-width="1.75"></i>
+                    Download Cover — Print Wrap PDF
+                </button>
+            </div>
             <p id="btnGoToPublishHint" class="mt-1 text-[11px] text-slate-400 leading-snug">Generate your cover first — for paperback, wait until the full wrap is ready.</p>
         </div>
 
@@ -456,7 +532,16 @@
                     <div id="covFullWrapPlaceholder" class="text-center py-8 text-sm text-slate-500">
                         <p id="covFullWrapPlaceholderText" class="mb-0">Full wrap appears here after you generate your front cover.</p>
                     </div>
-                    <img id="covFullWrapImg" class="hidden" alt="Full KDP print wrap — same file exported on Publish" />
+                    <div id="covFullWrapFrame" class="hidden relative">
+                        <img id="covFullWrapImg" class="hidden" alt="Full KDP print wrap — same file exported on Publish" />
+                        <div class="cov-wrap-guides" aria-hidden="true">
+                            <span class="cov-wrap-guide-label cov-wrap-guide-label--back">Back</span>
+                            <span class="cov-wrap-guide-label cov-wrap-guide-label--spine">Spine</span>
+                            <span class="cov-wrap-guide-label cov-wrap-guide-label--front">Front</span>
+                            <span class="cov-wrap-guide-bleed"></span>
+                            <span class="cov-wrap-guide-safe"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -474,6 +559,7 @@
 </div>
 
 <script src="~/js/cover-kdp-export.js" asp-append-version="true"></script>
+<script src="~/js/module-export.js" asp-append-version="true"></script>
 <script>
 (function () {
     'use strict';
@@ -597,6 +683,8 @@
         setCovWrapView('front');
         var img = document.getElementById('covFullWrapImg');
         if (img) { img.src = ''; img.classList.add('hidden'); }
+        var frame = document.getElementById('covFullWrapFrame');
+        if (frame) frame.classList.add('hidden');
         var building = document.getElementById('covFullWrapBuilding');
         if (building) building.classList.add('hidden');
         var placeholder = document.getElementById('covFullWrapPlaceholder');
@@ -699,7 +787,9 @@
 
         covWrapBuildInFlight = true;
         updatePublishGate();
-        covWrapBuildPromise = resolveWrapPageCount().then(function (pageCount) {
+        covWrapBuildPromise = Promise.resolve(persistBackCoverSummary()).then(function () {
+            return resolveWrapPageCount();
+        }).then(function (pageCount) {
             // wait:true — local ImageSharp wrap finishes in seconds. wait:false used to
             // queue background AI fallbacks that hung for 15+ minutes on "Generating".
             return fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
@@ -819,18 +909,20 @@
         if (!wrapUrl) return;
         showCovFullWrapSection(true);
         var img = document.getElementById('covFullWrapImg');
+        var frame = document.getElementById('covFullWrapFrame');
         var placeholder = document.getElementById('covFullWrapPlaceholder');
         var building = document.getElementById('covFullWrapBuilding');
         var tabs = document.getElementById('covWrapViewTabs');
         var hint = document.getElementById('covWrapPageHint');
         if (building) building.classList.add('hidden');
         if (tabs) tabs.classList.remove('hidden');
-        if (hint && pageCount) hint.textContent = pageCount + ' pages · KDP print wrap';
+        if (hint && pageCount) hint.textContent = pageCount + ' pages · Back · Spine · Front (KDP print wrap)';
         if (img) {
             var src = toUrl(wrapUrl);
             if (!src) {
                 img.src = '';
                 img.classList.add('hidden');
+                if (frame) frame.classList.add('hidden');
                 if (placeholder) {
                     var phText = document.getElementById('covFullWrapPlaceholderText');
                     if (phText) phText.textContent = 'Full wrap path was empty. Click Retry wrap below.';
@@ -842,16 +934,17 @@
             src = src + (src.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
             img.onload = function () {
                 img.classList.remove('hidden');
+                if (frame) frame.classList.remove('hidden');
                 if (placeholder) placeholder.classList.add('hidden');
-                setCovWrapView('full');
                 setPrintWrapSaved(true);
             };
             img.onerror = function () {
                 img.classList.add('hidden');
                 img.removeAttribute('src');
+                if (frame) frame.classList.add('hidden');
                 if (placeholder) {
-                    var phText = document.getElementById('covFullWrapPlaceholderText');
-                    if (phText) phText.textContent = 'Full wrap file could not be loaded. Click Retry wrap.';
+                    var phErr = document.getElementById('covFullWrapPlaceholderText');
+                    if (phErr) phErr.textContent = 'Could not load wrap image. Click Retry wrap.';
                     placeholder.classList.remove('hidden');
                 }
                 coverWraparoundRef = '';
@@ -859,10 +952,14 @@
                 updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
             };
             img.src = src;
+            img.classList.remove('hidden');
+            if (frame) frame.classList.remove('hidden');
+            if (placeholder) placeholder.classList.add('hidden');
         } else {
             setPrintWrapSaved(true);
         }
         coverWraparoundRef = wrapUrl;
+        setCovWrapView('full');
     }
 
     function updateCovWrapBuildBanner(data) {
@@ -968,6 +1065,8 @@
     var bookCategory = document.getElementById('bookCategory');
     var coverStyle = document.getElementById('coverStyle');
     var imageDirection = document.getElementById('imageDirection');
+    var backCoverSummary = document.getElementById('backCoverSummary');
+    var backCoverSummaryWarn = document.getElementById('backCoverSummaryWarn');
     var btnGenerate = document.getElementById('btnGenerate');
     var btnRegenerate = document.getElementById('btnRegenerate');
     var btnEditCover = document.getElementById('btnEditCover');
@@ -1085,7 +1184,7 @@
         return c.toDataURL('image/png');
     }
 
-    function buildBackCoverDataUrl(title, author) {
+    function buildBackCoverDataUrl(title, author, summaryText) {
         var w = 900;
         var h = 1350;
         var c = document.createElement('canvas');
@@ -1097,6 +1196,15 @@
         g.addColorStop(1, '#312e81');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, w, h);
+        // Bleed band hint
+        ctx.strokeStyle = 'rgba(239,68,68,0.35)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(18, 18, w - 36, h - 36);
+        // Safe text area
+        ctx.strokeStyle = 'rgba(16,185,129,0.45)';
+        ctx.setLineDash([6, 5]);
+        ctx.strokeRect(56, 56, w - 112, h - 200);
+        ctx.setLineDash([]);
         ctx.fillStyle = 'rgba(255,255,255,0.08)';
         ctx.beginPath();
         ctx.arc(w * 0.84, h * 0.22, w * 0.35, 0, Math.PI * 2);
@@ -1105,27 +1213,39 @@
         ctx.font = '700 42px Inter, system-ui, sans-serif';
         var safeTitle = String(title || 'Untitled');
         if (safeTitle.length > 36) safeTitle = safeTitle.slice(0, 33) + '…';
-        ctx.fillText(safeTitle, 64, 120);
+        ctx.fillText(safeTitle, 72, 130);
         ctx.fillStyle = '#c4b5fd';
-        ctx.font = '500 28px Inter, system-ui, sans-serif';
-        ctx.fillText(String(author || ''), 64, 172);
+        ctx.font = '500 26px Inter, system-ui, sans-serif';
+        ctx.fillText(String(author || ''), 72, 178);
         ctx.fillStyle = '#e2e8f0';
-        ctx.font = '400 26px Georgia, serif';
-        var blurb = 'A compelling story crafted and prepared for publication with AI-assisted tools.';
-        var words = blurb.split(' ');
+        ctx.font = '400 24px Georgia, serif';
+        var blurb = String(summaryText || '').trim();
+        if (!blurb) blurb = 'A compelling story crafted and prepared for publication with AI-assisted tools.';
+        var maxY = h - 160;
+        var words = blurb.split(/\s+/);
         var line = '';
-        var y = 260;
+        var y = 250;
+        var overflow = false;
         words.forEach(function (word) {
+            if (overflow) return;
             var test = line ? line + ' ' + word : word;
-            if (ctx.measureText(test).width > w - 128 && line) {
-                ctx.fillText(line, 64, y);
+            if (ctx.measureText(test).width > w - 144 && line) {
+                ctx.fillText(line, 72, y);
                 line = word;
-                y += 42;
+                y += 38;
+                if (y > maxY) {
+                    overflow = true;
+                    ctx.fillText(line.slice(0, Math.max(0, line.length - 1)) + '…', 72, y);
+                    line = '';
+                }
             } else {
                 line = test;
             }
         });
-        if (line) ctx.fillText(line, 64, y);
+        if (line && !overflow) ctx.fillText(line, 72, y);
+        // Barcode reserve
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(w - 280, h - 140, 200, 90);
         return c.toDataURL('image/png');
     }
 
@@ -1167,7 +1287,7 @@
         if (!front) throw new Error('Front cover is missing.');
         var pageCount = (selectedBook && (selectedBook.pageCount || selectedBook.totalPages || selectedBook.pages)) || 120;
         var spine = buildSpineDataUrl(meta.title, pageCount);
-        var back = buildBackCoverDataUrl(meta.title, meta.author);
+        var back = buildBackCoverDataUrl(meta.title, meta.author, getBackCoverSummaryText());
         var wrap = await composeSequentialWrap(front, spine, back);
         sequentialAssets = { front: front, spine: spine, back: back, wrap: wrap };
         window.__coverDesignSequentialAssets = sequentialAssets;
@@ -1594,6 +1714,17 @@
         btnGoToPublish.setAttribute('aria-disabled', ready ? 'false' : 'true');
         btnGoToPublish.style.pointerEvents = ready ? '' : 'none';
         btnGoToPublish.style.opacity = ready ? '' : '0.5';
+        var dlBtns = document.querySelectorAll('.cov-download-btn');
+        dlBtns.forEach(function (b) {
+            var part = b.getAttribute('data-part') || 'front';
+            if (part === 'wrap') {
+                b.disabled = !fullWrapIsReady();
+                b.title = fullWrapIsReady() ? 'Download print-ready wrap PDF' : 'Full wrap not ready yet';
+            } else {
+                b.disabled = !frontReady && !fullWrapIsReady();
+                b.title = frontReady || fullWrapIsReady() ? 'Download front PNG' : 'Upload or generate a cover first';
+            }
+        });
         if (ready) {
             btnGoToPublish.title = needsWrap
                 ? 'Full wrap ready — open Publish to download front + full wrap'
@@ -2012,7 +2143,9 @@
         bookTitle.value = selectedBook.title || '';
         authorName.value = selectedBook.authorName || '';
         setGenreFromApi((selectedBook.genre || '').trim());
-        imageDirection.value = selectedBook.aiCoverPrompt || selectedBook.description || '';
+        imageDirection.value = selectedBook.aiCoverPrompt || '';
+        if (backCoverSummary) backCoverSummary.value = selectedBook.description || '';
+        updateBackCoverSummaryWarn();
         selectedPath = resolveCoverPathForBook(selectedBook);
         coverHistory = [];
         hasAiCoverThisSession = false;
@@ -2409,6 +2542,167 @@
         if (bookPublishFormat === 'Paperback' || bookPublishFormat === 'Both') publishUrl += '&flow=printready';
         window.location.href = publishUrl;
     });
+
+    (function initCoverDownload() {
+        document.querySelectorAll('.cov-download-btn').forEach(function (btn) {
+            btn.addEventListener('click', async function () {
+                var bid = selectedBook && selectedBook.bookId ? selectedBook.bookId : initialBookId;
+                if (!bid || bid <= 0) {
+                    toast('error', 'No book loaded.');
+                    return;
+                }
+                var part = btn.getAttribute('data-part') || 'front';
+                var format = btn.getAttribute('data-format') || 'png';
+                if (part === 'wrap' && !fullWrapIsReady()) {
+                    toast('error', 'Full wrap is not ready yet. Wait for wrap generation, or download front PNG.');
+                    return;
+                }
+                if (part === 'front' && !frontCoverIsReady() && !fullWrapIsReady()) {
+                    toast('error', 'Upload or generate a cover first.');
+                    return;
+                }
+                btn.disabled = true;
+                try {
+                    var url = '/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bid)
+                        + '&part=' + encodeURIComponent(part)
+                        + '&format=' + encodeURIComponent(format);
+                    var ext = format === 'pdf' ? 'pdf' : 'png';
+                    var result = await window.ModuleExport.getExport(url, 'cover-' + bid + '-' + part + '.' + ext);
+                    if (!result.ok) toast('error', result.message || 'Download failed');
+                    else toast('success', 'Download started');
+                } catch (err) {
+                    toast('error', 'Download failed');
+                } finally {
+                    updatePublishGate();
+                }
+            });
+        });
+    })();
+
+    (function initCoverImageUpload() {
+        var statusEl = document.getElementById('covUploadStatus');
+        function setUploadStatus(msg, ok) {
+            if (!statusEl) return;
+            statusEl.textContent = msg || '';
+            statusEl.className = 'text-[11px] mb-0 ' + (ok === false ? 'text-rose-600' : (ok ? 'text-emerald-700' : 'text-slate-400'));
+        }
+        async function uploadPart(part, fileInput) {
+            if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+            var bid = selectedBook && selectedBook.bookId ? selectedBook.bookId : initialBookId;
+            if (!bid || bid <= 0) {
+                toast('error', 'No book loaded.');
+                return;
+            }
+            var file = fileInput.files[0];
+            if (!/\.(png|jpe?g|webp)$/i.test(file.name || '')) {
+                setUploadStatus('Use PNG, JPG, or WebP.', false);
+                return;
+            }
+            setUploadStatus('Uploading ' + part + '…', true);
+            try {
+                var fd = new FormData();
+                fd.append('file', file);
+                var r = await fetch('/Books/UploadCover?bookId=' + encodeURIComponent(bid) + '&part=' + encodeURIComponent(part), {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'same-origin'
+                });
+                var d = await r.json().catch(function () { return {}; });
+                if (!r.ok || !d.success) {
+                    setUploadStatus((d && d.message) || 'Upload failed.', false);
+                    return;
+                }
+                var path = d.path || '';
+                if (part === 'front') {
+                    selectedPath = path;
+                    if (selectedBook) {
+                        selectedBook.coverImagePath = path;
+                        selectedBook.aiCoverLastPreview = path;
+                    }
+                    persistCoverSelection(bid, path);
+                    setCoverImageVisible(toUrl(path));
+                    setUploadStatus('Front image applied to preview.', true);
+                    if (needsPrintWrapAutoBuild()) buildPrintWrapNow(true);
+                } else if (part === 'back') {
+                    if (selectedBook) selectedBook.backCoverPath = path;
+                    setUploadStatus('Back image saved. Rebuild wrap to apply.', true);
+                    if (needsPrintWrapAutoBuild() && frontCoverIsReady()) buildPrintWrapNow(true);
+                } else {
+                    if (selectedBook) selectedBook.spineCoverPath = path;
+                    setUploadStatus('Spine image saved. Rebuild wrap to apply.', true);
+                    if (needsPrintWrapAutoBuild() && frontCoverIsReady()) buildPrintWrapNow(true);
+                }
+                if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+                updatePublishGate();
+                refreshLucide();
+            } catch (err) {
+                setUploadStatus('Network error during upload.', false);
+            } finally {
+                fileInput.value = '';
+            }
+        }
+        var front = document.getElementById('covUploadFront');
+        var back = document.getElementById('covUploadBack');
+        var spine = document.getElementById('covUploadSpine');
+        if (front) front.addEventListener('change', function () { uploadPart('front', front); });
+        if (back) back.addEventListener('change', function () { uploadPart('back', back); });
+        if (spine) spine.addEventListener('change', function () { uploadPart('spine', spine); });
+    })();
+
+    function getBackCoverSummaryText() {
+        if (backCoverSummary && backCoverSummary.value.trim()) return backCoverSummary.value.trim();
+        if (selectedBook && selectedBook.description) return String(selectedBook.description).trim();
+        return '';
+    }
+
+    function updateBackCoverSummaryWarn() {
+        if (!backCoverSummaryWarn) return;
+        var len = getBackCoverSummaryText().length;
+        backCoverSummaryWarn.classList.toggle('hidden', len <= 1200);
+    }
+
+    var saveBackSummaryTimer = null;
+    function scheduleSaveBackCoverSummary() {
+        updateBackCoverSummaryWarn();
+        clearTimeout(saveBackSummaryTimer);
+        saveBackSummaryTimer = setTimeout(persistBackCoverSummary, 700);
+    }
+
+    async function persistBackCoverSummary() {
+        if (!selectedBook || !selectedBook.bookId) return;
+        var text = getBackCoverSummaryText();
+        selectedBook.description = text;
+        try {
+            var r = await fetch('/Books/SaveBackCoverSummary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ bookId: selectedBook.bookId, backSummary: text })
+            });
+            var d = await r.json().catch(function () { return {}; });
+            if (d && d.tooLong && backCoverSummaryWarn) backCoverSummaryWarn.classList.remove('hidden');
+            var hint = document.getElementById('backCoverSummaryHint');
+            if (hint && d && d.success) hint.textContent = 'Saved · used on back panel of print wrap export.';
+        } catch (_) { /* non-blocking */ }
+    }
+
+    (function bindBackCoverSummary() {
+        if (!backCoverSummary) return;
+        backCoverSummary.addEventListener('input', function () {
+            scheduleSaveBackCoverSummary();
+            if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+        });
+        backCoverSummary.addEventListener('change', persistBackCoverSummary);
+    })();
+
+    if (imageDirection) {
+        imageDirection.addEventListener('input', function () {
+            if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+        });
+    }
+    if (window.EbookUnsavedGuard) {
+        window.EbookUnsavedGuard.setContext('Book Cover');
+        window.EbookUnsavedGuard.markSaved();
+    }
 
     function boot() {
         if (initialBookId <= 0) {

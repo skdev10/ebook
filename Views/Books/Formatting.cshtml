@@ -1,0 +1,449 @@
+@model EBookDashboard.Models.ViewModels.BookFormattingWorkspaceViewModel
+@using EBookDashboard.Services
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Formatting — " + Model.BookTitle;
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var lastUploaded = ManuscriptVersionStore.FormatUploadedLabel(Model.LastManuscriptUploadedAtUtc);
+    var fontPreset = (Model.TextSize ?? "Medium").Trim();
+    var lineSpacing = (Model.LineSpacing ?? "1.6").Trim();
+    var isPrint = Model.IsPrintPreview;
+    var previewMode = isPrint ? "print" : "ebook";
+    var previewLabel = isPrint
+        ? $"Print preview ({Model.BindingType})"
+        : "Ebook preview (Kindle-style)";
+    var chaptersJson = JsonSerializer.Serialize(
+        Model.Chapters.Select(c => new
+        {
+            chapterNo = c.ChapterNo,
+            title = c.Title,
+            matter = c.Matter,
+            contentHtml = c.ContentHtml
+        }));
+    var kdpJson = ViewBag.KdpMarginPresetsJson as string ?? "{}";
+}
+<link rel="stylesheet" href="~/css/formatting-book-spread.css" asp-append-version="true" />
+
+<div class="fmt-workspace fmt-workspace--studio" id="fmtWorkspace" data-book-id="@Model.BookId" data-preview-mode="@previewMode" data-binding="@Model.BindingType">
+    <header class="fmt-header">
+        <div>
+            <h1>Book Formatting</h1>
+            <p class="fmt-sub"><span id="fmtBookTitleLabel">@Model.BookTitle</span> · <span id="fmtBindingLabel">@Model.BindingType</span><span id="fmtTrimLabelWrap" class="@(isPrint ? "" : "is-hidden")"> · Trim <span id="fmtTrimLabel">@Model.TrimSizeLabel</span></span></p>
+        </div>
+        <div class="fmt-actions-row">
+            <a class="fmt-btn secondary" href="/Books/Writer?bookId=@Model.BookId" data-unsaved-ignore="true">AI Writer</a>
+            <a class="fmt-btn secondary" href="/Books/Cover/@Model.BookId" data-unsaved-ignore="true">Book Cover</a>
+        </div>
+    </header>
+
+    <div class="fmt-grid fmt-grid--studio">
+        @* Left: options (classic studio layout) *@
+        <aside class="fmt-panel fmt-options" aria-label="Formatting options">
+            <div class="fmt-scroll">
+                <h2>Your book</h2>
+                <p class="fmt-book-name">@Model.BookTitle</p>
+
+                <div class="fmt-settings">
+                    <label for="fmtBookType">What format will your book be?</label>
+                    <select id="fmtBookType" name="bookType">
+                        @if (Model.BindingType == "Ebook")
+                        { <option value="Ebook" selected>Ebook</option> }
+                        else
+                        { <option value="Ebook">Ebook</option> }
+                        @if (Model.BindingType == "Paperback")
+                        { <option value="Paperback" selected>Paperback</option> }
+                        else
+                        { <option value="Paperback">Paperback</option> }
+                        @if (Model.BindingType == "Hardcover")
+                        { <option value="Hardcover" selected>Hardcover</option> }
+                        else
+                        { <option value="Hardcover">Hardcover</option> }
+                    </select>
+
+                    <div class="fmt-print-only" id="fmtPrintSettings" style="@(isPrint ? "" : "display:none")">
+                        <label for="fmtTrimSize">Trim size</label>
+                        <select id="fmtTrimSize" name="trimSize">
+                            <option value="6x9" data-w="6" data-h="9" selected>6 × 9 in</option>
+                            <option value="5x8" data-w="5" data-h="8">5 × 8 in</option>
+                            <option value="5.5x8.5" data-w="5.5" data-h="8.5">5.5 × 8.5 in</option>
+                            <option value="8.5x11" data-w="8.5" data-h="11">8.5 × 11 in</option>
+                            <option value="8x10" data-w="8" data-h="10">8 × 10 in</option>
+                            <option value="8.5x8.5" data-w="8.5" data-h="8.5">8.5 × 8.5 in</option>
+                        </select>
+
+                        <label>Bleed</label>
+                        <div class="fmt-radio-row">
+                            <label><input type="radio" name="fmtBleed" id="fmtBleedOff" value="off" checked /> No bleed</label>
+                            <label><input type="radio" name="fmtBleed" id="fmtBleedOn" value="on" /> Bleed (0.125″)</label>
+                        </div>
+
+                        <div class="fmt-check-row" style="margin-top:0.65rem;">
+                            <label>
+                                <input type="checkbox" id="fmtUseKdpMargins" checked />
+                                Use Amazon KDP recommended margins &amp; gutter
+                            </label>
+                        </div>
+
+                        <label>Margins (inches)</label>
+                        <div class="fmt-margin-grid">
+                            <div>
+                                <label for="fmtMarginTop">Top</label>
+                                <input type="number" id="fmtMarginTop" step="0.0625" min="0.25" value="@Model.MarginTopIn.ToString("0.####")" />
+                            </div>
+                            <div>
+                                <label for="fmtMarginBottom">Bottom</label>
+                                <input type="number" id="fmtMarginBottom" step="0.0625" min="0.25" value="@Model.MarginBottomIn.ToString("0.####")" />
+                            </div>
+                            <div>
+                                <label for="fmtMarginInside">Inside (gutter)</label>
+                                <input type="number" id="fmtMarginInside" step="0.0625" min="0.25" value="@Model.MarginInsideIn.ToString("0.####")" />
+                            </div>
+                            <div>
+                                <label for="fmtMarginOutside">Outside</label>
+                                <input type="number" id="fmtMarginOutside" step="0.0625" min="0.25" value="@Model.MarginOutsideIn.ToString("0.####")" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <label>Text size</label>
+                    <div class="fmt-font-row" id="fmtFontPresets">
+                        <button type="button" data-size="Small" class="@(fontPreset.Equals("Small", StringComparison.OrdinalIgnoreCase) ? "active" : "")">Small</button>
+                        <button type="button" data-size="Medium" class="@(fontPreset.Equals("Medium", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(fontPreset) ? "active" : "")">Medium</button>
+                        <button type="button" data-size="Large" class="@(fontPreset.Equals("Large", StringComparison.OrdinalIgnoreCase) ? "active" : "")">Large</button>
+                    </div>
+
+                    <label>Line spacing</label>
+                    <div class="fmt-font-row" id="fmtLineSpacing">
+                        <button type="button" data-ls="1.4" class="@(lineSpacing == "1.4" ? "active" : "")">Tight 1.4</button>
+                        <button type="button" data-ls="1.6" class="@(lineSpacing == "1.6" || string.IsNullOrEmpty(lineSpacing) ? "active" : "")">Normal 1.6</button>
+                        <button type="button" data-ls="1.8" class="@(lineSpacing == "1.8" ? "active" : "")">Relaxed 1.8</button>
+                        <button type="button" data-ls="2" class="@(lineSpacing == "2" || lineSpacing == "2.0" ? "active" : "")">Loose 2</button>
+                    </div>
+
+                    <label for="fmtFontPt">Point size</label>
+                    <input type="number" id="fmtFontPt" min="8" max="18" step="0.5" value="@(fontPreset.Equals("Small", StringComparison.OrdinalIgnoreCase) ? "10" : fontPreset.Equals("Large", StringComparison.OrdinalIgnoreCase) ? "12" : "11")" />
+                </div>
+
+                <div class="fmt-upload fmt-upload-top">
+                    <h2>Manuscript</h2>
+                    <p class="fmt-hint" style="margin-top:0;margin-bottom:0.5rem;">Upload DOCX/PDF — images inside the manuscript appear in the book preview.</p>
+                    <div class="fmt-dropzone" id="fmtDropzone" tabindex="0" role="button" aria-label="Upload manuscript">
+                        <p class="fmt-drop-title">Drop DOCX or PDF here</p>
+                        <p>or click Upload · max 100 MB</p>
+                    </div>
+                    <input type="file" id="fmtFileInput" accept=".docx,.pdf,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden />
+                    <button type="button" class="fmt-btn" id="fmtUploadBtn">Browse / Upload Manuscript</button>
+                    <p class="fmt-meta-line" id="fmtLastUploaded">
+                        @if (!string.IsNullOrEmpty(lastUploaded))
+                        {
+                            <text>Last uploaded on @lastUploaded@(string.IsNullOrEmpty(Model.LastManuscriptFileName) ? "" : $" · {Model.LastManuscriptFileName}")</text>
+                        }
+                        else if (!string.IsNullOrEmpty(Model.ManuscriptPath))
+                        {
+                            <text>Manuscript on file.</text>
+                        }
+                        else
+                        {
+                            <text>No manuscript yet. Upload DOCX/PDF here — AI Writer is optional.</text>
+                        }
+                    </p>
+                    @if (Model.ManuscriptVersions != null && Model.ManuscriptVersions.Count > 0)
+                    {
+                        <ul class="fmt-version-list" aria-label="Manuscript versions">
+                            @foreach (var v in Model.ManuscriptVersions.Take(5))
+                            {
+                                <li class="@(v.Active ? "is-active" : "")">
+                                    <span>@(string.IsNullOrEmpty(v.FileName) ? "Manuscript" : v.FileName)</span>
+                                    <span class="fmt-ver-date">@ManuscriptVersionStore.FormatUploadedLabel(v.UploadedAtUtc)@(v.Active ? " · active" : "")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    <p class="fmt-status" id="fmtUploadStatus" aria-live="polite"></p>
+                </div>
+
+                <div class="fmt-section-split">Table of Contents</div>
+                <div id="fmtTocScroll">
+                    @if (Model.Toc.Count == 0)
+                    {
+                        <p class="fmt-empty" id="fmtTocEmpty">Upload a manuscript to build the TOC.</p>
+                        <ul class="fmt-toc-list" id="fmtTocList" hidden></ul>
+                    }
+                    else
+                    {
+                        <p class="fmt-empty" id="fmtTocEmpty" hidden></p>
+                        <ul class="fmt-toc-list" id="fmtTocList">
+                            @foreach (var item in Model.Toc)
+                            {
+                                <li data-page="@item.StartPage" data-chapter="@item.ChapterNo" tabindex="0" role="button">
+                                    <span class="fmt-title">@item.Title</span>
+                                    <span class="fmt-page">@item.StartPage</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+
+                <div class="fmt-section-split" id="fmtPagesHeading">Pages</div>
+                <div id="fmtPagesScroll">
+                    @if (Model.Pages.Count == 0)
+                    {
+                        <p class="fmt-empty" id="fmtPagesEmpty">Page list appears after import.</p>
+                        <ul class="fmt-pages-list" id="fmtPagesList" hidden></ul>
+                    }
+                    else
+                    {
+                        <p class="fmt-empty" id="fmtPagesEmpty" hidden></p>
+                        <ul class="fmt-pages-list" id="fmtPagesList">
+                            @foreach (var p in Model.Pages)
+                            {
+                                <li data-page="@p.PageNumber" tabindex="0" role="button">
+                                    <span class="fmt-title">@p.Label</span>
+                                    <span class="fmt-page">p. @p.PageNumber</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+
+                <div class="fmt-options-footer">
+                    <button type="button" class="fmt-btn" id="fmtExportPrintPdf" data-format="PrintPdf" title="Download interior print PDF">Download Book — Print PDF</button>
+                    <button type="button" class="fmt-btn secondary" id="fmtExportEpub" data-format="Epub" title="Download EPUB ebook">Download Book — EPUB</button>
+                    <a class="fmt-btn fmt-btn-next" href="/Books/Cover/@Model.BookId" data-unsaved-ignore="true">Next: Book Cover →</a>
+                </div>
+            </div>
+        </aside>
+
+        @* Right: dominant book-style preview *@
+        <section class="fmt-preview-panel" aria-label="Book preview">
+            <div class="fmt-preview-mode-badge" id="fmtPreviewModeBadge">@previewLabel</div>
+            <div class="fmt-preview-toolbar">
+                <div class="fmt-spread-nav">
+                    <button type="button" id="fmtSpreadPrev">← Previous</button>
+                    <button type="button" id="fmtSpreadNext">Next →</button>
+                </div>
+                <span id="fmtSpreadLabel">@(isPrint ? "Spread" : "Screen")</span>
+            </div>
+
+            <div class="fmt-spread-host fmt-print-preview @(isPrint ? "" : "is-hidden")" id="fmtSpreadHost" aria-hidden="@(!isPrint)">
+                <div class="fmt-spread-scale-wrap" id="fmtSpreadScaleWrap">
+                    <div class="fmt-spread-book" id="fmtSpreadBook" aria-live="polite">
+                        <div class="fmt-spread-face" id="fmtSpreadLeft" aria-label="Left page (verso)"></div>
+                        <div class="fmt-spine-gap" id="fmtSpineGap" aria-hidden="true">
+                            <span class="fmt-spine-center-line"></span>
+                        </div>
+                        <div class="fmt-spread-face" id="fmtSpreadRight" aria-label="Right page (recto)"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fmt-ebook-host fmt-ebook-preview @(isPrint ? "is-hidden" : "")" id="fmtEbookHost" aria-hidden="@isPrint">
+                <div class="fmt-ebook-device" id="fmtEbookDevice">
+                    <div class="fmt-ebook-screen" id="fmtEbookScreen" aria-live="polite"></div>
+                </div>
+            </div>
+
+            <p class="fmt-preview-meta-line" id="fmtPreviewMeta">
+                @(Model.HasContent
+                    ? $"{Model.Chapters.Count} chapters · ~{Model.Pages.Count} pages"
+                    : "No manuscript yet — upload DOCX/PDF on the left.")
+            </p>
+        </section>
+    </div>
+</div>
+
+<script type="application/json" id="fmt-chapters-json">@Html.Raw(chaptersJson)</script>
+<script type="application/json" id="fmt-kdp-meta-json">@Html.Raw(kdpJson)</script>
+<script src="~/js/formatting-book-spread.js" asp-append-version="true"></script>
+<script src="~/js/module-export.js" asp-append-version="true"></script>
+<script>
+(function () {
+    var root = document.getElementById('fmtWorkspace');
+    if (!root) return;
+    var bookId = parseInt(root.getAttribute('data-book-id') || '0', 10);
+    var dropzone = document.getElementById('fmtDropzone');
+    var fileInput = document.getElementById('fmtFileInput');
+    var uploadBtn = document.getElementById('fmtUploadBtn');
+    var statusEl = document.getElementById('fmtUploadStatus');
+
+    if (window.EbookUnsavedGuard) {
+        window.EbookUnsavedGuard.setContext('Formatting');
+        window.EbookUnsavedGuard.markSaved();
+    }
+
+    if (typeof FormattingBookSpreadInit === 'function') {
+        FormattingBookSpreadInit({
+            bookTitle: @Json.Serialize(Model.BookTitle),
+            previewMode: @Json.Serialize(previewMode),
+            binding: @Json.Serialize(Model.BindingType)
+        });
+    }
+
+    function setStatus(msg, ok) {
+        if (!statusEl) return;
+        statusEl.textContent = msg || '';
+        statusEl.className = 'fmt-status' + (msg ? (ok ? ' ok' : ' err') : '');
+    }
+
+    function markFmtDirty() {
+        if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+    }
+
+    function readExportPayload() {
+        var trimSel = document.getElementById('fmtTrimSize');
+        var w = 6, h = 9;
+        if (trimSel && trimSel.selectedIndex >= 0) {
+            var opt = trimSel.options[trimSel.selectedIndex];
+            w = parseFloat(opt.getAttribute('data-w') || '6') || 6;
+            h = parseFloat(opt.getAttribute('data-h') || '9') || 9;
+        }
+        var bleedOn = document.getElementById('fmtBleedOn');
+        var typeEl = document.getElementById('fmtBookType');
+        var lsBtn = document.querySelector('#fmtLineSpacing button.active');
+        return {
+            bookId: bookId,
+            displayTitle: @Json.Serialize(Model.BookTitle),
+            bookFormat: (typeEl && typeEl.value) || 'Paperback',
+            publishingPlatform: 'Amazon KDP',
+            trimWidthIn: w,
+            trimHeightIn: h,
+            useBleed: !!(bleedOn && bleedOn.checked),
+            marginTopIn: parseFloat((document.getElementById('fmtMarginTop') || {}).value) || undefined,
+            marginBottomIn: parseFloat((document.getElementById('fmtMarginBottom') || {}).value) || undefined,
+            marginInsideIn: parseFloat((document.getElementById('fmtMarginInside') || {}).value) || undefined,
+            marginOutsideIn: parseFloat((document.getElementById('fmtMarginOutside') || {}).value) || undefined,
+            textSize: (document.querySelector('#fmtFontPresets button.active') || {}).getAttribute
+                ? (document.querySelector('#fmtFontPresets button.active').getAttribute('data-size') || 'Medium')
+                : 'Medium',
+            lineSpacing: lsBtn ? (lsBtn.getAttribute('data-ls') || '1.6') : '1.6'
+        };
+    }
+
+    async function runExport(fmt, btn) {
+        if (bookId <= 0) { setStatus('Select a book first.', false); return; }
+        if (btn) btn.disabled = true;
+        setStatus('Exporting…', true);
+        try {
+            var result = await window.ModuleExport.postExport(
+                '/Books/Export/' + bookId + '?format=' + encodeURIComponent(fmt),
+                readExportPayload(),
+                'book-' + bookId + (fmt.toLowerCase() === 'epub' ? '.epub' : '-print.pdf'));
+            if (!result.ok) setStatus(result.message || 'Export failed.', false);
+            else {
+                setStatus('Download started.', true);
+                if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+            }
+        } catch (err) {
+            setStatus('Export failed.', false);
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    ['fmtExportPrintPdf', 'fmtExportEpub'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('click', function () {
+            runExport(el.getAttribute('data-format') || 'PrintPdf', el);
+        });
+    });
+
+    async function uploadFile(file) {
+        if (!file || bookId <= 0) {
+            setStatus('Missing book or file.', false);
+            return;
+        }
+        if (!/\.(docx|pdf|txt|md|markdown)$/i.test(file.name || '')) {
+            setStatus('Allowed: DOCX, PDF (also TXT/MD).', false);
+            return;
+        }
+        setStatus('Uploading and parsing…', true);
+        if (uploadBtn) uploadBtn.disabled = true;
+        try {
+            var fd = new FormData();
+            fd.append('file', file);
+            fd.append('bookId', String(bookId));
+            var res = await fetch('/Books/UploadManuscript/' + bookId, {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            });
+            var data = await res.json().catch(function () { return null; });
+            if (!res.ok || !data || !data.success) {
+                setStatus((data && data.message) || 'Upload failed.', false);
+                return;
+            }
+            if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
+            setStatus('Imported ' + (data.chapterCount || 0) + ' chapter(s). Reloading…', true);
+            window.location.reload();
+        } catch (err) {
+            setStatus('Network error during upload.', false);
+        } finally {
+            if (uploadBtn) uploadBtn.disabled = false;
+            if (fileInput) fileInput.value = '';
+        }
+    }
+
+    if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', function () { fileInput.click(); });
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files && fileInput.files[0]) uploadFile(fileInput.files[0]);
+        });
+    }
+    if (dropzone && fileInput) {
+        dropzone.addEventListener('click', function () { fileInput.click(); });
+        dropzone.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+        });
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            dropzone.addEventListener(ev, function (e) {
+                e.preventDefault(); e.stopPropagation();
+                dropzone.classList.add('dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            dropzone.addEventListener(ev, function (e) {
+                e.preventDefault(); e.stopPropagation();
+                dropzone.classList.remove('dragover');
+            });
+        });
+        dropzone.addEventListener('drop', function (e) {
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files[0]) uploadFile(files[0]);
+        });
+    }
+
+    ['fmtBookType', 'fmtTrimSize', 'fmtBleedOn', 'fmtBleedOff', 'fmtUseKdpMargins',
+        'fmtMarginTop', 'fmtMarginBottom', 'fmtMarginInside', 'fmtMarginOutside', 'fmtFontPt']
+        .forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', markFmtDirty);
+            if (el.tagName === 'INPUT' && el.type === 'number') el.addEventListener('input', markFmtDirty);
+        });
+    var fontPresets = document.getElementById('fmtFontPresets');
+    if (fontPresets) fontPresets.addEventListener('click', markFmtDirty);
+    var lsRow = document.getElementById('fmtLineSpacing');
+    if (lsRow) {
+        lsRow.addEventListener('click', function (e) {
+            var btn = e.target.closest('button[data-ls]');
+            if (!btn) return;
+            lsRow.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            markFmtDirty();
+            if (window.FormattingBookSpreadApplyLineSpacing) {
+                window.FormattingBookSpreadApplyLineSpacing(btn.getAttribute('data-ls') || '1.6');
+            }
+        });
+    }
+
+    var trimSel = document.getElementById('fmtTrimSize');
+    var trimLabel = document.getElementById('fmtTrimLabel');
+    if (trimSel && trimLabel) {
+        trimSel.addEventListener('change', function () {
+            var opt = trimSel.options[trimSel.selectedIndex];
+            trimLabel.textContent = (opt.getAttribute('data-w') || '6') + ' x ' + (opt.getAttribute('data-h') || '9') + ' in';
+        });
+    }
+})();
+</script>

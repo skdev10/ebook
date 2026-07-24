@@ -63,20 +63,54 @@ public sealed class PrintWrapCompositor : IPrintWrapCompositor
         var titleColor = Color.FromRgb(245, 240, 230);
         var bodyColor = Color.FromRgb(220, 215, 205);
 
-        // Back panel — extend front-cover artwork (blurred/darkened) so wrap matches the front design.
+        // Back panel — uploaded back art when present; otherwise blurred front + synopsis.
         canvas.Mutate(ctx =>
         {
-            DrawBackPanelArt(ctx, frontImage, new Rectangle(backX, panelY, backW, panelH));
+            var backRect = new Rectangle(backX, panelY, backW, panelH);
+            if (request.BackCoverBytes is { Length: > 0 })
+            {
+                try
+                {
+                    using var backImg = Image.Load<Rgba32>(request.BackCoverBytes);
+                    DrawCoverFill(ctx, backImg, backRect);
+                    // Soft dark overlay so synopsis stays readable on busy uploads.
+                    if (!string.IsNullOrWhiteSpace(request.Description))
+                        ctx.Fill(Color.FromRgba(0, 0, 0, 90), new RectangleF(backRect.X, backRect.Y, backRect.Width, backRect.Height));
+                }
+                catch
+                {
+                    DrawBackPanelArt(ctx, frontImage, backRect);
+                }
+            }
+            else
+            {
+                DrawBackPanelArt(ctx, frontImage, backRect);
+            }
+
             DrawBackCoverContent(ctx, layout, dpi, backX, panelY, backW, panelH,
                 request.Title, request.Author, request.Description, bodyColor, titleColor);
         });
 
-        // Spine — color strip from front cover's spine edge + optional vertical title.
+        // Spine — uploaded spine when present; otherwise strip from front.
         var spineTitle = layout.SpineWidth >= MinSpineTextWidthInches
             ? TruncateSpineTitle(request.Title)
             : null;
-        using (var spineImg = RenderSpineFromFront(frontImage, spineW, panelH, spineTitle))
+        if (request.SpineCoverBytes is { Length: > 0 })
         {
+            try
+            {
+                using var spineUpload = Image.Load<Rgba32>(request.SpineCoverBytes);
+                canvas.Mutate(ctx => DrawCoverFill(ctx, spineUpload, new Rectangle(spineX, panelY, spineW, panelH)));
+            }
+            catch
+            {
+                using var spineImg = RenderSpineFromFront(frontImage, spineW, panelH, spineTitle);
+                canvas.Mutate(ctx => ctx.DrawImage(spineImg, new Point(spineX, panelY), 1f));
+            }
+        }
+        else
+        {
+            using var spineImg = RenderSpineFromFront(frontImage, spineW, panelH, spineTitle);
             canvas.Mutate(ctx => ctx.DrawImage(spineImg, new Point(spineX, panelY), 1f));
         }
 

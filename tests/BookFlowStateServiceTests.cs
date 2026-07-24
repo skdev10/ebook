@@ -17,14 +17,27 @@ public class BookFlowStateServiceTests
 
     [Theory]
     [InlineData("/Books/AIGenerateBook?bookId=5", BookFlowStateService.StepGenerate)]
+    [InlineData("/Books/Writer?bookId=5", BookFlowStateService.StepGenerate)]
     [InlineData("/BookDesign/CoverDesignCalculatorFixing?bookId=5&format=Ebook", BookFlowStateService.StepFormat)]
+    [InlineData("/Books/Formatting/5", BookFlowStateService.StepFormat)]
     [InlineData("/Dashboard/CoverDesign?bookId=5", BookFlowStateService.StepCover)]
+    [InlineData("/Books/Cover/5", BookFlowStateService.StepCover)]
     [InlineData("/Dashboard/Publish?bookId=5", BookFlowStateService.StepPublish)]
     [InlineData("", "")]
     [InlineData("/Some/Other/Page", "")]
     public void StepFromWorkUrl_maps_known_routes(string url, string expected)
     {
         Assert.Equal(expected, BookFlowStateService.StepFromWorkUrl(url));
+    }
+
+    [Fact]
+    public void BuildResumeUrl_uses_module_routes()
+    {
+        using var ctx = CreateContext(nameof(BuildResumeUrl_uses_module_routes));
+        var svc = new BookFlowStateService(ctx);
+        Assert.Equal("/Books/Writer?bookId=9", svc.BuildResumeUrl(9, BookFlowStateService.StepGenerate, "ebook"));
+        Assert.Equal("/Books/Formatting/9", svc.BuildResumeUrl(9, BookFlowStateService.StepFormat, "ebook"));
+        Assert.Equal("/Books/Cover/9", svc.BuildResumeUrl(9, BookFlowStateService.StepCover, "ebook"));
     }
 
     [Fact]

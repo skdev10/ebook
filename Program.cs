@@ -266,6 +266,7 @@ builder.Services.AddScoped<IBookPdfService, BookPdfService>();
 builder.Services.AddScoped<IPrintWrapGenerationService, PrintWrapGenerationService>();
 builder.Services.AddSingleton<SpineRenderer>();
 builder.Services.AddScoped<IPrintWrapCompositor, PrintWrapCompositor>();
+builder.Services.AddScoped<IImageOcrService, ImageOcrService>();
 builder.Services.AddSingleton<IPrintWrapPregenerationQueue, PrintWrapPregenerationQueue>();
 builder.Services.AddSingleton<ICoverGenerationJobQueue, CoverGenerationJobQueue>();
 builder.Services.AddScoped<ICoverFrontGenerationService, CoverFrontGenerationService>();

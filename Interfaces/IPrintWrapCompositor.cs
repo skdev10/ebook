@@ -24,6 +24,10 @@ public sealed class PrintWrapComposeRequest
     public string? Author { get; init; }
     public string? Description { get; init; }
     public BookTheme? Theme { get; init; }
+    /// <summary>Optional uploaded back-cover image (PNG/JPG). When set, used as back panel art.</summary>
+    public byte[]? BackCoverBytes { get; init; }
+    /// <summary>Optional uploaded spine image. When set, used instead of generated spine strip.</summary>
+    public byte[]? SpineCoverBytes { get; init; }
 }
 
 /// <summary>Composed wrap PNG plus metadata for verification.</summary>

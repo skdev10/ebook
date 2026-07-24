@@ -250,12 +250,12 @@
         }
         el.textContent =
             '#bookResult[data-interior-mode="web"] .paginated-reader-shell.book-page-preview-shell {' +
-            'background: var(--ilt-page-bg, var(--export-page-bg, #fff)) !important;' +
-            'border: 1px solid rgba(148, 163, 184, 0.45) !important; border-radius: 4px !important;' +
-            'box-shadow: var(--book-preview-page-shadow, 0 12px 32px -8px rgba(15,23,42,0.18)) !important; }' +
+            'background: var(--ilt-page-bg, var(--book-preview-page-bg, #fffef8)) !important;' +
+            'border: 1px solid rgba(68, 48, 36, 0.28) !important; border-radius: 3px !important;' +
+            'box-shadow: var(--book-preview-page-shadow) !important; z-index: 3 !important; }' +
             '#bookResult[data-interior-mode="web"] #preview-content.book-page-preview-content {' +
-            'background: var(--ilt-page-bg, var(--export-page-bg, #fff));' +
-            'color: var(--ilt-body-color, inherit); font-family: var(--ilt-body-font, inherit);' +
+            'background: var(--ilt-page-bg, var(--book-preview-page-bg, #fffef8));' +
+            'color: var(--ilt-body-color, #1c1917); font-family: var(--ilt-body-font, Georgia, \'Times New Roman\', serif);' +
             'font-size: var(--ilt-body-px, inherit); line-height: var(--ilt-body-lh, inherit); }' +
             '#bookResult #preview-content .reader-chapter-block .reader-page-body,' +
             '#bookResult #preview-content .reader-chapter-block .reader-page-body p,' +
@@ -264,7 +264,9 @@
             '#bookResult #preview-content .reader-chapter-block .reader-page-title,' +
             '#bookResult #preview-content .reader-chapter-block .manuscript-chapter-heading.reader-page-title {' +
             'font-family: var(--heading-font, Georgia, serif); color: var(--heading-color, inherit);' +
-            'text-align: center; margin: 0 0 0.65rem; font-weight: 600; }';
+            'text-align: center; margin: 0 0 0.65rem; font-weight: 600; }' +
+            '#bookResult #chapterPreviewScrollHost.book-preview-stage {' +
+            'background: var(--book-preview-stage-bg) !important; align-items: center !important; }';
     }
 
     /** Match formatter DOM: reader-chapter-block > reader-page-title + reader-page-body */
@@ -405,17 +407,86 @@
         return 'Page ' + (pageIdx + 1);
     }
 
+    function getSpreadLeftIndex(idx) {
+        var i = Math.max(0, idx | 0);
+        return (i % 2 === 0) ? i : (i - 1);
+    }
+
+    function resolveWriterRunningHead(pageIdx, pages) {
+        var html = (pages && pages[pageIdx]) || '';
+        if (!html) return '';
+        if (html.indexOf('writer-cover-page') >= 0 || html.indexOf('data-chapter-start') >= 0) return '';
+        if (pageIdx < (global._writerFrontMatterCount || 0)) return '';
+        var ctx = global._aiBookPreviewContext || {};
+        var bookTitle = String(ctx.bookTitle || '').trim();
+        if (!bookTitle) {
+            var bt = document.getElementById('BookTitle') || document.getElementById('preview-book-title');
+            if (bt) bookTitle = String(bt.value || bt.textContent || '').trim();
+        }
+        var idxs = global._writerPageChapterIdx || [];
+        var ci = idxs.length > pageIdx ? idxs[pageIdx] : -1;
+        var chapterTitle = '';
+        var meta = global._previewChaptersMeta || [];
+        if (ci >= 0 && meta[ci]) chapterTitle = String(meta[ci].chapterTitle || meta[ci].title || '').trim();
+        var pageNo = pageIdx + 1;
+        var isRecto = (pageNo % 2) === 1;
+        var text = isRecto ? (chapterTitle || bookTitle) : (bookTitle || chapterTitle);
+        if (!text || /^(untitled|your chapter)/i.test(text)) return '';
+        return text.length > 52 ? text.substring(0, 49) + '\u2026' : text;
+    }
+
+    function escapeWriterHead(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function buildWriterSpreadFace(pageIdx, pages, side) {
+        var sideClass = side === 'recto' ? 'book-open-page--recto' : 'book-open-page--verso';
+        if (pageIdx < 0 || pageIdx >= pages.length) {
+            return '<div class="book-open-page ' + sideClass + '" aria-hidden="true">' +
+                '<div class="book-open-running-head is-empty">&nbsp;</div>' +
+                '<div class="book-open-page-inner book-open-blank"></div>' +
+                '<div class="book-open-folio">&nbsp;</div></div>';
+        }
+        var html = pages[pageIdx] || '';
+        var body = String(html || '').replace(/<div[^>]*class="[^"]*writer-page-folio[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '');
+        var isCover = body.indexOf('writer-cover-page') >= 0;
+        var pageNum = pageIdx + 1;
+        var head = isCover ? '' : resolveWriterRunningHead(pageIdx, pages);
+        var headClass = head ? 'book-open-running-head' : 'book-open-running-head is-muted';
+        var folio = isCover
+            ? '<div class="book-open-folio">&nbsp;</div>'
+            : ('<div class="book-open-folio writer-page-folio" aria-label="Page ' + pageNum + '">' + pageNum + '</div>');
+        return '<div class="book-open-page ' + sideClass + '">' +
+            '<div class="' + headClass + '">' + (head ? escapeWriterHead(head) : '&nbsp;') + '</div>' +
+            '<div class="book-open-page-inner">' + body + '</div>' +
+            folio +
+            '</div>';
+    }
+
     function renderWriterPage(pageIdx) {
         var viewport = document.getElementById('preview-content');
+        var shell = document.getElementById('paginatedReaderShell');
         var pages = global._writerBookPages || [];
         if (!pages.length) return;
         pageIdx = Math.max(0, Math.min(pageIdx, pages.length - 1));
+        pageIdx = getSpreadLeftIndex(pageIdx);
         global._writerPageIndex = pageIdx;
-        var html = pages[pageIdx] || '';
+        var rightIdx = pageIdx + 1;
         if (viewport) {
-            viewport.innerHTML = html;
+            if (shell) shell.classList.add('is-open-spread');
+            viewport.innerHTML =
+                '<div class="book-open-spread" role="group" aria-label="Open book spread" data-kdp-bleed="0">' +
+                    buildWriterSpreadFace(pageIdx, pages, 'verso') +
+                    '<div class="book-open-spine" aria-hidden="true"></div>' +
+                    buildWriterSpreadFace(rightIdx, pages, 'recto') +
+                '</div>';
             viewport.scrollTop = 0;
-            var isCover = html.indexOf('writer-cover-page') >= 0;
+            var leftBody = pages[pageIdx] || '';
+            var isCover = leftBody.indexOf('writer-cover-page') >= 0;
             viewport.classList.toggle('writer-cover-active', isCover);
             viewport.classList.toggle('writer-front-matter-active', !isCover && pageIdx < (global._writerFrontMatterCount || 0));
         }
@@ -424,6 +495,9 @@
         syncLegacyChapterIndex(pageIdx);
         if (typeof global.updateChapterPreviewNavUI === 'function') global.updateChapterPreviewNavUI();
         if (typeof global.saveReaderBookState === 'function') global.saveReaderBookState();
+        if (typeof global.syncAiWriterPreviewLayout === 'function') {
+            global.requestAnimationFrame(function () { global.syncAiWriterPreviewLayout(); });
+        }
     }
 
     function resolveStartPageIndex(opts, meta) {
@@ -556,8 +630,9 @@
     function navNext() {
         var pi = global._writerPageIndex || 0;
         var pages = global._writerBookPages || [];
-        if (pi < pages.length - 1) {
-            renderWriterPage(pi + 1);
+        var next = getSpreadLeftIndex(pi) + 2;
+        if (next < pages.length) {
+            renderWriterPage(next);
             global.requestAnimationFrame(function () {
                 if (typeof global.scrollAiWriterChapterToTop === 'function') global.scrollAiWriterChapterToTop();
             });
@@ -566,8 +641,9 @@
 
     function navPrev() {
         var pi = global._writerPageIndex || 0;
-        if (pi > 0) {
-            renderWriterPage(pi - 1);
+        var prev = getSpreadLeftIndex(pi) - 2;
+        if (prev >= 0) {
+            renderWriterPage(prev);
             global.requestAnimationFrame(function () {
                 if (typeof global.scrollAiWriterChapterToTop === 'function') global.scrollAiWriterChapterToTop();
             });

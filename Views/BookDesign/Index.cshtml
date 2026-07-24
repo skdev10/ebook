@@ -1,4 +1,4 @@
-﻿@model EBookDashboard.Models.ViewModels.BookDesignVM
+@model EBookDashboard.Models.ViewModels.BookDesignVM
 @{
     ViewData["Title"] = "Select Book Design";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
@@ -111,7 +111,7 @@
         })
         .then(function (r) {
             if (r.success) {
-                window.location.href = '/BookDesign/CoverDesignCalculatorFixing?bookId=@Model.BookId';
+                window.location.href = '/Books/Formatting/@Model.BookId';
             } else {
                 alert(r.message || 'Could not save design selection.');
             }

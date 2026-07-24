@@ -72,8 +72,9 @@
     }
     catch { }
     hasGeneratedBook = hasGeneratedBook || hasAnyBooks;
-    bool formattingUnlocked = hasGeneratedBook;
-    bool coverUnlocked = hasGeneratedBook && formattingDone;
+    // Soft modules: Writer / Formatting / Cover always reachable from sidebar.
+    bool formattingUnlocked = true;
+    bool coverUnlocked = true;
     bool publishUnlocked = hasAnyBooks || hasGeneratedBook || coverFinalized;
 
     int flowBookId = 0;
@@ -83,62 +84,20 @@
     else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
     if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
     if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
-    bool flowSidebarMinimal = flowBookId > 0 && (
-        string.Equals(flowStep, BookFlowStateService.StepGenerate, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(flowStep, BookFlowStateService.StepFormat, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(flowStep, BookFlowStateService.StepCover, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(flowStep, BookFlowStateService.StepPublish, StringComparison.OrdinalIgnoreCase));
+    bool flowSidebarMinimal = false; // Always show Writer / Formatting / Cover — free module navigation
+    // Legacy: was true when FlowBookId set, which hid AI Writer from the sidebar on module pages.
 
     int sidebarActiveBookId = flowBookId;
     if (sidebarActiveBookId <= 0 && ViewBag.SelectedBookId != null)
         int.TryParse(ViewBag.SelectedBookId.ToString(), out sidebarActiveBookId);
     if (sidebarActiveBookId <= 0 && ViewBag.BookId != null)
         int.TryParse(ViewBag.BookId.ToString(), out sidebarActiveBookId);
-    var sidebarExplicitBookId = sidebarActiveBookId;
-    try
-    {
-        var flowSess = HttpContextAccessor.HttpContext?.Session;
-        if (sidebarActiveBookId <= 0 && flowSess != null)
-            sidebarActiveBookId = flowSess.GetInt32("LastSelectedBookId") ?? 0;
-        if (sidebarActiveBookId > 0
-            && sidebarActiveBookId != sidebarExplicitBookId
-            && resolvedUserId is > 0)
-        {
-            var sidebarBook = DbContext.Books.AsNoTracking()
-                .FirstOrDefault(b => b.BookId == sidebarActiveBookId && b.UserId == resolvedUserId.Value);
-            if (sidebarBook == null
-                || BookDraftGuard.IsNearEmptyBookAsync(DbContext, resolvedUserId.Value, sidebarActiveBookId).GetAwaiter().GetResult())
-            {
-                sidebarActiveBookId = 0;
-                try { flowSess?.Remove("LastSelectedBookId"); } catch { }
-            }
-        }
-        if (sidebarActiveBookId <= 0 && resolvedUserId is > 0)
-        {
-            var draftCandidates = DbContext.Books
-                .Where(b => b.UserId == resolvedUserId.Value
-                    && b.Status != "Published"
-                    && b.Status != "Finalized")
-                .OrderByDescending(b => b.isActive)
-                .ThenByDescending(b => b.UpdatedAt ?? b.CreatedAt)
-                .Take(15)
-                .ToList();
-            foreach (var draft in draftCandidates)
-            {
-                if (BookDraftGuard.IsNearEmptyBookAsync(DbContext, resolvedUserId.Value, draft.BookId).GetAwaiter().GetResult())
-                    continue;
-                sidebarActiveBookId = draft.BookId;
-                try { flowSess?.SetInt32("LastSelectedBookId", sidebarActiveBookId); } catch { }
-                break;
-            }
-        }
-    }
-    catch { }
+    // Soft modules: never pull LastSelectedBookId into the sidebar.
+    // Book attaches only via explicit URL (Dashboard Continue Editing) or in-page create.
     var sidebarFlowEntryUrl = "/Dashboard";
-    // AI Writer must ALWAYS open the writer (never bounce to Dashboard): start/reuse a draft when no book is active.
-    var sidebarAiWriterUrl = "/Dashboard/StartNewBook?writer=1";
-    var sidebarFormatUrl = sidebarFlowEntryUrl;
-    var sidebarCoverUrl = sidebarFlowEntryUrl;
+    var sidebarAiWriterUrl = "/Books/Writer";
+    var sidebarFormatUrl = "/Books/Formatting";
+    var sidebarCoverUrl = "/Books/Cover";
     var sidebarPublishUrl = sidebarFlowEntryUrl;
     var bookFlowNav = new BookFlowStateService(DbContext);
     if (sidebarActiveBookId > 0)
@@ -158,12 +117,10 @@
                 ? activeMaxStep : activeStep;
             var activePath = flowRows.GetValueOrDefault(flowPathKey, "").Trim();
             if (string.IsNullOrEmpty(activePath)) activePath = "ebook";
-            // Dashboard-first: sidebar step links re-enter flow via SelectBook (resume at saved step).
             var selectBookEntry = $"/Dashboard/SelectBook?bookId={sidebarActiveBookId}";
-            // AI Writer always opens the writer for the active book directly (preserves context, no step bounce).
-            sidebarAiWriterUrl = $"/Books/AIGenerateBook?bookId={sidebarActiveBookId}";
-            sidebarFormatUrl = $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}";
-            sidebarCoverUrl = selectBookEntry;
+            sidebarAiWriterUrl = $"/Books/Writer?bookId={sidebarActiveBookId}";
+            sidebarFormatUrl = $"/Books/Formatting/{sidebarActiveBookId}";
+            sidebarCoverUrl = $"/Books/Cover/{sidebarActiveBookId}";
             sidebarPublishUrl = selectBookEntry;
             if (BookFlowStateService.IsStepAtLeast(resumeStep, BookFlowStateService.StepPublish))
             {
@@ -171,31 +128,17 @@
                     ? $"/Dashboard/Publish?bookId={sidebarActiveBookId}&flow=printready"
                     : $"/Dashboard/Publish?bookId={sidebarActiveBookId}";
             }
-            else if (BookFlowStateService.IsStepAtLeast(resumeStep, BookFlowStateService.StepCover))
-                sidebarCoverUrl = $"/Dashboard/CoverDesign?bookId={sidebarActiveBookId}";
-            else if (BookFlowStateService.IsStepAtLeast(resumeStep, BookFlowStateService.StepFormat))
-                sidebarFormatUrl = $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}&format={(activePath.Equals("print", StringComparison.OrdinalIgnoreCase) ? "Paperback" : "Ebook")}";
         }
         catch { }
     }
 
-    bool coverNavUnlocked = false;
-    if (sidebarActiveBookId > 0 && coverUnlocked)
+    // Cover / Formatting: soft entry without a book is allowed (empty studio).
+    bool coverNavUnlocked = true;
+    if (sidebarActiveBookId <= 0)
     {
-        try
-        {
-            var flowStepKey = $"book:{sidebarActiveBookId}:flowStep";
-            var persistedStep = DbContext.Settings.AsNoTracking()
-                .Where(s => s.Key == flowStepKey)
-                .Select(s => s.Value)
-                .FirstOrDefault() ?? "";
-            var rank = BookFlowStateService.StepRank(persistedStep);
-            if (BookFlowStateService.IsStepAtLeast(persistedStep, BookFlowStateService.StepCover))
-                coverNavUnlocked = true;
-            else if (rank == BookFlowStateService.StepRank(BookFlowStateService.StepFormat) && formattingDone)
-                coverNavUnlocked = true;
-        }
-        catch { coverNavUnlocked = coverUnlocked; }
+        sidebarCoverUrl = "/Books/Cover";
+        sidebarFormatUrl = "/Books/Formatting";
+        sidebarAiWriterUrl = "/Books/Writer";
     }
 
     // Dashboard home: sidebar opens fully expanded by default (other pages keep the hover-rail behavior).
@@ -3547,37 +3490,30 @@
                 @if (!flowSidebarMinimal)
                 {
                 <li>
-                    <a href="@sidebarAiWriterUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" ? "active" : "")">
+                    <a href="@sidebarAiWriterUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "active" : "")">
                         <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Writer</span>
                     </a>
                 </li>
                 <li>
                     @if (formattingUnlocked) {
-                        <a href="@sidebarFormatUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" ? "active" : "")">
-                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
+                        <a href="@sidebarFormatUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "active" : "")">
+                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Formatting</span>
                         </a>
-                        @if (ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" && (ViewBag.SelectedBookName != null || ViewBag.SelectedFormat != null))
-                        {
-                            <div class="sidebar-formatter-state text-xs text-gray-500 mt-1 ml-12 leading-tight">
-                                @if (ViewBag.SelectedBookName != null) { <div>@(ViewBag.SelectedBookName)</div> }
-                                @if (ViewBag.SelectedFormat != null) { <div>Format: @(ViewBag.SelectedFormat)</div> }
-                            </div>
-                        }
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="Book Formatting" data-unlock-step="1" data-goto="@sidebarAiWriterUrl" title="Select a book from the Dashboard first">
-                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
+                        <a href="/Books/Formatting" class="sidebar-locked-feature" data-locked="Formatting" data-unlock-step="1" data-goto="/Dashboard" title="Select or create a book first">
+                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Formatting</span>
                         </a>
                     }
                 </li>
                 
                 <li>
-                    @if (coverNavUnlocked) {
-                        <a href="@sidebarCoverUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" ? "active" : "")">
-                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                    @if (coverNavUnlocked || formattingUnlocked) {
+                        <a href="@sidebarCoverUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
+                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Cover</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="AI Cover Design" data-unlock-step="2" data-goto="@(formattingUnlocked ? sidebarFormatUrl : sidebarAiWriterUrl)" title="Complete Book Formatting first, then Cover Design unlocks">
-                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Cover Design</span>
+                        <a href="/Books/Cover" class="sidebar-locked-feature" data-locked="Book Cover" data-unlock-step="2" data-goto="/Dashboard" title="Select or create a book first">
+                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Cover</span>
                         </a>
                     }
                 </li>
@@ -3598,7 +3534,7 @@
                             <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="@(coverUnlocked ? sidebarCoverUrl : (formattingUnlocked ? sidebarFormatUrl : sidebarAiWriterUrl))" title="Complete previous steps first">
+                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="@(coverUnlocked ? sidebarCoverUrl : (formattingUnlocked ? sidebarFormatUrl : sidebarAiWriterUrl))" title="Select a book from the Dashboard first">
                             <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     }
@@ -3682,7 +3618,7 @@
             <script>
                 /* Top-of-screen "follow steps" alert — replaces SweetAlert for flow/locked navigation. */
                 window.showFollowStepsAlert = function (message) {
-                    var text = message || 'Please follow the steps in order: <b>AI Writer → Book Formatting → AI Cover Design → Publish</b>. Complete your current step first.';
+                    var text = message || 'Select a book from the Dashboard, then open <b>AI Writer</b>, <b>Formatting</b>, or <b>Book Cover</b> — any order.';
                     var existing = document.getElementById('flowStepsTopAlert');
                     if (existing) existing.remove();
                     var div = document.createElement('div');
@@ -3710,7 +3646,7 @@
                             if (window.FlowNavGuard && typeof window.FlowNavGuard.showSkippedStepAlert === 'function') {
                                 window.FlowNavGuard.showSkippedStepAlert(name, goto);
                             } else {
-                                window.showFollowStepsAlert('<b>' + name + '</b> is locked — please follow the steps: <b>AI Writer → Book Formatting → AI Cover Design → Publish</b>.');
+                                window.showFollowStepsAlert('<b>' + name + '</b> needs a selected book. Open it from the Dashboard or Continue Editing.');
                             }
                         });
                     });
@@ -3891,6 +3827,7 @@
                     </div>
                 </div>
             }
+            @await Html.PartialAsync("_ModuleQuickActions")
             @RenderBody()
         </main>
     </div>
@@ -5004,9 +4941,9 @@
         function guidedTourRouteKey() {
             const p = (window.location.pathname || '').toLowerCase().replace(/\/$/, '');
             if (p.indexOf('/dashboard/profile') >= 0 || p.indexOf('/account/profile') >= 0) return 'profile';
-            if (p.indexOf('/books/aigeneratebook') >= 0) return 'ai-writer';
-            if (p.indexOf('coverdesigncalculatorfixing') >= 0) return 'formatter';
-            if (p.indexOf('/dashboard/coverdesign') >= 0) return 'cover-design';
+            if (p.indexOf('/books/aigeneratebook') >= 0 || p.indexOf('/books/writer') >= 0) return 'ai-writer';
+            if (p.indexOf('coverdesigncalculatorfixing') >= 0 || p.indexOf('/books/formatting') >= 0) return 'formatter';
+            if (p.indexOf('/dashboard/coverdesign') >= 0 || p.indexOf('/books/cover') >= 0) return 'cover-design';
             if (p.indexOf('/dashboard/publish') >= 0) return 'publish';
             if (p.indexOf('/dashboard/mybooks') >= 0) return 'my-books';
             if (p === '/dashboard' || p === '/dashboard/index' || p === '') return 'dashboard';
@@ -5017,50 +4954,51 @@
 
         const GUIDED_TOUR_ROUTES = {
             'dashboard': [
-                { sel: '#dash-hero-cta', title: 'Start a new book', body: 'Click Write Now to make a new book and open AI Writer.' },
-                { sel: '#drafts-list', title: 'Continue your books', body: 'Books you are still working on show here. Click one to pick up where you stopped.' },
-                { sel: '#sidebar', title: 'Main menu', body: 'Use this menu on the left. Go to AI Writer, Book Formatting, Cover Design, My Books, or Publish.' }
+                { sel: '#dash-hero-cta', title: 'Start a new book', body: 'Tap Format manuscript or Write with AI to begin.' },
+                { sel: '#drafts-list', title: 'Continue your books', body: 'Open any draft here to pick up where you left off.' },
+                { sel: '#sidebar', title: 'Main menu', body: 'Jump to AI Writer, Formatting, Cover, My Books, or Publish anytime.' }
             ],
             'ai-writer': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: '4 easy steps', body: 'You are on Step 1 — AI Book Writer. Next: Book Formatting, then Cover Design, then Publish. This bar shows your place.' },
-                { sel: '[data-guided-tour="ai-book-picker"]', title: 'Your book', body: 'This is the book you picked on the Dashboard. To change books, go back to Dashboard or My Books.' },
-                { sel: '[data-guided-tour="ai-write-section"]', title: 'Book & chapter info', body: 'Type the book title, pick the chapter number (or tap + for a new chapter), and add the chapter title.' },
-                { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Write with AI', body: 'Type what the chapter should be about. You can upload a file with the cloud button. Then tap the purple button to generate. The first time it says Generate. After that it says Regenerate.' },
-                { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Read your chapter', body: 'Your chapter shows up here like book pages. Use the arrows to turn pages.' },
-                { sel: '[data-guided-tour="ai-next-step"]', title: 'Go to Step 2', body: 'When this chapter looks good, tap Book Formatting to set fonts, size, and page style.' }
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Your path', body: 'Writer → Formatting → Cover → Publish. This bar shows where you are.' },
+                { sel: '[data-guided-tour="ai-write-section"]', title: 'Book & chapter', body: 'Set the book title, pick a chapter, or tap + to add a new one.' },
+                { sel: '[data-guided-tour="ai-upload"]', title: 'Upload icons', body: 'Left icon: upload a manuscript (PDF/Word). Right icon: upload a page image into the book preview.' },
+                { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Write with AI', body: 'Type a short chapter brief, then tap Generate. Your pages appear on the right.' },
+                { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Book preview', body: 'Read like a real book. Use the side arrows to turn pages.' },
+                { sel: '[data-guided-tour="ai-next-step"]', title: 'Next: Formatting', body: 'When the chapter looks good, tap Book formatting for fonts and layout.' }
             ],
             'formatter': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 2 — Book Formatting', body: 'Step 1 is done. You are on Step 2. Pick how the inside of the book should look. Next is Cover Design, then Publish.' },
-                { sel: '[data-guided-tour="fmt-format"]', title: 'Ebook or paperback?', body: 'Choose Ebook, Paperback, or Both. This changes your preview and download options.' },
-                { sel: '[data-guided-tour="fmt-style"]', title: 'Inside style', body: 'Pick a look — Novel, Classic, Minimalist, or Elegant. The preview on the right updates as you choose.' },
-                { sel: '[data-guided-tour="fmt-preview"]', title: 'See your book', body: 'Your chapters show here as real pages. Flip through to check how it looks.' },
-                { sel: '[data-guided-tour="fmt-actions"]', title: 'Save & go on', body: 'Your choices save automatically. Tap Next when you are ready for Cover Design.' }
+                { sel: '[data-guided-tour="fmt-modules"]', title: 'Formatting studio', body: 'Switch freely between AI Writer, Formatting, and Cover Design.' },
+                { sel: '[data-guided-tour="fmt-manuscript"]', title: 'Manuscript upload', body: 'Tap the upload icon (or drop a file) to load DOCX/PDF. Chapters show in the preview.' },
+                { sel: '[data-guided-tour="fmt-format"]', title: 'Ebook · Paperback · Both', body: 'Pick your format on one row. Ebook, Paperback, or Both (premium).' },
+                { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Choose a look — the open book on the right updates live.' },
+                { sel: '[data-guided-tour="fmt-preview"]', title: 'Open-book preview', body: 'Two pages on a brown desk. Flip with the arrows to check layout.' },
+                { sel: '[data-guided-tour="fmt-actions"]', title: 'Save & continue', body: 'Choices save automatically. Tap Next when you are ready for Cover Design.' }
             ],
             'cover-design': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Step 3 — Cover Design', body: 'Steps 1 and 2 are done. You are on Step 3. Make your cover here, then go to Publish to download files.' },
-                { sel: '[data-guided-tour="cov-book"]', title: 'Your book', body: 'This cover is for the book you selected. Title and author can come from your library.' },
-                { sel: '[data-guided-tour="cov-fields"]', title: 'Cover info', body: 'Pick genre and cover style. These go to the AI with your title and author name.' },
-                { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Tell the AI what you want — colors, mood, pictures. Tap Generate Cover to make images.' },
-                { sel: '[data-guided-tour="cov-preview"]', title: 'Cover preview', body: 'See your cover here. Title and author text update on the preview.' },
-                { sel: '[data-guided-tour="cov-publish"]', title: 'Go to Publish', body: 'Happy with the cover? Tap here to open Publish and download EPUB, PDF, or print files.' }
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Cover Design', body: 'Make your cover here, then go to Publish to download files.' },
+                { sel: '[data-guided-tour="cov-book"]', title: 'Your book', body: 'This cover is for the book you selected.' },
+                { sel: '[data-guided-tour="cov-fields"]', title: 'Cover info', body: 'Pick genre and cover style for the AI.' },
+                { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Colors, mood, pictures — then Generate Cover.' },
+                { sel: '[data-guided-tour="cov-preview"]', title: 'Cover preview', body: 'See your cover update here.' },
+                { sel: '[data-guided-tour="cov-publish"]', title: 'Go to Publish', body: 'Happy with it? Open Publish for EPUB, PDF, or print files.' }
             ],
             'publish': [
-                { sel: '[data-guided-tour="pub-hero"]', title: 'Step 4 — Publish', body: 'This is the last step. Download your finished book files here.' },
-                { sel: '[data-guided-tour="pub-status"]', title: 'Book status', body: 'See if your book is ready. You need chapters from AI Writer and a cover from Cover Design.' },
-                { sel: '[data-guided-tour="pub-export"]', title: 'Download files', body: 'Tap a button to download. You can get EPUB, PDF, Word, cover images, or a print-ready ZIP for Amazon KDP.' }
+                { sel: '[data-guided-tour="pub-hero"]', title: 'Publish', body: 'Last step — download your finished book files.' },
+                { sel: '[data-guided-tour="pub-status"]', title: 'Book status', body: 'Needs chapters and a cover before exports unlock.' },
+                { sel: '[data-guided-tour="pub-export"]', title: 'Download files', body: 'EPUB, PDF, Word, covers, or a KDP print ZIP.' }
             ],
             'my-books': [
-                { sel: '[data-guided-tour="mb-books"]', title: 'All your books', body: 'Every book you made is here. Click a card to see details on the right.' },
-                { sel: '[data-guided-tour="mb-actions"]', title: 'Quick buttons', body: 'New Book starts a fresh project. Export Pack downloads files when your book is finished.' },
-                { sel: '[data-guided-tour="mb-detail"]', title: 'Book details', body: 'After you pick a book, see the cover, stats, and buttons to preview, edit, or delete.' }
+                { sel: '[data-guided-tour="mb-books"]', title: 'All your books', body: 'Click a card to see details on the right.' },
+                { sel: '[data-guided-tour="mb-actions"]', title: 'Quick buttons', body: 'New Book starts fresh. Export Pack downloads finished files.' },
+                { sel: '[data-guided-tour="mb-detail"]', title: 'Book details', body: 'Preview, edit, or delete the selected book.' }
             ],
             'profile': [
-                { sel: '.profile-header, .user-profile-header, main h1', title: 'Your profile', body: 'Update your name and photo here. Your photo also shows on the Dashboard.' },
-                { sel: 'form, .profile-form, #profileForm', title: 'Save changes', body: 'Edit your details and tap Save. Changes apply across the app.' }
+                { sel: '.profile-header, .user-profile-header, main h1', title: 'Your profile', body: 'Update your name and photo here.' },
+                { sel: 'form, .profile-form, #profileForm', title: 'Save changes', body: 'Edit details and tap Save.' }
             ],
             'default': [
-                { sel: '#sidebar', title: 'How to make a book', body: 'Follow these steps: AI Writer → Book Formatting → Cover Design → Publish.' },
-                { sel: '.main-content', title: 'Need help?', body: 'Tap the Tour button at the bottom-right on any page for a quick guide.' }
+                { sel: '#sidebar', title: 'How to make a book', body: 'Use AI Writer, Formatting, and Cover in any order — then Publish.' },
+                { sel: '#guidedTourFab', title: 'Need help?', body: 'Tap Tour anytime for a quick walkthrough of this screen.' }
             ]
         };
 
@@ -5150,7 +5088,16 @@
             teardownGuidedTourListeners();
             endGuidedTour(false);
             __showGuidedTourBackdrop();
-            var steps = GUIDED_TOUR_ROUTES[routeKey] || GUIDED_TOUR_ROUTES['default'];
+            var rawSteps = GUIDED_TOUR_ROUTES[routeKey] || GUIDED_TOUR_ROUTES['default'];
+            // Only keep steps whose targets exist on this page (accurate count + no blank skips).
+            var steps = rawSteps.filter(function (step) {
+                try { return !!document.querySelector(step.sel); } catch (e) { return false; }
+            });
+            if (!steps.length) {
+                steps = GUIDED_TOUR_ROUTES['default'].filter(function (step) {
+                    try { return !!document.querySelector(step.sel); } catch (e) { return false; }
+                });
+            }
             var i = 0;
             var anyStepShown = false;
             var shouldPersistCompletion = !!opts.persistCompletion;
@@ -5159,14 +5106,24 @@
                 if (shouldPersistCompletion && anyStepShown) persistGuidedTourCompletion();
             }
 
+            function scrollTourTargetIntoView(target) {
+                if (!target) return;
+                try {
+                    var scrollParent = target.closest('.fmt-left-scroll, .ai-writer-sidebar, .dash-flow-main, .main-content');
+                    if (scrollParent && scrollParent !== document.body) {
+                        var parentRect = scrollParent.getBoundingClientRect();
+                        var rect = target.getBoundingClientRect();
+                        var delta = (rect.top + rect.height / 2) - (parentRect.top + parentRect.height / 2);
+                        scrollParent.scrollTop = Math.max(0, scrollParent.scrollTop + delta);
+                    }
+                    target.scrollIntoView({ block: 'center', behavior: 'smooth', inline: 'nearest' });
+                } catch (e) {
+                    try { target.scrollIntoView(true); } catch (e2) { /* ignore */ }
+                }
+            }
+
             function nextStep() {
                 __clearGuidedTourHighlight();
-                while (i < steps.length) {
-                    var step = steps[i];
-                    var el = document.querySelector(step.sel);
-                    if (el) break;
-                    i++;
-                }
                 if (i >= steps.length) {
                     if (anyStepShown) persistDone();
                     endGuidedTour(!opts.silent && anyStepShown);
@@ -5175,7 +5132,7 @@
                 var target = document.querySelector(steps[i].sel);
                 if (!target) { i++; return nextStep(); }
                 anyStepShown = true;
-                try { target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { target.scrollIntoView(true); }
+                scrollTourTargetIntoView(target);
 
                 var delay = opts.silent ? 50 : 320;
                 setTimeout(function () {
@@ -5517,16 +5474,9 @@
                     if (goingDashboard && window.FlowNavGuard && typeof window.FlowNavGuard.confirmLeaveToDashboard === 'function') {
                         return window.FlowNavGuard.confirmLeaveToDashboard(target);
                     }
-                    var isDirty = !!(window.EbookUnsavedGuard
-                        && typeof window.EbookUnsavedGuard.isDirty === 'function'
-                        && window.EbookUnsavedGuard.isDirty());
-                    if (!isDirty) {
-                        window.location.href = target;
-                        return Promise.resolve(true);
-                    }
+                    // Soft leave — never block with an unsaved-changes dialog.
                     if (window.EbookUnsavedGuard && typeof window.EbookUnsavedGuard.confirmLeave === 'function') {
-                        return window.EbookUnsavedGuard.confirmLeave(target).then(function (ok) {
-                            if (!ok) return false;
+                        return window.EbookUnsavedGuard.confirmLeave(target).then(function () {
                             window.location.href = target;
                             return true;
                         });
@@ -5540,9 +5490,7 @@
                 }
                 window.confirmLeaveToAiWriter = confirmLeaveToAiWriter;
 
-                // Going BACK a step (or the browser back button) can reset the current step's
-                // unsaved work, so always warn the user first — not only when the page is "dirty".
-                // Leaving to the Dashboard keeps its own stronger guard.
+                // Soft back — navigate freely; background save may still run.
                 function confirmFlowBack(targetUrl) {
                     var target = targetUrl || flowBackUrl || '/Dashboard';
                     var path = (target.split('?')[0] || '').toLowerCase();
@@ -5550,35 +5498,14 @@
                     if (goingDashboard && window.FlowNavGuard && typeof window.FlowNavGuard.confirmLeaveToDashboard === 'function') {
                         return window.FlowNavGuard.confirmLeaveToDashboard(target);
                     }
-                    // From the Publish step (incl. already-published books) going back is a normal
-                    // review action and does not reset any draft work — allow it without a warning.
-                    // The warning is only needed while actively writing/formatting a draft.
-                    if (flowStep === 'publish') {
-                        window.location.href = target;
-                        return Promise.resolve(true);
-                    }
-                    if (typeof Swal !== 'undefined' && Swal && typeof Swal.fire === 'function') {
-                        return Swal.fire({
-                            title: 'Go back a step?',
-                            text: 'Going back may discard unsaved changes on this step. Your saved chapters are kept.',
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Yes, go back',
-                            cancelButtonText: 'Stay here',
-                            confirmButtonColor: '#7c3aed',
-                            cancelButtonColor: '#64748b',
-                            reverseButtons: true,
-                            focusCancel: true
-                        }).then(function (res) {
-                            if (res && res.isConfirmed) { window.location.href = target; return true; }
-                            return false;
+                    if (window.EbookUnsavedGuard && typeof window.EbookUnsavedGuard.confirmLeave === 'function') {
+                        return window.EbookUnsavedGuard.confirmLeave(target).then(function () {
+                            window.location.href = target;
+                            return true;
                         });
                     }
-                    if (window.confirm('Go back a step? Unsaved changes on this step may be lost.')) {
-                        window.location.href = target;
-                        return Promise.resolve(true);
-                    }
-                    return Promise.resolve(false);
+                    window.location.href = target;
+                    return Promise.resolve(true);
                 }
                 window.confirmFlowBack = confirmFlowBack;
 
