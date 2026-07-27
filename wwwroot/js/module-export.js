@@ -1,5 +1,6 @@
 /**
  * Shared module export helper — fetch file endpoints and trigger browser download.
+ * Also exposes ModuleExport.run for header quick-actions (draft DOCX/PDF + book PrintPdf/EPUB).
  */
 (function (global) {
     'use strict';
@@ -80,9 +81,74 @@
         return { ok: true };
     }
 
+    /**
+     * Header quick-actions entry point.
+     * @param {{ bookId:number, bookExport?:string, draftFormat?:string, status?:function }} opts
+     */
+    async function run(opts) {
+        var o = opts || {};
+        var bid = parseInt(o.bookId, 10) || 0;
+        var status = typeof o.status === 'function' ? o.status : function () {};
+        if (bid <= 0) {
+            status('Open or create a book first.', false);
+            return { ok: false, message: 'No book selected.' };
+        }
+
+        // Flush Formatting/Writer prefs so export matches on-screen edits.
+        try {
+            if (typeof global.fmtFlushFormattingForExport === 'function') {
+                await global.fmtFlushFormattingForExport();
+            } else if (global.EbookUnsavedGuard && typeof global.EbookUnsavedGuard.flushIfDirty === 'function') {
+                global.EbookUnsavedGuard.flushIfDirty();
+            }
+        } catch (_) { /* non-blocking */ }
+
+        var body = { bookId: bid };
+        try {
+            if (typeof global.getFormatterStateFromUi === 'function') {
+                var st = global.getFormatterStateFromUi();
+                if (st) {
+                    body.interiorStyle = st.interiorStyle || st.style;
+                    body.textSize = st.textSize;
+                    body.lineSpacing = st.lineSpacing;
+                    body.bookFormat = st.format;
+                    body.previewAccent = st.previewAccent;
+                    body.pageBackgroundColor = st.pageBackgroundColor;
+                }
+            }
+        } catch (_) { /* optional */ }
+
+        var bookFmt = (o.bookExport || '').trim();
+        var draftFmt = (o.draftFormat || '').trim();
+        status('Preparing download…', null);
+
+        if (bookFmt) {
+            var ext = /epub/i.test(bookFmt) ? '.epub' : '-print.pdf';
+            var r1 = await postExport(
+                '/Books/Export/' + bid + '?format=' + encodeURIComponent(bookFmt),
+                body,
+                'book-' + bid + ext);
+            status(r1.ok ? 'Download started.' : (r1.message || 'Export failed.'), r1.ok);
+            return r1;
+        }
+
+        if (draftFmt) {
+            var r2 = await postExport(
+                '/Books/ExportDraft/' + bid + '?format=' + encodeURIComponent(draftFmt),
+                body,
+                'draft-' + bid + (/pdf/i.test(draftFmt) ? '.pdf' : '.docx'));
+            status(r2.ok ? 'Download started.' : (r2.message || 'Export failed.'), r2.ok);
+            return r2;
+        }
+
+        status('Unknown export type.', false);
+        return { ok: false, message: 'Unknown export type.' };
+    }
+
     global.ModuleExport = {
         postExport: postExport,
         getExport: getExport,
-        downloadBlob: downloadBlob
+        downloadBlob: downloadBlob,
+        run: run
     };
 })(typeof window !== 'undefined' ? window : globalThis);

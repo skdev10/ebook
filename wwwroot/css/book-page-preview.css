@@ -703,7 +703,7 @@
     flex-direction: column;
     background: #fffef8;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .book-open-page--verso {
@@ -824,14 +824,18 @@
 }
 
 .book-open-folio {
+    flex: 0 0 auto;
     flex-shrink: 0;
     text-align: center;
-    padding: 0.35rem 0 0.45rem;
+    min-height: 1.5rem;
+    padding: 0.4rem 0 0.55rem;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(0.62rem, 0.95vw, 0.74rem);
+    font-size: clamp(0.7rem, 1vw, 0.82rem);
     letter-spacing: 0.06em;
-    color: #57534e;
+    color: #44403c;
     font-variant-numeric: tabular-nums;
+    visibility: visible;
+    opacity: 1;
 }
 
 .book-open-blank {

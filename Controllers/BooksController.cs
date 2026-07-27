@@ -3068,10 +3068,15 @@ namespace EBookDashboard.Controllers
 
             try
             {
+                var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, req.BookId, cancellationToken);
+                exportOpt.ApplyRequestOverrides(req);
+                exportOpt.Normalize();
+
                 var bytes = _docxExportService.BuildDocx(
                     details,
                     (req.DisplayTitle ?? details.BookTitle ?? "").Trim(),
-                    (req.DisplayAuthor ?? details.AuthorName ?? "").Trim());
+                    (req.DisplayAuthor ?? details.AuthorName ?? "").Trim(),
+                    exportOpt);
 
                 var rawName = (req.DisplayTitle ?? details.BookTitle ?? "book").Trim();
                 var safe = Regex.Replace(rawName, @"[^\w\-\s]", "");
@@ -3126,16 +3131,12 @@ namespace EBookDashboard.Controllers
 
             try
             {
+                var exportOpt = await LoadExportOptionsForBookAsync(sessionUserId.Value, bookId, cancellationToken);
+                exportOpt.Normalize();
+
                 if (fmt.Equals("Pdf", StringComparison.OrdinalIgnoreCase))
                 {
-                    var exportOpt = new BookPdfExportOptions
-                    {
-                        IncludeCoverPage = false,
-                        Format = "Ebook",
-                        InteriorStyle = "Clean",
-                        TextSize = "Medium",
-                        LineSpacing = "1.6"
-                    };
+                    // Use the same saved Formatting prefs as Print PDF (not hardcoded Clean/Medium).
                     var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
                         details, null, details.BookTitle, details.AuthorName, details.Genre,
                         exportOpt, null, cancellationToken);
@@ -3144,8 +3145,8 @@ namespace EBookDashboard.Controllers
                     return File(pdfBytes, "application/pdf", $"{safe}-{bookId}-draft.pdf");
                 }
 
-                // Default: Docx
-                var docx = _docxExportService.BuildDocx(details, details.BookTitle, details.AuthorName);
+                // Default: Docx — same interior style / text size / line spacing as the Formatting preview.
+                var docx = _docxExportService.BuildDocx(details, details.BookTitle, details.AuthorName, exportOpt);
                 if (docx == null || docx.Length < 64)
                     return StatusCode(500, new { success = false, message = "Draft Word export failed." });
                 return File(docx,

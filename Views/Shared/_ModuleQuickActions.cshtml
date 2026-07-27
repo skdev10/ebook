@@ -1,5 +1,5 @@
 @{
-    // Shared header toolbar — Writer + Formatting: manuscript upload + draft/book exports.
+    // Shared header toolbar — Writer / Formatting / Cover: upload + exports (never blocked).
     var qaBookId = 0;
     if (ViewBag.FlowBookId is int fb) qaBookId = fb;
     else if (ViewBag.SelectedBookId is int sb) qaBookId = sb;
@@ -7,79 +7,133 @@
     else if (ViewBag.SelectedBookId != null) int.TryParse(ViewBag.SelectedBookId.ToString(), out qaBookId);
     else if (ViewBag.BookId != null) int.TryParse(ViewBag.BookId.ToString(), out qaBookId);
     var action = ViewContext.RouteData.Values["Action"]?.ToString() ?? "";
-    var isModulePage = action is "AIGenerateBook" or "Writer" or "CoverDesignCalculatorFixing" or "Formatting";
+    var controller = ViewContext.RouteData.Values["Controller"]?.ToString() ?? "";
+    var isModulePage = action is "AIGenerateBook" or "Writer" or "CoverDesignCalculatorFixing" or "Formatting" or "CoverDesign"
+        || (controller == "Dashboard" && action == "CoverDesign")
+        || (controller == "Books" && action == "Cover");
     if (!isModulePage) { return; }
-    // Product rule: Export is NEVER disabled. Without a book, click shows a plain-language tip.
-    string? disabledAttr = null;
 }
 <div id="module-quick-actions" class="module-quick-actions" data-book-id="@qaBookId" role="region" aria-label="Manuscript and export">
     <input type="file" id="layout-ms-file" class="hidden" accept=".docx,.pdf,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
     <button type="button" id="layout-ms-upload-btn" class="mqa-btn mqa-btn--upload" title="Upload manuscript (DOCX / PDF)" aria-label="Upload manuscript">
         <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
-        <span>Upload manuscript</span>
+        <span>Upload</span>
     </button>
     <span class="mqa-sep" aria-hidden="true"></span>
-    <button type="button" class="mqa-btn mqa-btn--draft" id="layout-export-draft-docx" data-format="Docx" title="Download draft as Word" @disabledAttr>
+    <button type="button" class="mqa-btn mqa-btn--draft" id="layout-export-draft-docx" data-format="Docx" title="Download draft as Word">
         <i class="fas fa-file-word" aria-hidden="true"></i>
-        <span>Export Draft — Word</span>
+        <span>Draft Word</span>
     </button>
-    <button type="button" class="mqa-btn mqa-btn--draft" id="layout-export-draft-pdf" data-format="Pdf" title="Download draft as PDF" @disabledAttr>
+    <button type="button" class="mqa-btn mqa-btn--draft" id="layout-export-draft-pdf" data-format="Pdf" title="Download draft as PDF">
         <i class="fas fa-file-pdf" aria-hidden="true"></i>
-        <span>Export Draft — PDF</span>
+        <span>Draft PDF</span>
     </button>
-    <button type="button" class="mqa-btn mqa-btn--book" id="layout-export-book-pdf" data-book-export="PrintPdf" title="Download print-ready PDF" @disabledAttr>
+    <button type="button" class="mqa-btn mqa-btn--book" id="layout-export-book-pdf" data-book-export="PrintPdf" title="Download print-ready PDF">
         <i class="fas fa-book" aria-hidden="true"></i>
-        <span>Export Book — Print PDF</span>
+        <span>Print PDF</span>
     </button>
-    <button type="button" class="mqa-btn mqa-btn--book" id="layout-export-book-epub" data-book-export="Epub" title="Download EPUB" @disabledAttr>
+    <button type="button" class="mqa-btn mqa-btn--book mqa-btn--primary" id="layout-export-book-epub" data-book-export="Epub" title="Download EPUB">
         <i class="fas fa-tablet-alt" aria-hidden="true"></i>
-        <span>Export Book — EPUB</span>
+        <span>EPUB</span>
     </button>
     <span id="layout-ms-status" class="mqa-status" aria-live="polite"></span>
 </div>
 <style>
+/* Sticky top-right export dock — high contrast so it never “disappears” into the page */
 .module-quick-actions {
+    position: sticky;
+    top: 0.65rem;
+    z-index: 60;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.45rem 0.55rem;
-    margin: 0 0 1rem;
-    padding: 0.55rem 0.75rem;
-    border-radius: 12px;
-    background: linear-gradient(135deg, #faf5ff 0%, #f8fafc 100%);
-    border: 1px solid #e9d5ff;
+    justify-content: flex-end;
+    gap: 0.4rem 0.45rem;
+    margin: 0 0 0.85rem auto;
+    margin-left: auto;
+    max-width: fit-content;
+    padding: 0.45rem 0.55rem;
+    border-radius: 999px;
+    background: #1e1b4b;
+    border: 1px solid #312e81;
+    box-shadow:
+        0 10px 28px -12px rgba(30, 27, 75, 0.65),
+        0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
 .mqa-sep {
     width: 1px;
-    height: 1.35rem;
-    background: #e9d5ff;
-    margin: 0 0.15rem;
+    height: 1.2rem;
+    background: rgba(196, 181, 253, 0.35);
+    margin: 0 0.1rem;
 }
 .mqa-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    background: #fff;
-    color: #334155;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 0.42rem 0.7rem;
+    gap: 0.35rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ede9fe;
+    font-size: 0.75rem;
+    font-weight: 650;
+    padding: 0.4rem 0.72rem;
     cursor: pointer;
-    transition: background .15s, border-color .15s, color .15s;
+    transition: background .15s, border-color .15s, color .15s, transform .12s;
     white-space: nowrap;
 }
-.mqa-btn:hover:not(:disabled) { background: #f5f3ff; border-color: #c4b5fd; color: #5b21b6; }
+.mqa-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.16);
+    border-color: rgba(196, 181, 253, 0.55);
+    color: #fff;
+    transform: translateY(-1px);
+}
 .mqa-btn:disabled { opacity: .45; cursor: not-allowed; }
-.mqa-btn--upload { border-color: #ddd6fe; color: #6d28d9; }
-.mqa-btn--draft { border-color: #e2e8f0; }
-.mqa-btn--book { border-color: #ddd6fe; background: #f5f3ff; color: #5b21b6; }
-.mqa-status { font-size: 0.75rem; color: #64748b; min-height: 1em; flex: 1 1 6rem; }
+.mqa-btn--upload {
+    background: #4c1d95;
+    border-color: #7c3aed;
+    color: #f5f3ff;
+}
+.mqa-btn--upload:hover:not(:disabled) {
+    background: #5b21b6;
+    color: #fff;
+}
+.mqa-btn--draft { color: #e2e8f0; }
+.mqa-btn--book {
+    background: #5b21b6;
+    border-color: #8b5cf6;
+    color: #fff;
+}
+.mqa-btn--book:hover:not(:disabled) {
+    background: #6d28d9;
+}
+.mqa-btn--primary {
+    background: #7c3aed;
+    border-color: #a78bfa;
+}
+.mqa-btn--primary:hover:not(:disabled) {
+    background: #8b5cf6;
+}
+.mqa-status {
+    font-size: 0.72rem;
+    color: #c4b5fd;
+    min-height: 1em;
+    max-width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 @@media (max-width: 900px) {
+    .module-quick-actions {
+        max-width: 100%;
+        justify-content: flex-start;
+        border-radius: 14px;
+        position: sticky;
+        top: 0.35rem;
+    }
     .mqa-btn span { display: none; }
     .mqa-btn { padding: 0.48rem 0.62rem; }
     .mqa-sep { display: none; }
+    .mqa-status { display: none; }
 }
 </style>
 <script src="~/js/module-export.js" asp-append-version="true"></script>
@@ -105,14 +159,14 @@
             var q = new URLSearchParams(window.location.search).get('bookId');
             if (q) return parseInt(q, 10) || 0;
         } catch (e) { /* ignore */ }
-        var m = /\/(?:Formatting|CoverDesignCalculatorFixing|Writer|AIGenerateBook)\/(\d+)/i.exec(window.location.pathname);
-        return m ? (parseInt(m[1], 10) || 0) : 0;
+        var m = /\/(?:Formatting|CoverDesignCalculatorFixing|Writer|AIGenerateBook|CoverDesign)\/?(\d+)?/i.exec(window.location.pathname);
+        return m && m[1] ? (parseInt(m[1], 10) || 0) : 0;
     }
 
     function setStatus(msg, ok) {
         if (!statusEl) return;
         statusEl.textContent = msg || '';
-        statusEl.style.color = ok === false ? '#b91c1c' : (ok === true ? '#047857' : '#64748b');
+        statusEl.style.color = ok === false ? '#fda4af' : (ok === true ? '#86efac' : '#c4b5fd');
     }
 
     function syncExportEnabled() {
@@ -168,36 +222,25 @@
     async function runExport(btn) {
         var bid = currentBookId();
         if (bid <= 0) {
-            setStatus('Upload a manuscript or open a book first — Export stays available and is never blocked.', false);
+            setStatus('Open or create a book first — Export stays available.', false);
             return;
         }
         var bookFmt = btn.getAttribute('data-book-export');
-        var draftFmt = btn.getAttribute('data-format') || 'Docx';
-        setStatus('Exporting…', null);
+        var draftFmt = btn.getAttribute('data-format');
+        setStatus('Preparing download…', null);
         try {
-            if (!window.ModuleExport) throw new Error('Export helper missing');
-            var result;
-            if (bookFmt) {
-                var isEpub = String(bookFmt).toLowerCase() === 'epub';
-                if (typeof window.fmtFlushFormattingForExport === 'function') {
-                    try { await window.fmtFlushFormattingForExport(); } catch (eFlush) { /* optional */ }
-                }
-                result = await window.ModuleExport.postExport(
-                    '/Books/Export/' + bid + '?format=' + encodeURIComponent(bookFmt),
-                    { bookId: bid, exportFormat: bookFmt },
-                    'book-' + bid + (isEpub ? '.epub' : '.pdf'));
-                setStatus(result.ok ? (isEpub ? 'EPUB downloaded.' : 'Print PDF downloaded.') : (result.message || 'Export failed.'), !!result.ok);
+            if (window.ModuleExport && typeof window.ModuleExport.run === 'function') {
+                await window.ModuleExport.run({
+                    bookId: bid,
+                    bookExport: bookFmt,
+                    draftFormat: draftFmt,
+                    status: setStatus
+                });
             } else {
-                result = await window.ModuleExport.postExport(
-                    '/Books/ExportDraft/' + bid + '?format=' + encodeURIComponent(draftFmt),
-                    { bookId: bid },
-                    'draft-' + bid + (String(draftFmt).toLowerCase() === 'pdf' ? '.pdf' : '.docx'));
-                setStatus(result.ok ? 'Draft downloaded.' : (result.message || 'Export failed.'), !!result.ok);
+                setStatus('Export module not loaded. Refresh the page.', false);
             }
         } catch (e) {
-            setStatus('Export failed.', false);
-        } finally {
-            syncExportEnabled();
+            setStatus('Export failed. Try again.', false);
         }
     }
 

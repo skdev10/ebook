@@ -400,26 +400,29 @@
         <div class="w-full lg:w-[42%] xl:w-[40%] p-4 md:p-6 lg:p-7 border-b lg:border-b-0 lg:border-r border-slate-100 flex flex-col bg-white shrink-0">
             <div class="mb-4">@await Html.PartialAsync("_FlowStepper", 3)</div>
             <h1 class="font-serif text-2xl md:text-[1.65rem] text-slate-900 font-medium tracking-tight mb-1">AI Book Cover Creator</h1>
-            <p class="text-sm text-slate-500 mb-4">Uses the same book as in AI Writer and Book Formatting. Adjust details, then generate your cover.</p>
+            <p class="text-sm text-slate-500 mb-4">Design a cover anytime — attach a book only when you want. Leaving this page auto-saves your draft.</p>
             <div class="h-px w-full bg-slate-100 mb-5"></div>
 
             <div class="flex flex-col gap-2 flex-1">
-                <div class="hidden" data-guided-tour="cov-book" aria-hidden="true">
-                    <select id="bookSelect" class="hidden" tabindex="-1" aria-hidden="true"></select>
+                <div class="mb-1" data-guided-tour="cov-book">
+                    <label for="bookSelect" class="block text-sm text-slate-600 mb-1.5 font-medium">Attach book <span class="text-slate-400 font-normal">(optional)</span></label>
+                    <select id="bookSelect" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all duration-200 appearance-none" style="background-image:url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e\");background-repeat:no-repeat;background-position:right 1rem center;background-size:1rem;padding-right:2.5rem;" aria-label="Optionally attach a book">
+                        <option value="0">No book attached — design freely</option>
+                    </select>
                 </div>
                 <div class="flex flex-col gap-3" data-guided-tour="cov-fields">
                 <div>
-                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book Title <span class="text-slate-400 font-normal">(from your book)</span></label>
-                    <input type="text" id="bookTitle" readonly tabindex="-1" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-slate-50 cursor-default outline-none transition-all duration-200" title="Loaded from your book; edit in AI Writer" />
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book Title</label>
+                    <input type="text" id="bookTitle" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all duration-200" title="Title for the cover" placeholder="Your book title" />
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Author Name <span class="text-slate-400 font-normal">(from your account / book)</span></label>
-                    <input type="text" id="authorName" readonly tabindex="-1" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-slate-50 cursor-default outline-none transition-all duration-200" title="Loaded from your profile or book" />
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Author Name</label>
+                    <input type="text" id="authorName" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 bg-white outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-all duration-200" title="Author name on the cover" placeholder="Author name" />
                 </div>
                 <div>
-                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book Category / Genre <span class="text-slate-400 font-normal">(from your book)</span></label>
-                    <select id="bookCategory" disabled class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 outline-none bg-slate-50 cursor-default appearance-none opacity-100" style="background-image:url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e\");background-repeat:no-repeat;background-position:right 1rem center;background-size:1rem;padding-right:2.5rem;">
-                        <option value="">Loading from your library…</option>
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book Category / Genre</label>
+                    <select id="bookCategory" class="w-full border border-slate-200 rounded-[14px] px-4 py-3.5 text-base text-slate-800 outline-none bg-white appearance-none opacity-100 focus:border-violet-400 focus:ring-2 focus:ring-violet-100" style="background-image:url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3e%3c/svg%3e\");background-repeat:no-repeat;background-position:right 1rem center;background-size:1rem;padding-right:2.5rem;">
+                        <option value="">Choose genre…</option>
                     </select>
                 </div>
                 <input type="hidden" id="coverStyle" value="modern" autocomplete="off" />
@@ -2217,8 +2220,8 @@
     }
 
     async function generateCoverFromDashboard(endpointUrl) {
-        if (!selectedBook) {
-            toast('error', 'No book loaded.');
+        if (!selectedBook || !selectedBook.bookId) {
+            toast('info', 'Attach a book from the dropdown above to generate and save the cover. You can still draft title and image direction without one.');
             return;
         }
         var userPrompt = covComposeDescription();
@@ -2296,8 +2299,26 @@
     }
 
     function bindBook(bookId) {
-        selectedBook = books.find(function (b) { return b.bookId === parseInt(bookId, 10); }) || null;
-        if (!selectedBook) return;
+        var id = parseInt(bookId, 10) || 0;
+        selectedBook = id > 0 ? (books.find(function (b) { return b.bookId === id; }) || null) : null;
+        if (!selectedBook) {
+            // Soft mid-entry: no book — keep draft fields editable, clear book-bound assets.
+            selectedPath = '';
+            coverHistory = [];
+            hasAiCoverThisSession = false;
+            selectedOptionEl = null;
+            resetPrintWrapPreviewUi();
+            optionsWrap.classList.add('hidden');
+            optionsGrid.innerHTML = '';
+            setCoverImageVisible('');
+            previewBusy.classList.add('hidden');
+            applyCoverStyleClass();
+            syncCoverStyleCards();
+            restoreCoverDraftLocal();
+            updateLivePreview();
+            syncCovPreviewHeader();
+            return;
+        }
         bookTitle.value = selectedBook.title || '';
         authorName.value = selectedBook.authorName || '';
         setGenreFromApi((selectedBook.genre || '').trim());
@@ -2329,28 +2350,42 @@
     function renderBooks(data) {
         if (!data || !data.success || !data.books || !data.books.length) {
             screenLoading.classList.add('hidden');
-            emptyState.classList.remove('hidden');
+            // Soft mid-entry still opens the studio even with an empty library.
+            emptyState.classList.add('hidden');
+            coverMain.classList.remove('hidden');
+            books = [];
+            bookSelect.innerHTML = '<option value="0" selected>No book attached — design freely</option>';
+            bindBook(0);
+            applyCoverStyleClass();
+            syncCoverStyleCards();
+            refreshLucide();
             return;
         }
         books = data.books;
         screenLoading.classList.add('hidden');
+        emptyState.classList.add('hidden');
         coverMain.classList.remove('hidden');
-        bookSelect.innerHTML = books.map(function (b) {
+        var opts = '<option value="0">No book attached — design freely</option>' + books.map(function (b) {
             return '<option value="' + b.bookId + '">' + (b.title || 'Untitled').replace(/</g, '&lt;') + '</option>';
         }).join('');
+        bookSelect.innerHTML = opts;
+        // Phase A (start→finish): bookId in URL binds that book.
+        // Phase B (mid-entry): bookId=0 stays unattached — never auto-pick first/session book.
         var defaultId = initialBookId > 0 ? initialBookId : 0;
-        if (!defaultId) {
-            try { defaultId = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10); } catch (_) { defaultId = 0; }
+        if (defaultId > 0) {
+            var found = books.some(function (b) { return b.bookId === defaultId; });
+            if (!found) defaultId = 0;
         }
-        if (!defaultId) defaultId = books[0].bookId;
-        var found = books.some(function (b) { return b.bookId === defaultId; });
-        if (!found) defaultId = books[0].bookId;
         bookSelect.value = String(defaultId);
-        try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(defaultId)); } catch (_) {}
-        bindBook(defaultId);
-        refreshBookFromServer(defaultId).then(function () {
-            loadSavedPrintWrapAssets(defaultId);
-        });
+        if (defaultId > 0) {
+            try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(defaultId)); } catch (_) {}
+            bindBook(defaultId);
+            refreshBookFromServer(defaultId).then(function () {
+                loadSavedPrintWrapAssets(defaultId);
+            });
+        } else {
+            bindBook(0);
+        }
         applyCoverStyleClass();
         syncCoverStyleCards();
         refreshLucide();
@@ -2410,24 +2445,28 @@
                     booksRendered = true;
                     renderBooks(d);
                 } else if (!booksRendered) {
-                    screenLoading.classList.add('hidden');
-                    emptyState.classList.remove('hidden');
-                    emptyState.textContent = 'No books found. Create a book from the Dashboard first.';
+                    // Soft mid-entry: still open the studio without forcing a book.
+                    booksRendered = true;
+                    renderBooks({ success: true, books: [] });
                 }
             })
             .catch(function () {
                 clearTimeout(listTimeout);
                 screenLoading.classList.add('hidden');
                 if (!booksRendered) {
-                    emptyState.classList.remove('hidden');
-                    emptyState.textContent = 'Failed to load books. Please refresh.';
+                    booksRendered = true;
+                    renderBooks({ success: true, books: [] });
                 }
             });
     }
 
     bookSelect.addEventListener('change', function () {
-        bindBook(this.value);
-        refreshBookFromServer(this.value).then(function () { loadSavedPrintWrapAssets(this.value); }.bind(this));
+        var id = parseInt(this.value, 10) || 0;
+        bindBook(id);
+        if (id > 0) {
+            refreshBookFromServer(id).then(function () { loadSavedPrintWrapAssets(id); });
+        }
+        if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
     });
     btnGenerate.addEventListener('click', function () { generateCoverFromDashboard(); });
     if (btnRegenerate) btnRegenerate.addEventListener('click', function () {
@@ -2787,18 +2826,75 @@
             if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         });
     }
+    [bookTitle, authorName, bookCategory].forEach(function (el) {
+        if (!el) return;
+        el.addEventListener('input', function () {
+            if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+            updateLivePreview();
+        });
+        el.addEventListener('change', function () {
+            if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+            updateLivePreview();
+        });
+    });
     if (window.EbookUnsavedGuard) {
         window.EbookUnsavedGuard.setContext('Book Cover');
         window.EbookUnsavedGuard.markSaved();
+        window.EbookUnsavedGuard.setPendingSaveHandler(function () {
+            return new Promise(function (resolve) {
+                try {
+                    persistCoverDraftLocal();
+                    // If a book is attached and a cover path exists, keep session export selection warm.
+                    if (selectedBook && selectedBook.bookId && selectedPath) {
+                        persistCoverSelection(selectedBook.bookId, selectedPath);
+                        setServerActiveCover(selectedBook.bookId, selectedPath).finally(function () {
+                            resolve(true);
+                        });
+                        return;
+                    }
+                    resolve(true);
+                } catch (e) {
+                    resolve(false);
+                }
+            });
+        });
+    }
+
+    var COVER_DRAFT_KEY = 'coverDesign_softDraft_v1';
+    function persistCoverDraftLocal() {
+        try {
+            var payload = {
+                title: (bookTitle && bookTitle.value) || '',
+                author: (authorName && authorName.value) || '',
+                genre: (bookCategory && bookCategory.value) || '',
+                style: (coverStyle && coverStyle.value) || 'modern',
+                direction: (imageDirection && imageDirection.value) || '',
+                summary: (backCoverSummary && backCoverSummary.value) || '',
+                bookId: (selectedBook && selectedBook.bookId) || 0,
+                savedAt: Date.now()
+            };
+            localStorage.setItem(COVER_DRAFT_KEY, JSON.stringify(payload));
+        } catch (_) { /* ignore quota */ }
+    }
+    function restoreCoverDraftLocal() {
+        try {
+            var raw = localStorage.getItem(COVER_DRAFT_KEY);
+            if (!raw) return;
+            var d = JSON.parse(raw);
+            if (!d || typeof d !== 'object') return;
+            if (bookTitle && !(bookTitle.value || '').trim() && d.title) bookTitle.value = d.title;
+            if (authorName && !(authorName.value || '').trim() && d.author) authorName.value = d.author;
+            if (bookCategory && d.genre) {
+                try { setGenreFromApi(d.genre); } catch (_) { bookCategory.value = d.genre; }
+            }
+            if (coverStyle && d.style) coverStyle.value = d.style;
+            if (imageDirection && !(imageDirection.value || '').trim() && d.direction) imageDirection.value = d.direction;
+            if (backCoverSummary && !(backCoverSummary.value || '').trim() && d.summary) backCoverSummary.value = d.summary;
+        } catch (_) { /* ignore */ }
     }
 
     function boot() {
-        if (initialBookId <= 0) {
-            try {
-                var rememberedId = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10);
-                if (rememberedId > 0) initialBookId = rememberedId;
-            } catch (_) { /* no-op */ }
-        }
+        // Soft mid-entry: do NOT auto-attach a remembered book when URL has no bookId.
         loadBooks();
         updatePublishGate();
         syncPrintWrapUiVisibility();
