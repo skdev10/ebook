@@ -79,12 +79,13 @@ public static class BookPdfPlatformLayout
     private static string FormatIn(double inches) =>
         string.Concat(inches.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture), "in");
 
-    /// <summary>Adds a 0.125in bleed per side (0.25in total) to an inches CSS dimension like "6in".</summary>
+    /// <summary>Adds bleed on both sides (2 × BleedIn from KdpSpecs) to an inches CSS dimension like "6in".</summary>
     private static string AddBleed(string inches)
     {
+        var bleedTotal = 2 * EBookDashboard.Configuration.KdpSpecsAccessor.Current.BleedIn;
         var raw = inches.Replace("in", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
         return double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)
-            ? string.Concat((v + 0.25).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), "in")
+            ? string.Concat((v + bleedTotal).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), "in")
             : inches;
     }
 

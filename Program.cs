@@ -281,6 +281,22 @@ builder.Services.Configure<MobileAccessOptions>(
     builder.Configuration.GetSection(MobileAccessOptions.SectionName));
 builder.Services.Configure<BookPaymentOptions>(
     builder.Configuration.GetSection(BookPaymentOptions.SectionName));
+builder.Services.Configure<EBookDashboard.Configuration.KdpSpecs>(
+    builder.Configuration.GetSection(EBookDashboard.Configuration.KdpSpecs.SectionName));
+EBookDashboard.Configuration.KdpSpecsAccessor.Current =
+    builder.Configuration.GetSection(EBookDashboard.Configuration.KdpSpecs.SectionName)
+        .Get<EBookDashboard.Configuration.KdpSpecs>()
+    ?? new EBookDashboard.Configuration.KdpSpecs();
+builder.Services.AddSingleton<EBookDashboard.Services.KdpCalculationService>();
+builder.Services.AddScoped<EBookDashboard.Services.Publishing.ManuscriptImportService>();
+builder.Services.AddScoped<EBookDashboard.Services.Publishing.PublishingProjectService>();
+builder.Services.AddSingleton<EBookDashboard.Services.Publishing.Epub3Builder>();
+builder.Services.AddSingleton<EBookDashboard.Services.Publishing.IExportProgressStore, EBookDashboard.Services.Publishing.ExportProgressStore>();
+builder.Services.AddScoped<EBookDashboard.Services.Publishing.ExportJobService>();
+builder.Services.AddScoped<EBookDashboard.Services.Rendering.BookHtmlBuilder>();
+// Scoped (not Singleton): PagedRenderer depends on the scoped BookHtmlBuilder — its pagination
+// cache is a static ConcurrentDictionary, so per-scope instantiation does not lose cross-request caching.
+builder.Services.AddScoped<EBookDashboard.Services.Rendering.PagedRenderer>();
 builder.Services.AddBookUpstreamHttpClients(builder.Configuration);
 builder.Services.AddScoped<IUpstreamQueueProbe, UpstreamQueueProbe>();
 builder.Services.AddHealthChecks()
@@ -325,7 +341,9 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IBookDesignService, BookDesignService>();
 builder.Services.AddSingleton<EBookDashboard.Application.Kdp.Interfaces.IKdpCoverDimensionService,
     EBookDashboard.Application.Kdp.Services.KdpCoverDimensionService>();
-builder.Services.AddSingleton<EBookDashboard.Services.CoverCalculator>();
+builder.Services.AddSingleton<EBookDashboard.Services.CoverCalculator>(sp =>
+    new EBookDashboard.Services.CoverCalculator(
+        sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<EBookDashboard.Configuration.KdpSpecs>>()));
 builder.Services.AddSingleton<EBookDashboard.Services.CoverConformer>();
 
 // AJAX profile/password: allow antiforgery token in header (must match client: RequestVerificationToken)

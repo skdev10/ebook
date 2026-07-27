@@ -70,6 +70,7 @@
     <Compile Remove="Tests\**\*.cs" />
     <Compile Remove="scripts\**\*.cs" />
     <Compile Remove="Scripts\**\*.cs" />
+    <Compile Remove="_scratch\**\*.cs" />
     <Compile Remove="publish\**\*" />
     <Compile Remove="publish/**" />
     <Content Remove="EbookAI\**\*.cshtml" />

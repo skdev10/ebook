@@ -1,11 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using EBookDashboard.Configuration;
 
 namespace EBookDashboard.Models;
 
-public class BookCoverModel
+public class BookCoverModel : IValidatableObject
 {
     [Required(ErrorMessage = "Page count is required.")]
-    [Range(24, 828, ErrorMessage = "Pages must be between 24 and 828.")]
     public int Pages { get; set; } = 150;
 
     [Required(ErrorMessage = "Paper type is required.")]
@@ -21,4 +21,17 @@ public class BookCoverModel
 
     [MaxLength(500, ErrorMessage = "Description cannot exceed 500 characters.")]
     public string? Description { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var specs = KdpSpecsAccessor.Current;
+        var min = specs.Paperback.MinPages;
+        var max = specs.Paperback.MaxPages;
+        if (Pages < min || Pages > max)
+        {
+            yield return new ValidationResult(
+                $"Pages must be between {min} and {max}.",
+                [nameof(Pages)]);
+        }
+    }
 }

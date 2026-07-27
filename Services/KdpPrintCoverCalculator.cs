@@ -1,21 +1,23 @@
+using EBookDashboard.Configuration;
+using EBookDashboard.Models;
+
 namespace EBookDashboard.Services
 {
     /// <summary>
-    /// Print cover dimensions: KDP paperback calculator + case-bound hardcover layout (wrap margin, hinges, spine board).
-    /// Paperback: https://kdp.amazon.com/cover-calculator
-    /// Hardcover case layout: wrap margin + back panel + hinge + spine + hinge + front panel + wrap margin.
+    /// Print cover dimensions: KDP paperback calculator + case-bound hardcover layout.
+    /// All numeric values come from <see cref="KdpSpecsAccessor"/>.
     /// </summary>
     public static class KdpPrintCoverCalculator
     {
-        public const double MinSpineInches = 0.055;
-        public const double PaperbackBleedInches = 0.125;
-        public const double CaseWrapMarginInches = 1.0;
-        public const double CaseHingeGapInches = 0.375;
-        public const int MinPages = 24;
-        public const int MaxPagesPaperback = 828;
+        private static KdpSpecs S => KdpSpecsAccessor.Current;
 
-        /// <summary>150-page reference from case-bound diagram: spine board = 3/8".</summary>
-        public const double CaseSpineInchesPerPage = 0.0025;
+        public static double MinSpineInches => S.AlternateCaseLayout.MinSpineInches;
+        public static double PaperbackBleedInches => S.BleedIn;
+        public static double CaseWrapMarginInches => S.AlternateCaseLayout.WrapMarginInches;
+        public static double CaseHingeGapInches => S.AlternateCaseLayout.HingeGapInches;
+        public static int MinPages => S.Paperback.MinPages;
+        public static int MaxPagesPaperback => S.Paperback.MaxPages;
+        public static double CaseSpineInchesPerPage => S.PaperThicknessInPerPage.Cream;
 
         public sealed class CoverLayoutSpec
         {
@@ -57,10 +59,20 @@ namespace EBookDashboard.Services
             var trim = ParseTrim(trimSize);
             var isHardcover = binding == "Hardcover";
 
+            var paperEnum = paper.Contains("Cream", StringComparison.OrdinalIgnoreCase)
+                ? PaperType.Cream
+                : PaperType.White;
+            if (interior.Contains("Premium", StringComparison.OrdinalIgnoreCase))
+                paperEnum = PaperType.PremiumColor;
+            else if (interior.Contains("Standard", StringComparison.OrdinalIgnoreCase) && paperEnum == PaperType.White)
+                paperEnum = PaperType.StandardColor;
+
+            var projectType = isHardcover ? ProjectType.Hardcover : ProjectType.Paperback;
+            var calc = new KdpCalculationService(S);
+            var spineIn = Math.Max(MinSpineInches, calc.CalculateSpineWidthIn(pages, paperEnum, projectType));
             var perPage = isHardcover
-                ? CaseSpineInchesPerPage
-                : GetSpineInchesPerPage(paper, interior);
-            var spineIn = Math.Max(MinSpineInches, pages * perPage);
+                ? (pages == 0 ? S.Hardcover.SpineCaseExtraIn : spineIn / Math.Max(1, pages))
+                : S.ResolveThicknessInPerPage(paperEnum);
 
             var outerMargin = isHardcover ? CaseWrapMarginInches : PaperbackBleedInches;
             var hingeGap = isHardcover ? CaseHingeGapInches : 0.0;
@@ -127,33 +139,20 @@ namespace EBookDashboard.Services
                 : style + " " + cohesion;
         }
 
-        private static double GetSpineInchesPerPage(string paper, string interior)
-        {
-            // Align with KdpCoverDimensionService / KDP paperback facts.
-            if (interior == "Premium color")
-                return 0.002347;
-            if (interior == "Standard color" && paper == "White paper")
-                return 0.002252;
-            if (interior is "Standard color" or "Premium color")
-                return 0.002347;
-
-            return paper switch
-            {
-                "Cream paper" => 0.0025,
-                _ => 0.002252
-            };
-        }
-
         private static (double W, double H, string Label) ParseTrim(string? trimSize)
         {
             var src = (trimSize ?? "").Trim().ToLowerInvariant().Replace(" ", "");
-            if (src.Contains("5.5") && src.Contains("8.5"))
-                return (5.5, 8.5, "5.5 x 8.5 in");
-            if (src.Contains("8.5") && src.Contains("11"))
-                return (8.5, 11, "8.5 x 11 in");
-            if (src.Contains("4.75") || src.Contains("4-3/4") || (src.Contains("5.25") && !src.Contains("8.5")))
-                return (4.75, 5.25, "4.75 x 5.25 in");
-            return (6, 9, "6 x 9 in");
+            foreach (var t in S.TrimPresets)
+            {
+                var key = t.Key.Replace(" ", "").ToLowerInvariant();
+                if (src.Contains(key) || (Math.Abs(t.WidthIn - 6) < 0.01 && src.Contains("6") && src.Contains("9") && t.Key == "6x9"))
+                    return (t.WidthIn, t.HeightIn, t.Label);
+            }
+
+            var def = S.TrimPresets.FirstOrDefault(t => t.IsDefault) ?? S.TrimPresets.FirstOrDefault(t => t.Key == "6x9");
+            return def != null
+                ? (def.WidthIn, def.HeightIn, def.Label)
+                : (6, 9, "6 x 9 in");
         }
 
         private static string NormalizeBinding(string? value)

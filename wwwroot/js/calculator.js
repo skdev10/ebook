@@ -18,6 +18,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const SPACING_LABELS = { '1.4':'Tight','1.6':'Normal','1.8':'Relaxed','2.0':'Loose','2':'Loose' };
 
+    function kdpSpecs() {
+        return window.__kdpSpecs || {
+            dpi: 300,
+            bleedIn: 0.125,
+            barcodeWidthIn: 2.0,
+            barcodeHeightIn: 1.2,
+            paper: { white: 0.002252, cream: 0.0025, premiumColor: 0.002347, standardColor: 0.002252 },
+            paperback: { min: 24, max: 828 }
+        };
+    }
+
+    function paperbackMinPages() {
+        return kdpSpecs().paperback?.min ?? kdpSpecs().paperback?.minPages ?? 24;
+    }
+
+    function paperbackMaxPages() {
+        return kdpSpecs().paperback?.max ?? kdpSpecs().paperback?.maxPages ?? 828;
+    }
+
+    function paperMultFromLabel(paper) {
+        const p = kdpSpecs().paper || {};
+        const pt = String(paper || '');
+        if (pt.indexOf('Cream') >= 0) return p.cream ?? 0.0025;
+        if (pt.indexOf('Standard color') >= 0) return p.standardColor ?? 0.002347;
+        if (pt.indexOf('Color') >= 0) return p.premiumColor ?? 0.002347;
+        return p.white ?? 0.002252;
+    }
+
     function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
     function syncState() {
@@ -58,9 +86,11 @@ document.addEventListener('DOMContentLoaded', () => {
     elPages?.addEventListener('input', () => {
         const v = parseInt(elPages.value);
         const err = document.getElementById('pagesError');
-        if (isNaN(v) || v < 24 || v > 828) {
+        const minP = paperbackMinPages();
+        const maxP = paperbackMaxPages();
+        if (isNaN(v) || v < minP || v > maxP) {
             elPages.classList.add('is-invalid');
-            if (err) err.textContent = 'Pages must be between 24 and 828.';
+            if (err) err.textContent = 'Pages must be between ' + minP + ' and ' + maxP + '.';
         } else {
             elPages.classList.remove('is-invalid');
             if (err) err.textContent = '';
@@ -128,6 +158,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const dims = CoverPreview.getState().dims;
         if (!dims) return;
         const st = CoverPreview.getState();
+        const specs = kdpSpecs();
+        const barcodeW = specs.barcodeWidthIn ?? 2.0;
+        const barcodeH = specs.barcodeHeightIn ?? 1.2;
         const text = [
             'KDP Cover Dimensions',
             '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
@@ -138,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `Spine:        ${dims.spineInches}" / ${dims.spineMm}mm`,
             `Total width:  ${dims.totalWInches}" / ${dims.totalWMm}mm`,
             `Height:       ${dims.totalHInches}" / ${dims.totalHMm}mm`,
-            `Barcode area: 2.000" \u00d7 1.200" (bottom-right of back cover)`,
+            `Barcode area: ${barcodeW.toFixed(3)}" \u00d7 ${barcodeH.toFixed(3)}" (bottom-right of back cover)`,
             dims.warning || '',
         ].filter(Boolean).join('\n');
         try {
@@ -169,8 +202,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = elTitle?.value || st.title;
         const author = elAuthor?.value || st.author;
 
-        if (pages < 24 || pages > 828) {
-            if (wrapStatus) wrapStatus.textContent = 'Page count must be 24–828.';
+        const minP = paperbackMinPages();
+        const maxP = paperbackMaxPages();
+        if (pages < minP || pages > maxP) {
+            if (wrapStatus) wrapStatus.textContent = 'Page count must be ' + minP + '\u2013' + maxP + '.';
             return;
         }
 
@@ -182,9 +217,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const overlayImg = document.querySelector('#panelFront .cover-image-overlay img');
             const frontUrl = overlayImg?.src || null;
 
-            const PAPER_MULT = { 'White paper': 0.002252, 'Cream paper': 0.0025, 'Color paper': 0.002347 };
-            const mult = PAPER_MULT[paper] || 0.002252;
-            const TRIM_W = 6.0, TRIM_H = 9.0, BLEED = 0.125, DPI = 300;
+            const specs = kdpSpecs();
+            const mult = paperMultFromLabel(paper);
+            const TRIM_W = 6.0, TRIM_H = 9.0;
+            const BLEED = specs.bleedIn ?? 0.125;
+            const DPI = specs.dpi ?? 300;
             const spineIn = pages * mult;
             const fullW = TRIM_W * 2 + spineIn + BLEED * 2;
             const fullH = TRIM_H + BLEED * 2;

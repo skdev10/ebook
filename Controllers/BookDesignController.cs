@@ -1,3 +1,4 @@
+using EBookDashboard.Configuration;
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
@@ -77,14 +78,9 @@ namespace EBookDashboard.Controllers
                     return RedirectToAction("UserLogin", "Account");
                 }
 
-                if (bookId == 0)
-                {
-                    bookId = 12; // Default book ID
-                }
-
+                // Soft empty studio: open classic CoverDesignCalculatorFixing (bookId=0).
                 ViewBag.UserId = userId;
                 ViewBag.SelectedBookId = bookId;
-
                 return RedirectToAction(nameof(CoverDesignCalculatorFixing), new { bookId });
             }
             catch (Exception)
@@ -488,7 +484,8 @@ namespace EBookDashboard.Controllers
                 await _context.SaveChangesAsync();
 
                 var previewPages = ResolvePreviewPageCount(req, statePayload);
-                if (previewPages is >= 1 and <= Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount)
+                var maxPc = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+                if (previewPages is >= 1 && previewPages.Value <= maxPc)
                 {
                     var pageKey = $"book:{req.BookId}:printReadyPageCount";
                     var pageSetting = await _context.Settings.FirstOrDefaultAsync(s => s.Key == pageKey);
@@ -753,13 +750,14 @@ namespace EBookDashboard.Controllers
                         .OrderByDescending(b => b.CreatedAt)
                         .Select(b => new BookDropdownItem { BookId = b.BookId, Title = b.Title })
                         .ToListAsync();
-                    var emptyFormat = string.IsNullOrWhiteSpace(format) ? "Ebook" : format.Trim();
+                    var emptyFormat = string.IsNullOrWhiteSpace(format) ? "Paperback" : format.Trim();
                     if (emptyFormat.Equals("Print", StringComparison.OrdinalIgnoreCase))
                         emptyFormat = "Paperback";
                     else if (!emptyFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
                              && !emptyFormat.Equals("Both", StringComparison.OrdinalIgnoreCase)
-                             && !emptyFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase))
-                        emptyFormat = "Ebook";
+                             && !emptyFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                             && !emptyFormat.Equals("Hardcover", StringComparison.OrdinalIgnoreCase))
+                        emptyFormat = "Paperback";
 
                     ViewBag.UserId = userId;
                     ViewBag.SelectedBookId = 0;
@@ -776,12 +774,7 @@ namespace EBookDashboard.Controllers
                     ViewBag.DisplayAuthorName = string.IsNullOrWhiteSpace(uEmpty?.FullName)
                         ? (uEmpty?.UserEmail ?? "")
                         : uEmpty!.FullName!.Trim();
-                    ViewBag.PrintReadyWhitePaperMultiplier = ParseDoubleSetting("PrintReadyCover:WhitePaperSpineInchesPerPage", 0.002252);
-                    ViewBag.PrintReadyCreamPaperMultiplier = ParseDoubleSetting("PrintReadyCover:CreamPaperSpineInchesPerPage", 0.002500);
-                    ViewBag.PrintReadyColorPaperMultiplier = ParseDoubleSetting("PrintReadyCover:ColorPaperSpineInchesPerPage", 0.002347);
-                    ViewBag.PrintReadyBleedInches = ParseDoubleSetting("PrintReadyCover:BleedInches", 0.125);
-                    ViewBag.PrintReadyDefaultTrimWidthInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimWidthInches", 6.0);
-                    ViewBag.PrintReadyDefaultTrimHeightInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimHeightInches", 9.0);
+                    ApplyPrintReadyKdpViewBag();
 
                     List<BookCoverPages> emptyCoverPages;
                     try
@@ -827,16 +820,7 @@ namespace EBookDashboard.Controllers
                 var (savedFlowStep, savedFlowPath) = await _bookFlow.GetStepAsync(bookId);
                 BookResumeUrlHelper.BootstrapOwnedBookSession(HttpContext, bookId, bookRow.Status, savedFlowStep);
 
-                var hasGeneratedBook = HttpContext.Session.GetString("HasGeneratedBook") == "1"
-                    || await _context.Books.AnyAsync(b => b.UserId == userId);
-                if (!isReEditableBook && !hasGeneratedBook)
-                {
-                    ViewBag.LockMessage = "Select a book from the Dashboard to start formatting.";
-                    ViewBag.LockGoto = "/Dashboard";
-                    ViewBag.LockButtonText = "Go to AI Writer";
-                }
-
-                // Published books stay editable ΓÇö author can revisit Book Formatting and re-publish.
+                // Soft modules: never lock Formatting behind AI writing.
                 // User opened Book Formatting explicitly ΓÇö do not bounce back to AI Writer when flow is still on generate.
                 if (BookFlowStateService.StepRank(savedFlowStep) < BookFlowStateService.StepRank(BookFlowStateService.StepFormat))
                 {
@@ -999,12 +983,7 @@ namespace EBookDashboard.Controllers
                 ViewBag.SelectedBookName = viewModel.Title;
                 ViewBag.SelectedFormat = preferredFormat;
                 ViewBag.BookCoverPages = viewModel.BookCoverPages;
-                ViewBag.PrintReadyWhitePaperMultiplier = ParseDoubleSetting("PrintReadyCover:WhitePaperSpineInchesPerPage", 0.002252);
-                ViewBag.PrintReadyCreamPaperMultiplier = ParseDoubleSetting("PrintReadyCover:CreamPaperSpineInchesPerPage", 0.002500);
-                ViewBag.PrintReadyColorPaperMultiplier = ParseDoubleSetting("PrintReadyCover:ColorPaperSpineInchesPerPage", 0.002347);
-                ViewBag.PrintReadyBleedInches = ParseDoubleSetting("PrintReadyCover:BleedInches", 0.125);
-                ViewBag.PrintReadyDefaultTrimWidthInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimWidthInches", 6.0);
-                ViewBag.PrintReadyDefaultTrimHeightInches = ParseDoubleSetting("PrintReadyCover:DefaultTrimHeightInches", 9.0);
+                ApplyPrintReadyKdpViewBag();
 
                 var formatPath = ResolveFormatPath(preferredFormat, viewModel.PublishingPlatform, viewModel.PublishingPlatforms);
                 try
@@ -1018,7 +997,7 @@ namespace EBookDashboard.Controllers
                 ViewBag.FlowBookId = bookId;
                 ViewBag.FlowStep = BookFlowStateService.StepFormat;
                 ViewBag.FlowPath = formatPath;
-                ViewBag.FlowBackUrl = $"/Books/AIGenerateBook?bookId={bookId}";
+                ViewBag.FlowBackUrl = bookId > 0 ? $"/Books/Writer?bookId={bookId}" : "/Dashboard";
 
                 return View("CoverDesignCalculatorFixing", viewModel);
             }
@@ -1153,6 +1132,21 @@ namespace EBookDashboard.Controllers
             ViewBag.BookTitle = bookTitle;
             ViewBag.SelectedBookId = bookId;
             return View("InteriorPreview");
+        }
+
+        /// <summary>Bind print-ready cover ViewBag multipliers from KdpSpecs (single source of truth).</summary>
+        private void ApplyPrintReadyKdpViewBag()
+        {
+            var specs = KdpSpecsAccessor.Current;
+            var defaultTrim = specs.TrimPresets.FirstOrDefault(t => t.IsDefault)
+                ?? specs.TrimPresets.FirstOrDefault()
+                ?? new TrimSizeOption { WidthIn = 6, HeightIn = 9 };
+            ViewBag.PrintReadyWhitePaperMultiplier = specs.PaperThicknessInPerPage.White;
+            ViewBag.PrintReadyCreamPaperMultiplier = specs.PaperThicknessInPerPage.Cream;
+            ViewBag.PrintReadyColorPaperMultiplier = specs.PaperThicknessInPerPage.PremiumColor;
+            ViewBag.PrintReadyBleedInches = specs.BleedIn;
+            ViewBag.PrintReadyDefaultTrimWidthInches = defaultTrim.WidthIn;
+            ViewBag.PrintReadyDefaultTrimHeightInches = defaultTrim.HeightIn;
         }
 
         private double ParseDoubleSetting(string key, double fallback)
@@ -1435,9 +1429,9 @@ namespace EBookDashboard.Controllers
 
         private static int? ResolvePreviewPageCount(SaveBookFormattingRequest req, string statePayload)
         {
-            const int maxPages = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+            var maxPages = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
 
-            if (req.PreviewPageCount is >= 1 and <= maxPages)
+            if (req.PreviewPageCount is >= 1 && req.PreviewPageCount.Value <= maxPages)
                 return req.PreviewPageCount;
 
             if (!string.IsNullOrWhiteSpace(statePayload))

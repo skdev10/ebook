@@ -86,10 +86,10 @@
     @@media (min-width: 1024px) {
         #book-formatter-root .fmt-main-layout {
             display: grid !important;
-            grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
-            gap: 2rem;
+            grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+            gap: 1.25rem;
             align-items: start;
-            min-height: calc(100dvh - 8rem);
+            min-height: calc(100dvh - 6.5rem);
             overflow: hidden;
         }
         #book-formatter-root #fmt-left-config-column {
@@ -130,15 +130,15 @@
             display: flex;
             flex-direction: column;
             position: sticky;
-            top: 1rem;
+            top: 0.5rem;
             align-self: start;
-            max-height: calc(100dvh - 5.5rem);
-            min-height: 0;
+            max-height: calc(100dvh - 4.25rem);
+            min-height: calc(100dvh - 4.25rem);
             min-width: 0;
             max-width: 100%;
             width: 100%;
             overflow: hidden !important;
-            gap: 0.5rem;
+            gap: 0.35rem;
             z-index: 1;
             isolation: isolate;
         }
@@ -1184,21 +1184,26 @@
     }
     .fmt-format-seg {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.4rem;
         width: 100%;
+    }
+    @@media (min-width: 420px) {
+        .fmt-format-seg {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
     }
     .fmt-format-seg__btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         min-height: 2.75rem;
-        padding: 0.55rem 0.4rem;
+        padding: 0.55rem 0.35rem;
         border-radius: 0.85rem;
         border: 1px solid #e5e7eb;
         background: #fff;
         color: #475569;
-        font-size: 0.8125rem;
+        font-size: 0.75rem;
         font-weight: 650;
         line-height: 1.15;
         cursor: pointer;
@@ -1700,6 +1705,31 @@
         font-size: var(--fmt-font-size, var(--ilt-body-px, 14.67px));
         line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.6));
     }
+    /* Open-book spread: NO outer inch padding — each face has its own margins.
+       Without this, content is crushed and clipped (double padding + overflow:hidden). */
+    #fmt-book-result #preview-content.chapter-preview-viewport.book-page-preview-content:has(.book-open-spread),
+    #book-formatter-root #preview-content.book-page-preview-content:has(.book-open-spread),
+    #book-formatter-root[data-spread="1"] #preview-content.book-page-preview-content {
+        padding: 0 !important;
+        background: transparent !important;
+        background-image: none !important;
+        height: 100% !important;
+        width: 100% !important;
+        display: block !important;
+        overflow: hidden !important;
+    }
+    /* Ebook single-page paper: keep readable inset inside the cream sheet */
+    #fmt-book-result #preview-content.chapter-preview-viewport.book-page-preview-content:has(.fmt-page-sheet),
+    #book-formatter-root #preview-content.book-page-preview-content:has(.fmt-page-sheet),
+    #book-formatter-root[data-spread="0"] #preview-content.book-page-preview-content {
+        padding: clamp(0.85rem, 3.2%, 1.35rem) clamp(0.95rem, 4%, 1.45rem) clamp(0.65rem, 2.5%, 1rem) !important;
+        background: transparent !important;
+        background-image: none !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
     /* Side prev/next — match AI Book Writer chevrons on the page shell */
     #book-formatter-root #paginatedReaderShell .book-preview-nav-side,
     #book-formatter-root #paginatedReaderShell .ai-writer-preview-side-nav {
@@ -2120,18 +2150,33 @@
         border: 1px solid #dce2ea !important;
         border-radius: 14px !important;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
-        padding: 1rem 1.15rem 1.2rem !important;
+        padding: 0.4rem 0.5rem 0.5rem !important;
         align-items: center !important;
         justify-content: center !important;
     }
-    #book-formatter-root #paginatedReaderShell.book-page-preview-shell,
+    #book-formatter-root #paginatedReaderShell.book-page-preview-shell {
+        /* Ebook / single-page: visible paper sheet — fill preview column */
+        background: #fffef8 !important;
+        border: 1px solid rgba(68, 48, 36, 0.28) !important;
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.95) inset,
+            0 2px 4px rgba(28, 25, 23, 0.08),
+            0 18px 40px -10px rgba(28, 25, 23, 0.45),
+            0 0 0 1px rgba(68, 48, 36, 0.22) !important;
+        aspect-ratio: 6 / 9 !important;
+        max-width: 100% !important;
+        width: auto !important;
+        overflow: hidden !important;
+    }
     #book-formatter-root #paginatedReaderShell.book-page-preview-shell.is-open-spread,
     #book-formatter-root[data-spread="1"] #paginatedReaderShell.book-page-preview-shell {
+        /* Print two-page: paper lives on .book-open-spread faces */
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         aspect-ratio: 12 / 9 !important;
-        max-width: min(100%, 920px) !important;
+        max-width: 100% !important;
+        overflow: visible !important;
     }
     #book-formatter-root #preview-content.book-page-preview-content {
         background: transparent !important;
@@ -2142,8 +2187,68 @@
         padding: 0 !important;
         background: transparent !important;
     }
+    #book-formatter-root #preview-content.book-page-preview-content:has(.fmt-page-sheet),
+    #book-formatter-root[data-spread="0"] #preview-content.book-page-preview-content {
+        /* Ebook single page: fill the paper shell with readable margins */
+        padding: clamp(0.85rem, 3.2%, 1.35rem) clamp(0.95rem, 4%, 1.45rem) clamp(0.65rem, 2.5%, 1rem) !important;
+        background: transparent !important;
+        height: 100% !important;
+        box-sizing: border-box !important;
+    }
+    #book-formatter-root .fmt-page-sheet {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        box-sizing: border-box !important;
+        background: transparent !important;
+    }
+    #book-formatter-root .fmt-page-sheet .fmt-ebook-running-head {
+        flex-shrink: 0;
+        text-align: center;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(0.58rem, 0.95vw, 0.7rem);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #78716c;
+        padding: 0 0 0.45em;
+        margin: 0 0 0.55em;
+        border-bottom: 1px solid rgba(120, 113, 108, 0.25);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #book-formatter-root .fmt-page-sheet .fmt-ebook-running-head.is-muted {
+        border-bottom-color: transparent;
+        color: transparent;
+    }
+    #book-formatter-root .fmt-page-sheet .fmt-ebook-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+        font-family: Georgia, "Times New Roman", serif;
+        color: #1c1917;
+        text-align: justify;
+        hyphens: auto;
+        word-wrap: break-word;
+    }
     #book-formatter-root .book-open-spread {
-        min-height: 100%;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 100% !important;
+    }
+    #book-formatter-root .book-open-page {
+        overflow: hidden !important;
+    }
+    #book-formatter-root .book-open-page-inner {
+        overflow: hidden !important;
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        hyphens: auto;
+    }
+    /* Show the soft spine edge on ebook paper (hidden only for open-spread) */
+    #book-formatter-root #paginatedReaderShell.book-page-preview-shell:not(.is-open-spread)::before {
+        display: block !important;
     }
 
     #fmt-studio-stage.fmt-studio-stage {
@@ -2185,12 +2290,14 @@
 <partial name="_BookInteriorPreviewAssets" />
 
 @{
-    var formatFromUrl = Model?.Format ?? "Ebook";
+    var formatFromUrl = Model?.Format ?? "Paperback";
     if (formatFromUrl == "Print") { formatFromUrl = "Paperback"; }
+    if (string.IsNullOrWhiteSpace(formatFromUrl)) { formatFromUrl = "Paperback"; }
     var uid = (Model?.UserId ?? 0) != 0 ? Model.UserId : (ViewBag.UserId ?? 0);
-    var prWhite = ViewBag.PrintReadyWhitePaperMultiplier as double? ?? 0.002252;
-    var prCream = ViewBag.PrintReadyCreamPaperMultiplier as double? ?? 0.002500;
-    var prColor = ViewBag.PrintReadyColorPaperMultiplier as double? ?? 0.002347;
+    var __kdpPaper = EBookDashboard.Configuration.KdpSpecsAccessor.Current.PaperThicknessInPerPage;
+    var prWhite = ViewBag.PrintReadyWhitePaperMultiplier as double? ?? __kdpPaper.White;
+    var prCream = ViewBag.PrintReadyCreamPaperMultiplier as double? ?? __kdpPaper.Cream;
+    var prColor = ViewBag.PrintReadyColorPaperMultiplier as double? ?? __kdpPaper.PremiumColor;
     var prBleed = ViewBag.PrintReadyBleedInches as double? ?? 0.125;
     var prTrimW = ViewBag.PrintReadyDefaultTrimWidthInches as double? ?? 6.0;
     var prTrimH = ViewBag.PrintReadyDefaultTrimHeightInches as double? ?? 9.0;
@@ -2205,7 +2312,7 @@
             </div>
             <div class="fmt-main-layout dash-flow-grid flex flex-col lg:flex-row">
                 <!-- Left: AI Book Formatter (your design) -->
-                <div id="fmt-left-config-column" class="w-full lg:w-[480px] flex-shrink-0 flex flex-col">
+                <div id="fmt-left-config-column" class="w-full lg:w-[340px] flex-shrink-0 flex flex-col">
                     <div class="mb-4 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-white px-4 py-3" data-guided-tour="fmt-modules">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-violet-700 mb-1">Book Formatting</p>
                         <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
@@ -2258,10 +2365,11 @@
 
                         <div class="group" data-guided-tour="fmt-manuscript">
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Manuscript</label>
+                            <p class="text-xs text-gray-400 mb-2 leading-snug">Upload your existing manuscript to start formatting. No need to write a new book. DOCX / PDF (TXT, MD also ok).</p>
                             <div class="fmt-ms-row">
                                 <input type="file" id="fmt-ms-file" accept=".docx,.pdf,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" />
                                 <input type="file" id="fmt-ms-image-file" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,image/png,image/jpeg,image/webp,image/tiff" class="hidden" multiple aria-label="Select one or more book page images" />
-                                <button type="button" id="fmt-ms-upload-btn" class="fmt-ms-icon-btn" title="Upload manuscript (DOCX / PDF)" aria-label="Upload manuscript">
+                                <button type="button" id="fmt-ms-upload-btn" class="fmt-ms-icon-btn" title="Browse manuscript (DOCX / PDF)" aria-label="Browse manuscript">
                                     <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
                                 </button>
                                 <button type="button" id="fmt-ms-image-btn" class="fmt-ms-icon-btn fmt-ms-icon-btn--images" title="Select one or more book page images — text is extracted into the preview" aria-label="Upload book page images">
@@ -2269,7 +2377,7 @@
                                 </button>
                                 <div id="fmt-ms-dropzone" class="fmt-ms-drop-hint" tabindex="0" role="button" aria-label="Drop manuscript file here" title="Drop DOCX or PDF here">
                                     <span class="fmt-ms-drop-hint__icon" aria-hidden="true"><i class="fas fa-cloud-arrow-up"></i></span>
-                                    <span class="fmt-ms-drop-hint__text">Drop file</span>
+                                    <span class="fmt-ms-drop-hint__text">Drop or Browse</span>
                                 </div>
                                 <div class="fmt-ms-meta min-w-0 flex-1">
                                     <p id="fmt-ms-last" class="text-xs text-gray-500 mt-0 mb-0 leading-snug truncate">
@@ -2302,11 +2410,13 @@
                                 <select id="format-select" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;" aria-labelledby="format-field-label" title="Book format">
                                     @if (formatFromUrl == "Ebook") { <option value="Ebook" selected>Ebook</option> } else { <option value="Ebook">Ebook</option> }
                                     @if (formatFromUrl == "Paperback") { <option value="Paperback" selected>Paperback</option> } else { <option value="Paperback">Paperback</option> }
+                                    @if (formatFromUrl == "Hardcover") { <option value="Hardcover" selected>Hardcover</option> } else { <option value="Hardcover">Hardcover</option> }
                                     @if (formatFromUrl == "Both") { <option value="Both" selected>Both (Ebook + Paperback)</option> } else { <option value="Both">Both (Ebook + Paperback)</option> }
                                 </select>
                                 <div class="fmt-format-seg" role="radiogroup" aria-labelledby="format-field-label" id="fmt-format-seg">
                                     <button type="button" class="fmt-format-seg__btn@(formatFromUrl == "Ebook" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Ebook" ? "true" : "false")" data-value="Ebook">Ebook</button>
                                     <button type="button" class="fmt-format-seg__btn@(formatFromUrl == "Paperback" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Paperback" ? "true" : "false")" data-value="Paperback">Paperback</button>
+                                    <button type="button" class="fmt-format-seg__btn@(formatFromUrl == "Hardcover" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Hardcover" ? "true" : "false")" data-value="Hardcover" title="Case laminate hardcover">Hardcover</button>
                                     <button type="button" class="fmt-format-seg__btn fmt-format-seg__btn--premium@(formatFromUrl == "Both" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Both" ? "true" : "false")" data-value="Both" title="Ebook + Paperback">Both</button>
                                 </div>
                             </div>
@@ -2653,17 +2763,20 @@
     const userId = parseInt((root && root.getAttribute('data-user-id')) || '0', 10);
     const serverBookPayload = @Html.Raw(initialBookPayloadJson);
     let initialBookId = parseInt((root && root.getAttribute('data-book-id')) || '0', 10);
-    let formatFromUrl = (root && root.getAttribute('data-format')) || 'Ebook';
+    let formatFromUrl = (root && root.getAttribute('data-format')) || 'Paperback';
+    if (/^print$/i.test(formatFromUrl)) formatFromUrl = 'Paperback';
+    if (!formatFromUrl) formatFromUrl = 'Paperback';
     function parseRootFloat(name, fallback) {
         var raw = root ? root.getAttribute(name) : '';
         var n = parseFloat(raw || '');
         return Number.isFinite(n) ? n : fallback;
     }
+    var kdpPaper = (window.__kdpSpecs && window.__kdpSpecs.paper) || {};
     const printReadyConfig = {
-        whiteMultiplier: parseRootFloat('data-pr-white', 0.002252),
-        creamMultiplier: parseRootFloat('data-pr-cream', 0.0025),
-        colorMultiplier: parseRootFloat('data-pr-color', 0.002347),
-        bleedInches: parseRootFloat('data-pr-bleed', 0.125),
+        whiteMultiplier: parseRootFloat('data-pr-white', kdpPaper.white ?? 0.002252),
+        creamMultiplier: parseRootFloat('data-pr-cream', kdpPaper.cream ?? 0.0025),
+        colorMultiplier: parseRootFloat('data-pr-color', kdpPaper.premiumColor ?? kdpPaper.standardColor ?? 0.002347),
+        bleedInches: parseRootFloat('data-pr-bleed', (window.__kdpSpecs && window.__kdpSpecs.bleedIn) ?? 0.125),
         defaultTrimW: parseRootFloat('data-pr-trim-w', 6.0),
         defaultTrimH: parseRootFloat('data-pr-trim-h', 9.0)
     };
@@ -2682,6 +2795,7 @@
             v = String(v).trim();
             if (/^print$/i.test(v)) return 'Paperback';
             if (/^paperback$/i.test(v)) return 'Paperback';
+            if (/^hardcover$/i.test(v)) return 'Hardcover';
             if (/^ebook$/i.test(v)) return 'Ebook';
             if (/^both$/i.test(v)) return 'Both';
         } catch (e) { /* ignore */ }
@@ -2803,14 +2917,15 @@
 
     /** Page count shown in preview — source of truth for KDP spine on export. */
     function getFormatterPreviewPageCount() {
+        var maxP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.max) || 828;
         // Single source of truth: when the on-screen real-template preview (overlay) is active,
         // its page count is exactly what the user sees on the Book Formatting screen. Use it so
         // the "Total pages" label, the autosaved count, Publish, and the cover spine all agree.
         var ipv = parseInt(window.__ipvPageCount, 10);
-        if (window.__ipvActive && Number.isFinite(ipv) && ipv > 0) return Math.min(828, ipv);
+        if (window.__ipvActive && Number.isFinite(ipv) && ipv > 0) return Math.min(maxP, ipv);
         var total = Array.isArray(readerPages) ? readerPages.length : 0;
         if (!Number.isFinite(total) || total <= 0) return 0;
-        return Math.min(828, total);
+        return Math.min(maxP, total);
     }
     window.getFormatterPreviewPageCount = getFormatterPreviewPageCount;
 
@@ -2884,7 +2999,7 @@
         const styleEl = document.getElementById('style-select');
         const sizeEl = document.getElementById('text-size-select');
         const lineEl = document.getElementById('line-spacing-select');
-        if (fmtEl && state.format && ['Ebook', 'Paperback', 'Both'].indexOf(state.format) >= 0) fmtEl.value = state.format;
+        if (fmtEl && state.format && ['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(state.format) >= 0) fmtEl.value = state.format;
         if (styleEl && state.interiorStyle) {
             var styleVal = state.interiorStyle === 'Modern' ? 'Novel' : state.interiorStyle;
             styleEl.value = styleVal;
@@ -3570,30 +3685,51 @@
             || document.getElementById('preview-content-ebook')
             || document.getElementById('preview-content-paperback');
         if (!viewport) return getFmtContentAreaHeightPx();
+        var root = document.getElementById('book-formatter-root');
+        var isSpread = (shell && shell.classList.contains('is-open-spread'))
+            || (root && root.getAttribute('data-spread') === '1')
+            || isFmtPrintSpread();
+
+        // Preferred path for two-page spread: shell height minus running head + folio.
+        if (isSpread && shell) {
+            var shellH = parseInt(shell.style.height || '0', 10) || shell.clientHeight || 0;
+            if (shellH >= 160) {
+                var chromeY = getFmtReaderPageChromeY();
+                var liveInner = viewport.querySelector('.book-open-page-inner');
+                var padY = 0;
+                if (liveInner) {
+                    var is = window.getComputedStyle(liveInner);
+                    padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
+                } else {
+                    // Approximate face padding before first render (~0.9rem total).
+                    var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+                    padY = Math.ceil(0.9 * rem);
+                }
+                var usableFace = Math.floor(shellH - chromeY - padY - 6);
+                if (usableFace >= 96) return usableFace;
+            }
+        }
+
         var vs = window.getComputedStyle(viewport);
-        var padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
+        var padY2 = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
         var blockPad = 0;
         var sample = viewport.querySelector('.reader-chapter-block, .book-preview-sheet, .book-open-page-inner');
         if (sample) {
             var bs = window.getComputedStyle(sample);
             blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
         }
-        var chromeY = 0;
-        var root = document.getElementById('book-formatter-root');
-        var isSpread = (shell && shell.classList.contains('is-open-spread'))
-            || (root && root.getAttribute('data-spread') === '1');
+        var chromeY2 = isSpread ? getFmtReaderPageChromeY() : 0;
         if (isSpread) {
-            chromeY = getFmtReaderPageChromeY();
-            var liveInner = viewport.querySelector('.book-open-page-inner');
-            if (liveInner) {
-                var is = window.getComputedStyle(liveInner);
-                padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
+            var liveInner2 = viewport.querySelector('.book-open-page-inner');
+            if (liveInner2) {
+                var is2 = window.getComputedStyle(liveInner2);
+                padY2 = (parseFloat(is2.paddingTop) || 0) + (parseFloat(is2.paddingBottom) || 0);
             }
         }
-        var usable = Math.max(0, viewport.clientHeight - padY - blockPad - chromeY - 8);
+        var usable = Math.max(0, viewport.clientHeight - padY2 - blockPad - chromeY2 - 8);
         if (usable >= 32) return usable;
         if (!shell || shell.clientHeight < 48) return getFmtContentAreaHeightPx();
-        return Math.max(0, shell.clientHeight - padY - blockPad - chromeY - 8);
+        return Math.max(120, shell.clientHeight - (isSpread ? getFmtReaderPageChromeY() : 40) - 8);
     }
 
     function getFmtPageMaxHeightPx() {
@@ -4176,13 +4312,13 @@
     function applyFmtPreviewShellFallback(shell, scrollHost) {
         if (!shell || !scrollHost) return false;
         var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        var maxShellH = Math.max(360, Math.floor(window.innerHeight - 9 * remPx));
+        var maxShellH = Math.max(440, Math.floor(window.innerHeight - 4.5 * remPx));
         var pane = scrollHost.closest('.fmt-preview-pane');
         var availW = scrollHost.clientWidth || (pane ? pane.clientWidth : 0);
-        if (availW < 48) availW = Math.floor(window.innerWidth * 0.68);
+        if (availW < 48) availW = Math.floor(window.innerWidth * 0.72);
         var availH = scrollHost.clientHeight;
         if (availH < 120) {
-            availH = Math.min(maxShellH, Math.max(440, Math.floor(window.innerHeight * 0.62)));
+            availH = Math.min(maxShellH, Math.max(520, Math.floor(window.innerHeight * 0.78)));
             scrollHost.style.minHeight = availH + 'px';
         }
         availH = Math.min(availH, maxShellH);
@@ -4209,11 +4345,19 @@
 
     /** Fit the 6×9 preview shell to the studio column (matches AI Writer layout sync). */
     function isFmtPrintSpread() {
-        // Formatting studio always shows an open book (two-page spread).
+        var fmtEl = document.getElementById('format-select');
+        var fmt = ((fmtEl && fmtEl.value) || (window.formatFromUrl) || '').toString().trim().toLowerCase();
+        if (!fmt) {
+            var root = document.getElementById('book-formatter-root');
+            fmt = ((root && root.getAttribute('data-format')) || '').toLowerCase();
+        }
+        // Ebook = single reflowable page. Everything else = open two-page book (default studio look).
+        if (fmt === 'ebook') return false;
+        // Default to two-page when format is missing / print / both / hardcover.
         return true;
     }
 
-    /** Amazon KDP paperback bleed = 0.125" — show guide on Paperback / Both. */
+    /** Amazon KDP paperback bleed = 0.125" — show guide on Paperback / Both (not ebook / hardcover wrap). */
     function isFmtBleedFormat() {
         var fmtEl = document.getElementById('format-select');
         var fmt = ((fmtEl && fmtEl.value) || (window.formatFromUrl) || '').toString().trim().toLowerCase();
@@ -4237,7 +4381,8 @@
         if (!scrollHost || !shell) return false;
 
         var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        var maxShellH = Math.max(360, Math.floor(window.innerHeight - 9 * remPx));
+        // Use almost the full viewport so the book preview is large.
+        var maxShellH = Math.max(420, Math.floor(window.innerHeight - 4.5 * remPx));
         var isDesktop = window.innerWidth >= 1024;
         var spread = isFmtPrintSpread();
         var changed = false;
@@ -4246,18 +4391,20 @@
         if (window.BookInteriorPreview && typeof window.BookInteriorPreview.syncPreviewLayout === 'function') {
             var chrome = document.getElementById('reader-chrome-main');
             var chromeReserve = 0;
-            if (chrome && !chrome.classList.contains('hidden')) chromeReserve = chrome.offsetHeight + 10;
+            if (chrome && !chrome.classList.contains('hidden')) chromeReserve = chrome.offsetHeight + 8;
+            var footer = document.getElementById('fmt-preview-footer');
+            if (footer) chromeReserve += Math.min(56, footer.offsetHeight || 0);
             changed = window.BookInteriorPreview.syncPreviewLayout({
                 host: scrollHost,
                 shell: shell,
                 measureHost: document.getElementById('fmt-preview-measure-host'),
                 viewport: viewport,
-                minHostHeightPx: isDesktop ? 0 : Math.max(360, Math.floor(window.innerHeight * 0.52)),
+                minHostHeightPx: isDesktop ? Math.max(480, Math.floor(window.innerHeight * 0.72)) : Math.max(360, Math.floor(window.innerHeight * 0.55)),
                 preferHeight: isDesktop,
                 maxHeightPx: isDesktop ? maxShellH : 0,
                 // Open-book spread is ~2× trim width (12×9 vs 6×9).
                 aspectRatio: spread ? (12 / 9) : (6 / 9),
-                widthFactor: spread ? 0.98 : 1,
+                widthFactor: 1,
                 syncMeasureTypography: true,
                 chromeReservePx: chromeReserve,
                 onLayoutChange: function (c) {
@@ -4322,7 +4469,7 @@
         }
         var lbl = document.getElementById('format-picker-label');
         if (lbl) {
-            var map = { Ebook: 'Ebook', Paperback: 'Paperback', Both: 'Both (Ebook + Paperback) — Premium' };
+            var map = { Ebook: 'Ebook', Paperback: 'Paperback', Hardcover: 'Hardcover', Both: 'Both (Ebook + Paperback) — Premium' };
             lbl.textContent = map[v] || v;
         }
     }
@@ -4332,7 +4479,7 @@
         var fmtEl = document.getElementById('format-select');
         if (!hid || !fmtEl) return;
         var fmt = fmtEl.value || 'Ebook';
-        if (fmt === 'Paperback') hid.value = 'printready';
+        if (fmt === 'Paperback' || fmt === 'Hardcover') hid.value = 'printready';
         else if (fmt === 'Both') hid.value = 'ebook_paperback';
         else hid.value = 'ebook';
     }
@@ -4396,7 +4543,7 @@
     let printReadyGenerated = null;
     let printReadyOpenAfterSave = false;
     let printReadyGenerationIteration = 0;
-    let selectedFormat = ['Ebook', 'Paperback', 'Both'].indexOf(formatFromUrl) >= 0 ? formatFromUrl : 'Ebook';
+    let selectedFormat = ['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(formatFromUrl) >= 0 ? formatFromUrl : 'Ebook';
     let printReadyComputed = {
         pageCount: 0,
         paperType: 'white',
@@ -4600,7 +4747,8 @@
             if (prModalPageValue) prModalPageValue.textContent = '—';
             return printReadyComputed;
         }
-        pages = Math.min(828, pages);
+        var maxP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.max) || 828;
+        pages = Math.min(maxP, pages);
         var paper = normalizePaperType(printReadyComputed.paperType || inferPaperTypeFromGenre(bookPreviewContext.genre));
         var trimValue = normalizeTrimValue(printReadyComputed.trimValue || inferTrimValueFromConfig());
 
@@ -4843,7 +4991,8 @@
             setPrModalStatus('Page count unknown. Load the book preview first.', true);
             return;
         }
-        pages = Math.min(828, pages);
+        var maxP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.max) || 828;
+        pages = Math.min(maxP, pages);
         recalcPrintReadyModalMetrics({ pageCount: pages });
         spec = recalcPrintReadyModalMetrics();
         var trim = spec.trimValue || '6x9';
@@ -4967,13 +5116,13 @@
     function hasPrintReadyPlatformSelected() {
         var fmtEl = document.getElementById('format-select');
         var fmt = (fmtEl && fmtEl.value) || selectedFormat || 'Ebook';
-        return fmt === 'Paperback' || fmt === 'Both';
+        return fmt === 'Paperback' || fmt === 'Hardcover' || fmt === 'Both';
     }
 
     function buildCoverDesignUrl(bid, fmt) {
         var url = '/Books/Cover/' + encodeURIComponent(bid);
         if (fmt === 'Both') url += '?coverType=both';
-        else if (fmt === 'Paperback') url += (url.indexOf('?') >= 0 ? '&' : '?') + 'flow=printready';
+        else if (fmt === 'Paperback' || fmt === 'Hardcover') url += (url.indexOf('?') >= 0 ? '&' : '?') + 'flow=printready';
         return url;
     }
 
@@ -5047,6 +5196,8 @@
         if (hint) {
             if (fmt === 'Paperback') {
                 hint.textContent = 'Paperback: design your full wrap in Cover Design; Publish offers wrap PNG + interior PDF.';
+            } else if (fmt === 'Hardcover') {
+                hint.textContent = 'Hardcover: design your case wrap in Cover Design; Publish offers wrap + interior PDF.';
             } else if (fmt === 'Both') {
                 hint.textContent = 'Both: ebook front cover + EPUB and paperback full wrap + PDF on Publish.';
             } else {
@@ -5859,6 +6010,8 @@
         var right = left + 1;
         var shell = document.getElementById('paginatedReaderShell');
         if (shell) shell.classList.add('is-open-spread');
+        var root = document.getElementById('book-formatter-root');
+        if (root) root.setAttribute('data-spread', '1');
         viewportEl.innerHTML =
             '<div class="book-open-spread fmt-live-spread" role="group" aria-label="Open book spread" data-kdp-bleed="' + (isFmtBleedFormat() ? '1' : '0') + '">' +
                 buildFmtSpreadFaceHtml(left, 'verso') +
@@ -5866,25 +6019,50 @@
                 buildFmtSpreadFaceHtml(right, 'recto') +
             '</div>';
         applyPreviewStyles(viewportEl);
+        // Apply body styles to each face so font size matches pagination measure.
+        viewportEl.querySelectorAll('.book-open-page-inner').forEach(function (face) {
+            applyPreviewStyles(face);
+        });
         var faces = viewportEl.querySelectorAll('.book-open-folio.book-page-footer-inline');
         if (faces[0]) styleFmtFolioEl(faces[0], left + 1);
         if (faces[1] && right < readerPages.length) styleFmtFolioEl(faces[1], right + 1);
         viewportEl.scrollTop = 0;
+        // Ensure shell fills host after DOM swap (prevents clipped last lines).
+        requestAnimationFrame(function () {
+            try { syncFmtPreviewLayout(); } catch (e) { /* ignore */ }
+        });
     }
 
     function renderReaderPage(viewportEl, pageHtml, animDir) {
         if (!viewportEl) return;
+        var shell = document.getElementById('paginatedReaderShell');
+        var root = document.getElementById('book-formatter-root');
         if (isFmtPrintSpread()) {
             renderFmtPrintSpread(viewportEl);
             return;
         }
+        if (shell) shell.classList.remove('is-open-spread');
+        if (root) root.setAttribute('data-spread', '0');
         var pageNum = currentPageIdx + 1;
         var body = stripEmbeddedPageFooters(pageHtml || '');
+        var head = resolveFmtRunningHead(currentPageIdx);
+        var headHtml = '<div class="fmt-ebook-running-head' + (head ? '' : ' is-muted') + '">' +
+            (head ? escapeHtml(head) : '&nbsp;') + '</div>';
         var folio = '<div class="book-page-footer book-page-footer-inline" aria-label="Page ' + pageNum + '">' + formatBookPageNumber(pageNum) + '</div>';
-        viewportEl.innerHTML = '<div class="fmt-page-sheet">' + body + folio + '</div>';
+        viewportEl.innerHTML =
+            '<div class="fmt-page-sheet fmt-ebook-sheet" role="article" aria-label="Ebook page ' + pageNum + '">' +
+                headHtml +
+                '<div class="fmt-ebook-body">' + body + '</div>' +
+                folio +
+            '</div>';
         applyPreviewStyles(viewportEl);
+        var bodyEl = viewportEl.querySelector('.fmt-ebook-body');
+        if (bodyEl) applyPreviewStyles(bodyEl);
         styleFmtFolioEl(viewportEl.querySelector('.book-page-footer-inline'), pageNum);
         viewportEl.scrollTop = 0;
+        requestAnimationFrame(function () {
+            try { syncFmtPreviewLayout(); } catch (e) { /* ignore */ }
+        });
     }
 
     var FmtBookStageReader = (function() {
@@ -6142,7 +6320,7 @@
         fmtPreviewShellInitialized = true;
         syncFmtPreviewLayout();
         var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        var maxShellH = Math.max(360, Math.floor(window.innerHeight - 9 * remPx));
+        var maxShellH = Math.max(440, Math.floor(window.innerHeight - 4.5 * remPx));
         window.BookInteriorPreview.init(scrollHost, {
             bookTitle: (bookPreviewContext && bookPreviewContext.bookTitle) || '',
             mode: 'web',
@@ -6352,7 +6530,14 @@
             if (isFmtPrintSpread())
                 label.textContent = 'Print book preview (two pages)';
             else
-                label.textContent = 'Ebook preview';
+                label.textContent = 'Ebook preview (paper page)';
+        }
+        var root = document.getElementById('book-formatter-root');
+        if (root) root.setAttribute('data-spread', isFmtPrintSpread() ? '1' : '0');
+        var shell = document.getElementById('paginatedReaderShell');
+        if (shell) {
+            if (isFmtPrintSpread()) shell.classList.add('is-open-spread');
+            else shell.classList.remove('is-open-spread');
         }
         // Keep interactive book pages visible (export iframe is opt-in).
         if (typeof setFmtExportPreviewVisible === 'function') setFmtExportPreviewVisible(false);
@@ -6389,7 +6574,7 @@
                 }
                 if (formatLockedByQuery) {
                     var fmtQ = document.getElementById('format-select');
-                    if (fmtQ && ['Ebook', 'Paperback', 'Both'].indexOf(formatLockedByQuery) >= 0) {
+                    if (fmtQ && ['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(formatLockedByQuery) >= 0) {
                         fmtQ.value = formatLockedByQuery;
                     }
                 }
@@ -6691,7 +6876,9 @@
             body: JSON.stringify({
                 bookId: bid,
                 bookTitle: titleForSave || null,
-                format: fmt === 'Both' ? 'Both' : (fmt === 'Paperback' ? 'Paperback' : 'Ebook'),
+                format: fmt === 'Both' ? 'Both'
+                    : (fmt === 'Hardcover' ? 'Hardcover'
+                    : (fmt === 'Paperback' ? 'Paperback' : 'Ebook')),
                 interiorStyle: state.interiorStyle,
                 textSize: state.textSize,
                 lineSpacing: state.lineSpacing,
@@ -7163,7 +7350,7 @@
         const formatSelect = document.getElementById('format-select');
         if (formatSelect && formatFromUrl) {
             formatFromUrl = formatFromUrl === 'Print' ? 'Paperback' : formatFromUrl;
-            if (['Ebook', 'Paperback', 'Both'].indexOf(formatFromUrl) >= 0) formatSelect.value = formatFromUrl;
+            if (['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(formatFromUrl) >= 0) formatSelect.value = formatFromUrl;
             selectedFormat = formatSelect.value || 'Ebook';
             updatePremiumFormatUi();
             togglePreviewMode();
@@ -7181,8 +7368,17 @@
             var f = formatSelect.value;
             if (f === 'Both') {
                 showToast('Premium dual-format selected. Preview stays a normal reader.');
+            } else if (f === 'Ebook') {
+                showToast('Ebook preview — reflowable single page (no print bleed).');
+            } else if (f === 'Paperback' || f === 'Hardcover') {
+                showToast((f === 'Hardcover' ? 'Hardcover' : 'Paperback') + ' preview — two-page print book view.');
             }
+            // Switch spread vs single-page shell geometry, then rebuild pages.
+            if (typeof invalidateReaderPageCaches === 'function') invalidateReaderPageCaches();
+            else if (typeof window.invalidateReaderPageCaches === 'function') window.invalidateReaderPageCaches();
+            syncFmtPreviewLayout();
             togglePreviewMode();
+            if (bookChapters.length && typeof fmtScheduleRepaginate === 'function') fmtScheduleRepaginate();
             syncFormatterNextActionUi();
             persistFormatterDraftLocal(getFormatterStateFromUi());
             queueAutosave(250);
@@ -8152,16 +8348,30 @@
     }
     #book-formatter-root #fmt-preview-scroll-host.book-preview-stage {
         background: #edf0f4 !important;
-        padding: 1rem 1.15rem 1.2rem !important;
+        padding: 0.45rem 0.55rem 0.55rem !important;
         border-radius: 14px !important;
         justify-content: center !important;
+        align-items: center !important;
     }
-    #book-formatter-root #paginatedReaderShell.book-page-preview-shell,
-    #book-formatter-root #paginatedReaderShell.book-page-preview-shell.is-open-spread {
+    #book-formatter-root #paginatedReaderShell.book-page-preview-shell {
+        background: #fffef8 !important;
+        border: 1px solid rgba(68, 48, 36, 0.28) !important;
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.95) inset,
+            0 2px 4px rgba(28, 25, 23, 0.08),
+            0 18px 40px -10px rgba(28, 25, 23, 0.45),
+            0 0 0 1px rgba(68, 48, 36, 0.22) !important;
+        aspect-ratio: 6 / 9 !important;
+        max-width: 100% !important;
+        width: auto !important;
+    }
+    #book-formatter-root #paginatedReaderShell.book-page-preview-shell.is-open-spread,
+    #book-formatter-root[data-spread="1"] #paginatedReaderShell.book-page-preview-shell {
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         aspect-ratio: 12 / 9 !important;
+        max-width: 100% !important;
     }
     #book-formatter-root .fmt-export-preview-wrap {
         position: absolute;

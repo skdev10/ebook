@@ -364,14 +364,16 @@ public static class InteriorExportTheme
     private static string BuildRunningChromeCompensationCss(BookPdfExportOptions opt, string interior)
     {
         var isPod = interior is "POD" or "ElegantTradePOD";
-        var bleed = isPod ? "0.125in" : "0px";
+        var bleedIn = EBookDashboard.Configuration.KdpSpecsAccessor.Current.BleedIn
+            .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var bleed = isPod ? bleedIn + "in" : "0px";
 
         if (!opt.IncludeCoverPage)
         {
             // Running header/folio active: hide the duplicate in-content head and reserve top/bottom
             // margin (plus the POD bleed where applicable). Horizontal bleed padding is added for POD.
             var sides = isPod
-                ? "padding-left: calc(var(--ilt-pad-left) + 0.125in); padding-right: calc(var(--ilt-pad-right) + 0.125in); "
+                ? $"padding-left: calc(var(--ilt-pad-left) + {bleed}); padding-right: calc(var(--ilt-pad-right) + {bleed}); "
                 : string.Empty;
             return string.Concat(
                 ".book-pdf-body .book-preview-sheet > .page-header { display: none !important; } ",
@@ -385,7 +387,7 @@ public static class InteriorExportTheme
 
         // Cover export (no running chrome). Only POD needs all-sides bleed padding.
         return isPod
-            ? ".book-pdf-body .book-preview-sheet { padding: calc(var(--ilt-pad-top) + 0.125in) calc(var(--ilt-pad-right) + 0.125in) calc(var(--ilt-pad-bottom) + 0.125in) calc(var(--ilt-pad-left) + 0.125in); } "
+            ? $".book-pdf-body .book-preview-sheet {{ padding: calc(var(--ilt-pad-top) + {bleed}) calc(var(--ilt-pad-right) + {bleed}) calc(var(--ilt-pad-bottom) + {bleed}) calc(var(--ilt-pad-left) + {bleed}); }} "
             : string.Empty;
     }
 

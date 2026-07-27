@@ -1,34 +1,37 @@
+using EBookDashboard.Configuration;
 using EBookDashboard.Models;
 
 namespace EBookDashboard.Services;
 
 /// <summary>
 /// KDP spine calculator matching Amazon's official cover templates.
-/// Spine = pageCount × paperThickness (no extra allowance per KDP spec).
+/// Values come from <see cref="KdpSpecsAccessor"/>.
 /// </summary>
 public class SpineCalculatorService : ISpineCalculatorService
 {
-    private const double WhiteThickness = 0.002252;
-    private const double CreamThickness = 0.0025;
-    private const double PremiumColorThickness = 0.002347;
-    private const double TrimWidth = 6.0;
-    private const double TrimHeight = 9.0;
-    private const double Bleed = 0.125;
-
     public CoverDimensionsResult Calculate(int pages, string paper)
     {
-        pages = Math.Clamp(pages, 24, 828);
+        var specs = KdpSpecsAccessor.Current;
+        var calc = new KdpCalculationService(specs);
+        var min = specs.Paperback.MinPages;
+        var max = specs.Paperback.MaxPages;
+        pages = Math.Clamp(pages, min, max);
 
-        double thickness = paper?.ToLowerInvariant() switch
+        var paperType = paper?.ToLowerInvariant() switch
         {
-            "cream paper" or "cream" => CreamThickness,
-            "color paper" or "premium color" or "standard color" => PremiumColorThickness,
-            _ => WhiteThickness
+            "cream paper" or "cream" => PaperType.Cream,
+            "color paper" or "premium color" or "premiumcolor" => PaperType.PremiumColor,
+            "standard color" or "standardcolor" => PaperType.StandardColor,
+            _ => PaperType.White
         };
 
-        double spine = pages * thickness;
-        double totalWidth = TrimWidth * 2 + spine + Bleed * 2;
-        double totalHeight = TrimHeight + Bleed * 2;
+        var defaultTrim = specs.TrimPresets.FirstOrDefault(t => t.IsDefault)
+                          ?? specs.TrimPresets.FirstOrDefault(t => t.Key == "6x9")
+                          ?? new TrimSizeOption { WidthIn = 6, HeightIn = 9 };
+
+        var spine = calc.CalculateSpineWidthIn(pages, paperType, ProjectType.Paperback);
+        var (totalWidth, totalHeight) = calc.CalculateFullCoverSizeIn(
+            defaultTrim.WidthIn, defaultTrim.HeightIn, spine, CoverType.PaperbackWrap);
 
         return new CoverDimensionsResult
         {
@@ -38,10 +41,12 @@ public class SpineCalculatorService : ISpineCalculatorService
             TotalWidthMm = Math.Round(totalWidth * 25.4, 2),
             TotalHeightInches = Math.Round(totalHeight, 3),
             TotalHeightMm = Math.Round(totalHeight * 25.4, 2),
-            BleedInches = Bleed,
+            BleedInches = specs.BleedIn,
             Pages = pages,
             PaperType = paper ?? "White paper",
-            Warning = spine < 0.0625 ? "Spine too narrow for text — use image only" : null
+            Warning = calc.IsSpineTextAdvisable(spine)
+                ? null
+                : "Spine too narrow for text — use image only"
         };
     }
 }

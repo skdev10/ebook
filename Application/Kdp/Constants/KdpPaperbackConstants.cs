@@ -1,60 +1,46 @@
+using EBookDashboard.Configuration;
+
 namespace EBookDashboard.Application.Kdp.Constants;
 
 /// <summary>
-/// Amazon KDP paperback cover constants (inches unless noted).
-/// Defaults match KDP Cover Calculator: Paperback, Standard Color, White Paper, RTL, bleed on.
+/// Amazon KDP paperback cover accessors. Numeric values come only from
+/// <see cref="KdpSpecsAccessor.Current"/> (appsettings "KdpSpecs").
 /// </summary>
 public static class KdpPaperbackConstants
 {
+    private static KdpSpecs S => KdpSpecsAccessor.Current;
+
     public const string BindingTypePaperback = "Paperback";
     public const string InteriorTypeStandardColor = "Standard Color";
     public const string PaperTypeWhite = "White Paper";
     public const string ReadingDirectionRtl = "Right To Left";
     public const string MeasurementUnitInches = "Inches";
 
-    /// <summary>Minimum page count for KDP paperback (24 pages).</summary>
-    public const int MinPageCount = 24;
+    public static int MinPageCount => S.Paperback.MinPages;
+    public static int MaxPageCount => S.Paperback.MaxPages;
 
-    /// <summary>Maximum page count for KDP paperback white paper.</summary>
-    public const int MaxPageCount = 828;
+    public static int DefaultDpi => S.Dpi;
+    public static decimal DefaultTrimWidthInches =>
+        (decimal)(S.TrimPresets.FirstOrDefault(t => t.IsDefault)?.WidthIn
+                  ?? S.TrimPresets.FirstOrDefault(t => t.Key == "6x9")?.WidthIn
+                  ?? 6.0);
+    public static decimal DefaultTrimHeightInches =>
+        (decimal)(S.TrimPresets.FirstOrDefault(t => t.IsDefault)?.HeightIn
+                  ?? S.TrimPresets.FirstOrDefault(t => t.Key == "6x9")?.HeightIn
+                  ?? 9.0);
 
-    public const int DefaultDpi = 150;
-    public const decimal DefaultTrimWidthInches = 6m;
-    public const decimal DefaultTrimHeightInches = 9m;
+    public static decimal BleedInches => (decimal)S.BleedIn;
+    public static decimal StandardColorWhitePaperSpinePerPage => (decimal)S.PaperThicknessInPerPage.StandardColor;
+    public static decimal BlackWhiteWhitePaperSpinePerPage => (decimal)S.PaperThicknessInPerPage.White;
+    public static decimal CreamPaperSpinePerPage => (decimal)S.PaperThicknessInPerPage.Cream;
+    public static decimal ColorSpinePerPage => (decimal)S.PaperThicknessInPerPage.PremiumColor;
 
-    /// <summary>Bleed extension beyond trim on each edge when bleed is enabled.</summary>
-    public const decimal BleedInches = 0.125m;
+    public static decimal SafeAreaWidthReduction => (decimal)S.BleedIn;
+    public static decimal SafeAreaHeightReduction => (decimal)S.SafeFromTrimIn;
+    public static decimal SpineMarginInches => (decimal)S.SpineTextMinWidthIn;
+    public static decimal BarcodeMarginInches => (decimal)S.BarcodeMarginFromTrimIn;
+    public static decimal BarcodeZoneWidthInches => (decimal)S.BarcodeWidthIn;
+    public static decimal BarcodeZoneHeightInches => (decimal)S.BarcodeHeightIn;
 
-    /// <summary>Standard Color + White Paper spine factor (inches per page).</summary>
-    public const decimal StandardColorWhitePaperSpinePerPage = 0.002252m;
-
-    /// <summary>Black &amp; white + White Paper spine factor.</summary>
-    public const decimal BlackWhiteWhitePaperSpinePerPage = 0.002252m;
-
-    /// <summary>Cream paper spine factor.</summary>
-    public const decimal CreamPaperSpinePerPage = 0.0025m;
-
-    /// <summary>Premium / standard color alternate factor used by legacy KDP tables.</summary>
-    public const decimal ColorSpinePerPage = 0.002347m;
-
-    /// <summary>Safe area inset: trim width minus this value = safeAreaWidth.</summary>
-    public const decimal SafeAreaWidthReduction = 0.125m;
-
-    /// <summary>Safe area inset: trim height minus this value = safeAreaHeight.</summary>
-    public const decimal SafeAreaHeightReduction = 0.25m;
-
-    /// <summary>Minimum distance from spine fold for live text/graphics.</summary>
-    public const decimal SpineMarginInches = 0.062m;
-
-    /// <summary>Barcode clearance on back cover (from trim edge).</summary>
-    public const decimal BarcodeMarginInches = 0.25m;
-
-    /// <summary>KDP reserved barcode area width (inches) — must remain clear of text/art.</summary>
-    public const decimal BarcodeZoneWidthInches = 2.0m;
-
-    /// <summary>KDP reserved barcode area height (inches) — must remain clear of text/art.</summary>
-    public const decimal BarcodeZoneHeightInches = 1.2m;
-
-    /// <summary>Decimal places for inch dimensions in API responses (matches KDP calculator display).</summary>
     public const int InchDecimalPlaces = 3;
 }

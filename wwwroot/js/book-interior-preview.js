@@ -6,7 +6,7 @@
     'use strict';
 
     var DEFAULT_RATIO = 6 / 9;
-    var DEFAULT_WIDTH_FACTOR = 0.94;
+    var DEFAULT_WIDTH_FACTOR = 0.995;
     var LOADING_OVERLAY_CLASS = 'book-preview-loading-overlay';
 
     function resolveRoot(rootOrSelector) {

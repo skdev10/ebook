@@ -258,13 +258,9 @@ namespace EBookDashboard.Controllers
             if (userId == null)
                 return RedirectToAction("UserLogin", "Account");
 
-            // Soft modules: empty Formatting studio when no book — upload/create attaches later.
+            // Soft modules: empty Formatting opens the classic studio (upload inside the same UI).
             if (bookId <= 0)
-            {
-                if (!string.IsNullOrWhiteSpace(format))
-                    return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId = 0, format });
                 return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId = 0 });
-            }
 
             var book = await _context.Books.AsNoTracking()
                 .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId.Value, cancellationToken);

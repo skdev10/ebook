@@ -17,16 +17,17 @@
     var defaultCoverPlaceholder = Url.Content("~/images/books/cover-in-progress.png");
     var hasInProgressDrafts = draftBooks.Any() || demoDrafts.Any();
     var primaryDraft = draftBooks.OrderByDescending(d => d.LastEditedAt).FirstOrDefault();
-    // Soft modules: never auto-attach a draft book. Writer opens blank; Format/Cover need Continue Editing.
+    // Soft modules: never auto-attach a draft book. Writer opens blank; Format goes to upload.
     var moduleWriterUrl = Url.Action("Writer", "Books") ?? "/Books/Writer";
-    var moduleFormatUrl = "/Books/Formatting";
+    // Classic Formatting studio (same UI as production CoverDesignCalculatorFixing).
+    var moduleFormatUrl = "/BookDesign/CoverDesignCalculatorFixing?bookId=0";
     var moduleCoverUrl = "/Books/Cover";
     var heroTitle = "Format or write your book";
     var heroDesc = hasInProgressDrafts
-        ? "Format a manuscript or write with AI. Resume any draft from Continue Editing below — books are not auto-selected."
-        : "Two clear ways to start: format a DOCX/PDF manuscript, or write chapters with AI. Then cover, preview, and export.";
+        ? "Open Formatting to layout your book, or write with AI. Resume any draft from Continue Editing below."
+        : "Format your manuscript in the Formatting studio, or write with AI. Then cover, preview, and export.";
     var heroPrimaryUrl = moduleFormatUrl;
-    var heroPrimaryLabel = "Format manuscript";
+    var heroPrimaryLabel = "Open Formatting";
     var heroSecondaryUrl = moduleWriterUrl;
     var heroSecondaryLabel = "Write with AI";
     var dashProfilePic = "";
@@ -324,9 +325,9 @@
                     <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center mb-3">
                         <i class="fas fa-file-alt"></i>
                     </div>
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-violet-700 mb-1">Recommended</p>
-                    <h3 class="font-semibold text-gray-900 text-base mb-1">Format manuscript</h3>
-                    <p class="text-sm text-gray-500 leading-relaxed mb-0">Upload DOCX/PDF — layout, preview, export. No forced AI steps.</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-violet-700 mb-1">Recommended · default</p>
+                    <h3 class="font-semibold text-gray-900 text-base mb-1">Book Formatting</h3>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-0">Open the Formatting studio — upload, layout, preview, and export in one place.</p>
                 </a>
                 <a href="@moduleWriterUrl" class="group rounded-2xl border border-sky-100 bg-white p-5 shadow-sm hover:border-sky-300 hover:shadow-md transition-all" data-unsaved-ignore="true">
                     <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center mb-3 group-hover:bg-sky-600 group-hover:text-white transition-colors">
@@ -334,7 +335,7 @@
                     </div>
                     <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Optional</p>
                     <h3 class="font-semibold text-gray-900 text-base mb-1">Write with AI</h3>
-                    <p class="text-sm text-gray-500 leading-relaxed mb-0">Write and edit chapters with AI when you need help.</p>
+                    <p class="text-sm text-gray-500 leading-relaxed mb-0">Write and edit chapters with AI when you need help — never required.</p>
                 </a>
                 <a href="@moduleCoverUrl" class="group rounded-2xl border border-amber-100 bg-white p-5 shadow-sm hover:border-amber-300 hover:shadow-md transition-all" data-unsaved-ignore="true">
                     <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mb-3 group-hover:bg-amber-600 group-hover:text-white transition-colors">
@@ -352,12 +353,12 @@
                         <div class="max-w-xl">
                             <p class="text-xs font-bold uppercase tracking-wider text-violet-700 mb-2">New here?</p>
                             <h2 class="font-serif text-2xl text-gray-900 mb-2">Start your first book in under a minute</h2>
-                            <p class="text-gray-600 text-sm leading-relaxed mb-4">No manuscript needed yet. We create a draft project for you, then you write chapters with AI, format the interior, design a cover, and publish.</p>
+                            <p class="text-gray-600 text-sm leading-relaxed mb-4">Already have a manuscript? Start with Format. AI Writer is optional anytime.</p>
                             <ol class="text-sm text-gray-600 space-y-2 mb-0 list-decimal list-inside">
-                                <li><strong class="text-gray-800">AI Writer</strong> — generate or upload chapters</li>
-                                <li><strong class="text-gray-800">Formatting</strong> — interior layout &amp; preview</li>
+                                <li><strong class="text-gray-800">Format manuscript</strong> — upload DOCX/PDF, layout &amp; preview</li>
                                 <li><strong class="text-gray-800">Book Cover</strong> — front cover / print wrap</li>
                                 <li><strong class="text-gray-800">Publish</strong> — export EPUB or print PDF</li>
+                                <li><strong class="text-gray-800">Write with AI</strong> — optional, if you need help writing</li>
                             </ol>
                         </div>
                         <div class="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">

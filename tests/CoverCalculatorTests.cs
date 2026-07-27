@@ -1,3 +1,4 @@
+using EBookDashboard.Configuration;
 using EBookDashboard.Models;
 using EBookDashboard.Services;
 using Xunit;
@@ -49,8 +50,9 @@ public class CoverCalculatorTests
     }
 
     [Fact]
-    public void Hardcover_ForcesThickness_AndIsLargerThanPaperback()
+    public void Hardcover_CaseSpineFormula_AndLargerWrapThanPaperback()
     {
+        KdpSpecsAccessor.Current = new Configuration.KdpSpecs();
         var paperback = _calculator.Calculate(new CoverRequest
         {
             Binding = BindingType.Paperback,
@@ -69,20 +71,23 @@ public class CoverCalculatorTests
             PageCount = 200
         });
 
-        var expectedSpine = Math.Round(200 * KdpConstants.HardcoverThickness, 4);
+        // Section 2: (pages/2)*thickness + 0.06
+        var expectedSpine = Math.Round((200 / 2.0) * 0.002252 + 0.06, 4);
         Assert.Equal(expectedSpine, hardcover.SpineWidthInches, 4);
         Assert.True(hardcover.FullCoverWidthInches > paperback.FullCoverWidthInches);
         Assert.True(hardcover.FullCoverHeightInches > paperback.FullCoverHeightInches);
     }
 
     [Fact]
-    public void PageCount50_SpineTextNotAllowed_WithWarning()
+    public void ThinSpine_SpineTextNotAdvisable_WithWarning()
     {
+        KdpSpecsAccessor.Current = new Configuration.KdpSpecs();
         var result = _calculator.Calculate(new CoverRequest
         {
-            PageCount = 50,
+            PageCount = 20,
             TrimWidth = 6,
-            TrimHeight = 9
+            TrimHeight = 9,
+            Paper = PaperType.White
         });
 
         Assert.False(result.SpineTextAllowed);
@@ -90,8 +95,9 @@ public class CoverCalculatorTests
     }
 
     [Fact]
-    public void Hardcover_CreamPaper_UnsupportedWarning()
+    public void Hardcover_AcceptsCreamPaper_NoUnsupportedWarning()
     {
+        KdpSpecsAccessor.Current = new Configuration.KdpSpecs();
         var result = _calculator.Calculate(new CoverRequest
         {
             Binding = BindingType.Hardcover,
@@ -101,8 +107,7 @@ public class CoverCalculatorTests
             TrimHeight = 9
         });
 
-        Assert.Contains(result.Warnings, w => w.Contains("Cream", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(result.Warnings, w => w.Contains("does not support", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(result.Warnings, w => w.Contains("does not support", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

@@ -193,4 +193,16 @@
 
 <script src="~/js/cover-kdp-export.js" asp-append-version="true"></script>
 <script src="~/js/cover-preview.js" asp-append-version="true"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('Pages');
+    if (!el) return;
+    var minP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.min) || 24;
+    var maxP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.max) || 828;
+    el.min = String(minP);
+    el.max = String(maxP);
+    var hint = el.parentElement && el.parentElement.querySelector('.form-text');
+    if (hint) hint.textContent = 'Min ' + minP + ' \u2014 Max ' + maxP;
+});
+</script>
 <script src="~/js/calculator.js" asp-append-version="true"></script>

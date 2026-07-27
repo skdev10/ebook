@@ -5,28 +5,89 @@
 (function (global) {
     'use strict';
 
-    var EBOOK_COVER = { w: 1600, h: 2560 }; // KDP: min 1000px shortest side; 2560px longest recommended
-    var BLEED_IN = 0.125;
-    var PRINT_DPI = 300;
     var KDP_DEFAULT_PAPER = 'White paper';
-    /** Case-bound diagram: 1" cloth wrap margin on all sides. */
-    var CASE_WRAP_MARGIN_IN = 1.0;
-    /** Hinge joint between spine board and front/back panels (3/8"). */
-    var CASE_HINGE_GAP_IN = 0.375;
-    /** 150 pages → 3/8" spine board in reference diagram. */
-    var CASE_SPINE_PER_PAGE_IN = 0.0025;
 
-    var TRIM_SIZES = {
-        '5x8': { w: 5, h: 8 },
-        '5.25x8': { w: 5.25, h: 8 },
-        '4.75x5.25': { w: 4.75, h: 5.25 },
-        '5.5x8.5': { w: 5.5, h: 8.5 },
-        '6x9': { w: 6, h: 9 },
-        '6.14x9.21': { w: 6.14, h: 9.21 },
-        '7x10': { w: 7, h: 10 },
-        '8x10': { w: 8, h: 10 },
-        '8.5x11': { w: 8.5, h: 11 }
-    };
+    function kdp() {
+        return global.__kdpSpecs || {
+            dpi: 300,
+            bleedIn: 0.125,
+            safeFromTrimIn: 0.25,
+            spineTextMinWidthIn: 0.0625,
+            paper: { white: 0.002252, cream: 0.0025, premiumColor: 0.002347, standardColor: 0.002252 },
+            paperback: { min: 24, max: 828 },
+            hardcover: { min: 75, max: 550, spineCaseExtraIn: 0.06, wrapAllowancePerEdgeIn: 0.5 },
+            alternateCaseLayout: { minSpineInches: 0.055, wrapMarginInches: 0.5, hingeGapInches: 0 },
+            ebookCover: { recommendedWidthPx: 1600, recommendedHeightPx: 2560 }
+        };
+    }
+
+    function bleedIn() { return kdp().bleedIn ?? 0.125; }
+    function printDpi() { return kdp().dpi ?? 300; }
+    function paperbackMinPages() { return kdp().paperback?.min ?? kdp().paperback?.minPages ?? 24; }
+    function paperbackMaxPages() { return kdp().paperback?.max ?? kdp().paperback?.maxPages ?? 828; }
+    function minSpineIn() {
+        var s = kdp();
+        return s.alternateCaseLayout?.minSpineInches ?? s.hardcover?.spineCaseExtraIn ?? 0.055;
+    }
+    function caseWrapMarginIn() {
+        var s = kdp();
+        return s.alternateCaseLayout?.wrapMarginInches ?? s.hardcover?.wrapAllowancePerEdgeIn ?? 0.5;
+    }
+    function caseHingeGapIn() {
+        return kdp().alternateCaseLayout?.hingeGapInches ?? 0;
+    }
+    function paperThickness(kind) {
+        var p = kdp().paper || kdp().paperThicknessInPerPage || {};
+        if (kind === 'cream') return p.cream ?? p.Cream ?? 0.0025;
+        if (kind === 'premiumColor') return p.premiumColor ?? p.PremiumColor ?? 0.002347;
+        if (kind === 'standardColor') return p.standardColor ?? p.StandardColor ?? 0.002252;
+        return p.white ?? p.White ?? 0.002252;
+    }
+    function hardcoverSpinePerPage() { return paperThickness('premiumColor'); }
+    function ebookCoverDims() {
+        var e = kdp().ebookCover || {};
+        return { w: e.recommendedWidthPx ?? 1600, h: e.recommendedHeightPx ?? 2560 };
+    }
+    function clampPaperbackPages(n, fallback) {
+        var p = parseInt(n, 10);
+        if (!Number.isFinite(p)) p = fallback || paperbackMinPages();
+        return Math.max(paperbackMinPages(), Math.min(paperbackMaxPages(), p));
+    }
+    function paperMultFromLabel(paperType, interiorBw) {
+        if (interiorBw === false) return paperThickness('premiumColor');
+        var pt = String(paperType || '');
+        if (pt.indexOf('Cream') >= 0) return paperThickness('cream');
+        if (pt.indexOf('Standard color') >= 0) return paperThickness('standardColor');
+        if (pt.indexOf('Color') >= 0) return paperThickness('premiumColor');
+        return paperThickness('white');
+    }
+
+    function buildTrimSizes() {
+        var presets = kdp().trimPresets;
+        if (presets && presets.length) {
+            var map = {};
+            presets.forEach(function (t) {
+                var key = t.key || t.Key;
+                var w = t.widthIn != null ? t.widthIn : t.WidthIn;
+                var h = t.heightIn != null ? t.heightIn : t.HeightIn;
+                if (key && w != null && h != null) map[key] = { w: w, h: h };
+            });
+            if (Object.keys(map).length) return map;
+        }
+        return {
+            '5x8': { w: 5, h: 8 },
+            '5.25x8': { w: 5.25, h: 8 },
+            '4.75x5.25': { w: 4.75, h: 5.25 },
+            '5.5x8.5': { w: 5.5, h: 8.5 },
+            '6x9': { w: 6, h: 9 },
+            '6.14x9.21': { w: 6.14, h: 9.21 },
+            '7x10': { w: 7, h: 10 },
+            '8x10': { w: 8, h: 10 },
+            '8.5x11': { w: 8.5, h: 11 }
+        };
+    }
+
+    function getTrimSizes() { return buildTrimSizes(); }
 
     function loadScriptOnce(src, dataAttr) {
         return new Promise(function (resolve, reject) {
@@ -66,26 +127,26 @@
     }
 
     /** Spine estimate (inches) — mirrors KDP calculator defaults for white paper. */
-    function estimateSpineInches(pageCount, _paperType, interiorBw) {
-        var p = Math.max(24, Math.min(828, parseInt(pageCount, 10) || 200));
-        var mult = 0.002252;
-        if (interiorBw === false) mult = 0.002347;
-        var sp = p * mult;
-        return Math.max(0.055, sp);
+    function estimateSpineInches(pageCount, paperType, interiorBw) {
+        var p = clampPaperbackPages(pageCount, 200);
+        var mult = paperMultFromLabel(paperType || KDP_DEFAULT_PAPER, interiorBw);
+        return Math.max(minSpineIn(), p * mult);
     }
 
     function parseTrim(trimKey) {
-        var t = TRIM_SIZES[trimKey] || TRIM_SIZES['6x9'];
+        var sizes = getTrimSizes();
+        var t = sizes[trimKey] || sizes['6x9'] || { w: 6, h: 9 };
         return { w: t.w, h: t.h };
     }
 
     function printLayoutInches(trimKey, pageCount, _paperType, interiorBw, savedSpine) {
         var trim = parseTrim(trimKey);
         var spine = savedSpine > 0 ? savedSpine : estimateSpineInches(pageCount, KDP_DEFAULT_PAPER, interiorBw !== false);
-        var totalW = 2 * trim.w + spine + 2 * BLEED_IN;
-        var totalH = trim.h + 2 * BLEED_IN;
-        var backPanel = trim.w + BLEED_IN;
-        var frontPanel = trim.w + BLEED_IN;
+        var bleed = bleedIn();
+        var totalW = 2 * trim.w + spine + 2 * bleed;
+        var totalH = trim.h + 2 * bleed;
+        var backPanel = trim.w + bleed;
+        var frontPanel = trim.w + bleed;
         return {
             trim: trim,
             spine: spine,
@@ -93,7 +154,7 @@
             totalH: totalH,
             backPanel: backPanel,
             frontPanel: frontPanel,
-            bleed: BLEED_IN,
+            bleed: bleed,
             equalSplit: false
         };
     }
@@ -241,8 +302,9 @@
 
     function buildPrintCanvas(frontImg, layoutInches, meta) {
         var lay = layoutInches;
-        var W = Math.round(lay.totalW * PRINT_DPI);
-        var H = Math.round(lay.totalH * PRINT_DPI);
+        var dpi = printDpi();
+        var W = Math.round(lay.totalW * dpi);
+        var H = Math.round(lay.totalH * dpi);
         var c = document.createElement('canvas');
         c.width = W;
         c.height = H;
@@ -250,7 +312,7 @@
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(0, 0, W, H);
 
-        var spineW = lay.spine * PRINT_DPI;
+        var spineW = lay.spine * dpi;
         var backW;
         var frontW;
         if (lay.equalSplit) {
@@ -258,8 +320,8 @@
             backW = restPx / 2;
             frontW = restPx / 2;
         } else {
-            backW = lay.backPanel * PRINT_DPI;
-            frontW = lay.frontPanel * PRINT_DPI;
+            backW = lay.backPanel * dpi;
+            frontW = lay.frontPanel * dpi;
         }
         var x0 = 0;
         var x1 = backW;
@@ -281,18 +343,20 @@
         var raw = String(trimStr || '').split(/[x×]/i);
         var trimW = parseFloat((raw[0] || '152.4').trim()) || 152.4;
         var trimH = parseFloat((raw[1] || '228.6').trim()) || 228.6;
-        var p = Math.max(24, Math.min(828, parseInt(pages, 10) || 100));
+        var p = clampPaperbackPages(pages, 100);
+        var specs = kdp();
 
-        var thickness = 0.0572;
-        if (interior === 'Premium color') thickness = 0.0596;
+        var thicknessPerPage = paperThickness('white');
+        if (interior === 'Premium color') thicknessPerPage = paperThickness('premiumColor');
+        else if (interior === 'Standard color') thicknessPerPage = paperThickness('standardColor');
 
-        var spine = p * thickness;
-        var bleed = 3.175;
-        var wrap = binding === 'Hardcover' ? 15 : 0;
-        var hinge = binding === 'Hardcover' ? 10 : 0;
-        var spineMargin = 1.59;
-        var barcodeMarginW = 6.35;
-        var barcodeMarginH = 9.52;
+        var spine = p * thicknessPerPage * 25.4;
+        var bleed = (specs.bleedIn ?? 0.125) * 25.4;
+        var wrap = binding === 'Hardcover' ? caseWrapMarginIn() * 25.4 : 0;
+        var hinge = binding === 'Hardcover' ? caseHingeGapIn() * 25.4 : 0;
+        var spineMargin = (specs.spineTextMinWidthIn ?? 0.0625) * 25.4;
+        var barcodeMarginW = (specs.barcodeWidthIn ?? 2.0) * 25.4;
+        var barcodeMarginH = (specs.barcodeHeightIn ?? 1.2) * 25.4;
 
         var data = {};
         if (binding === 'Hardcover') {
@@ -330,7 +394,7 @@
     }
 
     function buildPrintCanvasFromCalc(frontImg, calc, meta) {
-        var scale = PRINT_DPI / 25.4;
+        var scale = printDpi() / 25.4;
         var W = Math.round(calc.data[1].w * scale);
         var H = Math.round(calc.data[1].h * scale);
         var spineW = Math.round(calc.data[6].w * scale);
@@ -668,7 +732,7 @@
 
         function buildCompositeFromState(calc) {
             if (!calc) return null;
-            var scale = PRINT_DPI / 25.4;
+            var scale = printDpi() / 25.4;
             var W = Math.round(calc.data[1].w * scale);
             var H = Math.round(calc.data[1].h * scale);
             var spineW = Math.round(calc.data[6].w * scale);
@@ -705,7 +769,7 @@
 
         function renderBackThumb(calc) {
             if (!calc) return '';
-            var scale = PRINT_DPI / 25.4;
+            var scale = printDpi() / 25.4;
             var W = Math.round(calc.data[1].w * scale);
             var H = Math.round(calc.data[1].h * scale);
             var spineW = Math.round(calc.data[6].w * scale);
@@ -755,8 +819,8 @@
             var spec = root.querySelector('#dbkPngSpecs');
             if (spec) {
                 if (calc) {
-                    var pxW = Math.round(calc.data[1].w * PRINT_DPI / 25.4);
-                    var pxH = Math.round(calc.data[1].h * PRINT_DPI / 25.4);
+                    var pxW = Math.round(calc.data[1].w * printDpi() / 25.4);
+                    var pxH = Math.round(calc.data[1].h * printDpi() / 25.4);
                     spec.textContent = 'Full wrap ' + pxW + ' × ' + pxH + ' px @ 300 DPI (saved calculator)';
                 } else {
                     spec.textContent = 'Pehle print calculator se dimensions save karein — phir yahan preview aur exports sahi size par honge.';
@@ -806,7 +870,8 @@
                 document.addEventListener('dbkcalccomplete', onCalcStored);
 
                 var epubPx = root.querySelector('#dbkEpubPx');
-                if (epubPx) epubPx.textContent = EBOOK_COVER.w + ' × ' + EBOOK_COVER.h;
+                var ec = ebookCoverDims();
+                if (epubPx) epubPx.textContent = ec.w + ' × ' + ec.h;
                 var en = root.querySelector('#dbkEpubName');
                 if (en) en.textContent = base + '-kdp-cover.epub';
 
@@ -924,7 +989,7 @@
                     }
                     Swal.fire({ title: 'Building EPUB', html: '<p style="color:#64748b">Embedding cover…</p>', allowOutsideClick: false, showConfirmButton: false, didOpen: function () { Swal.showLoading(); } });
                     try {
-                        var jpegDataUrl = resizeCoverForEbook(state.frontImg, EBOOK_COVER.w, EBOOK_COVER.h);
+                        var jpegDataUrl = resizeCoverForEbook(state.frontImg, ec.w, ec.h);
                         buildEpubBlob(title, author, jpegDataUrl).then(function (blob) {
                             Swal.close();
                             triggerDownload(blob, base + '-kdp-cover.epub');
@@ -1009,7 +1074,7 @@
 
 
     function trimToMmString(trimKey) {
-        var t = TRIM_SIZES[trimKey] || TRIM_SIZES['6x9'];
+        var t = parseTrim(trimKey);
         return String(Math.round(t.w * 25.4 * 100) / 100) + 'x' + String(Math.round(t.h * 25.4 * 100) / 100);
     }
 
@@ -1018,16 +1083,16 @@
      * Matches case-bound cover diagram; paperback uses bleed margin and zero hinge gap.
      */
     function spineInchesPerPage(binding, paper, interior) {
-        if (binding === 'Hardcover') return CASE_SPINE_PER_PAGE_IN;
-        if (interior === 'Premium color' || interior === 'Standard color') return 0.002347;
-        if (paper && paper.indexOf('Cream') >= 0) return CASE_SPINE_PER_PAGE_IN;
-        return 0.002252;
+        if (binding === 'Hardcover') return hardcoverSpinePerPage();
+        if (interior === 'Premium color' || interior === 'Standard color') return paperThickness('premiumColor');
+        if (paper && paper.indexOf('Cream') >= 0) return paperThickness('cream');
+        return paperThickness('white');
     }
 
     function applyPageCountToLayout(layout, pages, binding, paper, interior) {
         if (!layout) return layout;
         var perPage = spineInchesPerPage(binding || layout.bindingType, paper, interior);
-        layout.spineIn = Math.max(0.055, pages * perPage);
+        layout.spineIn = Math.max(minSpineIn(), pages * perPage);
         layout.hingeRightXIn = layout.spineXIn + layout.spineIn;
         layout.frontPanelXIn = layout.hingeRightXIn + layout.hingeGapIn;
         layout.canvasWidthIn = layout.frontPanelXIn + layout.panelWidthIn + layout.outerMarginIn;
@@ -1040,15 +1105,13 @@
         var binding = options.bindingType || 'Paperback';
         var isHard = binding === 'Hardcover';
         var trim = parseTrim(options.trimKey || '6x9');
-        var pages = Math.max(24, Math.min(828, parseInt(options.pageCount, 10) || 100));
+        var pages = clampPaperbackPages(options.pageCount, 100);
         var interior = options.interiorType || 'Black & white';
         var paper = options.paperType || KDP_DEFAULT_PAPER;
-        var perPage = isHard
-            ? CASE_SPINE_PER_PAGE_IN
-            : (interior === 'Premium color' ? 0.002347 : (interior === 'Standard color' ? 0.002347 : (paper.indexOf('Cream') >= 0 ? CASE_SPINE_PER_PAGE_IN : 0.002252)));
-        var spineIn = Math.max(0.055, pages * perPage);
-        var outerMargin = isHard ? CASE_WRAP_MARGIN_IN : BLEED_IN;
-        var hingeGap = isHard ? CASE_HINGE_GAP_IN : 0;
+        var perPage = spineInchesPerPage(binding, paper, interior);
+        var spineIn = Math.max(minSpineIn(), pages * perPage);
+        var outerMargin = isHard ? caseWrapMarginIn() : bleedIn();
+        var hingeGap = isHard ? caseHingeGapIn() : 0;
         var backX = outerMargin;
         var hingeLeftX = backX + trim.w;
         var spineX = hingeLeftX + hingeGap;
@@ -1358,10 +1421,10 @@
             var layoutW = layout.canvasWidthIn;
             var layoutH = layout.canvasHeightIn;
             if (!layoutW || !layoutH) {
-                var margin = layout.outerMarginIn || 0.125;
+                var margin = layout.outerMarginIn || bleedIn();
                 var pw = layout.panelWidthIn || 6;
                 var ph = layout.panelHeightIn || 9;
-                layoutW = margin * 2 + pw * 2 + (layout.spineIn || 0.055);
+                layoutW = margin * 2 + pw * 2 + (layout.spineIn || minSpineIn());
                 layoutH = margin * 2 + ph;
             }
             var refW = img.width;
@@ -1377,12 +1440,12 @@
                 c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
                 return c.toDataURL('image/png');
             }
-            var y = layout.panelTopYIn != null ? layout.panelTopYIn : (layout.outerMarginIn || 0.125);
+            var y = layout.panelTopYIn != null ? layout.panelTopYIn : (layout.outerMarginIn || bleedIn());
             var pw = layout.panelWidthIn || 6;
             var ph = layout.panelHeightIn || 9;
-            var backX = layout.backPanelXIn != null ? layout.backPanelXIn : (layout.outerMarginIn || 0.125);
+            var backX = layout.backPanelXIn != null ? layout.backPanelXIn : (layout.outerMarginIn || bleedIn());
             var spineX = layout.spineXIn != null ? layout.spineXIn : backX + pw;
-            var frontX = layout.frontPanelXIn != null ? layout.frontPanelXIn : spineX + (layout.spineIn || 0.055);
+            var frontX = layout.frontPanelXIn != null ? layout.frontPanelXIn : spineX + (layout.spineIn || minSpineIn());
             return {
                 back: cropDataUrl(backX, y, pw, ph),
                 spine: cropDataUrl(spineX, y, layout.spineIn, ph),
@@ -1396,7 +1459,7 @@
         var el = document.querySelector('.cov-wrap-parts');
         if (!el || !layout) return;
         var pw = layout.panelWidthIn || 6;
-        var sw = Math.max(0.055, layout.spineIn || 0.055);
+        var sw = Math.max(minSpineIn(), layout.spineIn || minSpineIn());
         var ph = layout.panelHeightIn || 9;
         el.style.gridTemplateColumns = pw + 'fr ' + sw + 'fr ' + pw + 'fr';
         el.style.setProperty('--cov-panel-aspect', pw + ' / ' + ph);
@@ -1490,17 +1553,15 @@
             return Promise.reject(new Error('composePrintWrapFromParts: real pageCount is required (got ' + opts.pageCount + ').'));
         }
 
-        var MULT = { 'White paper': 0.002252, 'Cream paper': 0.0025, 'Color paper': 0.002347, 'Standard color': 0.002347 };
-        var mult = MULT[opts.paperType] || 0.002252;
-        var TRIM = { '6x9': { w: 6, h: 9 }, '5.5x8.5': { w: 5.5, h: 8.5 }, '5x8': { w: 5, h: 8 }, '7x10': { w: 7, h: 10 }, '8.5x11': { w: 8.5, h: 11 } };
-        var trim = TRIM[String(opts.trimKey || '6x9').toLowerCase().replace(/\s/g, '')] || { w: 6, h: 9 };
-        var bleed = 0.125;
+        var mult = paperMultFromLabel(opts.paperType, opts.interiorBw);
+        var trim = parseTrim(String(opts.trimKey || '6x9').toLowerCase().replace(/\s/g, ''));
+        var bleed = bleedIn();
 
         var spineIn = pages * mult;
         var fullW = trim.w * 2 + spineIn + bleed * 2;
         var fullH = trim.h + bleed * 2;
 
-        var dpi = opts.dpi || 300;
+        var dpi = opts.dpi || printDpi();
         var px = function (inch) { return Math.round(inch * dpi); };
 
         var canvas = document.createElement('canvas');
@@ -1604,7 +1665,7 @@
     global.CoverKdpExport = {
         openModal: openModal,
         openCalculatorModal: openCalculatorModal,
-        EBOOK_COVER: EBOOK_COVER,
+        get EBOOK_COVER() { return ebookCoverDims(); },
         printLayoutInches: printLayoutInches,
         estimateSpineInches: estimateSpineInches,
         computeKdpDimensionsMm: computeKdpDimensionsMm,
@@ -1617,7 +1678,7 @@
         trimToMmString: trimToMmString,
         computeCoverLayout: computeCoverLayout,
         layoutFromServerKdp: layoutFromServerKdp,
-        CASE_WRAP_MARGIN_IN: CASE_WRAP_MARGIN_IN,
-        CASE_HINGE_GAP_IN: CASE_HINGE_GAP_IN
+        get CASE_WRAP_MARGIN_IN() { return caseWrapMarginIn(); },
+        get CASE_HINGE_GAP_IN() { return caseHingeGapIn(); }
     };
 })(typeof window !== 'undefined' ? window : this);

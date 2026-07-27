@@ -75,7 +75,7 @@
     // Soft modules: Writer / Formatting / Cover always reachable from sidebar.
     bool formattingUnlocked = true;
     bool coverUnlocked = true;
-    bool publishUnlocked = hasAnyBooks || hasGeneratedBook || coverFinalized;
+    bool publishUnlocked = true; // Never gate Publish / My Books on AI writing or step order.
 
     int flowBookId = 0;
     string flowStep = "";
@@ -96,7 +96,7 @@
     // Book attaches only via explicit URL (Dashboard Continue Editing) or in-page create.
     var sidebarFlowEntryUrl = "/Dashboard";
     var sidebarAiWriterUrl = "/Books/Writer";
-    var sidebarFormatUrl = "/Books/Formatting";
+    var sidebarFormatUrl = "/BookDesign/CoverDesignCalculatorFixing?bookId=0";
     var sidebarCoverUrl = "/Books/Cover";
     var sidebarPublishUrl = sidebarFlowEntryUrl;
     var bookFlowNav = new BookFlowStateService(DbContext);
@@ -119,7 +119,7 @@
             if (string.IsNullOrEmpty(activePath)) activePath = "ebook";
             var selectBookEntry = $"/Dashboard/SelectBook?bookId={sidebarActiveBookId}";
             sidebarAiWriterUrl = $"/Books/Writer?bookId={sidebarActiveBookId}";
-            sidebarFormatUrl = $"/Books/Formatting/{sidebarActiveBookId}";
+            sidebarFormatUrl = $"/BookDesign/CoverDesignCalculatorFixing?bookId={sidebarActiveBookId}";
             sidebarCoverUrl = $"/Books/Cover/{sidebarActiveBookId}";
             sidebarPublishUrl = selectBookEntry;
             if (BookFlowStateService.IsStepAtLeast(resumeStep, BookFlowStateService.StepPublish))
@@ -137,7 +137,7 @@
     if (sidebarActiveBookId <= 0)
     {
         sidebarCoverUrl = "/Books/Cover";
-        sidebarFormatUrl = "/Books/Formatting";
+        sidebarFormatUrl = "/BookDesign/CoverDesignCalculatorFixing?bookId=0";
         sidebarAiWriterUrl = "/Books/Writer";
     }
     else
@@ -173,6 +173,44 @@
     <script src="~/js/unsaved-changes-guard.js" asp-append-version="true"></script>
     <script src="~/js/editor-draft-reset.js" asp-append-version="true"></script>
     <script src="~/js/flow-navigation-guard.js" asp-append-version="true"></script>
+    @{
+        var __kdp = EBookDashboard.Configuration.KdpSpecsAccessor.Current;
+        var __kdpJson = System.Text.Json.JsonSerializer.Serialize(new {
+            dpi = __kdp.Dpi,
+            bleedIn = __kdp.BleedIn,
+            safeFromTrimIn = __kdp.SafeFromTrimIn,
+            spineTextMinWidthIn = __kdp.SpineTextMinWidthIn,
+            barcodeWidthIn = __kdp.BarcodeWidthIn,
+            barcodeHeightIn = __kdp.BarcodeHeightIn,
+            barcodeMarginFromTrimIn = __kdp.BarcodeMarginFromTrimIn,
+            paper = new {
+                white = __kdp.PaperThicknessInPerPage.White,
+                cream = __kdp.PaperThicknessInPerPage.Cream,
+                premiumColor = __kdp.PaperThicknessInPerPage.PremiumColor,
+                standardColor = __kdp.PaperThicknessInPerPage.StandardColor
+            },
+            paperback = new { min = __kdp.Paperback.MinPages, max = __kdp.Paperback.MaxPages },
+            hardcover = new {
+                min = __kdp.Hardcover.MinPages,
+                max = __kdp.Hardcover.MaxPages,
+                spineCaseExtraIn = __kdp.Hardcover.SpineCaseExtraIn,
+                wrapAllowancePerEdgeIn = __kdp.Hardcover.WrapAllowancePerEdgeIn
+            },
+            alternateCaseLayout = new {
+                minSpineInches = __kdp.AlternateCaseLayout.MinSpineInches,
+                wrapMarginInches = __kdp.AlternateCaseLayout.WrapMarginInches,
+                hingeGapInches = __kdp.AlternateCaseLayout.HingeGapInches
+            },
+            margins = new {
+                recommendedOuterNoBleedIn = __kdp.InteriorMargins.RecommendedOuterNoBleedIn,
+                recommendedOuterWithBleedIn = __kdp.InteriorMargins.RecommendedOuterWithBleedIn,
+                gutterTiers = __kdp.InteriorMargins.GutterTiers,
+                fallbackInsideIn = __kdp.InteriorMargins.FallbackInsideIn
+            },
+            trimPresets = __kdp.TrimPresets
+        });
+    }
+    <script>window.__kdpSpecs = @Html.Raw(__kdpJson);</script>
     <partial name="_BookInteriorPreviewAssets" />
     <link rel="stylesheet" href="~/css/dashboard-flow.css" asp-append-version="true" />
     <style>

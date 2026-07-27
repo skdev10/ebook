@@ -9,7 +9,8 @@
     var action = ViewContext.RouteData.Values["Action"]?.ToString() ?? "";
     var isModulePage = action is "AIGenerateBook" or "Writer" or "CoverDesignCalculatorFixing" or "Formatting";
     if (!isModulePage) { return; }
-    var disabledAttr = qaBookId <= 0 ? "disabled" : null;
+    // Product rule: Export is NEVER disabled. Without a book, click shows a plain-language tip.
+    string? disabledAttr = null;
 }
 <div id="module-quick-actions" class="module-quick-actions" data-book-id="@qaBookId" role="region" aria-label="Manuscript and export">
     <input type="file" id="layout-ms-file" class="hidden" accept=".docx,.pdf,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
@@ -117,7 +118,8 @@
     function syncExportEnabled() {
         var bid = currentBookId();
         root.setAttribute('data-book-id', String(bid));
-        exportBtns.forEach(function (b) { b.disabled = bid <= 0; });
+        // Product rule: never leave Export disabled.
+        exportBtns.forEach(function (b) { b.disabled = false; });
     }
 
     async function uploadFile(file) {
@@ -146,12 +148,7 @@
             var newBid = parseInt(data.bookId, 10) || bid;
             setStatus('Imported ' + (data.chapterCount || 0) + ' chapter(s).', true);
             if (newBid > 0 && newBid !== bid) {
-                var path = window.location.pathname || '';
-                if (/CoverDesignCalculatorFixing|\/Formatting/i.test(path)) {
-                    window.location.href = '/Books/Formatting/' + newBid;
-                } else {
-                    window.location.href = '/Books/AIGenerateBook?bookId=' + encodeURIComponent(newBid);
-                }
+                window.location.href = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(newBid);
                 return;
             }
             if (typeof loadBookContent === 'function' && newBid > 0) {
@@ -171,13 +168,12 @@
     async function runExport(btn) {
         var bid = currentBookId();
         if (bid <= 0) {
-            setStatus('Select or create a book first.', false);
+            setStatus('Upload a manuscript or open a book first — Export stays available and is never blocked.', false);
             return;
         }
         var bookFmt = btn.getAttribute('data-book-export');
         var draftFmt = btn.getAttribute('data-format') || 'Docx';
         setStatus('Exporting…', null);
-        exportBtns.forEach(function (b) { b.disabled = true; });
         try {
             if (!window.ModuleExport) throw new Error('Export helper missing');
             var result;

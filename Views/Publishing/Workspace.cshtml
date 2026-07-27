@@ -1,0 +1,247 @@
+@model EBookDashboard.Models.Project
+@using EBookDashboard.Models
+@using EBookDashboard.Configuration
+@{
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    ViewData["Title"] = "Format workspace";
+    var step = ((string?)ViewBag.Step ?? "type").ToLowerInvariant();
+    var version = ViewBag.Version as ManuscriptVersion;
+    var print = ViewBag.PrintProfile as LayoutProfile ?? new LayoutProfile();
+    var ebook = ViewBag.EbookProfile as LayoutProfile ?? new LayoutProfile { IsEbookProfile = true };
+    var presets = (ViewBag.TrimPresets as List<TrimSizeOption>) ?? new List<TrimSizeOption>();
+    var pageWarning = ViewBag.PageWarning as string;
+    var gutterBand = ViewBag.GutterBand as string ?? "";
+    var spine = (double)(ViewBag.SpineWidth ?? 0d);
+    var sections = version?.Sections?.OrderBy(s => s.OrderIndex).ToList() ?? new List<BookSection>();
+}
+<div class="px-4 sm:px-6 py-6 max-w-6xl mx-auto" id="pub-workspace" data-project-id="@Model.Id">
+    @await Html.PartialAsync("_RecommendedFlowSidebar", Model)
+
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+            <h1 class="font-serif text-3xl text-gray-900 mb-1">@Model.Title</h1>
+            <p class="text-sm text-gray-500 mb-0">
+                Pages: <strong id="live-page-count">@Model.PageCount</strong>
+                <span class="mx-2">·</span>
+                Gutter band: <span id="gutter-band">@gutterBand</span>
+                <span class="mx-2">·</span>
+                <span id="save-indicator" class="text-gray-400">Saved</span>
+            </p>
+        </div>
+        <button type="button" class="pub-export-btn inline-flex items-center gap-2 bg-violet-700 hover:bg-violet-800 text-white px-5 py-2.5 rounded-full text-sm font-semibold" data-project-id="@Model.Id">
+            <i class="fas fa-download"></i> Download Book
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(pageWarning))
+    {
+        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">@pageWarning You can still export.</div>
+    }
+
+    @if (step is "type" or "trim")
+    {
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 mb-6">
+            <h2 class="font-semibold text-lg mb-3">Project type</h2>
+            <div class="grid sm:grid-cols-3 gap-3 mb-6">
+                @foreach (var t in new[] {
+                    (ProjectType.Ebook, "Ebook", "Reflowable file for phones and e-readers. No trim size."),
+                    (ProjectType.Paperback, "Paperback", "Printed softcover with fixed page size and gutter."),
+                    (ProjectType.Hardcover, "Hardcover", "Printed case laminate cover with wrap allowance.")
+                })
+                {
+                    <label class="rounded-xl border p-4 cursor-pointer @(Model.ProjectType==t.Item1 ? "border-violet-400 bg-violet-50" : "border-gray-200")">
+                        <input type="radio" name="ptype" value="@((int)t.Item1)" @(Model.ProjectType==t.Item1?"checked":"") class="mr-2 setup-field" />
+                        <strong>@t.Item2</strong>
+                        <p class="text-xs text-gray-500 mt-1 mb-0">@t.Item3</p>
+                    </label>
+                }
+            </div>
+
+            <div id="print-setup" class="@(Model.ProjectType==ProjectType.Ebook ? "hidden" : "")">
+                <h2 class="font-semibold text-lg mb-2">Page setup
+                    <button type="button" class="kdp-tip" data-tip="Trim size is the final width and height of each printed page after cutting.">?</button>
+                </h2>
+                <label class="block text-sm mb-2">Trim size</label>
+                <select id="trim-select" class="w-full max-w-md border rounded-lg px-3 py-2 mb-3 setup-field">
+                    <optgroup label="Standard">
+                        @foreach (var t in presets.Where(p => p.Group == "Standard"))
+                        {
+                            <option value="@t.Key" data-w="@t.WidthIn" data-h="@t.HeightIn" selected="@(Math.Abs(t.WidthIn-Model.TrimWidthIn)<0.001 && Math.Abs(t.HeightIn-Model.TrimHeightIn)<0.001)">@t.Label</option>
+                        }
+                    </optgroup>
+                    <optgroup label="Children's">
+                        @foreach (var t in presets.Where(p => p.Group == "Childrens"))
+                        {
+                            <option value="@t.Key" data-w="@t.WidthIn" data-h="@t.HeightIn">@t.Label</option>
+                        }
+                    </optgroup>
+                    <option value="custom">Custom — Non-standard — Amazon KDP may not accept this size.</option>
+                </select>
+                <div id="custom-trim" class="hidden grid grid-cols-2 gap-3 max-w-md mb-3">
+                    <label class="text-sm">Width (in)<input id="trim-w" type="number" step="0.01" value="@Model.TrimWidthIn" class="w-full border rounded-lg px-2 py-1.5 setup-field" /></label>
+                    <label class="text-sm">Height (in)<input id="trim-h" type="number" step="0.01" value="@Model.TrimHeightIn" class="w-full border rounded-lg px-2 py-1.5 setup-field" /></label>
+                </div>
+
+                <label class="flex items-center gap-2 text-sm mb-3">
+                    <input type="checkbox" id="use-recommended" class="setup-field" @(print.UseRecommendedMargins ? "checked" : "") />
+                    Use recommended KDP margins
+                    <button type="button" class="kdp-tip" data-tip="Gutter is the inner margin near the spine. It is wider on thicker books so text stays readable.">?</button>
+                </label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mb-3" id="margin-fields">
+                    <label class="text-sm">Top<input id="m-top" type="number" step="0.001" value="@print.MarginTopIn" class="w-full border rounded-lg px-2 py-1.5 setup-field" @(print.UseRecommendedMargins?"readonly":"") /></label>
+                    <label class="text-sm">Bottom<input id="m-bottom" type="number" step="0.001" value="@print.MarginBottomIn" class="w-full border rounded-lg px-2 py-1.5 setup-field" @(print.UseRecommendedMargins?"readonly":"") /></label>
+                    <label class="text-sm">Outside<input id="m-out" type="number" step="0.001" value="@print.MarginOutsideIn" class="w-full border rounded-lg px-2 py-1.5 setup-field" @(print.UseRecommendedMargins?"readonly":"") /></label>
+                    <label class="text-sm">Inside (gutter)<input id="m-in" type="number" step="0.001" value="@print.MarginInsideIn" class="w-full border rounded-lg px-2 py-1.5 setup-field" @(print.UseRecommendedMargins?"readonly":"") /></label>
+                </div>
+                <label class="block text-sm mb-1">Bleed
+                    <button type="button" class="kdp-tip" data-tip="Bleed is a small extra area outside the trim line so images can print to the edge without white borders.">?</button>
+                </label>
+                <select id="bleed-mode" class="border rounded-lg px-3 py-2 setup-field mb-2">
+                    <option value="0" selected="@(!Model.HasBleed)">No bleed — content stays inside the page edge</option>
+                    <option value="1" selected="@(Model.HasBleed)">Bleed on all sides — page grows outside the trim; preview shows the bleed area</option>
+                </select>
+                <label class="block text-sm mb-1">Paper</label>
+                <select id="paper-type" class="border rounded-lg px-3 py-2 setup-field">
+                    @foreach (PaperType p in Enum.GetValues<PaperType>())
+                    {
+                        <option value="@((int)p)" selected="@(Model.PaperType==p)">@p</option>
+                    }
+                </select>
+                <p class="text-xs text-gray-500 mt-3">Spine width (live): <strong id="spine-w">@spine.ToString("0.####")</strong> in</p>
+            </div>
+        </section>
+    }
+
+    @if (step == "typography")
+    {
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 mb-6">
+            <h2 class="font-semibold text-lg mb-3">Typography (@(Model.ProjectType == ProjectType.Ebook ? "Ebook" : "Print") styles)</h2>
+            <p class="text-sm text-gray-500 mb-4">Font sizes are in points (pt). Print and ebook styles are saved separately.</p>
+            <div class="grid sm:grid-cols-2 gap-4" id="typo-form" data-ebook="@(Model.ProjectType == ProjectType.Ebook ? "1" : "0")">
+                @{
+                    var profile = Model.ProjectType == ProjectType.Ebook ? ebook : print;
+                }
+                <label class="text-sm">Body font
+                    <select id="body-font" class="w-full border rounded-lg px-2 py-1.5 typo-field">
+                        @foreach (var f in new[]{"Times New Roman","Garamond","Georgia","Book Antiqua","Baskerville","Palatino","Arial","Helvetica","Verdana"})
+                        {
+                            <option selected="@(profile.BodyFontFamily==f)">@f</option>
+                        }
+                    </select>
+                </label>
+                <label class="text-sm">Body size (pt)
+                    <input id="body-size" type="number" min="6" max="72" step="0.5" value="@profile.BodyFontSizePt" class="w-full border rounded-lg px-2 py-1.5 typo-field" />
+                    <span class="text-xs text-gray-400">Presets: Small (10) · Medium (11) · Large (12)</span>
+                </label>
+                <label class="text-sm">Line spacing
+                    <select id="line-spacing" class="w-full border rounded-lg px-2 py-1.5 typo-field">
+                        <option value="1" selected="@(Math.Abs(profile.LineSpacing-1)<0.01)">Single</option>
+                        <option value="1.15" selected="@(Math.Abs(profile.LineSpacing-1.15)<0.01)">1.15</option>
+                        <option value="1.5" selected="@(Math.Abs(profile.LineSpacing-1.5)<0.01)">1.5</option>
+                        <option value="2" selected="@(Math.Abs(profile.LineSpacing-2)<0.01)">Double</option>
+                    </select>
+                </label>
+                <label class="text-sm">Alignment
+                    <select id="align" class="w-full border rounded-lg px-2 py-1.5 typo-field">
+                        @foreach (var a in new[]{"Left","Right","Center","Justify"})
+                        {
+                            <option selected="@(string.Equals(profile.TextAlignment,a,StringComparison.OrdinalIgnoreCase))">@a</option>
+                        }
+                    </select>
+                </label>
+                <label class="text-sm">Heading 1 size (pt)<input id="h1-size" type="number" min="6" max="72" step="0.5" value="@profile.H1FontSizePt" class="w-full border rounded-lg px-2 py-1.5 typo-field" /></label>
+                <label class="text-sm">First-line indent (in)<input id="indent" type="number" step="0.01" value="@profile.FirstLineIndentIn" class="w-full border rounded-lg px-2 py-1.5 typo-field" /></label>
+                <label class="flex items-center gap-2 text-sm col-span-2"><input type="checkbox" id="no-indent-first" class="typo-field" @(profile.NoIndentOnFirstPara?"checked":"") /> No indent on the first paragraph of a chapter</label>
+            </div>
+            <button type="button" id="reset-typo" class="mt-4 text-sm text-violet-700 font-semibold">Reset to recommended book defaults</button>
+        </section>
+    }
+
+    @if (step is "preview" or "pages")
+    {
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 mb-6">
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+                <button type="button" id="mode-single" class="px-3 py-1.5 rounded-full border text-sm">Single page</button>
+                <button type="button" id="mode-spread" class="px-3 py-1.5 rounded-full border text-sm bg-violet-50 border-violet-300">Two-page spread</button>
+                <button type="button" id="prev-page" class="px-3 py-1.5 rounded-full border text-sm">Previous</button>
+                <button type="button" id="next-page" class="px-3 py-1.5 rounded-full border text-sm">Next</button>
+                <label class="text-sm">Go to <input id="goto-page" type="number" min="1" class="w-16 border rounded px-1 py-0.5" /></label>
+                <button type="button" id="run-paginate" class="px-3 py-1.5 rounded-full bg-gray-900 text-white text-sm">Refresh page count</button>
+                <a href="/Publishing/Workspace/@Model.Id?step=@(step == "pages" ? "preview" : "pages")" class="ml-auto px-3 py-1.5 rounded-full border text-sm text-violet-800 border-violet-200 hover:bg-violet-50">
+                    @(step == "pages" ? "Back to preview" : "Reorder chapters")
+                </a>
+            </div>
+            <div class="grid lg:grid-cols-[220px_1fr] gap-4">
+                <aside class="border rounded-xl p-3 max-h-[70vh] overflow-auto">
+                    <p class="text-xs font-bold uppercase text-gray-500 mb-2">Contents</p>
+                    <ul id="toc-list" class="space-y-1 text-sm">
+                        @foreach (var s in sections.Where(x => x.SectionKind is SectionKind.Chapter or SectionKind.Section or SectionKind.Appendix))
+                        {
+                            <li><a href="#sec-@s.Id" class="toc-link text-violet-800 hover:underline" data-page="@s.StartPageNumber">@(s.Title) <span class="text-gray-400">p.@((s.StartPageNumber?.ToString()) ?? "—")</span></a></li>
+                        }
+                    </ul>
+                    @if (step == "pages")
+                    {
+                        <p class="text-xs font-bold uppercase text-gray-500 mt-4 mb-2">Pages panel</p>
+                        <ul id="pages-sortable" class="space-y-1 text-sm">
+                            @foreach (var s in sections)
+                            {
+                                <li class="border rounded px-2 py-1 bg-gray-50 cursor-grab" data-id="@s.Id">
+                                    <span class="text-[10px] uppercase text-gray-400">@s.MatterType</span>
+                                    <input class="sec-title w-full bg-transparent border-0 text-sm font-medium" value="@(s.Title)" data-id="@s.Id" />
+                                </li>
+                            }
+                        </ul>
+                    }
+                </aside>
+                <div id="preview-frame-wrap" class="bg-[#edf0f4] rounded-xl p-4 min-h-[70vh] overflow-auto">
+                    <iframe id="preview-frame" src="/Publishing/PreviewHtml/@Model.Id" class="w-full min-h-[65vh] bg-white shadow-lg mx-auto" style="max-width:100%"></iframe>
+                </div>
+            </div>
+        </section>
+    }
+
+    @if (step == "cover")
+    {
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 mb-6">
+            <h2 class="font-semibold text-lg mb-2">Cover</h2>
+            <p class="text-sm text-gray-600 mb-3">Spine width: <strong>@spine.ToString("0.####") in</strong> (@Model.PageCount pages, @Model.PaperType).
+                @{
+                    var spineMin = EBookDashboard.Configuration.KdpSpecsAccessor.Current.SpineTextMinWidthIn;
+                }
+                @(spine < spineMin ? " Warning: spine may be too thin for spine text." : "")</p>
+            <p class="text-sm text-gray-500 mb-4">AI cover generation is optional. You can upload a cover or open the existing Cover Design studio.</p>
+            <a href="/Books/Cover" class="inline-flex items-center gap-2 bg-amber-600 text-white px-5 py-2 rounded-full text-sm font-semibold">Open Cover Design</a>
+            <button type="button" class="pub-export-btn ml-2 inline-flex items-center gap-2 border px-5 py-2 rounded-full text-sm font-semibold" data-project-id="@Model.Id" data-format="2">Export cover PDF</button>
+        </section>
+    }
+
+    @if (step == "export")
+    {
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 mb-6">
+            <h2 class="font-semibold text-lg mb-3">Export</h2>
+            <p class="text-sm text-gray-600 mb-4">Interior and cover export as separate files (KDP requires this). Export is never disabled.</p>
+            <div class="space-y-2 mb-4 text-sm">
+                <label class="flex items-center gap-2"><input type="radio" name="exfmt" value="0" checked /> Print PDF (interior)</label>
+                <label class="flex items-center gap-2"><input type="radio" name="exfmt" value="1" /> EPUB</label>
+                <label class="flex items-center gap-2"><input type="radio" name="exfmt" value="2" /> Cover PDF</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="ex-front" checked /> Include front matter</label>
+                <label class="flex items-center gap-2"><input type="checkbox" id="ex-back" checked /> Include back matter</label>
+            </div>
+            <div id="export-warnings" class="text-sm text-amber-800 mb-3"></div>
+            <button type="button" class="pub-export-btn bg-violet-700 text-white px-6 py-2.5 rounded-full font-semibold text-sm" data-project-id="@Model.Id">Export anyway</button>
+            <div id="export-progress" class="hidden mt-3 text-sm text-gray-600"></div>
+            <div id="export-history" class="mt-6">
+                <h3 class="font-semibold mb-2">Export history</h3>
+                <ul class="text-sm space-y-1">
+                    @foreach (var j in Model.ExportJobs.OrderByDescending(x => x.StartedAt).Take(10))
+                    {
+                        <li>@j.Format — @j.Status @if (j.Status == ExportJobStatus.Succeeded && j.OutputFilePath != null) { <a class="text-violet-700" href="/Publishing/Download/@j.Id">Download</a> }</li>
+                    }
+                </ul>
+            </div>
+        </section>
+    }
+</div>
+<script src="~/js/vendor/Sortable.min.js" asp-append-version="true"></script>
+<script src="~/js/publishing-workspace.js" asp-append-version="true"></script>

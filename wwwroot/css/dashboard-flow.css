@@ -45,12 +45,12 @@
 @media (min-width: 1024px) {
     .dash-flow-grid {
         display: grid;
-        grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
         align-items: stretch;
     }
 
     .dash-flow-grid--writer {
-        grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+        grid-template-columns: minmax(0, 32%) minmax(0, 68%);
     }
 }
 

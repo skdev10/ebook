@@ -1197,9 +1197,14 @@
      * Reference: https://kdp.amazon.com/cover-calculator
      */
     function computeSpineWidthPx(pageCount, dpi) {
-        var pages = Math.max(24, parseInt(pageCount, 10) || 120);
-        var thicknessInches = pages * 0.002252;
-        return Math.max(0.055, thicknessInches) * (dpi || 300);
+        var pages = Math.max((window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.min) || 24, parseInt(pageCount, 10) || 120);
+        var thick = (window.__kdpSpecs && window.__kdpSpecs.paper && window.__kdpSpecs.paper.white) || 0.002252;
+        var minSpine = (window.__kdpSpecs && window.__kdpSpecs.hardcover && window.__kdpSpecs.hardcover.spineCaseExtraIn) || 0.055;
+        // Prefer AlternateCaseLayout min when injected; fall back safely.
+        if (window.__kdpSpecs && typeof window.__kdpSpecs.spineTextMinWidthIn === 'number')
+            minSpine = Math.max(minSpine, 0.055);
+        var thicknessInches = pages * thick;
+        return Math.max(0.055, thicknessInches) * (dpi || ((window.__kdpSpecs && window.__kdpSpecs.dpi) || 300));
     }
 
     function buildSpineDataUrl(title, pageCount) {

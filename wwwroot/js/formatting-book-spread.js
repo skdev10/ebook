@@ -6,6 +6,49 @@
     'use strict';
 
     var DPI = 96; // CSS px per inch for screen preview scaling
+
+    function kdpSpecs() {
+        return global.__kdpSpecs || {
+            bleedIn: 0.125,
+            margins: {
+                recommendedOuterNoBleedIn: 0.25,
+                recommendedOuterWithBleedIn: 0.375,
+                gutterTiers: [
+                    { maxPageCount: 150, insideIn: 0.375 },
+                    { maxPageCount: 300, insideIn: 0.5 },
+                    { maxPageCount: 500, insideIn: 0.625 },
+                    { maxPageCount: 700, insideIn: 0.75 },
+                    { maxPageCount: 828, insideIn: 0.875 }
+                ],
+                fallbackInsideIn: 0.875
+            }
+        };
+    }
+
+    function interiorMarginsSpec() {
+        var s = kdpSpecs();
+        return s.margins || s.interiorMargins || {};
+    }
+
+    function gutterInsideIn(pageCount) {
+        var meta = state.kdpMeta;
+        var im = interiorMarginsSpec();
+        var tiers = (meta && meta.gutterTiers) || im.gutterTiers || null;
+        if (tiers && tiers.length) {
+            for (var i = 0; i < tiers.length; i++) {
+                var t = tiers[i];
+                var max = t.maxPageCount != null ? t.maxPageCount : t.MaxPageCount;
+                var inside = t.insideIn != null ? t.insideIn : t.InsideIn;
+                if (pageCount <= max) return inside;
+            }
+            return im.fallbackInsideIn != null ? im.fallbackInsideIn : (im.FallbackInsideIn != null ? im.FallbackInsideIn : 0.875);
+        }
+        if (pageCount <= 150) return 0.375;
+        if (pageCount <= 300) return 0.5;
+        if (pageCount <= 500) return 0.625;
+        if (pageCount <= 700) return 0.75;
+        return 0.875;
+    }
     var state = {
         bookTitle: '',
         chapters: [],
@@ -21,7 +64,7 @@
         trimH: 9,
         margins: { top: 0.625, bottom: 0.875, inside: 0.8125, outside: 0.625 },
         bleed: false,
-        bleedIn: 0.125,
+        bleedIn: (global.__kdpSpecs && global.__kdpSpecs.bleedIn) ?? 0.125,
         useKdp: true,
         fontPt: 11,
         lineHeight: 1.5,
@@ -670,17 +713,17 @@
 
     function recommendedMargins(pageCount, bleed) {
         var meta = state.kdpMeta;
+        var im = interiorMarginsSpec();
+        var inside = gutterInsideIn(pageCount);
+
+        var safeBleed = (meta && meta.safeFromTrimWithBleedIn != null)
+            ? meta.safeFromTrimWithBleedIn
+            : (im.recommendedOuterWithBleedIn ?? 0.375);
+        var comfort = (meta && meta.comfortOuterNoBleedIn != null)
+            ? meta.comfortOuterNoBleedIn
+            : (im.recommendedOuterNoBleedIn ?? 0.25);
+
         if (meta && meta.defaults) {
-            var inside;
-            if (pageCount <= 150) inside = 0.375;
-            else if (pageCount <= 300) inside = 0.5;
-            else if (pageCount <= 500) inside = 0.625;
-            else if (pageCount <= 700) inside = 0.75;
-            else inside = 0.875;
-
-            var safeBleed = (meta.safeFromTrimWithBleedIn != null) ? meta.safeFromTrimWithBleedIn : 0.375;
-            var comfort = (meta.comfortOuterNoBleedIn != null) ? meta.comfortOuterNoBleedIn : 0.5;
-
             if (bleed) {
                 var safe = Math.max(safeBleed, comfort);
                 return { top: safe, bottom: safe, inside: inside, outside: safe };
@@ -692,7 +735,12 @@
                 outside: Math.max(0.5, meta.defaults.outside || 0.625)
             };
         }
-        return { top: 0.625, bottom: 0.875, inside: 0.625, outside: 0.5 };
+
+        if (bleed) {
+            var safeOuter = Math.max(safeBleed, comfort);
+            return { top: safeOuter, bottom: safeOuter, inside: inside, outside: safeOuter };
+        }
+        return { top: 0.625, bottom: 0.875, inside: inside, outside: Math.max(0.5, comfort) };
     }
 
     function readSettingsFromUi() {
@@ -804,6 +852,7 @@
         state.bookTitle = options.bookTitle || (document.querySelector('.fmt-header h1') || {}).textContent || '';
         state.kdpMeta = parseKdpMeta();
         if (state.kdpMeta && state.kdpMeta.bleedIn) state.bleedIn = state.kdpMeta.bleedIn;
+        else state.bleedIn = kdpSpecs().bleedIn ?? 0.125;
 
         var root = $('fmtWorkspace');
         var modeOpt = options.previewMode || (root && root.getAttribute('data-preview-mode')) || 'print';

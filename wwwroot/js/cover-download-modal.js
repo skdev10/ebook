@@ -7,6 +7,21 @@
     var chev = '<svg class="dbk-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>';
     var infoIcon = '<svg class="dbk-info-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4M12 8h.01"/></svg>';
 
+    function paperbackPageLimits() {
+        var s = global.__kdpSpecs;
+        return {
+            min: (s && s.paperback && s.paperback.min) || 24,
+            max: (s && s.paperback && s.paperback.max) || 828
+        };
+    }
+
+    /** Sync min/max on page-count inputs after DOM insert (HTML built with paperbackPageLimits). */
+    function applyPageInputLimits(input) {
+        if (!input) return;
+        var lim = paperbackPageLimits();
+        input.min = String(lim.min);
+        input.max = String(lim.max);
+    }
     var labels = {
         1: 'Full Cover', 2: 'Front Cover', 3: 'Margin', 4: 'Wrap', 5: 'Hinge',
         6: 'Spine', 7: 'Spine Safe Area', 8: 'Spine Margin', 9: 'Barcode Margin'
@@ -96,6 +111,7 @@
     /** Full calculator + tables + preview (prefix e.g. dbk or dbc). */
     function buildCalculatorBlock(prefix, initialPages) {
         var p = initialPages || 98;
+        var lim = paperbackPageLimits();
         return (
             '<div class="dbk-amz-shell">' +
             '<div class="dbk-amz-head">' +
@@ -113,7 +129,7 @@
             fieldRowTrim(prefix) +
             '<div class="dbk-field"><label class="dbk-lbl" for="' + prefix + '_pages">Page count</label>' +
             '<p class="dbk-help">Number of pages at your formatted trim size.</p>' +
-            '<input type="number" id="' + prefix + '_pages" min="24" max="828" value="' + p + '" class="dbk-inp"/></div>' +
+            '<input type="number" id="' + prefix + '_pages" min="' + lim.min + '" max="' + lim.max + '" value="' + p + '" class="dbk-inp"/></div>' +
             '<div class="dbk-form-actions">' +
             '<button type="button" class="dbk-btn-calc" id="' + prefix + '_calcBtn">Calculate dimensions</button>' +
             '<button type="button" class="dbk-btn-template" id="' + prefix + '_templateBtn">Templates &amp; guide</button>' +
@@ -448,6 +464,8 @@
         updateCalculatorDom: updateCalculatorDom,
         saveCalcToStorage: saveCalcToStorage,
         loadCalcFromStorage: loadCalcFromStorage,
-        calcStorageKey: calcStorageKey
+        calcStorageKey: calcStorageKey,
+        paperbackPageLimits: paperbackPageLimits,
+        applyPageInputLimits: applyPageInputLimits
     };
 })(typeof window !== 'undefined' ? window : this);

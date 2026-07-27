@@ -1,0 +1,88 @@
+@{
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    ViewData["Title"] = "Upload manuscript";
+    var maxMb = (int)(ViewBag.MaxUploadMb ?? 50);
+}
+<div class="px-4 sm:px-6 py-6 max-w-4xl mx-auto">
+    <p class="text-xs font-bold uppercase tracking-wider text-violet-600 mb-2">Recommended flow</p>
+    <h1 class="font-serif text-3xl text-gray-900 mb-2">Upload your manuscript</h1>
+    <p class="text-gray-600 mb-6">Upload your existing book file to start formatting. You do not need to write with AI.</p>
+
+    <div id="upload-zone" class="rounded-2xl border-2 border-dashed border-violet-300 bg-violet-50/40 p-10 text-center cursor-pointer hover:border-violet-500 transition-colors">
+        <i class="fas fa-cloud-upload-alt text-3xl text-violet-600 mb-3"></i>
+        <p class="font-semibold text-gray-900 mb-1">Drag and drop your file here</p>
+        <p class="text-sm text-gray-500 mb-4">or click Browse</p>
+        <input type="file" id="file-input" class="hidden" accept=".docx,.pdf@(ViewBag.AllowLegacy == true ? ",.txt,.rtf" : "")" />
+        <button type="button" id="browse-btn" class="inline-flex items-center gap-2 bg-violet-700 hover:bg-violet-800 text-white px-6 py-2.5 rounded-full font-semibold text-sm">Browse files</button>
+        <p class="text-xs text-gray-500 mt-4 mb-0">Accepted: DOCX, PDF@(ViewBag.AllowLegacy == true ? ", TXT, RTF" : ""). Max @maxMb MB.</p>
+    </div>
+
+    <div id="upload-progress" class="hidden mt-4">
+        <div class="h-2 rounded-full bg-gray-200 overflow-hidden"><div id="progress-bar" class="h-full bg-violet-600 w-0 transition-all"></div></div>
+        <p id="progress-text" class="text-sm text-gray-600 mt-2">Uploading…</p>
+    </div>
+    <div id="upload-error" class="hidden mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"></div>
+
+    <div class="mt-8 flex items-center justify-between gap-3">
+        <a href="/Dashboard" class="text-sm text-gray-500 hover:text-gray-800">Back to Dashboard</a>
+        <button type="button" id="btn-export-anyway" class="inline-flex items-center gap-2 border border-gray-200 bg-white px-5 py-2 rounded-full text-sm font-semibold text-gray-800" title="Export is always available after you have a project">
+            <i class="fas fa-download"></i> Download Book
+        </button>
+    </div>
+</div>
+<script>
+(function(){
+  const zone = document.getElementById('upload-zone');
+  const input = document.getElementById('file-input');
+  const browse = document.getElementById('browse-btn');
+  const prog = document.getElementById('upload-progress');
+  const bar = document.getElementById('progress-bar');
+  const ptext = document.getElementById('progress-text');
+  const err = document.getElementById('upload-error');
+  browse.addEventListener('click', e => { e.stopPropagation(); input.click(); });
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('border-violet-600'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('border-violet-600'));
+  zone.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]); });
+  input.addEventListener('change', () => { if (input.files[0]) upload(input.files[0]); });
+  document.getElementById('btn-export-anyway').addEventListener('click', () => {
+    err.classList.remove('hidden');
+    err.textContent = 'Upload a manuscript first, then you can export from any workspace screen. Export is never blocked.';
+  });
+  function upload(file){
+    err.classList.add('hidden');
+    prog.classList.remove('hidden');
+    bar.style.width = '15%';
+    ptext.textContent = 'Uploading ' + file.name + '…';
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('title', file.name.replace(/\.[^.]+$/, ''));
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/Publishing/UploadManuscript');
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) bar.style.width = Math.round(e.loaded/e.total*70) + '%';
+    };
+    xhr.onload = () => {
+      bar.style.width = '100%';
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (!data.success) {
+          err.classList.remove('hidden');
+          err.innerHTML = '<strong>'+ (data.message||'Upload failed') +'</strong><br/>' + (data.action||'Try again.');
+          return;
+        }
+        ptext.textContent = 'Import complete. Opening review…';
+        location.href = data.reviewUrl;
+      } catch {
+        err.classList.remove('hidden');
+        err.textContent = 'Unexpected server response. Please try again.';
+      }
+    };
+    xhr.onerror = () => {
+      err.classList.remove('hidden');
+      err.textContent = 'Network error. Check your connection and try again.';
+    };
+    xhr.send(fd);
+  }
+})();
+</script>

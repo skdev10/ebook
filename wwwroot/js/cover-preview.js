@@ -1,15 +1,28 @@
 'use strict';
 
+function __kdp() {
+    return window.__kdpSpecs || {
+        paper: { white: 0.002252, cream: 0.0025, premiumColor: 0.002347, standardColor: 0.002252 },
+        bleedIn: 0.125,
+        spineTextMinWidthIn: 0.0625,
+        paperback: { min: 24, max: 828 },
+        safeFromTrimIn: 0.25
+    };
+}
+
 const KDP = {
-    WHITE_THICK:     0.002252,
-    CREAM_THICK:     0.0025,
+    get WHITE_THICK() { return __kdp().paper?.white ?? __kdp().paper?.White ?? 0.002252; },
+    get CREAM_THICK() { return __kdp().paper?.cream ?? __kdp().paper?.Cream ?? 0.0025; },
     TRIM_W:          6.0,
-    BLEED:           0.125,
-    FULL_H_INCHES:   9.25,
+    get BLEED() { return __kdp().bleedIn ?? 0.125; },
+    get FULL_H_INCHES() { return 9 + 2 * (this.BLEED); },
     PREVIEW_PX:      560,
     PANEL_HEIGHT_PX: 310,
     MIN_SPINE_PX:    4,
-    SPINE_TEXT_MIN:  0.25,
+    get SPINE_TEXT_MIN() { return __kdp().safeFromTrimIn ?? 0.25; },
+    get SPINE_NARROW() { return __kdp().spineTextMinWidthIn ?? 0.0625; },
+    get MIN_PAGES() { return __kdp().paperback?.min ?? 24; },
+    get MAX_PAGES() { return __kdp().paperback?.max ?? 828; },
 };
 
 const state = {
@@ -19,7 +32,7 @@ const state = {
 };
 
 function calcDimensions(pages, paper) {
-    const p = Math.min(828, Math.max(24, parseInt(pages) || 24));
+    const p = Math.min(KDP.MAX_PAGES, Math.max(KDP.MIN_PAGES, parseInt(pages) || KDP.MIN_PAGES));
     const thick = (paper === 'cream' || paper === 'Cream paper')
         ? KDP.CREAM_THICK : KDP.WHITE_THICK;
     const spineInches     = p * thick;
@@ -28,7 +41,7 @@ function calcDimensions(pages, paper) {
     const fullWMm         = fullWInches * 25.4;
     const spineTextAllowed = spineInches >= KDP.SPINE_TEXT_MIN;
     let warning = null;
-    if (spineInches < 0.0625) {
+    if (spineInches < KDP.SPINE_NARROW) {
         warning = `Spine is only ${spineMm.toFixed(2)}mm — too narrow. Use image only.`;
     } else if (!spineTextAllowed) {
         warning = `Spine is ${spineMm.toFixed(2)}mm — text not recommended below ${(KDP.SPINE_TEXT_MIN * 25.4).toFixed(1)}mm.`;

@@ -16,12 +16,12 @@ ASP.NET Core maps nested JSON keys to env vars using **double underscores** (`__
 | `BookPayment:PerPagePriceCents` | `BookPayment__PerPagePriceCents` |
 | `BookPayment:MinimumChargeCents` | `BookPayment__MinimumChargeCents` |
 | `BookPayment:MaximumChargeCents` | `BookPayment__MaximumChargeCents` |
-| `PrintReadyCover:WhitePaperSpineInchesPerPage` | `PrintReadyCover__WhitePaperSpineInchesPerPage` |
-| `PrintReadyCover:CreamPaperSpineInchesPerPage` | `PrintReadyCover__CreamPaperSpineInchesPerPage` |
-| `PrintReadyCover:ColorPaperSpineInchesPerPage` | `PrintReadyCover__ColorPaperSpineInchesPerPage` |
-| `PrintReadyCover:BleedInches` | `PrintReadyCover__BleedInches` |
-| `PrintReadyCover:DefaultTrimWidthInches` | `PrintReadyCover__DefaultTrimWidthInches` |
-| `PrintReadyCover:DefaultTrimHeightInches` | `PrintReadyCover__DefaultTrimHeightInches` |
+| `KdpSpecs:BleedIn` | `KdpSpecs__BleedIn` |
+| `KdpSpecs:Dpi` | `KdpSpecs__Dpi` |
+| `KdpSpecs:Paperback:MinPages` | `KdpSpecs__Paperback__MinPages` |
+| `KdpSpecs:Paperback:MaxPages` | `KdpSpecs__Paperback__MaxPages` |
+| `KdpSpecs:Hardcover:WrapAllowancePerEdgeIn` | `KdpSpecs__Hardcover__WrapAllowancePerEdgeIn` |
+| `Puppeteer:ExecutablePath` | `Puppeteer__ExecutablePath` |
 | `Authentication:Google:ClientId` | `Authentication__Google__ClientId` |
 | `Authentication:Google:ClientSecret` | `Authentication__Google__ClientSecret` |
 | `Authentication:Facebook:AppId` | `Authentication__Facebook__AppId` |
@@ -64,12 +64,10 @@ See `.do/app.yaml` for a starter spec (update `github.repo`, `source_dir`, and `
    BookPayment__PerPagePriceCents=12
    BookPayment__MinimumChargeCents=999
    BookPayment__MaximumChargeCents=99999
-   PrintReadyCover__WhitePaperSpineInchesPerPage=0.002252
-   PrintReadyCover__CreamPaperSpineInchesPerPage=0.0025
-   PrintReadyCover__ColorPaperSpineInchesPerPage=0.002347
-   PrintReadyCover__BleedInches=0.125
-   PrintReadyCover__DefaultTrimWidthInches=6.0
-   PrintReadyCover__DefaultTrimHeightInches=9.0
+   # All KDP numeric constants live under KdpSpecs (see appsettings.json). Override as needed:
+   # KdpSpecs__BleedIn=0.125
+   # KdpSpecs__Paperback__MaxPages=828
+   Puppeteer__ExecutablePath=
    ConnectionStrings__DefaultConnection=...
    Authentication__Google__ClientId=...
    Authentication__Google__ClientSecret=...
@@ -105,3 +103,36 @@ If a key was ever exposed in chat or committed artifacts, **rotate it on the Fas
 ## Smoke tests
 
 Use `smoke-tests.http` in this folder (REST Client / VS Code) or run the equivalent `curl` commands against your FastAPI base URL with header `X-API-Key: <key>`.
+
+## Publishing pipeline — Chromium PDF + fonts
+
+Interior print PDF uses **PuppeteerSharp** (headless Chromium), not Playwright. On first run the app downloads Chromium automatically unless you set `Puppeteer__ExecutablePath` to an existing Chrome/Chromium binary.
+
+```bash
+# Optional: pin a system Chromium instead of the downloaded browser
+# Puppeteer__ExecutablePath=/usr/bin/chromium-browser
+```
+
+Linux font packages recommended for print-safe embedding and folio overlays:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  fonts-liberation fonts-dejavu-core fonts-freefont-ttf \
+  fonts-noto-core fonts-crosextra-carlito fonts-crosextra-caladea
+```
+
+Host print-safe TTFs under `wwwroot/fonts/` so `@font-face` and PDFsharp folio stamps can embed them.
+
+Apply EF migrations before serving:
+
+```bash
+dotnet ef database update --project newEbook.csproj
+```
+
+EPUBCheck (optional local validation of exported EPUB 3):
+
+```bash
+# https://github.com/w3c/epubcheck/releases
+java -jar epubcheck.jar path/to/book.epub
+```

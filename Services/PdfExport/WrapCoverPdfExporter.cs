@@ -12,18 +12,18 @@ public static class WrapCoverPdfExporter
     /// <summary>
     /// Builds a one-page PDF from wrap image bytes. Uses <paramref name="dpi"/> (default 300).
     /// </summary>
-    public static byte[] ToSinglePagePdf(byte[] imageBytes, int dpi = KdpConstants.Dpi)
+    public static byte[] ToSinglePagePdf(byte[] imageBytes, int? dpi = null)
     {
         ArgumentNullException.ThrowIfNull(imageBytes);
         if (imageBytes.Length == 0)
             throw new ArgumentException("Wrap image bytes are required.", nameof(imageBytes));
-        if (dpi <= 0) dpi = KdpConstants.Dpi;
+        var resolvedDpi = dpi is > 0 ? dpi.Value : KdpConstants.Dpi;
 
         using var imageStream = new MemoryStream(imageBytes, writable: false);
         using var image = XImage.FromStream(imageStream);
 
-        var widthIn = image.PixelWidth / (double)dpi;
-        var heightIn = image.PixelHeight / (double)dpi;
+        var widthIn = image.PixelWidth / (double)resolvedDpi;
+        var heightIn = image.PixelHeight / (double)resolvedDpi;
 
         using var doc = new PdfDocument();
         doc.Info.Title = "KDP Full Cover Wrap";

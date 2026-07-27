@@ -1670,7 +1670,8 @@
 
     function queuePrintWrapGeneration(forceRebuild) {
         var pageCount = resolvePublishPageCount(pbEstimatedPages > 0 ? pbEstimatedPages : getLocalFormatterPageCount(bookId));
-        if (pageCount > 0 && pageCount < 24) pageCount = 24;
+        var minP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.min) || 24;
+        if (pageCount > 0 && pageCount < minP) pageCount = minP;
         return fetch('/Dashboard/GeneratePrintReadyWrapFromFront', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -2143,21 +2144,23 @@
     }
 
     function getLocalFormatterPageCount(bid) {
+        var maxP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.max) || 828;
         if (!bid || bid <= 0) return 0;
         try {
             var raw = localStorage.getItem('formatter_draft_v2_' + bid);
             if (!raw) return 0;
             var st = JSON.parse(raw);
             var n = parseInt(st.previewPageCount, 10);
-            return (Number.isFinite(n) && n > 0) ? Math.min(828, n) : 0;
+            return (Number.isFinite(n) && n > 0) ? Math.min(maxP, n) : 0;
         } catch (e) { return 0; }
     }
 
     function resolvePublishPageCount(assetsPageCount) {
+        var maxP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.max) || 828;
         var pages = parseInt(assetsPageCount, 10);
-        if (Number.isFinite(pages) && pages > 0) return Math.min(828, pages);
+        if (Number.isFinite(pages) && pages > 0) return Math.min(maxP, pages);
         pages = parseInt(pbEstimatedPages, 10);
-        if (Number.isFinite(pages) && pages > 0) return Math.min(828, pages);
+        if (Number.isFinite(pages) && pages > 0) return Math.min(maxP, pages);
         pages = getLocalFormatterPageCount(bookId);
         if (Number.isFinite(pages) && pages > 0) return pages;
         return 0;

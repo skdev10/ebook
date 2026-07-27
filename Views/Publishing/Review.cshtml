@@ -1,0 +1,37 @@
+@model EBookDashboard.Models.Project
+@{
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    ViewData["Title"] = "Review import";
+    var version = ViewBag.Version as EBookDashboard.Models.ManuscriptVersion;
+    var sections = version?.Sections?.OrderBy(s => s.OrderIndex).ToList() ?? new List<EBookDashboard.Models.BookSection>();
+    var chapters = sections.Count(s => s.SectionKind is EBookDashboard.Models.SectionKind.Chapter or EBookDashboard.Models.SectionKind.Section);
+    var words = sections.Sum(s => (s.ContentHtml ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length);
+    var images = sections.Sum(s => (s.ContentHtml ?? "").Split("<img", StringSplitOptions.None).Length - 1);
+}
+<div class="px-4 sm:px-6 py-6 max-w-5xl mx-auto">
+    @await Html.PartialAsync("_RecommendedFlowSidebar", Model)
+    <h1 class="font-serif text-3xl text-gray-900 mb-2">Review your book structure</h1>
+    <p class="text-gray-600 mb-4">Check chapters and fix any wrong labels. Then continue to page setup.</p>
+    <div class="grid grid-cols-3 gap-3 mb-6">
+        <div class="rounded-xl border border-gray-200 bg-white p-4"><p class="text-xs text-gray-500">Chapters</p><p class="text-2xl font-semibold">@chapters</p></div>
+        <div class="rounded-xl border border-gray-200 bg-white p-4"><p class="text-xs text-gray-500">Words (approx.)</p><p class="text-2xl font-semibold">@words</p></div>
+        <div class="rounded-xl border border-gray-200 bg-white p-4"><p class="text-xs text-gray-500">Images</p><p class="text-2xl font-semibold">@images</p></div>
+    </div>
+    <ul class="space-y-2 mb-6">
+        @foreach (var s in sections)
+        {
+            <li class="rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-center justify-between gap-3">
+                <div>
+                    <span class="text-[10px] uppercase font-bold tracking-wide text-gray-400">@s.MatterType</span>
+                    <p class="font-medium text-gray-900 mb-0">@(s.Title ?? s.SectionKind.ToString())</p>
+                </div>
+                <span class="text-xs text-gray-500">@s.SectionKind</span>
+            </li>
+        }
+    </ul>
+    <div class="flex flex-wrap gap-3">
+        <a href="/Publishing/Workspace/@Model.Id?step=type" class="inline-flex items-center gap-2 bg-violet-700 text-white px-6 py-2.5 rounded-full font-semibold text-sm">Continue to project type</a>
+        <button type="button" class="pub-export-btn inline-flex items-center gap-2 border border-gray-200 bg-white px-5 py-2 rounded-full text-sm font-semibold" data-project-id="@Model.Id">Download Book</button>
+    </div>
+</div>
+<script src="~/js/publishing-workspace.js" asp-append-version="true"></script>

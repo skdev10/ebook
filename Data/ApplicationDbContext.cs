@@ -57,6 +57,15 @@ namespace EBookDashboard.Models
         public DbSet<Settings> Settings { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<BookStateTransition> BookStateTransitions { get; set; }
+
+        // KDP publishing pipeline (extends existing Books model; does not replace it)
+        public DbSet<Project> Projects { get; set; }
+        public DbSet<ManuscriptVersion> ManuscriptVersions { get; set; }
+        public DbSet<BookSection> BookSections { get; set; }
+        public DbSet<LayoutProfile> LayoutProfiles { get; set; }
+        public DbSet<CoverProject> CoverProjects { get; set; }
+        public DbSet<ExportJob> ExportJobs { get; set; }
+
         public object? AuthorPlanFeatures { get; internal set; }
 
         /// <summary>When true, lifecycle interceptor does not queue book/subscription side-effects (avoids re-entrancy).</summary>
@@ -216,6 +225,64 @@ namespace EBookDashboard.Models
                 .Property(s => s.Value)
                 .HasColumnType("longtext");
 
+            ConfigurePublishingModel(modelBuilder);
+        }
+
+        private static void ConfigurePublishingModel(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Project>(e =>
+            {
+                e.HasIndex(x => x.UserId);
+                e.Property(x => x.TrimWidthIn).HasPrecision(10, 4);
+                e.Property(x => x.TrimHeightIn).HasPrecision(10, 4);
+                e.HasMany(x => x.ManuscriptVersions).WithOne(x => x.Project!).HasForeignKey(x => x.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.LayoutProfiles).WithOne(x => x.Project!).HasForeignKey(x => x.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.CoverProjects).WithOne(x => x.Project!).HasForeignKey(x => x.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasMany(x => x.ExportJobs).WithOne(x => x.Project!).HasForeignKey(x => x.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ManuscriptVersion>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectId, x.VersionNumber }).IsUnique();
+                e.HasIndex(x => new { x.ProjectId, x.IsActive });
+                e.HasMany(x => x.Sections).WithOne(x => x.ManuscriptVersion!).HasForeignKey(x => x.ManuscriptVersionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<BookSection>(e =>
+            {
+                e.HasIndex(x => new { x.ManuscriptVersionId, x.OrderIndex });
+                e.HasOne(x => x.ParentSection).WithMany(x => x.ChildSections)
+                    .HasForeignKey(x => x.ParentSectionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<LayoutProfile>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectId, x.IsEbookProfile }).IsUnique();
+                e.Property(x => x.MarginTopIn).HasPrecision(10, 4);
+                e.Property(x => x.MarginBottomIn).HasPrecision(10, 4);
+                e.Property(x => x.MarginOutsideIn).HasPrecision(10, 4);
+                e.Property(x => x.MarginInsideIn).HasPrecision(10, 4);
+                e.Property(x => x.FirstLineIndentIn).HasPrecision(10, 4);
+            });
+
+            modelBuilder.Entity<CoverProject>(e =>
+            {
+                e.HasIndex(x => x.ProjectId);
+                e.Property(x => x.ComputedSpineWidthIn).HasPrecision(10, 4);
+                e.Property(x => x.ComputedTotalWidthIn).HasPrecision(10, 4);
+                e.Property(x => x.ComputedTotalHeightIn).HasPrecision(10, 4);
+            });
+
+            modelBuilder.Entity<ExportJob>(e =>
+            {
+                e.HasIndex(x => new { x.ProjectId, x.Status });
+            });
         }
 
         /// <summary>

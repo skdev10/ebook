@@ -1,0 +1,48 @@
+@model EBookDashboard.Models.Project
+@{
+    var step = (string)(ViewBag.Step ?? "type");
+    var active = step switch
+    {
+        "upload" => "upload",
+        "type" => "type",
+        "trim" => "trim",
+        "typography" => "typography",
+        "cover" => "cover",
+        "preview" => "preview",
+        "export" => "export",
+        "pages" => "preview",
+        _ => step
+    };
+    var hasMs = Model.ManuscriptVersions.Any(v => v.IsActive) || Model.ManuscriptVersions.Any();
+    var hasCover = Model.CoverProjects.Any();
+    var hasPages = Model.PageCount > 0;
+    string Icon(string key, bool done, bool warn) =>
+        done ? "text-green-600 fas fa-check-circle" : warn ? "text-amber-500 fas fa-exclamation-circle" : "text-gray-300 fas fa-circle";
+}
+<aside class="mb-6 rounded-2xl border border-gray-200 bg-white p-4">
+    <p class="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Recommended flow</p>
+    <nav class="flex flex-wrap gap-2 text-sm">
+        @{
+            var steps = new (string Key, string Label, bool Done, bool Warn)[] {
+                ("upload", "Upload", hasMs, !hasMs),
+                ("type", "Project type", true, false),
+                ("trim", "Trim & margins", true, false),
+                ("typography", "Typography", true, false),
+                ("cover", "Cover", hasCover, !hasCover),
+                ("preview", "Preview", hasPages, !hasPages),
+                ("export", "Export", Model.ExportJobs.Any(j => j.Status == EBookDashboard.Models.ExportJobStatus.Succeeded), false)
+            };
+        }
+        @foreach (var s in steps)
+        {
+            var isActive = active == s.Key;
+            <a href="/Publishing/Workspace/@Model.Id?step=@s.Key"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border @(isActive ? "border-violet-400 bg-violet-50 text-violet-900" : "border-gray-200 text-gray-700 hover:bg-gray-50")"
+               title="@(s.Warn ? "Incomplete — you can still continue" : "")">
+                <i class="@Icon(s.Key, s.Done && !s.Warn, s.Warn)"></i>
+                <span>@s.Label</span>
+            </a>
+        }
+    </nav>
+    <p class="text-xs text-gray-500 mt-3 mb-0">Every step is optional to visit in any order. Yellow means incomplete but fine. Nothing is blocked.</p>
+</aside>

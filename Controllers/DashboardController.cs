@@ -3007,7 +3007,7 @@ namespace EBookDashboard.Controllers
         /// <summary>Preview page count saved from Book Formatting (printReadyPageCount or formattingDraft).</summary>
         private async Task<int> ResolvePrintReadyPageCountAsync(int bookId, CancellationToken cancellationToken = default)
         {
-            const int max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+            var max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
 
             var pageKey = $"book:{bookId}:printReadyPageCount";
             var saved = await _context.Settings.AsNoTracking()
@@ -3027,7 +3027,7 @@ namespace EBookDashboard.Controllers
 
         private static int TryParsePreviewPageCountFromDraft(string? draftJson)
         {
-            const int max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+            var max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
             if (string.IsNullOrWhiteSpace(draftJson)) return 0;
             try
             {

@@ -1,27 +1,35 @@
+using EBookDashboard.Configuration;
 using EBookDashboard.Models;
 
 namespace EBookDashboard.Services;
 
+/// <summary>
+/// Convenience accessors over <see cref="KdpSpecsAccessor.Current"/>.
+/// Numeric values live only in the KdpSpecs configuration section.
+/// </summary>
 public static class KdpConstants
 {
-    public const int Dpi = 300;
-    public const double Bleed = 0.125;
-    public const int SpineTextMinPages = 79;
+    private static KdpSpecs S => KdpSpecsAccessor.Current;
 
-    public const double HardcoverWrap = 0.591;
-    public const double HardcoverHinge = 0.394;
-    public const double HardcoverHeightExtra = 0.236;
-    public const double HardcoverThickness = 0.002347;
+    public static int Dpi => S.Dpi;
+    public static double Bleed => S.BleedIn;
+    public static double SafeFromTrim => S.SafeFromTrimIn;
+    public static double SpineSafe => S.SpineTextMinWidthIn;
 
-    public const double SafeFromTrim = 0.25;
-    public const double SpineSafe = 0.0625;
+    /// <summary>Legacy name — prefer spine-width check via <see cref="KdpCalculationService.IsSpineTextAdvisable"/>.</summary>
+    public static int SpineTextMinPages => 0;
 
-    public static readonly IReadOnlyDictionary<PaperType, double> PaperThickness =
+    public static double HardcoverWrap => S.Hardcover.WrapAllowancePerEdgeIn;
+    public static double HardcoverHinge => 0;
+    public static double HardcoverHeightExtra => 0;
+    public static double HardcoverThickness => S.PaperThicknessInPerPage.White;
+
+    public static IReadOnlyDictionary<PaperType, double> PaperThickness =>
         new Dictionary<PaperType, double>
         {
-            { PaperType.White, 0.002252 },
-            { PaperType.Cream, 0.0025 },
-            { PaperType.PremiumColor, 0.002347 },
-            { PaperType.StandardColor, 0.002252 },
+            { PaperType.White, S.PaperThicknessInPerPage.White },
+            { PaperType.Cream, S.PaperThicknessInPerPage.Cream },
+            { PaperType.PremiumColor, S.PaperThicknessInPerPage.PremiumColor },
+            { PaperType.StandardColor, S.PaperThicknessInPerPage.StandardColor },
         };
 }
