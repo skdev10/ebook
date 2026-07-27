@@ -132,6 +132,43 @@
     #covPreviewShell.cov-style-cartoon { background: linear-gradient(135deg, #FFE566, #FF6B9D); border: 6px solid #333; border-radius: 12px; }
     #covPreviewShell.cov-style-cartoon #covPreviewTitle { font-family: 'Fredoka One', 'Baloo 2', cursive; font-weight: 400; color: #1A1A1A; text-shadow: 3px 3px 0px rgba(0,0,0,0.3); }
     #covPreviewShell.cov-style-cartoon #covPreviewAuthor { font-family: 'Fredoka One', 'Baloo 2', cursive; color: #1A1A1A; text-shadow: 2px 2px 0px rgba(0,0,0,0.25); }
+    /* Print / eBook format toggle (Cover Design) */
+    .cov-format-seg {
+        display: flex;
+        gap: 0.4rem;
+        padding: 0.3rem;
+        border-radius: 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+    .cov-format-seg__btn {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0.65rem 0.75rem;
+        border-radius: 11px;
+        font-size: 0.8125rem;
+        font-weight: 650;
+        color: #64748b;
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+    .cov-format-seg__btn:hover { color: #5b21b6; background: #fff; border-color: #ddd6fe; }
+    .cov-format-seg__btn.is-active {
+        color: #fff;
+        background: #7c3aed;
+        border-color: #7c3aed;
+        box-shadow: 0 4px 12px -4px rgba(124, 58, 237, 0.45);
+    }
+    .cov-format-seg__btn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.35); }
+    .cov-format-hint { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; margin: 0.45rem 0 0; }
+    #btnGenerate:disabled,
+    #btnRegenerate:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        box-shadow: none;
+    }
     /* Print / eBook target tabs + size lock (both 2:3). */
     .cov-target-tabs { display: flex; gap: 0.5rem; }
     .cov-target-tab { padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
@@ -410,6 +447,16 @@
                         <option value="0">No book attached — design freely</option>
                     </select>
                 </div>
+
+                <div class="mb-3" data-guided-tour="cov-format" id="covFormatBlock">
+                    <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book format</label>
+                    <div id="covFormatSeg" class="cov-format-seg" role="radiogroup" aria-label="Book format">
+                        <button type="button" class="cov-format-seg__btn" role="radio" aria-checked="false" data-format="Ebook" id="covFmtEbook">eBook</button>
+                        <button type="button" class="cov-format-seg__btn is-active" role="radio" aria-checked="true" data-format="Paperback" id="covFmtPaperback">Paperback</button>
+                    </div>
+                    <p id="covFormatHint" class="cov-format-hint">eBook = front cover only. Paperback = full wrap (back + spine + front).</p>
+                </div>
+
                 <div class="flex flex-col gap-3" data-guided-tour="cov-fields">
                 <div>
                     <label class="block text-sm text-slate-600 mb-1.5 font-medium">Book Title</label>
@@ -464,32 +511,19 @@
                                 </div>
                                 <p id="covRefSummary" class="text-xs text-slate-600 mb-1 leading-snug"></p>
                                 <div id="covRefSwatches" class="flex items-center gap-1.5" aria-hidden="true"></div>
-                                <p class="text-[11px] text-slate-400 mt-1 mb-0">The AI will match this palette and mood when you click Generate Cover.</p>
+                                <p class="text-[11px] text-slate-400 mt-1 mb-0">The AI will match this palette and mood when you click Generate Full Cover.</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="cov-image-direction-shell border border-slate-200 rounded-[20px] p-1.5 flex flex-col focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200 bg-white">
                     <textarea id="imageDirection" rows="10" placeholder="Example: Warm twilight over a quiet city skyline, deep indigo and amber, lone figure in silhouette, cinematic depth—no text on the image, no cluttered collage…" class="cov-image-direction-textarea w-full px-4 py-4 text-base text-slate-800 outline-none resize-none bg-slate-50/40 focus:bg-white transition-colors"></textarea>
-                    <div class="bg-slate-50 rounded-[14px] flex flex-wrap justify-end items-center p-2.5 mt-1 border border-slate-100/90 gap-2">
-                        @* <button type="button" id="btnEditCover" class="cov-action-icon-btn cov-action-icon-btn--muted" title="Edit cover — apply Image Direction to current cover" aria-label="Edit cover">
-                            <i data-lucide="pencil" class="w-5 h-5" stroke-width="2"></i>
-                        </button> *@
-                        <button type="button" id="btnRegenerate" class="hidden inline-flex items-center gap-2 rounded-full bg-white text-violet-700 border border-violet-200 px-5 py-2.5 text-sm font-semibold shadow-sm hover:bg-violet-50 transition-colors" title="Regenerate — create a fresh cover with the current fields">
-                            <i data-lucide="refresh-cw" class="w-4 h-4" stroke-width="1.75"></i>
-                            Regenerate Cover
-                        </button>
-                        <button type="button" id="btnGenerate" class="inline-flex items-center gap-2 rounded-full bg-violet-600 text-white px-5 py-2.5 text-sm font-semibold shadow-md shadow-violet-500/30 hover:bg-violet-700 transition-colors">
-                            <i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i>
-                            Generate Cover
-                        </button>
-                    </div>
                 </div>
             </div>
 
             <div data-guided-tour="cov-back-summary" id="covBackSummaryBlock">
-                <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Back cover summary</h2>
-                <p class="text-sm text-slate-500 mb-2 leading-snug">Description printed on the back panel of paperback/hardcover wraps. Not shown on ebook front covers.</p>
+                <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Book Summary</h2>
+                <p id="covBackSummaryIntro" class="text-sm text-slate-500 mb-2 leading-snug">Used on the paperback back cover. For eBook it is optional.</p>
                 <div class="border border-slate-200 rounded-[20px] p-1.5 bg-white focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200">
                     <textarea id="backCoverSummary" rows="6" maxlength="4000" placeholder="A short synopsis for the back cover — mood, stakes, and why readers should open the book…" class="w-full px-4 py-3 text-base text-slate-800 outline-none resize-y bg-slate-50/40 focus:bg-white transition-colors rounded-[14px] min-h-[7rem]"></textarea>
                     <div class="flex flex-wrap items-center justify-between gap-2 px-2.5 py-2">
@@ -499,7 +533,19 @@
                 </div>
             </div>
 
-            <a href="#" id="btnGoToPublish" class="mt-1 w-full rounded-[14px] bg-violet-700 text-white py-3 text-sm font-semibold shadow-md shadow-violet-500/20 hover:bg-violet-800 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book" aria-disabled="true" style="pointer-events:none;opacity:0.5">
+            <div class="mt-3 flex flex-col gap-2" data-guided-tour="cov-generate">
+                <button type="button" id="btnGenerate" class="inline-flex items-center justify-center gap-2 w-full rounded-[14px] bg-violet-600 text-white px-5 py-3.5 text-sm font-semibold shadow-md shadow-violet-500/30 hover:bg-violet-700 transition-colors" disabled title="Fill title, format, image direction (and summary for paperback)">
+                    <i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i>
+                    Generate Full Cover
+                </button>
+                <button type="button" id="btnRegenerate" class="hidden inline-flex items-center justify-center gap-2 w-full rounded-[14px] bg-white text-violet-700 border-2 border-violet-200 px-5 py-3 text-sm font-semibold hover:bg-violet-50 transition-colors" title="Regenerate — create a fresh cover with the current fields">
+                    <i data-lucide="refresh-cw" class="w-4 h-4" stroke-width="1.75"></i>
+                    Regenerate Full Cover
+                </button>
+                <p id="covGenerateHint" class="text-[11px] text-slate-400 leading-snug mb-0">eBook generates the front cover. Paperback builds front + full wrap (back, spine, front).</p>
+            </div>
+
+            <a href="#" id="btnGoToPublish" class="mt-3 w-full rounded-[14px] bg-violet-700 text-white py-3 text-sm font-semibold shadow-md shadow-violet-500/20 hover:bg-violet-800 transition-all flex items-center justify-center gap-2 no-underline" data-guided-tour="cov-publish" title="Open Publish with this same book" aria-disabled="true" style="pointer-events:none;opacity:0.5">
                 <i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i>
                 Continue to Publish
             </a>
@@ -693,14 +739,125 @@
     var MAX_HISTORY = 3;
     var hasAiCoverThisSession = false;
     var bookPublishingPlatform = '';
-    var bookPublishFormat = '';
+    var bookPublishFormat = 'Paperback';
+
+    function normalizePublishFormat(fmt) {
+        fmt = (fmt || '').trim();
+        if (!fmt) return '';
+        if (/^print$/i.test(fmt)) return 'Paperback';
+        if (/^e-?books?$/i.test(fmt)) return 'Ebook';
+        if (/^paperback$/i.test(fmt)) return 'Paperback';
+        if (/^both$/i.test(fmt)) return 'Both';
+        return fmt;
+    }
+
+    function formatSegUiValue(fmt) {
+        fmt = normalizePublishFormat(fmt);
+        return (fmt === 'Ebook') ? 'Ebook' : 'Paperback';
+    }
 
     function needsPrintWrapAutoBuild() {
-        return bookPublishFormat === 'Paperback'
-            || bookPublishFormat === 'Both'
+        var fmt = normalizePublishFormat(bookPublishFormat);
+        return fmt === 'Paperback'
+            || fmt === 'Both'
             || coverType === 'both'
             || coverType === 'paperback'
             || coverType === 'print';
+    }
+
+    function syncFormatSegUi() {
+        var ui = formatSegUiValue(bookPublishFormat || 'Paperback');
+        var seg = document.getElementById('covFormatSeg');
+        if (seg) {
+            seg.querySelectorAll('.cov-format-seg__btn').forEach(function (btn) {
+                var on = (btn.getAttribute('data-format') || '') === ui;
+                btn.classList.toggle('is-active', on);
+                btn.setAttribute('aria-checked', on ? 'true' : 'false');
+            });
+        }
+        var hint = document.getElementById('covFormatHint');
+        if (hint) {
+            hint.textContent = ui === 'Ebook'
+                ? 'eBook = front cover only. Continue to Publish when the front looks right.'
+                : 'Paperback = full wrap (back + spine + front). Generate builds front, then the wrap.';
+        }
+        var intro = document.getElementById('covBackSummaryIntro');
+        if (intro) {
+            intro.textContent = ui === 'Ebook'
+                ? 'Optional for eBook. Still useful if you later switch to paperback.'
+                : 'Required for paperback — printed on the back panel of the full wrap.';
+        }
+        var genHint = document.getElementById('covGenerateHint');
+        if (genHint) {
+            genHint.textContent = ui === 'Ebook'
+                ? 'Generates the front cover only for eBook.'
+                : 'Generates the front cover, then builds the full wrap (back, spine, front).';
+        }
+    }
+
+    function persistPublishFormat(fmt) {
+        fmt = normalizePublishFormat(fmt);
+        if (!fmt || !selectedBook || !selectedBook.bookId) return Promise.resolve();
+        return fetch('/Dashboard/SetPublishFormat', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ bookId: selectedBook.bookId, format: fmt })
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (d && d.success && d.format) bookPublishFormat = normalizePublishFormat(d.format);
+            return d;
+        }).catch(function () { return null; });
+    }
+
+    function applyPublishFormat(fmt, opts) {
+        opts = opts || {};
+        var next = normalizePublishFormat(fmt);
+        if (!next) next = 'Paperback';
+        bookPublishFormat = next;
+        syncFormatSegUi();
+        syncPrintWrapUiVisibility();
+        updatePublishGate();
+        updateGenerateGate();
+        if (opts.persist) {
+            // User taps only Ebook | Paperback — persist that choice (Both becomes Paperback if they tap it).
+            var saveAs = opts.userClicked ? formatSegUiValue(next) : next;
+            persistPublishFormat(saveAs);
+        }
+    }
+
+    function canGenerateFullCover() {
+        var titleOk = !!(bookTitle && (bookTitle.value || '').trim());
+        var fmtOk = !!normalizePublishFormat(bookPublishFormat);
+        var dirOk = false;
+        try { dirOk = !!covComposeDescription(); } catch (_) {
+            dirOk = !!(imageDirection && (imageDirection.value || '').trim());
+        }
+        if (!titleOk || !fmtOk || !dirOk) return false;
+        if (needsPrintWrapAutoBuild()) {
+            var sum = (backCoverSummary && backCoverSummary.value || '').trim();
+            if (!sum) return false;
+        }
+        return true;
+    }
+
+    function updateGenerateGate() {
+        if (!btnGenerate && !btnRegenerate) return;
+        var ok = canGenerateFullCover();
+        var busy = previewBusy && !previewBusy.classList.contains('hidden');
+        if (btnGenerate && !busy) {
+            btnGenerate.disabled = !ok;
+            btnGenerate.title = ok
+                ? (needsPrintWrapAutoBuild()
+                    ? 'Generate front cover, then full wrap'
+                    : 'Generate front cover for eBook')
+                : 'Fill title, format, image direction' + (needsPrintWrapAutoBuild() ? ', and book summary' : '');
+        }
+        if (btnRegenerate && !busy) {
+            btnRegenerate.disabled = !ok;
+            btnRegenerate.title = ok
+                ? 'Regenerate a fresh full cover with the current fields'
+                : 'Fill required fields before regenerating';
+        }
     }
 
     /** Saved front cover on disk — required before any full-wrap API call. */
@@ -748,6 +905,7 @@
             if (col) col.classList.remove('cov-show-full-wrap');
             setCovWrapView('front');
         }
+        syncFormatSegUi();
     }
 
     var covWrapBuildInFlight = false;
@@ -1481,9 +1639,7 @@
                             bookPublishingPlatform = (fd.data.publishingPlatform || fd.data.publishingPlatforms || '').trim();
                             var fmt = (fd.data.format || '').trim();
                             if (fmt === 'Print') fmt = 'Paperback';
-                            bookPublishFormat = fmt;
-                            syncPrintWrapUiVisibility();
-                            updatePublishGate();
+                            applyPublishFormat(fmt || 'Paperback', { persist: false });
                             /* Full wrap builds only after front cover generate — not on page load. */
                         }
                     })
@@ -1593,6 +1749,7 @@
                     swatchesEl.appendChild(s);
                 });
             }
+            updateGenerateGate();
         }
 
         function clearReference() {
@@ -1602,6 +1759,7 @@
             if (previewEl) previewEl.classList.add('hidden');
             if (emptyEl) emptyEl.classList.remove('hidden');
             if (block) block.classList.remove('has-image');
+            updateGenerateGate();
         }
 
         pickBtn.addEventListener('click', function () { input.click(); });
@@ -1917,6 +2075,7 @@
         if (btnRegenerate) btnRegenerate.classList.toggle('hidden', !frontReady);
         // After a cover exists, hide "Generate Cover" so only "Regenerate Cover" remains.
         if (btnGenerate) btnGenerate.classList.toggle('hidden', frontReady);
+        updateGenerateGate();
     }
 
     function hideCoverOptionsGrid() {
@@ -2025,9 +2184,12 @@
         setPublishButtonBusy(busy);
         if (busy) {
             btnGenerate.innerHTML = '<span class="inline-flex items-center gap-2"><span class="w-4 h-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin"></span> Generating…</span>';
+            if (btnRegenerate) btnRegenerate.innerHTML = '<span class="inline-flex items-center gap-2"><span class="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></span> Regenerating…</span>';
         } else {
-            btnGenerate.innerHTML = '<i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i> Generate Cover';
+            btnGenerate.innerHTML = '<i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i> Generate Full Cover';
+            if (btnRegenerate) btnRegenerate.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4" stroke-width="1.75"></i> Regenerate Full Cover';
             refreshLucide();
+            updateGenerateGate();
         }
     }
 
@@ -2224,9 +2386,26 @@
             toast('info', 'Attach a book from the dropdown above to generate and save the cover. You can still draft title and image direction without one.');
             return;
         }
+        if (!(bookTitle && (bookTitle.value || '').trim())) {
+            toast('info', 'Add a book title first.');
+            if (bookTitle) bookTitle.focus();
+            return;
+        }
+        if (!normalizePublishFormat(bookPublishFormat)) {
+            toast('info', 'Choose eBook or Paperback.');
+            return;
+        }
+        if (needsPrintWrapAutoBuild()) {
+            var sum = (backCoverSummary && backCoverSummary.value || '').trim();
+            if (!sum) {
+                toast('info', 'Add a Book Summary for the paperback back cover.');
+                if (backCoverSummary) backCoverSummary.focus();
+                return;
+            }
+        }
         var userPrompt = covComposeDescription();
         if (!userPrompt) {
-            toast('info', 'Write your Image Direction or upload a reference image first, then click Generate Cover.');
+            toast('info', 'Write your Image Direction or upload a reference image first, then click Generate Full Cover.');
             if (imageDirection) imageDirection.focus();
             return;
         }
@@ -2475,6 +2654,23 @@
     if (btnEditCover) btnEditCover.addEventListener('click', function () {
         editCoverWithApi();
     });
+
+    (function bindCoverFormatSeg() {
+        var seg = document.getElementById('covFormatSeg');
+        if (!seg) return;
+        seg.addEventListener('click', function (e) {
+            var btn = e.target && e.target.closest ? e.target.closest('.cov-format-seg__btn') : null;
+            if (!btn) return;
+            var fmt = btn.getAttribute('data-format') || '';
+            if (!fmt) return;
+            applyPublishFormat(fmt, { persist: true, userClicked: true });
+            if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
+            if (selectedBook && selectedBook.bookId) {
+                toast('info', fmt === 'Ebook' ? 'Format set to eBook (front cover only).' : 'Format set to Paperback (full wrap).');
+            }
+        });
+        syncFormatSegUi();
+    })();
 
     function loadScriptOnce(src, attrVal) {
         return new Promise(function (resolve, reject) {
@@ -2816,6 +3012,7 @@
         if (!backCoverSummary) return;
         backCoverSummary.addEventListener('input', function () {
             scheduleSaveBackCoverSummary();
+            updateGenerateGate();
             if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         });
         backCoverSummary.addEventListener('change', persistBackCoverSummary);
@@ -2823,6 +3020,7 @@
 
     if (imageDirection) {
         imageDirection.addEventListener('input', function () {
+            updateGenerateGate();
             if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
         });
     }
@@ -2831,10 +3029,12 @@
         el.addEventListener('input', function () {
             if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
             updateLivePreview();
+            updateGenerateGate();
         });
         el.addEventListener('change', function () {
             if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.setDirty();
             updateLivePreview();
+            updateGenerateGate();
         });
     });
     if (window.EbookUnsavedGuard) {
@@ -2896,7 +3096,9 @@
     function boot() {
         // Soft mid-entry: do NOT auto-attach a remembered book when URL has no bookId.
         loadBooks();
+        syncFormatSegUi();
         updatePublishGate();
+        updateGenerateGate();
         syncPrintWrapUiVisibility();
         if (coverType === 'both') {
             if (btnGoToPublish) btnGoToPublish.innerHTML = '<i data-lucide="rocket" class="w-4 h-4" stroke-width="1.75"></i> Continue to Publish with both files';
