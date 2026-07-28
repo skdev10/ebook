@@ -34,6 +34,7 @@
 <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <script src="~/js/book-interior-preview.js" asp-append-version="true"></script>
 <script src="~/js/ai-writer-read-mode.js" asp-append-version="true"></script>
+<script src="~/js/module-export.js" asp-append-version="true"></script>
 @if (ViewBag.InteriorThemeCss is string interiorThemeCss && !string.IsNullOrWhiteSpace(interiorThemeCss))
 {
 <style id="ai-writer-interior-tokens">@Html.Raw(interiorThemeCss.Replace("#book-formatter-root", "#bookResult", StringComparison.Ordinal).Replace("#fmt-book-result", "#bookResult", StringComparison.Ordinal))</style>
@@ -1867,6 +1868,11 @@
                 <input type="hidden" id="APIRawResponse">
 
                 <div class="ai-writer-sticky-actions" data-guided-tour="ai-next-step">
+                    <button type="button" id="btnExportDocs" class="btn-export-docs" disabled title="Select or open a book first">
+                        <i class="fas fa-file-word" aria-hidden="true"></i>
+                        <span>Export Docs</span>
+                    </button>
+                    <span id="writerExportDocsStatus" class="writer-export-docs-status" aria-live="polite"></span>
                     <button type="button" id="btnNextStep" data-guided-flow-only class="btn-book-formatting hidden" style="display:none" disabled title="Select a book first" aria-hidden="true">
                         <span>Book formatting</span>
                         <i class="fas fa-arrow-right text-xs" aria-hidden="true"></i>
@@ -3043,6 +3049,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 window.refreshBookFormattingButton = function (progressData) {
     var btn = document.getElementById('btnNextStep');
+    var exportDocsBtn = document.getElementById('btnExportDocs');
     var bidEl = document.getElementById('BookId');
     var fromField = (bidEl && bidEl.value) ? String(bidEl.value).trim() : '';
     var ddl = document.getElementById('savedResponsesDropdown');
@@ -3051,6 +3058,10 @@ window.refreshBookFormattingButton = function (progressData) {
     var hasGenerated = window.__bookHasGeneratedContent === true;
     var allOk = progressData && progressData.allFinalized === true;
     var guidedOn = window.EbookGuidedFlow && typeof window.EbookGuidedFlow.isActive === 'function' && window.EbookGuidedFlow.isActive();
+    if (exportDocsBtn) {
+        exportDocsBtn.disabled = !hasBook;
+        exportDocsBtn.title = hasBook ? 'Download Word (.docx) draft of this book' : 'Select or open a book first';
+    }
     if (btn) {
         if (!guidedOn) {
             btn.classList.add('hidden');
@@ -4076,6 +4087,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     var nextBtn = document.getElementById('btnNextStep');
+    var exportDocsBtn = document.getElementById('btnExportDocs');
     var savedDdl = document.getElementById('savedResponsesDropdown');
 
     function getCurrentBookId() {
@@ -4085,6 +4097,41 @@ document.addEventListener('DOMContentLoaded', function() {
         var ddl = document.getElementById('savedResponsesDropdown');
         if (ddl && ddl.value && String(ddl.value).trim() !== '0') return String(ddl.value).trim();
         return '';
+    }
+
+    if (exportDocsBtn) {
+        exportDocsBtn.addEventListener('click', async function () {
+            var bid = parseInt(getCurrentBookId() || '0', 10) || 0;
+            var statusEl = document.getElementById('writerExportDocsStatus');
+            function setStatus(msg, ok) {
+                if (!statusEl) return;
+                statusEl.textContent = msg || '';
+                statusEl.style.color = ok === false ? '#b91c1c' : (ok === true ? '#047857' : '#64748b');
+            }
+            if (bid <= 0) {
+                setStatus('Open or create a book first.', false);
+                if (typeof showNotification === 'function') showNotification('Open or create a book first.', 'error');
+                return;
+            }
+            exportDocsBtn.disabled = true;
+            setStatus('Preparing Word document…', null);
+            try {
+                if (!window.ModuleExport || typeof window.ModuleExport.run !== 'function') {
+                    setStatus('Export module not loaded. Refresh the page.', false);
+                    return;
+                }
+                await window.ModuleExport.run({
+                    bookId: bid,
+                    draftFormat: 'Docx',
+                    status: setStatus
+                });
+            } catch (err) {
+                setStatus('Export failed. Try again.', false);
+            } finally {
+                if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+                else exportDocsBtn.disabled = false;
+            }
+        });
     }
     function navigateToBookFormatting(bid, fmt) {
         var url = '/Books/Formatting/' + encodeURIComponent(bid);

@@ -121,6 +121,47 @@
     line-height: 1.4;
 }
 
+.btn-export-docs {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    line-height: 1.25;
+    padding: 0.875rem 1.25rem;
+    border-radius: 0.75rem;
+    border: none;
+    cursor: pointer;
+    background: #5b21b6;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(91, 33, 182, 0.22);
+    transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-export-docs:hover:not(:disabled) {
+    background: #6d28d9;
+    box-shadow: 0 6px 18px rgba(109, 40, 217, 0.28);
+}
+.btn-export-docs:active:not(:disabled) {
+    transform: scale(0.99);
+}
+.btn-export-docs:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+    box-shadow: none;
+    background: #a78bfa;
+}
+.writer-export-docs-status {
+    display: block;
+    width: 100%;
+    font-size: 0.72rem;
+    color: #64748b;
+    min-height: 1em;
+    margin: 0.2rem 0 0.35rem;
+    text-align: center;
+}
+
 .chapter-index-item.is-current {
     font-weight: 600;
     color: #5b21b6;

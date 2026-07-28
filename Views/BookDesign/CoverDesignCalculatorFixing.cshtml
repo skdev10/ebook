@@ -1404,8 +1404,8 @@
     }
     #fmt-studio-stage .reader-page-title {
         text-align: left;
-        padding-left: 0;
-        padding-right: 0;
+        padding-left: 0.15em;
+        padding-right: 0.15em;
     }
     #fmt-studio-stage .reader-content-wrap.interior-classic .classic-chapter-label,
     #fmt-studio-stage .reader-content-wrap.interior-classic .classic-chapter-title {
@@ -1724,7 +1724,7 @@
     #fmt-book-result #preview-content.chapter-preview-viewport.book-page-preview-content:has(.fmt-page-sheet),
     #book-formatter-root #preview-content.book-page-preview-content:has(.fmt-page-sheet),
     #book-formatter-root[data-spread="0"] #preview-content.book-page-preview-content {
-        padding: clamp(0.85rem, 3.2%, 1.35rem) clamp(0.95rem, 4%, 1.45rem) clamp(0.65rem, 2.5%, 1rem) !important;
+        padding: clamp(1.05rem, 3.8%, 1.65rem) clamp(1.2rem, 5%, 1.85rem) clamp(0.85rem, 3%, 1.25rem) !important;
         background: transparent !important;
         background-image: none !important;
         height: 100% !important;
@@ -2207,7 +2207,7 @@
     #book-formatter-root #preview-content.book-page-preview-content:has(.fmt-page-sheet),
     #book-formatter-root[data-spread="0"] #preview-content.book-page-preview-content {
         /* Ebook single page: fill the paper shell with readable margins */
-        padding: clamp(0.85rem, 3.2%, 1.35rem) clamp(0.95rem, 4%, 1.45rem) clamp(0.65rem, 2.5%, 1rem) !important;
+        padding: clamp(1.05rem, 3.8%, 1.65rem) clamp(1.2rem, 5%, 1.85rem) clamp(0.85rem, 3%, 1.25rem) !important;
         background: transparent !important;
         height: 100% !important;
         box-sizing: border-box !important;
@@ -8684,7 +8684,10 @@
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        padding: clamp(0.4rem, 1vw, 0.65rem) clamp(0.75rem, 1.9vw, 1.2rem) 0.15rem !important;
+        /* Print-like margins: outer edge + gutter so text is not flush to the paper edge */
+        padding: clamp(0.65rem, 1.6vw, 1rem)
+                 clamp(1.05rem, 2.8vw, 1.65rem)
+                 0.35rem !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: clamp(0.78rem, 1.15vw, 0.95rem) !important;
         line-height: 1.58 !important;
@@ -8692,6 +8695,17 @@
         text-align: justify !important;
         hyphens: auto !important;
         word-wrap: break-word !important;
+        box-sizing: border-box !important;
+    }
+    /* Verso (left leaf): more padding on the outer left edge; gutter toward spine */
+    #book-formatter-root .book-open-page--verso .book-open-page-inner {
+        padding-left: clamp(1.15rem, 3.2vw, 1.85rem) !important;
+        padding-right: clamp(1.25rem, 3.4vw, 2rem) !important;
+    }
+    /* Recto (right leaf): gutter from spine; outer right edge inset */
+    #book-formatter-root .book-open-page--recto .book-open-page-inner {
+        padding-left: clamp(1.25rem, 3.4vw, 2rem) !important;
+        padding-right: clamp(1.15rem, 3.2vw, 1.85rem) !important;
     }
     /* In-page folio (page numbers 5 / 6) — must stay visible at bottom of each leaf */
     #book-formatter-root .book-open-folio,
