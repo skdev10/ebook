@@ -18,7 +18,7 @@
     var hasInProgressDrafts = draftBooks.Any() || demoDrafts.Any();
     var primaryDraft = draftBooks.OrderByDescending(d => d.LastEditedAt).FirstOrDefault();
     // Soft modules: never auto-attach a draft book. Writer opens blank; Format goes to upload.
-    var moduleWriterUrl = Url.Action("Writer", "Books") ?? "/Books/Writer";
+    var moduleWriterUrl = (Url.Action("Writer", "Books") ?? "/Books/Writer") + "?guided=1";
     // Classic Formatting studio (same UI as production CoverDesignCalculatorFixing).
     // entry=direct: open module alone — hide Writer→Publish Next/Continue chain.
     var moduleFormatUrl = "/BookDesign/CoverDesignCalculatorFixing?bookId=0&entry=direct";
