@@ -186,9 +186,11 @@ public class ManuscriptExportPrepTests
     public void DashboardLayoutTokens_emits_unified_page_background_and_preview_pane_width()
     {
         var css = DashboardLayoutTokens.BuildCssCustomProperties();
-        Assert.Contains("--dash-page-bg: #f5f7f9", css, StringComparison.Ordinal);
-        Assert.Contains("--dash-preview-pane-w: 68%", css, StringComparison.Ordinal);
-        Assert.Contains("--dash-flow-gap: 2.75rem", css, StringComparison.Ordinal);
+        Assert.Contains("--dash-page-bg: #f5f3ff", css, StringComparison.Ordinal);
+        Assert.Contains("--dash-preview-pane-w: 100%", css, StringComparison.Ordinal);
+        Assert.Contains("--dash-flow-gap: 1rem", css, StringComparison.Ordinal);
+        Assert.Contains("--dash-flow-left: 28%", css, StringComparison.Ordinal);
+        Assert.Contains("--dash-flow-right: 72%", css, StringComparison.Ordinal);
     }
 
     [Theory]

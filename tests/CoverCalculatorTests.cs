@@ -71,8 +71,8 @@ public class CoverCalculatorTests
             PageCount = 200
         });
 
-        // Section 2: (pages/2)*thickness + 0.06
-        var expectedSpine = Math.Round((200 / 2.0) * 0.002252 + 0.06, 4);
+        // Hardcover forces premium-color thickness (0.002347"/page); spine = pages × thickness.
+        var expectedSpine = Math.Round(200 * 0.002347, 4);
         Assert.Equal(expectedSpine, hardcover.SpineWidthInches, 4);
         Assert.True(hardcover.FullCoverWidthInches > paperback.FullCoverWidthInches);
         Assert.True(hardcover.FullCoverHeightInches > paperback.FullCoverHeightInches);
