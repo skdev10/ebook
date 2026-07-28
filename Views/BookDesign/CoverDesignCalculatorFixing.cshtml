@@ -2534,8 +2534,28 @@
                     </div>
 
                     <div class="mt-4 flex flex-col gap-3" data-guided-tour="fmt-actions" id="fmt-actions-panel">
-                        @{ ViewData["ExportPanelId"] = "fmt-inline-exports"; }
-                        @await Html.PartialAsync("_ModuleInlineExports")
+                        <div id="fmt-inline-exports" class="module-inline-exports" role="group" aria-label="Export book">
+                            <button type="button" id="fmt-btn-export-print-pdf" class="mie-btn mie-btn--pdf" title="Download print-ready PDF">
+                                <i class="fas fa-file-pdf" aria-hidden="true"></i>
+                                <span>Export PDF</span>
+                            </button>
+                            <button type="button" id="fmt-btn-export-epub" class="mie-btn mie-btn--epub" title="Download EPUB">
+                                <i class="fas fa-tablet-alt" aria-hidden="true"></i>
+                                <span>Export EPUB</span>
+                            </button>
+                            <span id="fmt-export-status" class="mie-status" aria-live="polite"></span>
+                        </div>
+                        <style>
+                            .module-inline-exports { display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem; width:100%; margin:0 0 0.35rem; }
+                            .mie-btn { flex:1 1 calc(50% - 0.25rem); min-width:7.5rem; display:inline-flex; align-items:center; justify-content:center; gap:0.4rem; border-radius:12px; border:1px solid #c4b5fd; background:#fff; color:#5b21b6; font-size:0.8125rem; font-weight:650; padding:0.65rem 0.85rem; cursor:pointer; transition:background .15s,border-color .15s,color .15s,transform .12s; }
+                            .mie-btn:hover:not(:disabled) { background:#f5f3ff; border-color:#8b5cf6; color:#4c1d95; transform:translateY(-1px); }
+                            .mie-btn:disabled { opacity:.45; cursor:not-allowed; }
+                            .mie-btn--pdf { background:#5b21b6; border-color:#6d28d9; color:#fff; }
+                            .mie-btn--pdf:hover:not(:disabled) { background:#6d28d9; color:#fff; }
+                            .mie-btn--epub { background:#7c3aed; border-color:#8b5cf6; color:#fff; }
+                            .mie-btn--epub:hover:not(:disabled) { background:#8b5cf6; color:#fff; }
+                            .mie-status { flex:1 1 100%; font-size:0.72rem; color:#64748b; min-height:1em; }
+                        </style>
                         <button type="button" id="btn-next-cover" data-guided-flow-only hidden style="display:none" class="formatter-ui-radius w-full border-2 border-violet-300 text-violet-800 hover:bg-violet-50 font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
                             Next: AI Cover Design <i class="fas fa-arrow-right"></i>
                         </button>
@@ -7657,16 +7677,25 @@
             }
             async function runFmtExport(fmt, btn) {
                 var bid = resolveFormatterBookId();
-                if (!bid) { showToast('Select a book first.'); return; }
-                if (!bookChapters.length) { showToast('Add manuscript or chapters before export.'); return; }
+                var statusEl = document.getElementById('fmt-export-status');
+                function setExportStatus(msg, ok) {
+                    if (statusEl) {
+                        statusEl.textContent = msg || '';
+                        statusEl.style.color = ok === false ? '#b91c1c' : (ok === true ? '#047857' : '#64748b');
+                    }
+                    if (msg) setFormatterSaveStatus(msg, ok === false);
+                }
+                if (!bid) { showToast('Select a book first.'); setExportStatus('Select a book first.', false); return; }
+                if (!bookChapters.length) { showToast('Add manuscript or chapters before export.'); setExportStatus('Add chapters first.', false); return; }
                 if (btn) btn.disabled = true;
-                setFormatterSaveStatus('Exporting…', false);
+                setExportStatus('Exporting…', null);
                 try {
                     if (typeof window.fmtFlushFormattingForExport === 'function') {
                         await window.fmtFlushFormattingForExport();
                     }
                     if (!window.ModuleExport || typeof window.ModuleExport.postExport !== 'function') {
                         showToast('Export module not loaded.');
+                        setExportStatus('Export module not loaded.', false);
                         return;
                     }
                     var result = await window.ModuleExport.postExport(
@@ -7674,15 +7703,15 @@
                         readExportPayload(),
                         'book-' + bid + (String(fmt).toLowerCase() === 'epub' ? '.epub' : '-print.pdf'));
                     if (!result.ok) {
-                        setFormatterSaveStatus(result.message || 'Export failed.', true);
+                        setExportStatus(result.message || 'Export failed.', false);
                         showToast(result.message || 'Export failed.');
                     } else {
-                        setFormatterSaveStatus('Download started.', false);
+                        setExportStatus('Download started.', true);
                         showToast('Download started.');
                         if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                     }
                 } catch (err) {
-                    setFormatterSaveStatus('Export failed.', true);
+                    setExportStatus('Export failed.', false);
                     showToast('Export failed.');
                 } finally {
                     if (btn) btn.disabled = false;

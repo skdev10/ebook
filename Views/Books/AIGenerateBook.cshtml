@@ -34,7 +34,6 @@
 <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <script src="~/js/book-interior-preview.js" asp-append-version="true"></script>
 <script src="~/js/ai-writer-read-mode.js" asp-append-version="true"></script>
-<script src="~/js/module-export.js" asp-append-version="true"></script>
 @if (ViewBag.InteriorThemeCss is string interiorThemeCss && !string.IsNullOrWhiteSpace(interiorThemeCss))
 {
 <style id="ai-writer-interior-tokens">@Html.Raw(interiorThemeCss.Replace("#book-formatter-root", "#bookResult", StringComparison.Ordinal).Replace("#fmt-book-result", "#bookResult", StringComparison.Ordinal))</style>
@@ -1868,8 +1867,6 @@
                 <input type="hidden" id="APIRawResponse">
 
                 <div class="ai-writer-sticky-actions" data-guided-tour="ai-next-step">
-                    @{ ViewData["ExportPanelId"] = "writer-inline-exports"; }
-                    @await Html.PartialAsync("_ModuleInlineExports")
                     <button type="button" id="btnNextStep" data-guided-flow-only class="btn-book-formatting hidden" style="display:none" disabled title="Select a book first" aria-hidden="true">
                         <span>Book formatting</span>
                         <i class="fas fa-arrow-right text-xs" aria-hidden="true"></i>
@@ -3046,7 +3043,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
 window.refreshBookFormattingButton = function (progressData) {
     var btn = document.getElementById('btnNextStep');
-    var exportBtns = document.querySelectorAll('.module-inline-exports [data-book-export], #module-quick-actions [data-book-export]');
     var bidEl = document.getElementById('BookId');
     var fromField = (bidEl && bidEl.value) ? String(bidEl.value).trim() : '';
     var ddl = document.getElementById('savedResponsesDropdown');
@@ -3072,9 +3068,6 @@ window.refreshBookFormattingButton = function (progressData) {
                         : 'Open Book formatting'));
         }
     }
-    exportBtns.forEach(function (exportBtn) {
-        exportBtn.disabled = false;
-    });
 };
 
 window.showPreviewEmptyState = function () {
