@@ -1,0 +1,146 @@
+@{
+    // Inline Export PDF + EPUB — place after options on Writer / Formatting / Cover (not top-right dock).
+    var qaBookId = 0;
+    if (ViewBag.FlowBookId is int fb) qaBookId = fb;
+    else if (ViewBag.SelectedBookId is int sb) qaBookId = sb;
+    else if (ViewBag.BookId is int bb) qaBookId = bb;
+    else if (ViewBag.SelectedBookId != null) int.TryParse(ViewBag.SelectedBookId.ToString(), out qaBookId);
+    else if (ViewBag.BookId != null) int.TryParse(ViewBag.BookId.ToString(), out qaBookId);
+    var exportId = ViewData["ExportPanelId"] as string ?? "module-inline-exports";
+}
+<div id="@exportId" class="module-inline-exports" data-book-id="@qaBookId" role="group" aria-label="Export book">
+    <button type="button" class="mie-btn mie-btn--pdf" data-book-export="PrintPdf" title="Download print-ready PDF">
+        <i class="fas fa-file-pdf" aria-hidden="true"></i>
+        <span>Export PDF</span>
+    </button>
+    <button type="button" class="mie-btn mie-btn--epub" data-book-export="Epub" title="Download EPUB">
+        <i class="fas fa-tablet-alt" aria-hidden="true"></i>
+        <span>Export EPUB</span>
+    </button>
+    <span class="mie-status" aria-live="polite"></span>
+</div>
+<style>
+.module-inline-exports {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin: 0 0 0.65rem;
+}
+.mie-btn {
+    flex: 1 1 calc(50% - 0.25rem);
+    min-width: 7.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 12px;
+    border: 1px solid #c4b5fd;
+    background: #fff;
+    color: #5b21b6;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    padding: 0.65rem 0.85rem;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s, transform .12s;
+}
+.mie-btn:hover:not(:disabled) {
+    background: #f5f3ff;
+    border-color: #8b5cf6;
+    color: #4c1d95;
+    transform: translateY(-1px);
+}
+.mie-btn:disabled { opacity: .45; cursor: not-allowed; }
+.mie-btn--pdf {
+    background: #5b21b6;
+    border-color: #6d28d9;
+    color: #fff;
+}
+.mie-btn--pdf:hover:not(:disabled) {
+    background: #6d28d9;
+    color: #fff;
+}
+.mie-btn--epub {
+    background: #7c3aed;
+    border-color: #8b5cf6;
+    color: #fff;
+}
+.mie-btn--epub:hover:not(:disabled) {
+    background: #8b5cf6;
+    color: #fff;
+}
+.mie-status {
+    flex: 1 1 100%;
+    font-size: 0.72rem;
+    color: #64748b;
+    min-height: 1em;
+}
+</style>
+<script src="~/js/module-export.js" asp-append-version="true"></script>
+<script>
+(function () {
+    var root = document.getElementById('@exportId');
+    if (!root || root.dataset.wired === '1') return;
+    root.dataset.wired = '1';
+    var statusEl = root.querySelector('.mie-status');
+    var exportBtns = root.querySelectorAll('[data-book-export]');
+
+    function currentBookId() {
+        var fromRoot = parseInt(root.getAttribute('data-book-id') || '0', 10) || 0;
+        if (fromRoot > 0) return fromRoot;
+        var hid = document.getElementById('BookId') || document.getElementById('selected-book-id');
+        if (hid) {
+            var v = parseInt(hid.value || '0', 10) || 0;
+            if (v > 0) return v;
+        }
+        try {
+            var q = new URLSearchParams(window.location.search).get('bookId');
+            if (q) return parseInt(q, 10) || 0;
+        } catch (e) { /* ignore */ }
+        return 0;
+    }
+
+    function setStatus(msg, ok) {
+        if (!statusEl) return;
+        statusEl.textContent = msg || '';
+        statusEl.style.color = ok === false ? '#b91c1c' : (ok === true ? '#047857' : '#64748b');
+    }
+
+    function syncExportEnabled() {
+        var bid = currentBookId();
+        root.setAttribute('data-book-id', String(bid));
+        exportBtns.forEach(function (b) { b.disabled = false; });
+    }
+
+    async function runExport(btn) {
+        var bid = currentBookId();
+        if (bid <= 0) {
+            setStatus('Open or create a book first.', false);
+            return;
+        }
+        var bookFmt = btn.getAttribute('data-book-export');
+        setStatus('Preparing download…', null);
+        try {
+            if (window.ModuleExport && typeof window.ModuleExport.run === 'function') {
+                await window.ModuleExport.run({
+                    bookId: bid,
+                    bookExport: bookFmt,
+                    draftFormat: null,
+                    status: setStatus
+                });
+            } else {
+                setStatus('Export module not loaded. Refresh the page.', false);
+            }
+        } catch (e) {
+            setStatus('Export failed. Try again.', false);
+        }
+    }
+
+    exportBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () { runExport(btn); });
+    });
+    syncExportEnabled();
+    setInterval(syncExportEnabled, 2000);
+})();
+</script>

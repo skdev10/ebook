@@ -2534,6 +2534,8 @@
                     </div>
 
                     <div class="mt-4 flex flex-col gap-3" data-guided-tour="fmt-actions" id="fmt-actions-panel">
+                        @{ ViewData["ExportPanelId"] = "fmt-inline-exports"; }
+                        @await Html.PartialAsync("_ModuleInlineExports")
                         <button type="button" id="btn-next-cover" data-guided-flow-only hidden style="display:none" class="formatter-ui-radius w-full border-2 border-violet-300 text-violet-800 hover:bg-violet-50 font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
                             Next: AI Cover Design <i class="fas fa-arrow-right"></i>
                         </button>

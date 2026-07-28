@@ -1689,13 +1689,20 @@
         <!-- Left Column: Forms -->
         <div class="ai-writer-sidebar book-preview-layout-sidebar w-full flex flex-col gap-2 shrink-0 min-h-0">
             <section class="flex flex-col gap-3" data-guided-tour="ai-book-picker">
-                @await Html.PartialAsync("_FlowStepper", 1)
+                <div data-guided-flow-only class="hidden" style="display:none">@await Html.PartialAsync("_FlowStepper", 1)</div>
                 <script>
                     (function () {
-                        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.mark === 'function') {
-                            window.EbookGuidedFlow.mark();
+                        if (!window.EbookGuidedFlow) return;
+                        try {
+                            var q = new URLSearchParams(window.location.search || '');
+                            if (q.get('entry') === 'direct' || q.get('guided') === '0') {
+                                window.EbookGuidedFlow.clear();
+                            } else if (q.get('guided') === '1') {
+                                window.EbookGuidedFlow.mark();
+                            }
+                            // Do NOT auto-mark on every Writer open — only Write-new / guided=1 starts the flow.
                             window.EbookGuidedFlow.applyUi();
-                        }
+                        } catch (e) { /* ignore */ }
                     })();
                 </script>
                 <div class="hidden-fields sr-only" aria-hidden="true">
@@ -1861,7 +1868,9 @@
                 <input type="hidden" id="APIRawResponse">
 
                 <div class="ai-writer-sticky-actions" data-guided-tour="ai-next-step">
-                    <button type="button" id="btnNextStep" class="btn-book-formatting" disabled title="Select a book first">
+                    @{ ViewData["ExportPanelId"] = "writer-inline-exports"; }
+                    @await Html.PartialAsync("_ModuleInlineExports")
+                    <button type="button" id="btnNextStep" data-guided-flow-only class="btn-book-formatting hidden" style="display:none" disabled title="Select a book first" aria-hidden="true">
                         <span>Book formatting</span>
                         <i class="fas fa-arrow-right text-xs" aria-hidden="true"></i>
                     </button>
@@ -3037,7 +3046,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 window.refreshBookFormattingButton = function (progressData) {
     var btn = document.getElementById('btnNextStep');
-    var exportBtns = document.querySelectorAll('#module-quick-actions [data-format], #module-quick-actions [data-book-export]');
+    var exportBtns = document.querySelectorAll('.module-inline-exports [data-book-export], #module-quick-actions [data-book-export]');
     var bidEl = document.getElementById('BookId');
     var fromField = (bidEl && bidEl.value) ? String(bidEl.value).trim() : '';
     var ddl = document.getElementById('savedResponsesDropdown');
@@ -3045,19 +3054,26 @@ window.refreshBookFormattingButton = function (progressData) {
     var hasBook = parseInt(fromField || fromDdl || '0', 10) > 0;
     var hasGenerated = window.__bookHasGeneratedContent === true;
     var allOk = progressData && progressData.allFinalized === true;
+    var guidedOn = window.EbookGuidedFlow && typeof window.EbookGuidedFlow.isActive === 'function' && window.EbookGuidedFlow.isActive();
     if (btn) {
-        btn.disabled = !hasBook || !hasGenerated;
-        btn.title = !hasBook
-            ? 'Select a book first'
-            : (!hasGenerated
-                ? 'Generate at least one chapter first — Book Formatting unlocks once your book has content'
-                : (allOk
-                    ? 'Open Book formatting to lock chapters and export PDF'
-                    : 'Open Book formatting'));
+        if (!guidedOn) {
+            btn.classList.add('hidden');
+            btn.style.display = 'none';
+            btn.setAttribute('aria-hidden', 'true');
+            btn.disabled = true;
+        } else {
+            btn.disabled = !hasBook || !hasGenerated;
+            btn.title = !hasBook
+                ? 'Select a book first'
+                : (!hasGenerated
+                    ? 'Generate at least one chapter first — Book Formatting unlocks once your book has content'
+                    : (allOk
+                        ? 'Open Book formatting to lock chapters and export PDF'
+                        : 'Open Book formatting'));
+        }
     }
     exportBtns.forEach(function (exportBtn) {
-        exportBtn.disabled = !hasBook;
-        exportBtn.title = !hasBook ? 'Select a book first' : (exportBtn.getAttribute('title') || 'Export');
+        exportBtn.disabled = false;
     });
 };
 

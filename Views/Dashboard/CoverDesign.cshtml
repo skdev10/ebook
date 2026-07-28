@@ -694,6 +694,8 @@
             </div>
 
             <div class="cov-form-actions">
+            @{ ViewData["ExportPanelId"] = "cover-inline-exports"; }
+            @await Html.PartialAsync("_ModuleInlineExports")
             <div class="mt-1 flex flex-col gap-2" data-guided-tour="cov-generate">
                 <button type="button" id="btnGenerate" class="inline-flex items-center justify-center gap-2 w-full rounded-[14px] bg-violet-600 text-white px-5 py-3.5 text-sm font-semibold shadow-md shadow-violet-500/30 hover:bg-violet-700 transition-colors" disabled title="Fill title, format, image direction (and summary for paperback)">
                     <i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i>
