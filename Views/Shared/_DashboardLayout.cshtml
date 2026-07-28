@@ -1,4 +1,4 @@
-@using Microsoft.EntityFrameworkCore
+﻿@using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Http
 @using EBookDashboard.Services
@@ -84,7 +84,7 @@
     else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
     if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
     if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
-    bool flowSidebarMinimal = false; // Always show Writer / Formatting / Cover — free module navigation
+    bool flowSidebarMinimal = false; // Always show Writer / Formatting / Cover â€” free module navigation
     // Legacy: was true when FlowBookId set, which hid AI Writer from the sidebar on module pages.
 
     int sidebarActiveBookId = flowBookId;
@@ -142,11 +142,30 @@
     }
     else
     {
-        // Book is open on this page — Publish / My Books must not show the "select a book" lock.
+        // Book is open on this page â€” Publish / My Books must not show the "select a book" lock.
         hasGeneratedBook = true;
         publishUnlocked = true;
         if (string.IsNullOrWhiteSpace(sidebarPublishUrl) || sidebarPublishUrl == "/Dashboard")
             sidebarPublishUrl = $"/Dashboard/Publish?bookId={sidebarActiveBookId}";
+    }
+
+    // Direct module entry (sidebar) must not carry the Writerâ†’Publish "Next/Continue" guided flow.
+    string WithDirectEntry(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || url == "#" || url.StartsWith("/Dashboard/SelectBook", StringComparison.OrdinalIgnoreCase))
+            return url;
+        if (url.Equals("/Dashboard", StringComparison.OrdinalIgnoreCase) || url.StartsWith("/Dashboard?", StringComparison.OrdinalIgnoreCase))
+            return url;
+        if (url.Contains("entry=direct", StringComparison.OrdinalIgnoreCase))
+            return url;
+        return url + (url.Contains('?') ? "&" : "?") + "entry=direct";
+    }
+    sidebarFormatUrl = WithDirectEntry(sidebarFormatUrl);
+    sidebarCoverUrl = WithDirectEntry(sidebarCoverUrl);
+    if (!string.IsNullOrWhiteSpace(sidebarPublishUrl)
+        && sidebarPublishUrl.Contains("/Publish", StringComparison.OrdinalIgnoreCase))
+    {
+        sidebarPublishUrl = WithDirectEntry(sidebarPublishUrl);
     }
 
     // Dashboard home: sidebar opens fully expanded by default (other pages keep the hover-rail behavior).
@@ -173,6 +192,7 @@
     <script src="~/js/unsaved-changes-guard.js" asp-append-version="true"></script>
     <script src="~/js/editor-draft-reset.js" asp-append-version="true"></script>
     <script src="~/js/flow-navigation-guard.js" asp-append-version="true"></script>
+    <script src="~/js/ebook-guided-flow.js" asp-append-version="true"></script>
     @{
         var __kdp = EBookDashboard.Configuration.KdpSpecsAccessor.Current;
         var __kdpJson = System.Text.Json.JsonSerializer.Serialize(new {
@@ -230,7 +250,7 @@
         }
 
         :root {
-            --app-page-bg: var(--dash-page-bg, #f5f7f9);
+            --app-page-bg: var(--dash-page-bg, #f5f3ff);
             --dash-sidebar-w: 72px;
             --dash-sidebar-w-expanded: 252px;
             --dash-sidebar-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -260,7 +280,7 @@
             min-height: 100vh;
         }
 
-        /* Left rail: narrow by default; desktop hover expands width over the page (main margin stays 72px — no reflow/shake). */
+        /* Left rail: narrow by default; desktop hover expands width over the page (main margin stays 72px â€” no reflow/shake). */
         .sidebar {
             width: var(--dash-sidebar-w);
             background: #fff;
@@ -405,7 +425,7 @@
             .main-content.main-content-pinned {
                 margin-left: var(--dash-sidebar-w-expanded);
                 width: calc(100% - var(--dash-sidebar-w-expanded));
-                /* Fixed viewport height so the dashboard scrolls inside its own column —
+                /* Fixed viewport height so the dashboard scrolls inside its own column â€”
                    no document scroll, so no empty space above the header while scrolling. */
                 height: 100vh;
                 height: 100dvh;
@@ -475,7 +495,7 @@
             display: block;
         }
 
-        /* Labels: flyout to the right — sidebar width never changes, main margin never changes */
+        /* Labels: flyout to the right â€” sidebar width never changes, main margin never changes */
         .sidebar .nav-text {
             position: absolute;
             left: calc(100% + 10px);
@@ -964,7 +984,7 @@
             pointer-events: none;
         }
 
-        /* Main content: offset by fixed rail — no transition (prevents perceived jump with scrollbar). */
+        /* Main content: offset by fixed rail â€” no transition (prevents perceived jump with scrollbar). */
         .main-content {
             flex: 1;
             padding: 0;
@@ -3536,25 +3556,25 @@
                 @if (!flowSidebarMinimal)
                 {
                 <li>
-                    <a href="@sidebarAiWriterUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "active" : "")">
+                    <a href="@sidebarAiWriterUrl" data-start-guided-flow="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "active" : "")">
                         <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Writer</span>
                     </a>
                 </li>
                 <li>
                     @if (formattingUnlocked) {
-                        <a href="@sidebarFormatUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "active" : "")">
-                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Formatting</span>
+                        <a href="@sidebarFormatUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "active" : "")">
+                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
                         </a>
                     } else {
-                        <a href="/Books/Formatting" class="sidebar-locked-feature" data-locked="Formatting" data-unlock-step="1" data-goto="/Dashboard" title="Select or create a book first">
-                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Formatting</span>
+                        <a href="/Books/Formatting?entry=direct" data-entry-direct="true" class="sidebar-locked-feature" data-locked="Formatting" data-unlock-step="1" data-goto="/Dashboard" title="Select or create a book first">
+                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
                         </a>
                     }
                 </li>
                 
                 <li>
                     @if (coverNavUnlocked || formattingUnlocked) {
-                        <a href="@sidebarCoverUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
+                        <a href="@sidebarCoverUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
                             <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Cover</span>
                         </a>
                     } else {
@@ -3565,7 +3585,7 @@
                 </li>
                 <li>
                     @if (hasGeneratedBook) {
-                        <a href="@sidebarPublishUrl" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "active" : "")">
+                        <a href="@sidebarPublishUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "active" : "")">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     } else {
@@ -3585,7 +3605,7 @@
                         </a>
                     }
                 </li>
-                @* Support nav — temporarily disabled
+                @* Support nav â€” temporarily disabled
                 <li>
                     @if (hasGeneratedBook) {
                         <a href="/Dashboard/Support" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Support" ? "active" : "")">
@@ -3599,7 +3619,7 @@
                 </li>
                 *@
                 <li style="margin-top: 8px;"><div style="height: 1px; background: #e5e7eb; margin: 0 16px;"></div></li>
-                @* AUDIOBOOK — Temporarily disabled (preserve for re-enable)
+                @* AUDIOBOOK â€” Temporarily disabled (preserve for re-enable)
                 <li>
                     @if (hasGeneratedBook) {
                         <a href="/Dashboard/AudioBook" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AudioBook" ? "active" : "")">
@@ -3620,13 +3640,13 @@
                 }
             </ul>
 
-            <!-- ✅ Lucide Icons (same as AI Book Writer design) -->
+            <!-- âœ… Lucide Icons (same as AI Book Writer design) -->
             <script>
                 document.addEventListener("DOMContentLoaded", function () {
                     if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
                 });
             </script>
-            <!-- ✅ SweetAlert Script -->
+            <!-- âœ… SweetAlert Script -->
             <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
             <style>
                 /* Simple bootstrap-style top alert for "follow the steps" (no SweetAlert popups for flow) */
@@ -3662,9 +3682,9 @@
                 .flow-steps-top-alert .btn-close-alert:hover { opacity: 1; }
             </style>
             <script>
-                /* Top-of-screen "follow steps" alert — replaces SweetAlert for flow/locked navigation. */
+                /* Top-of-screen "follow steps" alert â€” replaces SweetAlert for flow/locked navigation. */
                 window.showFollowStepsAlert = function (message) {
-                    var text = message || 'Select a book from the Dashboard, then open <b>AI Writer</b>, <b>Formatting</b>, or <b>Book Cover</b> — any order.';
+                    var text = message || 'Select a book from the Dashboard, then open <b>AI Writer</b>, <b>Formatting</b>, or <b>Book Cover</b> â€” any order.';
                     var existing = document.getElementById('flowStepsTopAlert');
                     if (existing) existing.remove();
                     var div = document.createElement('div');
@@ -3703,7 +3723,7 @@
                             if (this.getAttribute("href") && this.getAttribute("href").indexOf("showUpgrade=1") !== -1) return;
                             e.preventDefault();
                             Swal.fire({
-                                title: "Upgrade Required 🚀",
+                                title: "Upgrade Required ðŸš€",
                                 html: "<b>This feature is available only for premium users.</b><br><br>Please upgrade your plan to access it.",
                                 icon: "info",
                                 confirmButtonText: "Upgrade Now",
@@ -3757,7 +3777,7 @@
                                     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px">${list}</div>
                                 </div>
                                 <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #eee;padding-top:12px">
-                                    <div><strong>Selected:</strong> <span id="featCount">0</span> · <strong>Total:</strong> $<span id="featTotal">0.00</span></div>
+                                    <div><strong>Selected:</strong> <span id="featCount">0</span> Â· <strong>Total:</strong> $<span id="featTotal">0.00</span></div>
                                     <div style="display:flex;gap:8px">
                                         <button class="btn btn-primary btn-sm" id="btnGoSummaryDash">Go to Summary</button>
                                     </div>
@@ -3838,7 +3858,7 @@
              
             </script>
 
-            <!-- 💄 Just small inline styling for lock spacing -->
+            <!-- ðŸ’„ Just small inline styling for lock spacing -->
             <style>
                 .lock-icon {
                     margin-left: 8px; /* thoda gap text ke baad */
@@ -4384,7 +4404,7 @@
                             <div class="item-type">${item.type}</div>
                         </div>
                         <div class="item-price">$${(item.price * item.quantity).toFixed(2)}</div>
-                        <button class="remove-item" data-id="${item.id}">×</button>
+                        <button class="remove-item" data-id="${item.id}">Ã—</button>
                     </div>
                 `).join('');
 
@@ -4664,7 +4684,7 @@
             const isDarkMode = document.body.classList.toggle('dark-mode');
             const themeToggle = document.getElementById('themeToggle');
             if (themeToggle) {
-                themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+                themeToggle.textContent = isDarkMode ? 'â˜€ï¸' : 'ðŸŒ™';
             }
         }
 
@@ -4939,7 +4959,7 @@
 
                 if (uploadArea) {
                     uploadArea.innerHTML = `
-                        <div class="upload-icon">✅</div>
+                        <div class="upload-icon">âœ…</div>
                         <p><strong>File Uploaded Successfully!</strong></p>
                         <p class="upload-subtitle">${file.name}</p>
                         <button class="btn-secondary" id="changeFileBtn">Change File</button>
@@ -5005,18 +5025,17 @@
                 { sel: '#sidebar', title: 'Main menu', body: 'Jump to AI Writer, Formatting, Cover, My Books, or Publish anytime.' }
             ],
             'ai-writer': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Your path', body: 'Writer → Formatting → Cover → Publish. This bar shows where you are.' },
+                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Your path', body: 'Writer â†’ Formatting â†’ Cover â†’ Publish. This bar shows where you are.' },
                 { sel: '[data-guided-tour="ai-write-section"]', title: 'Book & chapter', body: 'Set the book title, pick a chapter, or tap + to add a new one.' },
-                { sel: '[data-guided-tour="ai-upload"]', title: 'Upload icons', body: 'Left icon: upload a manuscript (PDF/Word). Right icon: only when no book is selected — pick page images and title/chapter/topic auto-fill.' },
+                { sel: '[data-guided-tour="ai-upload"]', title: 'Upload icons', body: 'Left icon: upload a manuscript (PDF/Word). Right icon: only when no book is selected â€” pick page images and title/chapter/topic auto-fill.' },
                 { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Write with AI', body: 'Type a short chapter brief, then tap Generate. Your pages appear on the right.' },
                 { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Book preview', body: 'Read like a real book. Use the side arrows to turn pages.' },
                 { sel: '[data-guided-tour="ai-next-step"]', title: 'Next: Formatting', body: 'When the chapter looks good, tap Book formatting for fonts and layout.' }
             ],
             'formatter': [
-                { sel: '[data-guided-tour="fmt-modules"]', title: 'Formatting studio', body: 'Switch freely between AI Writer, Formatting, and Cover Design.' },
                 { sel: '[data-guided-tour="fmt-manuscript"]', title: 'Manuscript upload', body: 'Tap the upload icon (or drop a file) to load DOCX/PDF. Chapters show in the preview.' },
-                { sel: '[data-guided-tour="fmt-format"]', title: 'Ebook · Paperback · Both', body: 'Pick your format on one row. Ebook, Paperback, or Both (premium).' },
-                { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Choose a look — the open book on the right updates live.' },
+                { sel: '[data-guided-tour="fmt-format"]', title: 'Ebook Â· Paperback Â· Both', body: 'Pick your format on one row. Ebook, Paperback, or Both (premium).' },
+                { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Choose a look â€” the open book on the right updates live.' },
                 { sel: '[data-guided-tour="fmt-preview"]', title: 'Open-book preview', body: 'Two pages on a brown desk. Flip with the arrows to check layout.' },
                 { sel: '[data-guided-tour="fmt-actions"]', title: 'Save & continue', body: 'Choices save automatically. Use Print PDF / EPUB next to Cover Design, then tap Next when ready.' }
             ],
@@ -5024,12 +5043,12 @@
                 { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Cover Design', body: 'Make your cover here, then go to Publish to download files.' },
                 { sel: '[data-guided-tour="cov-book"]', title: 'Your book', body: 'This cover is for the book you selected.' },
                 { sel: '[data-guided-tour="cov-fields"]', title: 'Cover info', body: 'Pick genre and cover style for the AI.' },
-                { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Colors, mood, pictures — then Generate Cover.' },
+                { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Colors, mood, pictures â€” then Generate Cover.' },
                 { sel: '[data-guided-tour="cov-preview"]', title: 'Cover preview', body: 'See your cover update here.' },
                 { sel: '[data-guided-tour="cov-publish"]', title: 'Go to Publish', body: 'Happy with it? Open Publish for EPUB, PDF, or print files.' }
             ],
             'publish': [
-                { sel: '[data-guided-tour="pub-hero"]', title: 'Publish', body: 'Last step — download your finished book files.' },
+                { sel: '[data-guided-tour="pub-hero"]', title: 'Publish', body: 'Last step â€” download your finished book files.' },
                 { sel: '[data-guided-tour="pub-status"]', title: 'Book status', body: 'Needs chapters and a cover before exports unlock.' },
                 { sel: '[data-guided-tour="pub-export"]', title: 'Download files', body: 'EPUB, PDF, Word, covers, or a KDP print ZIP.' }
             ],
@@ -5043,7 +5062,7 @@
                 { sel: 'form, .profile-form, #profileForm', title: 'Save changes', body: 'Edit details and tap Save.' }
             ],
             'default': [
-                { sel: '#sidebar', title: 'How to make a book', body: 'Use AI Writer, Formatting, and Cover in any order — then Publish.' },
+                { sel: '#sidebar', title: 'How to make a book', body: 'Use AI Writer, Formatting, and Cover in any order â€” then Publish.' },
                 { sel: '#guidedTourFab', title: 'Need help?', body: 'Tap Tour anytime for a quick walkthrough of this screen.' }
             ]
         };
@@ -5271,7 +5290,7 @@
             });
         }
 
-        // Legacy name: "How to start" modal → dashboard-style steps
+        // Legacy name: "How to start" modal â†’ dashboard-style steps
         function startDashboardTour() {
             startGuidedTourForRoute('dashboard', { silent: false, persistCompletion: true });
         }
@@ -5414,7 +5433,7 @@
             
             if (isDarkMode) {
                 document.body.classList.add('dark-mode');
-                if (themeToggle) themeToggle.textContent = '☀️';
+                if (themeToggle) themeToggle.textContent = 'â˜€ï¸';
             }
             
             if (themeToggle) {
@@ -5432,7 +5451,7 @@
             localStorage.setItem('darkMode', isDarkMode);
             
             if (themeToggle) {
-                themeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+                themeToggle.textContent = isDarkMode ? 'â˜€ï¸' : 'ðŸŒ™';
             }
             
             // Show feedback
@@ -5450,7 +5469,7 @@
     </script>
 
     <!-- Soft modules: free navigation between Writer / Formatting / Cover / Publish when a book is open.
-         Only keep a light Back-button helper — do NOT block sidebar clicks. -->
+         Only keep a light Back-button helper â€” do NOT block sidebar clicks. -->
     @if (flowBookId > 0 && !string.IsNullOrWhiteSpace(flowStep))
     {
         <script>

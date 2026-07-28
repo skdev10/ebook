@@ -723,7 +723,7 @@ namespace EBookDashboard.Controllers
             // Cover Design Calculator1 for a user and book
             //==============================================
             [HttpGet]
-        public async Task<IActionResult> CoverDesignCalculatorFixing(int bookId = 0, string? format = null)
+        public async Task<IActionResult> CoverDesignCalculatorFixing(int bookId = 0, string? format = null, string? guided = null, string? entry = null)
         {
             try
             {
@@ -732,6 +732,8 @@ namespace EBookDashboard.Controllers
                 {
                     return RedirectToAction("UserLogin", "Account");
                 }
+                ViewBag.GuidedFlow = string.Equals(guided, "1", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(entry, "direct", StringComparison.OrdinalIgnoreCase);
                 // Get bookId from TempData, query param, or last selected from session
                 if (bookId == 0)
                     bookId = Convert.ToInt32(TempData["NextStepBookId"] ?? 0);

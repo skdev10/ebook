@@ -1,5 +1,5 @@
 @{
-    // Shared header toolbar — Writer / Formatting / Cover: upload + exports (never blocked).
+    // Shared header toolbar — Writer / Formatting / Cover: Export PDF + EPUB only.
     var qaBookId = 0;
     if (ViewBag.FlowBookId is int fb) qaBookId = fb;
     else if (ViewBag.SelectedBookId is int sb) qaBookId = sb;
@@ -13,28 +13,14 @@
         || (controller == "Books" && action == "Cover");
     if (!isModulePage) { return; }
 }
-<div id="module-quick-actions" class="module-quick-actions" data-book-id="@qaBookId" role="region" aria-label="Manuscript and export">
-    <input type="file" id="layout-ms-file" class="hidden" accept=".docx,.pdf,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-    <button type="button" id="layout-ms-upload-btn" class="mqa-btn mqa-btn--upload" title="Upload manuscript (DOCX / PDF)" aria-label="Upload manuscript">
-        <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
-        <span>Upload</span>
-    </button>
-    <span class="mqa-sep" aria-hidden="true"></span>
-    <button type="button" class="mqa-btn mqa-btn--draft" id="layout-export-draft-docx" data-format="Docx" title="Download draft as Word">
-        <i class="fas fa-file-word" aria-hidden="true"></i>
-        <span>Draft Word</span>
-    </button>
-    <button type="button" class="mqa-btn mqa-btn--draft" id="layout-export-draft-pdf" data-format="Pdf" title="Download draft as PDF">
-        <i class="fas fa-file-pdf" aria-hidden="true"></i>
-        <span>Draft PDF</span>
-    </button>
+<div id="module-quick-actions" class="module-quick-actions" data-book-id="@qaBookId" role="region" aria-label="Export">
     <button type="button" class="mqa-btn mqa-btn--book" id="layout-export-book-pdf" data-book-export="PrintPdf" title="Download print-ready PDF">
-        <i class="fas fa-book" aria-hidden="true"></i>
-        <span>Print PDF</span>
+        <i class="fas fa-file-pdf" aria-hidden="true"></i>
+        <span>Export PDF</span>
     </button>
     <button type="button" class="mqa-btn mqa-btn--book mqa-btn--primary" id="layout-export-book-epub" data-book-export="Epub" title="Download EPUB">
         <i class="fas fa-tablet-alt" aria-hidden="true"></i>
-        <span>EPUB</span>
+        <span>Export EPUB</span>
     </button>
     <span id="layout-ms-status" class="mqa-status" aria-live="polite"></span>
 </div>
@@ -60,12 +46,6 @@
         0 10px 28px -12px rgba(30, 27, 75, 0.65),
         0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 }
-.mqa-sep {
-    width: 1px;
-    height: 1.2rem;
-    background: rgba(196, 181, 253, 0.35);
-    margin: 0 0.1rem;
-}
 .mqa-btn {
     display: inline-flex;
     align-items: center;
@@ -88,16 +68,6 @@
     transform: translateY(-1px);
 }
 .mqa-btn:disabled { opacity: .45; cursor: not-allowed; }
-.mqa-btn--upload {
-    background: #4c1d95;
-    border-color: #7c3aed;
-    color: #f5f3ff;
-}
-.mqa-btn--upload:hover:not(:disabled) {
-    background: #5b21b6;
-    color: #fff;
-}
-.mqa-btn--draft { color: #e2e8f0; }
 .mqa-btn--book {
     background: #5b21b6;
     border-color: #8b5cf6;
@@ -132,7 +102,6 @@
     }
     .mqa-btn span { display: none; }
     .mqa-btn { padding: 0.48rem 0.62rem; }
-    .mqa-sep { display: none; }
     .mqa-status { display: none; }
 }
 </style>
@@ -142,10 +111,8 @@
     var root = document.getElementById('module-quick-actions');
     if (!root || root.dataset.wired === '1') return;
     root.dataset.wired = '1';
-    var fileInput = document.getElementById('layout-ms-file');
-    var uploadBtn = document.getElementById('layout-ms-upload-btn');
     var statusEl = document.getElementById('layout-ms-status');
-    var exportBtns = root.querySelectorAll('[data-format], [data-book-export]');
+    var exportBtns = root.querySelectorAll('[data-book-export]');
 
     function currentBookId() {
         var fromRoot = parseInt(root.getAttribute('data-book-id') || '0', 10) || 0;
@@ -172,51 +139,7 @@
     function syncExportEnabled() {
         var bid = currentBookId();
         root.setAttribute('data-book-id', String(bid));
-        // Product rule: never leave Export disabled.
         exportBtns.forEach(function (b) { b.disabled = false; });
-    }
-
-    async function uploadFile(file) {
-        if (!file) return;
-        if (!/\.(docx|pdf|txt|md|markdown)$/i.test(file.name || '')) {
-            setStatus('Allowed: DOCX, PDF, TXT, MD.', false);
-            return;
-        }
-        var bid = currentBookId();
-        setStatus(bid > 0 ? 'Uploading…' : 'Creating book & importing…', null);
-        uploadBtn.disabled = true;
-        try {
-            var fd = new FormData();
-            fd.append('file', file);
-            fd.append('bookId', String(bid > 0 ? bid : 0));
-            var res = await fetch('/Books/UploadManuscript' + (bid > 0 ? ('/' + bid) : ''), {
-                method: 'POST',
-                body: fd,
-                credentials: 'same-origin'
-            });
-            var data = await res.json().catch(function () { return null; });
-            if (!res.ok || !data || !data.success) {
-                setStatus((data && data.message) || 'Upload failed.', false);
-                return;
-            }
-            var newBid = parseInt(data.bookId, 10) || bid;
-            setStatus('Imported ' + (data.chapterCount || 0) + ' chapter(s).', true);
-            if (newBid > 0 && newBid !== bid) {
-                window.location.href = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(newBid);
-                return;
-            }
-            if (typeof loadBookContent === 'function' && newBid > 0) {
-                try { await loadBookContent(newBid); } catch (e0) { /* optional */ }
-            } else if (newBid > 0) {
-                window.location.reload();
-            }
-        } catch (err) {
-            setStatus('Network error during upload.', false);
-        } finally {
-            uploadBtn.disabled = false;
-            if (fileInput) fileInput.value = '';
-            syncExportEnabled();
-        }
     }
 
     async function runExport(btn) {
@@ -226,14 +149,13 @@
             return;
         }
         var bookFmt = btn.getAttribute('data-book-export');
-        var draftFmt = btn.getAttribute('data-format');
         setStatus('Preparing download…', null);
         try {
             if (window.ModuleExport && typeof window.ModuleExport.run === 'function') {
                 await window.ModuleExport.run({
                     bookId: bid,
                     bookExport: bookFmt,
-                    draftFormat: draftFmt,
+                    draftFormat: null,
                     status: setStatus
                 });
             } else {
@@ -244,12 +166,6 @@
         }
     }
 
-    if (uploadBtn && fileInput) {
-        uploadBtn.addEventListener('click', function () { fileInput.click(); });
-        fileInput.addEventListener('change', function () {
-            if (fileInput.files && fileInput.files[0]) uploadFile(fileInput.files[0]);
-        });
-    }
     exportBtns.forEach(function (btn) {
         btn.addEventListener('click', function () { runExport(btn); });
     });

@@ -86,9 +86,9 @@
     @@media (min-width: 1024px) {
         #book-formatter-root .fmt-main-layout {
             display: grid !important;
-            /* Controls 35% · book preview 65% */
-            grid-template-columns: minmax(0, 35%) minmax(0, 65%);
-            gap: 0.85rem;
+            /* Match AI Writer: controls 28% · book preview 72% */
+            grid-template-columns: minmax(0, var(--dash-flow-left, 28%)) minmax(0, var(--dash-flow-right, 72%));
+            gap: var(--dash-flow-gap, 1rem);
             align-items: stretch;
             min-height: calc(100dvh - 4.25rem);
             overflow: hidden;
@@ -2309,6 +2309,8 @@
 @{
     var formatFromUrl = Model?.Format ?? "Paperback";
     if (formatFromUrl == "Print") { formatFromUrl = "Paperback"; }
+    // Formatting studio: Ebook / Paperback / Both only (no Hardcover option here).
+    if (string.Equals(formatFromUrl, "Hardcover", StringComparison.OrdinalIgnoreCase)) { formatFromUrl = "Paperback"; }
     if (string.IsNullOrWhiteSpace(formatFromUrl)) { formatFromUrl = "Paperback"; }
     var uid = (Model?.UserId ?? 0) != 0 ? Model.UserId : (ViewBag.UserId ?? 0);
     var __kdpPaper = EBookDashboard.Configuration.KdpSpecsAccessor.Current.PaperThicknessInPerPage;
@@ -2327,24 +2329,10 @@
             <div class="mb-4 flex flex-wrap items-center gap-3">
                 <button type="button" data-flow-back="@(ViewBag.FlowBackUrl ?? $"/Books/Writer?bookId={bookId}")" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"><i class="fas fa-arrow-left text-xs"></i> Back</button>
             </div>
+            <div class="mb-4" data-guided-flow-only hidden style="display:none">@await Html.PartialAsync("_FlowStepper", 2)</div>
             <div class="fmt-main-layout dash-flow-grid flex flex-col lg:flex-row">
                 <!-- Left: AI Book Formatter (your design) -->
                 <div id="fmt-left-config-column" class="w-full min-w-0 flex flex-col">
-                    <div class="mb-4 rounded-2xl border border-violet-100 bg-gradient-to-r from-violet-50 to-white px-4 py-3" data-guided-tour="fmt-modules">
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-violet-700 mb-1">Book Formatting</p>
-                        <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                            <a href="/Books/Writer?bookId=@bookId" class="rounded-lg px-2.5 py-1 text-slate-600 hover:bg-white hover:text-violet-700" data-unsaved-ignore="true">AI Writer</a>
-                            <span class="rounded-lg bg-violet-600 px-2.5 py-1 text-white">Formatting</span>
-                            <a href="/Books/Cover/@bookId" class="rounded-lg px-2.5 py-1 text-slate-600 hover:bg-white hover:text-violet-700" data-unsaved-ignore="true">Cover Design</a>
-                            <span class="hidden sm:inline-block w-px h-5 bg-violet-200 mx-0.5" aria-hidden="true"></span>
-                            <button type="button" id="fmt-btn-export-print-pdf" class="rounded-lg px-2.5 py-1 bg-white border border-violet-200 text-violet-800 hover:bg-violet-50 inline-flex items-center gap-1.5" title="Download print-ready interior PDF">
-                                <i class="fas fa-file-pdf text-[10px]" aria-hidden="true"></i> Print PDF
-                            </button>
-                            <button type="button" id="fmt-btn-export-epub" class="rounded-lg px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 inline-flex items-center gap-1.5" title="Download EPUB ebook">
-                                <i class="fas fa-book text-[10px]" aria-hidden="true"></i> EPUB
-                            </button>
-                        </div>
-                    </div>
                     <div class="fmt-left-scroll space-y-6 flex-1 pr-1 pb-4">
                         <input type="hidden" id="selected-book-id" value="@bookId" />
                         <div id="formatter-display-author" class="hidden" aria-hidden="true">@((ViewBag.DisplayAuthorName as string) ?? "")</div>
@@ -2427,13 +2415,11 @@
                                 <select id="format-select" class="sr-only" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;" aria-labelledby="format-field-label" title="Book format">
                                     @if (formatFromUrl == "Ebook") { <option value="Ebook" selected>Ebook</option> } else { <option value="Ebook">Ebook</option> }
                                     @if (formatFromUrl == "Paperback") { <option value="Paperback" selected>Paperback</option> } else { <option value="Paperback">Paperback</option> }
-                                    @if (formatFromUrl == "Hardcover") { <option value="Hardcover" selected>Hardcover</option> } else { <option value="Hardcover">Hardcover</option> }
                                     @if (formatFromUrl == "Both") { <option value="Both" selected>Both (Ebook + Paperback)</option> } else { <option value="Both">Both (Ebook + Paperback)</option> }
                                 </select>
                                 <div class="fmt-format-seg" role="radiogroup" aria-labelledby="format-field-label" id="fmt-format-seg">
                                     <button type="button" class="fmt-format-seg__btn@(formatFromUrl == "Ebook" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Ebook" ? "true" : "false")" data-value="Ebook">Ebook</button>
                                     <button type="button" class="fmt-format-seg__btn@(formatFromUrl == "Paperback" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Paperback" ? "true" : "false")" data-value="Paperback">Paperback</button>
-                                    <button type="button" class="fmt-format-seg__btn@(formatFromUrl == "Hardcover" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Hardcover" ? "true" : "false")" data-value="Hardcover" title="Case laminate hardcover">Hardcover</button>
                                     <button type="button" class="fmt-format-seg__btn fmt-format-seg__btn--premium@(formatFromUrl == "Both" ? " is-active" : "")" role="radio" aria-checked="@(formatFromUrl == "Both" ? "true" : "false")" data-value="Both" title="Ebook + Paperback">Both</button>
                                 </div>
                             </div>
@@ -2548,7 +2534,7 @@
                     </div>
 
                     <div class="mt-4 flex flex-col gap-3" data-guided-tour="fmt-actions" id="fmt-actions-panel">
-                        <button type="button" id="btn-next-cover" class="formatter-ui-radius w-full border-2 border-violet-300 text-violet-800 hover:bg-violet-50 font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
+                        <button type="button" id="btn-next-cover" data-guided-flow-only hidden style="display:none" class="formatter-ui-radius w-full border-2 border-violet-300 text-violet-800 hover:bg-violet-50 font-medium py-2.5 px-6 transition-all inline-flex items-center justify-center gap-2">
                             Next: AI Cover Design <i class="fas fa-arrow-right"></i>
                         </button>
                         <button type="button" id="fmt-btn-reset-formatting" class="formatter-ui-radius w-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50 text-sm font-medium py-2 px-6 transition-all inline-flex items-center justify-center gap-2" title="Reset Interior style, Text size, and Line spacing to defaults">
@@ -2589,7 +2575,7 @@
                                             <i class="fas fa-sliders-h" aria-hidden="true"></i> Fix
                                         </button>
                                     </div>
-                                    <button type="button" id="fmt-btn-studio-next" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 transition-colors shrink-0" title="Continue to AI Cover Design">
+                                    <button type="button" id="fmt-btn-studio-next" data-guided-flow-only hidden style="display:none" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border-2 border-slate-200 text-slate-700 hover:bg-violet-50 hover:border-violet-300 transition-colors shrink-0" title="Continue to AI Cover Design">
                                         Next <i class="fas fa-arrow-right" aria-hidden="true"></i>
                                     </button>
                                 </div>
@@ -2812,7 +2798,7 @@
             v = String(v).trim();
             if (/^print$/i.test(v)) return 'Paperback';
             if (/^paperback$/i.test(v)) return 'Paperback';
-            if (/^hardcover$/i.test(v)) return 'Hardcover';
+            if (/^hardcover$/i.test(v)) return 'Paperback';
             if (/^ebook$/i.test(v)) return 'Ebook';
             if (/^both$/i.test(v)) return 'Both';
         } catch (e) { /* ignore */ }
@@ -3009,7 +2995,8 @@
         const styleEl = document.getElementById('style-select');
         const sizeEl = document.getElementById('text-size-select');
         const lineEl = document.getElementById('line-spacing-select');
-        if (fmtEl && state.format && ['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(state.format) >= 0) fmtEl.value = state.format;
+            if (fmtEl && state.format && ['Ebook', 'Paperback', 'Both'].indexOf(state.format) >= 0) fmtEl.value = state.format;
+            else if (fmtEl && state.format === 'Hardcover') fmtEl.value = 'Paperback';
         if (styleEl && state.interiorStyle) {
             var styleVal = state.interiorStyle === 'Modern' ? 'Novel' : state.interiorStyle;
             styleEl.value = styleVal;
@@ -4482,7 +4469,7 @@
         }
         var lbl = document.getElementById('format-picker-label');
         if (lbl) {
-            var map = { Ebook: 'Ebook', Paperback: 'Paperback', Hardcover: 'Hardcover', Both: 'Both (Ebook + Paperback) — Premium' };
+            var map = { Ebook: 'Ebook', Paperback: 'Paperback', Both: 'Both (Ebook + Paperback) — Premium' };
             lbl.textContent = map[v] || v;
         }
     }
@@ -4556,7 +4543,8 @@
     let printReadyGenerated = null;
     let printReadyOpenAfterSave = false;
     let printReadyGenerationIteration = 0;
-    let selectedFormat = ['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(formatFromUrl) >= 0 ? formatFromUrl : 'Ebook';
+    let selectedFormat = ['Ebook', 'Paperback', 'Both'].indexOf(formatFromUrl) >= 0 ? formatFromUrl : 'Ebook';
+    if (formatFromUrl === 'Hardcover') selectedFormat = 'Paperback';
     let printReadyComputed = {
         pageCount: 0,
         paperType: 'white',
@@ -5136,6 +5124,11 @@
         var url = '/Books/Cover/' + encodeURIComponent(bid);
         if (fmt === 'Both') url += '?coverType=both';
         else if (fmt === 'Paperback' || fmt === 'Hardcover') url += (url.indexOf('?') >= 0 ? '&' : '?') + 'flow=printready';
+        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.appendGuided === 'function') {
+            url = window.EbookGuidedFlow.appendGuided(url);
+        } else {
+            url += (url.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+        }
         return url;
     }
 
@@ -6645,7 +6638,7 @@
                 }
                 if (formatLockedByQuery) {
                     var fmtQ = document.getElementById('format-select');
-                    if (fmtQ && ['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(formatLockedByQuery) >= 0) {
+                    if (fmtQ && ['Ebook', 'Paperback', 'Both'].indexOf(formatLockedByQuery) >= 0) {
                         fmtQ.value = formatLockedByQuery;
                     }
                 }
@@ -7470,7 +7463,8 @@
         const formatSelect = document.getElementById('format-select');
         if (formatSelect && formatFromUrl) {
             formatFromUrl = formatFromUrl === 'Print' ? 'Paperback' : formatFromUrl;
-            if (['Ebook', 'Paperback', 'Hardcover', 'Both'].indexOf(formatFromUrl) >= 0) formatSelect.value = formatFromUrl;
+            if (['Ebook', 'Paperback', 'Both'].indexOf(formatFromUrl) >= 0) formatSelect.value = formatFromUrl;
+            else if (formatFromUrl === 'Hardcover') formatSelect.value = 'Paperback';
             selectedFormat = formatSelect.value || 'Ebook';
             updatePremiumFormatUi();
             togglePreviewMode();

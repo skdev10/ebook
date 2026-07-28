@@ -4,7 +4,7 @@
  */
 
 .dash-flow-page {
-    background: var(--dash-page-bg, #f5f7f9);
+    background: var(--dash-page-bg, #f5f3ff);
     color: #0f172a;
     min-height: 100%;
     flex: 1;
@@ -37,7 +37,7 @@
 .dash-flow-grid {
     display: flex;
     flex-direction: column;
-    gap: var(--dash-flow-gap, 2.75rem);
+    gap: var(--dash-flow-gap, 1rem);
     width: 100%;
     min-height: 0;
 }
@@ -45,18 +45,19 @@
 @media (min-width: 1024px) {
     .dash-flow-grid {
         display: grid;
-        grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+        /* Match AI Writer: 28% form · 72% preview */
+        grid-template-columns: minmax(0, var(--dash-flow-left, 28%)) minmax(0, var(--dash-flow-right, 72%));
         align-items: stretch;
     }
 
     .dash-flow-grid--writer {
-        grid-template-columns: minmax(0, 32%) minmax(0, 68%);
+        grid-template-columns: minmax(0, var(--dash-flow-left, 28%)) minmax(0, var(--dash-flow-right, 72%));
     }
 }
 
 .dash-flow-preview-pane {
-    width: var(--dash-preview-pane-w, 68%);
-    max-width: var(--dash-preview-pane-w, 68%);
+    width: var(--dash-preview-pane-w, 100%);
+    max-width: var(--dash-preview-pane-w, 100%);
     display: flex;
     flex-direction: column;
     align-items: stretch;

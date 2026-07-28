@@ -252,7 +252,7 @@ namespace EBookDashboard.Controllers
         [HttpGet]
         [Route("Books/Formatting/{bookId:int}")]
         [Route("Books/Formatting")]
-        public async Task<IActionResult> Formatting(int bookId = 0, string? format = null, CancellationToken cancellationToken = default)
+        public async Task<IActionResult> Formatting(int bookId = 0, string? format = null, string? guided = null, string? entry = null, CancellationToken cancellationToken = default)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null)
@@ -260,7 +260,7 @@ namespace EBookDashboard.Controllers
 
             // Soft modules: empty Formatting opens the classic studio (upload inside the same UI).
             if (bookId <= 0)
-                return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId = 0 });
+                return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId = 0, entry });
 
             var book = await _context.Books.AsNoTracking()
                 .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId.Value, cancellationToken);
@@ -276,8 +276,8 @@ namespace EBookDashboard.Controllers
 
             // Classic Formatting studio UI (interior styles + book preview) lives on CoverDesignCalculatorFixing.
             if (!string.IsNullOrWhiteSpace(format))
-                return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId, format });
-            return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId });
+                return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId, format, guided, entry });
+            return RedirectToAction("CoverDesignCalculatorFixing", "BookDesign", new { bookId, guided, entry });
         }
 
         private async Task<BookFormattingWorkspaceViewModel> BuildFormattingWorkspaceAsync(
@@ -369,7 +369,7 @@ namespace EBookDashboard.Controllers
         [HttpGet]
         [Route("Books/Cover/{bookId:int}")]
         [Route("Books/Cover")]
-        public async Task<IActionResult> Cover(int bookId = 0)
+        public async Task<IActionResult> Cover(int bookId = 0, string? flow = null, string? coverType = null, string? guided = null, string? entry = null)
         {
             var userId = HttpContext.Session.GetInt32("UserId");
             if (userId == null)
@@ -377,7 +377,7 @@ namespace EBookDashboard.Controllers
 
             // Soft modules: open Cover Design empty when no book — attach via Continue Editing or after writing.
             if (bookId <= 0)
-                return RedirectToAction("CoverDesign", "Dashboard", new { bookId = 0 });
+                return RedirectToAction("CoverDesign", "Dashboard", new { bookId = 0, flow, coverType, guided, entry });
 
             var owns = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == bookId && b.UserId == userId.Value);
@@ -390,7 +390,7 @@ namespace EBookDashboard.Controllers
             HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
             HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, bookId);
             HttpContext.Session.SetString("HasGeneratedBook", "1");
-            return RedirectToAction("CoverDesign", "Dashboard", new { bookId });
+            return RedirectToAction("CoverDesign", "Dashboard", new { bookId, flow, coverType, guided, entry });
         }
 
         //// ✅ 1️⃣ — GET: Show the Razor view page ----1

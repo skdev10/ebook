@@ -1207,7 +1207,7 @@ namespace EBookDashboard.Controllers
         }
 
         [Route("CoverDesign")]
-        public async Task<IActionResult> CoverDesign(int? bookId = null, string? flow = null, string? coverType = null, bool skipPrintReadyAuto = false)
+        public async Task<IActionResult> CoverDesign(int? bookId = null, string? flow = null, string? coverType = null, bool skipPrintReadyAuto = false, string? guided = null, string? entry = null)
         {
             var requestedFlow = (flow ?? string.Empty).Trim();
             var requestedCoverType = (coverType ?? string.Empty).Trim();
@@ -1217,6 +1217,8 @@ namespace EBookDashboard.Controllers
             ViewBag.CoverFlow = requestedFlow;
             ViewBag.CoverType = requestedCoverType;
             ViewBag.SkipPrintReadyAuto = skipPrintReadyAuto;
+            ViewBag.GuidedFlow = string.Equals(guided, "1", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(entry, "direct", StringComparison.OrdinalIgnoreCase);
             var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
             var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserEmail == userEmail);
             var roleId = user?.RoleId ?? 0;

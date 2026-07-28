@@ -46,8 +46,8 @@
     @@media (min-width: 1024px) {
         .ai-writer-main-layout.book-preview-layout-row {
             display: grid !important;
-            grid-template-columns: minmax(0, 28%) minmax(0, 72%);
-            gap: 1rem !important;
+            grid-template-columns: minmax(0, var(--dash-flow-left, 28%)) minmax(0, var(--dash-flow-right, 72%));
+            gap: var(--dash-flow-gap, 1rem) !important;
             align-items: stretch;
             min-height: calc(100dvh - 5rem);
         }
@@ -1690,6 +1690,14 @@
         <div class="ai-writer-sidebar book-preview-layout-sidebar w-full flex flex-col gap-2 shrink-0 min-h-0">
             <section class="flex flex-col gap-3" data-guided-tour="ai-book-picker">
                 @await Html.PartialAsync("_FlowStepper", 1)
+                <script>
+                    (function () {
+                        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.mark === 'function') {
+                            window.EbookGuidedFlow.mark();
+                            window.EbookGuidedFlow.applyUi();
+                        }
+                    })();
+                </script>
                 <div class="hidden-fields sr-only" aria-hidden="true">
                     <label for="UserId">UserId:</label>
                     <input type="text" id="UserId" value="@ViewBag.UserId">
@@ -4072,6 +4080,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function navigateToBookFormatting(bid, fmt) {
         var url = '/Books/Formatting/' + encodeURIComponent(bid);
         if (fmt) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'format=' + encodeURIComponent(fmt);
+        if (window.EbookGuidedFlow) {
+            try { window.EbookGuidedFlow.mark(); } catch (e0) { /* ignore */ }
+            if (typeof window.EbookGuidedFlow.appendGuided === 'function') url = window.EbookGuidedFlow.appendGuided(url);
+            else url += (url.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+        } else {
+            url += (url.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+        }
         window.location.href = url;
     }
     function goToCoverDesign(bookId, format) {
@@ -4087,6 +4102,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ddl) ddl.value = bid;
         if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(bid);
         var fmt = format || 'Ebook';
+        if (window.EbookGuidedFlow) { try { window.EbookGuidedFlow.mark(); } catch (e1) { /* ignore */ } }
         fetch('/Books/EnterBookFormatting', {
             method: 'POST',
             credentials: 'same-origin',
@@ -4101,7 +4117,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return r.json().catch(function () { return null; });
         }).then(function (data) {
             if (data && data.success && data.redirectUrl) {
-                window.location.href = data.redirectUrl;
+                var next = data.redirectUrl;
+                if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.appendGuided === 'function') next = window.EbookGuidedFlow.appendGuided(next);
+                else next += (next.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+                window.location.href = next;
                 return;
             }
             if (data && data.message && typeof showNotification === 'function') {
