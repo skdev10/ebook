@@ -28,6 +28,7 @@ namespace EBookDashboard.Models
         public DbSet<CoverDesignCalculator> coverDesignCalculator { get; set; }
         public DbSet<BookCoverPages> BookCoverPages { get; set; }
         public DbSet<BookFormatting> BookFormatting { get; set; }
+        public DbSet<BookCoverDesign> BookCoverDesigns { get; set; }
         // ✍️ Author-related
         public DbSet<Authors> Authors { get; set; }
         public DbSet<AuthorPlans> AuthorPlans { get; set; }
@@ -129,6 +130,18 @@ namespace EBookDashboard.Models
             modelBuilder.Entity<Books>()
                 .Property(b => b.BookContentHtml)
                 .HasColumnType("longtext");
+
+            modelBuilder.Entity<BookCoverDesign>(e =>
+            {
+                e.HasIndex(x => new { x.BookId, x.UserId, x.IsDeleted });
+                e.HasIndex(x => new { x.BookId, x.IsActive });
+                e.Property(x => x.TrimWidthIn).HasPrecision(10, 4);
+                e.Property(x => x.TrimHeightIn).HasPrecision(10, 4);
+                e.Property(x => x.SpineWidthIn).HasPrecision(10, 4);
+                e.Property(x => x.BleedIn).HasPrecision(10, 4);
+                e.Property(x => x.FullWidthIn).HasPrecision(10, 4);
+                e.Property(x => x.FullHeightIn).HasPrecision(10, 4);
+            });
 
             // ✅ Example: Unique constraint on AuthorCode
             modelBuilder.Entity<Authors>()

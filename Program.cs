@@ -264,6 +264,7 @@ builder.Services.AddScoped<IBookRenderService, BookRenderService>();
 builder.Services.AddScoped<ITocPageNumberMeasurer, ChromiumTocPageNumberMeasurer>();
 builder.Services.AddScoped<IBookPdfService, BookPdfService>();
 builder.Services.AddScoped<IPrintWrapGenerationService, PrintWrapGenerationService>();
+builder.Services.AddScoped<IBookCoverDesignService, BookCoverDesignService>();
 builder.Services.AddSingleton<SpineRenderer>();
 builder.Services.AddScoped<IPrintWrapCompositor, PrintWrapCompositor>();
 builder.Services.AddScoped<IImageOcrService, ImageOcrService>();
@@ -437,6 +438,43 @@ if (!app.Environment.IsDevelopment())
 //    // Optional: log to console to help diagnose startup DB issues (e.g., wrong credentials or server down)
 //    Console.WriteLine($"[Startup:Migrate] {ex.GetType().Name}: {ex.Message}");
 //}
+
+// Ensure Cover Design multi-project table exists (servers that skip EF Migrate).
+try
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS book_cover_designs (
+  CoverId INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  BookId INT NOT NULL,
+  UserId INT NOT NULL,
+  CoverType VARCHAR(40) NOT NULL,
+  DisplayName VARCHAR(120) NOT NULL,
+  TrimWidthIn DECIMAL(10,4) NULL,
+  TrimHeightIn DECIMAL(10,4) NULL,
+  SpineWidthIn DECIMAL(10,4) NULL,
+  BleedIn DECIMAL(10,4) NULL,
+  FullWidthIn DECIMAL(10,4) NULL,
+  FullHeightIn DECIMAL(10,4) NULL,
+  Status VARCHAR(40) NOT NULL,
+  FrontImagePath VARCHAR(1000) NULL,
+  BackImagePath VARCHAR(1000) NULL,
+  SpineImagePath VARCHAR(1000) NULL,
+  WrapImagePath VARCHAR(1000) NULL,
+  IsActive TINYINT(1) NOT NULL DEFAULT 0,
+  IsDeleted TINYINT(1) NOT NULL DEFAULT 0,
+  DeletedAt DATETIME(6) NULL,
+  CreatedAt DATETIME(6) NOT NULL,
+  UpdatedAt DATETIME(6) NOT NULL,
+  INDEX IX_book_cover_designs_Book_User_Del (BookId, UserId, IsDeleted),
+  INDEX IX_book_cover_designs_Book_Active (BookId, IsActive)
+);");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Startup:BookCoverDesigns] {ex.GetType().Name}: {ex.Message}");
+}
 
 // HTTPS redirect only when Kestrel actually listens on HTTPS (avoids "Failed to determine the https port" on http-only profiles).
 if (app.Environment.IsDevelopment())

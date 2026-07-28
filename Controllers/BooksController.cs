@@ -4955,6 +4955,29 @@ namespace EBookDashboard.Controllers
             });
         }
 
+        /// <summary>Persist optional front-cover subtitle (Books.Subtitle).</summary>
+        [HttpPost]
+        [Route("Books/SaveCoverSubtitle")]
+        public async Task<IActionResult> SaveCoverSubtitle([FromBody] SaveCoverSubtitleRequest? req)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Unauthorized();
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, message = "bookId is required." });
+
+            var book = await _context.Books
+                .FirstOrDefaultAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value);
+            if (book == null)
+                return Json(new { success = false, message = "Book not found." });
+
+            var subtitle = (req.Subtitle ?? "").Trim();
+            if (subtitle.Length > 500) subtitle = subtitle[..500];
+            book.Subtitle = subtitle;
+            book.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return Json(new { success = true });
+        }
+
         /// <summary>Generate AI cover preview via external POST /api/generate-cover. Returns { success, options[] }.</summary>
         [HttpPost]
         [DisableRequestTimeout]

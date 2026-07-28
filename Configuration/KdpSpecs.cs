@@ -168,13 +168,32 @@ public sealed class HardcoverOptions : BindingPageLimitOptions
         MaxPages = 550;
     }
 
-    /// <summary>Case-wrap constant added to hardcover spine: (pages/2)×thickness + this.</summary>
-    public double SpineCaseExtraIn { get; set; } = 0.06;
+    /// <summary>
+    /// Case laminate forces this thickness (in/page) regardless of selected paper.
+    /// Matches KDP premium-color / case value used for hardcover spine product.
+    /// </summary>
+    public double ForcedThicknessInPerPage { get; set; } = 0.002347;
 
-    /// <summary>Wrap/hinge allowance per outer edge (inches). Default 0.5.</summary>
-    public double WrapAllowancePerEdgeIn { get; set; } = 0.5;
+    /// <summary>Deprecated — spine is pageCount × ForcedThicknessInPerPage (no case extra).</summary>
+    public double SpineCaseExtraIn { get; set; } = 0.0;
 
-    public List<string> SupportedPaper { get; set; } = ["White", "Cream", "StandardColor", "PremiumColor"];
+    /// <summary>Wrap (turn-in) per outer edge (inches). Amazon template authority: ~0.591".</summary>
+    public double WrapTurnInIn { get; set; } = 0.591;
+
+    /// <summary>Total hinge channels beside the spine (inches). Default 0.394".</summary>
+    public double HingeTotalIn { get; set; } = 0.394;
+
+    /// <summary>Extra height beyond wrap on case laminate (inches). Default 0.236".</summary>
+    public double ExtraHeightIn { get; set; } = 0.236;
+
+    /// <summary>Legacy alias — prefer <see cref="WrapTurnInIn"/>.</summary>
+    public double WrapAllowancePerEdgeIn
+    {
+        get => WrapTurnInIn;
+        set => WrapTurnInIn = value;
+    }
+
+    public List<string> SupportedPaper { get; set; } = ["White"];
 }
 
 public sealed class ImageDpiThresholdOptions
@@ -190,12 +209,12 @@ public sealed class EbookCoverOptions
     public double AspectRatio => RecommendedHeightPx == 0 ? 1.6 : (double)RecommendedHeightPx / RecommendedWidthPx;
 }
 
-/// <summary>Legacy case-bound diagram margins (editable; defaults align with Section 2 wrap allowance).</summary>
+/// <summary>Legacy case-bound diagram margins (editable; defaults match hardcover wrap/hinge).</summary>
 public sealed class AlternateCaseLayoutOptions
 {
     public double MinSpineInches { get; set; } = 0.055;
-    public double WrapMarginInches { get; set; } = 0.5;
-    public double HingeGapInches { get; set; } = 0.0;
+    public double WrapMarginInches { get; set; } = 0.591;
+    public double HingeGapInches { get; set; } = 0.394;
 }
 
 public sealed class TrimSizeOption

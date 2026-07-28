@@ -90,12 +90,13 @@ public class KdpCalculationServiceTests
     [InlineData(150, PaperType.White, ProjectType.Paperback, 0.3378)]
     [InlineData(828, PaperType.White, ProjectType.Paperback, 1.8647)]
     [InlineData(200, PaperType.Cream, ProjectType.Paperback, 0.5000)]
-    [InlineData(75, PaperType.White, ProjectType.Hardcover, 0.1444)] // (75/2)*0.002252+0.06 → MidpointRounding.ToEven
-    [InlineData(550, PaperType.Cream, ProjectType.Hardcover, 0.7475)] // (550/2)*0.0025+0.06
+    // Hardcover: pageCount × 0.002347 (forced case thickness)
+    [InlineData(75, PaperType.White, ProjectType.Hardcover, 0.176025)]
+    [InlineData(550, PaperType.Cream, ProjectType.Hardcover, 1.29085)]
     public void CalculateSpineWidthIn_MatchesSection2Formulas(
-        int pages, PaperType paper, ProjectType type, double expected)
+        int pages, PaperType paper, ProjectType type, double expectedRaw)
     {
-        Assert.Equal(expected, _sut.CalculateSpineWidthIn(pages, paper, type), 4);
+        Assert.Equal(Math.Round(expectedRaw, 4), _sut.CalculateSpineWidthIn(pages, paper, type), 4);
     }
 
     [Fact]
@@ -116,12 +117,13 @@ public class KdpCalculationServiceTests
     }
 
     [Fact]
-    public void CalculateFullCoverSizeIn_HardcoverWrap_Uses05PerEdge()
+    public void CalculateFullCoverSizeIn_HardcoverWrap_UsesWrapHingeExtraHeight()
     {
         var spine = _sut.CalculateSpineWidthIn(200, PaperType.White, ProjectType.Hardcover);
         var (w, h) = _sut.CalculateFullCoverSizeIn(6, 9, spine, CoverType.HardcoverWrap);
-        Assert.Equal(Math.Round(12 + spine + 1.0, 4), w, 4);
-        Assert.Equal(10.0, h, 4);
+        // width = 2*6 + spine + 0.394 + 2*0.591 ; height = 9 + 0.236 + 2*0.591
+        Assert.Equal(Math.Round(12 + spine + 0.394 + 1.182, 4), w, 4);
+        Assert.Equal(10.418, h, 4);
     }
 
     [Fact]

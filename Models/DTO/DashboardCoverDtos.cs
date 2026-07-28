@@ -162,13 +162,30 @@ namespace EBookDashboard.Models.DTO
         public double? SpineInches { get; set; }
     }
 
-    /// <summary>POST /Dashboard/SetPublishFormat — user picks eBook / Paperback / Both on the Publish page.</summary>
+    /// <summary>POST /Dashboard/SetPublishFormat — user picks eBook / Paperback / Hardcover / Both.</summary>
     public class SetPublishFormatRequest
     {
         [Required]
         public int BookId { get; set; }
 
-        /// <summary>"Ebook", "Paperback", or "Both".</summary>
+        /// <summary>"Ebook", "Paperback", "Hardcover", or "Both".</summary>
         public string? Format { get; set; }
+    }
+
+    /// <summary>POST create cover project.</summary>
+    public class CoverDesignMutationRequest
+    {
+        [Required]
+        public int BookId { get; set; }
+
+        /// <summary>Ebook | Paperback | Hardcover</summary>
+        public string? CoverType { get; set; }
+    }
+
+    /// <summary>POST activate / duplicate / soft-delete cover project.</summary>
+    public class CoverDesignIdRequest
+    {
+        [Required]
+        public int CoverId { get; set; }
     }
 }

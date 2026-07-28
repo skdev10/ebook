@@ -56,6 +56,7 @@ namespace EBookDashboard.Controllers
         private readonly IPrintWrapGenerationService _printWrapGenerationService;
         private readonly ICoverGenerationJobQueue _coverGenerationJobQueue;
         private readonly ICoverFrontGenerationService _coverFrontGenerationService;
+        private readonly IBookCoverDesignService _bookCoverDesigns;
         private readonly IWebHostEnvironment _env;
 
         public DashboardController(
@@ -79,6 +80,7 @@ namespace EBookDashboard.Controllers
             IPrintWrapGenerationService printWrapGenerationService,
             ICoverGenerationJobQueue coverGenerationJobQueue,
             ICoverFrontGenerationService coverFrontGenerationService,
+            IBookCoverDesignService bookCoverDesigns,
             IWebHostEnvironment env)
         {
             _featureCartService = featureCartService;
@@ -101,6 +103,7 @@ namespace EBookDashboard.Controllers
             _printWrapGenerationService = printWrapGenerationService;
             _coverGenerationJobQueue = coverGenerationJobQueue;
             _coverFrontGenerationService = coverFrontGenerationService;
+            _bookCoverDesigns = bookCoverDesigns;
             _env = env;
         }
 
@@ -1439,6 +1442,8 @@ namespace EBookDashboard.Controllers
             try
             {
                 await SaveFrontCoverPreviewAsync(sessionUserId.Value, req.BookId, url, cancellationToken);
+                try { await _bookCoverDesigns.SyncActiveAssetsAsync(sessionUserId.Value, req.BookId, cancellationToken); }
+                catch (Exception syncEx) { _logger.LogDebug(syncEx, "Cover project sync skipped for book {BookId}", req.BookId); }
                 return Json(new { success = true });
             }
             catch (Exception ex)
@@ -2928,8 +2933,9 @@ namespace EBookDashboard.Controllers
             if (format.Equals("Print", StringComparison.OrdinalIgnoreCase)) format = "Paperback";
             if (!format.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
                 && !format.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                && !format.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
                 && !format.Equals("Both", StringComparison.OrdinalIgnoreCase))
-                return Json(new { success = false, message = "Format must be Ebook, Paperback, or Both." });
+                return Json(new { success = false, message = "Format must be Ebook, Paperback, Hardcover, or Both." });
 
             var owns = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
@@ -2954,6 +2960,110 @@ namespace EBookDashboard.Controllers
 
             return Json(new { success = true, format = row.Format });
         }
+
+        /// <summary>Lists cover projects for a book (Ebook / Paperback / Hardcover).</summary>
+        [HttpGet]
+        [Route("ListCoverDesigns")]
+        public async Task<IActionResult> ListCoverDesigns(int bookId, CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
+            if (bookId <= 0) return Json(new { success = false, message = "bookId is required." });
+
+            await _bookCoverDesigns.EnsureDefaultAsync(sessionUserId.Value, bookId, ct: cancellationToken);
+            var list = await _bookCoverDesigns.ListAsync(sessionUserId.Value, bookId, cancellationToken);
+            return Json(new
+            {
+                success = true,
+                covers = list.Select(MapCoverDto)
+            });
+        }
+
+        /// <summary>Creates a new cover project for the book.</summary>
+        [HttpPost]
+        [Route("CreateCoverDesign")]
+        public async Task<IActionResult> CreateCoverDesign([FromBody] CoverDesignMutationRequest? req, CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
+            if (req == null || req.BookId <= 0)
+                return Json(new { success = false, message = "bookId is required." });
+
+            try
+            {
+                var row = await _bookCoverDesigns.CreateAsync(
+                    sessionUserId.Value, req.BookId, req.CoverType ?? "Paperback", cancellationToken);
+                return Json(new { success = true, cover = MapCoverDto(row) });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = ex.Message });
+            }
+        }
+
+        /// <summary>Duplicates an existing cover project.</summary>
+        [HttpPost]
+        [Route("DuplicateCoverDesign")]
+        public async Task<IActionResult> DuplicateCoverDesign([FromBody] CoverDesignIdRequest? req, CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
+            if (req == null || req.CoverId <= 0)
+                return Json(new { success = false, message = "coverId is required." });
+
+            var row = await _bookCoverDesigns.DuplicateAsync(sessionUserId.Value, req.CoverId, cancellationToken);
+            if (row == null) return Json(new { success = false, message = "Cover not found." });
+            return Json(new { success = true, cover = MapCoverDto(row) });
+        }
+
+        /// <summary>Soft-deletes a cover project (keeps at least one).</summary>
+        [HttpPost]
+        [Route("DeleteCoverDesign")]
+        public async Task<IActionResult> DeleteCoverDesign([FromBody] CoverDesignIdRequest? req, CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
+            if (req == null || req.CoverId <= 0)
+                return Json(new { success = false, message = "coverId is required." });
+
+            var (ok, message) = await _bookCoverDesigns.SoftDeleteAsync(sessionUserId.Value, req.CoverId, cancellationToken);
+            return Json(new { success = ok, message });
+        }
+
+        /// <summary>Activates a cover project and loads its assets into the workspace.</summary>
+        [HttpPost]
+        [Route("ActivateCoverDesign")]
+        public async Task<IActionResult> ActivateCoverDesign([FromBody] CoverDesignIdRequest? req, CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
+            if (req == null || req.CoverId <= 0)
+                return Json(new { success = false, message = "coverId is required." });
+
+            var row = await _bookCoverDesigns.ActivateAsync(sessionUserId.Value, req.CoverId, cancellationToken);
+            if (row == null) return Json(new { success = false, message = "Cover not found." });
+            return Json(new { success = true, cover = MapCoverDto(row) });
+        }
+
+        private static object MapCoverDto(BookCoverDesign c) => new
+        {
+            coverId = c.CoverId,
+            bookId = c.BookId,
+            coverType = c.CoverType,
+            displayName = c.DisplayName,
+            trimWidthIn = c.TrimWidthIn,
+            trimHeightIn = c.TrimHeightIn,
+            spineWidthIn = c.SpineWidthIn,
+            bleedIn = c.BleedIn,
+            fullWidthIn = c.FullWidthIn,
+            fullHeightIn = c.FullHeightIn,
+            status = c.Status,
+            frontImagePath = c.FrontImagePath,
+            backImagePath = c.BackImagePath,
+            spineImagePath = c.SpineImagePath,
+            wrapImagePath = c.WrapImagePath,
+            isActive = c.IsActive
+        };
 
         [HttpPost]
         [Route("SavePrintReadyComposedWrap")]

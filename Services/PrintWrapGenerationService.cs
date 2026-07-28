@@ -115,6 +115,7 @@ public sealed class PrintWrapGenerationService : IPrintWrapGenerationService
             fmt = "Paperback";
         if (!allowNonPrintFormat
             && !fmt.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+            && !fmt.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
             && !fmt.Equals("Both", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogDebug("Skip print wrap pregeneration for book {BookId}: format={Format}", bookId, fmt);

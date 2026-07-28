@@ -102,26 +102,24 @@ public sealed class KdpCalculationService
     }
 
     /// <summary>
-    /// Paperback: pageCount × thickness.
-    /// Hardcover: (pageCount / 2) × thickness + SpineCaseExtraIn.
+    /// Spine width = pageCount × thicknessPerPage (no extra allowance).
+    /// Hardcover forces <see cref="HardcoverOptions.ForcedThicknessInPerPage"/> (white / case laminate).
     /// </summary>
     public double CalculateSpineWidthIn(int pageCount, PaperType paper, ProjectType type)
     {
         var pages = Math.Max(0, pageCount);
-        var thickness = _specs.ResolveThicknessInPerPage(paper);
-
-        if (type == ProjectType.Hardcover)
-        {
-            var spine = (pages / 2.0) * thickness + _specs.Hardcover.SpineCaseExtraIn;
-            return Math.Round(spine, 4);
-        }
+        var thickness = type == ProjectType.Hardcover
+            ? _specs.Hardcover.ForcedThicknessInPerPage
+            : _specs.ResolveThicknessInPerPage(paper);
 
         return Math.Round(pages * thickness, 4);
     }
 
     /// <summary>
-    /// Full cover size. Paperback: 2×trim + spine + 2×bleed on width, trim + 2×bleed on height.
-    /// Hardcover: same trim panels + spine + 2× WrapAllowancePerEdgeIn on each dimension.
+    /// Full cover size.
+    /// Paperback: 2×trim + spine + 2×bleed width; trim + 2×bleed height.
+    /// Hardcover case laminate: 2×trim + spine + hinge + 2×wrap width;
+    /// trim + extraHeight + 2×wrap height.
     /// </summary>
     public (double WidthIn, double HeightIn) CalculateFullCoverSizeIn(
         double trimW,
@@ -130,6 +128,7 @@ public sealed class KdpCalculationService
         CoverType coverType)
     {
         var bleedTotal = 2 * _specs.BleedIn;
+        var hc = _specs.Hardcover;
 
         return coverType switch
         {
@@ -142,8 +141,8 @@ public sealed class KdpCalculationService
                 Math.Round(trimH + bleedTotal, 4)),
 
             CoverType.HardcoverWrap => (
-                Math.Round(2 * trimW + spineW + 2 * _specs.Hardcover.WrapAllowancePerEdgeIn, 4),
-                Math.Round(trimH + 2 * _specs.Hardcover.WrapAllowancePerEdgeIn, 4)),
+                Math.Round(2 * trimW + spineW + hc.HingeTotalIn + 2 * hc.WrapTurnInIn, 4),
+                Math.Round(trimH + hc.ExtraHeightIn + 2 * hc.WrapTurnInIn, 4)),
 
             _ => (
                 Math.Round(2 * trimW + spineW + bleedTotal, 4),
