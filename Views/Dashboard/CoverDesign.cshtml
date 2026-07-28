@@ -694,8 +694,6 @@
             </div>
 
             <div class="cov-form-actions">
-            @{ ViewData["ExportPanelId"] = "cover-inline-exports"; }
-            @await Html.PartialAsync("_ModuleInlineExports")
             <div class="mt-1 flex flex-col gap-2" data-guided-tour="cov-generate">
                 <button type="button" id="btnGenerate" class="inline-flex items-center justify-center gap-2 w-full rounded-[14px] bg-violet-600 text-white px-5 py-3.5 text-sm font-semibold shadow-md shadow-violet-500/30 hover:bg-violet-700 transition-colors" disabled title="Fill title, format, image direction (and summary for paperback)">
                     <i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i>
@@ -713,17 +711,13 @@
                 Continue to Publish
             </a>
             <div class="relative mt-2 flex flex-col gap-2" id="covDownloadWrap">
-                <button type="button" id="btnDownloadCoverFront" class="cov-download-btn w-full rounded-[14px] border-2 border-violet-200 bg-white text-violet-800 py-2.5 text-sm font-semibold hover:bg-violet-50 transition-all flex items-center justify-center gap-2" data-part="front" data-format="png" title="Download front cover PNG" disabled>
+                <button type="button" id="btnDownloadCoverFront" class="cov-download-btn w-full rounded-[14px] border-2 border-violet-200 bg-white text-violet-800 py-2.5 text-sm font-semibold hover:bg-violet-50 transition-all flex items-center justify-center gap-2" data-part="front" data-format="png" title="Export front cover — available after front is generated" disabled>
                     <i data-lucide="download" class="w-4 h-4" stroke-width="1.75"></i>
-                    <span id="btnDownloadCoverFrontLabel">Download Front Cover — PNG</span>
+                    <span id="btnDownloadCoverFrontLabel">Export Front</span>
                 </button>
-                <button type="button" id="btnDownloadEbookBundle" class="w-full rounded-[14px] border-2 border-emerald-200 bg-white text-emerald-800 py-2.5 text-sm font-semibold hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 hidden" title="Download EPUB with front cover + manuscript chapters" disabled>
-                    <i data-lucide="book-down" class="w-4 h-4" stroke-width="1.75"></i>
-                    <span>Download eBook — cover + manuscript (EPUB)</span>
-                </button>
-                <button type="button" id="btnDownloadCoverWrap" class="cov-download-btn w-full rounded-[14px] border-2 border-violet-200 bg-white text-violet-800 py-2.5 text-sm font-semibold hover:bg-violet-50 transition-all flex items-center justify-center gap-2" data-part="wrap" data-format="pdf" title="Download print-ready wrap PDF" disabled>
+                <button type="button" id="btnDownloadCoverWrap" class="cov-download-btn w-full rounded-[14px] border-2 border-violet-200 bg-white text-violet-800 py-2.5 text-sm font-semibold hover:bg-violet-50 transition-all flex items-center justify-center gap-2" data-part="wrap" data-format="pdf" title="Export full cover — available after full wrap is ready" disabled>
                     <i data-lucide="file-text" class="w-4 h-4" stroke-width="1.75"></i>
-                    <span id="btnDownloadCoverWrapLabel">Download Full Wrap — PDF</span>
+                    <span id="btnDownloadCoverWrapLabel">Export Full Cover</span>
                 </button>
             </div>
             <p id="btnGoToPublishHint" data-guided-flow-only class="hidden mt-1 text-[11px] text-slate-400 leading-snug" style="display:none">Generate your cover first — for paperback, wait until the full wrap is ready.</p>
@@ -2259,7 +2253,7 @@
         var needsWrap = needsPrintWrapAutoBuild();
         var ebookMode = isEbookCoverMode();
 
-        // Always refresh export buttons (even while Publish is temporarily busy).
+        // Cover Design exports: Front when front ready; Full Cover when wrap ready (no book PDF/EPUB here).
         var dlBtns = document.querySelectorAll('.cov-download-btn');
         dlBtns.forEach(function (b) {
             var part = b.getAttribute('data-part') || 'front';
@@ -2268,31 +2262,20 @@
                 b.disabled = !wrapOk;
                 b.classList.toggle('hidden', ebookMode);
                 b.title = wrapOk
-                    ? 'Download print-ready full wrap PDF'
-                    : (ebookMode ? 'Switch to Paperback for wrap PDF' : 'Full wrap not ready yet');
+                    ? 'Export full cover (print-ready wrap PDF)'
+                    : (ebookMode ? 'Paperback / Both mode only' : 'Generate full cover first');
             } else {
-                b.disabled = !frontReady && !fullWrapIsReady();
-                b.title = (frontReady || fullWrapIsReady())
-                    ? 'Download front cover PNG'
-                    : 'Generate a cover first';
+                b.disabled = !frontReady;
+                b.title = frontReady
+                    ? 'Export front cover PNG'
+                    : 'Generate front cover first';
             }
         });
 
-        var epubBtn = document.getElementById('btnDownloadEbookBundle');
-        if (epubBtn) {
-            epubBtn.classList.toggle('hidden', !ebookMode);
-            epubBtn.disabled = !(ebookMode && frontReady && selectedBook && selectedBook.bookId);
-            epubBtn.title = epubBtn.disabled
-                ? (ebookMode
-                    ? 'Generate a front cover first, then download EPUB (cover + manuscript)'
-                    : 'Available in eBook mode')
-                : 'Download EPUB with this front cover and the manuscript chapters';
-        }
-
         var frontLabelEl = document.getElementById('btnDownloadCoverFrontLabel');
-        if (frontLabelEl) frontLabelEl.textContent = 'Download Front Cover — PNG';
+        if (frontLabelEl) frontLabelEl.textContent = 'Export Front';
         var wrapLabelEl = document.getElementById('btnDownloadCoverWrapLabel');
-        if (wrapLabelEl) wrapLabelEl.textContent = 'Download Full Wrap — PDF';
+        if (wrapLabelEl) wrapLabelEl.textContent = 'Export Full Cover';
 
         if (btnGenerate) btnGenerate.classList.toggle('hidden', frontReady);
         if (btnRegenerate) btnRegenerate.classList.toggle('hidden', !frontReady);
@@ -2326,7 +2309,7 @@
                 hint.classList.remove('text-amber-700');
                 hint.classList.add('text-emerald-700');
             } else if (ready && ebookMode) {
-                hint.textContent = 'Front cover ready — download EPUB (cover + manuscript) or continue to Publish.';
+                hint.textContent = 'Front cover ready — Export Front or continue to Publish.';
                 hint.classList.remove('text-amber-700');
                 hint.classList.add('text-emerald-700');
             } else if (needsWrap && frontReady && !fullWrapIsReady()) {
@@ -2335,7 +2318,7 @@
                 hint.classList.remove('text-emerald-700');
             } else if (!frontReady) {
                 hint.textContent = ebookMode
-                    ? 'Generate the front cover, then download PNG or EPUB.'
+                    ? 'Generate the front cover, then use Export Front.'
                     : 'Generate your cover first — for print, wait until the full wrap is ready.';
                 hint.classList.remove('text-amber-700', 'text-emerald-700');
             } else {
@@ -3415,7 +3398,7 @@
                     var ext = format === 'pdf' ? 'pdf' : 'png';
                     var result = await window.ModuleExport.getExport(url, 'cover-' + bid + '-' + part + '.' + ext);
                     if (!result.ok) toast('error', result.message || 'Download failed');
-                    else toast('success', part === 'wrap' ? 'Full wrap PDF download started' : 'Front cover PNG download started');
+                    else toast('success', part === 'wrap' ? 'Full cover export started' : 'Front cover export started');
                 } catch (err) {
                     toast('error', 'Download failed');
                 } finally {
