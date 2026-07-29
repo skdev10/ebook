@@ -864,9 +864,17 @@
     }
 
     /* ---------- TRADITIONAL / NOVEL (trade paperback) ---------- */
-    #book-formatter-root .reader-content-wrap.interior-novel .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        margin-top: var(--ilt-chapter-drop, 1.25in);
+    #book-formatter-root .reader-content-wrap.interior-novel .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
+    #book-formatter-root .reader-content-wrap.interior-classic .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
+    #book-formatter-root .reader-content-wrap.interior-minimalist .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
+    #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
+        margin-top: 0;
         padding-top: 0;
+    }
+    #book-formatter-root .reader-content-wrap .reader-chapter-block[data-chapter-start="1"],
+    #book-formatter-root #fmt-preview-measure-host.reader-content-wrap .reader-chapter-block[data-chapter-start="1"] {
+        padding-top: var(--ilt-chapter-drop, 1.35in);
+        box-sizing: border-box;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .fmt-chapter-opener .fmt-ch-eyebrow {
         font-family: 'EB Garamond', Georgia, serif;
@@ -909,7 +917,7 @@
 
     /* ---------- FINE BOOK / CLASSIC (literary hardcover) ---------- */
     #book-formatter-root .reader-content-wrap.interior-classic .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        margin-top: var(--ilt-chapter-drop, 1.25in);
+        margin-top: 0;
         padding-top: 0;
     }
     #book-formatter-root .reader-content-wrap.interior-classic .fmt-chapter-opener .fmt-ch-flourish {
@@ -959,7 +967,7 @@
 
     /* ---------- CLEAN / MINIMALIST (modern non-fiction) ---------- */
     #book-formatter-root .reader-content-wrap.interior-minimalist .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        margin-top: var(--ilt-chapter-drop, 1.25in);
+        margin-top: 0;
         padding-top: 0;
         text-align: left;
     }
@@ -1002,7 +1010,7 @@
 
     /* ---------- POD / ELEGANT TRADE (KDP / IngramSpark) ---------- */
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        margin-top: var(--ilt-chapter-drop, 1.25in);
+        margin-top: 0;
         padding-top: 0;
     }
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .fmt-chapter-opener .fmt-ch-eyebrow {
@@ -3064,9 +3072,11 @@
         if (!spec) return;
         var targets = [
             document.documentElement,
+            document.getElementById('book-formatter-root'),
             document.getElementById('paginatedReaderShell'),
             document.getElementById('bookStage'),
-            document.getElementById('bookContainer')
+            document.getElementById('bookContainer'),
+            document.getElementById('fmt-preview-measure-host')
         ].filter(Boolean);
         targets.forEach(function(root) {
         var sp = specs.spacing;
@@ -3795,8 +3805,8 @@
     }
 
     function fmtPageFitSlackPx() {
-        // Keep last lines clear of the folio — measure can undershoot live open-spread chrome.
-        return 40;
+        // Extra air above the folio so last lines never collide with page numbers.
+        return 88;
     }
 
     function syncFmtMeasureHostClasses(mh) {
@@ -4424,8 +4434,8 @@
         var sizeHost = document.getElementById('preview-single') || scrollHost;
 
         var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        // Large 6×9 paper (or 12×9 open spread): use almost the full viewport height.
-        var maxShellH = Math.max(560, Math.floor(window.innerHeight - 3.25 * remPx));
+        // Large open book: use nearly full studio column (real 6×9 × 2 look).
+        var maxShellH = Math.max(620, Math.floor(window.innerHeight - 2.4 * remPx));
         var isDesktop = window.innerWidth >= 1024;
         var spread = isFmtPrintSpread();
         var changed = false;
@@ -4441,13 +4451,13 @@
                 measureHost: document.getElementById('fmt-preview-measure-host'),
                 viewport: viewport,
                 minHostHeightPx: isDesktop
-                    ? Math.max(640, Math.floor(window.innerHeight * 0.9))
-                    : Math.max(400, Math.floor(window.innerHeight * 0.62)),
+                    ? Math.max(720, Math.floor(window.innerHeight * 0.92))
+                    : Math.max(440, Math.floor(window.innerHeight * 0.68)),
                 preferHeight: isDesktop,
                 maxHeightPx: isDesktop ? maxShellH : 0,
                 // Single leaf = 6×9; open book = two leaves side-by-side (~12×9).
                 aspectRatio: spread ? (12 / 9) : (6 / 9),
-                widthFactor: 1,
+                widthFactor: spread ? 0.998 : 1,
                 syncMeasureTypography: true,
                 chromeReservePx: chromeReserve,
                 onLayoutChange: function (c) {
@@ -8482,14 +8492,15 @@
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        /* Same inch margins as PDF export (InteriorLayoutTokens / InteriorSpacingTheme) */
+        /* Same inch margins as PDF export — extra bottom air so body clears the folio */
         padding: var(--ilt-pad-top, 0.625in)
                  var(--ilt-pad-right, 0.625in)
-                 var(--ilt-pad-bottom, 0.875in)
+                 calc(var(--ilt-pad-bottom, 0.875in) + 0.28in)
                  var(--ilt-pad-left, 0.8125in) !important;
+        /* MUST match pagination measure (not a separate clamp) or last lines clip */
         font-family: Georgia, "Times New Roman", serif !important;
-        font-size: clamp(0.78rem, 1.15vw, 0.95rem) !important;
-        line-height: 1.58 !important;
+        font-size: var(--fmt-font-size, var(--ilt-body-px, 11pt)) !important;
+        line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.58)) !important;
         color: #1c1917 !important;
         text-align: justify !important;
         hyphens: auto !important;
@@ -8499,26 +8510,34 @@
     /* Verso (left leaf): outside on left, gutter on right — same top/bottom as export */
     #book-formatter-root .book-open-page--verso .book-open-page-inner {
         padding-top: var(--ilt-pad-top, 0.625in) !important;
-        padding-bottom: var(--ilt-pad-bottom, 0.875in) !important;
+        padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in) !important;
         padding-left: var(--ilt-pad-right, 0.625in) !important;
         padding-right: var(--ilt-pad-left, 0.8125in) !important;
     }
     /* Recto (right leaf): gutter on left, outside on right */
     #book-formatter-root .book-open-page--recto .book-open-page-inner {
         padding-top: var(--ilt-pad-top, 0.625in) !important;
-        padding-bottom: var(--ilt-pad-bottom, 0.875in) !important;
+        padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in) !important;
         padding-left: var(--ilt-pad-left, 0.8125in) !important;
         padding-right: var(--ilt-pad-right, 0.625in) !important;
     }
     /*
-     * Chapter title sink — identical to PDF export (--ilt-chapter-drop ≈ 1.25in).
-     * Overrides theme rem paddings so titles sit down the page, not under the running head.
+     * Chapter title sink — padding on the BLOCK (no margin collapse).
+     * Applied to LIVE spread AND #fmt-preview-measure-host so pagination reserves the same space.
      */
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"],
+    #book-formatter-root #fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"],
+    #fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"] {
+        padding-top: var(--ilt-chapter-drop, 1.35in) !important;
+        box-sizing: border-box !important;
+    }
     #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
     #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .manuscript-chapter-heading,
     #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .reader-page-title,
-    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] > header.fmt-chapter-opener {
-        margin-top: var(--ilt-chapter-drop, 1.25in) !important;
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] > header.fmt-chapter-opener,
+    #book-formatter-root #fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
+    #fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
+        margin-top: 0 !important;
         padding-top: 0 !important;
         margin-bottom: 1.15rem !important;
     }
@@ -8526,7 +8545,7 @@
     #book-formatter-root .book-open-spread.fmt-live-spread .manuscript-chapter-heading {
         margin-bottom: 1.15rem !important;
     }
-    /* In-page folio (page numbers 5 / 6) — must stay visible at bottom of each leaf */
+    /* Folio band — fixed reserve so page numbers never sit under clipped body text */
     #book-formatter-root .book-open-folio,
     #book-formatter-root .book-open-folio.book-page-footer-inline,
     #book-formatter-root .book-open-folio.book-page-footer,
@@ -8536,9 +8555,10 @@
         opacity: 1 !important;
         flex: 0 0 auto !important;
         flex-shrink: 0 !important;
-        margin-top: auto !important;
-        min-height: 1.6rem !important;
-        padding: 0.4rem 0.35rem 0.65rem !important;
+        margin-top: 0 !important;
+        min-height: 2rem !important;
+        height: auto !important;
+        padding: 0.55rem 0.35rem 0.7rem !important;
         text-align: center !important;
         font-size: 0.82rem !important;
         line-height: 1.2 !important;
@@ -8549,9 +8569,10 @@
         font-weight: 500 !important;
         position: relative !important;
         z-index: 5 !important;
-        background: transparent !important;
+        background: #fffef8 !important;
         overflow: visible !important;
         pointer-events: none !important;
+        box-shadow: 0 -12px 16px -12px rgba(255, 254, 248, 0.95) !important;
     }
     /* Side chevrons on the open book */
     #book-formatter-root #paginatedReaderShell .book-preview-nav-side,

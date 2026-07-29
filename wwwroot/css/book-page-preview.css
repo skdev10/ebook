@@ -758,11 +758,10 @@
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    /* Match PDF export page margins (InteriorSpacingTheme) */
-    padding: var(--ilt-pad-top, 0.625in) var(--ilt-pad-right, 0.625in) var(--ilt-pad-bottom, 0.875in) var(--ilt-pad-left, 0.8125in);
+    padding: var(--ilt-pad-top, 0.625in) var(--ilt-pad-right, 0.625in) calc(var(--ilt-pad-bottom, 0.875in) + 0.28in) var(--ilt-pad-left, 0.8125in);
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(0.72rem, 1.05vw, 0.88rem);
-    line-height: 1.55;
+    font-size: var(--fmt-font-size, var(--ilt-body-px, 11pt));
+    line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.55));
     color: #1c1917;
     text-align: justify;
     hyphens: auto;
@@ -773,22 +772,29 @@
 
 .book-open-page--verso .book-open-page-inner {
     padding-top: var(--ilt-pad-top, 0.625in);
-    padding-bottom: var(--ilt-pad-bottom, 0.875in);
+    padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in);
     padding-left: var(--ilt-pad-right, 0.625in);
     padding-right: var(--ilt-pad-left, 0.8125in);
 }
 
 .book-open-page--recto .book-open-page-inner {
     padding-top: var(--ilt-pad-top, 0.625in);
-    padding-bottom: var(--ilt-pad-bottom, 0.875in);
+    padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in);
     padding-left: var(--ilt-pad-left, 0.8125in);
     padding-right: var(--ilt-pad-right, 0.625in);
 }
 
+.book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"],
+#fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"] {
+    padding-top: var(--ilt-chapter-drop, 1.35in);
+    box-sizing: border-box;
+}
+
 .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
 .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .manuscript-chapter-heading,
-.book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
-    margin-top: var(--ilt-chapter-drop, 1.25in);
+.book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .reader-page-title,
+#fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
+    margin-top: 0;
     padding-top: 0;
     margin-bottom: 1.15rem;
 }
@@ -796,6 +802,14 @@
 .book-open-spread.fmt-live-spread .fmt-chapter-opener,
 .book-open-spread.fmt-live-spread .manuscript-chapter-heading {
     margin-bottom: 1.15rem;
+}
+
+.book-open-folio {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    min-height: 2rem;
+    padding: 0.55rem 0.35rem 0.7rem;
+    background: #fffef8;
 }
 
 .book-open-page-inner p,
