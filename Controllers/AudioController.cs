@@ -30,13 +30,14 @@ namespace EBookDashboard.Controllers
             if (audio == null || audio.Length == 0)
                 return BadRequest("Audio file is required.");
 
-            if (!BookApiInputValidation.IsAllowedAudioExtension(audio.FileName))
+            var resolvedExt = BookApiInputValidation.ResolveAllowedAudioExtension(audio.FileName, audio.ContentType);
+            if (string.IsNullOrEmpty(resolvedExt))
                 return BadRequest("Unsupported audio type. Allowed: " + string.Join(", ", BookApiConstants.ValidAudioExtensions));
 
             var folder = Path.Combine(_env.WebRootPath, "uploads/audio");
             Directory.CreateDirectory(folder);
 
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(audio.FileName)}";
+            var fileName = $"{Guid.NewGuid()}{resolvedExt}";
             var filePath = Path.Combine(folder, fileName);
 
             using (var fs = new FileStream(filePath, FileMode.Create))

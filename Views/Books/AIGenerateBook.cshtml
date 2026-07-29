@@ -9815,8 +9815,21 @@ document.addEventListener('DOMContentLoaded', function() {
          async function ebookUploadAudioFileForTopic(file) {
              if (!file || !file.size) return;
              var formData = new FormData();
-             formData.append("audio", file, file.name);
-             formData.append("AudioFile", file, file.name);
+             var name = (file.name || 'voice').trim();
+             var lower = name.toLowerCase();
+             var hasExt = /\.(mp3|mp4|mpeg|mpga|m4a|wav|webm|ogg|oga|opus|weba|aac|caf|flac|3gp)$/i.test(lower);
+             if (!hasExt) {
+                 var t = (file.type || '').toLowerCase();
+                 var ext = '.webm';
+                 if (t.indexOf('mp4') >= 0 || t.indexOf('m4a') >= 0 || t.indexOf('aac') >= 0) ext = '.m4a';
+                 else if (t.indexOf('wav') >= 0) ext = '.wav';
+                 else if (t.indexOf('mpeg') >= 0 || t.indexOf('mp3') >= 0) ext = '.mp3';
+                 name = 'voice' + ext;
+             } else if (/\.(ogg|oga|opus|weba)$/i.test(lower)) {
+                 name = name.replace(/\.(ogg|oga|opus|weba)$/i, '.webm');
+             }
+             formData.append("audio", file, name);
+             formData.append("AudioFile", file, name);
              formData.append("Language", "en-US");
              var uid = document.getElementById("UserId") && document.getElementById("UserId").value ? document.getElementById("UserId").value : "";
              var bid = document.getElementById("BookId") && document.getElementById("BookId").value ? document.getElementById("BookId").value : "";
@@ -10039,8 +10052,10 @@ document.addEventListener('DOMContentLoaded', function() {
                  // Filename + multipart type must match actual codec (Safari/Edge often record mp4 — wrong .webm broke upstream MIME detection).
                  var ext = '.webm';
                  var mt = mediaRecorder.mimeType || blob.type || '';
-                 if (mt.indexOf('mp4') >= 0 || mt.indexOf('mpeg') >= 0 || mt.indexOf('x-m4a') >= 0) ext = '.mp4';
-                 else if (mt.indexOf('ogg') >= 0) ext = '.ogg';
+                 if (mt.indexOf('mp4') >= 0 || mt.indexOf('mpeg') >= 0 || mt.indexOf('x-m4a') >= 0 || mt.indexOf('aac') >= 0) ext = '.m4a';
+                 else if (mt.indexOf('wav') >= 0) ext = '.wav';
+                 else if (mt.indexOf('mpeg') >= 0 || mt.indexOf('mp3') >= 0) ext = '.mp3';
+                 // ogg / opus / weba → upload as .webm (upstream allow-list; content is still opus-in-webm/ogg compatible for many STT backends)
                  var voiceFileName = 'voice' + ext;
                  if (!blob.size) {
                      console.error('Voice recording: empty blob — browser may need periodic timeslices or requestData() before stop.');

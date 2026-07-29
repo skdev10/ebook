@@ -47,20 +47,24 @@ namespace EBookDashboard.Controllers
                 });
             }
 
-            if (!BookApiInputValidation.IsAllowedAudioExtension(audioFile.FileName))
+            var resolvedExt = BookApiInputValidation.ResolveAllowedAudioExtension(
+                audioFile.FileName,
+                audioFile.ContentType);
+            if (string.IsNullOrEmpty(resolvedExt))
             {
                 return BadRequest(new
                 {
                     success = false,
                     text = "",
                     message = "Unsupported audio type. Allowed: " + string.Join(", ", BookApiConstants.ValidAudioExtensions)
+                        + " (or record via the mic — browsers may send webm/ogg)."
                 });
             }
 
             var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "audio");
             Directory.CreateDirectory(uploadsFolder);
 
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(audioFile.FileName)}";
+            var fileName = $"{Guid.NewGuid()}{resolvedExt}";
             var savedFilePath = Path.Combine(uploadsFolder, fileName);
 
             try
@@ -117,7 +121,7 @@ namespace EBookDashboard.Controllers
                 {
                     _logger.LogWarning("External API key empty (ExternalApi:ApiKey) — skipping external transcription.");
                 }
-
+                 
                 if (!string.IsNullOrWhiteSpace(text))
                 {   
                     return Ok(new
@@ -127,7 +131,7 @@ namespace EBookDashboard.Controllers
                         message = ""
                     });
                 }
-
+                
                 string failMessage;
 
                 if (externalAttempted && externalError != null)
