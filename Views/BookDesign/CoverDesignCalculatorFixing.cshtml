@@ -3594,8 +3594,21 @@
 
     function getFmtReaderPageChromeY() {
         var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        // .book-open-running-head + .book-open-folio + page-inner vertical padding
-        return Math.ceil(2.55 * rem) + 1 + Math.ceil(1.35 * rem) + Math.ceil(0.7 * rem);
+        var viewport = document.getElementById('preview-content')
+            || document.getElementById('preview-content-ebook')
+            || document.getElementById('preview-content-paperback');
+        var headH = 0;
+        var folioH = 0;
+        if (viewport) {
+            var head = viewport.querySelector('.book-open-running-head');
+            var folio = viewport.querySelector('.book-open-folio');
+            if (head) headH = head.getBoundingClientRect().height || 0;
+            if (folio) folioH = folio.getBoundingClientRect().height || 0;
+        }
+        // Fallback when spread not yet painted — running head + folio chrome.
+        if (headH < 8) headH = Math.ceil(2.55 * rem);
+        if (folioH < 8) folioH = Math.ceil(1.75 * rem);
+        return Math.ceil(headH + folioH + 10);
     }
 
     function syncPageRunningHead(headEl, pageIdx) {
@@ -3706,9 +3719,9 @@
                     var is = window.getComputedStyle(liveInner);
                     padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
                 } else {
-                    // Approximate face padding before first render (~0.9rem total).
+                    // Match CSS: top+bottom ≈ left/right gutters (~2.5–4rem each side).
                     var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-                    padY = Math.ceil(0.9 * rem);
+                    padY = Math.ceil(7.2 * rem);
                 }
                 var usableFace = Math.floor(shellH - chromeY - padY - 6);
                 if (usableFace >= 96) return usableFace;
@@ -8447,10 +8460,10 @@
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        /* Extra page margins — keep chapter titles off the top and body off the folio */
-        padding: clamp(2.15rem, 4.4vw, 2.95rem)
+        /* Top/bottom margins match left/right gutters so chapter titles & last lines are not clipped */
+        padding: clamp(2.5rem, 6.4vw, 4rem)
                  clamp(2.4rem, 6vw, 3.6rem)
-                 clamp(1.6rem, 3.4vw, 2.2rem) !important;
+                 clamp(2.5rem, 6.4vw, 4rem) !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: clamp(0.78rem, 1.15vw, 0.95rem) !important;
         line-height: 1.58 !important;
@@ -8460,15 +8473,33 @@
         word-wrap: break-word !important;
         box-sizing: border-box !important;
     }
-    /* Verso (left leaf): outer left + spine gutter */
+    /* Verso (left leaf): outer left + spine gutter — keep equal top/bottom */
     #book-formatter-root .book-open-page--verso .book-open-page-inner {
+        padding-top: clamp(2.5rem, 6.4vw, 4rem) !important;
+        padding-bottom: clamp(2.5rem, 6.4vw, 4rem) !important;
         padding-left: clamp(2.5rem, 6.4vw, 4rem) !important;
         padding-right: clamp(2.65rem, 6.8vw, 4.2rem) !important;
     }
-    /* Recto (right leaf): spine gutter + outer right */
+    /* Recto (right leaf): spine gutter + outer right — keep equal top/bottom */
     #book-formatter-root .book-open-page--recto .book-open-page-inner {
+        padding-top: clamp(2.5rem, 6.4vw, 4rem) !important;
+        padding-bottom: clamp(2.5rem, 6.4vw, 4rem) !important;
         padding-left: clamp(2.65rem, 6.8vw, 4.2rem) !important;
         padding-right: clamp(2.5rem, 6.4vw, 4rem) !important;
+    }
+    /* Chapter titles: sit below the top margin, not stuck under the running head */
+    #book-formatter-root .book-open-spread.fmt-live-spread .fmt-chapter-opener,
+    #book-formatter-root .book-open-spread.fmt-live-spread .manuscript-chapter-heading {
+        margin-top: 0.35rem !important;
+        margin-bottom: 1.35rem !important;
+        padding-top: 1.25rem !important;
+    }
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
+        padding-top: 2.75rem !important;
+    }
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
+        margin-top: 1.5rem !important;
+        padding-top: 1.25rem !important;
     }
     /* In-page folio (page numbers 5 / 6) — must stay visible at bottom of each leaf */
     #book-formatter-root .book-open-folio,
