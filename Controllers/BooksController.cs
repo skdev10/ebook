@@ -846,7 +846,49 @@ namespace EBookDashboard.Controllers
             if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
                 return Json(new { error = true, message = "Please sign in again, then retry chapter generation." });
             model.UserId = sessionUserId.Value.ToString(CultureInfo.InvariantCulture);
-            if (int.TryParse(model.BookId, out var genBookId) && genBookId > 0)
+            if (!int.TryParse(model.BookId, out var genBookId) || genBookId <= 0)
+            {
+                // Soft Writer entry has no bookId — create a draft so generate + Export Docs can work.
+                var draftTitle = (model.Title ?? "").Trim();
+                if (string.IsNullOrEmpty(draftTitle))
+                    draftTitle = "Untitled Book";
+                try
+                {
+                    var created = await _bookService.CreateBookFromRequestAsync(new CreateBookRequest
+                    {
+                        UserId = sessionUserId.Value,
+                        AuthorId = sessionUserId.Value,
+                        CategoryId = 1,
+                        LanguageId = 1,
+                        Title = draftTitle,
+                        Genre = "General",
+                        Description = "",
+                        Dedication = "",
+                        Ghostwriting = "",
+                        Epigraph = "",
+                        Subtitle = "",
+                        AuthorCode = "",
+                        BookCode = "",
+                        WordCount = 0,
+                        Status = "Draft"
+                    });
+                    genBookId = created.BookId;
+                    model.BookId = genBookId.ToString(CultureInfo.InvariantCulture);
+                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, genBookId);
+                    HttpContext.Session.SetInt32("LastSelectedBookId", genBookId);
+                    try { await _bookFlow.SaveStepAsync(genBookId, BookFlowStateService.StepGenerate); }
+                    catch (Exception flowEx)
+                    {
+                        _logger.LogWarning(flowEx, "AIGenerateBook: flow step save failed for new book {BookId}", genBookId);
+                    }
+                }
+                catch (Exception createEx)
+                {
+                    _logger.LogError(createEx, "AIGenerateBook: could not auto-create draft book for user {UserId}", sessionUserId.Value);
+                    return Json(new { error = true, message = "Could not create a book for this chapter. Try again from the Dashboard." });
+                }
+            }
+            else
             {
                 var owns = await _context.Books.AsNoTracking()
                     .AnyAsync(b => b.BookId == genBookId && b.UserId == sessionUserId.Value);
@@ -878,7 +920,7 @@ namespace EBookDashboard.Controllers
                     queueSnapshot.Waiting, queueSnapshot.Running);
             }
 
-            if (string.IsNullOrWhiteSpace(model.UserId) || string.IsNullOrWhiteSpace(model.BookId))
+            if (string.IsNullOrWhiteSpace(model.UserId) || genBookId <= 0)
             {
                 return Json(new
                 {
@@ -1008,8 +1050,30 @@ namespace EBookDashboard.Controllers
 
                     if (rawResponseId.HasValue)
                         Response.Headers.Append("X-Saved-Response-Id", rawResponseId.Value.ToString(CultureInfo.InvariantCulture));
+                    if (genBookId > 0)
+                        Response.Headers.Append("X-Book-Id", genBookId.ToString(CultureInfo.InvariantCulture));
 
-                    var normalized = UpstreamResponseParser.NormalizeChapterJson(responseData);
+                    var normalized = UpstreamResponseParser.NormalizeChapterJson(responseData) ?? responseData;
+                    // Always surface bookId so Writer can enable Export Docs after soft entry (no ?bookId=).
+                    try
+                    {
+                        var token = Newtonsoft.Json.Linq.JToken.Parse(string.IsNullOrWhiteSpace(normalized) ? "{}" : normalized);
+                        if (token is Newtonsoft.Json.Linq.JObject root)
+                        {
+                            root["bookId"] = genBookId;
+                            root["BookId"] = genBookId;
+                            if (rawResponseId.HasValue)
+                            {
+                                root["responseId"] = rawResponseId.Value;
+                                root["response_id"] = rawResponseId.Value;
+                            }
+                            return Content(root.ToString(Newtonsoft.Json.Formatting.None), "application/json");
+                        }
+                    }
+                    catch (Exception mergeEx)
+                    {
+                        _logger.LogDebug(mergeEx, "AIGenerateBook: could not merge bookId into response JSON");
+                    }
                     return Content(normalized ?? responseData, "application/json");
             }
             catch (TaskCanceledException ex) when (!ex.CancellationToken.IsCancellationRequested)

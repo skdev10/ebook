@@ -1402,6 +1402,19 @@
         padding-top: 0.25rem;
         border-top-color: #e8edf2;
     }
+    .btn-export-docs {
+        pointer-events: auto;
+        cursor: pointer;
+    }
+    .btn-export-docs:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+        pointer-events: none;
+    }
+    .btn-export-docs:not(:disabled) {
+        opacity: 1;
+        pointer-events: auto;
+    }
     #chapterTopicBox > div:last-child {
         margin-top: 0;
     }
@@ -1910,7 +1923,7 @@
                 <input type="hidden" id="APIRawResponse">
 
                 <div class="ai-writer-sticky-actions" data-guided-tour="ai-next-step">
-                    <button type="button" id="btnExportDocs" class="btn-export-docs" disabled title="Select or open a book first">
+                    <button type="button" id="btnExportDocs" class="btn-export-docs"@(selectedBookId > 0 ? "" : " disabled") title="@(selectedBookId > 0 ? "Download Word (.docx) draft of this book" : "Generate a chapter first — Export unlocks when your book is ready")">
                         <i class="fas fa-file-word" aria-hidden="true"></i>
                         <span>Export Docs</span>
                     </button>
@@ -2818,8 +2831,8 @@ window.setPreviewChapterHeaderText = function (text) {
 };
 
 /** Strip auto-generated "Chapter N" labels — show only the user's title.
- * @param {string} title
- * @param {{ preserveWhitespace?: boolean }} [options] When preserveWhitespace is true (live typing),
+ * @@param {string} title
+ * @@param {{ preserveWhitespace?: boolean }} [options] When preserveWhitespace is true (live typing),
  *   do not trim — otherwise spaces between words are eaten on every keystroke.
  */
 window.sanitizeChapterTitleForInput = function (title, options) {
@@ -3108,13 +3121,28 @@ window.refreshBookFormattingButton = function (progressData) {
     var fromField = (bidEl && bidEl.value) ? String(bidEl.value).trim() : '';
     var ddl = document.getElementById('savedResponsesDropdown');
     var fromDdl = (ddl && ddl.value && String(ddl.value).trim() !== '0') ? String(ddl.value).trim() : '';
-    var hasBook = parseInt(fromField || fromDdl || '0', 10) > 0;
+    var fromUrl = '0';
+    try {
+        var q = new URLSearchParams(window.location.search || '');
+        fromUrl = String(q.get('bookId') || '0').trim();
+    } catch (eUrl) { /* ignore */ }
+    var hasBook = parseInt(fromField || fromDdl || fromUrl || '0', 10) > 0;
     var hasGenerated = window.__bookHasGeneratedContent === true;
     var allOk = progressData && progressData.allFinalized === true;
     var guidedOn = window.EbookGuidedFlow && typeof window.EbookGuidedFlow.isActive === 'function' && window.EbookGuidedFlow.isActive();
     if (exportDocsBtn) {
-        exportDocsBtn.disabled = !hasBook;
-        exportDocsBtn.title = hasBook ? 'Download Word (.docx) draft of this book' : 'Select or open a book first';
+        var canExport = hasBook;
+        exportDocsBtn.disabled = !canExport;
+        exportDocsBtn.removeAttribute('aria-disabled');
+        if (canExport) {
+            exportDocsBtn.title = 'Download Word (.docx) draft of this book';
+            exportDocsBtn.style.pointerEvents = 'auto';
+            exportDocsBtn.style.opacity = '';
+        } else {
+            exportDocsBtn.title = hasGenerated
+                ? 'Book id missing — generate again or open the book from Dashboard'
+                : 'Generate a chapter first — Export unlocks when your book is ready';
+        }
     }
     if (btn) {
         if (!guidedOn) {
@@ -3133,6 +3161,37 @@ window.refreshBookFormattingButton = function (progressData) {
                         : 'Open Book formatting'));
         }
     }
+};
+
+/** Sync BookId into hidden fields, URL, and dropdown after create/generate. */
+window.syncWriterBookId = function (bookId) {
+    var bid = parseInt(String(bookId || '0'), 10) || 0;
+    if (bid <= 0) return;
+    var bidEl = document.getElementById('BookId');
+    if (bidEl) bidEl.value = String(bid);
+    var ddl = document.getElementById('savedResponsesDropdown');
+    if (ddl) {
+        var found = false;
+        for (var i = 0; i < ddl.options.length; i++) {
+            if (ddl.options[i].value === String(bid)) { found = true; break; }
+        }
+        if (!found) {
+            var opt = document.createElement('option');
+            opt.value = String(bid);
+            opt.textContent = (document.getElementById('BookTitle') && document.getElementById('BookTitle').value)
+                ? String(document.getElementById('BookTitle').value).trim() || ('Book ' + bid)
+                : ('Book ' + bid);
+            ddl.appendChild(opt);
+        }
+        ddl.value = String(bid);
+    }
+    try {
+        var u = new URL(window.location.href);
+        u.searchParams.set('bookId', String(bid));
+        window.history.replaceState({}, '', u.toString());
+    } catch (eHist) { /* ignore */ }
+    if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(String(bid));
+    if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
 };
 
 window.showPreviewEmptyState = function () {
@@ -4164,6 +4223,55 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusEl.style.color = ok === false ? '#b91c1c' : (ok === true ? '#047857' : '#64748b');
             }
             if (bid <= 0) {
+                // Soft Writer: create a draft book from the title so Export can run after AI write.
+                try {
+                    var uid = (document.getElementById('UserId') && document.getElementById('UserId').value) || '';
+                    var draftTitle = (document.getElementById('BookTitle') && document.getElementById('BookTitle').value)
+                        ? String(document.getElementById('BookTitle').value).trim()
+                        : '';
+                    if (!draftTitle) draftTitle = 'Untitled Book';
+                    if (!uid || uid === '0') {
+                        setStatus('Please sign in first.', false);
+                        return;
+                    }
+                    setStatus('Preparing book for export…', null);
+                    var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+                    var createRes = await fetch('/Books/CreateBook', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            UserId: parseInt(uid, 10),
+                            AuthorId: parseInt(uid, 10),
+                            CategoryId: 1,
+                            Title: draftTitle,
+                            Description: '',
+                            Dedication: '',
+                            Ghostwriting: '',
+                            Epigraph: '',
+                            Genre: 'General',
+                            LanguageId: 1,
+                            WordCount: 0,
+                            CoverImagePath: '',
+                            ManuscriptPath: '',
+                            Subtitle: '',
+                            AuthorCode: '',
+                            BookCode: ''
+                        })
+                    });
+                    var createJson = await createRes.json().catch(function () { return null; });
+                    if (!createRes.ok || !createJson || !createJson.bookId) {
+                        setStatus((createJson && createJson.message) || 'Could not create book for export.', false);
+                        return;
+                    }
+                    bid = parseInt(String(createJson.bookId), 10) || 0;
+                    if (typeof window.syncWriterBookId === 'function') window.syncWriterBookId(bid);
+                } catch (createErr) {
+                    setStatus('Could not prepare book for export.', false);
+                    return;
+                }
+            }
+            if (bid <= 0) {
                 setStatus('Open or create a book first.', false);
                 if (typeof showNotification === 'function') showNotification('Open or create a book first.', 'error');
                 return;
@@ -4175,11 +4283,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     setStatus('Export module not loaded. Refresh the page.', false);
                     return;
                 }
-                await window.ModuleExport.run({
+                var result = await window.ModuleExport.run({
                     bookId: bid,
                     draftFormat: 'Docx',
                     status: setStatus
                 });
+                if (result && result.ok === false && result.message) {
+                    setStatus(result.message, false);
+                    if (typeof showNotification === 'function') showNotification(result.message, 'error');
+                }
             } catch (err) {
                 setStatus('Export failed. Try again.', false);
             } finally {
@@ -7474,9 +7586,18 @@ document.addEventListener('DOMContentLoaded', function() {
                      var coreData = (bookData && bookData.data) ? bookData.data : (bookData || {});
                      var newResponseId = bookData.responseId || bookData.response_id || coreData.responseId || coreData.response_id || savedResponseIdHeader || '';
                      document.getElementById('ResponseId').value = newResponseId;
-                     if (bookData && bookData.bookId) document.getElementById('BookId').value = bookData.bookId;
+                     var headerBookId = response.headers && response.headers.get ? response.headers.get('X-Book-Id') : null;
+                     var resolvedBookId = bookData.bookId || bookData.BookId || coreData.bookId || coreData.BookId || headerBookId || requestData.BookId;
+                     if (resolvedBookId && String(resolvedBookId) !== '0') {
+                         if (typeof window.syncWriterBookId === 'function') window.syncWriterBookId(resolvedBookId);
+                         else {
+                             document.getElementById('BookId').value = String(resolvedBookId);
+                             if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+                         }
+                     }
                      if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
                      if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
+                     if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
 
                      if (typeof showGeneratedChapterWithTyping === 'function') {
                          showGeneratedChapterWithTyping(bookData, function() {
