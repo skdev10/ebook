@@ -873,8 +873,19 @@ namespace EBookDashboard.Controllers
             }
 
             if (queueSnapshot?.IsStuck == true)
+            {
                 _logger.LogWarning("AIGenerateBook: upstream queue reports waiting={Waiting} running={Running} — request may take a long time.",
                     queueSnapshot.Waiting, queueSnapshot.Running);
+            }
+
+            if (string.IsNullOrWhiteSpace(model.UserId) || string.IsNullOrWhiteSpace(model.BookId))
+            {
+                return Json(new
+                {
+                    error = true,
+                    message = "Open or create a book first, then generate the chapter."
+                });
+            }
 
             var responseData = string.Empty;
             int? rawResponseId = null;
@@ -899,7 +910,9 @@ namespace EBookDashboard.Controllers
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
 
-                _logger.LogInformation("Sending generate_chapter to upstream (payload length {Len}).", json.Length);
+                _logger.LogInformation(
+                    "Sending generate_chapter to upstream (bookId={BookId}, chapter={Chapter}, payload length {Len}, queue={Queue}).",
+                    model.BookId, model.Chapter, json.Length, queueSnapshot?.Describe() ?? "n/a");
                 using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
                 using var response = await client.SendAsync(httpRequest, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
                 responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);

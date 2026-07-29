@@ -199,7 +199,7 @@ public class BookChapterPipelineService : IBookChapterPipelineService
             PreviewOnly = request.PreviewOnly
         };
 
-        var apiPayload = GenerateChapterPayloadBuilder.CloneForExternalGenerateApi(aiRequest);
+        var apiPayload = GenerateChapterPayloadBuilder.BuildUpstreamGeneratePayload(aiRequest);
         var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateUrl, "/api/generate_chapter");
         var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
         if (string.IsNullOrEmpty(apiKey))

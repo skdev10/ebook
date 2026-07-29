@@ -8,8 +8,21 @@ public sealed class UpstreamQueueSnapshot
     public int MaxConcurrent { get; init; }
     public int TotalRequests { get; init; }
 
-    /// <summary>Workers idle while backlog exists — upstream is stuck.</summary>
-    public bool IsStuck => Waiting > 0 && Running == 0;
+    /// <summary>
+    /// Heuristic for a live backlog with idle workers.
+    /// Upstream <c>waiting</c> is often cumulative (≈ total_requests); ignore that case.
+    /// </summary>
+    public bool IsStuck
+    {
+        get
+        {
+            if (Running > 0 || Waiting <= 0) return false;
+            // Cumulative counter: waiting tracks almost every request ever queued.
+            if (TotalRequests > 0 && Waiting >= Math.Max(0, TotalRequests - 2))
+                return false;
+            return Waiting >= Math.Max(5, MaxConcurrent);
+        }
+    }
 
     /// <summary>All worker slots busy with a backlog.</summary>
     public bool IsSaturated => MaxConcurrent > 0 && Running >= MaxConcurrent && Waiting > 0;
