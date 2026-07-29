@@ -758,8 +758,8 @@
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    /* Top/bottom match left/right gutters — chapter titles & last lines stay inside the page */
-    padding: clamp(2.5rem, 6.4vw, 4rem) clamp(2.35rem, 5.8vw, 3.5rem) clamp(2.5rem, 6.4vw, 4rem);
+    /* Match PDF export page margins (InteriorSpacingTheme) */
+    padding: var(--ilt-pad-top, 0.625in) var(--ilt-pad-right, 0.625in) var(--ilt-pad-bottom, 0.875in) var(--ilt-pad-left, 0.8125in);
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(0.72rem, 1.05vw, 0.88rem);
     line-height: 1.55;
@@ -772,28 +772,30 @@
 }
 
 .book-open-page--verso .book-open-page-inner {
-    padding-top: clamp(2.5rem, 6.4vw, 4rem);
-    padding-bottom: clamp(2.5rem, 6.4vw, 4rem);
-    padding-left: clamp(2.45rem, 6.2vw, 3.85rem);
-    padding-right: clamp(2.55rem, 6.5vw, 4rem);
+    padding-top: var(--ilt-pad-top, 0.625in);
+    padding-bottom: var(--ilt-pad-bottom, 0.875in);
+    padding-left: var(--ilt-pad-right, 0.625in);
+    padding-right: var(--ilt-pad-left, 0.8125in);
 }
 
 .book-open-page--recto .book-open-page-inner {
-    padding-top: clamp(2.5rem, 6.4vw, 4rem);
-    padding-bottom: clamp(2.5rem, 6.4vw, 4rem);
-    padding-left: clamp(2.55rem, 6.5vw, 4rem);
-    padding-right: clamp(2.45rem, 6.2vw, 3.85rem);
+    padding-top: var(--ilt-pad-top, 0.625in);
+    padding-bottom: var(--ilt-pad-bottom, 0.875in);
+    padding-left: var(--ilt-pad-left, 0.8125in);
+    padding-right: var(--ilt-pad-right, 0.625in);
+}
+
+.book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
+.book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .manuscript-chapter-heading,
+.book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
+    margin-top: var(--ilt-chapter-drop, 1.25in);
+    padding-top: 0;
+    margin-bottom: 1.15rem;
 }
 
 .book-open-spread.fmt-live-spread .fmt-chapter-opener,
 .book-open-spread.fmt-live-spread .manuscript-chapter-heading {
-    margin-top: 0.35rem;
-    margin-bottom: 1.35rem;
-    padding-top: 1.25rem;
-}
-
-.book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-    padding-top: 2.75rem;
+    margin-bottom: 1.15rem;
 }
 
 .book-open-page-inner p,

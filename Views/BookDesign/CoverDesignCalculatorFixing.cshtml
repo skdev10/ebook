@@ -865,7 +865,8 @@
 
     /* ---------- TRADITIONAL / NOVEL (trade paperback) ---------- */
     #book-formatter-root .reader-content-wrap.interior-novel .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 3.25rem;
+        margin-top: var(--ilt-chapter-drop, 1.25in);
+        padding-top: 0;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .fmt-chapter-opener .fmt-ch-eyebrow {
         font-family: 'EB Garamond', Georgia, serif;
@@ -908,7 +909,8 @@
 
     /* ---------- FINE BOOK / CLASSIC (literary hardcover) ---------- */
     #book-formatter-root .reader-content-wrap.interior-classic .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 4rem;
+        margin-top: var(--ilt-chapter-drop, 1.25in);
+        padding-top: 0;
     }
     #book-formatter-root .reader-content-wrap.interior-classic .fmt-chapter-opener .fmt-ch-flourish {
         display: block;
@@ -957,7 +959,8 @@
 
     /* ---------- CLEAN / MINIMALIST (modern non-fiction) ---------- */
     #book-formatter-root .reader-content-wrap.interior-minimalist .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 4.5rem;
+        margin-top: var(--ilt-chapter-drop, 1.25in);
+        padding-top: 0;
         text-align: left;
     }
     #book-formatter-root .reader-content-wrap.interior-minimalist .fmt-chapter-opener .fmt-ch-eyebrow {
@@ -999,7 +1002,8 @@
 
     /* ---------- POD / ELEGANT TRADE (KDP / IngramSpark) ---------- */
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 3.6rem;
+        margin-top: var(--ilt-chapter-drop, 1.25in);
+        padding-top: 0;
     }
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .fmt-chapter-opener .fmt-ch-eyebrow {
         font-family: 'EB Garamond', Georgia, serif;
@@ -3719,9 +3723,10 @@
                     var is = window.getComputedStyle(liveInner);
                     padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
                 } else {
-                    // Match CSS: top+bottom ≈ left/right gutters (~2.5–4rem each side).
+                    // Match export tokens: top 0.625in + bottom 0.875in ≈ 1.5in.
                     var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-                    padY = Math.ceil(7.2 * rem);
+                    padY = Math.ceil(1.55 * 96);
+                    if (!(padY > 48)) padY = Math.ceil(9.5 * rem);
                 }
                 var usableFace = Math.floor(shellH - chromeY - padY - 6);
                 if (usableFace >= 96) return usableFace;
@@ -3789,6 +3794,22 @@
         viewportEl.style.fontFamily = rs.fontFamily;
     }
 
+    function fmtPageFitSlackPx() {
+        // Keep last lines clear of the folio — measure can undershoot live open-spread chrome.
+        return 40;
+    }
+
+    function syncFmtMeasureHostClasses(mh) {
+        if (!mh) return;
+        var shell = document.getElementById('paginatedReaderShell')
+            || document.getElementById('paginatedReaderShellEbook');
+        mh.className = 'book-page-preview-measure';
+        if (!shell) return;
+        Array.prototype.forEach.call(shell.classList, function (c) {
+            if (c.indexOf('interior-') === 0 || c === 'reader-content-wrap') mh.classList.add(c);
+        });
+    }
+
     /** Measure block height using the same flat `#preview-content` viewport as AI Book Writer. */
     function renderFmtMeasureSandbox(blockInnerHtml) {
         var mh = document.getElementById('fmt-preview-measure-host');
@@ -3806,10 +3827,11 @@
         if (viewport) {
             var vpStyles = window.getComputedStyle(viewport);
             mh.style.width = w + 'px';
-            mh.style.padding = vpStyles.padding;
+            mh.style.padding = '0';
             mh.style.fontSize = vpStyles.fontSize;
             mh.style.lineHeight = vpStyles.lineHeight;
             mh.style.boxSizing = 'border-box';
+            syncFmtMeasureHostClasses(mh);
             var inner = blockInnerHtml || '';
             if (inner.indexOf('reader-chapter-block') < 0) {
                 inner = '<div class="reader-chapter-block">' + inner + '</div>';
@@ -3835,7 +3857,7 @@
         if (!contentEl) return true;
         var maxH = getFmtReaderPageMaxHeight() || getFmtPageMaxHeightPx();
         if (!maxH || maxH < 24) return true;
-        return contentEl.scrollHeight <= maxH + 1;
+        return contentEl.scrollHeight <= (maxH - fmtPageFitSlackPx()) + 1;
     }
 
     function measureFmtArticleInner(articleInnerHtml) {
@@ -8460,10 +8482,11 @@
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        /* Top/bottom margins match left/right gutters so chapter titles & last lines are not clipped */
-        padding: clamp(2.5rem, 6.4vw, 4rem)
-                 clamp(2.4rem, 6vw, 3.6rem)
-                 clamp(2.5rem, 6.4vw, 4rem) !important;
+        /* Same inch margins as PDF export (InteriorLayoutTokens / InteriorSpacingTheme) */
+        padding: var(--ilt-pad-top, 0.625in)
+                 var(--ilt-pad-right, 0.625in)
+                 var(--ilt-pad-bottom, 0.875in)
+                 var(--ilt-pad-left, 0.8125in) !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: clamp(0.78rem, 1.15vw, 0.95rem) !important;
         line-height: 1.58 !important;
@@ -8473,33 +8496,35 @@
         word-wrap: break-word !important;
         box-sizing: border-box !important;
     }
-    /* Verso (left leaf): outer left + spine gutter — keep equal top/bottom */
+    /* Verso (left leaf): outside on left, gutter on right — same top/bottom as export */
     #book-formatter-root .book-open-page--verso .book-open-page-inner {
-        padding-top: clamp(2.5rem, 6.4vw, 4rem) !important;
-        padding-bottom: clamp(2.5rem, 6.4vw, 4rem) !important;
-        padding-left: clamp(2.5rem, 6.4vw, 4rem) !important;
-        padding-right: clamp(2.65rem, 6.8vw, 4.2rem) !important;
+        padding-top: var(--ilt-pad-top, 0.625in) !important;
+        padding-bottom: var(--ilt-pad-bottom, 0.875in) !important;
+        padding-left: var(--ilt-pad-right, 0.625in) !important;
+        padding-right: var(--ilt-pad-left, 0.8125in) !important;
     }
-    /* Recto (right leaf): spine gutter + outer right — keep equal top/bottom */
+    /* Recto (right leaf): gutter on left, outside on right */
     #book-formatter-root .book-open-page--recto .book-open-page-inner {
-        padding-top: clamp(2.5rem, 6.4vw, 4rem) !important;
-        padding-bottom: clamp(2.5rem, 6.4vw, 4rem) !important;
-        padding-left: clamp(2.65rem, 6.8vw, 4.2rem) !important;
-        padding-right: clamp(2.5rem, 6.4vw, 4rem) !important;
+        padding-top: var(--ilt-pad-top, 0.625in) !important;
+        padding-bottom: var(--ilt-pad-bottom, 0.875in) !important;
+        padding-left: var(--ilt-pad-left, 0.8125in) !important;
+        padding-right: var(--ilt-pad-right, 0.625in) !important;
     }
-    /* Chapter titles: sit below the top margin, not stuck under the running head */
+    /*
+     * Chapter title sink — identical to PDF export (--ilt-chapter-drop ≈ 1.25in).
+     * Overrides theme rem paddings so titles sit down the page, not under the running head.
+     */
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .manuscript-chapter-heading,
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .reader-page-title,
+    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] > header.fmt-chapter-opener {
+        margin-top: var(--ilt-chapter-drop, 1.25in) !important;
+        padding-top: 0 !important;
+        margin-bottom: 1.15rem !important;
+    }
     #book-formatter-root .book-open-spread.fmt-live-spread .fmt-chapter-opener,
     #book-formatter-root .book-open-spread.fmt-live-spread .manuscript-chapter-heading {
-        margin-top: 0.35rem !important;
-        margin-bottom: 1.35rem !important;
-        padding-top: 1.25rem !important;
-    }
-    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 2.75rem !important;
-    }
-    #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
-        margin-top: 1.5rem !important;
-        padding-top: 1.25rem !important;
+        margin-bottom: 1.15rem !important;
     }
     /* In-page folio (page numbers 5 / 6) — must stay visible at bottom of each leaf */
     #book-formatter-root .book-open-folio,
