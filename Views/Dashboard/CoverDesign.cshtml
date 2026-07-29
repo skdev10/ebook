@@ -609,8 +609,9 @@
                     <div id="covFormatSeg" class="cov-format-seg" role="radiogroup" aria-label="Cover type">
                         <button type="button" class="cov-format-seg__btn is-active" role="radio" aria-checked="true" data-format="Ebook" id="covFmtEbook">eBook</button>
                         <button type="button" class="cov-format-seg__btn" role="radio" aria-checked="false" data-format="Paperback" id="covFmtPaperback">Paperback</button>
+                        <button type="button" class="cov-format-seg__btn" role="radio" aria-checked="false" data-format="Both" id="covFmtBoth">Both</button>
                     </div>
-                    <p id="covFormatHint" class="cov-format-hint">eBook = front cover only. Paperback = full wrap (back + spine + front) with bleed &amp; barcode zone.</p>
+                    <p id="covFormatHint" class="cov-format-hint">eBook = front only. Paperback = full wrap. Both = front cover + full wrap.</p>
                 </div>
 
                 <div class="flex flex-col gap-3" data-guided-tour="cov-fields">
@@ -920,6 +921,7 @@
     function formatSegUiValue(fmt) {
         fmt = normalizePublishFormat(fmt);
         if (fmt === 'Ebook') return 'Ebook';
+        if (fmt === 'Both') return 'Both';
         return 'Paperback';
     }
 
@@ -946,6 +948,8 @@
         if (hint) {
             if (ui === 'Ebook') {
                 hint.textContent = 'eBook = front cover only. Safe for Kindle / EPUB export.';
+            } else if (ui === 'Both') {
+                hint.textContent = 'Both = generate front cover, then full print wrap (back + spine + front).';
             } else {
                 hint.textContent = 'Paperback = full wrap with 0.125" bleed, spine from page count, barcode zone on the back.';
             }
@@ -956,14 +960,14 @@
         }
         var summaryBlock = document.getElementById('covBackSummaryBlock');
         if (summaryBlock) {
-            // Book Summary only for Paperback full-wrap generate — hidden for eBook.
+            // Book Summary for Paperback / Both full-wrap — hidden for eBook.
             summaryBlock.classList.toggle('hidden', ui === 'Ebook');
         }
         var genHint = document.getElementById('covGenerateHint');
         if (genHint) {
-            genHint.textContent = ui === 'Ebook'
-                ? 'Generates the front cover only for eBook.'
-                : 'Generates the front cover, then builds the full wrap (back, spine, front).';
+            if (ui === 'Ebook') genHint.textContent = 'Generates the front cover only for eBook.';
+            else if (ui === 'Both') genHint.textContent = 'Generates front cover, then builds the full wrap.';
+            else genHint.textContent = 'Generates the front cover, then builds the full wrap (back, spine, front).';
         }
         syncGenerateButtonLabels();
         if (typeof updatePublishGate === 'function') updatePublishGate();
@@ -974,11 +978,17 @@
     }
 
     function generatePrimaryLabel() {
-        return isEbookCoverMode() ? 'Generate Front Cover' : 'Generate Full Cover';
+        var ui = formatSegUiValue(bookPublishFormat || 'Ebook');
+        if (ui === 'Ebook') return 'Generate Front Cover';
+        if (ui === 'Both') return 'Generate Front + Full Cover';
+        return 'Generate Full Cover';
     }
 
     function regeneratePrimaryLabel() {
-        return isEbookCoverMode() ? 'Regenerate Front Cover' : 'Regenerate Full Cover';
+        var ui = formatSegUiValue(bookPublishFormat || 'Ebook');
+        if (ui === 'Ebook') return 'Regenerate Front Cover';
+        if (ui === 'Both') return 'Regenerate Front + Full Cover';
+        return 'Regenerate Full Cover';
     }
 
     function syncGenerateButtonLabels() {
@@ -1022,7 +1032,7 @@
         updatePublishGate();
         updateGenerateGate();
         if (opts.persist) {
-            // User taps only Ebook | Paperback — persist that choice (Both becomes Paperback if they tap it).
+            // Persist Ebook | Paperback | Both exactly as the user selected.
             var saveAs = opts.userClicked ? formatSegUiValue(next) : next;
             persistPublishFormat(saveAs);
         }

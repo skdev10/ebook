@@ -736,10 +736,10 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #78716c;
-    min-height: 1.15em;
-    padding: 0.55em 0.35em 0.4em;
+    min-height: 1.35em;
+    padding: 1.05em 0.45em 0.55em;
     border-bottom: 1px solid rgba(120, 113, 108, 0.28);
-    margin: 0 clamp(0.55rem, 1.4vw, 0.95rem);
+    margin: 0.55rem clamp(0.55rem, 1.4vw, 0.95rem) 0;
     box-sizing: border-box;
     white-space: nowrap;
     overflow: hidden;

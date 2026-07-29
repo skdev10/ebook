@@ -1286,17 +1286,19 @@
     .fmt-ms-drop-hint {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 0.35rem;
-        padding: 0.45rem 0.7rem;
-        border-radius: 0.75rem;
-        border: 1px dashed #d4d4d8;
-        background: #fafafa;
+        flex: 1 1 auto;
+        min-width: 10rem;
+        padding: 0.55rem 0.9rem;
+        border: 1px dashed #cbd5e1;
+        border-radius: 10px;
+        background: #f8fafc;
         color: #64748b;
-        font-size: 0.75rem;
+        font-size: 0.8rem;
         font-weight: 600;
         cursor: pointer;
-        flex-shrink: 0;
-        transition: border-color 0.15s ease, background 0.15s ease;
+        transition: border-color 0.15s, background 0.15s, color 0.15s;
     }
     .fmt-ms-drop-hint:hover,
     .fmt-ms-drop-hint:focus {
@@ -2386,11 +2388,7 @@
                             <p class="text-xs text-gray-400 mb-2 leading-snug">Upload your existing manuscript to start formatting. No need to write a new book. DOCX / PDF (TXT, MD also ok).</p>
                             <div class="fmt-ms-row">
                                 <input type="file" id="fmt-ms-file" accept=".docx,.pdf,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" />
-                                <button type="button" id="fmt-ms-upload-btn" class="fmt-ms-icon-btn" title="Browse manuscript (DOCX / PDF)" aria-label="Browse manuscript">
-                                    <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
-                                </button>
                                 <div id="fmt-ms-dropzone" class="fmt-ms-drop-hint" tabindex="0" role="button" aria-label="Drop manuscript file here" title="Drop DOCX or PDF here">
-                                    <span class="fmt-ms-drop-hint__icon" aria-hidden="true"><i class="fas fa-cloud-arrow-up"></i></span>
                                     <span class="fmt-ms-drop-hint__text">Drop or Browse</span>
                                 </div>
                                 <div class="fmt-ms-meta min-w-0 flex-1">
@@ -2406,7 +2404,7 @@
                                         }
                                         else if (hasMs)
                                         {
-                                            <text>On file — tap icon to refresh</text>
+                                            <text>On file — drop or browse to refresh</text>
                                         }
                                         else
                                         {
@@ -7176,10 +7174,9 @@
         (function initManuscriptUpload() {
             var dropzone = document.getElementById('fmt-ms-dropzone');
             var fileInput = document.getElementById('fmt-ms-file');
-            var uploadBtn = document.getElementById('fmt-ms-upload-btn');
             var statusEl = document.getElementById('fmt-ms-status');
             var lastEl = document.getElementById('fmt-ms-last');
-            if (!fileInput || !uploadBtn) return;
+            if (!fileInput || !dropzone) return;
 
             function setMsStatus(msg, ok) {
                 if (!statusEl) return;
@@ -7208,12 +7205,12 @@
                     setMsStatus('Allowed: DOCX or PDF (also TXT/MD).', false);
                     return;
                 }
+                dropzone.setAttribute('aria-busy', 'true');
+                dropzone.classList.add('opacity-60', 'pointer-events-none');
                 setMsStatus(bid <= 0 ? 'Creating book and importing…' : 'Uploading and parsing…', true);
-                uploadBtn.disabled = true;
                 try {
                     var fd = new FormData();
                     fd.append('file', file);
-                    fd.append('bookId', String(bid > 0 ? bid : 0));
                     var res = await fetch('/Books/UploadManuscript' + (bid > 0 ? ('/' + bid) : ''), {
                         method: 'POST',
                         body: fd,
@@ -7266,37 +7263,35 @@
                 } catch (err) {
                     setMsStatus('Network error during upload.', false);
                 } finally {
-                    uploadBtn.disabled = false;
+                    dropzone.removeAttribute('aria-busy');
+                    dropzone.classList.remove('opacity-60', 'pointer-events-none');
                     fileInput.value = '';
                 }
             }
 
-            uploadBtn.addEventListener('click', function () { fileInput.click(); });
             fileInput.addEventListener('change', function () {
                 if (fileInput.files && fileInput.files[0]) uploadManuscriptFile(fileInput.files[0]);
             });
-            if (dropzone) {
-                dropzone.addEventListener('click', function () { fileInput.click(); });
-                dropzone.addEventListener('keydown', function (e) {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+            dropzone.addEventListener('click', function () { fileInput.click(); });
+            dropzone.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+            });
+            ['dragenter', 'dragover'].forEach(function (ev) {
+                dropzone.addEventListener(ev, function (e) {
+                    e.preventDefault(); e.stopPropagation();
+                    dropzone.classList.add('border-violet-400', 'bg-violet-50');
                 });
-                ['dragenter', 'dragover'].forEach(function (ev) {
-                    dropzone.addEventListener(ev, function (e) {
-                        e.preventDefault(); e.stopPropagation();
-                        dropzone.classList.add('border-violet-400', 'bg-violet-50');
-                    });
+            });
+            ['dragleave', 'drop'].forEach(function (ev) {
+                dropzone.addEventListener(ev, function (e) {
+                    e.preventDefault(); e.stopPropagation();
+                    dropzone.classList.remove('border-violet-400', 'bg-violet-50');
                 });
-                ['dragleave', 'drop'].forEach(function (ev) {
-                    dropzone.addEventListener(ev, function (e) {
-                        e.preventDefault(); e.stopPropagation();
-                        dropzone.classList.remove('border-violet-400', 'bg-violet-50');
-                    });
-                });
-                dropzone.addEventListener('drop', function (e) {
-                    var files = e.dataTransfer && e.dataTransfer.files;
-                    if (files && files[0]) uploadManuscriptFile(files[0]);
-                });
-            }
+            });
+            dropzone.addEventListener('drop', function (e) {
+                var files = e.dataTransfer && e.dataTransfer.files;
+                if (files && files[0]) uploadManuscriptFile(files[0]);
+            });
         })();
 
         var platformsStr = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model?.PublishingPlatforms ?? string.Empty));
@@ -8492,13 +8487,14 @@
         letter-spacing: 0.14em !important;
         text-transform: uppercase !important;
         color: #78716c !important;
-        min-height: 1.15em !important;
-        padding: 0.55em 0.35em 0.4em !important;
+        min-height: 1.35em !important;
+        padding: 1.05em 0.45em 0.55em !important;
         border-bottom: 1px solid rgba(120, 113, 108, 0.28) !important;
-        margin: 0 clamp(0.55rem, 1.4vw, 0.95rem) !important;
+        margin: 0.55rem clamp(0.55rem, 1.4vw, 0.95rem) 0 !important;
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
+        box-sizing: border-box !important;
     }
     #book-formatter-root .book-open-page-inner {
         flex: 1 1 auto !important;
