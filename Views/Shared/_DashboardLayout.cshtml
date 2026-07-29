@@ -5004,50 +5004,51 @@
 
         const GUIDED_TOUR_ROUTES = {
             'dashboard': [
-                { sel: '#dash-hero-cta', title: 'Start a new book', body: 'Tap Format manuscript or Write with AI to begin.' },
-                { sel: '#drafts-list', title: 'Continue your books', body: 'Open any draft here to pick up where you left off.' },
-                { sel: '#sidebar', title: 'Main menu', body: 'Jump to AI Writer, Formatting, Cover, My Books, or Publish anytime.' }
+                { sel: '#dash-hero-cta', title: 'Open Formatting', body: 'Best place to start. Upload your file, set the layout, and preview your book.' },
+                { sel: '#dash-hero-cta-ai', title: 'Start with AI', body: 'Optional. Use AI to write or edit chapters when you need help.' },
+                { sel: '[data-guided-tour="dash-modules"]', title: 'Your tools', body: 'Three cards: Book Formatting, Write with AI, and Book Cover. Tap any card to open that screen.' },
+                { sel: '#drafts-list, [data-guided-tour="dash-continue"]', title: 'Continue Editing', body: 'Your drafts appear here. Open one to keep working.' },
+                { sel: '#guidedTourFab', title: 'Tour button', body: 'Tap Tour anytime for a short guide of the screen you are on.' }
             ],
             'ai-writer': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Your path', body: 'Writer â†’ Formatting â†’ Cover â†’ Publish. This bar shows where you are.' },
-                { sel: '[data-guided-tour="ai-write-section"]', title: 'Book & chapter', body: 'Set the book title, pick a chapter, or tap + to add a new one.' },
-                { sel: '[data-guided-tour="ai-upload"]', title: 'Upload icons', body: 'Left icon: upload a manuscript (PDF/Word). Right icon: only when no book is selected â€” pick page images and title/chapter/topic auto-fill.' },
-                { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Write with AI', body: 'Type a short chapter brief, then tap Generate. Your pages appear on the right.' },
-                { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Book preview', body: 'Read like a real book. Use the side arrows to turn pages.' },
-                { sel: '[data-guided-tour="ai-next-step"]', title: 'Next: Formatting', body: 'When the chapter looks good, tap Book formatting for fonts and layout.' }
+                { sel: '[data-guided-tour="ai-write-section"]', title: 'Book details', body: 'Type your book title and chapter title. Use + to add a new chapter.' },
+                { sel: '[data-guided-tour="ai-upload"]', title: 'Upload', body: 'Upload a manuscript (PDF or Word), or page images to fill the preview.' },
+                { sel: '[data-guided-tour="ai-topic-generate"]', title: 'Write with AI', body: 'Write a short idea for the chapter, then tap Generate.' },
+                { sel: '[data-guided-tour="ai-preview-panel"]', title: 'Book preview', body: 'Your pages show on the right. Use the arrows to turn pages.' },
+                { sel: '[data-guided-tour="ai-next-step"]', title: 'Export Docs', body: 'Download a Word file of your book. In a guided flow, you can also go to Book Formatting next.' }
             ],
             'formatter': [
-                { sel: '[data-guided-tour="fmt-manuscript"]', title: 'Manuscript upload', body: 'Tap the upload icon (or drop a file) to load DOCX/PDF. Chapters show in the preview.' },
-                { sel: '[data-guided-tour="fmt-format"]', title: 'Ebook Â· Paperback Â· Both', body: 'Pick your format on one row. Ebook, Paperback, or Both (premium).' },
-                { sel: '[data-guided-tour="fmt-style"]', title: 'Interior style', body: 'Choose a look â€” the open book on the right updates live.' },
-                { sel: '[data-guided-tour="fmt-preview"]', title: 'Open-book preview', body: 'Two pages on a brown desk. Flip with the arrows to check layout.' },
-                { sel: '[data-guided-tour="fmt-actions"]', title: 'Save & continue', body: 'Choices save automatically. Use Print PDF / EPUB next to Cover Design, then tap Next when ready.' }
+                { sel: '[data-guided-tour="fmt-manuscript"]', title: 'Upload manuscript', body: 'Upload a DOCX or PDF. Your chapters appear in the book preview.' },
+                { sel: '[data-guided-tour="fmt-format"]', title: 'Book format', body: 'Choose Ebook, Paperback, or Both.' },
+                { sel: '[data-guided-tour="fmt-style"]', title: 'Look and feel', body: 'Pick chapter style, text size, and line spacing. The preview updates live.' },
+                { sel: '[data-guided-tour="fmt-preview"]', title: 'Book preview', body: 'See your book like real pages. Flip with the side arrows.' },
+                { sel: '[data-guided-tour="fmt-actions"]', title: 'Export', body: 'Export PDF for print, or EPUB for ebook. Then continue to Cover Design if you are in the guided flow.' }
             ],
             'cover-design': [
-                { sel: '[data-guided-tour="ai-flow-steps"]', title: 'Cover Design', body: 'Make your cover here, then go to Publish to download files.' },
-                { sel: '[data-guided-tour="cov-book"]', title: 'Your book', body: 'This cover is for the book you selected.' },
-                { sel: '[data-guided-tour="cov-fields"]', title: 'Cover info', body: 'Pick genre and cover style for the AI.' },
-                { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Colors, mood, pictures â€” then Generate Cover.' },
-                { sel: '[data-guided-tour="cov-preview"]', title: 'Cover preview', body: 'See your cover update here.' },
-                { sel: '[data-guided-tour="cov-publish"]', title: 'Go to Publish', body: 'Happy with it? Open Publish for EPUB, PDF, or print files.' }
+                { sel: '[data-guided-tour="cov-format"]', title: 'Cover type', body: 'Pick Ebook (front cover only) or Paperback (full wrap with spine and back).' },
+                { sel: '[data-guided-tour="cov-fields"]', title: 'Cover details', body: 'Set genre and style so the AI knows the look you want.' },
+                { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Add colors, mood, or images. Then generate the cover.' },
+                { sel: '[data-guided-tour="cov-generate"]', title: 'Generate', body: 'Create the front cover. For paperback, the full wrap builds next.' },
+                { sel: '[data-guided-tour="cov-preview"]', title: 'Cover preview', body: 'Check your cover here before you download.' },
+                { sel: '[data-guided-tour="cov-downloads"]', title: 'Download', body: 'After generate: Download Front. When the full wrap is ready: Download Full Cover.' }
             ],
             'publish': [
-                { sel: '[data-guided-tour="pub-hero"]', title: 'Publish', body: 'Last step â€” download your finished book files.' },
-                { sel: '[data-guided-tour="pub-status"]', title: 'Book status', body: 'Needs chapters and a cover before exports unlock.' },
-                { sel: '[data-guided-tour="pub-export"]', title: 'Download files', body: 'EPUB, PDF, Word, covers, or a KDP print ZIP.' }
+                { sel: '[data-guided-tour="pub-hero"]', title: 'Publish', body: 'Last step. Download the files you need for stores like KDP.' },
+                { sel: '[data-guided-tour="pub-status"]', title: 'Book status', body: 'You need chapters and a cover before downloads unlock.' },
+                { sel: '[data-guided-tour="pub-export"]', title: 'Downloads', body: 'Get your front cover, EPUB, full wrap, or interior PDF — based on your format.' }
             ],
             'my-books': [
-                { sel: '[data-guided-tour="mb-books"]', title: 'All your books', body: 'Click a card to see details on the right.' },
-                { sel: '[data-guided-tour="mb-actions"]', title: 'Quick buttons', body: 'New Book starts fresh. Export Pack downloads finished files.' },
-                { sel: '[data-guided-tour="mb-detail"]', title: 'Book details', body: 'Preview, edit, or delete the selected book.' }
+                { sel: '[data-guided-tour="mb-books"]', title: 'Your books', body: 'All your books are here. Tap a card to see details.' },
+                { sel: '[data-guided-tour="mb-actions"]', title: 'Quick actions', body: 'Start a new book or export finished files.' },
+                { sel: '[data-guided-tour="mb-detail"]', title: 'Book details', body: 'Preview, edit, or manage the selected book.' }
             ],
             'profile': [
                 { sel: '.profile-header, .user-profile-header, main h1', title: 'Your profile', body: 'Update your name and photo here.' },
-                { sel: 'form, .profile-form, #profileForm', title: 'Save changes', body: 'Edit details and tap Save.' }
+                { sel: 'form, .profile-form, #profileForm', title: 'Save', body: 'Edit your details, then tap Save.' }
             ],
             'default': [
-                { sel: '#sidebar', title: 'How to make a book', body: 'Use AI Writer, Formatting, and Cover in any order â€” then Publish.' },
-                { sel: '#guidedTourFab', title: 'Need help?', body: 'Tap Tour anytime for a quick walkthrough of this screen.' }
+                { sel: '#sidebar', title: 'Menu', body: 'Use the Dashboard cards for Formatting and Write with AI. Cover and Publish are in the side menu.' },
+                { sel: '#guidedTourFab', title: 'Need help?', body: 'Tap Tour anytime for a short guide of this screen.' }
             ]
         };
 
@@ -5117,7 +5118,7 @@
             if (pop) pop.remove();
             __guidedTourActive = null;
             if (showToast && typeof Swal !== 'undefined') {
-                Swal.fire({ title: 'Tour done!', text: 'Tap the Tour button anytime to see this again.', icon: 'success', timer: 2200, showConfirmButton: false, toast: true, position: 'bottom-end' });
+                Swal.fire({ title: 'Tour done!', text: 'Tap Tour anytime if you want to see this guide again.', icon: 'success', timer: 2200, showConfirmButton: false, toast: true, position: 'bottom-end' });
             }
         }
 

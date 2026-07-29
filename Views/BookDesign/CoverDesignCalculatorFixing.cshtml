@@ -8684,10 +8684,10 @@
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        /* Wider print-like margins — content must not hug the paper edge */
-        padding: clamp(0.85rem, 2vw, 1.25rem)
-                 clamp(1.4rem, 3.6vw, 2.2rem)
-                 0.45rem !important;
+        /* Extra-wide page margins — text must sit clearly inside the paper */
+        padding: clamp(1.05rem, 2.4vw, 1.5rem)
+                 clamp(1.75rem, 4.4vw, 2.7rem)
+                 0.55rem !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: clamp(0.78rem, 1.15vw, 0.95rem) !important;
         line-height: 1.58 !important;
@@ -8699,13 +8699,13 @@
     }
     /* Verso (left leaf): outer left + spine gutter */
     #book-formatter-root .book-open-page--verso .book-open-page-inner {
-        padding-left: clamp(1.5rem, 4.2vw, 2.45rem) !important;
-        padding-right: clamp(1.65rem, 4.5vw, 2.65rem) !important;
+        padding-left: clamp(1.9rem, 5vw, 3rem) !important;
+        padding-right: clamp(2.05rem, 5.4vw, 3.2rem) !important;
     }
     /* Recto (right leaf): spine gutter + outer right */
     #book-formatter-root .book-open-page--recto .book-open-page-inner {
-        padding-left: clamp(1.65rem, 4.5vw, 2.65rem) !important;
-        padding-right: clamp(1.5rem, 4.2vw, 2.45rem) !important;
+        padding-left: clamp(2.05rem, 5.4vw, 3.2rem) !important;
+        padding-right: clamp(1.9rem, 5vw, 3rem) !important;
     }
     /* In-page folio (page numbers 5 / 6) — must stay visible at bottom of each leaf */
     #book-formatter-root .book-open-folio,
