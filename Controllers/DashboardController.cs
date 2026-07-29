@@ -2695,7 +2695,8 @@ namespace EBookDashboard.Controllers
                 });
             }
 
-            // Wait path: LOCAL ONLY (seconds). Never call slow spine AI APIs here — they hang the UI.
+            // Wait path: local ImageSharp first (seconds). If that fails, call documented upstream
+            // /api/generate-spine-book-cover-split then /api/generate-spine-book-cover (~2 min each).
             var ok = await _printWrapGenerationService.TryGenerateFromSavedFrontAsync(
                 sessionUserId.Value,
                 req.BookId,
@@ -2703,7 +2704,7 @@ namespace EBookDashboard.Controllers
                 req.Force,
                 CancellationToken.None,
                 allowNonPrintFormat: true,
-                localOnly: true);
+                localOnly: false);
 
             var wrapPath = await TryRecoverLocalWrapFileAsync(sessionUserId.Value, req.BookId, CancellationToken.None);
             if (!string.IsNullOrWhiteSpace(wrapPath))
@@ -2711,11 +2712,13 @@ namespace EBookDashboard.Controllers
 
             if (!ok)
             {
+                // Last resort: background queue (same spine APIs) + UI poll.
+                _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(sessionUserId.Value, req.BookId);
                 return Json(new
                 {
-                    success = false,
-                    status = "error",
-                    message = "Full wrap generation failed. Regenerate your front cover, then click Retry wrap."
+                    success = true,
+                    status = "processing",
+                    message = "Full wrap is building via spine cover APIs — keep this page open."
                 });
             }
 

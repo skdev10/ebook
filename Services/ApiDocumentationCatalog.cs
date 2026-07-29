@@ -84,9 +84,22 @@ public static class ApiDocumentationCatalog
             {
                 title = "string",
                 author_name = "string",
+                size = "1536x1024 | …",
+                quality = "high | …",
+                Interior_trim_size = "string e.g. 6 x 9 in",
                 page_count = "number",
-                Interior_trim_size = "string",
                 paper_type = "white | cream"
+            }, "minutes"),
+            Ep("POST", $"{upstreamBase}/api/generate-spine-book-cover-split", "Print wrap using saved front (optional encoded_image)", new
+            {
+                title = "string",
+                author_name = "string",
+                size = "1536x1024 | …",
+                quality = "high | …",
+                Interior_trim_size = "string",
+                paper_type = "white | cream",
+                page_count = "number",
+                encoded_image = "optional base64 front"
             }, "minutes"),
             Ep("POST", $"{upstreamBase}/api/book_chapters_name", "Suggest chapter names from highlights", new
             {
@@ -111,11 +124,15 @@ public static class ApiDocumentationCatalog
             new { method = "POST", url = $"{bff}/Books/AIGenerateBook", upstream = "/api/generate_chapter", auth = "session cookie" },
             new { method = "POST", url = $"{bff}/Books/AIEditBook", upstream = "/api/edit", auth = "session cookie" },
             new { method = "POST", url = $"{bff}/Books/FinalizeChapterAPI", upstream = "/api/approve", auth = "session cookie" },
-            new { method = "POST", url = $"{bff}/Books/TranscribeAudio", upstream = "/api/audio", auth = "session cookie" },
+            new { method = "POST", url = $"{bff}/api/AudioToText/convert", upstream = "/api/audio", auth = "session cookie" },
             new { method = "GET", url = $"{bff}/Books/GetQueueData", upstream = "/api/queue-data", auth = "session cookie" },
             new { method = "GET", url = $"{bff}/Books/ExternalApiStatus", upstream = "queue probe + config", auth = "anonymous" },
             new { method = "GET", url = $"{bff}/Books/ApiDocumentation", upstream = "this catalog", auth = "anonymous" },
+            new { method = "GET", url = $"{bff}/docs/EXTERNAL_API.md", upstream = "human markdown docs", auth = "anonymous" },
             new { method = "GET", url = $"{bff}/health", upstream = "queue probe", auth = "anonymous" },
+            new { method = "POST", url = $"{bff}/Dashboard/GenerateCover", upstream = "/api/generate-cover", auth = "session cookie" },
+            new { method = "POST", url = $"{bff}/Dashboard/EditCover", upstream = "/api/edit-cover", auth = "session cookie" },
+            new { method = "POST", url = $"{bff}/Dashboard/GeneratePrintReadyWrapFromFront", upstream = "local wrap → /api/generate-spine-book-cover-split → /api/generate-spine-book-cover", auth = "session cookie" },
             new { method = "POST", url = $"{bff}/Books/GenerateAICoverPreview", upstream = "/api/generate-cover", auth = "session cookie" },
             new { method = "POST", url = $"{bff}/Books/EditAICoverPreview", upstream = "/api/edit-cover", auth = "session cookie" },
             new { method = "POST", url = $"{bff}/Books/BookChaptersName", upstream = "/api/book_chapters_name", auth = "session cookie" }
