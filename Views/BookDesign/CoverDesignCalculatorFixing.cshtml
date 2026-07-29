@@ -5146,10 +5146,12 @@
         var url = '/Books/Cover/' + encodeURIComponent(bid);
         if (fmt === 'Both') url += '?coverType=both';
         else if (fmt === 'Paperback' || fmt === 'Hardcover') url += (url.indexOf('?') >= 0 ? '&' : '?') + 'flow=printready';
-        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.appendGuided === 'function') {
+        // Only keep the 1→2→3→4 chain when Start with AI flow is active.
+        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.isActive === 'function' && window.EbookGuidedFlow.isActive()
+            && typeof window.EbookGuidedFlow.appendGuided === 'function') {
             url = window.EbookGuidedFlow.appendGuided(url);
         } else {
-            url += (url.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+            url += (url.indexOf('?') >= 0 ? '&' : '?') + 'entry=direct';
         }
         return url;
     }
@@ -8685,9 +8687,9 @@
         min-height: 0 !important;
         overflow: hidden !important;
         /* Extra-wide page margins — text must sit clearly inside the paper */
-        padding: clamp(1.2rem, 2.8vw, 1.7rem)
-                 clamp(2.05rem, 5.2vw, 3.15rem)
-                 0.6rem !important;
+        padding: clamp(1.35rem, 3.2vw, 1.9rem)
+                 clamp(2.4rem, 6vw, 3.6rem)
+                 0.7rem !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: clamp(0.78rem, 1.15vw, 0.95rem) !important;
         line-height: 1.58 !important;
@@ -8699,13 +8701,13 @@
     }
     /* Verso (left leaf): outer left + spine gutter */
     #book-formatter-root .book-open-page--verso .book-open-page-inner {
-        padding-left: clamp(2.2rem, 5.6vw, 3.5rem) !important;
-        padding-right: clamp(2.35rem, 6vw, 3.7rem) !important;
+        padding-left: clamp(2.5rem, 6.4vw, 4rem) !important;
+        padding-right: clamp(2.65rem, 6.8vw, 4.2rem) !important;
     }
     /* Recto (right leaf): spine gutter + outer right */
     #book-formatter-root .book-open-page--recto .book-open-page-inner {
-        padding-left: clamp(2.35rem, 6vw, 3.7rem) !important;
-        padding-right: clamp(2.2rem, 5.6vw, 3.5rem) !important;
+        padding-left: clamp(2.65rem, 6.8vw, 4.2rem) !important;
+        padding-right: clamp(2.5rem, 6.4vw, 4rem) !important;
     }
     /* In-page folio (page numbers 5 / 6) — must stay visible at bottom of each leaf */
     #book-formatter-root .book-open-folio,

@@ -3357,10 +3357,11 @@
         try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (_) {}
         var publishUrl = '/Dashboard/Publish?bookId=' + encodeURIComponent(bid);
         if (bookPublishFormat === 'Paperback' || bookPublishFormat === 'Hardcover' || bookPublishFormat === 'Both') publishUrl += '&flow=printready';
-        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.appendGuided === 'function') {
+        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.isActive === 'function' && window.EbookGuidedFlow.isActive()
+            && typeof window.EbookGuidedFlow.appendGuided === 'function') {
             publishUrl = window.EbookGuidedFlow.appendGuided(publishUrl);
         } else {
-            publishUrl += '&guided=1';
+            publishUrl += '&entry=direct';
         }
         window.location.href = publishUrl;
     });

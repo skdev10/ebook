@@ -1,8 +1,7 @@
 /**
  * Guided book creation flow (Writer → Formatting → Cover → Publish).
- * Active only when the user starts from AI Writer / Write new.
- * Direct dashboard/sidebar entry to Formatting, Cover, or Publish clears the flag
- * so Next / Continue buttons stay hidden.
+ * Starts ONLY from Dashboard "Start with AI" (guided=1 / data-start-guided-flow).
+ * Dashboard cards (Formatting / Write with AI / Cover) use entry=direct — no stepper, no Next.
  */
 (function (global) {
     'use strict';

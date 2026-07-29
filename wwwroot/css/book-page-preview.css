@@ -758,7 +758,7 @@
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    padding: clamp(1.15rem, 2.6vw, 1.65rem) clamp(2rem, 5vw, 3rem) 0.55rem;
+    padding: clamp(1.3rem, 3vw, 1.85rem) clamp(2.35rem, 5.8vw, 3.5rem) 0.65rem;
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(0.72rem, 1.05vw, 0.88rem);
     line-height: 1.55;
@@ -771,13 +771,13 @@
 }
 
 .book-open-page--verso .book-open-page-inner {
-    padding-left: clamp(2.15rem, 5.5vw, 3.4rem);
-    padding-right: clamp(2.25rem, 5.8vw, 3.55rem);
+    padding-left: clamp(2.45rem, 6.2vw, 3.85rem);
+    padding-right: clamp(2.55rem, 6.5vw, 4rem);
 }
 
 .book-open-page--recto .book-open-page-inner {
-    padding-left: clamp(2.25rem, 5.8vw, 3.55rem);
-    padding-right: clamp(2.15rem, 5.5vw, 3.4rem);
+    padding-left: clamp(2.55rem, 6.5vw, 4rem);
+    padding-right: clamp(2.45rem, 6.2vw, 3.85rem);
 }
 
 .book-open-page-inner p,

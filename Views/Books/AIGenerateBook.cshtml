@@ -1513,16 +1513,16 @@
     }
     /* Writer open-spread: match Formatting — generous left/right page margins */
     #bookResult .book-open-page-inner {
-        padding: clamp(1.2rem, 2.8vw, 1.7rem) clamp(2.05rem, 5.2vw, 3.15rem) 0.6rem !important;
+        padding: clamp(1.35rem, 3.2vw, 1.9rem) clamp(2.4rem, 6vw, 3.6rem) 0.7rem !important;
         box-sizing: border-box !important;
     }
     #bookResult .book-open-page--verso .book-open-page-inner {
-        padding-left: clamp(2.2rem, 5.6vw, 3.5rem) !important;
-        padding-right: clamp(2.35rem, 6vw, 3.7rem) !important;
+        padding-left: clamp(2.5rem, 6.4vw, 4rem) !important;
+        padding-right: clamp(2.65rem, 6.8vw, 4.2rem) !important;
     }
     #bookResult .book-open-page--recto .book-open-page-inner {
-        padding-left: clamp(2.35rem, 6vw, 3.7rem) !important;
-        padding-right: clamp(2.2rem, 5.6vw, 3.5rem) !important;
+        padding-left: clamp(2.65rem, 6.8vw, 4.2rem) !important;
+        padding-right: clamp(2.5rem, 6.4vw, 4rem) !important;
     }
     /* Modals on this page: match single-line control height */
     #createBookModal input#createBookModalTitle,
@@ -4145,14 +4145,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     function navigateToBookFormatting(bid, fmt) {
-        var url = '/Books/Formatting/' + encodeURIComponent(bid);
-        if (fmt) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'format=' + encodeURIComponent(fmt);
-        if (window.EbookGuidedFlow) {
+        // Prefer classic Formatting studio URL used by Dashboard cards.
+        var url = '/BookDesign/CoverDesignCalculatorFixing?bookId=' + encodeURIComponent(bid);
+        if (fmt) url += '&format=' + encodeURIComponent(fmt);
+        if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.isActive === 'function' && window.EbookGuidedFlow.isActive()) {
             try { window.EbookGuidedFlow.mark(); } catch (e0) { /* ignore */ }
             if (typeof window.EbookGuidedFlow.appendGuided === 'function') url = window.EbookGuidedFlow.appendGuided(url);
-            else url += (url.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+            else url += '&guided=1';
         } else {
-            url += (url.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+            url += '&entry=direct';
         }
         window.location.href = url;
     }
@@ -4169,7 +4170,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ddl) ddl.value = bid;
         if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(bid);
         var fmt = format || 'Ebook';
-        if (window.EbookGuidedFlow) { try { window.EbookGuidedFlow.mark(); } catch (e1) { /* ignore */ } }
+        var guidedOn = window.EbookGuidedFlow && typeof window.EbookGuidedFlow.isActive === 'function' && window.EbookGuidedFlow.isActive();
+        if (guidedOn) { try { window.EbookGuidedFlow.mark(); } catch (e1) { /* ignore */ } }
         fetch('/Books/EnterBookFormatting', {
             method: 'POST',
             credentials: 'same-origin',
@@ -4185,8 +4187,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }).then(function (data) {
             if (data && data.success && data.redirectUrl) {
                 var next = data.redirectUrl;
-                if (window.EbookGuidedFlow && typeof window.EbookGuidedFlow.appendGuided === 'function') next = window.EbookGuidedFlow.appendGuided(next);
-                else next += (next.indexOf('?') >= 0 ? '&' : '?') + 'guided=1';
+                if (guidedOn && window.EbookGuidedFlow && typeof window.EbookGuidedFlow.appendGuided === 'function') {
+                    next = window.EbookGuidedFlow.appendGuided(next);
+                } else {
+                    next += (next.indexOf('?') >= 0 ? '&' : '?') + 'entry=direct';
+                }
                 window.location.href = next;
                 return;
             }

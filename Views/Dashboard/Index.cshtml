@@ -17,10 +17,9 @@
     var defaultCoverPlaceholder = Url.Content("~/images/books/cover-in-progress.png");
     var hasInProgressDrafts = draftBooks.Any() || demoDrafts.Any();
     var primaryDraft = draftBooks.OrderByDescending(d => d.LastEditedAt).FirstOrDefault();
-    // Soft modules: never auto-attach a draft book. Writer opens blank; Format goes to upload.
-    var moduleWriterUrl = (Url.Action("Writer", "Books") ?? "/Books/Writer") + "?guided=1";
-    // Classic Formatting studio (same UI as production CoverDesignCalculatorFixing).
-    // entry=direct: open module alone — hide Writer→Publish Next/Continue chain.
+    // Soft modules: cards open alone (no book attach, no 1→2→3→4 flow).
+    // Only hero "Start with AI" starts the guided Writer → Formatting → Cover → Publish chain.
+    var moduleWriterUrl = (Url.Action("Writer", "Books") ?? "/Books/Writer") + "?entry=direct";
     var moduleFormatUrl = "/BookDesign/CoverDesignCalculatorFixing?bookId=0&entry=direct";
     var moduleCoverUrl = "/Books/Cover?entry=direct";
     var heroTitle = "Format or write your book";
@@ -29,7 +28,7 @@
         : "Format your manuscript in the Formatting studio, or write with AI. Then cover, preview, and export.";
     var heroPrimaryUrl = moduleFormatUrl;
     var heroPrimaryLabel = "Open Formatting";
-    var heroSecondaryUrl = moduleWriterUrl;
+    var heroSecondaryUrl = (Url.Action("Writer", "Books") ?? "/Books/Writer") + "?guided=1";
     var heroSecondaryLabel = "Start with AI";
     var dashProfilePic = "";
     if (!string.IsNullOrEmpty(ViewBag.ProfilePicturePath as string))
@@ -330,7 +329,7 @@
                     <h3 class="font-semibold text-gray-900 text-base mb-1">Book Formatting</h3>
                     <p class="text-sm text-gray-500 leading-relaxed mb-0">Open the Formatting studio — upload, layout, preview, and export in one place.</p>
                 </a>
-                <a href="@moduleWriterUrl" data-start-guided-flow="true" data-guided-tour="dash-writer" class="group rounded-2xl border border-sky-100 bg-white p-5 shadow-sm hover:border-sky-300 hover:shadow-md transition-all" data-unsaved-ignore="true">
+                <a href="@moduleWriterUrl" data-entry-direct="true" data-guided-tour="dash-writer" class="group rounded-2xl border border-sky-100 bg-white p-5 shadow-sm hover:border-sky-300 hover:shadow-md transition-all" data-unsaved-ignore="true">
                     <div class="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center mb-3 group-hover:bg-sky-600 group-hover:text-white transition-colors">
                         <i class="fas fa-pen-nib"></i>
                     </div>
