@@ -176,26 +176,37 @@
     .cov-target-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
     #covFullWrapSection .cov-full-wrap-stage {
         max-width: 100%;
-        overflow-x: auto;
+        width: 100%;
+        flex: 0 0 auto;
+        height: fit-content;
+        min-height: 0;
+        overflow: visible;
         border-radius: 16px;
         border: 1px solid #ddd6fe;
         background: linear-gradient(180deg, #faf5ff 0%, #f8fafc 100%);
-        padding: 16px;
+        padding: 14px;
         box-shadow: 0 8px 24px -12px rgba(91, 33, 182, 0.25);
     }
     #covFullWrapImg {
         width: 100%;
         max-width: 100%;
-        height: auto;
+        height: auto !important;
+        max-height: none;
         display: block;
         margin: 0 auto;
         border-radius: 8px;
         box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
         object-fit: contain;
-        object-position: center;
-        background: #fff;
+        object-position: top center;
+        background: transparent;
+        vertical-align: top;
     }
-    #covFullWrapFrame { width: 100%; }
+    #covFullWrapFrame {
+        width: 100%;
+        height: fit-content;
+        line-height: 0;
+        flex: 0 0 auto;
+    }
     #covFullWrapFrame .cov-wrap-guides {
         position: absolute;
         inset: 0;
@@ -269,12 +280,13 @@
     .cov-wrap-view-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
     .cov-wrap-view-tab { padding: 5px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: #6d28d9; background: #f5f3ff; border: 1px solid #ddd6fe; cursor: pointer; }
     .cov-wrap-view-tab.is-active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+    /* Tabs are exclusive: front OR full wrap — never both (avoids crushed previews). */
+    #covPreviewColumn.cov-show-full-wrap .cov-preview-book-stage { display: none !important; }
     #covPreviewColumn.cov-show-full-wrap #covFullWrapSection { display: block !important; }
-    /* Keep front + wrap visible together so preview matches what Publish exports. */
-    #covPreviewColumn.cov-show-full-wrap .cov-preview-book-stage { display: flex; }
+    #covPreviewColumn:not(.cov-show-full-wrap) #covFullWrapSection { display: none !important; }
     #covPreviewColumn.cov-target-print .cov-preview-book-stage,
     #covPreviewColumn.cov-target-ebook .cov-preview-book-stage {
-        max-width: min(100%, 28rem);
+        max-width: min(100%, 36rem);
     }
     .cov-preview-book-stage {
         perspective: none;
@@ -310,7 +322,7 @@
     .cov-preview-card #optionsWrap {
         align-self: center;
         width: 100%;
-        max-width: min(100%, 28rem);
+        max-width: min(100%, 36rem);
         margin-left: auto;
         margin-right: auto;
     }
@@ -445,9 +457,10 @@
             top: 0.35rem;
             align-self: start;
             max-height: calc(100dvh - 3.75rem);
-            min-height: calc(100dvh - 3.75rem);
+            min-height: 0;
             min-width: 0;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
             z-index: 1;
         }
     }
@@ -481,7 +494,7 @@
     .cov-preview-column-inner #covWrapBuildBanner,
     .cov-preview-column-inner #covFullWrapSection {
         width: 100%;
-        max-width: min(100%, 36rem);
+        max-width: min(100%, 42rem);
         margin-left: auto;
         margin-right: auto;
     }
@@ -489,17 +502,23 @@
         align-self: center;
         margin-left: auto;
         margin-right: auto;
-        width: 100%;
-        max-width: min(100%, 28rem);
-        max-height: min(70vh, 40rem);
-        flex: 0 1 auto;
+        width: min(100%, 36rem);
+        max-width: min(100%, 36rem);
+        max-height: min(82vh, 52rem);
+        flex: 0 0 auto;
         min-height: 0;
         display: block;
         aspect-ratio: 2 / 3;
+        height: auto;
         padding: 0;
         background: transparent;
         border-radius: 0.85rem;
         overflow: hidden;
+    }
+    #covPreviewColumn.cov-show-full-wrap #covFullWrapSection {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: min(100%, 42rem);
     }
     /* Cover fills the stage exactly (same size) */
     #covPreviewColumn #covPreviewShell {
@@ -1365,7 +1384,12 @@
             src = src + (src.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now();
             img.onload = function () {
                 img.classList.remove('hidden');
-                if (frame) frame.classList.remove('hidden');
+                if (frame) {
+                    frame.classList.remove('hidden');
+                    if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                        frame.style.aspectRatio = img.naturalWidth + ' / ' + img.naturalHeight;
+                    }
+                }
                 if (placeholder) placeholder.classList.add('hidden');
                 setPrintWrapSaved(true);
             };
