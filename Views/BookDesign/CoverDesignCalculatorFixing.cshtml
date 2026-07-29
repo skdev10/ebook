@@ -836,13 +836,24 @@
     #book-formatter-root .book-page-running-head.is-empty { visibility: hidden; }
 
     /* ---------- CHAPTER OPENER (structured: flourish / eyebrow / title / rule) ---------- */
+    /* Fixed-height sink — same in live preview + measure host (title not stuck to top) */
+    #book-formatter-root .fmt-chapter-sink,
+    #fmt-preview-measure-host .fmt-chapter-sink {
+        display: block !important;
+        width: 100% !important;
+        height: clamp(2.85rem, 15vh, 5rem) !important;
+        min-height: 2.85rem !important;
+        flex-shrink: 0 !important;
+        pointer-events: none !important;
+        visibility: hidden !important;
+    }
     #book-formatter-root .fmt-chapter-opener {
         display: block;
         text-align: center;
         font-size: 1em;
         text-indent: 0;
         margin: 0 0 1.25rem 0;
-        padding: 1.35rem 0 0 0;
+        padding: 0;
         border: 0;
         line-height: 1.2;
     }
@@ -873,7 +884,7 @@
     }
     #book-formatter-root .reader-content-wrap .reader-chapter-block[data-chapter-start="1"],
     #book-formatter-root #fmt-preview-measure-host.reader-content-wrap .reader-chapter-block[data-chapter-start="1"] {
-        padding-top: var(--ilt-chapter-drop, 1.35in);
+        padding-top: 0.35rem;
         box-sizing: border-box;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .fmt-chapter-opener .fmt-ch-eyebrow {
@@ -890,8 +901,8 @@
         color: #2a2620;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
-        margin-top: 2.4rem;
-        padding-top: 0.5rem;
+        margin-top: 0;
+        padding-top: 0;
         border-top: 0;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .reader-page-body .manuscript-hr {
@@ -3415,7 +3426,8 @@
         // Structured opener (flourish / eyebrow / title / rule). Each theme shows
         // only the parts it wants via CSS, so the chapter opening reads like a
         // real book — different per interior style.
-        return '<header class="fmt-chapter-opener manuscript-chapter-heading">' +
+        return '<div class="fmt-chapter-sink" aria-hidden="true"></div>' +
+            '<header class="fmt-chapter-opener manuscript-chapter-heading">' +
             '<span class="fmt-ch-flourish" aria-hidden="true">\u2766</span>' +
             '<span class="fmt-ch-eyebrow">' + escapeHtml(eyebrow) + '</span>' +
             titleHtml +
@@ -8410,7 +8422,7 @@
         max-width: 100% !important;
         width: 100% !important;
         overflow: visible !important;
-        max-height: calc(100dvh - 3.25rem) !important;
+        max-height: calc(100dvh - 5.5rem) !important;
     }
     #book-formatter-root #paginatedReaderShell.is-open-spread::before,
     #book-formatter-root[data-spread="1"] #paginatedReaderShell.book-page-preview-shell::before {
@@ -8492,12 +8504,10 @@
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        /* Same inch margins as PDF export — extra bottom air so body clears the folio */
-        padding: var(--ilt-pad-top, 0.625in)
-                 var(--ilt-pad-right, 0.625in)
-                 calc(var(--ilt-pad-bottom, 0.875in) + 0.28in)
-                 var(--ilt-pad-left, 0.8125in) !important;
-        /* MUST match pagination measure (not a separate clamp) or last lines clip */
+        /* Match AI Writer open-spread margins — generous top/bottom + left/right */
+        padding: clamp(2.1rem, 4.8vw, 3.1rem)
+                 clamp(2.4rem, 6vw, 3.6rem)
+                 clamp(2rem, 4.2vw, 2.9rem) !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: var(--fmt-font-size, var(--ilt-body-px, 11pt)) !important;
         line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.58)) !important;
@@ -8507,28 +8517,28 @@
         word-wrap: break-word !important;
         box-sizing: border-box !important;
     }
-    /* Verso (left leaf): outside on left, gutter on right — same top/bottom as export */
+    /* Verso (left leaf): outer left + spine gutter — AI Writer parity */
     #book-formatter-root .book-open-page--verso .book-open-page-inner {
-        padding-top: var(--ilt-pad-top, 0.625in) !important;
-        padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in) !important;
-        padding-left: var(--ilt-pad-right, 0.625in) !important;
-        padding-right: var(--ilt-pad-left, 0.8125in) !important;
+        padding-top: clamp(2.1rem, 4.8vw, 3.1rem) !important;
+        padding-bottom: clamp(2rem, 4.2vw, 2.9rem) !important;
+        padding-left: clamp(2.5rem, 6.4vw, 4rem) !important;
+        padding-right: clamp(2.65rem, 6.8vw, 4.2rem) !important;
     }
-    /* Recto (right leaf): gutter on left, outside on right */
+    /* Recto (right leaf): spine gutter + outer right */
     #book-formatter-root .book-open-page--recto .book-open-page-inner {
-        padding-top: var(--ilt-pad-top, 0.625in) !important;
-        padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in) !important;
-        padding-left: var(--ilt-pad-left, 0.8125in) !important;
-        padding-right: var(--ilt-pad-right, 0.625in) !important;
+        padding-top: clamp(2.1rem, 4.8vw, 3.1rem) !important;
+        padding-bottom: clamp(2rem, 4.2vw, 2.9rem) !important;
+        padding-left: clamp(2.65rem, 6.8vw, 4.2rem) !important;
+        padding-right: clamp(2.5rem, 6.4vw, 4rem) !important;
     }
     /*
-     * Chapter title sink — padding on the BLOCK (no margin collapse).
-     * Applied to LIVE spread AND #fmt-preview-measure-host so pagination reserves the same space.
+     * Extra chapter sink via .fmt-chapter-sink element (see buildFmtChapterHeading).
+     * Keep block padding modest so spacer + opener read like AI Writer chapter pages.
      */
     #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"],
     #book-formatter-root #fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"],
     #fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"] {
-        padding-top: var(--ilt-chapter-drop, 1.35in) !important;
+        padding-top: 0.35rem !important;
         box-sizing: border-box !important;
     }
     #book-formatter-root .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener,

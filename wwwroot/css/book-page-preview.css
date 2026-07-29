@@ -758,7 +758,8 @@
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    padding: var(--ilt-pad-top, 0.625in) var(--ilt-pad-right, 0.625in) calc(var(--ilt-pad-bottom, 0.875in) + 0.28in) var(--ilt-pad-left, 0.8125in);
+    /* AI Writer–matched open-book margins (extra top/bottom so titles & folio breathe) */
+    padding: clamp(2.1rem, 4.8vw, 3.1rem) clamp(2.4rem, 6vw, 3.6rem) clamp(2rem, 4.2vw, 2.9rem);
     font-family: Georgia, "Times New Roman", serif;
     font-size: var(--fmt-font-size, var(--ilt-body-px, 11pt));
     line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.55));
@@ -771,22 +772,32 @@
 }
 
 .book-open-page--verso .book-open-page-inner {
-    padding-top: var(--ilt-pad-top, 0.625in);
-    padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in);
-    padding-left: var(--ilt-pad-right, 0.625in);
-    padding-right: var(--ilt-pad-left, 0.8125in);
+    padding-top: clamp(2.1rem, 4.8vw, 3.1rem);
+    padding-bottom: clamp(2rem, 4.2vw, 2.9rem);
+    padding-left: clamp(2.5rem, 6.4vw, 4rem);
+    padding-right: clamp(2.65rem, 6.8vw, 4.2rem);
 }
 
 .book-open-page--recto .book-open-page-inner {
-    padding-top: var(--ilt-pad-top, 0.625in);
-    padding-bottom: calc(var(--ilt-pad-bottom, 0.875in) + 0.28in);
-    padding-left: var(--ilt-pad-left, 0.8125in);
-    padding-right: var(--ilt-pad-right, 0.625in);
+    padding-top: clamp(2.1rem, 4.8vw, 3.1rem);
+    padding-bottom: clamp(2rem, 4.2vw, 2.9rem);
+    padding-left: clamp(2.65rem, 6.8vw, 4.2rem);
+    padding-right: clamp(2.5rem, 6.4vw, 4rem);
+}
+
+.fmt-chapter-sink {
+    display: block;
+    width: 100%;
+    height: clamp(2.85rem, 15vh, 5rem);
+    min-height: 2.85rem;
+    flex-shrink: 0;
+    pointer-events: none;
+    visibility: hidden;
 }
 
 .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"],
 #fmt-preview-measure-host .reader-chapter-block[data-chapter-start="1"] {
-    padding-top: var(--ilt-chapter-drop, 1.35in);
+    padding-top: 0.35rem;
     box-sizing: border-box;
 }
 
@@ -834,15 +845,14 @@
 .book-open-page-inner h3,
 .book-open-page-inner .manuscript-chapter-heading,
 .book-open-page-inner .fmt-chapter-opener,
-.book-open-page-inner .chapter-opener,
-.book-open-page-inner [data-chapter-start] {
+.book-open-page-inner .chapter-opener {
     text-align: center;
     text-indent: 0 !important;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     font-weight: 600;
     margin: 0.35em 0 1em;
-    padding-top: 0.85em;
+    padding-top: 0;
     line-height: 1.25;
 }
 
