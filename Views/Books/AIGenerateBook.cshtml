@@ -1511,6 +1511,19 @@
         padding: 0;
         line-height: 1;
     }
+    /* Writer open-spread: match Formatting — generous left/right page margins */
+    #bookResult .book-open-page-inner {
+        padding: clamp(0.85rem, 2vw, 1.25rem) clamp(1.4rem, 3.6vw, 2.2rem) 0.45rem !important;
+        box-sizing: border-box !important;
+    }
+    #bookResult .book-open-page--verso .book-open-page-inner {
+        padding-left: clamp(1.5rem, 4.2vw, 2.45rem) !important;
+        padding-right: clamp(1.65rem, 4.5vw, 2.65rem) !important;
+    }
+    #bookResult .book-open-page--recto .book-open-page-inner {
+        padding-left: clamp(1.65rem, 4.5vw, 2.65rem) !important;
+        padding-right: clamp(1.5rem, 4.2vw, 2.45rem) !important;
+    }
     /* Modals on this page: match single-line control height */
     #createBookModal input#createBookModalTitle,
     #chapterEditModal input#chapterEditModalPrompt {
@@ -1753,13 +1766,13 @@
             </div>
 
             <section class="flex flex-col gap-3" data-guided-tour="ai-write-section">
-                <h2 class="font-serif-custom text-xl font-medium tracking-tight text-slate-800">Write a New Book</h2>
+                <h2 class="font-serif-custom text-xl font-medium tracking-tight text-slate-800">Write with AI</h2>
+                @* Book picker hidden — book comes from Dashboard / ?bookId= (same as Cover Design). Keep select for JS sync. *@
                 @if (Model?.UserBooks != null && Model.UserBooks.Count > 0)
                 {
-                    <div class="flex flex-col gap-2" data-guided-tour="ai-book-select">
-                        <label for="ai-writer-book-select" class="text-sm font-medium text-slate-500">Change book <span class="font-normal text-slate-400">(optional)</span></label>
-                        <div class="relative">
-                            <select id="ai-writer-book-select" class="form-input-uniform w-full appearance-none bg-white border border-slate-200 rounded-xl px-4 py-3.5 pr-10 text-base text-slate-800 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm cursor-pointer" aria-label="Select a book to continue writing">
+                    <div class="flex flex-col gap-2 hidden" data-guided-tour="ai-book-select" aria-hidden="true" hidden>
+                        <label for="ai-writer-book-select" class="sr-only">Book</label>
+                        <select id="ai-writer-book-select" class="hidden" tabindex="-1" aria-hidden="true">
                                 @if (!(selectedBookId > 0))
                                 {
                                     <option value="0" selected>New book — start blank</option>
@@ -1780,9 +1793,7 @@
                                         <option value="@b.BookId">@t</option>
                                     }
                                 }
-                            </select>
-                            <i class="fas fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none" aria-hidden="true"></i>
-                        </div>
+                        </select>
                     </div>
                 }
                 <div class="flex flex-col gap-2">

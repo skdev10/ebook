@@ -84,8 +84,8 @@
     else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
     if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
     if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
-    bool flowSidebarMinimal = false; // Always show Writer / Formatting / Cover â€” free module navigation
-    // Legacy: was true when FlowBookId set, which hid AI Writer from the sidebar on module pages.
+    // Soft modules: Writer / Formatting open from Dashboard cards (not sidebar).
+    bool flowSidebarMinimal = false;
 
     int sidebarActiveBookId = flowBookId;
     if (sidebarActiveBookId <= 0 && ViewBag.SelectedBookId != null)
@@ -3553,32 +3553,16 @@
                         <i data-lucide="layout-grid" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Dashboard</span>
                     </a>
                 </li>
+                @* AI Writer + Book Formatting: Dashboard cards only (not sidebar). *@
                 @if (!flowSidebarMinimal)
                 {
-                <li>
-                    <a href="@sidebarAiWriterUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "active" : "")">
-                        <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Writer</span>
-                    </a>
-                </li>
-                <li>
-                    @if (formattingUnlocked) {
-                        <a href="@sidebarFormatUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "active" : "")">
-                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
-                        </a>
-                    } else {
-                        <a href="/Books/Formatting?entry=direct" data-entry-direct="true" class="sidebar-locked-feature" data-locked="Formatting" data-unlock-step="1" data-goto="/Dashboard" title="Select or create a book first">
-                            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
-                        </a>
-                    }
-                </li>
-                
                 <li>
                     @if (coverNavUnlocked || formattingUnlocked) {
                         <a href="@sidebarCoverUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
                             <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Cover</span>
                         </a>
                     } else {
-                        <a href="/Books/Cover" class="sidebar-locked-feature" data-locked="Book Cover" data-unlock-step="2" data-goto="/Dashboard" title="Select or create a book first">
+                        <a href="/Books/Cover" class="sidebar-locked-feature" data-locked="Book Cover" data-unlock-step="2" data-goto="/Dashboard" title="Open Book Cover from the Dashboard">
                             <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Cover</span>
                         </a>
                     }
@@ -3589,7 +3573,7 @@
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Select a book from the Dashboard first" data-goto="@sidebarAiWriterUrl">
+                        <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Select a book from the Dashboard first" data-goto="/Dashboard">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     }
@@ -3600,7 +3584,7 @@
                             <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="@(coverUnlocked ? sidebarCoverUrl : (formattingUnlocked ? sidebarFormatUrl : sidebarAiWriterUrl))" title="Select a book from the Dashboard first">
+                        <a href="#" class="sidebar-locked-feature" data-locked="My Books / Publish" data-unlock-step="3" data-goto="/Dashboard" title="Select a book from the Dashboard first">
                             <i data-lucide="book-open" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">My Books</span>
                         </a>
                     }

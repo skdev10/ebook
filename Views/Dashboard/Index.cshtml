@@ -30,7 +30,7 @@
     var heroPrimaryUrl = moduleFormatUrl;
     var heroPrimaryLabel = "Open Formatting";
     var heroSecondaryUrl = moduleWriterUrl;
-    var heroSecondaryLabel = "Write with AI";
+    var heroSecondaryLabel = "Start with AI";
     var dashProfilePic = "";
     if (!string.IsNullOrEmpty(ViewBag.ProfilePicturePath as string))
         dashProfilePic = Url.Content((string)ViewBag.ProfilePicturePath) + "?v=" + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -382,7 +382,7 @@
                         </button>
                     }
                 </div>
-                <p class="text-sm text-slate-500 mb-6 max-w-2xl">Resume where you left off — Writer, Formatting, or Book Cover. You can also open any module from the cards above or the sidebar.</p>
+                <p class="text-sm text-slate-500 mb-6 max-w-2xl">Resume where you left off — Writer, Formatting, or Book Cover. Open any module from the cards above.</p>
                 <div id="drafts-list" class="gap-4">
                     @if (draftBooksShow.Any())
                     {
