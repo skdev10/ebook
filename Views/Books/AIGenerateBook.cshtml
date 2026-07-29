@@ -2817,9 +2817,21 @@ window.setPreviewChapterHeaderText = function (text) {
     if (el) el.textContent = text || '';
 };
 
-/** Strip auto-generated "Chapter N" labels — show only the user's title. */
-window.sanitizeChapterTitleForInput = function (title) {
-    var t = (title == null ? '' : String(title)).trim();
+/** Strip auto-generated "Chapter N" labels — show only the user's title.
+ * @param {string} title
+ * @param {{ preserveWhitespace?: boolean }} [options] When preserveWhitespace is true (live typing),
+ *   do not trim — otherwise spaces between words are eaten on every keystroke.
+ */
+window.sanitizeChapterTitleForInput = function (title, options) {
+    var opts = options || {};
+    var raw = title == null ? '' : String(title);
+    if (opts.preserveWhitespace) {
+        // Keep spaces the user is typing; only strip a leading "Chapter N:" / "Chapter N –" prefix.
+        var live = raw.replace(/^Chapter\s*\d+\s*[:\-–]\s*/i, '');
+        if (/^\s*Chapter\s*\d+\s*$/i.test(live)) return '';
+        return live;
+    }
+    var t = raw.trim();
     if (!t) return '';
     t = t.replace(/^Chapter\s*\d+\s*[:\-–]\s*/i, '').trim();
     if (/^Chapter\s*\d+$/i.test(t)) return '';
@@ -3384,13 +3396,14 @@ window.getChapterTitleValue = function () {
     return fromVis || fromHidden;
 };
 window.syncVisibleChapterTitle = function (value) {
+    // Live sync must preserve spaces — sanitize+trim was deleting the space mid-word typing.
     var clean = typeof window.sanitizeChapterTitleForInput === 'function'
-        ? window.sanitizeChapterTitleForInput(value)
-        : String(value == null ? '' : value).trim();
+        ? window.sanitizeChapterTitleForInput(value, { preserveWhitespace: true })
+        : String(value == null ? '' : value);
     var titleEl = document.getElementById('Title');
     var vis = document.getElementById('ChapterTitleVisible');
     if (titleEl) titleEl.value = clean;
-    if (vis) vis.value = clean;
+    if (vis && vis.value !== clean) vis.value = clean;
 };
 window.shakeChapterTitleRequired = function () {
     var group = document.querySelector('.chapter-no-input-group');
