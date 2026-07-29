@@ -735,7 +735,19 @@ public static class InteriorLayoutTokens
 
             "#book-formatter-root #paginatedReaderShell.interior-minimalist .reader-page-body p { text-indent:0 !important; } ",
 
-            "#book-formatter-root #fmt-preview-measure-host { padding:0 !important; font-size:inherit; line-height:inherit; } ");
+            "#book-formatter-root #fmt-preview-measure-host { padding:0 !important; font-size:inherit; line-height:inherit; } ",
+
+            "#book-formatter-root .book-open-page-inner { ",
+            "padding:var(--ilt-pad-top,0.625in) var(--ilt-pad-right,0.625in) var(--ilt-pad-bottom,0.875in) var(--ilt-pad-left,0.8125in); ",
+            "box-sizing:border-box; overflow:hidden; } ",
+            "#book-formatter-root .book-open-page--verso .book-open-page-inner { ",
+            "padding-left:var(--ilt-pad-right,0.625in); padding-right:var(--ilt-pad-left,0.8125in); } ",
+            "#book-formatter-root .book-open-page--recto .book-open-page-inner { ",
+            "padding-left:var(--ilt-pad-left,0.8125in); padding-right:var(--ilt-pad-right,0.625in); } ",
+            "#book-formatter-root .book-open-spread .reader-chapter-block[data-chapter-start=\"1\"] .fmt-chapter-opener, ",
+            "#book-formatter-root .book-open-spread .reader-chapter-block[data-chapter-start=\"1\"] .manuscript-chapter-heading, ",
+            "#book-formatter-root .book-open-spread .reader-chapter-block[data-chapter-start=\"1\"] .reader-page-title { ",
+            "margin-top:var(--ilt-chapter-drop,1.25in); padding-top:0; } ");
 
     }
 
