@@ -91,18 +91,37 @@ public static class BookResumeUrlHelper
             context.Session.SetString("HasGeneratedBook", "1");
     }
 
+    /// <summary>True when the URL is the Publish / export screen (not an editing module).</summary>
+    public static bool IsPublishScreenUrl(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        var pathOnly = path.Split('?', 2)[0].TrimEnd('/');
+        return pathOnly.StartsWith("/Dashboard/Publish", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
-    /// Resume where the author actually last worked — not the furthest step ever reached.
-    /// Visiting Publish once must not force every later "Continue Editing" back to Publish.
+    /// Resume where the author last edited (Writer / Formatting / Cover).
+    /// Visiting Publish must not force Continue Editing / Edit back to Publish.
     /// </summary>
     public static string ResolveResumeUrl(int bookId, string? lastWorkUrl, string flowStep, string flowPath, BookFlowStateService bookFlow)
     {
         if (bookId <= 0) return "/Dashboard";
         if (IsSafeResumePath(lastWorkUrl)
-            && TryParseBookIdFromWorkUrl(lastWorkUrl!) == bookId)
+            && TryParseBookIdFromWorkUrl(lastWorkUrl!) == bookId
+            && !IsPublishScreenUrl(lastWorkUrl))
         {
             return lastWorkUrl!.Trim();
         }
-        return bookFlow.BuildResumeUrl(bookId, flowStep, flowPath);
+
+        // If flow is already on publish (or last URL was Publish), open Cover — last authoring screen.
+        var step = flowStep;
+        if (string.Equals(step, BookFlowStateService.StepPublish, StringComparison.OrdinalIgnoreCase)
+            || IsPublishScreenUrl(lastWorkUrl))
+        {
+            step = BookFlowStateService.PreviousStep(BookFlowStateService.StepPublish)
+                   ?? BookFlowStateService.StepCover;
+        }
+
+        return bookFlow.BuildResumeUrl(bookId, step, flowPath);
     }
 }

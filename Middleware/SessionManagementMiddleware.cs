@@ -283,8 +283,9 @@ namespace EBookDashboard.Middleware
                 p.StartsWith("/Books/AIGenerateBook", StringComparison.OrdinalIgnoreCase) ||
                 p.StartsWith("/BookDesign/CoverDesignCalculatorFixing", StringComparison.OrdinalIgnoreCase) ||
                 p.StartsWith("/Dashboard/CoverDesign", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(p, "/Dashboard/MyBooks", StringComparison.OrdinalIgnoreCase) ||
-                p.StartsWith("/Dashboard/Publish", StringComparison.OrdinalIgnoreCase);
+                string.Equals(p, "/Dashboard/MyBooks", StringComparison.OrdinalIgnoreCase);
+            // Do not track /Dashboard/Publish — Edit / Continue Editing must return to
+            // Writer, Formatting, or Cover, not overwrite last work with the Publish screen.
         }
 
         private static bool IsSafeResumePath(string? path)

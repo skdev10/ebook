@@ -391,7 +391,6 @@
                             var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl)
                                 ? draft.ResumeUrl
                                 : (Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}");
-                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
@@ -399,7 +398,7 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <a href="@draftResume" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
                                         <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
@@ -435,7 +434,6 @@
                             var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl)
                                 ? draft.ResumeUrl
                                 : (Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}");
-                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
@@ -443,7 +441,7 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <a href="@draftResume" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
                                         <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
@@ -683,7 +681,6 @@
                         {
                             var draftCover = DashCoverSrc(draft.CoverImagePath);
                             var draftResume = Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}";
-                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.ProgressPercentage, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
@@ -691,7 +688,7 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <a href="@draftResume" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
                                         <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>
@@ -717,7 +714,6 @@
                             var draftResume = !string.IsNullOrWhiteSpace(draft.ResumeUrl)
                                 ? draft.ResumeUrl
                                 : (Url.Action("SelectBook", "Dashboard", new { bookId = draft.BookId }) ?? $"/Dashboard/SelectBook?bookId={draft.BookId}");
-                            var draftPublish = Url.Action("Publish", "Dashboard", new { bookId = draft.BookId });
                             var pct = Math.Clamp(draft.FlowStepPercent, 0, 100);
                             var title = string.IsNullOrWhiteSpace(draft.Title) ? "Untitled Book" : draft.Title;
                             var cardCover = !string.IsNullOrEmpty(draftCover) ? draftCover : defaultCoverPlaceholder;
@@ -725,7 +721,7 @@
                                 <div class="dash-book-menu-wrap">
                                     <button type="button" class="dash-book-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                     <div class="dash-book-menu" role="menu">
-                                        <a href="@draftPublish" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                        <a href="@draftResume" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
                                         <button type="button" class="dash-delete-book-btn dash-book-menu-delete" data-book-id="@draft.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                     </div>
                                 </div>

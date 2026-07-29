@@ -510,7 +510,7 @@
                             <div class="mybooks-menu-wrap">
                                 <button type="button" class="mybooks-menu-btn" aria-label="Book actions for @title" aria-haspopup="true" aria-expanded="false"><i class="fas fa-ellipsis-v" aria-hidden="true"></i></button>
                                 <div class="mybooks-menu" role="menu">
-                                    <a href="/Dashboard/Publish?bookId=@book.BookId" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
+                                    <a href="/Dashboard/SelectBook?bookId=@book.BookId" role="menuitem"><i class="fas fa-edit" aria-hidden="true"></i><span>Edit</span></a>
                                     <button type="button" class="mybooks-menu-delete dash-delete-book-btn" data-book-id="@book.BookId" role="menuitem"><i class="fas fa-trash-alt" aria-hidden="true"></i><span>Delete</span></button>
                                 </div>
                             </div>
@@ -597,7 +597,7 @@
                                     }
                                 </div>
                                 <h3 class="text-sm font-medium truncate text-slate-900 text-center">@(title.Length > 18 ? title.Substring(0, 16) + "…" : title)</h3>
-                                <a href="/Dashboard/Publish?bookId=@book.BookId" class="text-[10px] font-semibold text-violet-600 hover:text-violet-800 text-center block mt-0.5">Edit</a>
+                                <a href="/Dashboard/SelectBook?bookId=@book.BookId" class="text-[10px] font-semibold text-violet-600 hover:text-violet-800 text-center block mt-0.5">Edit</a>
                                 <p class="text-xs text-slate-500 truncate text-center">@authorName</p>
                                 @if (book.ChapterCount > 0)
                                 {
@@ -890,7 +890,7 @@
         document.getElementById('btn-view-book').classList.remove('hidden');
         var editBtn = document.getElementById('btn-edit-book');
         if (editBtn) {
-            editBtn.href = '/Dashboard/Publish?bookId=' + book.bookId;
+            editBtn.href = '/Dashboard/SelectBook?bookId=' + book.bookId;
             editBtn.classList.remove('hidden');
         }
         var deleteTop = document.getElementById('btn-delete-book-top');
