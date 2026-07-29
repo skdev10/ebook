@@ -3553,20 +3553,9 @@
                         <i data-lucide="layout-grid" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Dashboard</span>
                     </a>
                 </li>
-                @* AI Writer + Book Formatting: Dashboard cards only (not sidebar). *@
+                @* AI Writer, Formatting, Cover Design: Dashboard cards only (not sidebar). *@
                 @if (!flowSidebarMinimal)
                 {
-                <li>
-                    @if (coverNavUnlocked || formattingUnlocked) {
-                        <a href="@sidebarCoverUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
-                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Cover</span>
-                        </a>
-                    } else {
-                        <a href="/Books/Cover" class="sidebar-locked-feature" data-locked="Book Cover" data-unlock-step="2" data-goto="/Dashboard" title="Open Book Cover from the Dashboard">
-                            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Cover</span>
-                        </a>
-                    }
-                </li>
                 <li>
                     @if (hasGeneratedBook) {
                         <a href="@sidebarPublishUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "active" : "")">
@@ -5006,7 +4995,7 @@
             'dashboard': [
                 { sel: '#dash-hero-cta', title: 'Open Formatting', body: 'Best place to start. Upload your file, set the layout, and preview your book.' },
                 { sel: '#dash-hero-cta-ai', title: 'Start with AI', body: 'Optional. Use AI to write or edit chapters when you need help.' },
-                { sel: '[data-guided-tour="dash-modules"]', title: 'Your tools', body: 'Three cards: Book Formatting, Write with AI, and Book Cover. Tap any card to open that screen.' },
+                { sel: '[data-guided-tour="dash-modules"]', title: 'Your tools', body: 'Three cards in order: Write with AI, Book Formatting, then Cover Design. Tap any card to open that screen.' },
                 { sel: '#drafts-list, [data-guided-tour="dash-continue"]', title: 'Continue Editing', body: 'Your drafts appear here. Open one to keep working.' },
                 { sel: '#guidedTourFab', title: 'Tour button', body: 'Tap Tour anytime for a short guide of the screen you are on.' }
             ],

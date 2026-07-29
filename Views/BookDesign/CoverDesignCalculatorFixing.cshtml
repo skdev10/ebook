@@ -841,8 +841,8 @@
         text-align: center;
         font-size: 1em;
         text-indent: 0;
-        margin: 0 0 1.1rem 0;
-        padding: 0;
+        margin: 0 0 1.25rem 0;
+        padding: 1.35rem 0 0 0;
         border: 0;
         line-height: 1.2;
     }
@@ -865,7 +865,7 @@
 
     /* ---------- TRADITIONAL / NOVEL (trade paperback) ---------- */
     #book-formatter-root .reader-content-wrap.interior-novel .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 2rem;
+        padding-top: 3.25rem;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .fmt-chapter-opener .fmt-ch-eyebrow {
         font-family: 'EB Garamond', Georgia, serif;
@@ -881,8 +881,8 @@
         color: #2a2620;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
-        margin-top: 1.7rem;
-        padding-top: 0;
+        margin-top: 2.4rem;
+        padding-top: 0.5rem;
         border-top: 0;
     }
     #book-formatter-root .reader-content-wrap.interior-novel .reader-page-body .manuscript-hr {
@@ -908,7 +908,7 @@
 
     /* ---------- FINE BOOK / CLASSIC (literary hardcover) ---------- */
     #book-formatter-root .reader-content-wrap.interior-classic .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 3rem;
+        padding-top: 4rem;
     }
     #book-formatter-root .reader-content-wrap.interior-classic .fmt-chapter-opener .fmt-ch-flourish {
         display: block;
@@ -957,7 +957,7 @@
 
     /* ---------- CLEAN / MINIMALIST (modern non-fiction) ---------- */
     #book-formatter-root .reader-content-wrap.interior-minimalist .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 3.2rem;
+        padding-top: 4.5rem;
         text-align: left;
     }
     #book-formatter-root .reader-content-wrap.interior-minimalist .fmt-chapter-opener .fmt-ch-eyebrow {
@@ -975,8 +975,8 @@
         color: #1d1d1f;
     }
     #book-formatter-root .reader-content-wrap.interior-minimalist .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
-        margin-top: 2.9rem;
-        padding-top: 0;
+        margin-top: 3.5rem;
+        padding-top: 0.5rem;
         border-top: 0;
         text-align: left;
     }
@@ -999,7 +999,7 @@
 
     /* ---------- POD / ELEGANT TRADE (KDP / IngramSpark) ---------- */
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-chapter-block[data-chapter-start="1"] .fmt-chapter-opener {
-        padding-top: 2.4rem;
+        padding-top: 3.6rem;
     }
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .fmt-chapter-opener .fmt-ch-eyebrow {
         font-family: 'EB Garamond', Georgia, serif;
@@ -1019,8 +1019,8 @@
         margin: 0.7rem auto 0;
     }
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
-        margin-top: 2.1rem;
-        padding-top: 0;
+        margin-top: 2.8rem;
+        padding-top: 0.5rem;
         border-top: 0;
         font-weight: 700;
     }
@@ -1655,13 +1655,13 @@
     }
     #book-formatter-root .reader-chapter-block[data-chapter-start="1"] .reader-page-title {
         margin-top: 0.35rem;
-        padding-top: 0.65rem;
+        padding-top: 1.75rem;
         border-top: 1px solid rgba(139, 92, 246, 0.2);
     }
     #book-formatter-root .reader-chapter-block[data-chapter-start="1"]:first-child .reader-page-title {
         border-top: 0;
-        padding-top: 0;
-        margin-top: 0;
+        padding-top: 1.75rem;
+        margin-top: 0.5rem;
     }
     #fmt-book-result .paginated-reader-shell.book-page-preview-shell {
         position: relative;
@@ -8686,10 +8686,10 @@
         flex: 1 1 auto !important;
         min-height: 0 !important;
         overflow: hidden !important;
-        /* Extra-wide page margins — text must sit clearly inside the paper */
-        padding: clamp(1.35rem, 3.2vw, 1.9rem)
+        /* Extra page margins — keep chapter titles off the top and body off the folio */
+        padding: clamp(2.15rem, 4.4vw, 2.95rem)
                  clamp(2.4rem, 6vw, 3.6rem)
-                 0.7rem !important;
+                 clamp(1.6rem, 3.4vw, 2.2rem) !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: clamp(0.78rem, 1.15vw, 0.95rem) !important;
         line-height: 1.58 !important;

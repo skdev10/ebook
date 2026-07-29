@@ -758,7 +758,8 @@
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    padding: clamp(1.3rem, 3vw, 1.85rem) clamp(2.35rem, 5.8vw, 3.5rem) 0.65rem;
+    /* Comfortable top + bottom margins so chapter titles and last lines are not clipped */
+    padding: clamp(2.1rem, 4.2vw, 2.85rem) clamp(2.35rem, 5.8vw, 3.5rem) clamp(1.55rem, 3.2vw, 2.1rem);
     font-family: Georgia, "Times New Roman", serif;
     font-size: clamp(0.72rem, 1.05vw, 0.88rem);
     line-height: 1.55;
@@ -801,6 +802,7 @@
 .book-open-page-inner h2,
 .book-open-page-inner h3,
 .book-open-page-inner .manuscript-chapter-heading,
+.book-open-page-inner .fmt-chapter-opener,
 .book-open-page-inner .chapter-opener,
 .book-open-page-inner [data-chapter-start] {
     text-align: center;
@@ -808,7 +810,8 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     font-weight: 600;
-    margin: 1.1em 0 0.85em;
+    margin: 0.35em 0 1em;
+    padding-top: 0.85em;
     line-height: 1.25;
 }
 
