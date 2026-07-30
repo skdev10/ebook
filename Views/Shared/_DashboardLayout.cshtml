@@ -169,8 +169,11 @@
         sidebarPublishUrl = WithDirectEntry(sidebarPublishUrl);
     }
 
-    // Hover-rail everywhere — do not pin the sidebar open on Dashboard (keeps focus on the Start CTA + cards).
-    bool sidebarPinnedOpen = false;
+    // Dashboard home: sidebar stays fully open. Other screens use the hover-collapse rail.
+    var sidebarRouteController = ViewContext.RouteData.Values["Controller"]?.ToString() ?? "";
+    var sidebarRouteAction = ViewContext.RouteData.Values["Action"]?.ToString() ?? "";
+    bool sidebarPinnedOpen = string.Equals(sidebarRouteController, "Dashboard", StringComparison.OrdinalIgnoreCase)
+        && (string.IsNullOrEmpty(sidebarRouteAction) || string.Equals(sidebarRouteAction, "Index", StringComparison.OrdinalIgnoreCase));
 }
 
 <!DOCTYPE html>
