@@ -84,8 +84,9 @@
     else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
     if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
     if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
-    // Soft modules: Writer / Formatting open from Dashboard cards (not sidebar).
-    bool flowSidebarMinimal = false;
+    // Soft modules: Writer / Formatting / Cover open from Dashboard cards (not sidebar).
+    // First-run (no books): keep the rail minimal so the hero CTA + cards lead the workflow.
+    bool flowSidebarMinimal = !hasAnyBooks;
 
     int sidebarActiveBookId = flowBookId;
     if (sidebarActiveBookId <= 0 && ViewBag.SelectedBookId != null)
@@ -168,11 +169,8 @@
         sidebarPublishUrl = WithDirectEntry(sidebarPublishUrl);
     }
 
-    // Dashboard home: sidebar opens fully expanded by default (other pages keep the hover-rail behavior).
-    var sidebarRouteController = ViewContext.RouteData.Values["Controller"]?.ToString() ?? "";
-    var sidebarRouteAction = ViewContext.RouteData.Values["Action"]?.ToString() ?? "";
-    bool sidebarPinnedOpen = string.Equals(sidebarRouteController, "Dashboard", StringComparison.OrdinalIgnoreCase)
-        && (string.IsNullOrEmpty(sidebarRouteAction) || string.Equals(sidebarRouteAction, "Index", StringComparison.OrdinalIgnoreCase));
+    // Hover-rail everywhere — do not pin the sidebar open on Dashboard (keeps focus on the Start CTA + cards).
+    bool sidebarPinnedOpen = false;
 }
 
 <!DOCTYPE html>
@@ -3657,7 +3655,7 @@
             <script>
                 /* Top-of-screen "follow steps" alert â€” replaces SweetAlert for flow/locked navigation. */
                 window.showFollowStepsAlert = function (message) {
-                    var text = message || 'Select a book from the Dashboard, then open <b>AI Writer</b>, <b>Formatting</b>, or <b>Book Cover</b> â€” any order.';
+                    var text = message || 'Open a book from the Dashboard cards: <b>Write with AI</b> → <b>Book Formatting</b> → <b>Cover Design</b>.';
                     var existing = document.getElementById('flowStepsTopAlert');
                     if (existing) existing.remove();
                     var div = document.createElement('div');
@@ -5014,7 +5012,7 @@
                 { sel: '[data-guided-tour="fmt-actions"]', title: 'Export', body: 'Export PDF for print, or EPUB for ebook. Then continue to Cover Design if you are in the guided flow.' }
             ],
             'cover-design': [
-                { sel: '[data-guided-tour="cov-format"]', title: 'Cover type', body: 'Pick Ebook (front cover only) or Paperback (full wrap with spine and back).' },
+                { sel: '[data-guided-tour="cov-format"]', title: 'Cover type', body: 'Pick eBook (front only), Paperback (full wrap), or Both so you can preview each format.' },
                 { sel: '[data-guided-tour="cov-fields"]', title: 'Cover details', body: 'Set genre and style so the AI knows the look you want.' },
                 { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Add colors, mood, or images. Then generate the cover.' },
                 { sel: '[data-guided-tour="cov-generate"]', title: 'Generate', body: 'Create the front cover. For paperback, the full wrap builds next.' },
@@ -5036,7 +5034,7 @@
                 { sel: 'form, .profile-form, #profileForm', title: 'Save', body: 'Edit your details, then tap Save.' }
             ],
             'default': [
-                { sel: '#sidebar', title: 'Menu', body: 'Use the Dashboard cards for Formatting and Write with AI. Cover and Publish are in the side menu.' },
+                { sel: '#sidebar', title: 'Menu', body: 'Dashboard home has Write with AI, Book Formatting, and Cover Design as cards. Publish unlocks after you have a book.' },
                 { sel: '#guidedTourFab', title: 'Need help?', body: 'Tap Tour anytime for a short guide of this screen.' }
             ]
         };

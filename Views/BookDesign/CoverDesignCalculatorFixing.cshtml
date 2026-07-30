@@ -841,8 +841,8 @@
     #fmt-preview-measure-host .fmt-chapter-sink {
         display: block !important;
         width: 100% !important;
-        height: clamp(2.85rem, 15vh, 5rem) !important;
-        min-height: 2.85rem !important;
+        height: clamp(4.75rem, 22vh, 8rem) !important;
+        min-height: 4.75rem !important;
         flex-shrink: 0 !important;
         pointer-events: none !important;
         visibility: hidden !important;
@@ -2150,13 +2150,13 @@
         width: 100%;
     }
     #book-formatter-root #fmt-preview-scroll-host.book-preview-stage {
-        min-height: min(720px, calc(100dvh - 4.5rem));
+        min-height: min(860px, calc(100dvh - 3.5rem));
     }
 
     /* ===== Large book preview (parity with AI Writer) ===== */
     @@media (min-width: 1024px) {
         #book-formatter-root .fmt-main-layout {
-            grid-template-columns: minmax(0, 35%) minmax(0, 65%) !important;
+            grid-template-columns: minmax(0, 30%) minmax(0, 70%) !important;
             gap: 0.85rem !important;
             align-items: stretch !important;
         }
@@ -8501,9 +8501,9 @@
         min-height: 0 !important;
         overflow: hidden !important;
         /* Match AI Writer open-spread margins — generous top/bottom + left/right */
-        padding: clamp(2.1rem, 4.8vw, 3.1rem)
+        padding: clamp(2.4rem, 5.2vw, 3.5rem)
                  clamp(2.4rem, 6vw, 3.6rem)
-                 clamp(2rem, 4.2vw, 2.9rem) !important;
+                 clamp(2.55rem, 5vw, 3.4rem) !important;
         font-family: Georgia, "Times New Roman", serif !important;
         font-size: var(--fmt-font-size, var(--ilt-body-px, 11pt)) !important;
         line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.58)) !important;
@@ -8515,15 +8515,15 @@
     }
     /* Verso (left leaf): outer left + spine gutter — AI Writer parity */
     #book-formatter-root .book-open-page--verso .book-open-page-inner {
-        padding-top: clamp(2.1rem, 4.8vw, 3.1rem) !important;
-        padding-bottom: clamp(2rem, 4.2vw, 2.9rem) !important;
+        padding-top: clamp(2.4rem, 5.2vw, 3.5rem) !important;
+        padding-bottom: clamp(2.55rem, 5vw, 3.4rem) !important;
         padding-left: clamp(2.5rem, 6.4vw, 4rem) !important;
         padding-right: clamp(2.65rem, 6.8vw, 4.2rem) !important;
     }
     /* Recto (right leaf): spine gutter + outer right */
     #book-formatter-root .book-open-page--recto .book-open-page-inner {
-        padding-top: clamp(2.1rem, 4.8vw, 3.1rem) !important;
-        padding-bottom: clamp(2rem, 4.2vw, 2.9rem) !important;
+        padding-top: clamp(2.4rem, 5.2vw, 3.5rem) !important;
+        padding-bottom: clamp(2.55rem, 5vw, 3.4rem) !important;
         padding-left: clamp(2.65rem, 6.8vw, 4.2rem) !important;
         padding-right: clamp(2.5rem, 6.4vw, 4rem) !important;
     }

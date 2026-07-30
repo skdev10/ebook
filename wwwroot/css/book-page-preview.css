@@ -758,8 +758,8 @@
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    /* AI Writer–matched open-book margins (extra top/bottom so titles & folio breathe) */
-    padding: clamp(2.1rem, 4.8vw, 3.1rem) clamp(2.4rem, 6vw, 3.6rem) clamp(2rem, 4.2vw, 2.9rem);
+    /* Generous top/bottom so chapter titles sit lower and last lines clear the folio */
+    padding: clamp(2.4rem, 5.2vw, 3.5rem) clamp(2.4rem, 6vw, 3.6rem) clamp(2.55rem, 5vw, 3.4rem);
     font-family: Georgia, "Times New Roman", serif;
     font-size: var(--fmt-font-size, var(--ilt-body-px, 11pt));
     line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.55));
@@ -772,15 +772,15 @@
 }
 
 .book-open-page--verso .book-open-page-inner {
-    padding-top: clamp(2.1rem, 4.8vw, 3.1rem);
-    padding-bottom: clamp(2rem, 4.2vw, 2.9rem);
+    padding-top: clamp(2.4rem, 5.2vw, 3.5rem);
+    padding-bottom: clamp(2.55rem, 5vw, 3.4rem);
     padding-left: clamp(2.5rem, 6.4vw, 4rem);
     padding-right: clamp(2.65rem, 6.8vw, 4.2rem);
 }
 
 .book-open-page--recto .book-open-page-inner {
-    padding-top: clamp(2.1rem, 4.8vw, 3.1rem);
-    padding-bottom: clamp(2rem, 4.2vw, 2.9rem);
+    padding-top: clamp(2.4rem, 5.2vw, 3.5rem);
+    padding-bottom: clamp(2.55rem, 5vw, 3.4rem);
     padding-left: clamp(2.65rem, 6.8vw, 4.2rem);
     padding-right: clamp(2.5rem, 6.4vw, 4rem);
 }
@@ -788,8 +788,8 @@
 .fmt-chapter-sink {
     display: block;
     width: 100%;
-    height: clamp(2.85rem, 15vh, 5rem);
-    min-height: 2.85rem;
+    height: clamp(4.75rem, 22vh, 8rem);
+    min-height: 4.75rem;
     flex-shrink: 0;
     pointer-events: none;
     visibility: hidden;
@@ -818,8 +818,8 @@
 .book-open-folio {
     flex: 0 0 auto;
     flex-shrink: 0;
-    min-height: 2rem;
-    padding: 0.55rem 0.35rem 0.7rem;
+    min-height: 2.35rem;
+    padding: 0.7rem 0.35rem 0.9rem;
     background: #fffef8;
 }
 

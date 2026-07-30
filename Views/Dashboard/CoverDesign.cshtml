@@ -630,7 +630,7 @@
                         <button type="button" class="cov-format-seg__btn" role="radio" aria-checked="false" data-format="Paperback" id="covFmtPaperback">Paperback</button>
                         <button type="button" class="cov-format-seg__btn" role="radio" aria-checked="false" data-format="Both" id="covFmtBoth">Both</button>
                     </div>
-                    <p id="covFormatHint" class="cov-format-hint">eBook = front only. Paperback = full wrap. Both = front cover + full wrap.</p>
+                    <p id="covFormatHint" class="cov-format-hint">eBook = front only. Paperback = full wrap. Both = front cover + full wrap (preview each format).</p>
                 </div>
 
                 <div class="flex flex-col gap-3" data-guided-tour="cov-fields">
@@ -1058,14 +1058,27 @@
     }
 
     function canGenerateFrontCover() {
-        var bookOk = !!(selectedBook && selectedBook.bookId);
-        var titleOk = !!(bookTitle && (bookTitle.value || '').trim());
+        // Soft entry: if a manuscript list exists we can auto-bind on click.
+        var bookOk = !!(selectedBook && selectedBook.bookId) || !!(books && books.length);
+        var titleOk = !!(bookTitle && (bookTitle.value || '').trim())
+            || !!(selectedBook && (selectedBook.title || '').trim())
+            || !!(books && books.length && (books[0].title || '').trim());
         var fmtOk = !!normalizePublishFormat(bookPublishFormat);
         var dirOk = false;
         try { dirOk = !!covComposeDescription(); } catch (_) {
             dirOk = !!(imageDirection && (imageDirection.value || '').trim());
         }
         return bookOk && titleOk && fmtOk && dirOk;
+    }
+
+    /** Prefer the bound book; otherwise bind the first available manuscript. */
+    function ensureCoverBookBound() {
+        if (selectedBook && selectedBook.bookId) return true;
+        if (!(books && books.length)) return false;
+        var id = books[0].bookId;
+        if (bookSelect) bookSelect.value = String(id);
+        bindBook(id);
+        return !!(selectedBook && selectedBook.bookId);
     }
 
     /** Front cover only — summary is required later for paperback wrap, not for Generate Front. */
@@ -1080,13 +1093,17 @@
 
     function updateGenerateGate() {
         if (!btnGenerate && !btnRegenerate) return;
-        // Enable Generate as soon as title + image direction (+ bound book) are ready.
-        // Paperback wrap still needs a summary, but that is checked when building the wrap.
+        // Enable as soon as image direction (+ title / manuscript) is ready.
         var ok = canGenerateFrontCover();
         var busy = previewBusy && !previewBusy.classList.contains('hidden');
         var missing = [];
-        if (!(selectedBook && selectedBook.bookId)) missing.push('a manuscript (open Cover from a book, or write one first)');
-        if (!(bookTitle && (bookTitle.value || '').trim())) missing.push('title');
+        if (!(selectedBook && selectedBook.bookId) && !(books && books.length)) {
+            missing.push('a manuscript (write or upload a book first)');
+        }
+        var titleFilled = !!(bookTitle && (bookTitle.value || '').trim())
+            || !!(selectedBook && (selectedBook.title || '').trim())
+            || !!(books && books.length && (books[0].title || '').trim());
+        if (!titleFilled) missing.push('title');
         if (!normalizePublishFormat(bookPublishFormat)) missing.push('cover type');
         var dirOk = false;
         try { dirOk = !!covComposeDescription(); } catch (_) {
@@ -2483,7 +2500,7 @@
     }
 
     async function generatePrintReadyCoverFromApi() {
-        if (!selectedBook) {
+        if (!ensureCoverBookBound()) {
             toast('error', 'No book loaded.');
             return;
         }
@@ -2671,9 +2688,12 @@
     }
 
     async function generateCoverFromDashboard(endpointUrl) {
-        if (!selectedBook || !selectedBook.bookId) {
-            toast('info', 'Open Cover Design from a manuscript (Write with AI or Formatting first), then generate.');
+        if (!ensureCoverBookBound()) {
+            toast('info', 'Create or open a manuscript first (Write with AI or Formatting), then generate the cover.');
             return;
+        }
+        if (!(bookTitle && (bookTitle.value || '').trim()) && selectedBook) {
+            bookTitle.value = selectedBook.title || 'My Book';
         }
         if (!(bookTitle && (bookTitle.value || '').trim())) {
             toast('info', 'Add a book title first.');
@@ -2681,7 +2701,7 @@
             return;
         }
         if (!normalizePublishFormat(bookPublishFormat)) {
-            toast('info', 'Choose eBook or Paperback.');
+            toast('info', 'Choose eBook, Paperback, or Both.');
             return;
         }
         var userPrompt = covComposeDescription();
@@ -2807,6 +2827,9 @@
         applyCoverStyleClass();
         syncCoverStyleCards();
         loadSavedPrintWrapAssets(parseInt(bookId, 10));
+        updateGenerateGate();
+        updatePublishGate();
+        syncFormatSegUi();
     }
 
     function renderBooks(data) {
