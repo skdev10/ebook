@@ -413,7 +413,7 @@
             align-items: stretch;
             min-height: calc(100dvh - 4.5rem);
             max-height: calc(100dvh - 4.5rem);
-            overflow: hidden;
+        overflow: hidden;
         }
         #coverMain.cov-main-card > .cov-form-column {
             width: 100% !important;
@@ -662,9 +662,9 @@
                         <button type="button" class="cov-style-card" data-style="modern" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#6366f1,#22d3ee)"></span><span class="cov-style-card__label">Modern</span></button>
                         <button type="button" class="cov-style-card" data-style="vintage" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#7c5a3a,#d9c2a3)"></span><span class="cov-style-card__label">Vintage</span></button>
                         <button type="button" class="cov-style-card" data-style="cartoon" aria-pressed="false"><span class="cov-style-card__swatch" style="background:linear-gradient(135deg,#FFE566,#FF6B9D)"></span><span class="cov-style-card__label">Cartoon</span></button>
-                    </div>
                 </div>
                 </div>
+            </div>
 
             <div data-guided-tour="cov-prompt">
                 <h2 class="font-serif text-xl text-slate-900 font-medium tracking-tight mb-1">Image Direction</h2>
@@ -869,10 +869,10 @@
         if (!bookId || !url) return Promise.resolve(false);
         if (String(url).indexOf('data:') === 0) return Promise.resolve(false); // transient preview
         return fetch('/Dashboard/SetActiveCover', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ bookId: bookId, url: url })
+                body: JSON.stringify({ bookId: bookId, url: url })
         }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) {
             return !!(r.ok && j && j.success !== false);
         }); }).catch(function () { return false; });
@@ -1316,8 +1316,8 @@
                             coverWraparoundRef = w;
                             setPrintWrapSaved(true);
                             updateCovWrapBuildBanner(assets);
-                        } else {
-                            updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
+            } else {
+                updateCovWrapBuildBanner({ wrapCoverStatus: 'Failed' });
                         }
                         return assets || d;
                     }).catch(function () { return d; });
@@ -1428,7 +1428,7 @@
             if (frame) frame.classList.remove('hidden');
             if (placeholder) placeholder.classList.add('hidden');
         } else {
-            setPrintWrapSaved(true);
+        setPrintWrapSaved(true);
         }
         coverWraparoundRef = wrapUrl;
         setCovWrapView('full');
@@ -2871,7 +2871,7 @@
             } catch (_) { defaultId = 0; }
         }
         if (defaultId > 0) {
-            var found = books.some(function (b) { return b.bookId === defaultId; });
+        var found = books.some(function (b) { return b.bookId === defaultId; });
             if (!found) defaultId = 0;
         }
         if (defaultId <= 0 && books.length) {
@@ -2879,11 +2879,11 @@
         }
         if (bookSelect) bookSelect.value = String(defaultId);
         if (defaultId > 0) {
-            try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(defaultId)); } catch (_) {}
-            bindBook(defaultId);
-            refreshBookFromServer(defaultId).then(function () {
-                loadSavedPrintWrapAssets(defaultId);
-            });
+        try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(defaultId)); } catch (_) {}
+        bindBook(defaultId);
+        refreshBookFromServer(defaultId).then(function () {
+            loadSavedPrintWrapAssets(defaultId);
+        });
         } else {
             bindBook(0);
         }
@@ -3406,7 +3406,7 @@
                 if (needsPrintWrapAutoBuild() && frontCoverIsReady() && !fullWrapIsReady()) {
                     toast('info', 'Full wrap is still building. Continue to Publish unlocks when the full cover is ready for export.');
                 } else {
-                    toast('info', 'Generate a cover first, then continue to Publish.');
+                toast('info', 'Generate a cover first, then continue to Publish.');
                 }
             }
             return;

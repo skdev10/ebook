@@ -88,36 +88,33 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine(".title-page h1 { font-size: 28pt; margin: 0 0 12mm; font-weight: 600; letter-spacing: 0.03em; line-height: 1.2; }");
         doc.AppendLine(".title-page .subtitle { margin-bottom: 14mm; }");
         // Read Mode polish — screen-only (Chromium PDF uses print media, so this never affects exports).
-        // Gives the on-screen reader a warm backdrop, centered "paper" pages with margins/shadow,
-        // and shows the cover as a proper centered PORTRAIT card instead of a cropped full-bleed strip.
-        // ── Read Mode (Dashboard "open published book") polish — screen-only, never affects the
-        //    print/PDF media. A real book page: centered 680px paper, comfortable Georgia reading
-        //    typography, portrait cover, thin scrollbar.
+        // Matches AI Writer ebook preview quality: warm stage, tall paper pages, full manuscript content.
         doc.AppendLine("@media screen {");
-        doc.AppendLine("  html, body.book-pdf-body { background: #F5F5F0 !important; }");
-        doc.AppendLine("  body.book-pdf-body { margin: 0; padding: 32px 16px 72px; color: #1A1A1A; }");
-        doc.AppendLine("  body.book-pdf-body > .title-page, body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { max-width: 680px; margin-left: auto; margin-right: auto; background: #FFFFFF; box-shadow: 0 4px 24px rgba(0,0,0,0.10); border-radius: 8px; margin-bottom: 24px; }");
-        doc.AppendLine("  body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { padding: 48px 56px; }");
-        doc.AppendLine("  body.book-pdf-body > .title-page { padding: 56px; }");
-        // Comfortable reading typography (screen only — the PDF keeps the per-style interior fonts).
-        doc.AppendLine("  body.book-pdf-body .manuscript-root, body.book-pdf-body .reader-page-body, body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { font-family: Georgia, 'Times New Roman', serif !important; font-size: 16px !important; line-height: 1.8 !important; color: #1A1A1A !important; }");
-        doc.AppendLine("  body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { text-indent: 1.5em; margin: 0 0 12px; }");
+        doc.AppendLine("  html, body.book-pdf-body { background: #edf0f4 !important; }");
+        doc.AppendLine("  body.book-pdf-body { margin: 0; padding: 28px 18px 80px; color: #1c1917; }");
+        doc.AppendLine("  body.book-pdf-body > .title-page, body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { width: min(100%, 680px); max-width: 680px; margin-left: auto; margin-right: auto; background: #fffef8; box-shadow: 0 1px 0 rgba(255,255,255,0.95) inset, 0 2px 4px rgba(28,25,23,0.08), 0 18px 40px -10px rgba(28,25,23,0.35), 0 0 0 1px rgba(68,48,36,0.22); border-radius: 3px; margin-bottom: 28px; border: 1px solid rgba(68,48,36,0.18); }");
+        doc.AppendLine("  body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { padding: 52px 56px 56px; min-height: 720px; }");
+        doc.AppendLine("  body.book-pdf-body > .title-page { padding: 72px 56px; min-height: 720px; display: flex; flex-direction: column; justify-content: center; text-align: center; }");
+        doc.AppendLine("  body.book-pdf-body .manuscript-root, body.book-pdf-body .reader-page-body, body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { font-family: Georgia, 'Times New Roman', serif !important; font-size: 16.5px !important; line-height: 1.78 !important; color: #1c1917 !important; }");
+        doc.AppendLine("  body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p { text-indent: 1.5em; margin: 0 0 0.85em; text-align: justify; hyphens: auto; }");
         doc.AppendLine("  body.book-pdf-body .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-title + .reader-page-body p:first-of-type, body.book-pdf-body .reader-page-body .manuscript-p:first-of-type { text-indent: 0; }");
-        doc.AppendLine("  body.book-pdf-body .reader-page-title, body.book-pdf-body .manuscript-h1, body.book-pdf-body .manuscript-h2 { font-family: Georgia, serif !important; font-size: 22px !important; font-weight: 600 !important; margin-top: 40px; color: #1A1A1A; }");
+        doc.AppendLine("  body.book-pdf-body .reader-page-title, body.book-pdf-body .manuscript-h1, body.book-pdf-body .manuscript-h2 { font-family: Georgia, 'Playfair Display', serif !important; font-size: 1.55rem !important; font-weight: 600 !important; margin: 2.25rem 0 1.15rem; color: #1c1917; line-height: 1.3; letter-spacing: 0.01em; }");
+        doc.AppendLine("  body.book-pdf-body .manuscript-root > section:first-child .reader-page-title, body.book-pdf-body .manuscript-root > .reader-chapter-block:first-child .reader-page-title { margin-top: 0.35rem; }");
+        doc.AppendLine("  body.book-pdf-body img, body.book-pdf-body figure img { max-width: 100% !important; height: auto !important; display: block; margin: 1.1em auto; border-radius: 2px; box-shadow: 0 2px 12px rgba(28,25,23,0.14); }");
         // Cover — full 6×9 portrait in read mode (matches trim size: 6in × 96dpi = 576px).
-        doc.AppendLine("  body.book-pdf-body > .cover-page { min-height: auto; background: transparent; padding: 0; margin: 0 auto 40px; display: flex; justify-content: center; align-items: flex-start; width: min(100%, 576px); max-width: 100%; }");
-        doc.AppendLine("  .cover-page .cover-img { width: 100%; height: auto; aspect-ratio: 2 / 3; max-width: min(576px, 100%); max-height: none; object-fit: cover; margin: 0 auto; border-radius: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
+        doc.AppendLine("  body.book-pdf-body > .cover-page { min-height: auto; background: transparent; padding: 0; margin: 0 auto 36px; display: flex; justify-content: center; align-items: flex-start; width: min(100%, 576px); max-width: 100%; }");
+        doc.AppendLine("  .cover-page .cover-img { width: 100%; height: auto; aspect-ratio: 2 / 3; max-width: min(576px, 100%); max-height: none; object-fit: cover; margin: 0 auto; border-radius: 3px; box-shadow: 0 8px 32px rgba(0,0,0,0.18), 0 0 0 1px rgba(68,48,36,0.22); }");
         doc.AppendLine("  .cover-page.cover-fallback { min-height: auto; width: min(100%, 576px); max-width: 100%; }");
-        doc.AppendLine("  .cover-fallback .cover-fallback-inner { width: 100%; max-width: 576px; aspect-ratio: 2 / 3; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1b4b; border-radius: 4px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
-        // Thin custom scrollbar.
-        doc.AppendLine("  ::-webkit-scrollbar { width: 4px; height: 4px; }");
-        doc.AppendLine("  ::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }");
-        doc.AppendLine("  ::-webkit-scrollbar-thumb:hover { background: #9CA3AF; }");
-        doc.AppendLine("  html { scrollbar-width: thin; scrollbar-color: #D1D5DB transparent; }");
+        doc.AppendLine("  .cover-fallback .cover-fallback-inner { width: 100%; max-width: 576px; aspect-ratio: 2 / 3; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1e1b4b; border-radius: 3px; padding: 28px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }");
+        doc.AppendLine("  ::-webkit-scrollbar { width: 5px; height: 5px; }");
+        doc.AppendLine("  ::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 6px; }");
+        doc.AppendLine("  ::-webkit-scrollbar-thumb:hover { background: #a78bfa; }");
+        doc.AppendLine("  html { scrollbar-width: thin; scrollbar-color: #c4b5fd transparent; }");
         doc.AppendLine("}");
         // Mobile reading padding.
         doc.AppendLine("@media screen and (max-width: 640px) {");
-        doc.AppendLine("  body.book-pdf-body > .title-page, body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { padding: 24px 20px; border-radius: 0; }");
+        doc.AppendLine("  body.book-pdf-body { padding: 12px 0 48px; }");
+        doc.AppendLine("  body.book-pdf-body > .title-page, body.book-pdf-body > .copyright-page, body.book-pdf-body > .toc-page, body.book-pdf-body > .manuscript-root { padding: 28px 22px; border-radius: 0; min-height: 0; width: 100%; max-width: 100%; box-shadow: none; border-left: none; border-right: none; }");
         doc.AppendLine("}");
         // PDF print media: preserve the author's chosen interior typography (per-style fonts,
         // text size, line spacing and justification come from InteriorExportTheme — the same
