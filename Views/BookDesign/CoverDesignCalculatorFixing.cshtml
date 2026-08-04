@@ -1326,6 +1326,7 @@
         box-shadow: 0 8px 24px -18px rgba(124, 58, 237, 0.45);
     }
     /* Above live preview: white “card” like chapter chrome sitting on lavender (AI Writer feel) */
+    .fmt-preview-pane > #reader-chrome-main.reader-chrome-bar:not(.hidden),
     .fmt-interior-canvas > #reader-chrome-main.reader-chrome-bar:not(.hidden) {
         background: #fff;
         border: 1px solid rgba(196, 181, 253, 0.55);
@@ -2244,18 +2245,18 @@
         }
         #fmt-preview-scroll-host,
         #fmt-preview-scroll-host.book-preview-stage {
-            min-height: calc(100dvh - 4.5rem) !important;
-            height: calc(100dvh - 4.5rem) !important;
+            min-height: calc(100dvh - 7.5rem) !important;
+            height: calc(100dvh - 7.5rem) !important;
             flex: 1 1 auto !important;
         }
         #book-formatter-root #preview-single {
-            min-height: calc(100dvh - 4.5rem) !important;
+            min-height: calc(100dvh - 7.5rem) !important;
             height: 100% !important;
         }
         #book-formatter-root #paginatedReaderShell.book-page-preview-shell,
         #book-formatter-root #paginatedReaderShell.book-page-preview-shell.is-open-spread {
-            max-height: calc(100dvh - 2.5rem) !important;
-            min-height: min(900px, calc(100dvh - 2.75rem)) !important;
+            max-height: calc(100dvh - 8rem) !important;
+            min-height: min(820px, calc(100dvh - 8.25rem)) !important;
         }
     }
 
@@ -2548,15 +2549,17 @@
                         <p id="fmt-preview-byline" class="hidden text-xs text-slate-600 mb-0" aria-hidden="true"></p>
                     </div>
 
+                    <!-- Chapter jump stays above the book (never clipped by tall preview shell) -->
+                    <div id="reader-chrome-main" class="reader-chrome-bar w-full hidden shrink-0">
+                        <div class="reader-progress-track" aria-hidden="true"><div class="reader-progress-fill" id="reader-progress-fill"></div></div>
+                        <div class="reader-chrome-row">
+                            <label for="reader-chapter-jump">Chapter</label>
+                            <select id="reader-chapter-jump" aria-label="Jump to chapter"></select>
+                        </div>
+                    </div>
+
                     <div id="fmt-studio-stage" class="fmt-studio-stage flex flex-col flex-1 min-h-0">
                             <div class="fmt-interior-canvas flex flex-col min-h-0 min-w-0 flex-1 w-full">
-                                <div id="reader-chrome-main" class="reader-chrome-bar w-full hidden mb-2">
-                                    <div class="reader-progress-track" aria-hidden="true"><div class="reader-progress-fill" id="reader-progress-fill"></div></div>
-                                    <div class="reader-chrome-row">
-                                        <label for="reader-chapter-jump">Chapter</label>
-                                        <select id="reader-chapter-jump" aria-label="Jump to chapter"></select>
-                                    </div>
-                                </div>
                                 <div id="fmt-studio-preview-toolbar" class="fmt-studio-preview-toolbar mb-2 flex flex-wrap items-center justify-between gap-2 shrink-0 w-full" aria-hidden="true">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button type="button" id="fmt-btn-studio-preview" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 border-0 cursor-pointer hover:opacity-95 shrink-0" style="background-color:#6d28d9;" title="Refresh interior & cover preview from current settings">
@@ -4411,13 +4414,14 @@
         shell.classList.add('is-open-spread');
 
         // Ensure #preview-single itself is tall before measuring the shell.
+        // Leave room for title + chapter chrome above the book (~7.5rem).
         if (sizeHost && isDesktop) {
-            var hostMin = Math.max(780, Math.floor(window.innerHeight * 0.92));
+            var hostMin = Math.max(640, Math.floor(window.innerHeight * 0.78));
             sizeHost.style.minHeight = hostMin + 'px';
             sizeHost.style.height = hostMin + 'px';
         }
         if (scrollHost && isDesktop) {
-            var stageMin = Math.max(780, Math.floor(window.innerHeight * 0.92));
+            var stageMin = Math.max(640, Math.floor(window.innerHeight * 0.78));
             scrollHost.style.minHeight = stageMin + 'px';
             scrollHost.style.height = stageMin + 'px';
         }
@@ -4434,8 +4438,8 @@
                 measureHost: document.getElementById('fmt-preview-measure-host'),
                 viewport: viewport,
                 minHostHeightPx: isDesktop
-                    ? Math.max(780, Math.floor(window.innerHeight * 0.92))
-                    : Math.max(480, Math.floor(window.innerHeight * 0.7)),
+                    ? Math.max(640, Math.floor(window.innerHeight * 0.78))
+                    : Math.max(420, Math.floor(window.innerHeight * 0.62)),
                 preferHeight: isDesktop,
                 maxHeightPx: isDesktop ? maxShellH : 0,
                 aspectRatio: 12 / 9,
@@ -8474,17 +8478,17 @@
     }
     @@media (min-width: 1024px) {
         #book-formatter-root #preview-single {
-            min-height: calc(100dvh - 2.25rem) !important;
-            height: calc(100dvh - 2.25rem) !important;
+            min-height: calc(100dvh - 7.5rem) !important;
+            height: calc(100dvh - 7.5rem) !important;
         }
         #book-formatter-root #fmt-preview-scroll-host.book-preview-stage {
-            min-height: calc(100dvh - 2.25rem) !important;
-            height: calc(100dvh - 2.25rem) !important;
+            min-height: calc(100dvh - 7.5rem) !important;
+            height: calc(100dvh - 7.5rem) !important;
             overflow: visible !important;
         }
         #book-formatter-root #paginatedReaderShell.book-page-preview-shell.is-open-spread {
-            max-height: calc(100dvh - 2.5rem) !important;
-            min-height: min(920px, calc(100dvh - 2.75rem)) !important;
+            max-height: calc(100dvh - 8rem) !important;
+            min-height: min(860px, calc(100dvh - 8.25rem)) !important;
         }
     }
     #book-formatter-root .book-open-folio {
@@ -8591,8 +8595,41 @@
     #book-formatter-root #fmt-preview-byline {
         display: none !important;
     }
+    /* Chapter bar: keep visible above the tall open-book preview */
     #book-formatter-root #reader-chrome-main {
-        margin-bottom: 0.35rem !important;
+        position: relative !important;
+        z-index: 8 !important;
+        flex: 0 0 auto !important;
+        order: 0 !important;
+        margin: 0.15rem auto 0.45rem !important;
+        padding: 8px 12px !important;
+        max-width: 100% !important;
+        width: min(100%, 720px) !important;
+        display: none;
+        visibility: visible !important;
+        opacity: 1 !important;
+        background: #fff !important;
+        border: 1px solid rgba(196, 181, 253, 0.55) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 10px rgba(91, 33, 182, 0.08) !important;
+    }
+    #book-formatter-root #reader-chrome-main:not(.hidden) {
+        display: block !important;
+    }
+    #book-formatter-root #reader-chrome-main .reader-progress-track {
+        margin-bottom: 8px !important;
+    }
+    #book-formatter-root #reader-chrome-main .reader-chrome-row {
+        gap: 8px !important;
+    }
+    #book-formatter-root #reader-chrome-main #reader-chapter-jump {
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+    #book-formatter-root .fmt-preview-header {
+        max-height: none !important;
+        margin-bottom: 0.15rem !important;
+        overflow: visible !important;
     }
     /* ===== PDF-exact book preview (same HTML as downloaded PDF) — fills studio like AI Writer ===== */
     #book-formatter-root .fmt-export-preview-wrap {
