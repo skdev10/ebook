@@ -56,7 +56,12 @@ git-status-out.txt
 appsettings.Local.json
 appsettings.*.local.json
 secrets.json
+*.PublishSettings
+*PublishSettings*
+final_documentation_book.txt
 
 ## Runtime-generated (do not commit)
 DataProtection-Keys/
 persistent/
+wwwroot/exports/
+
