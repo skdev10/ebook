@@ -232,11 +232,7 @@ namespace EBookDashboard.Middleware
                 .FirstOrDefaultAsync(cancellationToken);
             var idText = bookId.ToString();
             if (string.Equals(existingId, idText, StringComparison.Ordinal))
-            {
-                var alreadyActive = await db.Books.AsNoTracking()
-                    .AnyAsync(b => b.UserId == userId && b.BookId == bookId && b.isActive == 1, cancellationToken);
-                if (alreadyActive) return;
-            }
+                return;
 
             var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
             if (row == null)
@@ -259,16 +255,8 @@ namespace EBookDashboard.Middleware
                 row.UpdatedAt = DateTime.UtcNow;
             }
 
-            await db.Books
-                .Where(b => b.UserId == userId && b.isActive == 1 && b.BookId != bookId)
-                .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 0), cancellationToken);
-            await db.Books
-                .Where(b => b.UserId == userId && b.BookId == bookId && b.isActive != 1)
-                .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 1), cancellationToken);
-            await db.Books
-                .Where(b => b.UserId == userId && b.BookId == bookId)
-                .ExecuteUpdateAsync(s => s.SetProperty(b => b.UpdatedAt, DateTime.UtcNow), cancellationToken);
-
+            // Resume bookmark only — never rewrite Books.isActive / UpdatedAt on GET.
+            // Those writes raced with Writer/Format/Cover fetches and hung the portal.
             await db.SaveChangesAsync(cancellationToken);
         }
 

@@ -873,6 +873,7 @@ namespace EBookDashboard.Controllers
 
                 // Load user's books for dropdown (when no book passed or for switching)
                 var userBooks = await _context.Books
+                    .AsNoTracking()
                     .Where(b => b.UserId == userId)
                     .OrderByDescending(b => b.CreatedAt)
                     .Select(b => new BookDropdownItem { BookId = b.BookId, Title = b.Title })

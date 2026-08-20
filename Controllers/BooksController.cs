@@ -154,13 +154,17 @@ namespace EBookDashboard.Controllers
             }
             try
             {
-                await SetActiveBookAsync(userId.Value, bookId.Value);
+                var alreadyActive = await _context.Books.AsNoTracking()
+                    .AnyAsync(b => b.BookId == bookId.Value && b.UserId == userId.Value && b.isActive == 1);
+                if (!alreadyActive)
+                    await SetActiveBookAsync(userId.Value, bookId.Value);
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "AIGenerateBook: SetActiveBookAsync failed for user {UserId}, book {BookId}. Page will still load.", userId.Value, bookId.Value);
             }
-            await _bookFlow.SaveStepAsync(bookId.Value, BookFlowStateService.StepGenerate);
+            // Do not SaveStep(generate) on every Writer GET — that extra Settings write
+            // raced with fetch, and it also overwrote format/cover as the current step.
             var bookTitle = await _context.Books.AsNoTracking()
                 .Where(b => b.BookId == bookId.Value)
                 .Select(b => b.Title)
@@ -1820,11 +1824,8 @@ namespace EBookDashboard.Controllers
             // Transform to the expected format with formatted date
             var result = savedBooks.Select(b => new
             {
-                // Make sure this matches JS expectation
-                //ResponseId=b.ResponseId,
                 chapterNo = b.ChapterNumber,
                chapterTitle= b.Title,
-               content= b.Content,
                chapterStatus=b.StatusCode,
                createdAt= b.CreatedAt
             }).ToList();
@@ -2543,11 +2544,16 @@ namespace EBookDashboard.Controllers
 
         private async Task SetActiveBookAsync(int userId, int bookId)
         {
-            // 1. Set all user's books to isActive=0 (clear previous active)
+            var activeIds = await _context.Books.AsNoTracking()
+                .Where(b => b.UserId == userId && b.isActive == 1)
+                .Select(b => b.BookId)
+                .ToListAsync();
+            if (activeIds.Count == 1 && activeIds[0] == bookId)
+                return;
+
             await _context.Books
                 .Where(b => b.UserId == userId)
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 0));
-            // 2. Set the selected book to isActive=1
             await _context.Books
                 .Where(b => b.UserId == userId && b.BookId == bookId)
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 1));

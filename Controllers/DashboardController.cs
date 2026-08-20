@@ -274,6 +274,13 @@ namespace EBookDashboard.Controllers
 
         private async Task SetActiveBookForUserAsync(int userId, int bookId)
         {
+            var activeIds = await _context.Books.AsNoTracking()
+                .Where(b => b.UserId == userId && b.isActive == 1)
+                .Select(b => b.BookId)
+                .ToListAsync();
+            if (activeIds.Count == 1 && activeIds[0] == bookId)
+                return;
+
             await _context.Books
                 .Where(b => b.UserId == userId)
                 .ExecuteUpdateAsync(s => s.SetProperty(b => b.isActive, 0));
@@ -5125,10 +5132,46 @@ namespace EBookDashboard.Controllers
             ViewBag.FAQs = faqSettings;
             ViewBag.UserId = user.UserId;
             ViewBag.UserEmail = user.UserEmail;
+            ViewBag.CmsFaq = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == "cms:faq")
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
             
             return View();
         }
+
+        /// <summary>Human-agent Support messages land in admin Help &amp; Feedback as tickets.</summary>
+        [HttpPost]
+        [Route("SubmitSupportTicket")]
+        public async Task<IActionResult> SubmitSupportTicket([FromBody] SupportTicketRequest? req)
+        {
+            var user = await _currentUser.GetUserAsync();
+            if (user == null)
+                return Unauthorized(new { success = false, message = "Not signed in" });
+            var message = req?.Message?.Trim() ?? "";
+            if (message.Length < 3)
+                return BadRequest(new { success = false, message = "Please enter a message" });
+
+            _context.Notifications.Add(new Notification
+            {
+                UserId = user.UserId,
+                Title = string.IsNullOrWhiteSpace(req?.Title) ? "Support request" : req!.Title!.Trim(),
+                Message = message.Length > 1000 ? message[..1000] : message,
+                Type = "Support",
+                IsRead = false,
+                Link = "/Admin/HelpFeedback",
+                CreatedAt = DateTime.UtcNow
+            });
+            await _context.SaveChangesAsync();
+            return Json(new { success = true, message = "Your request was sent to the support team." });
+        }
     }
+}
+
+public class SupportTicketRequest
+{
+    public string? Title { get; set; }
+    public string? Message { get; set; }
 }
 
 public class UpdateProfileRequest

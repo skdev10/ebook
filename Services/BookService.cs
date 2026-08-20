@@ -565,26 +565,19 @@ namespace EBookDashboard.Services
             if (userId == 0)
                 throw new ArgumentException("UserId is required.");
 
-            var rawData = await _context.APIRawResponse
-                .Where(b => b.UserId == userId && b.BookId == bookId)
-                .OrderByDescending(b => b.CreatedAt)
-                .ToListAsync();  // Pull to memory to avoid EF GroupBy translation issue
-
-            var latestChapters = rawData
-                .GroupBy(b => b.Chapter)
-                .Select(g => g.First())  // First item is already the latest because of ordering
-                .OrderBy(c => c.Chapter)
-                .ToList();
-
-            return latestChapters.Select(b => new ChapterDto
+            // Same merge as preview/writer fetch so chapter lists match after book initialize.
+            // Strip bodies — callers (dropdown / progress) only need number, title, status.
+            var merged = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true);
+            return merged.Select(c => new ChapterDto
             {
-                ChapterNumber = b.Chapter,
-                Title = b.Title,
-                Content = b.ResponseData,
-                StatusCode = b.StatusCode,
-                CreatedAt = b.CreatedAt
-            });
-
+                ResponseId = c.ResponseId,
+                ChapterNumber = c.ChapterNumber,
+                Title = c.Title,
+                RequestData = c.RequestData,
+                Content = string.Empty,
+                StatusCode = c.StatusCode,
+                CreatedAt = c.CreatedAt
+            }).ToList();
         }
         // Get latest BookId for a user
         public async Task<int?> GetLatestBookIdAsync(int userId)
@@ -680,70 +673,43 @@ namespace EBookDashboard.Services
                 .ToList();
         }
 
+        private async Task<List<ChapterDto>> LoadRawChapterRowsAsync(int userId, int bookId, int chapterNo, int? responseId)
+        {
+            var bookKey = bookId.ToString(CultureInfo.InvariantCulture);
+            IQueryable<APIRawResponse> rawQuery = _context.APIRawResponse.AsNoTracking()
+                .Where(c => c.UserId == userId
+                            && (c.BookId == bookId || (c.ParsedBookId != null && c.ParsedBookId == bookKey)));
+            if (chapterNo > 0)
+                rawQuery = rawQuery.Where(c => c.Chapter == chapterNo);
+            if (responseId.HasValue && responseId.Value > 0)
+                rawQuery = rawQuery.Where(c => c.ResponseId == responseId.Value);
+
+            var rawChapters = await rawQuery
+                .OrderByDescending(c => c.CreatedAt)
+                .ThenBy(c => c.ResponseId)
+                .ToListAsync();
+
+            return rawChapters.Select(c => new ChapterDto
+            {
+                ResponseId = c.ResponseId,
+                ChapterNumber = c.Chapter <= 0 ? 1 : c.Chapter,
+                Title = c.Title ?? "Untitled Chapter",
+                RequestData = c.RequestData,
+                Content = ResolveChapterBodyContent(c.Content, c.ResponseData),
+                StatusCode = c.StatusCode ?? "Draft",
+                CreatedAt = c.CreatedAt,
+            }).ToList();
+        }
+
         // ====Book======================================= 100% OK
         // Load Selected Book from Drop-Down from Books table
         // ==============================================
-        public async Task<BookDetailsResponseDto?> GetBookDetailsAsync(int userId, int bookId)
+        public Task<BookDetailsResponseDto?> GetBookDetailsAsync(int userId, int bookId)
         {
-            try
-            {
-                Console.WriteLine($"🔍 [Service] Loading book details for User: {userId}, Book: {bookId}");
-
-                // Step 1: Get book info
-                var book = await _context.Books
-                    .FirstOrDefaultAsync(b => b.UserId == userId && b.BookId == bookId);
-
-                if (book == null)
-                {
-                    Console.WriteLine($"❌ [Service] Book {bookId} not found for user {userId}");
-                    return null;
-                }
-                //========== Current Book ===============
-                // 1 Deactivate all books for this user
-                await _context.Books
-                    .Where(b => b.UserId == userId)
-                    .ExecuteUpdateAsync(setters =>
-                        setters.SetProperty(b => b.isActive, 0));
-                // 2 Activate the selected book
-                await _context.Books
-                    .Where(b => b.UserId == userId && b.BookId == bookId)
-                    .ExecuteUpdateAsync(setters =>
-                        setters.SetProperty(b => b.isActive, 1));
-                // book.isActive = 1;
-                // _context.Books.Update(book);
-               //======================================
-                Console.WriteLine($"✅ [Service] Book found: {book.Title}");
-
-
-                var chapters = await GetLatestChapterRowsAsync(userId, bookId, noTracking: false);
-
-                Console.WriteLine($"📚 [Service] Found {chapters.Count} chapters for book {bookId}");
-
-                var authorName = await ResolveAuthorDisplayNameAsync(userId);
-
-                return new BookDetailsResponseDto
-                {
-                    Success = true,
-                    BookId = book.BookId,
-                    BookTitle = book.Title,
-                    Subtitle = book.Subtitle,
-                    Description = book.Description,
-                    Genre = book.Genre,
-                    AuthorName = authorName,
-                    CoverImagePath = book.CoverImagePath,
-                    TotalChapters = chapters.Count,
-                    Chapters = chapters
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ [Service] Error loading book details: {ex.Message}");
-                return new BookDetailsResponseDto
-                {
-                    Success = false,
-                    Message = ex.Message
-                };
-            }
+            // Read-only: never mutate isActive on fetch. Table-wide ExecuteUpdate here raced with
+            // page-init writes (SetActiveBook / middleware) and hung the portal under MySQL lock wait + retry.
+            // Merged chapters match formatter/preview so Writer sees the same manuscript after initialize.
+            return GetBookDetailsForPreviewAsync(userId, bookId);
         }
 
         /// <summary>
@@ -1038,62 +1004,27 @@ namespace EBookDashboard.Services
         {
             try
             {
-                Console.WriteLine($"🔍 [Service] Loading book details for User: {userId}, Book: {bookId}");
-
-                // Step 1: Get book info
-                var book = await _context.Books
+                var book = await _context.Books.AsNoTracking()
                     .FirstOrDefaultAsync(b => b.UserId == userId && b.BookId == bookId);
 
                 if (book == null)
-                {
-                    Console.WriteLine($"❌ [Service] Book {bookId} not found for user {userId}");
                     return null;
-                }
 
-                Console.WriteLine($"✅ [Service] Book found: {book.Title}");
-
-                // Get chapters from APIRawResponse with user filtering
-                if (chapterNo > 0)
-                {
-                    Console.WriteLine($"🔍 [Service] Filtering for Chapter: {chapterNo}");
-                }
-                var bookKey = bookId.ToString(CultureInfo.InvariantCulture);
-                var rawQuery = _context.APIRawResponse
-                    .Where(c => c.UserId == userId
-                                && (c.BookId == bookId || (c.ParsedBookId != null && c.ParsedBookId == bookKey))
-                                && c.Chapter == chapterNo);
+                List<ChapterDto> chapters;
                 if (responseId.HasValue && responseId.Value > 0)
-                    rawQuery = rawQuery.Where(c => c.ResponseId == responseId.Value);
-
-                var rawChapters = await rawQuery
-                    .OrderByDescending(c => c.CreatedAt)
-                    .ThenBy(c => c.ResponseId)
-                    .ToListAsync();
-                var chapters = rawChapters.Select(c => new ChapterDto
                 {
-                    ResponseId = c.ResponseId,
-                    ChapterNumber = c.Chapter <= 0 ? 1 : c.Chapter,
-                    Title = c.Title ?? "Untitled Chapter",
-                    RequestData = c.RequestData,
-                    Content = ResolveChapterBodyContent(c.Content, c.ResponseData),
-                    StatusCode = c.StatusCode ?? "Draft",
-                    CreatedAt = c.CreatedAt,
-                }).ToList();
-
-                Console.WriteLine($"📚 [Service] Found {chapters.Count} chapters for book {bookId}");
-
-                // Update Status to "Edit" in Books table (user is editing)
-               
-                if (bookId > 0 && userId > 0)
-                {
-                    if (book != null)
-                    {
-                        book.isActive = 1;
-                        book.UpdatedAt = DateTime.UtcNow;
-                        await _context.SaveChangesAsync();
-                    }
+                    chapters = await LoadRawChapterRowsAsync(userId, bookId, chapterNo, responseId);
                 }
-                //
+                else
+                {
+                    var merged = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true);
+                    chapters = chapterNo > 0
+                        ? merged.Where(c => c.ChapterNumber == chapterNo).ToList()
+                        : merged;
+                    if (chapters.Count == 0 && chapterNo > 0)
+                        chapters = await LoadRawChapterRowsAsync(userId, bookId, chapterNo, responseId: null);
+                }
+
                 return new BookDetailsResponseDto
                 {
                     Success = true,

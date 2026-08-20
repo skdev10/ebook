@@ -15,6 +15,7 @@
         try
         {
             var user = DbContext.Users
+                .AsNoTracking()
                 .Include(u => u.Role)
                 .FirstOrDefault(u => u.UserEmail == userEmail);
             
@@ -54,7 +55,7 @@
             }
             catch { }
 
-            hasAnyBooks = DbContext.Books.Any(b => b.UserId == resolvedUserId.Value);
+            hasAnyBooks = DbContext.Books.AsNoTracking().Any(b => b.UserId == resolvedUserId.Value);
 
             if (session.GetString("HasGeneratedBook") == "1")
                 hasGeneratedBook = true;

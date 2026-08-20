@@ -304,9 +304,10 @@ namespace EBookDashboard.Models
         /// </summary>
         public async Task<int> NextSettingIdAsync(CancellationToken cancellationToken = default)
         {
-            if (!await Settings.AsNoTracking().AnyAsync(cancellationToken))
-                return 1;
-            return await Settings.AsNoTracking().MaxAsync(s => s.SettingId, cancellationToken) + 1;
+            var max = await Settings.AsNoTracking()
+                .Select(s => (int?)s.SettingId)
+                .MaxAsync(cancellationToken);
+            return (max ?? 0) + 1;
         }
     }
 }

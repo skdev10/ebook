@@ -52,6 +52,7 @@ namespace EBookDashboard.Interfaces
         Task<APIRawResponse?> GetSelectedBookResponseAsync(int userId, int bookId, int chapterNo);
         // Chapter Number Generation
         Task<int> GetNextChapterNumberAsync(int userId, int bookId);
+        /// <summary>Read-only book + merged chapters (same as preview). Does not mutate isActive.</summary>
         Task<BookDetailsResponseDto?> GetBookDetailsAsync(int userId, int bookId);
         /// <summary>Lightweight load for formatter/preview: no isActive updates, faster.</summary>
         Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId);

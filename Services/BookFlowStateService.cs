@@ -80,13 +80,17 @@ public sealed class BookFlowStateService
         // "Continue Editing" / Publish resume at the last completed step (never regress on soft back).
         var priorMaxRank = await GetMaxStepRankAsync(bookId, ct);
 
-        await UpsertAsync($"book:{bookId}:flowStep", normalized, ct);
+        var pairs = new List<(string Key, string Value)>
+        {
+            ($"book:{bookId}:flowStep", normalized),
+            ($"book:{bookId}:flowUpdatedAt", DateTime.UtcNow.ToString("O"))
+        };
         if (!string.IsNullOrWhiteSpace(formatPath))
-            await UpsertAsync($"book:{bookId}:flowPath", formatPath.Trim(), ct);
-        await UpsertAsync($"book:{bookId}:flowUpdatedAt", DateTime.UtcNow.ToString("O"), ct);
-
+            pairs.Add(($"book:{bookId}:flowPath", formatPath.Trim()));
         if (StepRank(normalized) > priorMaxRank)
-            await UpsertAsync($"book:{bookId}:flowMaxStep", normalized, ct);
+            pairs.Add(($"book:{bookId}:flowMaxStep", normalized));
+
+        await UpsertManyAsync(pairs, ct);
     }
 
     private async Task<int> GetMaxStepRankAsync(int bookId, CancellationToken ct)
@@ -231,27 +235,41 @@ public sealed class BookFlowStateService
     }
 
     private async Task UpsertAsync(string key, string value, CancellationToken ct)
+        => await UpsertManyAsync(new[] { (key, value) }, ct);
+
+    private async Task UpsertManyAsync(IReadOnlyList<(string Key, string Value)> pairs, CancellationToken ct)
     {
-        value = Models.Settings.ClampValueLength(value, Models.Settings.MaxShortValueLength) ?? "";
-        var row = await _context.Settings.FirstOrDefaultAsync(s => s.Key == key, ct);
-        if (row == null)
+        if (pairs.Count == 0) return;
+        var keys = pairs.Select(p => p.Key).ToList();
+        var rows = await _context.Settings.Where(s => keys.Contains(s.Key)).ToListAsync(ct);
+        var byKey = rows.ToDictionary(s => s.Key, StringComparer.Ordinal);
+
+        var needIds = pairs.Count(p => !byKey.ContainsKey(p.Key));
+        var nextId = needIds > 0 ? await _context.NextSettingIdAsync(ct) : 0;
+
+        foreach (var (key, rawValue) in pairs)
         {
-            var id = await _context.NextSettingIdAsync(ct);
-            _context.Settings.Add(new Models.Settings
+            var value = Models.Settings.ClampValueLength(rawValue, Models.Settings.MaxShortValueLength) ?? "";
+            if (byKey.TryGetValue(key, out var row))
             {
-                SettingId = id,
+                row.Value = value;
+                row.UpdatedAt = DateTime.UtcNow;
+                continue;
+            }
+
+            var created = new Models.Settings
+            {
+                SettingId = nextId++,
                 Key = key,
                 Value = value,
                 Category = "BookFlow",
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
-            });
+            };
+            _context.Settings.Add(created);
+            byKey[key] = created;
         }
-        else
-        {
-            row.Value = value;
-            row.UpdatedAt = DateTime.UtcNow;
-        }
+
         await _context.SaveChangesAsync(ct);
     }
 }

@@ -83,4 +83,27 @@ public class BookFlowStateServiceTests
         Assert.Equal(BookFlowStateService.StepGenerate, resume);
         Assert.Equal("ebook", path);
     }
+
+    [Fact]
+    public async Task SaveStepAsync_assigns_unique_setting_ids_on_first_insert()
+    {
+        await using var ctx = CreateContext(nameof(SaveStepAsync_assigns_unique_setting_ids_on_first_insert));
+        var svc = new BookFlowStateService(ctx);
+
+        await svc.SaveStepAsync(42, BookFlowStateService.StepFormat, "ebook");
+
+        var ids = ctx.Settings.Select(s => s.SettingId).ToList();
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+        Assert.True(ids.Count >= 3);
+        var (step, flowPath) = await svc.GetStepAsync(42);
+        Assert.Equal(BookFlowStateService.StepFormat, step);
+        Assert.Equal("ebook", flowPath);
+    }
+
+    [Fact]
+    public async Task NextSettingId_returns_1_when_settings_empty()
+    {
+        await using var ctx = CreateContext(nameof(NextSettingId_returns_1_when_settings_empty));
+        Assert.Equal(1, await ctx.NextSettingIdAsync());
+    }
 }
