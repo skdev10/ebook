@@ -16,14 +16,20 @@
         {
             var user = DbContext.Users
                 .AsNoTracking()
-                .Include(u => u.Role)
-                .FirstOrDefault(u => u.UserEmail == userEmail);
+                .Where(u => u.UserEmail == userEmail)
+                .Select(u => new
+                {
+                    u.ProfilePicturePath,
+                    u.FullName,
+                    RoleName = u.Role != null ? u.Role.RoleName : "Reader"
+                })
+                .FirstOrDefault();
             
             if (user != null)
             {  
                 sidebarProfilePicturePath = user.ProfilePicturePath ?? "";
                 sidebarUserName = user.FullName;
-                sidebarUserRole = user.Role?.RoleName ?? "Reader";
+                sidebarUserRole = user.RoleName ?? "Reader";
             }
         }
         catch
@@ -55,12 +61,14 @@
             }
             catch { }
 
-            hasAnyBooks = DbContext.Books.AsNoTracking().Any(b => b.UserId == resolvedUserId.Value);
-
             if (session.GetString("HasGeneratedBook") == "1")
+            {
                 hasGeneratedBook = true;
+                hasAnyBooks = true;
+            }
             else
             {
+                hasAnyBooks = DbContext.Books.AsNoTracking().Any(b => b.UserId == resolvedUserId.Value);
                 if (hasAnyBooks)
                 {
                     session.SetString("HasGeneratedBook", "1");

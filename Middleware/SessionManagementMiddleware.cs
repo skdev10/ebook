@@ -35,7 +35,7 @@ namespace EBookDashboard.Middleware
                     context.Session.SetString("FullName", nameClaim);
             }
 
-            await TryPersistBookWorkResumeUrlAsync(context);
+            QueueResumePersist(context);
 
             // Track user session activity
             if (context.User.Identity?.IsAuthenticated == true)
@@ -85,9 +85,9 @@ namespace EBookDashboard.Middleware
         }
 
         /// <summary>
-        /// Persists the last book-design URL per user (Settings) so login can return them to the same screen.
+        /// Session-only bookmark immediately; Settings writes run after the response so GET pages never wait on MySQL.
         /// </summary>
-        private async Task TryPersistBookWorkResumeUrlAsync(HttpContext context)
+        private void QueueResumePersist(HttpContext context)
         {
             if (context.User?.Identity?.IsAuthenticated != true || !HttpMethods.IsGet(context.Request.Method))
                 return;
@@ -104,73 +104,71 @@ namespace EBookDashboard.Middleware
             if (!IsSafeResumePath(full))
                 return;
 
-            // Avoid 3–5 DB round-trips on every GET when the user is already on the same URL/book.
             var sessionUrlKey = $"ResumeUrl:{uid.Value}";
             var sessionBookKey = $"ResumeBookId:{uid.Value}";
-            var urlUnchanged = string.Equals(context.Session.GetString(sessionUrlKey), full, StringComparison.Ordinal);
             TryExtractBookIdFromPathAndQuery(path, qs, out var bookId);
-            var bookUnchanged = bookId <= 0
-                || context.Session.GetInt32(sessionBookKey) == bookId;
+            var urlUnchanged = string.Equals(context.Session.GetString(sessionUrlKey), full, StringComparison.Ordinal);
+            var bookUnchanged = bookId <= 0 || context.Session.GetInt32(sessionBookKey) == bookId;
             if (urlUnchanged && bookUnchanged)
                 return;
 
-            try
+            context.Session.SetString(sessionUrlKey, full);
+            if (bookId > 0) context.Session.SetInt32(sessionBookKey, bookId);
+
+            var userId = uid.Value;
+            var capturedFull = full;
+            var capturedBookId = bookId;
+            context.Response.OnCompleted(async () =>
             {
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                var key = $"user:{uid.Value}:lastBookWorkUrl";
-                var row = await db.Settings.AsNoTracking()
-                    .Where(s => s.Key == key)
-                    .Select(s => new { s.SettingId, s.Value })
-                    .FirstOrDefaultAsync(context.RequestAborted);
-
-                if (row != null && string.Equals(row.Value, full, StringComparison.Ordinal) && bookUnchanged)
+                try
                 {
-                    context.Session.SetString(sessionUrlKey, full);
-                    if (bookId > 0) context.Session.SetInt32(sessionBookKey, bookId);
-                    return;
+                    using var scope = _scopeFactory.CreateScope();
+                    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    await PersistResumeToDatabaseAsync(db, userId, capturedFull, capturedBookId, CancellationToken.None);
                 }
-
-                var tracked = row == null
-                    ? null
-                    : await db.Settings.FirstOrDefaultAsync(s => s.SettingId == row.SettingId, context.RequestAborted);
-
-                if (tracked == null)
+                catch (Exception ex)
                 {
-                    var nextId = await db.NextSettingIdAsync(context.RequestAborted);
-                    db.Settings.Add(new Models.Settings
-                    {
-                        SettingId = nextId,
-                        Key = key,
-                        Value = full,
-                        Category = "Resume",
-                        Description = "Last book formatter / writer URL",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    });
+                    _logger.LogWarning(ex, "Could not persist resume URL for user {UserId}", userId);
                 }
-                else
-                {
-                    tracked.Value = full;
-                    tracked.UpdatedAt = DateTime.UtcNow;
-                }
+            });
+        }
 
-                if (bookId > 0)
-                    await UpsertPerBookResumeUrlAsync(db, bookId, full, context.RequestAborted);
-
-                await db.SaveChangesAsync(context.RequestAborted);
-                context.Session.SetString(sessionUrlKey, full);
-
-                if (bookId > 0)
-                {
-                    await TryPersistLastWorkedBookAsync(db, uid.Value, bookId, context.RequestAborted);
-                    context.Session.SetInt32(sessionBookKey, bookId);
-                }
-            }
-            catch (Exception ex)
+        private async Task PersistResumeToDatabaseAsync(
+            ApplicationDbContext db,
+            int userId,
+            string full,
+            int bookId,
+            CancellationToken cancellationToken)
+        {
+            var key = $"user:{userId}:lastBookWorkUrl";
+            var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
+            if (row == null)
             {
-                _logger.LogWarning(ex, "Could not persist resume URL for user {UserId}", uid.Value);
+                var nextId = await db.NextSettingIdAsync(cancellationToken);
+                db.Settings.Add(new Models.Settings
+                {
+                    SettingId = nextId,
+                    Key = key,
+                    Value = full,
+                    Category = "Resume",
+                    Description = "Last book formatter / writer URL",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                });
             }
+            else if (!string.Equals(row.Value, full, StringComparison.Ordinal))
+            {
+                row.Value = full;
+                row.UpdatedAt = DateTime.UtcNow;
+            }
+
+            if (bookId > 0)
+                await UpsertPerBookResumeUrlAsync(db, bookId, full, cancellationToken);
+
+            await db.SaveChangesAsync(cancellationToken);
+
+            if (bookId > 0)
+                await TryPersistLastWorkedBookAsync(db, userId, bookId, cancellationToken);
         }
 
         private static async Task UpsertPerBookResumeUrlAsync(
