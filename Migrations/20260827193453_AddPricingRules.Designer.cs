@@ -4,6 +4,7 @@ using EBookDashboard.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EBookDashboard.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260827193453_AddPricingRules")]
+    partial class AddPricingRules
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,7 +37,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("AuthorPlansAuthorPlanId");
 
-                    b.ToTable("AuthorBillsAuthorPlans", (string)null);
+                    b.ToTable("AuthorBillsAuthorPlans");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.APIRawResponse", b =>
@@ -93,7 +96,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("ResponseId");
 
-                    b.ToTable("apirawresponse", (string)null);
+                    b.ToTable("apirawresponse");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.AuditLog", b =>
@@ -140,7 +143,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AuditLogs", (string)null);
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.AuthorBills", b =>
@@ -213,7 +216,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("BillId");
 
-                    b.ToTable("authorbills", (string)null);
+                    b.ToTable("authorbills");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.AuthorPlanFeatures", b =>
@@ -301,7 +304,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("FeatureId");
 
-                    b.ToTable("authorplanfeatures", (string)null);
+                    b.ToTable("authorplanfeatures");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.AuthorPlans", b =>
@@ -382,7 +385,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("PlanId");
 
-                    b.ToTable("authorplans", (string)null);
+                    b.ToTable("authorplans");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Authors", b =>
@@ -467,101 +470,7 @@ namespace EBookDashboard.Migrations
                     b.HasIndex("AuthorCode")
                         .IsUnique();
 
-                    b.ToTable("authors", (string)null);
-                });
-
-            modelBuilder.Entity("EBookDashboard.Models.BookCoverDesign", b =>
-                {
-                    b.Property<int>("CoverId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasColumnName("CoverId");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("CoverId"));
-
-                    b.Property<string>("BackImagePath")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<double?>("BleedIn")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("double");
-
-                    b.Property<int>("BookId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("CoverType")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("varchar(40)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<DateTime?>("DeletedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("varchar(120)");
-
-                    b.Property<string>("FrontImagePath")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<double?>("FullHeightIn")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("double");
-
-                    b.Property<double?>("FullWidthIn")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("double");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("SpineImagePath")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.Property<double?>("SpineWidthIn")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("double");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("varchar(40)");
-
-                    b.Property<double?>("TrimHeightIn")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("double");
-
-                    b.Property<double?>("TrimWidthIn")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("double");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("WrapImagePath")
-                        .HasMaxLength(1000)
-                        .HasColumnType("varchar(1000)");
-
-                    b.HasKey("CoverId");
-
-                    b.HasIndex("BookId", "IsActive");
-
-                    b.HasIndex("BookId", "UserId", "IsDeleted");
-
-                    b.ToTable("book_cover_designs", (string)null);
+                    b.ToTable("authors");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookCoverPages", b =>
@@ -590,7 +499,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("bookcoverpages", (string)null);
+                    b.ToTable("bookcoverpages");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookDesign", b =>
@@ -631,7 +540,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("DesignId");
 
-                    b.ToTable("BookDesign", (string)null);
+                    b.ToTable("BookDesign");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookFormatting", b =>
@@ -683,7 +592,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("bookformatting", (string)null);
+                    b.ToTable("bookformatting");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookPrice", b =>
@@ -733,7 +642,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("BooksBookId");
 
-                    b.ToTable("bookprice", (string)null);
+                    b.ToTable("bookprice");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookSection", b =>
@@ -784,7 +693,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("ManuscriptVersionId", "OrderIndex");
 
-                    b.ToTable("book_sections", (string)null);
+                    b.ToTable("book_sections");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookSelectionsUser", b =>
@@ -809,7 +718,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("SelectionId");
 
-                    b.ToTable("BookSelectionsUser", (string)null);
+                    b.ToTable("BookSelectionsUser");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookStateTransition", b =>
@@ -858,7 +767,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("bookstatetransitions", (string)null);
+                    b.ToTable("bookstatetransitions");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.BookVersion", b =>
@@ -899,7 +808,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("BookVersionId");
 
-                    b.ToTable("bookversion", (string)null);
+                    b.ToTable("bookversion");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Books", b =>
@@ -988,7 +897,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("AuthorId");
 
-                    b.ToTable("books", (string)null);
+                    b.ToTable("books");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Categories", b =>
@@ -1009,7 +918,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("CategoryId");
 
-                    b.ToTable("categories", (string)null);
+                    b.ToTable("categories");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.ChapterIteration", b =>
@@ -1075,7 +984,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("UserId", "BookId", "IsFinalized", "ChapterNumber");
 
-                    b.ToTable("chapter_iterations", (string)null);
+                    b.ToTable("chapter_iterations");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Chapters", b =>
@@ -1137,7 +1046,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("BookId");
 
-                    b.ToTable("chapters", (string)null);
+                    b.ToTable("chapters");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.CoverDesignCalculator", b =>
@@ -1216,7 +1125,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("CoverId");
 
-                    b.ToTable("coverdesigncalculator", (string)null);
+                    b.ToTable("coverdesigncalculator");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.CoverProject", b =>
@@ -1269,7 +1178,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("ProjectId");
 
-                    b.ToTable("cover_projects", (string)null);
+                    b.ToTable("cover_projects");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.ExportJob", b =>
@@ -1319,7 +1228,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("ProjectId", "Status");
 
-                    b.ToTable("export_jobs", (string)null);
+                    b.ToTable("export_jobs");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Features", b =>
@@ -1361,7 +1270,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("features", (string)null);
+                    b.ToTable("features");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.FinalizeChapters", b =>
@@ -1398,7 +1307,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("finalizechapters", (string)null);
+                    b.ToTable("finalizechapters");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Language", b =>
@@ -1414,7 +1323,7 @@ namespace EBookDashboard.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
-                    b.Property<sbyte>("IsActive")
+                    b.Property<bool>("IsActive")
                         .HasMaxLength(100)
                         .HasColumnType("tinyint(100)");
 
@@ -1430,7 +1339,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("LanguageId");
 
-                    b.ToTable("language", (string)null);
+                    b.ToTable("language");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.LayoutProfile", b =>
@@ -1539,7 +1448,7 @@ namespace EBookDashboard.Migrations
                     b.HasIndex("ProjectId", "IsEbookProfile")
                         .IsUnique();
 
-                    b.ToTable("layout_profiles", (string)null);
+                    b.ToTable("layout_profiles");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.ManuscriptVersion", b =>
@@ -1583,7 +1492,7 @@ namespace EBookDashboard.Migrations
                     b.HasIndex("ProjectId", "VersionNumber")
                         .IsUnique();
 
-                    b.ToTable("manuscript_versions", (string)null);
+                    b.ToTable("manuscript_versions");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Notification", b =>
@@ -1629,7 +1538,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("notification", (string)null);
+                    b.ToTable("notification");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.ParsedBookContent", b =>
@@ -1689,7 +1598,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("ParsedContentId");
 
-                    b.ToTable("parsedbookcontent", (string)null);
+                    b.ToTable("parsedbookcontent");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.PasswordReset", b =>
@@ -1727,7 +1636,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("Email", "OTP", "IsUsed");
 
-                    b.ToTable("PasswordResets", (string)null);
+                    b.ToTable("PasswordResets");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.PlanFeatures", b =>
@@ -1788,7 +1697,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("FeatureId");
 
-                    b.ToTable("planfeatures", (string)null);
+                    b.ToTable("planfeatures");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Plans", b =>
@@ -1850,7 +1759,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("PlanId");
 
-                    b.ToTable("Plans", (string)null);
+                    b.ToTable("Plans");
 
                     b.HasData(
                         new
@@ -1960,7 +1869,7 @@ namespace EBookDashboard.Migrations
                     b.HasIndex("Key")
                         .IsUnique();
 
-                    b.ToTable("PricingRules", (string)null);
+                    b.ToTable("PricingRules");
 
                     b.HasData(
                         new
@@ -2085,7 +1994,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("projects", (string)null);
+                    b.ToTable("projects");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.PubCost", b =>
@@ -2132,7 +2041,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("CostId");
 
-                    b.ToTable("PubCosts", (string)null);
+                    b.ToTable("PubCosts");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.RecordStatus", b =>
@@ -2161,7 +2070,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("RecordStatus", (string)null);
+                    b.ToTable("RecordStatus");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Roles", b =>
@@ -2200,7 +2109,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("RoleId");
 
-                    b.ToTable("roles", (string)null);
+                    b.ToTable("roles");
 
                     b.HasData(
                         new
@@ -2277,7 +2186,7 @@ namespace EBookDashboard.Migrations
                     b.HasIndex("Key")
                         .IsUnique();
 
-                    b.ToTable("Settings", (string)null);
+                    b.ToTable("Settings");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.UserFeatures", b =>
@@ -2307,7 +2216,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("FeatureId");
 
-                    b.ToTable("UserFeatures", (string)null);
+                    b.ToTable("UserFeatures");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.UserPreference", b =>
@@ -2340,7 +2249,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserPreferences", (string)null);
+                    b.ToTable("UserPreferences");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.UserStats", b =>
@@ -2365,7 +2274,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("userstats", (string)null);
+                    b.ToTable("userstats");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.Users", b =>
@@ -2430,7 +2339,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users");
                 });
 
             modelBuilder.Entity("EBookDashboard.Models.ViewModels.OtpVerification", b =>
@@ -2466,7 +2375,7 @@ namespace EBookDashboard.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("OtpVerifications", (string)null);
+                    b.ToTable("OtpVerifications");
                 });
 
             modelBuilder.Entity("AuthorBillsAuthorPlans", b =>

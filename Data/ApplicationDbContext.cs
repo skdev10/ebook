@@ -57,6 +57,7 @@ namespace EBookDashboard.Models
         public DbSet<RecordStatus> RecordStatus { get; set; }
         public DbSet<Settings> Settings { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
+        public DbSet<PricingRule> PricingRules { get; set; }
         public DbSet<BookStateTransition> BookStateTransitions { get; set; }
 
         // KDP publishing pipeline (extends existing Books model; does not replace it)
@@ -92,15 +93,23 @@ namespace EBookDashboard.Models
             });
 
             modelBuilder.Entity<Plans>().HasData(
-                new Plans { PlanId = 1, PlanName = "Free Trial", PlanRate = 0, PlanDays = 30, PlanDescription = "Free 1-month trial" },
-                new Plans { PlanId = 2, PlanName = "Basic Plan", PlanRate = 9.99m, PlanDays = 30, PlanDescription = "Basic monthly subscription" },
-                new Plans { PlanId = 3, PlanName = "Pro Plan", PlanRate = 99.99m, PlanDays = 365, PlanDescription = "Yearly subscription" });
+                new Plans { PlanId = 1, PlanName = "Free Trial", PlanRate = 0, PlanDays = 30, PlanDescription = "Free 1-month trial", CreateddAt = new DateTime(2026, 7, 27, 18, 8, 4, 658, DateTimeKind.Utc).AddTicks(9162) },
+                new Plans { PlanId = 2, PlanName = "Basic Plan", PlanRate = 9.99m, PlanDays = 30, PlanDescription = "Basic monthly subscription", CreateddAt = new DateTime(2026, 7, 27, 18, 8, 4, 658, DateTimeKind.Utc).AddTicks(9171) },
+                new Plans { PlanId = 3, PlanName = "Pro Plan", PlanRate = 99.99m, PlanDays = 365, PlanDescription = "Yearly subscription", CreateddAt = new DateTime(2026, 7, 27, 18, 8, 4, 658, DateTimeKind.Utc).AddTicks(9176) });
 
             // Seed Roles data
             modelBuilder.Entity<Roles>().HasData(
                 new Roles { RoleId = 1, RoleName = "Admin", Description = "Administrator with full access", AllowDownloads = true, AllowFullDashboard = true, AllowAnalytics = true, AllowPublishing = true, AllowDelete = true, AllowEdit = true },
                 new Roles { RoleId = 2, RoleName = "Author", Description = "Author with publishing access", AllowDownloads = true, AllowFullDashboard = true, AllowAnalytics = true, AllowPublishing = true, AllowDelete = true, AllowEdit = true },
                 new Roles { RoleId = 3, RoleName = "Reader", Description = "Reader with limited access", AllowDownloads = false, AllowFullDashboard = false, AllowAnalytics = false, AllowPublishing = false, AllowDelete = false, AllowEdit = false });
+
+            var pricingSeedUpdatedAt = new DateTime(2026, 8, 27, 0, 0, 0, DateTimeKind.Utc);
+            modelBuilder.Entity<PricingRule>().HasData(
+                new PricingRule { Id = 1, Key = "writing.per_page", DisplayName = "AI writing", Description = null, Unit = PricingUnit.PerPage, UnitAmount = 0.50m, FreeAllowance = 20, Currency = "USD", IsActive = true, UpdatedAtUtc = pricingSeedUpdatedAt },
+                new PricingRule { Id = 2, Key = "cover.custom_image", DisplayName = "Custom image cover", Description = null, Unit = PricingUnit.PerItem, UnitAmount = 10.00m, FreeAllowance = 0, Currency = "USD", IsActive = true, UpdatedAtUtc = pricingSeedUpdatedAt },
+                new PricingRule { Id = 3, Key = "formatting.premium", DisplayName = "Premium formatting", Description = null, Unit = PricingUnit.PerItem, UnitAmount = 3.00m, FreeAllowance = 0, Currency = "USD", IsActive = true, UpdatedAtUtc = pricingSeedUpdatedAt },
+                new PricingRule { Id = 4, Key = "export.paperback", DisplayName = "Paperback package", Description = null, Unit = PricingUnit.Flat, UnitAmount = 20.00m, FreeAllowance = 0, Currency = "USD", IsActive = true, UpdatedAtUtc = pricingSeedUpdatedAt },
+                new PricingRule { Id = 5, Key = "export.hardcover", DisplayName = "Hardcover package", Description = null, Unit = PricingUnit.Flat, UnitAmount = 30.00m, FreeAllowance = 0, Currency = "USD", IsActive = true, UpdatedAtUtc = pricingSeedUpdatedAt });
 
             // ✅ Decimal precision for MySQL
             modelBuilder.Entity<BookPrice>()
@@ -233,6 +242,16 @@ namespace EBookDashboard.Models
             modelBuilder.Entity<Settings>()
                 .HasIndex(s => s.Key)
                 .IsUnique();
+
+            modelBuilder.Entity<PricingRule>(e =>
+            {
+                e.HasIndex(x => x.Key).IsUnique();
+                e.Property(x => x.Key).IsRequired().HasMaxLength(64);
+                e.Property(x => x.DisplayName).IsRequired().HasMaxLength(128);
+                e.Property(x => x.Description).HasMaxLength(512);
+                e.Property(x => x.Currency).IsRequired().HasMaxLength(3);
+                e.Property(x => x.UnitAmount).HasPrecision(18, 2);
+            });
 
             modelBuilder.Entity<Settings>()
                 .Property(s => s.Value)

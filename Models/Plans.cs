@@ -24,7 +24,7 @@ namespace EBookDashboard.Models
         public bool AllowPublishing { get; set; } = false;
         public int IsActive { get; set; } = 1;
 
-        public DateTime CreateddAt { get; set; } = DateTime.UtcNow;
+        public DateTime CreateddAt { get; set; }
         public int MaxPages { get; set; } = 0;
         public int MaxChapters { get; set; } = 0;
 

@@ -36,6 +36,8 @@ namespace EBookDashboard.Services
         // Additional Plans-specific methods
         public async Task<bool> CreatePlanAsync(Plans plan)
         {
+            if (plan.CreateddAt == default)
+                plan.CreateddAt = DateTime.UtcNow;
             _context.Plans.Add(plan);
             await _context.SaveChangesAsync();
             return true;
