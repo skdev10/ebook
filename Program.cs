@@ -240,6 +240,7 @@ builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IBookGeneratorService, BookGeneratorService>();
 builder.Services.AddScoped<BookPublishReadinessService>();
 builder.Services.AddScoped<BookFlowStateService>();
+builder.Services.AddScoped<IAdminPanelSyncService, AdminPanelSyncService>();
 builder.Services.AddScoped<IEditorDraftResetService, EditorDraftResetService>();
 builder.Services.AddScoped<ISpineCalculatorService, SpineCalculatorService>();
 // Add PlanService
@@ -247,6 +248,10 @@ builder.Services.AddScoped<IPlansService, PlansService>();
 // Add FeatureCartService
 builder.Services.AddScoped<IFeatureCartService, FeatureCartService>();
 // Add CheckoutService
+builder.Services.Configure<EBookDashboard.Models.Options.PricingOptions>(
+    builder.Configuration.GetSection(EBookDashboard.Models.Options.PricingOptions.SectionName));
+builder.Services.AddScoped<IPageCountService, PageCountService>();
+builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 // Register Plan Features Service
 builder.Services.AddScoped<IPlanFeaturesService, PlanFeaturesService>();
