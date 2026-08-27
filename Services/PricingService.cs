@@ -45,7 +45,21 @@ public sealed class PricingService : IPricingService
         if (request.PremiumTemplateId.HasValue)
         {
             var formatting = Require(byKey, PricingKeys.FormattingPremium);
-            quote.Lines.Add(BuildLine(formatting, 1, owned, formatting.DisplayName));
+            var unit = formatting.UnitAmount;
+            var label = formatting.DisplayName;
+            var template = await _context.FormattingTemplates.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Id == request.PremiumTemplateId.Value);
+            if (template != null)
+            {
+                if (template.PremiumPrice.HasValue)
+                    unit = template.PremiumPrice.Value;
+                if (!string.IsNullOrWhiteSpace(template.DisplayName))
+                    label = template.DisplayName;
+            }
+            var line = BuildLine(formatting, 1, owned, label);
+            line.UnitAmount = RoundMoney(unit);
+            line.LineTotal = line.AlreadyOwned ? 0m : RoundMoney(line.UnitAmount * line.Quantity);
+            quote.Lines.Add(line);
         }
 
         if (request.Paperback)

@@ -252,6 +252,8 @@ builder.Services.Configure<EBookDashboard.Models.Options.PricingOptions>(
     builder.Configuration.GetSection(EBookDashboard.Models.Options.PricingOptions.SectionName));
 builder.Services.AddScoped<IPageCountService, PageCountService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 // Register Plan Features Service
 builder.Services.AddScoped<IPlanFeaturesService, PlanFeaturesService>();

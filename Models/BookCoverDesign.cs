@@ -58,4 +58,14 @@ public class BookCoverDesign
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>How the current front art was produced. Used by the paywall without inspecting files.</summary>
+    public CoverSource CoverSource { get; set; } = CoverSource.AiGenerated;
+}
+
+public enum CoverSource
+{
+    AiGenerated = 0,
+    BasicText = 1,
+    UserUpload = 2
 }

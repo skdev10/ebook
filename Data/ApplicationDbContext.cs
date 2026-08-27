@@ -58,6 +58,11 @@ namespace EBookDashboard.Models
         public DbSet<Settings> Settings { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<PricingRule> PricingRules { get; set; }
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<Entitlement> Entitlements { get; set; }
+        public DbSet<BookBillingState> BookBillingStates { get; set; }
+        public DbSet<FormattingTemplate> FormattingTemplates { get; set; }
         public DbSet<BookStateTransition> BookStateTransitions { get; set; }
 
         // KDP publishing pipeline (extends existing Books model; does not replace it)
@@ -251,6 +256,55 @@ namespace EBookDashboard.Models
                 e.Property(x => x.Description).HasMaxLength(512);
                 e.Property(x => x.Currency).IsRequired().HasMaxLength(3);
                 e.Property(x => x.UnitAmount).HasPrecision(18, 2);
+            });
+
+            modelBuilder.Entity<Order>(e =>
+            {
+                e.HasIndex(x => x.StripeCheckoutSessionId).IsUnique();
+                e.HasIndex(x => x.UserId);
+                e.HasIndex(x => x.BookId);
+                e.Property(x => x.Subtotal).HasPrecision(18, 2);
+                e.Property(x => x.Discount).HasPrecision(18, 2);
+                e.Property(x => x.Total).HasPrecision(18, 2);
+                e.Property(x => x.Currency).IsRequired().HasMaxLength(3);
+                e.HasMany(x => x.Items).WithOne(x => x.Order!).HasForeignKey(x => x.OrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<OrderItem>(e =>
+            {
+                e.Property(x => x.UnitAmount).HasPrecision(18, 2);
+                e.Property(x => x.LineTotal).HasPrecision(18, 2);
+                e.Property(x => x.PricingRuleKey).IsRequired().HasMaxLength(64);
+            });
+
+            modelBuilder.Entity<Entitlement>(e =>
+            {
+                e.HasIndex(x => new { x.UserId, x.BookId, x.Type, x.ScopeKey });
+                e.HasIndex(x => x.OrderId);
+            });
+
+            modelBuilder.Entity<BookBillingState>(e =>
+            {
+                e.HasIndex(x => x.BookId).IsUnique();
+            });
+
+            modelBuilder.Entity<FormattingTemplate>(e =>
+            {
+                e.HasIndex(x => x.StyleKey).IsUnique();
+                e.Property(x => x.PremiumPrice).HasPrecision(18, 2);
+                e.HasData(
+                    new FormattingTemplate { Id = 1, StyleKey = "Novel", DisplayName = "Novel", IsPremium = false },
+                    new FormattingTemplate { Id = 2, StyleKey = "Traditional", DisplayName = "Traditional", IsPremium = false },
+                    new FormattingTemplate { Id = 3, StyleKey = "Contemporary", DisplayName = "Contemporary", IsPremium = false },
+                    new FormattingTemplate { Id = 4, StyleKey = "Modern", DisplayName = "Modern", IsPremium = false },
+                    new FormattingTemplate { Id = 5, StyleKey = "Classic", DisplayName = "Classic", IsPremium = false },
+                    new FormattingTemplate { Id = 6, StyleKey = "Clean", DisplayName = "Clean", IsPremium = false },
+                    new FormattingTemplate { Id = 7, StyleKey = "Minimalist", DisplayName = "Minimalist", IsPremium = false },
+                    new FormattingTemplate { Id = 8, StyleKey = "POD", DisplayName = "POD", IsPremium = false },
+                    new FormattingTemplate { Id = 9, StyleKey = "FineBook", DisplayName = "Fine Book", IsPremium = true, PremiumPrice = null },
+                    new FormattingTemplate { Id = 10, StyleKey = "ElegantTrade", DisplayName = "Elegant Trade", IsPremium = true, PremiumPrice = null },
+                    new FormattingTemplate { Id = 11, StyleKey = "ElegantTradePOD", DisplayName = "Elegant Trade (POD)", IsPremium = true, PremiumPrice = null });
             });
 
             modelBuilder.Entity<Settings>()
