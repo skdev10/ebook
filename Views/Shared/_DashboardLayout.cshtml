@@ -93,8 +93,8 @@
     else if (ViewBag.FlowBookId != null) { int.TryParse(ViewBag.FlowBookId.ToString(), out flowBookId); }
     if (ViewBag.FlowStep is string flowStepRaw) flowStep = flowStepRaw;
     if (ViewBag.FlowBackUrl is string flowBackRaw) flowBackUrl = flowBackRaw;
-    // Soft modules: Writer / Formatting / Cover open from Dashboard cards (not sidebar).
-    // First-run (no books): keep the rail minimal so the hero CTA + cards lead the workflow.
+    // Soft modules: Writer / Formatting / Cover stay in the sidebar (no forced funnel).
+    // First-run (no books): still show the three tools; Publish / My Books stay quieter until a book exists.
     bool flowSidebarMinimal = !hasAnyBooks;
 
     int sidebarActiveBookId = flowBookId;
@@ -3563,7 +3563,21 @@
                         <i data-lucide="layout-grid" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Dashboard</span>
                     </a>
                 </li>
-                @* AI Writer, Formatting, Cover Design: Dashboard cards only (not sidebar). *@
+                <li>
+                    <a href="@sidebarAiWriterUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "active" : "")">
+                        <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Writer</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="@sidebarFormatUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "active" : "")">
+                        <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="@sidebarCoverUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
+                        <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Cover Design</span>
+                    </a>
+                </li>
                 @if (!flowSidebarMinimal)
                 {
                 <li>
@@ -3572,7 +3586,7 @@
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Select a book from the Dashboard first" data-goto="/Dashboard">
+                        <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Select a book from the Dashboard first" data-goto="@sidebarAiWriterUrl">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     }
@@ -3601,8 +3615,9 @@
                     }
                 </li>
                 *@
+                }
                 <li style="margin-top: 8px;"><div style="height: 1px; background: #e5e7eb; margin: 0 16px;"></div></li>
-                @* AUDIOBOOK â€” Temporarily disabled (preserve for re-enable)
+                @* AUDIOBOOK — Temporarily disabled (preserve for re-enable)
                 <li>
                     @if (hasGeneratedBook) {
                         <a href="/Dashboard/AudioBook" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AudioBook" ? "active" : "")">
@@ -3630,7 +3645,6 @@
                         <i data-lucide="receipt" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Orders</span>
                     </a>
                 </li>
-                }
             </ul>
 
             <!-- âœ… Lucide Icons (same as AI Book Writer design) -->
@@ -5056,7 +5070,7 @@
                 { sel: 'form, .profile-form, #profileForm', title: 'Save', body: 'Edit your details, then tap Save.' }
             ],
             'default': [
-                { sel: '#sidebar', title: 'Menu', body: 'Dashboard home has Write with AI, Book Formatting, and Cover Design as cards. Publish unlocks after you have a book.' },
+                { sel: '#sidebar', title: 'Menu', body: 'Use the sidebar anytime for AI Writer, Book Formatting, and Cover Design. Basic tools stay free; you pay only when you export premium extras.' },
                 { sel: '#guidedTourFab', title: 'Need help?', body: 'Tap Tour anytime for a short guide of this screen.' }
             ]
         };

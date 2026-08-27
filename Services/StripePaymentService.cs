@@ -86,6 +86,30 @@ public sealed class StripePaymentService : IPaymentService
     }
 
     /// <inheritdoc />
+    public async Task<string?> TryGetOpenSessionUrlAsync(string sessionId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+            return null;
+        var secret = StripeKeys.Secret(_config);
+        if (string.IsNullOrEmpty(secret))
+            return null;
+        StripeConfiguration.ApiKey = secret;
+        try
+        {
+            var session = await new SessionService().GetAsync(sessionId, cancellationToken: cancellationToken);
+            if (session == null)
+                return null;
+            if (!string.Equals(session.Status, "open", StringComparison.OrdinalIgnoreCase))
+                return null;
+            return string.IsNullOrWhiteSpace(session.Url) ? null : session.Url;
+        }
+        catch (StripeException)
+        {
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
     public bool TryReadPaidCheckout(string json, string? signature, out string sessionId, out string paymentIntentId, out bool ignored)
     {
         sessionId = "";

@@ -53,6 +53,13 @@ public partial class CheckoutController
             return Json(new { success = true, free = true, downloadUrl = "/Dashboard/Publish?bookId=" + req.BookId });
 
         var order = await orders.CreateFromQuoteAsync(userId.Value, req.BookId, eval.Quote, eval.PageCount);
+        if (!string.IsNullOrWhiteSpace(order.StripeCheckoutSessionId))
+        {
+            var openUrl = await payments.TryGetOpenSessionUrlAsync(order.StripeCheckoutSessionId);
+            if (!string.IsNullOrEmpty(openUrl))
+                return Json(new { success = true, url = openUrl, sessionId = order.StripeCheckoutSessionId });
+        }
+
         var origin = ResolvePublicOrigin();
         var success = $"{origin}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}";
         var cancel = $"{origin}/checkout/cancel?bookId={req.BookId}";

@@ -21,6 +21,9 @@ public interface IPaymentService
     /// <summary>Asks the provider whether this checkout session is paid. Used on the success return URL.</summary>
     Task<PaymentConfirmation> ConfirmSessionAsync(string sessionId, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the hosted checkout URL when the session is still open; otherwise null.</summary>
+    Task<string?> TryGetOpenSessionUrlAsync(string sessionId, CancellationToken cancellationToken = default);
+
     /// <param name="ignored">True when the signature is valid but the event is not a paid checkout (do not retry).</param>
     bool TryReadPaidCheckout(string json, string? signature, out string sessionId, out string paymentIntentId, out bool ignored);
 }

@@ -12,7 +12,7 @@
 </div>
 <script>
 (function () {
-    var rates = { perPage: null, free: 0, wordsPerPage: 275 };
+    var rates = { perPage: null, free: 0, wordsPerPage: null };
     fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
         (d.rules || []).forEach(function (rule) {
             if (rule.key === 'writing.per_page') { rates.perPage = rule.unitAmount; rates.free = rule.freeAllowance; }
@@ -26,6 +26,7 @@
         return (text.match(/\b\w+\b/g) || []).length;
     }
     function tick() {
+        if (!rates.wordsPerPage || rates.perPage == null) return;
         var pages = Math.ceil(words() / rates.wordsPerPage) || 0;
         var billable = Math.max(0, pages - (rates.free || 0));
         var cost = rates.perPage == null ? null : billable * rates.perPage;

@@ -1828,6 +1828,16 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
+            var interiorPaperback = string.Equals(req.BookFormat, "Paperback", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(req.BookFormat, "Hardcover", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(req.BookFormat, "Both", StringComparison.OrdinalIgnoreCase)
+                || (req.PublishingPlatform ?? "").Contains("print", StringComparison.OrdinalIgnoreCase)
+                || (req.PublishingPlatform ?? "").Contains("kdp", StringComparison.OrdinalIgnoreCase);
+            var interiorHardcover = string.Equals(req.BookFormat, "Hardcover", StringComparison.OrdinalIgnoreCase);
+            var interiorGate = await ExportGating.RequirePaidJsonAsync(
+                HttpContext, req.BookId, paperback: interiorPaperback && !interiorHardcover, hardcover: interiorHardcover, cancellationToken);
+            if (interiorGate != null) return interiorGate;
+
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
                 return BadRequest(new { success = false, message = details?.Message ?? "Could not load book." });

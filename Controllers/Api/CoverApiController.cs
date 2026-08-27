@@ -1,3 +1,4 @@
+using EBookDashboard.Infrastructure;
 using EBookDashboard.Models;
 using EBookDashboard.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -31,8 +32,15 @@ public class CoverApiController : ControllerBase
     /// </summary>
     [HttpPost("publish")]
     public async Task<IActionResult> Publish([FromForm] CoverRequest req,
-        IFormFile? wraparound, [FromForm] string? encodedImage)
+        IFormFile? wraparound, [FromForm] string? encodedImage, [FromForm] int bookId = 0)
     {
+        // Clean print-ready cover bytes are paywalled when tied to a book.
+        if (bookId > 0)
+        {
+            var gate = await ExportGating.RequirePaidJsonAsync(HttpContext, bookId, paperback: true, hardcover: false);
+            if (gate != null) return gate;
+        }
+
         Stream stream;
         if (wraparound is not null &&
             (wraparound.ContentType == "image/png" ||

@@ -61,7 +61,7 @@
     function recalc() {
         var pages = parseInt(document.getElementById('calcPages').value, 10);
         document.getElementById('calcPagesLabel').textContent = String(pages);
-        var w = rows['writing.per_page'] || { amount: 0, free: 20 };
+        var w = rows['writing.per_page'] || { amount: 0, free: 0 };
         var billable = Math.max(0, pages - w.free);
         var lines = [{ k: 'Writing', t: billable * w.amount }];
         if (document.getElementById('calcCover').checked) lines.push({ k: 'Custom cover', t: (rows['cover.custom_image'] || { amount: 0 }).amount });

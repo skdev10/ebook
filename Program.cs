@@ -498,6 +498,22 @@ if (httpsEndpointsConfigured)
         context => !context.Request.Path.StartsWithSegments("/health"),
         appBuilder => appBuilder.UseHttpsRedirection());
 }
+// User-uploaded covers must not be served as clean static files. Route through CoverPreview (watermarked).
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "";
+    var match = System.Text.RegularExpressions.Regex.Match(
+        path,
+        @"^/uploads/\d+/books/(\d+)/covers/",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    if (match.Success)
+    {
+        context.Response.Redirect($"/Books/CoverPreview/{match.Groups[1].Value}");
+        return;
+    }
+    await next();
+});
+
 app.UseStaticFiles();
 
 app.UseRouting();

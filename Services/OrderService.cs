@@ -22,6 +22,23 @@ public sealed class OrderService : IOrderService
         if (quote == null)
             throw new ArgumentNullException(nameof(quote));
 
+        // Reuse a recent pending order for the same book/total so double-clicks do not spawn duplicates.
+        if (quote.Total > 0 && bookId.HasValue)
+        {
+            var cutoff = DateTime.UtcNow.AddHours(-2);
+            var pending = await _context.Orders
+                .Include(o => o.Items)
+                .Where(o => o.UserId == userId
+                    && o.BookId == bookId
+                    && o.Status == OrderStatus.PendingPayment
+                    && o.Total == quote.Total
+                    && o.CreatedAtUtc >= cutoff)
+                .OrderByDescending(o => o.CreatedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (pending != null)
+                return pending;
+        }
+
         var order = new Order
         {
             UserId = userId,
