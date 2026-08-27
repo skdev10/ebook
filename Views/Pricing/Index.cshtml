@@ -1,30 +1,32 @@
 @model List<EBookDashboard.Models.PricingRule>
+@using System.Text.Json
 @{
     ViewData["Title"] = "Pricing";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var rules = Model ?? new List<EBookDashboard.Models.PricingRule>();
     string Amt(decimal n) => n.ToString("0.00");
+    var ratesJson = JsonSerializer.Serialize(rules.Select(r => new
+    {
+        key = r.Key,
+        displayName = r.DisplayName,
+        unitAmount = r.UnitAmount,
+        freeAllowance = r.FreeAllowance,
+        currency = r.Currency
+    }));
 }
-<style>
-    .pricing-page { max-width: 1120px; margin: 0 auto; padding: 24px 16px 64px; }
-    .pricing-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
-    @@media (min-width: 960px) { .pricing-grid { grid-template-columns: 1.1fr 0.9fr; align-items: start; } }
-    .price-card, .calc-card { background: #fff; border: 1px solid #E5E5E5; border-radius: 20px; padding: 24px; }
-    .price-row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
-    .price-amt { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-weight: 700; }
-    .chip-free { background: #ecfdf5; color: #047857; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
-    .calc-total { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 32px; font-weight: 800; color: #7c3aed; }
-    .calc-line { display: flex; justify-content: space-between; font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 13px; padding: 6px 0; }
-</style>
 <div class="pricing-page">
-    <h1 style="font-size:28px;font-weight:800;margin:0 0 8px;">Simple, output-based pricing</h1>
-    <p style="color:#6B6B6B;margin:0 0 24px;">Write, format, and generate an AI cover free. You pay once, at export, for the pages and extras you actually use.</p>
+    <h1 class="pricing-hero" data-hero="0" style="font-size:28px;font-weight:800;margin:0 0 8px;">Simple, output-based pricing</h1>
+    <p class="pricing-hero" data-hero="1" style="color:#6B6B6B;margin:0 0 24px;">Write, format, and generate an AI cover free. You pay once, at export, for the pages and extras you actually use.</p>
+    @if (!rules.Any())
+    {
+        <div class="pricing-error" role="alert">Pricing is not configured yet. Ask an admin to restore the rate card, then refresh this page.</div>
+    }
     <div class="pricing-grid">
         <div class="price-card">
             <h2 style="margin:0 0 16px;font-size:18px;">Rate card</h2>
             @foreach (var r in rules)
             {
-                <div class="price-row" data-key="@r.Key" data-amount="@Amt(r.UnitAmount)" data-free="@r.FreeAllowance">
+                <div class="price-row" tabindex="0" data-key="@r.Key" data-amount="@Amt(r.UnitAmount)" data-free="@r.FreeAllowance">
                     <div>
                         <div style="font-weight:700;">@r.DisplayName</div>
                         <div style="font-size:12px;color:#64748b;">@r.Key @if (r.FreeAllowance > 0) { <span class="chip-free">@r.FreeAllowance free pages</span> }</div>
@@ -32,52 +34,85 @@
                     <div class="price-amt">$@Amt(r.UnitAmount)</div>
                 </div>
             }
-            <div class="price-row">
+            <div class="price-row" tabindex="0">
                 <div><div style="font-weight:700;">eBook (EPUB/PDF)</div><div style="font-size:12px;color:#64748b;">Always included</div></div>
                 <div class="price-amt"><span class="chip-free">Free</span></div>
             </div>
         </div>
-        <div class="calc-card" style="position:sticky;top:24px;">
+        <div class="calc-card pricing-hero" data-hero="2">
             <h2 style="margin:0 0 12px;font-size:18px;">Live cost calculator</h2>
-            <label style="font-size:13px;color:#64748b;">Page count: <strong id="calcPagesLabel">200</strong></label>
-            <input id="calcPages" type="range" min="1" max="400" value="200" style="width:100%;margin:8px 0 16px;" />
+            <label style="font-size:13px;color:#64748b;" for="calcPages">Page count: <strong id="calcPagesLabel">200</strong></label>
+            <input id="calcPages" type="range" min="1" max="400" value="200" />
             <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcCover" checked> Custom image cover</label>
             <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcFmt" checked> Premium formatting</label>
             <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcPb" checked> Paperback package</label>
             <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcHc"> Hardcover package</label>
-            <div id="calcLines" style="margin-top:16px;border-top:1px solid #f3f4f6;padding-top:8px;"></div>
-            <div class="calc-total" id="calcTotal">$0.00</div>
+            <div id="calcLines" style="margin-top:16px;border-top:1px solid #f3f4f6;padding-top:8px;min-height:8rem;"></div>
+            <div class="calc-total" id="calcTotal" data-value="0">$0.00</div>
             <p style="font-size:13px;color:#6B6B6B;margin-top:12px;">A full 200-page book is about $123 here versus $300 to $1,000 elsewhere.</p>
         </div>
     </div>
 </div>
+<div class="pricing-sticky-bar" aria-live="polite">
+    <span style="font-size:13px;color:#64748b;">Estimated total</span>
+    <span class="pricing-money" id="calcTotalSticky">$0.00</span>
+</div>
+<script type="application/json" id="pricingRatesJson">@Html.Raw(ratesJson)</script>
 <script>
 (function () {
-    var rows = {};
-    document.querySelectorAll('.price-row[data-key]').forEach(function (el) {
-        rows[el.getAttribute('data-key')] = { amount: parseFloat(el.getAttribute('data-amount')), free: parseInt(el.getAttribute('data-free') || '0', 10) };
+    var UI = window.PricingUI;
+    document.querySelectorAll(".pricing-hero").forEach(function (el) {
+        var i = parseInt(el.getAttribute("data-hero") || "0", 10);
+        if (UI && UI.prefersReduced()) { el.classList.add("is-in"); return; }
+        setTimeout(function () { el.classList.add("is-in"); }, i * 60);
     });
-    function money(n) { return '$' + n.toFixed(2); }
-    function recalc() {
-        var pages = parseInt(document.getElementById('calcPages').value, 10);
-        document.getElementById('calcPagesLabel').textContent = String(pages);
-        var w = rows['writing.per_page'] || { amount: 0, free: 0 };
-        var billable = Math.max(0, pages - w.free);
-        var lines = [{ k: 'Writing', t: billable * w.amount }];
-        if (document.getElementById('calcCover').checked) lines.push({ k: 'Custom cover', t: (rows['cover.custom_image'] || { amount: 0 }).amount });
-        if (document.getElementById('calcFmt').checked) lines.push({ k: 'Premium formatting', t: (rows['formatting.premium'] || { amount: 0 }).amount });
-        if (document.getElementById('calcPb').checked) lines.push({ k: 'Paperback', t: (rows['export.paperback'] || { amount: 0 }).amount });
-        if (document.getElementById('calcHc').checked) lines.push({ k: 'Hardcover', t: (rows['export.hardcover'] || { amount: 0 }).amount });
-        lines.push({ k: 'eBook', t: 0 });
-        var total = lines.reduce(function (s, l) { return s + l.t; }, 0);
-        document.getElementById('calcLines').innerHTML = lines.map(function (l) {
-            return '<div class="calc-line"><span>' + l.k + '</span><span>' + money(l.t) + '</span></div>';
-        }).join('');
-        document.getElementById('calcTotal').textContent = money(total);
+
+    var rows = {};
+    var block = document.getElementById("pricingRatesJson");
+    try {
+        (JSON.parse(block.textContent || "[]") || []).forEach(function (r) {
+            rows[r.key] = { amount: Number(r.unitAmount) || 0, free: parseInt(r.freeAllowance || 0, 10) || 0, name: r.displayName };
+        });
+    } catch (e) {}
+
+    var slider = document.getElementById("calcPages");
+    if (slider) {
+        slider.addEventListener("pointerdown", function () { slider.classList.add("is-drag"); });
+        window.addEventListener("pointerup", function () { slider.classList.remove("is-drag"); });
     }
-    ['calcPages','calcCover','calcFmt','calcPb','calcHc'].forEach(function (id) {
-        document.getElementById(id).addEventListener('input', recalc);
-        document.getElementById(id).addEventListener('change', recalc);
+
+    function recalc() {
+        var pages = parseInt(document.getElementById("calcPages").value, 10);
+        document.getElementById("calcPagesLabel").textContent = String(pages);
+        var w = rows["writing.per_page"] || { amount: 0, free: 0 };
+        var billable = Math.max(0, pages - w.free);
+        var lines = [{ key: "writing", label: "Writing", amount: billable * w.amount }];
+        if (document.getElementById("calcCover").checked)
+            lines.push({ key: "cover", label: "Custom cover", amount: (rows["cover.custom_image"] || { amount: 0 }).amount });
+        if (document.getElementById("calcFmt").checked)
+            lines.push({ key: "fmt", label: "Premium formatting", amount: (rows["formatting.premium"] || { amount: 0 }).amount });
+        if (document.getElementById("calcPb").checked)
+            lines.push({ key: "pb", label: "Paperback", amount: (rows["export.paperback"] || { amount: 0 }).amount });
+        if (document.getElementById("calcHc").checked)
+            lines.push({ key: "hc", label: "Hardcover", amount: (rows["export.hardcover"] || { amount: 0 }).amount });
+        lines.push({ key: "ebook", label: "eBook", amount: 0 });
+        var total = lines.reduce(function (s, l) { return s + l.amount; }, 0);
+        if (UI) UI.syncReceipt(document.getElementById("calcLines"), lines);
+        var totalEl = document.getElementById("calcTotal");
+        var sticky = document.getElementById("calcTotalSticky");
+        if (UI) {
+            UI.countTo(totalEl, total, 220);
+            if (sticky) sticky.textContent = UI.money(total);
+        } else {
+            totalEl.textContent = "$" + total.toFixed(2);
+            if (sticky) sticky.textContent = totalEl.textContent;
+        }
+    }
+    ["calcPages", "calcCover", "calcFmt", "calcPb", "calcHc"].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", recalc);
+        el.addEventListener("change", recalc);
     });
     recalc();
 })();

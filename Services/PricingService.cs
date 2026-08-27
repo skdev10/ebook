@@ -30,16 +30,17 @@ public sealed class PricingService : IPricingService
 
         var billedFloor = Math.Max(writing.FreeAllowance, Math.Max(0, request.AlreadyBilledPageCount));
         var billablePages = Math.Max(0, request.PageCount - billedFloor);
-        quote.Lines.Add(BuildLine(
-            writing,
-            billablePages,
-            owned,
-            $"{writing.DisplayName} ({request.PageCount} pages − {billedFloor} free/billed = {billablePages} billable × {writing.UnitAmount:0.00})"));
+        var writingLine = BuildLine(writing, billablePages, owned, writing.DisplayName);
+        writingLine.Breakdown =
+            $"{request.PageCount} pages − {billedFloor} free = {billablePages} billable × ${writing.UnitAmount:0.00}";
+        quote.Lines.Add(writingLine);
 
         if (request.CustomCover)
         {
             var cover = Require(byKey, PricingKeys.CoverCustomImage);
-            quote.Lines.Add(BuildLine(cover, 1, owned, cover.DisplayName));
+            var coverLine = BuildLine(cover, 1, owned, cover.DisplayName);
+            coverLine.Breakdown = $"1 × ${coverLine.UnitAmount:0.00}";
+            quote.Lines.Add(coverLine);
         }
 
         if (request.PremiumTemplateId.HasValue)
@@ -59,19 +60,24 @@ public sealed class PricingService : IPricingService
             var line = BuildLine(formatting, 1, owned, label);
             line.UnitAmount = RoundMoney(unit);
             line.LineTotal = line.AlreadyOwned ? 0m : RoundMoney(line.UnitAmount * line.Quantity);
+            line.Breakdown = $"1 × ${line.UnitAmount:0.00}";
             quote.Lines.Add(line);
         }
 
         if (request.Paperback)
         {
             var pb = Require(byKey, PricingKeys.ExportPaperback);
-            quote.Lines.Add(BuildLine(pb, 1, owned, pb.DisplayName));
+            var pbLine = BuildLine(pb, 1, owned, pb.DisplayName);
+            pbLine.Breakdown = $"1 × ${pbLine.UnitAmount:0.00}";
+            quote.Lines.Add(pbLine);
         }
 
         if (request.Hardcover)
         {
             var hc = Require(byKey, PricingKeys.ExportHardcover);
-            quote.Lines.Add(BuildLine(hc, 1, owned, hc.DisplayName));
+            var hcLine = BuildLine(hc, 1, owned, hc.DisplayName);
+            hcLine.Breakdown = $"1 × ${hcLine.UnitAmount:0.00}";
+            quote.Lines.Add(hcLine);
         }
 
         quote.Lines.Add(new QuoteLine
@@ -81,7 +87,8 @@ public sealed class PricingService : IPricingService
             Quantity = 1,
             UnitAmount = 0m,
             LineTotal = 0m,
-            AlreadyOwned = owned.Contains(PricingKeys.ExportEbook)
+            AlreadyOwned = owned.Contains(PricingKeys.ExportEbook),
+            Breakdown = "Always included"
         });
 
         quote.Subtotal = RoundMoney(quote.Lines.Sum(l => l.LineTotal));

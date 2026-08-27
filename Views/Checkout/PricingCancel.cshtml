@@ -3,11 +3,16 @@
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var bookId = ViewBag.BookId as int? ?? 0;
 }
-<div style="max-width:640px;margin:48px auto;padding:24px;background:#fff;border:1px solid #E5E5E5;border-radius:20px;">
+<div class="pricing-success" style="text-align:left;">
     <h1 style="margin:0 0 8px;">Checkout cancelled</h1>
     <p>Nothing was charged. You can keep writing and export when you are ready.</p>
     @if (bookId > 0)
     {
-        <a href="/checkout/@bookId">Return to the bill</a>
+        <a class="pay-btn" href="/checkout/@bookId" style="margin-top:12px;">Return to the bill</a>
+        <a class="ghost-btn" href="/Books/Writer?bookId=@bookId">Keep writing</a>
+    }
+    else
+    {
+        <a class="pay-btn" href="/pricing" style="margin-top:12px;">See pricing</a>
     }
 </div>

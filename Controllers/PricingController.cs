@@ -35,6 +35,8 @@ public class PricingController : Controller
             .Select(r => new { r.Key, r.DisplayName, r.UnitAmount, r.FreeAllowance, r.Currency })
             .ToListAsync();
         var words = HttpContext.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<EBookDashboard.Models.Options.PricingOptions>>().Value.WordsPerPage;
-        return Json(new { wordsPerPage = words > 0 ? words : 275, rules });
+        if (words <= 0)
+            return StatusCode(500, new { message = "Pricing:WordsPerPage must be a positive integer in configuration." });
+        return Json(new { wordsPerPage = words, rules });
     }
 }

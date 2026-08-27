@@ -2,65 +2,116 @@
 @{
     ViewData["Title"] = "Checkout";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
-    var quote = Model.Quote;
+    var quote = Model?.Quote ?? new EBookDashboard.Models.PriceQuote();
     var title = ViewBag.BookTitle as string ?? "this book";
     var paperback = ViewBag.Paperback as bool? ?? false;
     var hardcover = ViewBag.Hardcover as bool? ?? false;
+    var freeAllowance = ViewBag.FreeAllowance as int? ?? 0;
+    var checkoutError = ViewBag.CheckoutError as string;
+    var total = quote.Total;
 }
-<style>
-    .bill-page { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; display: grid; gap: 24px; }
-    @@media (min-width: 900px) { .bill-page { grid-template-columns: 1.4fr 0.8fr; } }
-    .bill-card { background:#fff; border:1px solid #E5E5E5; border-radius:20px; padding:24px; }
-    .bill-line { display:flex; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #f3f4f6; font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, Consolas, monospace; font-size:13px; }
-    .bill-line.owned { text-decoration: line-through; color:#94a3b8; }
-    .bill-total { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size:28px; font-weight:800; color:#7c3aed; }
-    .pay-btn { display:block; width:100%; background:linear-gradient(135deg,#7c3aed,#a78bfa); color:#fff; border:0; border-radius:12px; padding:14px 18px; font-weight:700; cursor:pointer; }
-    .ghost-btn { display:block; width:100%; margin-top:10px; background:#fff; border:1px solid #e5e5e5; border-radius:12px; padding:12px; text-align:center; color:#374151; text-decoration:none; font-weight:600; }
-</style>
 <div class="bill-page">
     <div class="bill-card">
         <h1 style="margin:0 0 8px;font-size:22px;">Itemised bill for @title</h1>
         <p style="color:#6B6B6B;">One-time charge for this book. Re-downloading later is always free, including after you edit it.</p>
-        @foreach (var line in quote.Lines)
+        @if (!string.IsNullOrWhiteSpace(checkoutError))
         {
-            <div class="bill-line @(line.AlreadyOwned ? "owned" : "")">
-                <div>
-                    <div>@line.Description</div>
-                    <div style="font-size:11px;color:#94a3b8;">@line.Key</div>
+            <div class="pricing-error" role="alert">@checkoutError Refresh this page. If it continues, open Support — pricing may be misconfigured.</div>
+        }
+        else if (quote.Lines == null || !quote.Lines.Any())
+        {
+            <div class="pricing-empty">No billable lines for this book. You can export from Publish, or go back and keep writing.</div>
+        }
+        else
+        {
+            var i = 0;
+            foreach (var line in quote.Lines)
+            {
+                <div class="bill-line @(line.AlreadyOwned ? "owned" : "")" data-stagger="@i">
+                    <div>
+                        <div class="bill-line-main">@line.Description</div>
+                        @if (!string.IsNullOrWhiteSpace(line.Breakdown))
+                        {
+                            <div class="bill-line-arith">@line.Breakdown</div>
+                        }
+                    </div>
+                    <div class="bill-line-amt">@line.LineTotal.ToString("0.00") @quote.Currency</div>
                 </div>
-                <div>@line.LineTotal.ToString("0.00") @quote.Currency</div>
-            </div>
+                i++;
+            }
         }
     </div>
     <div class="bill-card">
         <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;">Due now</div>
-        <div class="bill-total">$@quote.Total.ToString("0.00")</div>
-        @if (quote.Total > 0)
+        <div class="bill-total" id="billTotal" data-value="0">$@total.ToString("0.00")</div>
+        <div class="pay-error" id="payError" role="alert"></div>
+        @if (string.IsNullOrWhiteSpace(checkoutError) && total > 0)
         {
-            <button type="button" class="pay-btn" id="payBtn">Pay $@quote.Total.ToString("0.00") and download</button>
+            <button type="button" class="pay-btn" id="payBtn">Pay $@total.ToString("0.00") and download</button>
+        }
+        else if (string.IsNullOrWhiteSpace(checkoutError))
+        {
+            <a class="pay-btn" href="/Dashboard/Publish?bookId=@Model.BookId">Download — $0.00</a>
         }
         else
         {
-            <a class="pay-btn" style="text-align:center;text-decoration:none;" href="/Dashboard/Publish?bookId=@Model.BookId">Download — $0.00</a>
+            <button type="button" class="pay-btn" disabled>Pay unavailable</button>
         }
-        <a class="ghost-btn" href="/Books/Writer?bookId=@Model.BookId">Download the free 20-page preview</a>
+        @if (freeAllowance > 0)
+        {
+            <a class="ghost-btn" href="/Books/Writer?bookId=@Model.BookId">Download the free @freeAllowance-page preview</a>
+        }
+        else
+        {
+            <a class="ghost-btn" href="/Books/Writer?bookId=@Model.BookId">Keep writing</a>
+        }
         <p style="font-size:12px;color:#6B6B6B;margin-top:14px;">One-time charge for this book. Re-downloading later is always free, including after you edit it.</p>
     </div>
 </div>
 <script>
-document.getElementById('payBtn') && document.getElementById('payBtn').addEventListener('click', function () {
-    var btn = this;
-    btn.disabled = true;
-    fetch('/checkout/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ bookId: @Model.BookId, paperback: @(paperback ? "true" : "false"), hardcover: @(hardcover ? "true" : "false") })
-    }).then(function (r) { return r.json(); }).then(function (d) {
-        if (d.url) { window.location = d.url; return; }
-        if (d.free) { window.location = '/Dashboard/Publish?bookId=@Model.BookId'; return; }
-        alert(d.message || 'Could not start checkout');
+(function () {
+    var UI = window.PricingUI;
+    var lines = document.querySelectorAll(".bill-line");
+    if (UI) UI.staggerIn(lines, 40, 8);
+    else lines.forEach(function (el) { el.classList.add("is-in"); });
+    var totalEl = document.getElementById("billTotal");
+    if (UI && totalEl) UI.countTo(totalEl, @total.ToString(System.Globalization.CultureInfo.InvariantCulture), 220);
+
+    var btn = document.getElementById("payBtn");
+    if (!btn) return;
+    var idleLabel = btn.textContent;
+    var busy = false;
+    function fail(msg) {
+        busy = false;
         btn.disabled = false;
-    }).catch(function () { btn.disabled = false; });
-});
+        btn.classList.remove("is-loading");
+        btn.innerHTML = idleLabel;
+        var err = document.getElementById("payError");
+        if (err) err.textContent = msg || "Checkout did not start. Check your connection and try Pay again.";
+    }
+    btn.addEventListener("click", function () {
+        if (busy || btn.disabled) return;
+        busy = true;
+        btn.disabled = true;
+        btn.classList.add("is-loading");
+        btn.innerHTML = '<span class="pay-spinner" aria-hidden="true"></span>Redirecting to Stripe';
+        var err = document.getElementById("payError");
+        if (err) err.textContent = "";
+        fetch("/checkout/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ bookId: @Model.BookId, paperback: @(paperback ? "true" : "false"), hardcover: @(hardcover ? "true" : "false") })
+        }).then(function (r) {
+            return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        }).then(function (res) {
+            var d = res.d || {};
+            if (d.url) { window.location = d.url; return; }
+            if (d.free) { window.location = d.downloadUrl || "/Dashboard/Publish?bookId=@Model.BookId"; return; }
+            fail(d.message || "Stripe did not return a checkout URL. Try again, or open Support.");
+        }).catch(function () {
+            fail("Network error starting checkout. Check your connection, then try Pay again.");
+        });
+    });
+})();
 </script>

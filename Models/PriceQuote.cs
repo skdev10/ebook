@@ -19,6 +19,9 @@ public sealed class QuoteLine
     public decimal UnitAmount { get; set; }
     public decimal LineTotal { get; set; }
     public bool AlreadyOwned { get; set; }
+
+    /// <summary>Human-readable arithmetic shown under the line, e.g. <c>200 pages − 20 free = 180 billable × $0.50</c>.</summary>
+    public string? Breakdown { get; set; }
 }
 
 public sealed class PriceQuote

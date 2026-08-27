@@ -4,27 +4,46 @@
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
     var orders = Model ?? new List<EBookDashboard.Models.Order>();
 }
-<div style="max-width:960px;margin:0 auto;padding:24px 16px 64px;">
+<div class="orders-page">
     <h1 style="margin:0 0 16px;">Orders and receipts</h1>
     @if (!orders.Any())
     {
-        <p style="color:#64748b;">No purchases yet.</p>
-    }
-    @foreach (var o in orders)
-    {
-        <div style="background:#fff;border:1px solid #E5E5E5;border-radius:16px;padding:18px;margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;gap:12px;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace;">
-                <strong>#@o.Id · @o.Status</strong>
-                <span>@o.Total.ToString("0.00") @o.Currency</span>
-            </div>
-            <div style="font-size:12px;color:#64748b;">@o.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC @if (o.BookId.HasValue) { <text>· book @o.BookId</text> }</div>
-            @foreach (var item in o.Items)
-            {
-                <div style="display:flex;justify-content:space-between;font-size:13px;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace;">
-                    <span>@item.Description</span>
-                    <span>@item.LineTotal.ToString("0.00")</span>
-                </div>
-            }
+        <div class="orders-empty">
+            <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true" style="margin-bottom:12px;">
+                <rect x="8" y="10" width="32" height="28" rx="4" fill="none" stroke="#94a3b8" stroke-width="2"></rect>
+                <path d="M16 20h16M16 26h10" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"></path>
+            </svg>
+            <h2 style="margin:0 0 8px;font-size:18px;">No orders yet</h2>
+            <p style="color:#64748b;margin:0 0 12px;">You are only charged when you export something bigger than the free tier.</p>
+            <a href="/pricing">See pricing</a>
         </div>
+    }
+    else
+    {
+        foreach (var o in orders)
+        {
+            <details class="orders-card">
+                <summary>
+                    <span><strong>#@o.Id · @o.Status</strong><div style="font-size:12px;color:#64748b;">@o.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC @if (o.BookId.HasValue) { <text>· book @o.BookId</text> }</div></span>
+                    <span class="orders-money">$@o.Total.ToString("0.00") @o.Currency</span>
+                </summary>
+                <div class="orders-body">
+                    @if (o.Items == null || !o.Items.Any())
+                    {
+                        <div class="pricing-empty">No line items on this receipt.</div>
+                    }
+                    else
+                    {
+                        foreach (var item in o.Items)
+                        {
+                            <div style="display:flex;justify-content:space-between;font-size:13px;" class="orders-money">
+                                <span>@item.Description</span>
+                                <span>$@item.LineTotal.ToString("0.00")</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </details>
+        }
     }
 </div>

@@ -675,8 +675,8 @@
                     <div id="customCoverPayChoice" class="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-slate-700">
                         <div class="font-semibold text-amber-800 mb-1">Uploaded image cover</div>
                         <p class="mb-2 text-xs">You can keep designing. The clean file unlocks at export. This is a choice, not a toll.</p>
-                        <div class="flex flex-wrap gap-2">
-                            <a id="unlockCoverBtn" href="#" class="inline-flex items-center rounded-lg bg-violet-600 text-white text-xs font-bold px-3 py-2">Unlock uploaded cover</a>
+                        <div class="cov-pay-actions">
+                            <a id="unlockCoverBtn" href="#" class="inline-flex items-center rounded-lg bg-violet-700 text-white text-xs font-bold px-3 py-2">Unlock uploaded cover</a>
                             <button type="button" id="useFreeAiCoverBtn" class="inline-flex items-center rounded-lg border border-slate-200 bg-white text-xs font-bold px-3 py-2">Use a free AI cover</button>
                         </div>
                     </div>
@@ -699,6 +699,37 @@
                                 if (gen) gen.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             });
                         }
+                        function tryCoverReveal(attempt) {
+                            if (!id) return;
+                            var should = q.get('unlocked') === '1';
+                            try { should = should || sessionStorage.getItem('pricingCoverReveal:' + id) === '1'; } catch (e) {}
+                            if (!should) return;
+                            var bg = document.getElementById('covPreviewBgImg');
+                            var overlay = document.getElementById('covPreviewWmOverlay');
+                            if (!bg || !overlay) return;
+                            var src = bg.currentSrc || bg.src;
+                            if (!src) {
+                                if ((attempt || 0) < 20) setTimeout(function () { tryCoverReveal((attempt || 0) + 1); }, 300);
+                                return;
+                            }
+                            try { sessionStorage.removeItem('pricingCoverReveal:' + id); } catch (e) {}
+                            overlay.src = src;
+                            overlay.style.opacity = '1';
+                            document.body.classList.add('pricing-cover-revealing');
+                            var reduced = window.PricingUI && window.PricingUI.prefersReduced();
+                            function finish() {
+                                overlay.style.opacity = '0';
+                                var done = function () {
+                                    overlay.removeAttribute('src');
+                                    document.body.classList.remove('pricing-cover-revealing');
+                                };
+                                if (reduced) done();
+                                else setTimeout(done, 400);
+                            }
+                            bg.onload = function () { bg.onload = null; finish(); };
+                            bg.src = '/Books/CoverPreview/' + id + '?t=' + Date.now();
+                        }
+                        setTimeout(function () { tryCoverReveal(0); }, 400);
                     })();
                     </script>
                     <input type="file" id="covRefImageInput" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden" aria-label="Upload a reference cover image for the AI to match" />
@@ -787,6 +818,7 @@
             <div class="cov-preview-book-stage w-full">
                     <div id="covPreviewShell" class="cov-preview-3d overflow-hidden relative transition-all duration-500 border border-slate-200/80 ring-1 ring-slate-900/5 cov-style-modern" data-guided-tour="cov-preview">
                         <img id="covPreviewBgImg" src="" alt="" class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-500 pointer-events-none" />
+                        <img id="covPreviewWmOverlay" src="" alt="" />
                         <img id="covPreviewPlaceholderImg" src="@coverProgressPlaceholder" alt="Cover design in progress" class="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" />
                         <div class="absolute inset-0 flex flex-col items-center justify-between pt-[12%] pb-[14%] px-5 sm:px-7 text-center z-10 cov-preview-typography">
                             <h3 id="covPreviewTitle" class="cov-preview-title font-sans text-2xl sm:text-3xl md:text-4xl text-white font-medium tracking-tight leading-snug transition-all duration-300 max-w-[min(100%,20rem)] md:max-w-[22rem] mx-auto" title=""></h3>

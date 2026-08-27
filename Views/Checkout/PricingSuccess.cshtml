@@ -1,10 +1,63 @@
+@model EBookDashboard.Models.Order?
 @{
     ViewData["Title"] = "Payment complete";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var order = Model;
+    var bookId = order?.BookId ?? 0;
+    var downloadHref = bookId > 0 ? "/Dashboard/Publish?bookId=" + bookId : "/Dashboard";
+    var coverHref = bookId > 0 ? "/Dashboard/CoverDesign?bookId=" + bookId + "&unlocked=1" : "";
+    var hasCover = order?.Items != null && order.Items.Any(i => i.PricingRuleKey == "cover.custom_image");
 }
-<div style="max-width:640px;margin:48px auto;padding:24px;background:#fff;border:1px solid #E5E5E5;border-radius:20px;">
-    <h1 style="margin:0 0 8px;">Payment received</h1>
-    <p>Your download is unlocked. Re-downloading later is always free, including after you edit this book.</p>
-    <a href="/Dashboard" style="display:inline-block;margin-top:12px;background:#7c3aed;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700;">Go to Dashboard</a>
-    <a href="/orders" style="margin-left:8px;">View receipts</a>
+<div class="pricing-success">
+    <svg class="pricing-success-check" id="payCheck" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="28"></circle>
+        <path d="M18 33 l10 10 l18 -20"></path>
+    </svg>
+    <div class="pricing-success-body" id="paySuccessBody">
+        <h1 style="margin:0 0 8px;">Payment received</h1>
+        <p>Your download is unlocked. Re-downloading later is always free, including after you edit this book.</p>
+        @if (order != null)
+        {
+            <div style="text-align:left;margin:16px 0;font-size:13px;">
+                <div style="display:flex;justify-content:space-between;font-weight:700;" class="pricing-money">
+                    <span>Order #@order.Id</span>
+                    <span>$@order.Total.ToString("0.00") @order.Currency</span>
+                </div>
+                @foreach (var item in order.Items)
+                {
+                    <div style="display:flex;justify-content:space-between;" class="pricing-money">
+                        <span>@item.Description</span>
+                        <span>$@item.LineTotal.ToString("0.00")</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="pricing-empty" style="margin:16px 0;">We could not load this receipt yet. Your payment may still be confirming — open Orders in a moment, or go to Publish to download.</div>
+        }
+        <a class="pay-btn" id="successDownload" href="@downloadHref">Download now</a>
+        @if (hasCover && !string.IsNullOrEmpty(coverHref))
+        {
+            <a class="ghost-btn" href="@coverHref">Back to cover</a>
+        }
+        <p style="margin-top:12px;"><a href="/orders">View receipts</a></p>
+    </div>
 </div>
+<script>
+(function () {
+    var bookId = @bookId;
+    if (bookId > 0) {
+        try { sessionStorage.setItem("pricingCoverReveal:" + bookId, "1"); } catch (e) {}
+    }
+    var check = document.getElementById("payCheck");
+    var body = document.getElementById("paySuccessBody");
+    var reduced = window.PricingUI && window.PricingUI.prefersReduced();
+    if (check) check.classList.add("is-drawn");
+    if (reduced) {
+        if (body) body.classList.add("is-in");
+        return;
+    }
+    setTimeout(function () { if (body) body.classList.add("is-in"); }, 500);
+})();
+</script>

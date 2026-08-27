@@ -40,7 +40,9 @@ public sealed class PageCountService : IPageCountService
     public async Task<int> GetBillablePageCountAsync(int bookId)
     {
         var words = await GetWordCountAsync(bookId);
-        var perPage = _options.WordsPerPage > 0 ? _options.WordsPerPage : 275;
+        var perPage = _options.WordsPerPage;
+        if (perPage <= 0)
+            throw new InvalidOperationException("Pricing:WordsPerPage must be a positive integer in configuration.");
         if (words <= 0)
             return 0;
         return (int)Math.Ceiling(words / (double)perPage);
