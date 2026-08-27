@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
@@ -1690,6 +1691,9 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
+            var pdfGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: false, hardcover: false, cancellationToken);
+            if (pdfGate != null) return pdfGate;
+
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
                 return BadRequest(new { success = false, message = details?.Message ?? "Could not load book." });
@@ -2165,6 +2169,23 @@ namespace EBookDashboard.Controllers
                 .AnyAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns) return NotFound("Book not found.");
 
+            var formatEarly = (format ?? "").Trim().ToLowerInvariant();
+            var download = string.Equals(Request.Query["download"], "1", StringComparison.Ordinal);
+            var isPdf = formatEarly is "pdf" or "application/pdf";
+            var partEarly = (part ?? "wrap").Trim().ToLowerInvariant();
+            if (download || isPdf)
+            {
+                var printPackage = isPdf || partEarly is "wrap" or "hardcover";
+                var printHardcover = string.Equals(part, "hardcover", StringComparison.OrdinalIgnoreCase);
+                var assetGate = await ExportGating.RequirePaidJsonAsync(
+                    HttpContext,
+                    bookId,
+                    paperback: printPackage && !printHardcover,
+                    hardcover: printPackage && printHardcover,
+                    cancellationToken);
+                if (assetGate != null) return assetGate;
+            }
+
             var partNorm = (part ?? "wrap").Trim().ToLowerInvariant();
             var keySuffix = partNorm switch
             {
@@ -2336,6 +2357,14 @@ namespace EBookDashboard.Controllers
                 {
                     _logger.LogError(pdfEx, "Wrap→PDF failed for book {BookId}; falling back to image.", bookId);
                 }
+            }
+
+            if (!download && !isPdf)
+            {
+                var access = HttpContext.RequestServices.GetRequiredService<IExportAccessService>();
+                bytes = await access.PreviewCoverBytesAsync(sessionUserId.Value, bookId, bytes, cancellationToken);
+                contentType = "image/png";
+                ext = "png";
             }
 
             return File(bytes, contentType, $"book-{bookId}-{keySuffix}.{ext}");

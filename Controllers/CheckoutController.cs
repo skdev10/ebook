@@ -15,7 +15,7 @@ namespace EBookDashboard.Controllers
 {
     [Route("[controller]/[action]")]
     [Authorize]
-    public class CheckoutController : Controller
+    public partial class CheckoutController : Controller
     {
         private readonly IConfiguration _config;
         private readonly ApplicationDbContext _context;

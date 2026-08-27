@@ -17,6 +17,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Recommendations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Org.BouncyCastle.Asn1.Cmp;
@@ -2105,6 +2106,9 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
+            var finalizedGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: false, hardcover: false, cancellationToken);
+            if (finalizedGate != null) return finalizedGate;
+
             var details = await _chapterIterationService.BuildPdfReadyFromFinalizedAsync(sessionUserId.Value, req.BookId, cancellationToken);
             if (details == null || !details.Success)
                 return BadRequest(new { success = false, message = "No finalized chapters yet. On Book formatting, pick a draft version per chapter and use Finalize, then try again." });
@@ -3031,6 +3035,9 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
+            var gate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: false, hardcover: false, cancellationToken);
+            if (gate != null) return gate;
+
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success || details.Chapters == null || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
                 return BadRequest(new { success = false, message = "No chapter content to export." });
@@ -3145,6 +3152,9 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
+            var docxGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: false, hardcover: false, cancellationToken);
+            if (docxGate != null) return docxGate;
+
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success || details.Chapters == null || !details.Chapters.Any(c => !string.IsNullOrWhiteSpace(c.Content)))
                 return BadRequest(new { success = false, message = "No chapter content to export." });
@@ -3200,6 +3210,9 @@ namespace EBookDashboard.Controllers
                 .AnyAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
+
+            var draftGate = await ExportGating.RequirePaidJsonAsync(HttpContext, bookId, paperback: false, hardcover: false, cancellationToken);
+            if (draftGate != null) return draftGate;
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, bookId);
             if (details == null || !details.Success || details.Chapters == null
@@ -3282,6 +3295,10 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
+            var printHardcover = string.Equals(fmt, "Hardcover", StringComparison.OrdinalIgnoreCase);
+            var printGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: !printHardcover, hardcover: printHardcover, cancellationToken);
+            if (printGate != null) return printGate;
+
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
                 return BadRequest(new { success = false, message = details?.Message ?? "Could not load book." });
@@ -3352,6 +3369,9 @@ namespace EBookDashboard.Controllers
                 .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
+
+            var bundleGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: true, hardcover: false, cancellationToken);
+            if (bundleGate != null) return bundleGate;
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
             if (details == null || !details.Success)
@@ -3574,6 +3594,9 @@ namespace EBookDashboard.Controllers
                 .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
+
+            var coverGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: true, hardcover: false, cancellationToken);
+            if (coverGate != null) return coverGate;
 
             // Full wrap only — never fall back to front/aiCoverLastPreview (that made export ≠ preview).
             var wrapKey = $"book:{req.BookId}:printReadyCoverWrap";
@@ -4360,6 +4383,9 @@ namespace EBookDashboard.Controllers
             if (book == null)
                 return NotFound();
 
+            var htmlPdfGate = await ExportGating.RequirePaidRedirectAsync(HttpContext, bookId, paperback: false, hardcover: false, cancellationToken);
+            if (htmlPdfGate != null) return htmlPdfGate;
+
             var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
                 _context, userId.Value, book.BookId, book.Title);
             var authorRow = await _context.Users.AsNoTracking()
@@ -4816,6 +4842,35 @@ namespace EBookDashboard.Controllers
         }
 
         // ========================== COVER ===========================
+        /// <summary>Preview-only cover image. Custom uploads are watermarked until the book is entitled.</summary>
+        [HttpGet]
+        [Route("Books/CoverPreview/{bookId:int}")]
+        public async Task<IActionResult> CoverPreview(int bookId, CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null) return Unauthorized();
+
+            var book = await _context.Books.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value, cancellationToken);
+            if (book == null) return NotFound();
+
+            var frontKey = $"book:{bookId}:printReadyCoverFront";
+            var frontRow = await _context.Settings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Key == frontKey, cancellationToken);
+            var refValue = (frontRow?.Value ?? book.CoverImagePath ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(refValue))
+                return NotFound();
+
+            var bytes = await CoverImageRefLoader.TryReadAsBytesAsync(
+                refValue, _hostEnvironment.WebRootPath, _httpClientFactory, cancellationToken);
+            if (bytes == null || bytes.Length == 0)
+                return NotFound();
+
+            var access = HttpContext.RequestServices.GetRequiredService<IExportAccessService>();
+            bytes = await access.PreviewCoverBytesAsync(sessionUserId.Value, bookId, bytes, cancellationToken);
+            return File(bytes, "image/png");
+        }
+
         [HttpPost]
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> UploadCover(int bookId, IFormFile file, string? part = "front")
@@ -4853,6 +4908,30 @@ namespace EBookDashboard.Controllers
                 book.UpdatedAt = DateTime.UtcNow;
                 await UpsertSettingAsync($"book:{bookId}:aiCoverLastPreview", relativePath, "Book");
                 await UpsertSettingAsync($"book:{bookId}:printReadyCoverFront", relativePath, "Book");
+                var coverRow = await _context.BookCoverDesigns
+                    .FirstOrDefaultAsync(c => c.BookId == bookId && c.UserId == sessionUserId.Value && !c.IsDeleted);
+                if (coverRow == null)
+                {
+                    coverRow = new BookCoverDesign
+                    {
+                        BookId = bookId,
+                        UserId = sessionUserId.Value,
+                        CoverType = "Ebook",
+                        DisplayName = "Uploaded cover",
+                        FrontImagePath = relativePath,
+                        CoverSource = CoverSource.UserUpload,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.BookCoverDesigns.Add(coverRow);
+                }
+                else
+                {
+                    coverRow.CoverSource = CoverSource.UserUpload;
+                    coverRow.FrontImagePath = relativePath;
+                    coverRow.UpdatedAt = DateTime.UtcNow;
+                }
             }
             else if (partKey == "back")
             {
@@ -4865,7 +4944,7 @@ namespace EBookDashboard.Controllers
 
             await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, path = relativePath, part = partKey });
+            return Ok(new { success = true, path = $"/Books/CoverPreview/{bookId}", storedPath = relativePath, part = partKey });
         }
 
         [HttpPost]
@@ -4883,6 +4962,13 @@ namespace EBookDashboard.Controllers
             var placeholder = "/images/ai-cover-placeholder.png";
             book.CoverImagePath = placeholder;
             book.UpdatedAt = DateTime.UtcNow;
+            var aiCoverRow = await _context.BookCoverDesigns
+                .FirstOrDefaultAsync(c => c.BookId == bookId && c.UserId == sessionUserId.Value && !c.IsDeleted);
+            if (aiCoverRow != null)
+            {
+                aiCoverRow.CoverSource = CoverSource.AiGenerated;
+                aiCoverRow.UpdatedAt = DateTime.UtcNow;
+            }
             await _context.SaveChangesAsync();
             await UpsertSettingAsync($"book:{bookId}:aiCoverPrompt", prompt ?? "", "Book");
 

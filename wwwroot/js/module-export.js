@@ -44,6 +44,10 @@
             if (ct.indexOf('json') >= 0) {
                 try {
                     var j = await res.json();
+                    if (j && j.checkoutUrl) {
+                        window.location = j.checkoutUrl;
+                        return { ok: false, message: j.message || 'Payment required' };
+                    }
                     if (j && j.message) msg = j.message;
                 } catch (_) { /* ignore */ }
             } else {
@@ -68,6 +72,18 @@
         var res = await fetch(url, { method: 'GET', credentials: 'same-origin' });
         if (!res.ok) {
             var msg = 'Download failed.';
+            var ctGet = (res.headers.get('content-type') || '').toLowerCase();
+            if (ctGet.indexOf('json') >= 0) {
+                try {
+                    var j = await res.json();
+                    if (j && j.checkoutUrl) {
+                        window.location = j.checkoutUrl;
+                        return { ok: false, message: j.message || 'Payment required' };
+                    }
+                    if (j && j.message) msg = j.message;
+                } catch (_) { /* ignore */ }
+                return { ok: false, message: msg };
+            }
             try {
                 var t = await res.text();
                 if (t) msg = t.slice(0, 200);
