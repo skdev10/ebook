@@ -2652,7 +2652,7 @@
         }
 
         function doDownload() {
-            var serverUrl = '/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bookId) + '&part=wrap&format=pdf';
+            var serverUrl = '/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bookId) + '&part=wrap&format=pdf&download=1';
             return fetch(serverUrl)
                 .then(function (r) {
                     if (r.ok) {

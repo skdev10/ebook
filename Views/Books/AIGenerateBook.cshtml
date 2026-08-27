@@ -1742,6 +1742,7 @@
         <div class="ai-writer-main-layout book-preview-layout-row dash-flow-grid dash-flow-grid--writer w-full flex flex-col lg:flex-row min-h-0">
         <!-- Left Column: Forms -->
         <div class="ai-writer-sidebar book-preview-layout-sidebar w-full flex flex-col gap-2 shrink-0 min-h-0">
+            @await Html.PartialAsync("_WritingCostMeter")
             <section class="flex flex-col gap-3" data-guided-tour="ai-book-picker">
                 <div data-guided-flow-only class="hidden" style="display:none">@await Html.PartialAsync("_FlowStepper", 1)</div>
                 <script>

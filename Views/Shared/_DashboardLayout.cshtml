@@ -3620,6 +3620,16 @@
                         <i data-lucide="users-round" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Ebook Hub</span>
                     </a>
                 </li>
+                <li>
+                    <a href="/pricing" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Pricing" ? "active" : "")">
+                        <i data-lucide="tag" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Pricing</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="/orders" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Orders" ? "active" : "")">
+                        <i data-lucide="receipt" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Orders</span>
+                    </a>
+                </li>
                 }
             </ul>
 

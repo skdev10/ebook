@@ -1,0 +1,47 @@
+<div id="writingCostMeter" class="pricing-meter" style="background:#fff;border:1px solid #E5E5E5;border-radius:14px;padding:14px 16px;">
+    <div style="font-size:12px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;">Writing cost</div>
+    <div style="font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;">
+        <div><span id="meterPages">0</span> pages</div>
+        <div class="meter-bar" style="height:8px;border-radius:99px;background:#ecfdf5;overflow:hidden;margin:8px 0;display:flex;">
+            <span id="meterFreeFill" style="background:#10b981;height:100%;width:0;"></span>
+            <span id="meterBillFill" style="background:#f59e0b;height:100%;width:0;"></span>
+        </div>
+        <div>Running writing cost: <strong id="meterCost">$0.00</strong></div>
+    </div>
+    <p style="margin:8px 0 0;font-size:12px;color:#6B6B6B;">Nothing is charged until you export. Keep writing, you can stop, edit or delete pages any time.</p>
+</div>
+<script>
+(function () {
+    var rates = { perPage: null, free: 0, wordsPerPage: 275 };
+    fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+        (d.rules || []).forEach(function (rule) {
+            if (rule.key === 'writing.per_page') { rates.perPage = rule.unitAmount; rates.free = rule.freeAllowance; }
+        });
+        if (d.wordsPerPage) rates.wordsPerPage = d.wordsPerPage;
+        tick();
+    }).catch(function () {});
+    function words() {
+        var el = document.getElementById('bookResult') || document.querySelector('[data-word-count]');
+        var text = el ? (el.innerText || el.textContent || '') : '';
+        return (text.match(/\b\w+\b/g) || []).length;
+    }
+    function tick() {
+        var pages = Math.ceil(words() / rates.wordsPerPage) || 0;
+        var billable = Math.max(0, pages - (rates.free || 0));
+        var cost = rates.perPage == null ? null : billable * rates.perPage;
+        var pagesEl = document.getElementById('meterPages');
+        var costEl = document.getElementById('meterCost');
+        if (pagesEl) pagesEl.textContent = String(pages);
+        if (costEl) costEl.textContent = cost == null ? '…' : '$' + cost.toFixed(2);
+        var max = Math.max(pages, rates.free || 1, 1);
+        var freeW = Math.min(pages, rates.free) / max * 100;
+        var billW = billable / max * 100;
+        var ff = document.getElementById('meterFreeFill');
+        var bf = document.getElementById('meterBillFill');
+        if (ff) ff.style.width = freeW + '%';
+        if (bf) bf.style.width = billW + '%';
+    }
+    setInterval(tick, 4000);
+    document.addEventListener('input', tick);
+})();
+</script>

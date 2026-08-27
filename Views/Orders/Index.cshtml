@@ -1,0 +1,30 @@
+@model List<EBookDashboard.Models.Order>
+@{
+    ViewData["Title"] = "Orders";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+    var orders = Model ?? new List<EBookDashboard.Models.Order>();
+}
+<div style="max-width:960px;margin:0 auto;padding:24px 16px 64px;">
+    <h1 style="margin:0 0 16px;">Orders and receipts</h1>
+    @if (!orders.Any())
+    {
+        <p style="color:#64748b;">No purchases yet.</p>
+    }
+    @foreach (var o in orders)
+    {
+        <div style="background:#fff;border:1px solid #E5E5E5;border-radius:16px;padding:18px;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;gap:12px;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace;">
+                <strong>#@o.Id · @o.Status</strong>
+                <span>@o.Total.ToString("0.00") @o.Currency</span>
+            </div>
+            <div style="font-size:12px;color:#64748b;">@o.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC @if (o.BookId.HasValue) { <text>· book @o.BookId</text> }</div>
+            @foreach (var item in o.Items)
+            {
+                <div style="display:flex;justify-content:space-between;font-size:13px;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,Consolas,monospace;">
+                    <span>@item.Description</span>
+                    <span>@item.LineTotal.ToString("0.00")</span>
+                </div>
+            }
+        </div>
+    }
+</div>

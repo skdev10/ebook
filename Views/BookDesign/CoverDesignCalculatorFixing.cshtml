@@ -1494,6 +1494,9 @@
         display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
     .fmt-int-card__name { font-size: 0.74rem; font-weight: 600; color: #111827; padding: 6px 10px; background: #fafafa; }
+    .fmt-int-card[data-premium="1"] .fmt-int-card__preview { filter: blur(2.5px); }
+    .fmt-lock { display:inline-block; margin-left:4px; background:#fffbeb; color:#b45309; border-radius:999px; padding:1px 6px; font-size:10px; font-weight:700; }
+    .fmt-lock-amt { font-family: ui-monospace, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 
     .fmt-int-card[data-style="ElegantTrade"] .fmt-int-card__preview,
     .fmt-int-card[data-style="ElegantTradePOD"] .fmt-int-card__preview { background: #FDFBF7; }
@@ -2417,18 +2420,28 @@
                                 <option value="ElegantTrade" selected="@(curStyle == "ElegantTrade")">Elegant trade</option>
                             </select>
                             <div id="fmt-interior-cards" class="grid grid-cols-2 sm:grid-cols-3 gap-2" role="group" aria-label="Interior style">
-                                <button type="button" class="fmt-int-card" data-style="ElegantTradePOD"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade (POD)</span></button>
+                                <button type="button" class="fmt-int-card" data-style="ElegantTradePOD" data-premium="1"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade (POD) <span class="fmt-lock">Premium</span> <span class="fmt-lock-amt" data-premium-price></span></span></button>
                                 <button type="button" class="fmt-int-card" data-style="Traditional"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Traditional</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Novel"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Novel</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Contemporary"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Contemporary</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Modern"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Modern</span></button>
-                                <button type="button" class="fmt-int-card" data-style="FineBook"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Fine book</span></button>
+                                <button type="button" class="fmt-int-card" data-style="FineBook" data-premium="1"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Fine book <span class="fmt-lock">Premium</span> <span class="fmt-lock-amt" data-premium-price></span></span></button>
                                 <button type="button" class="fmt-int-card" data-style="Classic"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Classic</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Clean"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Clean</span></button>
                                 <button type="button" class="fmt-int-card" data-style="Minimalist"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Minimalist</span></button>
                                 <button type="button" class="fmt-int-card" data-style="POD"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">POD</span></button>
-                                <button type="button" class="fmt-int-card" data-style="ElegantTrade"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade</span></button>
+                                <button type="button" class="fmt-int-card" data-style="ElegantTrade" data-premium="1"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade <span class="fmt-lock">Premium</span> <span class="fmt-lock-amt" data-premium-price></span></span></button>
                             </div>
+                            <script>
+                            (function () {
+                                fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+                                    var rule = (d.rules || []).find(function (x) { return x.key === 'formatting.premium'; });
+                                    if (!rule) return;
+                                    var label = '$' + Number(rule.unitAmount).toFixed(2);
+                                    document.querySelectorAll('[data-premium-price]').forEach(function (el) { el.textContent = label; });
+                                }).catch(function () {});
+                            })();
+                            </script>
                         </div>
 
                         <div class="group">

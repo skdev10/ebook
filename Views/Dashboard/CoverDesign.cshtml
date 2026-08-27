@@ -672,6 +672,35 @@
 
                 <!-- Reference image: AI matches its palette + mood when generating -->
                 <div id="covRefImageBlock" class="cov-ref-drop mb-3">
+                    <div id="customCoverPayChoice" class="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-slate-700">
+                        <div class="font-semibold text-amber-800 mb-1">Uploaded image cover</div>
+                        <p class="mb-2 text-xs">You can keep designing. The clean file unlocks at export. This is a choice, not a toll.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <a id="unlockCoverBtn" href="#" class="inline-flex items-center rounded-lg bg-violet-600 text-white text-xs font-bold px-3 py-2">Unlock uploaded cover</a>
+                            <button type="button" id="useFreeAiCoverBtn" class="inline-flex items-center rounded-lg border border-slate-200 bg-white text-xs font-bold px-3 py-2">Use a free AI cover</button>
+                        </div>
+                    </div>
+                    <script>
+                    (function () {
+                        var q = new URLSearchParams(location.search);
+                        var id = q.get('bookId') || (location.pathname.match(/Cover\/(\d+)/) || [])[1];
+                        var a = document.getElementById('unlockCoverBtn');
+                        if (a && id) a.href = '/checkout/' + id;
+                        fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
+                            var rule = (d.rules || []).find(function (x) { return x.key === 'cover.custom_image'; });
+                            if (rule && a) a.textContent = 'Unlock uploaded cover — $' + Number(rule.unitAmount).toFixed(2);
+                        }).catch(function () {});
+                        var freeBtn = document.getElementById('useFreeAiCoverBtn');
+                        if (freeBtn) {
+                            freeBtn.addEventListener('click', function () {
+                                var remove = document.getElementById('covRefRemoveBtn');
+                                if (remove) remove.click();
+                                var gen = document.getElementById('btnGenerate');
+                                if (gen) gen.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            });
+                        }
+                    })();
+                    </script>
                     <input type="file" id="covRefImageInput" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" class="hidden" aria-label="Upload a reference cover image for the AI to match" />
                     <div id="covRefEmpty" class="flex items-center gap-3">
                         <button type="button" id="covRefPickBtn" class="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-white px-3.5 py-2 text-xs font-semibold text-violet-700 hover:bg-violet-50 transition-colors shrink-0">
@@ -3455,7 +3484,8 @@
                     }
                     var url = '/Dashboard/DownloadPrintReadyCoverAsset?bookId=' + encodeURIComponent(bid)
                         + '&part=' + encodeURIComponent(part)
-                        + '&format=' + encodeURIComponent(format);
+                        + '&format=' + encodeURIComponent(format)
+                        + '&download=1';
                     var ext = format === 'pdf' ? 'pdf' : 'png';
                     var result = await window.ModuleExport.getExport(url, 'cover-' + bid + '-' + part + '.' + ext);
                     if (!result.ok) toast('error', result.message || 'Download failed');
