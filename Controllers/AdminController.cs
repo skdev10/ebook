@@ -15,19 +15,21 @@ namespace EBookDashboard.Controllers
 {
     [Authorize]
     [ServiceFilter(typeof(RequireAdminAuthorizationFilter))]
-    public class AdminController : Controller
+    public partial class AdminController : Controller
     {
         private readonly IUserService _userService;
         private readonly IBookService _bookService;
         private readonly ApplicationDbContext _context;
         private readonly IDashboardService _dashboardService;
+        private readonly IAdminPanelSyncService _panelSync;
 
-        public AdminController(IUserService userService, IBookService bookService, ApplicationDbContext context, IDashboardService dashboardService)
+        public AdminController(IUserService userService, IBookService bookService, ApplicationDbContext context, IDashboardService dashboardService, IAdminPanelSyncService panelSync)
         {
             _userService = userService;
             _bookService = bookService;
             _context = context;
             _dashboardService = dashboardService;
+            _panelSync = panelSync;
         }
 
         // Helper method to check if current user is Admin
@@ -254,6 +256,8 @@ namespace EBookDashboard.Controllers
                 BooksCreated = _context.Books.Count(b => b.UserId == u.UserId)
             }).ToList();
 
+            await _panelSync.EnrichUserRowsAsync(viewModel);
+
             ViewBag.SearchTerm = searchTerm;
             ViewBag.RoleFilter = roleFilter;
             ViewBag.StatusFilter = statusFilter;
@@ -293,65 +297,88 @@ namespace EBookDashboard.Controllers
         public async Task<IActionResult> ProgressTracker()
         {
             var viewModel = new ProgressTrackerViewModel();
-
-            // Users by phase
             var users = await _context.Users.Include(u => u.Role).ToListAsync();
             var books = await _context.Books.ToListAsync();
+            var bookIds = books.Select(b => b.BookId).ToList();
+            var flowKeys = bookIds.Select(id => $"book:{id}:flowStep").ToList();
+            var flowRows = flowKeys.Count == 0
+                ? new Dictionary<string, string>()
+                : await _context.Settings.AsNoTracking()
+                    .Where(s => flowKeys.Contains(s.Key))
+                    .ToDictionaryAsync(s => s.Key, s => s.Value ?? "");
+
+            string FlowLabelFor(Books b)
+            {
+                if (BookFlowStateService.IsPublishedStatus(b.Status))
+                    return BookFlowStateService.StepToLabel(BookFlowStateService.StepPublish);
+                var step = flowRows.GetValueOrDefault($"book:{b.BookId}:flowStep", BookFlowStateService.StepGenerate);
+                return BookFlowStateService.StepToLabel(step);
+            }
+
+            int FlowPct(Books b)
+            {
+                if (BookFlowStateService.IsPublishedStatus(b.Status)) return 100;
+                var step = flowRows.GetValueOrDefault($"book:{b.BookId}:flowStep", BookFlowStateService.StepGenerate);
+                return BookFlowStateService.StepToPercent(step);
+            }
+
+            var writer = 0; var format = 0; var cover = 0; var publish = 0;
+            foreach (var b in books)
+            {
+                if (BookFlowStateService.IsPublishedStatus(b.Status)) { publish++; continue; }
+                var step = flowRows.GetValueOrDefault($"book:{b.BookId}:flowStep", BookFlowStateService.StepGenerate).Trim().ToLowerInvariant();
+                switch (step)
+                {
+                    case BookFlowStateService.StepFormat: format++; break;
+                    case BookFlowStateService.StepCover: cover++; break;
+                    case BookFlowStateService.StepPublish: publish++; break;
+                    default: writer++; break;
+                }
+            }
 
             viewModel.UsersByPhase = new Dictionary<string, int>
             {
                 { "Signup", users.Count },
-                { "Draft", books.Count(b => b.Status == "Draft") },
-                { "Generated", books.Count(b => b.Status == "Generated") },
-                { "Published", books.Count(b => b.Status == "Published") }
+                { "Has books", books.Select(b => b.UserId).Distinct().Count() },
+                { "Published", books.Count(b => BookFlowStateService.IsPublishedStatus(b.Status)) }
             };
 
             viewModel.BooksByPhase = new Dictionary<string, int>
             {
-                { "Draft", books.Count(b => b.Status == "Draft") },
-                { "Styled", books.Count(b => b.Status == "Styled") },
-                { "Previewed", books.Count(b => b.Status == "Previewed") },
-                { "Generated", books.Count(b => b.Status == "Generated") },
-                { "Published", books.Count(b => b.Status == "Published") }
+                { "AI Writer", writer },
+                { "Formatting", format },
+                { "Cover", cover },
+                { "Publish", publish }
             };
 
-            // User journeys
-            viewModel.UserJourneys = users.Select(u => new UserJourneyViewModel
+            viewModel.UserJourneys = users.Select(u =>
             {
-                UserId = u.UserId,
-                UserName = u.FullName,
-                SignupDate = u.CreatedAt,
-                CurrentPhase = books.Any(b => b.UserId == u.UserId) 
-                    ? books.Where(b => b.UserId == u.UserId).OrderByDescending(b => b.CreatedAt).First().Status 
-                    : "Signup",
-                DraftDate = books.Where(b => b.UserId == u.UserId && b.Status == "Draft").OrderBy(b => b.CreatedAt).Select(b => (DateTime?)b.CreatedAt).FirstOrDefault(),
-                GeneratedDate = books.Where(b => b.UserId == u.UserId && b.Status == "Generated").OrderBy(b => b.CreatedAt).Select(b => (DateTime?)b.CreatedAt).FirstOrDefault(),
-                PublishedDate = books.Where(b => b.UserId == u.UserId && b.Status == "Published").OrderBy(b => b.CreatedAt).Select(b => (DateTime?)b.CreatedAt).FirstOrDefault(),
-                DaysInCurrentPhase = 0 // Calculate based on current phase
+                var latest = books.Where(b => b.UserId == u.UserId).OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt).FirstOrDefault();
+                return new UserJourneyViewModel
+                {
+                    UserId = u.UserId,
+                    UserName = u.FullName,
+                    SignupDate = u.CreatedAt,
+                    CurrentPhase = latest == null ? "Signup" : FlowLabelFor(latest),
+                    DraftDate = books.Where(b => b.UserId == u.UserId).OrderBy(b => b.CreatedAt).Select(b => (DateTime?)b.CreatedAt).FirstOrDefault(),
+                    GeneratedDate = books.Where(b => b.UserId == u.UserId).OrderBy(b => b.CreatedAt).Select(b => (DateTime?)b.CreatedAt).FirstOrDefault(),
+                    PublishedDate = books.Where(b => b.UserId == u.UserId && BookFlowStateService.IsPublishedStatus(b.Status)).OrderBy(b => b.CreatedAt).Select(b => (DateTime?)b.CreatedAt).FirstOrDefault(),
+                    DaysInCurrentPhase = latest == null ? 0 : (int)(DateTime.UtcNow - (latest.UpdatedAt ?? latest.CreatedAt)).TotalDays
+                };
             }).ToList();
 
-            // Book progress
             var authors = await _context.Authors.ToListAsync();
             viewModel.BookProgresses = books.Select(b =>
             {
                 var author = authors.FirstOrDefault(a => a.AuthorId == b.AuthorId);
-                var progressPercentage = b.Status switch
-                {
-                    "Draft" => 20,
-                    "Styled" => 40,
-                    "Previewed" => 60,
-                    "Generated" => 80,
-                    "Published" => 100,
-                    _ => 0
-                };
-
                 return new BookProgressViewModel
                 {
                     BookId = b.BookId,
+                    UserId = b.UserId,
                     Title = b.Title,
                     AuthorName = author != null ? author.FullName : "Unknown",
-                    CurrentPhase = b.Status,
-                    ProgressPercentage = progressPercentage,
+                    CurrentPhase = FlowLabelFor(b),
+                    ProgressPercentage = FlowPct(b),
                     CreatedAt = b.CreatedAt,
                     LastUpdated = b.UpdatedAt
                 };
@@ -361,8 +388,17 @@ namespace EBookDashboard.Controllers
         }
 
         // GET: /Admin/Settings
-        public IActionResult Settings()
+        public async Task<IActionResult> Settings()
         {
+            var id = await GetCurrentAdminUserIdAsync();
+            Users? user = null;
+            if (id.HasValue)
+                user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == id.Value);
+            ViewBag.AdminUser = user;
+            var prefKeys = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key.StartsWith("admin:settings:"))
+                .ToListAsync();
+            ViewBag.AdminSettings = prefKeys.ToDictionary(s => s.Key, s => s.Value ?? "");
             return View();
         }
 
@@ -409,9 +445,11 @@ namespace EBookDashboard.Controllers
                 };
             }).ToList();
 
+            await _panelSync.EnrichBookRowsAsync(viewModel);
+
             ViewBag.SearchTerm = searchTerm;
             ViewBag.StatusFilter = statusFilter;
-            ViewBag.Statuses = new[] { "Draft", "Styled", "Previewed", "Generated", "Published" };
+            ViewBag.Statuses = new[] { "Draft", "Styled", "Previewed", "Generated", "Finalized", "Published" };
 
             return View(viewModel);
         }
@@ -428,8 +466,37 @@ namespace EBookDashboard.Controllers
         // GET: /Admin/UserPlanInfo
         public async Task<IActionResult> UserPlanInfo()
         {
-            var users = await _context.Users.ToListAsync();
-            return View(users);
+            var users = await _context.Users.AsNoTracking().ToListAsync();
+            var plans = await _context.AuthorPlans.AsNoTracking()
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+            var latestByUser = new Dictionary<int, AuthorPlans>();
+            foreach (var p in plans)
+            {
+                if (!latestByUser.ContainsKey(p.UserId))
+                    latestByUser[p.UserId] = p;
+            }
+
+            var now = DateTime.UtcNow;
+            var rows = users.Select(u =>
+            {
+                latestByUser.TryGetValue(u.UserId, out var plan);
+                var active = plan != null && plan.IsActive == 1 && (plan.EndDate.Year < 1981 || plan.EndDate >= now);
+                return new AdminUserPlanRow
+                {
+                    UserId = u.UserId,
+                    FullName = u.FullName ?? "",
+                    UserEmail = u.UserEmail ?? "",
+                    UserStatus = u.Status ?? "",
+                    PlanName = plan?.PlanName ?? "None",
+                    PlanStatus = plan == null ? "None" : active ? "Active" : plan.IsActive == 0 ? "Cancelled" : "Expired",
+                    StartDate = plan?.StartDate,
+                    EndDate = plan != null && plan.EndDate.Year > 1981 ? plan.EndDate : null,
+                    PlanRate = plan?.PlanRate ?? 0
+                };
+            }).OrderByDescending(r => r.PlanStatus == "Active").ThenBy(r => r.FullName).ToList();
+
+            return View(rows);
         }
 
         // GET: /Admin/BookOwnership
@@ -761,12 +828,6 @@ namespace EBookDashboard.Controllers
             return View();
         }
 
-        // GET: /Admin/AICoverManagement
-        public IActionResult AICoverManagement()
-        {
-            return View();
-        }
-
         // GET: /Admin/HelpFeedback
         public IActionResult HelpFeedback()
         {
@@ -856,7 +917,7 @@ namespace EBookDashboard.Controllers
                 .Include(u => u.Role)
                 .Where(u => u.FullName.Contains(q) || u.UserEmail.Contains(q))
                 .Take(5)
-                .Select(u => new { type = "user", id = u.UserId, title = u.FullName, subtitle = u.UserEmail, url = Url.Action("Users", "Admin") })
+                .Select(u => new { type = "user", id = u.UserId, title = u.FullName, subtitle = u.UserEmail, url = Url.Action("UserDetail", "Admin", new { id = u.UserId }) })
                 .ToListAsync();
             results.AddRange(users);
 
@@ -864,7 +925,7 @@ namespace EBookDashboard.Controllers
             var books = await _context.Books
                 .Where(b => b.Title.Contains(q))
                 .Take(5)
-                .Select(b => new { type = "book", id = b.BookId, title = b.Title, subtitle = b.Genre, url = Url.Action("ContentManagement", "Admin") })
+                .Select(b => new { type = "book", id = b.BookId, title = b.Title, subtitle = b.Genre, url = Url.Action("BookDetail", "Admin", new { id = b.BookId }) })
                 .ToListAsync();
             results.AddRange(books);
 
@@ -1021,6 +1082,12 @@ namespace EBookDashboard.Controllers
                 .Where(b => b.UserId == userId)
                 .CountAsync();
 
+            var plan = await _context.AuthorPlans.AsNoTracking()
+                .Where(p => p.UserId == userId && p.IsActive == 1)
+                .OrderByDescending(p => p.CreatedAt)
+                .Select(p => p.PlanName)
+                .FirstOrDefaultAsync();
+
             var userDetails = new
             {
                 userId = user.UserId,
@@ -1030,10 +1097,12 @@ namespace EBookDashboard.Controllers
                 roleName = user.Role != null ? user.Role.RoleName : "Unknown",
                 status = user.Status,
                 createdAt = user.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
-                lastLoginAt = user.LastLoginAt != default ? user.LastLoginAt.ToString("yyyy-MM-dd HH:mm:ss") : "Never",
+                lastLoginAt = user.LastLoginAt != default && user.LastLoginAt.Year > 1981 ? user.LastLoginAt.ToString("yyyy-MM-dd HH:mm:ss") : "Never",
                 profilePicturePath = user.ProfilePicturePath,
                 booksCreated = books,
-                profileCompletion = CalculateProfileCompletion(user)
+                profileCompletion = CalculateProfileCompletion(user),
+                planName = plan ?? "",
+                workspaceUrl = Url.Action("UserDetail", "Admin", new { id = user.UserId })
             };
 
             return Json(new { success = true, user = userDetails });

@@ -1,6 +1,12 @@
 ﻿@{
     ViewData["Title"] = "Settings - Admin Dashboard";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var adminUser = ViewBag.AdminUser as EBookDashboard.Models.Users;
+    var adminPrefs = ViewBag.AdminSettings as Dictionary<string, string> ?? new Dictionary<string, string>();
+    string Pref(string key) => adminPrefs.TryGetValue("admin:settings:" + key, out var v) ? v : "";
+    var nameParts = (adminUser?.FullName ?? "").Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+    var firstNameVal = nameParts.Length > 0 ? nameParts[0] : "";
+    var lastNameVal = nameParts.Length > 1 ? nameParts[1] : "";
 }
 
 <style>
@@ -79,27 +85,27 @@
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label for="firstName">First Name</label>
-                                            <input type="text" class="form-control" id="firstName" placeholder="Enter first name">
+                                            <input type="text" class="form-control" id="firstName" placeholder="Enter first name" value="@firstNameVal">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-group">
                                             <label for="lastName">Last Name</label>
-                                            <input type="text" class="form-control" id="lastName" placeholder="Enter last name">
+                                            <input type="text" class="form-control" id="lastName" placeholder="Enter last name" value="@lastNameVal">
                                         </div>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="email">Email Address</label>
-                                    <input type="email" class="form-control" id="email" placeholder="Enter email address" readonly>
+                                    <input type="email" class="form-control" id="email" placeholder="Enter email address" value="@(adminUser?.UserEmail ?? "")" readonly>
                                 </div>
                                 <div class="form-group">
                                     <label for="bio">Author Bio</label>
-                                    <textarea class="form-control" id="bio" rows="4" placeholder="Tell readers about yourself..."></textarea>
+                                    <textarea class="form-control" id="bio" rows="4" placeholder="Tell readers about yourself...">@Pref("bio")</textarea>
                                 </div>
                                 <div class="form-group">
                                     <label for="website">Website</label>
-                                    <input type="url" class="form-control" id="website" placeholder="https://yourwebsite.com">
+                                    <input type="url" class="form-control" id="website" placeholder="https://yourwebsite.com" value="@Pref("website")">
                                 </div>
                             </div>
                         </div>
@@ -139,7 +145,7 @@
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="city">City</label>
-                                    <input type="text" class="form-control" id="city" placeholder="Enter city">
+                                    <input type="text" class="form-control" id="city" placeholder="Enter city" value="@Pref("city")">
                                 </div>
                             </div>
                         </div>
@@ -1209,48 +1215,46 @@
     });
 
     // Save functions
-    function saveProfile() {
-        Swal.fire({
-            title: 'Saving Profile',
-            text: 'Please wait while we update your profile...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+    function postAdminSettings(map) {
+        return fetch('@Url.Action("SaveAdminSettings", "Admin")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(map)
+        }).then(r => r.json());
+    }
 
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Profile Updated!',
-                text: 'Your profile information has been updated successfully.',
-                icon: 'success',
-                confirmButtonColor: '#667eea'
-            });
-        }, 1500);
+    function saveProfile() {
+        const fd = new URLSearchParams();
+        fd.append('firstName', document.getElementById('firstName').value);
+        fd.append('lastName', document.getElementById('lastName').value);
+        Swal.fire({ title: 'Saving Profile', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+        fetch('@Url.Action("SaveAdminProfile", "Admin")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            credentials: 'same-origin',
+            body: fd.toString()
+        }).then(r => r.json()).then(data => {
+            return postAdminSettings({
+                bio: document.getElementById('bio').value,
+                website: document.getElementById('website').value
+            }).then(() => data);
+        }).then(data => {
+            if (data && data.success) Swal.fire({ title: 'Profile Updated!', text: data.message || 'Saved', icon: 'success', confirmButtonColor: '#667eea' });
+            else Swal.fire({ title: 'Error', text: (data && data.message) || 'Save failed', icon: 'error' });
+        }).catch(() => Swal.fire({ title: 'Error', text: 'Save failed', icon: 'error' }));
     }
 
     function saveLocation() {
-        Swal.fire({
-            title: 'Saving Location',
-            text: 'Please wait while we update your location...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Location Updated!',
-                text: 'Your location information has been updated successfully.',
-                icon: 'success',
-                confirmButtonColor: '#667eea'
-            });
-        }, 1500);
+        Swal.fire({ title: 'Saving Location', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+        postAdminSettings({
+            country: document.getElementById('country').value,
+            city: document.getElementById('city').value,
+            timezone: document.getElementById('timezone').value
+        }).then(data => {
+            if (data.success) Swal.fire({ title: 'Location Updated!', icon: 'success', confirmButtonColor: '#667eea' });
+            else Swal.fire({ title: 'Error', text: data.message || 'Save failed', icon: 'error' });
+        }).catch(() => Swal.fire({ title: 'Error', text: 'Save failed', icon: 'error' }));
     }
 
     function changePassword() {
@@ -1337,114 +1341,60 @@
 
     }
 
-    function saveNotifications() {
-        Swal.fire({
-            title: 'Saving Preferences',
-            text: 'Please wait while we update your notification settings...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+    function checkboxBlob(rootSelector) {
+        const root = document.querySelector(rootSelector);
+        if (!root) return '';
+        return Array.from(root.querySelectorAll('input[type=checkbox]')).map(c => c.checked ? '1' : '0').join(',');
+    }
 
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Preferences Saved!',
-                text: 'Your notification preferences have been updated successfully.',
-                icon: 'success',
-                confirmButtonColor: '#667eea'
-            });
-        }, 1500);
+    function restoreCheckboxBlob(rootSelector, blob) {
+        if (!blob) return;
+        const bits = blob.split(',');
+        const boxes = document.querySelectorAll(rootSelector + ' input[type=checkbox]');
+        boxes.forEach(function (box, i) { if (bits[i] !== undefined) box.checked = bits[i] === '1'; });
+    }
+
+    function saveNotifications() {
+        Swal.fire({ title: 'Saving Preferences', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+        postAdminSettings({ notifyBlob: checkboxBlob('#notifications-tab') }).then(data => {
+            if (data.success) Swal.fire({ title: 'Preferences Saved!', icon: 'success', confirmButtonColor: '#667eea' });
+            else Swal.fire({ title: 'Error', text: data.message || 'Save failed', icon: 'error' });
+        });
     }
 
     function savePreferences() {
-        Swal.fire({
-            title: 'Saving Preferences',
-            text: 'Please wait while we update your writing preferences...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+        Swal.fire({ title: 'Saving Preferences', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+        postAdminSettings({ prefsBlob: checkboxBlob('#preferences-tab') }).then(data => {
+            if (data.success) Swal.fire({ title: 'Preferences Saved!', icon: 'success', confirmButtonColor: '#667eea' });
+            else Swal.fire({ title: 'Error', text: data.message || 'Save failed', icon: 'error' });
         });
-
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Preferences Saved!',
-                text: 'Your writing preferences have been updated successfully.',
-                icon: 'success',
-                confirmButtonColor: '#667eea'
-            });
-        }, 1500);
     }
 
     function saveLanguage() {
-        Swal.fire({
-            title: 'Saving Language Settings',
-            text: 'Please wait while we update your language preferences...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+        Swal.fire({ title: 'Saving Language Settings', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+        postAdminSettings({ language: document.getElementById('language')?.value || '' }).then(data => {
+            if (data.success) Swal.fire({ title: 'Language Settings Saved!', icon: 'success', confirmButtonColor: '#667eea' });
+            else Swal.fire({ title: 'Error', text: data.message || 'Save failed', icon: 'error' });
         });
-
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Language Settings Saved!',
-                text: 'Your language and region settings have been updated successfully.',
-                icon: 'success',
-                confirmButtonColor: '#667eea'
-            });
-        }, 1500);
     }
 
     function savePayout() {
-        Swal.fire({
-            title: 'Saving Payout Settings',
-            text: 'Please wait while we update your payout preferences...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+        Swal.fire({ title: 'Saving Payout Settings', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+        postAdminSettings({
+            payoutEmail: document.getElementById('payoutMethod')?.value || '',
+            payoutBlob: [document.getElementById('payoutMethod')?.value, document.getElementById('payoutThreshold')?.value, document.getElementById('payoutSchedule')?.value].join('|')
+        }).then(data => {
+            if (data.success) Swal.fire({ title: 'Payout Settings Saved!', icon: 'success', confirmButtonColor: '#667eea' });
+            else Swal.fire({ title: 'Error', text: data.message || 'Save failed', icon: 'error' });
         });
-
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Payout Settings Saved!',
-                text: 'Your payout preferences have been updated successfully.',
-                icon: 'success',
-                confirmButtonColor: '#667eea'
-            });
-        }, 1500);
     }
 
     function saveTaxInfo() {
-        Swal.fire({
-            title: 'Saving Tax Information',
-            text: 'Please wait while we update your tax information...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
+        Swal.fire({ title: 'Saving Tax Information', allowOutsideClick: false, showConfirmButton: false, didOpen: () => Swal.showLoading() });
+        postAdminSettings({ taxId: document.getElementById('taxId')?.value || '' }).then(data => {
+            if (data.success) Swal.fire({ title: 'Tax Information Saved!', icon: 'success', confirmButtonColor: '#667eea' });
+            else Swal.fire({ title: 'Error', text: data.message || 'Save failed', icon: 'error' });
         });
-
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Tax Information Saved!',
-                text: 'Your tax information has been updated successfully.',
-                icon: 'success',
-                confirmButtonColor: '#667eea'
-            });
-        }, 1500);
     }
 
     function enableTwoFactor() {
@@ -1508,71 +1458,23 @@
 
     function addPaymentMethod() {
         Swal.fire({
-            title: 'Add Payment Method',
-            html: `
-                <div style="text-align: left;">
-                    <div style="margin-bottom: 15px;">
-                        <label for="paymentType">Payment Method Type</label>
-                        <select id="paymentType" class="swal2-select" style="width: 100%;">
-                            <option value="bank">Bank Account</option>
-                            <option value="paypal">PayPal</option>
-                            <option value="card">Credit/Debit Card</option>
-                        </select>
-                    </div>
-                    <div id="paymentFormFields">
-                        <div style="margin-bottom: 15px;">
-                            <label for="accountHolder">Account Holder Name</label>
-                            <input type="text" id="accountHolder" class="swal2-input" placeholder="Enter account holder name" style="width: 100%;">
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <label for="accountNumber">Account Number</label>
-                            <input type="text" id="accountNumber" class="swal2-input" placeholder="Enter account number" style="width: 100%;">
-                        </div>
-                        <div style="margin-bottom: 15px;">
-                            <label for="routingNumber">Routing Number</label>
-                            <input type="text" id="routingNumber" class="swal2-input" placeholder="Enter routing number" style="width: 100%;">
-                        </div>
-                    </div>
-                </div>
-            `,
-            showCancelButton: true,
-            confirmButtonColor: '#667eea',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Add Payment Method',
-            preConfirm: () => {
-                const accountHolder = document.getElementById('accountHolder').value;
-                const accountNumber = document.getElementById('accountNumber').value;
-                const routingNumber = document.getElementById('routingNumber').value;
-
-                if (!accountHolder || !accountNumber || !routingNumber) {
-                    Swal.showValidationMessage('Please fill in all required fields');
-                    return false;
-                }
-                return { accountHolder, accountNumber, routingNumber };
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Adding Payment Method...',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                // Simulate adding payment method
-                setTimeout(() => {
-                    Swal.fire({
-                        title: 'Payment Method Added!',
-                        text: 'Your payment method has been added successfully.',
-                        icon: 'success',
-                        confirmButtonColor: '#667eea'
-                    });
-                }, 1500);
-            }
+            title: 'User billing is Stripe',
+            html: 'Admin payout/bank details are not stored here. User subscriptions live under <a href="@Url.Action("Subscriptions", "Admin")">Subscriptions</a>.',
+            icon: 'info',
+            confirmButtonColor: '#667eea'
         });
     }
+
+    (function restoreAdminPrefs() {
+        var country = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Pref("country")));
+        var timezone = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Pref("timezone")));
+        var language = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Pref("language")));
+        if (country && document.getElementById('country')) document.getElementById('country').value = country;
+        if (timezone && document.getElementById('timezone')) document.getElementById('timezone').value = timezone;
+        if (language && document.getElementById('language')) document.getElementById('language').value = language;
+        restoreCheckboxBlob('#notifications-tab', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Pref("notifyBlob"))));
+        restoreCheckboxBlob('#preferences-tab', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Pref("prefsBlob"))));
+    })();
 
     // Initialize AOS
     AOS.init({

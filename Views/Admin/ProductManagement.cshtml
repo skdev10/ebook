@@ -45,7 +45,7 @@
                     foreach (var r in rows)
                     {
                         <tr style="border-top:1px solid #f3f4f6;">
-                            <td style="padding:14px 18px;font-weight:600;color:#1e293b;">@r.Title</td>
+                            <td style="padding:14px 18px;font-weight:600;color:#1e293b;"><a href="@Url.Action("BookDetail", "Admin", new { id = r.BookId })" style="color:#6d28d9;text-decoration:none;">@r.Title</a></td>
                             <td style="padding:14px 12px;color:#64748b;">@(string.IsNullOrWhiteSpace(r.Genre) ? "—" : r.Genre)</td>
                             <td style="padding:14px 12px;"><span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:0.75rem;font-weight:600;background:#f5f3ff;color:#6d28d9;">@r.Status</span></td>
                             <td style="padding:14px 12px;text-align:right;color:#64748b;">@r.WordCount.ToString("N0")</td>

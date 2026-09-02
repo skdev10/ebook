@@ -52,7 +52,13 @@
             
             <select class="form-control" id="authorFilter">
                 <option value="">All Authors</option>
-                <!-- Authors will be populated dynamically -->
+                @if (ViewBag.Authors is IEnumerable<EBookDashboard.Models.Authors> ownershipAuthors)
+                {
+                    foreach (var a in ownershipAuthors.OrderBy(x => x.FullName))
+                    {
+                        <option value="@a.FullName">@a.FullName</option>
+                    }
+                }
             </select>
         </div>
     </div>
@@ -97,7 +103,7 @@
                                 if (author != null)
                                 {
                                     <div class="author-info">
-                                        <div class="author-avatar">@author.FullName.Substring(0, 1)</div>
+                                        <div class="author-avatar">@(string.IsNullOrWhiteSpace(author.FullName) ? "?" : author.FullName.Trim()[0].ToString())</div>
                                         <span>@author.FullName</span>
                                     </div>
                                 }
@@ -112,12 +118,12 @@
                             }
                         </td>
                         <td><span class="genre-badge">@book.Genre</span></td>
-                        <td><span class="status-badge @book.Status.ToLower()">@book.Status</span></td>
+                        <td><span class="status-badge @((book.Status ?? "").ToLowerInvariant())">@(book.Status ?? "—")</span></td>
                         <td>@book.CreatedAt.ToString("MMM dd, yyyy")</td>
                         <td>@book.WordCount.ToString("N0")</td>
                         <td>
-                            <button class="btn-action" onclick="viewBook(@book.BookId)" title="View Details"><i class="fas fa-eye"></i></button>
-                            <button class="btn-action" onclick="editBook(@book.BookId)" title="Edit"><i class="fas fa-edit"></i></button>
+                            <a class="btn-action" href="@Url.Action("BookDetail", "Admin", new { id = book.BookId })" title="View Details"><i class="fas fa-eye"></i></a>
+                            <a class="btn-action" href="@Url.Action("BookDetail", "Admin", new { id = book.BookId })" title="Open workspace"><i class="fas fa-edit"></i></a>
                         </td>
                     </tr>
                 }
@@ -541,30 +547,11 @@
 
     // Modal functions
     function viewBook(id) {
-        Swal.fire({
-            title: 'Book Details',
-            html: `
-                <div style="text-align: left;">
-                    <h4>The Adventure Begins</h4>
-                    <p><strong>Author:</strong> John Doe</p>
-                    <p><strong>Genre:</strong> Fantasy</p>
-                    <p><strong>Status:</strong> <span class="badge bg-success">Published</span></p>
-                    <p><strong>Word Count:</strong> 85,420</p>
-                    <p><strong>Chapters:</strong> 24</p>
-                    <p><strong>Created:</strong> Jan 15, 2023</p>
-                </div>
-            `,
-            confirmButtonColor: '#7c3aed'
-        });
+        window.location.href = '@Url.Action("BookDetail", "Admin")/' + encodeURIComponent(id);
     }
 
     function editBook(id) {
-        Swal.fire({
-            title: 'Edit Book',
-            text: 'This would open the book editor in a real application.',
-            icon: 'info',
-            confirmButtonColor: '#7c3aed'
-        });
+        window.location.href = '@Url.Action("BookDetail", "Admin")/' + encodeURIComponent(id);
     }
 
     // Initialize AOS

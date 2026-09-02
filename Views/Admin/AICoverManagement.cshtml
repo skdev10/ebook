@@ -1,6 +1,8 @@
+@model EBookDashboard.Models.ViewModels.AdminCoverManagementViewModel
 @{
     ViewData["Title"] = "AI Book Cover Management";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var vm = Model ?? new EBookDashboard.Models.ViewModels.AdminCoverManagementViewModel();
 }
 
 <style>
@@ -146,20 +148,20 @@
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-value">1,234</div>
-            <div class="stat-label">Total Covers Generated</div>
+            <div class="stat-value">@vm.TotalCovers.ToString("N0")</div>
+            <div class="stat-label">Total Covers (user Cover Studio)</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">89</div>
+            <div class="stat-value">@vm.CoversToday.ToString("N0")</div>
             <div class="stat-label">Covers Today</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">$2.99</div>
+            <div class="stat-value">$@vm.CoverPrice</div>
             <div class="stat-label">Current Price per Cover</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">12</div>
-            <div class="stat-label">Flagged for Review</div>
+            <div class="stat-value">@vm.FailedCovers.ToString("N0")</div>
+            <div class="stat-label">Failed / needs review</div>
         </div>
     </div>
 
@@ -168,17 +170,17 @@
         <form id="pricingForm">
             <div class="form-group">
                 <label class="form-label">Price per Cover ($)</label>
-                <input type="number" class="form-control" id="coverPrice" value="2.99" step="0.01" />
+                <input type="number" class="form-control" id="coverPrice" value="@vm.CoverPrice" step="0.01" />
             </div>
             <div class="form-group">
                 <label class="form-label">Daily Generation Limit</label>
-                <input type="number" class="form-control" id="dailyLimit" value="100" />
+                <input type="number" class="form-control" id="dailyLimit" value="@vm.DailyLimit" />
             </div>
             <div class="form-group">
                 <label class="form-label">Monthly Generation Limit</label>
-                <input type="number" class="form-control" id="monthlyLimit" value="2000" />
+                <input type="number" class="form-control" id="monthlyLimit" value="@vm.MonthlyLimit" />
             </div>
-            <button type="button" class="btn btn-primary" onclick="savePricing()">
+            <button type="button" class="btn btn-primary" onclick="saveCoverSettings()">
                 <i class="fas fa-save"></i> Save Settings
             </button>
         </form>
@@ -188,9 +190,9 @@
         <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px;">Default Prompts</h3>
         <div class="form-group">
             <label class="form-label">Default Cover Prompt</label>
-            <textarea class="form-control" id="defaultPrompt" rows="4" placeholder="Enter default AI prompt for cover generation"></textarea>
+            <textarea class="form-control" id="defaultPrompt" rows="4" placeholder="Enter default AI prompt for cover generation">@vm.DefaultPrompt</textarea>
         </div>
-        <button type="button" class="btn btn-primary" onclick="savePrompt()">
+        <button type="button" class="btn btn-primary" onclick="saveCoverSettings()">
             <i class="fas fa-save"></i> Save Prompt
         </button>
     </div>
@@ -204,24 +206,34 @@
                         <th>Cover ID</th>
                         <th>User</th>
                         <th>Book Title</th>
-                        <th>Prompt Used</th>
+                        <th>Type</th>
                         <th>Status</th>
-                        <th>Generated</th>
+                        <th>Updated</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td>#1234</td>
-                        <td>John Doe</td>
-                        <td>The Adventure</td>
-                        <td>Fantasy book cover...</td>
-                        <td><span style="color: var(--success);">✓ Approved</span></td>
-                        <td>2 hours ago</td>
-                        <td>
-                            <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="viewCover(1234)">View</button>
-                        </td>
-                    </tr>
+                @if (!vm.Recent.Any())
+                {
+                    <tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-secondary);">No covers from the user Cover Studio yet.</td></tr>
+                }
+                else
+                {
+                    foreach (var c in vm.Recent)
+                    {
+                        <tr>
+                            <td>#@c.CoverId</td>
+                            <td>@c.UserName</td>
+                            <td>@c.BookTitle</td>
+                            <td>@c.CoverType</td>
+                            <td>@c.Status</td>
+                            <td>@c.UpdatedAt.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                <a class="btn" style="padding: 6px 12px; font-size: 12px;" href="@Url.Action("BookDetail", "Admin", new { id = c.BookId })">Workspace</a>
+                            </td>
+                        </tr>
+                    }
+                }
                 </tbody>
             </table>
         </div>
@@ -230,45 +242,25 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    function savePricing() {
-        Swal.fire({
-            title: 'Saving Settings...',
-            text: 'Please wait',
-            icon: 'info',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        setTimeout(() => {
-            Swal.fire('Success!', 'Pricing settings saved successfully.', 'success');
-        }, 1500);
-    }
-
-    function savePrompt() {
-        Swal.fire({
-            title: 'Saving Prompt...',
-            text: 'Please wait',
-            icon: 'info',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        setTimeout(() => {
-            Swal.fire('Success!', 'Prompt saved successfully.', 'success');
-        }, 1500);
-    }
-
-    function viewCover(id) {
-        Swal.fire({
-            title: 'Cover Details',
-            html: `Cover ID: ${id}<br>View cover details and moderation options.`,
-            showConfirmButton: true,
-            confirmButtonText: 'Close'
-        });
+    async function saveCoverSettings() {
+        const payload = {
+            coverPrice: document.getElementById('coverPrice').value,
+            dailyLimit: document.getElementById('dailyLimit').value,
+            monthlyLimit: document.getElementById('monthlyLimit').value,
+            defaultPrompt: document.getElementById('defaultPrompt').value
+        };
+        try {
+            const r = await fetch('@Url.Action("SaveCoverSettings", "Admin")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify(payload)
+            });
+            const data = await r.json();
+            Swal.fire(data.success ? 'Saved' : 'Error', data.message || '', data.success ? 'success' : 'error');
+        } catch (e) {
+            Swal.fire('Error', 'Could not save cover settings', 'error');
+        }
     }
 </script>
 

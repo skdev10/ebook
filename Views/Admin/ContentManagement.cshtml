@@ -559,6 +559,12 @@
                 <div class="book-meta">
                     <span><i class="fas fa-calendar"></i> @book.CreatedAt.ToString("MMM dd, yyyy")</span>
                     <span><i class="fas fa-file-word"></i> @book.WordCount words</span>
+                    <span><i class="fas fa-list"></i> @book.ChapterCount ch</span>
+                </div>
+                <div style="margin-bottom: 8px; font-size: 12px; color: var(--text-secondary);">
+                    @book.FlowLabel · @book.FlowPercent%
+                    @(book.HasCover ? " · Cover" : "")
+                    @(book.HasFormatting ? " · Formatted" : "")
                 </div>
                 <div style="margin-bottom: 12px;">
                     <span class="phase-badge phase-@book.Status.ToLower()">@book.Status</span>
@@ -567,6 +573,9 @@
                     <button class="btn-icon" onclick="event.stopPropagation(); viewBookDetails(@book.BookId)" title="View">
                         <i class="fas fa-eye"></i>
                     </button>
+                    <a class="btn-icon" href="@Url.Action("BookDetail", "Admin", new { id = book.BookId })" onclick="event.stopPropagation();" title="Workspace">
+                        <i class="fas fa-layer-group"></i>
+                    </a>
                     <button class="btn-icon" onclick="event.stopPropagation(); editBook(@book.BookId)" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -588,6 +597,7 @@
                     <th>Status</th>
                     <th>Genre</th>
                     <th>Word Count</th>
+                    <th>Flow</th>
                     <th>Created Date</th>
                     <th>Actions</th>
                 </tr>
@@ -605,9 +615,13 @@
                         </td>
                         <td class="table-cell">@book.Genre</td>
                         <td class="table-cell">@book.WordCount</td>
+                        <td class="table-cell">@book.FlowLabel (@book.ChapterCount ch)</td>
                         <td class="table-cell">@book.CreatedAt.ToString("MMM dd, yyyy")</td>
                         <td class="table-cell">
                             <div style="display: flex; gap: 8px;">
+                                <a class="btn-icon" href="@Url.Action("BookDetail", "Admin", new { id = book.BookId })" title="Workspace">
+                                    <i class="fas fa-layer-group"></i>
+                                </a>
                                 <button class="btn-icon" onclick="viewBookDetails(@book.BookId)" title="View">
                                     <i class="fas fa-eye"></i>
                                 </button>
@@ -704,66 +718,45 @@
             showConfirmButton: false,
             allowOutsideClick: false,
             width: '400px',
-            didOpen: () => {
-                Swal.showLoading();
-                
-                // Simulate API call to fetch book details
-                setTimeout(() => {
-                    Swal.fire({
-                        title: 'Book Details',
-                        html: `
-                            <div style="text-align: left; padding: 20px;">
-                                <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
-                                    <div style="width: 60px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 4px;"></div>
-                                    <div>
-                                        <h3 style="margin: 0 0 8px 0; font-size: 20px;">Sample Book Title</h3>
-                                        <p style="margin: 0; color: #666;">Author: John Doe</p>
-                                    </div>
-                                </div>
-                                
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                                    <div>
-                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Genre</label>
-                                        <p style="margin: 4px 0 0 0; font-weight: 500;">Fiction</p>
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Status</label>
-                                        <p style="margin: 4px 0 0 0;">
-                                            <span style="padding: 4px 12px; border-radius: 12px; background: rgba(16, 185, 129, 0.1); color: #10b981; font-size: 12px; font-weight: 500;">Published</span>
-                                        </p>
-                                    </div>
-                                </div>
-                                
-                                <div style="margin-bottom: 16px;">
-                                    <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Description</label>
-                                    <p style="margin: 4px 0 0 0; line-height: 1.5;">This is a sample book description that provides an overview of the book's content and themes.</p>
-                                </div>
-                                
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                                    <div>
-                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Word Count</label>
-                                        <p style="margin: 4px 0 0 0; font-weight: 500;">45,231</p>
-                                    </div>
-                                    <div>
-                                        <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Chapters</label>
-                                        <p style="margin: 4px 0 0 0; font-weight: 500;">12</p>
-                                    </div>
-                                </div>
-                                
-                                <div style="margin-bottom: 16px;">
-                                    <label style="font-size: 12px; color: #999; text-transform: uppercase; font-weight: 600;">Created Date</label>
-                                    <p style="margin: 4px 0 0 0; font-weight: 500;">Oct 15, 2025</p>
-                                </div>
-                            </div>
-                        `,
-                        showConfirmButton: true,
-                        confirmButtonText: 'Close',
-                        confirmButtonColor: '#6366F1',
-                        width: '600px'
-                    });
-                }, 1500);
-            }
+            didOpen: () => { Swal.showLoading(); }
         });
+
+        fetch('@Url.Action("GetBookDetails", "Admin")?bookId=' + encodeURIComponent(bookId), { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.success || !data.book) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: (data && data.message) || 'Book not found' });
+                    return;
+                }
+                var b = data.book;
+                var chapters = (b.chapters || []).length;
+                Swal.fire({
+                    title: 'Book Details',
+                    html: `
+                        <div style="text-align: left; padding: 8px 4px;">
+                            <h3 style="margin: 0 0 8px 0;">${(b.title || 'Untitled').replace(/</g,'')}</h3>
+                            <p style="margin: 0 0 12px; color:#666;">${(b.ownerName || '')} · ${(b.ownerEmail || '')}</p>
+                            <p><strong>Status:</strong> ${b.status || ''} · <strong>Flow:</strong> ${b.flowLabel || ''} (${b.flowPercent || 0}%)</p>
+                            <p><strong>Genre:</strong> ${b.genre || '—'} · <strong>Words:</strong> ${b.wordCount || 0} · <strong>Chapters:</strong> ${chapters}</p>
+                            <p><strong>Format:</strong> ${b.format || 'not started'} · <strong>Covers:</strong> ${(b.covers || []).length}</p>
+                            <p style="color:#666;">${(b.description || '').replace(/</g,'')}</p>
+                        </div>
+                    `,
+                    showConfirmButton: true,
+                    confirmButtonText: 'Open workspace',
+                    showCancelButton: true,
+                    cancelButtonText: 'Close',
+                    confirmButtonColor: '#6366F1',
+                    width: '640px'
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        window.location.href = '@Url.Action("BookDetail", "Admin")/' + bookId;
+                    }
+                });
+            })
+            .catch(function () {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Failed to load book details' });
+            });
     }
 
     function editBook(bookId) {
@@ -1113,25 +1106,24 @@
     
     function performSearch(searchTerm, resultsDiv) {
         if (!resultsDiv) return;
-        
         resultsDiv.innerHTML = '<div style="text-align: center;"><i class="fas fa-spinner fa-spin"></i> Searching...</div>';
-        
-        // Simulate search - replace with actual API call
-        setTimeout(() => {
-            resultsDiv.innerHTML = `
-                <div style="padding: 10px; border-bottom: 1px solid #eee;">
-                    <strong>Sample Book 1</strong><br>
-                    <small>Author: John Doe</small>
-                </div>
-                <div style="padding: 10px; border-bottom: 1px solid #eee;">
-                    <strong>Sample Book 2</strong><br>
-                    <small>Author: Jane Smith</small>
-                </div>
-                <div style="padding: 10px;">
-                    <em>Search term: ${searchTerm}</em>
-                </div>
-            `;
-        }, 1000);
+        fetch('@Url.Action("Search", "Admin")?q=' + encodeURIComponent(searchTerm), { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const items = (data && data.results) ? data.results : [];
+                if (!items.length) {
+                    resultsDiv.innerHTML = '<div style="padding:10px;color:#64748b;">No matches for “' + searchTerm.replace(/</g,'') + '”.</div>';
+                    return;
+                }
+                resultsDiv.innerHTML = items.map(function (item) {
+                    const url = item.url || '#';
+                    return '<div style="padding:10px;border-bottom:1px solid #eee;">' +
+                        '<a href="' + url + '" style="font-weight:600;color:#6d28d9;">' + (item.title || '').replace(/</g,'') + '</a><br>' +
+                        '<small>' + (item.type || '') + (item.subtitle ? ' · ' + String(item.subtitle).replace(/</g,'') : '') + '</small></div>';
+                }).join('');
+            }).catch(() => {
+                resultsDiv.innerHTML = '<div style="padding:10px;color:#ef4444;">Search failed.</div>';
+            });
     }
     
     function showQuickActions() {
@@ -1159,57 +1151,13 @@
     
     function addNewBook() {
         Swal.fire({
-            title: 'Add New Book',
-            html: `
-                <form id="addBookForm" style="text-align: left;">
-                    <div style="margin-bottom: 15px;">
-                        <label>Book Title</label>
-                        <input type="text" id="bookTitle" class="swal2-input" placeholder="Enter book title" required>
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <label>Author</label>
-                        <input type="text" id="bookAuthor" class="swal2-input" placeholder="Enter author name" required>
-                    </div>
-                    <div style="margin-bottom: 15px;">
-                        <label>Genre</label>
-                        <select id="bookGenre" class="swal2-input" required>
-                            <option value="">Select Genre</option>
-                            <option value="Fiction">Fiction</option>
-                            <option value="Non-Fiction">Non-Fiction</option>
-                            <option value="Mystery">Mystery</option>
-                            <option value="Romance">Romance</option>
-                            <option value="Sci-Fi">Sci-Fi</option>
-                        </select>
-                    </div>
-                </form>
-            `,
-            showCancelButton: true,
-            confirmButtonText: 'Create Book',
-            confirmButtonColor: '#6366F1',
-            cancelButtonColor: '#6b7280',
-            width: '500px',
-            preConfirm: () => {
-                const title = document.getElementById('bookTitle').value.trim();
-                const author = document.getElementById('bookAuthor').value.trim();
-                const genre = document.getElementById('bookGenre').value;
-                
-                if (!title || !author || !genre) {
-                    Swal.showValidationMessage('Please fill in all fields');
-                    return false;
-                }
-                
-                return { title, author, genre };
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Success!',
-                    text: 'Book created successfully',
-                    icon: 'success',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
-            }
+            title: 'Books are created by users',
+            html: 'Open a user workspace and use <strong>AI Writer</strong>. Admin does not create placeholder books.',
+            icon: 'info',
+            confirmButtonText: 'Go to Users',
+            confirmButtonColor: '#6366F1'
+        }).then(function (r) {
+            if (r.isConfirmed) window.location.href = '@Url.Action("Users", "Admin")';
         });
     }
     

@@ -214,57 +214,73 @@
 
     <div class="form-section">
         <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px;">Recent Notifications</h3>
-        <div id="notificationsList">
-            <div class="notification-card">
-                <div class="notification-header">
-                    <div class="notification-title">Welcome to Our Platform!</div>
-                    <span class="notification-type type-email">Email</span>
-                </div>
-                <p style="color: var(--text-secondary); margin: 12px 0;">Thank you for joining our platform. Get started by creating your first book.</p>
-                <div class="notification-meta">
-                    <span><i class="fas fa-users"></i> All Users</span>
-                    <span><i class="fas fa-calendar"></i> Sent: Jan 15, 2025</span>
-                    <span><i class="fas fa-chart-line"></i> Open Rate: 45%</span>
-                </div>
-            </div>
-        </div>
+        <div id="notificationsList"></div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    function createNotification() {
+    async function createNotification() {
         const type = document.getElementById('notificationType').value;
         const title = document.getElementById('notificationTitle').value;
         const message = document.getElementById('notificationMessage').value;
         const audience = document.getElementById('targetAudience').value;
-        const schedule = document.getElementById('scheduleDate').value;
 
         if (!type || !title || !message) {
             Swal.fire('Error!', 'Please fill in all required fields.', 'error');
             return;
         }
 
-        Swal.fire({
-            title: 'Sending Notification...',
-            text: 'Please wait',
-            icon: 'info',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        // Simulate API call
-        setTimeout(() => {
-            Swal.fire('Success!', 'Notification sent successfully.', 'success').then(() => {
-                document.getElementById('notificationForm').reset();
+        try {
+            const r = await fetch('@Url.Action("CreateNotification", "Admin")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ type, title, message, audience })
             });
-        }, 1500);
+            const data = await r.json();
+            if (data.success) {
+                Swal.fire('Sent', data.message || 'Notification sent', 'success');
+                document.getElementById('notificationForm').reset();
+                loadManagedNotifications();
+            } else {
+                Swal.fire('Error', data.message || 'Failed', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Failed to send notification', 'error');
+        }
     }
 
     function showCreateModal() {
         document.getElementById('notificationForm').scrollIntoView({ behavior: 'smooth' });
     }
+
+    function loadManagedNotifications() {
+        fetch('@Url.Action("ListManagedNotifications", "Admin")', { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('notificationsList');
+                if (!list) return;
+                const rows = data.notifications || [];
+                if (!rows.length) {
+                    list.innerHTML = '<p style="color:var(--text-secondary);">No notifications yet. Send one above — it appears in the user panel inbox.</p>';
+                    return;
+                }
+                list.innerHTML = rows.map(n => `
+                    <div class="notification-card">
+                        <div class="notification-header">
+                            <div class="notification-title">${n.title || ''}</div>
+                            <span class="notification-type type-email">${n.type || ''}</span>
+                        </div>
+                        <p style="color: var(--text-secondary); margin: 12px 0;">${n.message || ''}</p>
+                        <div class="notification-meta">
+                            <span><i class="fas fa-user"></i> ${n.userId ? ('User #' + n.userId) : 'All users'}</span>
+                            <span><i class="fas fa-calendar"></i> ${n.createdAt || ''}</span>
+                            <span>${n.isRead ? 'Read' : 'Unread'}</span>
+                        </div>
+                    </div>`).join('');
+            }).catch(() => {});
+    }
+    loadManagedNotifications();
 </script>
 

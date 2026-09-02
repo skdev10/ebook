@@ -1,0 +1,172 @@
+@model EBookDashboard.Models.ViewModels.AdminUserWorkspaceViewModel
+@{
+    ViewData["Title"] = "User workspace";
+    Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    var lastLogin = Model.LastLoginAt.Year > 1981 ? Model.LastLoginAt.ToString("yyyy-MM-dd HH:mm") : "Never";
+}
+
+<style>
+    .ws-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .ws-card { background: var(--white); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px var(--shadow-soft); }
+    .ws-kpi { font-size: 28px; font-weight: 800; color: var(--primary); }
+    .ws-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+    .ws-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    .ws-tab { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border-light); background: var(--white); cursor: pointer; font-weight: 600; font-size: 13px; color: var(--text-secondary); }
+    .ws-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .ws-panel { display: none; }
+    .ws-panel.active { display: block; }
+    .ws-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .ws-table th { text-align: left; padding: 10px 12px; color: var(--text-muted); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--border-light); }
+    .ws-table td { padding: 12px; border-bottom: 1px solid var(--border-light); }
+    .ws-bar { height: 8px; background: var(--warm-gray); border-radius: 99px; overflow: hidden; }
+    .ws-bar > span { display: block; height: 100%; background: linear-gradient(90deg, #7c3aed, #a78bfa); }
+    .ws-chip { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background: #f5f3ff; color: #6d28d9; }
+</style>
+
+<div class="page-header" style="background:var(--white);border-radius:16px;padding:24px;margin-bottom:24px;border:1px solid var(--border-light);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+        <a href="@Url.Action("Users", "Admin")" style="font-size:13px;color:var(--primary);text-decoration:none;">← Users</a>
+        <h1 style="margin:8px 0 4px;font-size:24px;">@Model.FullName</h1>
+        <p style="margin:0;color:var(--text-secondary);">@Model.UserEmail · @Model.RoleName · @Model.Status · @Model.SignupMethod</p>
+    </div>
+    <div style="text-align:right;color:var(--text-muted);font-size:13px;">
+        <div>Joined @Model.CreatedAt.ToString("yyyy-MM-dd")</div>
+        <div>Last login @lastLogin</div>
+        <div>Tour @(Model.HasCompletedTour ? "completed" : "not completed")</div>
+    </div>
+</div>
+
+<div class="ws-grid">
+    <div class="ws-card"><div class="ws-kpi">@Model.BookCount</div><div class="ws-label">Books</div></div>
+    <div class="ws-card"><div class="ws-kpi">@Model.DraftCount</div><div class="ws-label">In progress</div></div>
+    <div class="ws-card"><div class="ws-kpi">@Model.PublishedCount</div><div class="ws-label">Published</div></div>
+    <div class="ws-card"><div class="ws-kpi">@Model.ChapterCount</div><div class="ws-label">Chapters</div></div>
+    <div class="ws-card"><div class="ws-kpi">@Model.CoverCount</div><div class="ws-label">Covers</div></div>
+    <div class="ws-card"><div class="ws-kpi">@Model.LifetimeBilled.ToString("N2")</div><div class="ws-label">Billed</div></div>
+</div>
+
+<div class="ws-tabs">
+    <button type="button" class="ws-tab active" data-tab="books">My Books</button>
+    <button type="button" class="ws-tab" data-tab="plan">Plan &amp; billing</button>
+    <button type="button" class="ws-tab" data-tab="profile">Profile</button>
+    <button type="button" class="ws-tab" data-tab="notes">Notifications</button>
+</div>
+
+<div id="panel-books" class="ws-panel active ws-card">
+    <h3 style="margin:0 0 16px;">User-panel books (Writer → Format → Cover → Publish)</h3>
+    @if (!Model.Books.Any())
+    {
+        <p style="color:var(--text-muted);">No books yet.</p>
+    }
+    else
+    {
+        <table class="ws-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Flow</th>
+                    <th>Chapters</th>
+                    <th>Words</th>
+                    <th>Cover / Format</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var b in Model.Books)
+            {
+                <tr>
+                    <td>
+                        <strong>@b.Title</strong>
+                        <div style="font-size:12px;color:var(--text-muted);">@b.Genre</div>
+                    </td>
+                    <td><span class="ws-chip">@b.Status</span></td>
+                    <td>
+                        <div style="font-size:12px;margin-bottom:4px;">@b.FlowLabel (@b.FlowPath)</div>
+                        <div class="ws-bar"><span style="width:@b.FlowPercent%"></span></div>
+                    </td>
+                    <td>@b.ChapterCount</td>
+                    <td>@b.WordCount.ToString("N0")</td>
+                    <td>@(b.HasCover ? "Cover" : "—") / @(b.HasFormatting ? "Formatted" : "—")</td>
+                    <td><a href="@Url.Action("BookDetail", "Admin", new { id = b.BookId })" style="color:var(--primary);font-weight:600;">Open</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div id="panel-plan" class="ws-panel ws-card">
+    <h3 style="margin:0 0 12px;">Subscriptions (user panel)</h3>
+    @if (string.IsNullOrWhiteSpace(Model.PlanName))
+    {
+        <p style="color:var(--text-muted);">No active plan.</p>
+    }
+    else
+    {
+        <p><strong>@Model.PlanName</strong> @(Model.PlanActive ? "(active)" : "(inactive)")</p>
+        <p style="color:var(--text-secondary);">@(Model.PlanRate?.ToString("N2") ?? "—") · @Model.PlanStart?.ToString("yyyy-MM-dd") → @(Model.PlanEnd?.Year > 1981 ? Model.PlanEnd?.ToString("yyyy-MM-dd") : "open")</p>
+    }
+    <h4 style="margin:24px 0 12px;">Payments</h4>
+    @if (!Model.Payments.Any())
+    {
+        <p style="color:var(--text-muted);">No bills.</p>
+    }
+    else
+    {
+        <table class="ws-table">
+            <thead><tr><th>When</th><th>Description</th><th>Amount</th><th>Status</th><th>Ref</th></tr></thead>
+            <tbody>
+            @foreach (var p in Model.Payments)
+            {
+                <tr>
+                    <td>@p.CreatedAt.ToString("yyyy-MM-dd")</td>
+                    <td>@p.Description</td>
+                    <td>@p.Amount.ToString("N2") @p.Currency</td>
+                    <td>@p.Status</td>
+                    <td>@p.PaymentReference</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div id="panel-profile" class="ws-panel ws-card">
+    <h3 style="margin:0 0 12px;">Profile (user Settings / Profile)</h3>
+    <p>Name: <strong>@Model.FullName</strong></p>
+    <p>Email: <strong>@Model.UserEmail</strong></p>
+    <p>Profile completion: <strong>@Model.ProfileCompletionPercentage%</strong></p>
+    <div class="ws-bar" style="max-width:320px;"><span style="width:@Model.ProfileCompletionPercentage%"></span></div>
+</div>
+
+<div id="panel-notes" class="ws-panel ws-card">
+    <h3 style="margin:0 0 12px;">In-app notifications</h3>
+    @if (!Model.Notifications.Any())
+    {
+        <p style="color:var(--text-muted);">None.</p>
+    }
+    else
+    {
+        @foreach (var n in Model.Notifications)
+        {
+            <div style="padding:12px 0;border-bottom:1px solid var(--border-light);">
+                <div style="font-weight:700;">@n.Title <span class="ws-chip">@n.Type</span></div>
+                <div style="color:var(--text-secondary);font-size:13px;">@n.Message</div>
+                <div style="font-size:12px;color:var(--text-muted);">@n.CreatedAt.ToString("yyyy-MM-dd HH:mm") · @(n.IsRead ? "Read" : "Unread")</div>
+            </div>
+        }
+    }
+</div>
+
+<script>
+    document.querySelectorAll('.ws-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.ws-tab').forEach(function (b) { b.classList.remove('active'); });
+            document.querySelectorAll('.ws-panel').forEach(function (p) { p.classList.remove('active'); });
+            btn.classList.add('active');
+            var el = document.getElementById('panel-' + btn.getAttribute('data-tab'));
+            if (el) el.classList.add('active');
+        });
+    });
+</script>

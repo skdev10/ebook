@@ -2,6 +2,15 @@
 @{
     ViewData["Title"] = "User & Book Progress Tracker";
     Layout = "~/Views/Shared/_AdminLayout.cshtml";
+    string PhaseCss(string? phase)
+    {
+        var p = (phase ?? "").ToLowerInvariant();
+        if (p.Contains("writer")) return "writer";
+        if (p.Contains("format")) return "format";
+        if (p.Contains("cover")) return "cover";
+        if (p.Contains("publish")) return "publish";
+        return "signup";
+    }
 }
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -255,6 +264,10 @@
     }
 
     .phase-signup { background: #6b7280; }
+    .phase-writer { background: #3b82f6; }
+    .phase-format { background: #8b5cf6; }
+    .phase-cover { background: #f59e0b; }
+    .phase-publish { background: var(--success); }
     .phase-draft { background: #3b82f6; }
     .phase-generated { background: var(--primary); }
     .phase-published { background: var(--success); }
@@ -448,8 +461,8 @@
                 {
                     <tr class="table-row">
                         <td class="table-cell">
-                            <span class="phase-indicator phase-@journey.CurrentPhase.ToLower()"></span>
-                            @journey.UserName
+                            <span class="phase-indicator phase-@PhaseCss(journey.CurrentPhase)"></span>
+                            <a href="@Url.Action("UserDetail", "Admin", new { id = journey.UserId })" style="color:#6d28d9;font-weight:600;">@journey.UserName</a>
                         </td>
                         <td class="table-cell">@journey.SignupDate.ToString("MMM dd, yyyy")</td>
                         <td class="table-cell">@journey.CurrentPhase</td>
@@ -480,8 +493,17 @@
                 @foreach (var book in Model.BookProgresses.Take(10))
                 {
                     <tr class="table-row">
-                        <td class="table-cell">@book.Title</td>
-                        <td class="table-cell">@book.AuthorName</td>
+                        <td class="table-cell"><a href="@Url.Action("BookDetail", "Admin", new { id = book.BookId })" style="color:#6d28d9;font-weight:600;">@book.Title</a></td>
+                        <td class="table-cell">
+                            @if (book.UserId > 0)
+                            {
+                                <a href="@Url.Action("UserDetail", "Admin", new { id = book.UserId })">@book.AuthorName</a>
+                            }
+                            else
+                            {
+                                @book.AuthorName
+                            }
+                        </td>
                         <td class="table-cell">@book.CurrentPhase</td>
                         <td class="table-cell">
                             <div style="display: flex; align-items: center; gap: 8px;">

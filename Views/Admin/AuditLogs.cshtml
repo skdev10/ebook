@@ -152,29 +152,33 @@
         <div class="filters-row">
             <div>
                 <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Filter by User</label>
-                <input type="text" class="form-control" placeholder="Search user..." />
+                <input type="text" class="form-control" id="auditUserFilter" placeholder="Search user..." />
             </div>
             <div>
                 <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Filter by Module</label>
-                <select class="form-control">
+                <select class="form-control" id="auditEntityFilter">
                     <option value="">All Modules</option>
-                    <option value="users">Users</option>
-                    <option value="books">Books</option>
-                    <option value="settings">Settings</option>
+                    <option value="User">Users</option>
+                    <option value="Book">Books</option>
+                    <option value="Plan">Plans</option>
+                    <option value="Settings">Settings</option>
+                    <option value="Notification">Notifications</option>
+                    <option value="Cms">CMS</option>
                 </select>
             </div>
             <div>
                 <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Filter by Action</label>
-                <select class="form-control">
+                <select class="form-control" id="auditActionFilter">
                     <option value="">All Actions</option>
-                    <option value="create">Create</option>
-                    <option value="update">Update</option>
-                    <option value="delete">Delete</option>
+                    <option value="Create">Create</option>
+                    <option value="Update">Update</option>
+                    <option value="Delete">Delete</option>
+                    <option value="Suspend">Suspend</option>
                 </select>
             </div>
             <div>
                 <label style="display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">Date Range</label>
-                <input type="date" class="form-control" />
+                <input type="date" class="form-control" id="auditDateFilter" />
             </div>
         </div>
     </div>
@@ -191,39 +195,8 @@
                     <th>IP Address</th>
                 </tr>
             </thead>
-            <tbody>
-                <tr>
-                    <td>2025-01-15 14:32:15</td>
-                    <td>admin@example.com</td>
-                    <td>Users</td>
-                    <td><span class="action-badge action-create">Create</span></td>
-                    <td>Created user: john.doe@example.com</td>
-                    <td>192.168.1.1</td>
-                </tr>
-                <tr>
-                    <td>2025-01-15 14:28:42</td>
-                    <td>admin@example.com</td>
-                    <td>Books</td>
-                    <td><span class="action-badge action-update">Update</span></td>
-                    <td>Updated book: "The Adventure"</td>
-                    <td>192.168.1.1</td>
-                </tr>
-                <tr>
-                    <td>2025-01-15 14:15:30</td>
-                    <td>admin@example.com</td>
-                    <td>Users</td>
-                    <td><span class="action-badge action-delete">Delete</span></td>
-                    <td>Deleted user: old.user@example.com</td>
-                    <td>192.168.1.1</td>
-                </tr>
-                <tr>
-                    <td>2025-01-15 13:45:12</td>
-                    <td>admin@example.com</td>
-                    <td>Settings</td>
-                    <td><span class="action-badge action-update">Update</span></td>
-                    <td>Updated platform settings</td>
-                    <td>192.168.1.1</td>
-                </tr>
+            <tbody id="auditLogsBody">
+                <tr><td colspan="6" style="padding:24px;text-align:center;color:#9B9B9B;">Loading logs…</td></tr>
             </tbody>
         </table>
     </div>
@@ -232,19 +205,42 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     function exportLogs() {
-        Swal.fire({
-            title: 'Exporting Logs...',
-            text: 'Please wait',
-            icon: 'info',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        setTimeout(() => {
-            Swal.fire('Success!', 'Audit logs exported successfully.', 'success');
-        }, 1500);
+        window.location.href = '@Url.Action("ExportAuditLogs", "Admin")?format=csv';
     }
+
+    function loadAuditLogs() {
+        const action = document.getElementById('auditActionFilter')?.value || '';
+        const entity = document.getElementById('auditEntityFilter')?.value || '';
+        const qs = new URLSearchParams({ actionFilter: action, entityTypeFilter: entity });
+        fetch('@Url.Action("GetAuditLogs", "Admin")?' + qs.toString(), { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const body = document.getElementById('auditLogsBody');
+                if (!body) return;
+                const logs = data.logs || [];
+                const userQ = (document.getElementById('auditUserFilter')?.value || '').toLowerCase();
+                const filtered = userQ ? logs.filter(l => (l.userName || '').toLowerCase().includes(userQ)) : logs;
+                if (!filtered.length) {
+                    body.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#9B9B9B;">No audit logs yet.</td></tr>';
+                    return;
+                }
+                body.innerHTML = filtered.map(l => `
+                    <tr>
+                        <td>${l.createdAt || ''}</td>
+                        <td>${l.userName || 'System'}</td>
+                        <td>${l.entityType || ''}</td>
+                        <td><span class="action-badge action-${(l.action || '').toLowerCase()}">${l.action || ''}</span></td>
+                        <td>${l.description || ''}</td>
+                        <td>${l.ipAddress || ''}</td>
+                    </tr>`).join('');
+            }).catch(() => {
+                const body = document.getElementById('auditLogsBody');
+                if (body) body.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;">Failed to load logs.</td></tr>';
+            });
+    }
+    document.getElementById('auditActionFilter')?.addEventListener('change', loadAuditLogs);
+    document.getElementById('auditEntityFilter')?.addEventListener('change', loadAuditLogs);
+    document.getElementById('auditUserFilter')?.addEventListener('input', loadAuditLogs);
+    loadAuditLogs();
 </script>
 

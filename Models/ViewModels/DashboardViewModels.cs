@@ -153,6 +153,8 @@ namespace EBookDashboard.Models
         public string SignupMethod { get; set; } = "Manual"; // Manual, Google, Facebook
         public int ProfileCompletionPercentage { get; set; }
         public int BooksCreated { get; set; }
+        /// <summary>Active subscription plan name from the user panel, when one exists.</summary>
+        public string? PlanName { get; set; }
     }
 
     public class BookManagementViewModel
@@ -168,6 +170,14 @@ namespace EBookDashboard.Models
         public string Genre { get; set; } = string.Empty;
         public int UserId { get; set; }
         public int AuthorId { get; set; }
+        public string? UserEmail { get; set; }
+        public int ChapterCount { get; set; }
+        public string FlowStep { get; set; } = "generate";
+        public string FlowLabel { get; set; } = "AI Writer";
+        public int FlowPercent { get; set; }
+        public bool HasCover { get; set; }
+        public bool HasFormatting { get; set; }
+        public string? Description { get; set; }
     }
 
     /// <summary>Admin Product Management — book catalog with optional list price from BookPrice.</summary>
@@ -206,12 +216,27 @@ namespace EBookDashboard.Models
     public class BookProgressViewModel
     {
         public int BookId { get; set; }
+        public int UserId { get; set; }
         public string Title { get; set; } = string.Empty;
         public string AuthorName { get; set; } = string.Empty;
         public string CurrentPhase { get; set; } = string.Empty;
         public int ProgressPercentage { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? LastUpdated { get; set; }
+    }
+
+    /// <summary>One user + their latest subscription as shown on the user Subscriptions screen.</summary>
+    public sealed class AdminUserPlanRow
+    {
+        public int UserId { get; set; }
+        public string FullName { get; set; } = "";
+        public string UserEmail { get; set; } = "";
+        public string UserStatus { get; set; } = "";
+        public string PlanName { get; set; } = "None";
+        public string PlanStatus { get; set; } = "None";
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public decimal PlanRate { get; set; }
     }
 
     public class AnalyticsViewModel

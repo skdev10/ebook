@@ -68,13 +68,13 @@
                     <tr>
                         <td>
                             <div class="author-info">
-                                <div class="author-avatar">@author.FullName.Substring(0, 1)</div>
+                                <div class="author-avatar">@(string.IsNullOrWhiteSpace(author.FullName) ? "?" : author.FullName.Trim()[0].ToString())</div>
                                 <span>@author.FullName</span>
                             </div>
                         </td>
                         <td>@author.AuthorEmail</td>
                         <td><span class="specialization-badge">@author.Specialization</span></td>
-                        <td>@author.Books.Count</td>
+                        <td>@(author.Books?.Count ?? 0)</td>
                         <td><span class="status-badge @(author.IsActive ? "active" : "inactive")">@(author.IsActive ? "Active" : "Inactive")</span></td>
                         <td>@author.CreatedAt.ToString("MMM dd, yyyy")</td>
                         <td>
@@ -583,76 +583,108 @@
 
     // Modal functions
     function addNewAuthor() {
+        window._editingAuthorId = 0;
         document.getElementById('authorModalLabel').textContent = 'Add New Author';
         document.getElementById('authorForm').reset();
+        document.getElementById('authorStatus').checked = true;
         new bootstrap.Modal(document.getElementById('authorModal')).show();
     }
 
     function editAuthor(id) {
+        window._editingAuthorId = id;
         document.getElementById('authorModalLabel').textContent = 'Edit Author';
-        // In a real app, you would populate the form with author data
-        new bootstrap.Modal(document.getElementById('authorModal')).show();
+        fetch('@Url.Action("GetAuthorDetails", "Admin")?authorId=' + encodeURIComponent(id), { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success || !data.author) {
+                    Swal.fire('Error', data.message || 'Author not found', 'error');
+                    return;
+                }
+                const a = data.author;
+                document.getElementById('authorName').value = a.fullName || '';
+                document.getElementById('authorEmail').value = a.authorEmail || '';
+                document.getElementById('authorSpecialization').value = a.specialization || '';
+                document.getElementById('authorCountry').value = a.country || '';
+                document.getElementById('authorCode').value = a.authorCode || '';
+                document.getElementById('authorPhone').value = a.phone || '';
+                document.getElementById('authorAddress').value = a.address || '';
+                document.getElementById('authorStatus').checked = !!a.isActive;
+                new bootstrap.Modal(document.getElementById('authorModal')).show();
+            }).catch(() => Swal.fire('Error', 'Failed to load author', 'error'));
+    }
+
+    function viewAuthor(id) {
+        fetch('@Url.Action("GetAuthorDetails", "Admin")?authorId=' + encodeURIComponent(id), { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success || !data.author) {
+                    Swal.fire('Error', data.message || 'Author not found', 'error');
+                    return;
+                }
+                const a = data.author;
+                Swal.fire({
+                    title: a.fullName || 'Author',
+                    html: `<div style="text-align:left;">
+                        <p><strong>Email:</strong> ${a.authorEmail || '—'}</p>
+                        <p><strong>Specialization:</strong> ${a.specialization || '—'}</p>
+                        <p><strong>Country:</strong> ${a.country || '—'}</p>
+                        <p><strong>Books:</strong> ${a.bookCount || 0}</p>
+                        <p><strong>Status:</strong> ${a.isActive ? 'Active' : 'Inactive'}</p>
+                    </div>`,
+                    showCancelButton: !!a.workspaceUrl,
+                    confirmButtonText: a.workspaceUrl ? 'Open user workspace' : 'Close',
+                    cancelButtonText: 'Close',
+                    confirmButtonColor: '#7c3aed'
+                }).then(res => {
+                    if (res.isConfirmed && a.workspaceUrl) window.location.href = a.workspaceUrl;
+                });
+            }).catch(() => Swal.fire('Error', 'Failed to load author', 'error'));
     }
 
     function saveAuthor() {
-        Swal.fire({
-            title: 'Saving Author',
-            text: 'Please wait while we save the author...',
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
+        const payload = {
+            authorId: window._editingAuthorId || 0,
+            fullName: document.getElementById('authorName').value,
+            authorEmail: document.getElementById('authorEmail').value,
+            specialization: document.getElementById('authorSpecialization').value,
+            country: document.getElementById('authorCountry').value,
+            phone: document.getElementById('authorPhone').value,
+            address: document.getElementById('authorAddress').value,
+            authorCode: document.getElementById('authorCode').value,
+            isActive: document.getElementById('authorStatus').checked
+        };
+        fetch('@Url.Action("SaveAuthor", "Admin")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                Swal.fire('Saved', 'Author saved.', 'success').then(() => location.reload());
+            } else {
+                Swal.fire('Error', data.message || 'Save failed', 'error');
             }
-        });
-        
-        // Simulate save process
-        setTimeout(() => {
-            Swal.fire({
-                title: 'Author Saved!',
-                text: 'The author has been saved successfully.',
-                icon: 'success',
-                confirmButtonColor: '#7c3aed'
-            });
-            bootstrap.Modal.getInstance(document.getElementById('authorModal')).hide();
-        }, 1500);
+        }).catch(() => Swal.fire('Error', 'Save failed', 'error'));
     }
 
     function deleteAuthor(id) {
         Swal.fire({
             title: 'Delete Author?',
-            text: 'Are you sure you want to delete this author? This action cannot be undone.',
+            text: 'Authors with books cannot be deleted.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Yes, delete it!'
+            confirmButtonText: 'Yes, delete'
         }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Deleted!',
-                    text: 'The author has been deleted.',
-                    icon: 'success',
-                    confirmButtonColor: '#7c3aed'
-                });
-                // In a real app, you would remove the author from the DOM or refresh the page
-            }
-        });
-    }
-
-    function viewAuthor(id) {
-        Swal.fire({
-            title: 'Author Details',
-            html: `
-                <div style="text-align: left;">
-                    <h4>John Doe</h4>
-                    <p><strong>Email:</strong> john.doe@example.com</p>
-                    <p><strong>Specialization:</strong> Fiction</p>
-                    <p><strong>Books Published:</strong> 5</p>
-                    <p><strong>Status:</strong> <span class="badge bg-success">Active</span></p>
-                    <p><strong>Member Since:</strong> Jan 15, 2023</p>
-                </div>
-            `,
-            confirmButtonColor: '#667eea'
+            if (!result.isConfirmed) return;
+            fetch('@Url.Action("DeleteAuthor", "Admin")', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'authorId=' + encodeURIComponent(id)
+            }).then(r => r.json()).then(data => {
+                if (data.success) location.reload();
+                else Swal.fire('Error', data.message || 'Delete failed', 'error');
+            });
         });
     }
 

@@ -178,15 +178,15 @@
             <h3>Landing Page Content</h3>
             <div class="form-group">
                 <label class="form-label">Hero Title</label>
-                <input type="text" class="form-control" placeholder="Enter hero title" />
+                <input type="text" class="form-control" id="heroTitle" placeholder="Enter hero title" />
             </div>
             <div class="form-group">
                 <label class="form-label">Hero Description</label>
-                <textarea class="form-control" placeholder="Enter hero description"></textarea>
+                <textarea class="form-control" id="heroDescription" placeholder="Enter hero description"></textarea>
             </div>
             <div class="form-group">
                 <label class="form-label">Features Section</label>
-                <textarea class="form-control" placeholder="Enter features content"></textarea>
+                <textarea class="form-control" id="featuresContent" placeholder="Enter features content"></textarea>
             </div>
             <button class="btn btn-primary" onclick="saveContent('landing')">
                 <i class="fas fa-save"></i> Save Changes
@@ -200,7 +200,7 @@
             <h3>Terms & Conditions</h3>
             <div class="form-group">
                 <label class="form-label">Terms Content</label>
-                <textarea class="form-control" style="min-height: 400px;" placeholder="Enter terms and conditions"></textarea>
+                <textarea class="form-control" id="termsContent" style="min-height: 400px;" placeholder="Enter terms and conditions"></textarea>
             </div>
             <button class="btn btn-primary" onclick="saveContent('terms')">
                 <i class="fas fa-save"></i> Save Changes
@@ -214,7 +214,7 @@
             <h3>Privacy Policy</h3>
             <div class="form-group">
                 <label class="form-label">Privacy Policy Content</label>
-                <textarea class="form-control" style="min-height: 400px;" placeholder="Enter privacy policy"></textarea>
+                <textarea class="form-control" id="privacyContent" style="min-height: 400px;" placeholder="Enter privacy policy"></textarea>
             </div>
             <button class="btn btn-primary" onclick="saveContent('privacy')">
                 <i class="fas fa-save"></i> Save Changes
@@ -228,15 +228,15 @@
             <h3>Help Resources</h3>
             <div class="form-group">
                 <label class="form-label">FAQ Content</label>
-                <textarea class="form-control" style="min-height: 300px;" placeholder="Enter FAQ content"></textarea>
+                <textarea class="form-control" id="faqContent" style="min-height: 300px;" placeholder="Enter FAQ content"></textarea>
             </div>
             <div class="form-group">
                 <label class="form-label">Video Links</label>
-                <textarea class="form-control" placeholder="Enter video links (one per line)"></textarea>
+                <textarea class="form-control" id="videoLinks" placeholder="Enter video links (one per line)"></textarea>
             </div>
             <div class="form-group">
                 <label class="form-label">Article Links</label>
-                <textarea class="form-control" placeholder="Enter article links (one per line)"></textarea>
+                <textarea class="form-control" id="articleLinks" placeholder="Enter article links (one per line)"></textarea>
             </div>
             <button class="btn btn-primary" onclick="saveContent('help')">
                 <i class="fas fa-save"></i> Save Changes
@@ -266,20 +266,42 @@
     }
 
     function saveContent(type) {
-        Swal.fire({
-            title: 'Saving Content...',
-            text: 'Please wait',
-            icon: 'info',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        // Simulate save (replace with actual API call)
-        setTimeout(() => {
-            Swal.fire('Success!', 'Content saved successfully.', 'success');
-        }, 1500);
+        const payload = {
+            heroTitle: document.getElementById('heroTitle')?.value || '',
+            heroDescription: document.getElementById('heroDescription')?.value || '',
+            features: document.getElementById('featuresContent')?.value || '',
+            terms: document.getElementById('termsContent')?.value || '',
+            privacy: document.getElementById('privacyContent')?.value || '',
+            faq: document.getElementById('faqContent')?.value || '',
+            videoLinks: document.getElementById('videoLinks')?.value || '',
+            articleLinks: document.getElementById('articleLinks')?.value || ''
+        };
+        fetch('@Url.Action("SaveCmsContent", "Admin")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+        }).then(r => r.json()).then(data => {
+            Swal.fire(data.success ? 'Saved' : 'Error', data.message || ('Saved ' + type), data.success ? 'success' : 'error');
+        }).catch(() => Swal.fire('Error', 'Could not save content', 'error'));
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        fetch('@Url.Action("GetCmsContent", "Admin")', { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success || !data.content) return;
+                const c = data.content;
+                const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+                set('heroTitle', c.heroTitle);
+                set('heroDescription', c.heroDescription);
+                set('featuresContent', c.features);
+                set('termsContent', c.terms);
+                set('privacyContent', c.privacy);
+                set('faqContent', c.faq);
+                set('videoLinks', c.videoLinks);
+                set('articleLinks', c.articleLinks);
+            }).catch(() => {});
+    });
 </script>
 

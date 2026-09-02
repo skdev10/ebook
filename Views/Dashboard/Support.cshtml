@@ -205,6 +205,14 @@
 
 <div class="support-page max-w-[1600px] mx-auto w-full px-0 py-10 lg:py-12">
 
+    @if (ViewBag.CmsFaq is string cmsFaq && !string.IsNullOrWhiteSpace(cmsFaq))
+    {
+        <div class="support-card">
+            <div class="support-card-header">Help from admin</div>
+            <div style="white-space:pre-wrap;color:var(--support-muted);line-height:1.6;">@cmsFaq</div>
+        </div>
+    }
+
     <div class="support-card mt-0">
         <div class="support-card-header">AI publishing assistant</div>
         <p style="color: var(--support-muted); margin: -8px 0 12px; font-size: 0.9rem;">Ask in plain language — answers are instant (demo knowledge base + optional live API).</p>
@@ -410,7 +418,18 @@
                 inp.value = '';
                 appendSupport('user', t);
                 if (human) {
-                    appendSupport('bot', 'Human agent (demo): you are in queue position 4. Typical reply in 15 minutes. For urgent issues, email support@ebookai.com.');
+                    fetch('@Url.Action("SubmitSupportTicket", "Dashboard")', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ title: 'Support request', message: t })
+                    }).then(function (r) { return r.json(); }).then(function (data) {
+                        appendSupport('bot', (data && data.success)
+                            ? 'Sent to the support team. An admin will see this in Help & Feedback.'
+                            : ((data && data.message) || 'Could not send. Try again.'));
+                    }).catch(function () {
+                        appendSupport('bot', 'Could not reach support. Please try again.');
+                    });
                     return;
                 }
                 fetch('@Url.Action("Ask", "Chat")', {
@@ -438,7 +457,7 @@
         document.querySelectorAll('input[name="supportMode"]').forEach(function (r) {
             r.addEventListener('change', function () {
                 if (!humanHint) return;
-                humanHint.textContent = r.value === 'human' ? 'Demo: queue simulated — no live agent in this build.' : '';
+                humanHint.textContent = r.value === 'human' ? 'Your message is sent to the admin Help & Feedback queue.' : '';
             });
         });
         appendSupport('bot', 'Hi! I’m your publishing assistant. Try a quick chip above or type your question.');

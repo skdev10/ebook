@@ -897,7 +897,7 @@
                 <div class="nav-section">
                     <div class="nav-section-title">
                         <span>Main Menu</span>
-                        <span class="nav-section-count">6</span>
+                        <span class="nav-section-count">9</span>
                     </div>
                     <div class="nav-item">
                         <a href="@Url.Action("Dashboard", "Admin")" class="nav-link" data-page="dashboard">
@@ -912,9 +912,21 @@
                         </a>
                     </div>
                     <div class="nav-item">
+                        <a href="@Url.Action("AuthorManagement", "Admin")" class="nav-link" data-page="authors">
+                            <i class="fas fa-pen-nib"></i>
+                            <span class="nav-text">Authors</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
                         <a href="@Url.Action("ContentManagement", "Admin")" class="nav-link" data-page="books">
                             <i class="fas fa-book"></i>
                             <span class="nav-text">Books Management</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="@Url.Action("BookOwnership", "Admin")" class="nav-link" data-page="ownership">
+                            <i class="fas fa-link"></i>
+                            <span class="nav-text">Book Ownership</span>
                         </a>
                     </div>
                     <div class="nav-item">
@@ -935,17 +947,29 @@
                             <span class="nav-text">Subscriptions</span>
                         </a>
                     </div>
+                    <div class="nav-item">
+                        <a href="@Url.Action("UserPlanInfo", "Admin")" class="nav-link" data-page="userplans">
+                            <i class="fas fa-id-card"></i>
+                            <span class="nav-text">User Plans</span>
+                        </a>
+                    </div>
                 </div>
 
                 <div class="nav-section">
                     <div class="nav-section-title">
                         <span>Content & Services</span>
-                        <span class="nav-section-count">4</span>
+                        <span class="nav-section-count">7</span>
                     </div>
                     <div class="nav-item">
                         <a href="@Url.Action("ContentEditor", "Admin")" class="nav-link" data-page="content">
                             <i class="fas fa-edit"></i>
                             <span class="nav-text">Content Management</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="@Url.Action("AICoverManagement", "Admin")" class="nav-link" data-page="covers">
+                            <i class="fas fa-image"></i>
+                            <span class="nav-text">Cover Studio</span>
                         </a>
                     </div>
                     <div class="nav-item">
@@ -958,6 +982,12 @@
                         <a href="@Url.Action("ProductManagement", "Admin")" class="nav-link" data-page="products">
                             <i class="fas fa-boxes"></i>
                             <span class="nav-text">Product Management</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="@Url.Action("PricingRules", "Admin")" class="nav-link" data-page="pricing">
+                            <i class="fas fa-tags"></i>
+                            <span class="nav-text">Pricing Rules</span>
                         </a>
                     </div>
                     <div class="nav-item">
@@ -977,12 +1007,18 @@
                 <div class="nav-section">
                     <div class="nav-section-title">
                         <span>System & Security</span>
-                        <span class="nav-section-count">3</span>
+                        <span class="nav-section-count">4</span>
                     </div>
                     <div class="nav-item">
                         <a href="@Url.Action("Settings", "Admin")" class="nav-link" data-page="settings">
                             <i class="fas fa-cog"></i>
                             <span class="nav-text">Settings</span>
+                        </a>
+                    </div>
+                    <div class="nav-item">
+                        <a href="@Url.Action("Roles", "Admin")" class="nav-link" data-page="roles">
+                            <i class="fas fa-user-tag"></i>
+                            <span class="nav-text">Roles</span>
                         </a>
                     </div>
                     <div class="nav-item">
@@ -2096,12 +2132,11 @@
                 
                 // Save to database if possible
                 try {
-                    // Preference saved to localStorage (no database call needed)
-                    // localStorage.setItem already handled above
+                    fetch('@Url.Action("SaveUserPreference", "Admin")', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: `key=sidebar_collapsed&value=${isCollapsed}`
-                    }).catch(() => {}); // Ignore errors
+                        body: 'key=sidebar_collapsed&value=' + encodeURIComponent(isCollapsed)
+                    }).catch(function () {});
                 } catch (e) {
                     // Ignore errors
                 }

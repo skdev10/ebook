@@ -191,108 +191,72 @@
     </div>
 
     <div id="ticketsList">
-        <div class="ticket-card">
-            <div class="ticket-header">
-                <div>
-                    <div class="ticket-title">Unable to upload book cover</div>
-                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Submitted by: john.doe@example.com</div>
-                </div>
-                <span class="ticket-type type-bug">Bug</span>
-            </div>
-            <p style="color: var(--text-secondary); margin: 12px 0;">I'm getting an error when trying to upload a book cover. The file is under 5MB and in JPG format.</p>
-            <div class="ticket-meta">
-                <span><i class="fas fa-calendar"></i> Jan 15, 2025</span>
-                <span><i class="fas fa-user"></i> Unassigned</span>
-                <span><i class="fas fa-circle" style="color: var(--success);"></i> Open</span>
-            </div>
-            <div style="margin-top: 16px; display: flex; gap: 8px;">
-                <button class="btn btn-primary" onclick="assignTicket(1)">
-                    <i class="fas fa-user-plus"></i> Assign
-                </button>
-                <button class="btn btn-secondary" onclick="viewTicket(1)">
-                    <i class="fas fa-eye"></i> View Details
-                </button>
-                <button class="btn btn-secondary" onclick="respondTicket(1)">
-                    <i class="fas fa-reply"></i> Respond
-                </button>
-            </div>
-        </div>
-
-        <div class="ticket-card">
-            <div class="ticket-header">
-                <div>
-                    <div class="ticket-title">Feature request: Dark mode</div>
-                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Submitted by: jane.smith@example.com</div>
-                </div>
-                <span class="ticket-type type-feature">Feature</span>
-            </div>
-            <p style="color: var(--text-secondary); margin: 12px 0;">It would be great to have a dark mode option for the platform. Many users work late at night.</p>
-            <div class="ticket-meta">
-                <span><i class="fas fa-calendar"></i> Jan 14, 2025</span>
-                <span><i class="fas fa-user"></i> Assigned to: Admin</span>
-                <span><i class="fas fa-circle" style="color: var(--warning);"></i> In Progress</span>
-            </div>
-            <div style="margin-top: 16px; display: flex; gap: 8px;">
-                <button class="btn btn-primary" onclick="viewTicket(2)">
-                    <i class="fas fa-eye"></i> View Details
-                </button>
-                <button class="btn btn-secondary" onclick="respondTicket(2)">
-                    <i class="fas fa-reply"></i> Respond
-                </button>
-            </div>
-        </div>
+        <p style="color:var(--text-secondary);">Loading tickets from the user Support screen…</p>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    function assignTicket(id) {
-        Swal.fire({
-            title: 'Assign Ticket',
-            input: 'select',
-            inputOptions: {
-                'admin1': 'Admin User 1',
-                'admin2': 'Admin User 2',
-                'admin3': 'Admin User 3'
-            },
-            showCancelButton: true,
-            confirmButtonText: 'Assign',
-            confirmButtonColor: '#8B7355'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Assigned!', 'Ticket has been assigned successfully.', 'success');
-            }
-        });
+    function loadTickets() {
+        fetch('@Url.Action("GetSupportTickets", "Admin")', { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('ticketsList');
+                if (!list) return;
+                const tickets = data.tickets || [];
+                const typeF = (document.getElementById('typeFilter')?.value || '').toLowerCase();
+                const statusF = (document.getElementById('statusFilter')?.value || '').toLowerCase();
+                const filtered = tickets.filter(t => {
+                    if (typeF && (t.type || '').toLowerCase() !== typeF && typeF !== 'general') return false;
+                    if (statusF && (t.status || '').toLowerCase() !== statusF) return false;
+                    return true;
+                });
+                if (!filtered.length) {
+                    list.innerHTML = '<p style="color:var(--text-secondary);padding:24px;">No support tickets yet. User Support → Human agent messages appear here.</p>';
+                    return;
+                }
+                list.innerHTML = filtered.map(t => `
+                    <div class="ticket-card">
+                        <div class="ticket-header">
+                            <div>
+                                <div class="ticket-title">${t.title || 'Support request'}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">${t.userName || ''} · ${t.userEmail || ''}</div>
+                            </div>
+                            <span class="ticket-type type-general">${t.type || 'Support'}</span>
+                        </div>
+                        <p style="color: var(--text-secondary); margin: 12px 0;">${t.message || ''}</p>
+                        <div class="ticket-meta">
+                            <span><i class="fas fa-calendar"></i> ${t.createdAt || ''}</span>
+                            <span><i class="fas fa-circle"></i> ${t.status || 'open'}</span>
+                        </div>
+                        <div style="margin-top: 16px; display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="viewTicket(${t.id}, this)"><i class="fas fa-eye"></i> View</button>
+                            ${t.status === 'open' ? `<button class="btn btn-primary" onclick="resolveTicket(${t.id})"><i class="fas fa-check"></i> Resolve</button>` : ''}
+                        </div>
+                    </div>`).join('');
+            }).catch(() => {
+                const list = document.getElementById('ticketsList');
+                if (list) list.innerHTML = '<p>Failed to load tickets.</p>';
+            });
     }
 
     function viewTicket(id) {
-        Swal.fire({
-            title: 'Ticket Details',
-            html: `Ticket ID: ${id}<br>View full ticket details, conversation history, and attachments.`,
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            width: '600px'
-        });
+        Swal.fire({ title: 'Ticket #' + id, text: 'Opened from the user Support screen.', confirmButtonText: 'Close' });
     }
 
-    function respondTicket(id) {
-        Swal.fire({
-            title: 'Respond to Ticket',
-            input: 'textarea',
-            inputPlaceholder: 'Enter your response...',
-            showCancelButton: true,
-            confirmButtonText: 'Send Response',
-            confirmButtonColor: '#8B7355',
-            inputValidator: (value) => {
-                if (!value) {
-                    return 'Please enter a response';
-                }
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire('Sent!', 'Your response has been sent.', 'success');
-            }
+    async function resolveTicket(id) {
+        const r = await fetch('@Url.Action("ResolveSupportTicket", "Admin")', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'notificationId=' + encodeURIComponent(id)
         });
+        const data = await r.json();
+        if (data.success) loadTickets();
+        else Swal.fire('Error', data.message || 'Failed', 'error');
     }
+
+    document.getElementById('typeFilter')?.addEventListener('change', loadTickets);
+    document.getElementById('statusFilter')?.addEventListener('change', loadTickets);
+    loadTickets();
 </script>
 

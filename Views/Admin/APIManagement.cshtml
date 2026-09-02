@@ -171,184 +171,52 @@
 <div class="api-container">
     <div class="page-header">
         <h1 style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">API & Technical Dependencies</h1>
-        <p style="color: var(--text-secondary);">Monitor API status, manage keys, and configure integrations</p>
+        <p style="color: var(--text-secondary);">Live health of services the user panel actually calls. Keys are set via environment / appsettings — they are never stored from this screen.</p>
     </div>
 
-    <div class="api-grid">
-        <div class="api-card">
-            <div class="api-header">
-                <div class="api-name">OpenAI API</div>
-                <span class="api-status status-active">Active</span>
-            </div>
-            <div class="api-meta">
-                <div class="api-meta-item">
-                    <span>Usage Today:</span>
-                    <span>1,234 / 10,000</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Rate Limit:</span>
-                    <span>10,000/day</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Last Check:</span>
-                    <span>2 min ago</span>
-                </div>
-            </div>
-            <div style="margin-top: 16px;">
-                <button class="btn btn-secondary" onclick="manageAPI('openai')" style="width: 100%;">
-                    <i class="fas fa-cog"></i> Manage
-                </button>
-            </div>
-        </div>
-
-        <div class="api-card">
-            <div class="api-header">
-                <div class="api-name">DALL·E API</div>
-                <span class="api-status status-active">Active</span>
-            </div>
-            <div class="api-meta">
-                <div class="api-meta-item">
-                    <span>Usage Today:</span>
-                    <span>89 / 500</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Rate Limit:</span>
-                    <span>500/day</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Last Check:</span>
-                    <span>1 min ago</span>
-                </div>
-            </div>
-            <div style="margin-top: 16px;">
-                <button class="btn btn-secondary" onclick="manageAPI('dalle')" style="width: 100%;">
-                    <i class="fas fa-cog"></i> Manage
-                </button>
-            </div>
-        </div>
-
-        <div class="api-card">
-            <div class="api-header">
-                <div class="api-name">Stripe API</div>
-                <span class="api-status status-active">Active</span>
-            </div>
-            <div class="api-meta">
-                <div class="api-meta-item">
-                    <span>Transactions Today:</span>
-                    <span>45</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Status:</span>
-                    <span>Connected</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Last Check:</span>
-                    <span>30 sec ago</span>
-                </div>
-            </div>
-            <div style="margin-top: 16px;">
-                <button class="btn btn-secondary" onclick="manageAPI('stripe')" style="width: 100%;">
-                    <i class="fas fa-cog"></i> Manage
-                </button>
-            </div>
-        </div>
-
-        <div class="api-card">
-            <div class="api-header">
-                <div class="api-name">LanguageTool API</div>
-                <span class="api-status status-warning">Warning</span>
-            </div>
-            <div class="api-meta">
-                <div class="api-meta-item">
-                    <span>Usage Today:</span>
-                    <span>9,800 / 10,000</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Rate Limit:</span>
-                    <span>10,000/day</span>
-                </div>
-                <div class="api-meta-item">
-                    <span>Last Check:</span>
-                    <span>5 min ago</span>
-                </div>
-            </div>
-            <div style="margin-top: 16px;">
-                <button class="btn btn-secondary" onclick="manageAPI('languagetool')" style="width: 100%;">
-                    <i class="fas fa-cog"></i> Manage
-                </button>
-            </div>
-        </div>
+    <div class="api-grid" id="apiHealthGrid">
+        <div class="api-card"><div class="api-name">Checking…</div></div>
     </div>
 
     <div class="section-card">
-        <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 20px;">API Key Management</h3>
-        <form id="apiKeyForm">
-            <div class="form-group">
-                <label class="form-label">Select API</label>
-                <select class="form-control" id="apiSelect">
-                    <option value="">Select API</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="dalle">DALL·E</option>
-                    <option value="stripe">Stripe</option>
-                    <option value="languagetool">LanguageTool</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">API Key</label>
-                <input type="password" class="form-control" id="apiKey" placeholder="Enter API key" />
-            </div>
-            <div class="form-group">
-                <label class="form-label">Environment</label>
-                <select class="form-control" id="environment">
-                    <option value="production">Production</option>
-                    <option value="staging">Staging</option>
-                    <option value="development">Development</option>
-                </select>
-            </div>
-            <button type="button" class="btn btn-primary" onclick="saveAPIKey()">
-                <i class="fas fa-save"></i> Save API Key
-            </button>
-        </form>
+        <h3 style="font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">How keys are configured</h3>
+        <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">
+            Book/Cover AI uses <code>ExternalApi:BaseUrl</code> and <code>ExternalApi:ApiKey</code>.
+            Payments use Stripe env keys. SMTP uses <code>Email:*</code>.
+            Do not paste secrets here — set them on the server and restart the app.
+        </p>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    function manageAPI(apiName) {
-        Swal.fire({
-            title: `Manage ${apiName.toUpperCase()} API`,
-            html: `Configure settings, view logs, and manage API keys for ${apiName}.`,
-            showConfirmButton: true,
-            confirmButtonText: 'Close',
-            width: '600px'
-        });
-    }
-
-    function saveAPIKey() {
-        const api = document.getElementById('apiSelect').value;
-        const key = document.getElementById('apiKey').value;
-        const env = document.getElementById('environment').value;
-
-        if (!api || !key) {
-            Swal.fire('Error!', 'Please fill in all fields.', 'error');
-            return;
-        }
-
-        Swal.fire({
-            title: 'Saving API Key...',
-            text: 'Please wait',
-            icon: 'info',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        setTimeout(() => {
-            Swal.fire('Success!', 'API key saved successfully.', 'success').then(() => {
-                document.getElementById('apiKeyForm').reset();
+    function loadApiHealth() {
+        fetch('@Url.Action("GetApiHealth", "Admin")', { credentials: 'same-origin' })
+            .then(r => r.json())
+            .then(data => {
+                const grid = document.getElementById('apiHealthGrid');
+                if (!data.success || !data.items) {
+                    grid.innerHTML = '<div class="api-card">Could not load health.</div>';
+                    return;
+                }
+                grid.innerHTML = data.items.map(function (item) {
+                    const cls = item.configured ? 'status-active' : 'status-error';
+                    const label = item.configured ? 'Configured' : 'Not configured';
+                    return `<div class="api-card">
+                        <div class="api-header">
+                            <div class="api-name">${item.name}</div>
+                            <span class="api-status ${cls}">${label}</span>
+                        </div>
+                        <div class="api-meta">
+                            <div class="api-meta-item"><span>Environment</span><span>${data.environment || ''}</span></div>
+                            <div class="api-meta-item"><span>Detail</span><span>${item.detail || ''}</span></div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }).catch(() => {
+                document.getElementById('apiHealthGrid').innerHTML = '<div class="api-card">Health check failed.</div>';
             });
-        }, 1500);
     }
+    loadApiHealth();
 </script>
 
