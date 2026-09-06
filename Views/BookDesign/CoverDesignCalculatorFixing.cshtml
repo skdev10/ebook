@@ -2434,14 +2434,58 @@
                                 <button type="button" class="fmt-int-card" data-style="POD"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">POD</span></button>
                                 <button type="button" class="fmt-int-card" data-style="ElegantTrade" data-premium="1"><span class="fmt-lock"><span class="fmt-lock-amt" data-premium-price></span></span><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade <span class="fmt-premium-badge">Premium</span></span></button>
                             </div>
+                            <div class="fmt-live-bill" id="fmtLiveBill">
+                                <div>
+                                    <div class="fmt-live-bill__kicker">Formatting order</div>
+                                    <div class="fmt-live-bill__title" id="fmtBillTitle">Basic formatting — FREE</div>
+                                    <p id="fmtBillHint">You can format and preview without paying. Premium styles unlock on checkout.</p>
+                                </div>
+                                <a class="pay-btn hidden" id="fmtBillPay" href="#">Pay &amp; download</a>
+                            </div>
                             <script>
                             (function () {
+                                var q = new URLSearchParams(location.search);
+                                var bookId = q.get('bookId') || '0';
+                                var prices = {};
                                 fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
-                                    var rule = (d.rules || []).find(function (x) { return x.key === 'formatting.premium'; });
-                                    if (!rule) return;
-                                    var label = '$' + Number(rule.unitAmount).toFixed(2);
-                                    document.querySelectorAll('[data-premium-price]').forEach(function (el) { el.textContent = label; });
+                                    var fallback = (d.rules || []).find(function (x) { return x.key === 'formatting.premium'; });
+                                    var fallbackAmt = fallback ? Number(fallback.unitAmount) : 3;
+                                    (d.templates || []).forEach(function (t) {
+                                        prices[t.styleKey] = t.isPremium ? Number(t.unitAmount) : 0;
+                                    });
+                                    document.querySelectorAll('.fmt-int-card[data-premium="1"]').forEach(function (card) {
+                                        var key = card.getAttribute('data-style');
+                                        var amt = prices[key] != null ? prices[key] : fallbackAmt;
+                                        var el = card.querySelector('[data-premium-price]');
+                                        if (el) el.textContent = '$' + Number(amt).toFixed(0);
+                                    });
+                                    syncFmtBill();
                                 }).catch(function () {});
+
+                                function selectedStyle() {
+                                    var on = document.querySelector('.fmt-int-card.is-active, .fmt-int-card[aria-pressed="true"]');
+                                    return (on && on.getAttribute('data-style')) || (document.getElementById('style-select') || {}).value || '';
+                                }
+                                function syncFmtBill() {
+                                    var style = selectedStyle();
+                                    var premium = !!document.querySelector('.fmt-int-card[data-style="' + style + '"][data-premium="1"]');
+                                    var amt = premium ? (prices[style] || 3) : 0;
+                                    var title = document.getElementById('fmtBillTitle');
+                                    var hint = document.getElementById('fmtBillHint');
+                                    var pay = document.getElementById('fmtBillPay');
+                                    if (title) title.textContent = premium ? ('Premium style — $' + Number(amt).toFixed(2)) : 'Basic formatting — FREE';
+                                    if (hint) hint.textContent = premium
+                                        ? 'Only this style is billed. Writing and cover stay optional.'
+                                        : 'You can format and preview without paying. Premium styles unlock on checkout.';
+                                    if (pay) {
+                                        pay.classList.toggle('hidden', !premium || bookId === '0');
+                                        if (bookId !== '0') pay.href = '/checkout/' + bookId;
+                                    }
+                                }
+                                var cards = document.getElementById('fmt-interior-cards');
+                                if (cards) cards.addEventListener('click', function () { setTimeout(syncFmtBill, 0); });
+                                var sel = document.getElementById('style-select');
+                                if (sel) sel.addEventListener('change', syncFmtBill);
                             })();
                             </script>
                         </div>

@@ -30,4 +30,7 @@ public sealed class PriceQuote
     public decimal Subtotal { get; set; }
     public decimal Total { get; set; }
     public string Currency { get; set; } = "USD";
+    public int PageCount { get; set; }
+    public int FreeAllowance { get; set; }
+    public int PaidPages { get; set; }
 }

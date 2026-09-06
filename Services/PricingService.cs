@@ -28,11 +28,15 @@ public sealed class PricingService : IPricingService
         var writing = Require(byKey, PricingKeys.WritingPerPage);
         var quote = new PriceQuote { Currency = string.IsNullOrWhiteSpace(writing.Currency) ? "USD" : writing.Currency };
 
+        var pageCount = Math.Max(0, request.PageCount);
         var billedFloor = Math.Max(writing.FreeAllowance, Math.Max(0, request.AlreadyBilledPageCount));
-        var billablePages = Math.Max(0, request.PageCount - billedFloor);
+        var billablePages = Math.Max(0, pageCount - billedFloor);
+        quote.PageCount = pageCount;
+        quote.FreeAllowance = Math.Max(0, writing.FreeAllowance);
+        quote.PaidPages = billablePages;
         var writingLine = BuildLine(writing, billablePages, owned, writing.DisplayName);
         writingLine.Breakdown =
-            $"{request.PageCount} pages − {billedFloor} free = {billablePages} billable × ${writing.UnitAmount:0.00}";
+            $"{pageCount} pages · {billedFloor} free · {billablePages} paid × ${writing.UnitAmount:0.00}";
         quote.Lines.Add(writingLine);
 
         if (request.CustomCover)
@@ -52,8 +56,7 @@ public sealed class PricingService : IPricingService
                 .FirstOrDefaultAsync(t => t.Id == request.PremiumTemplateId.Value);
             if (template != null)
             {
-                if (template.PremiumPrice.HasValue)
-                    unit = template.PremiumPrice.Value;
+                unit = ResolvePremiumTemplatePrice(template, formatting.UnitAmount);
                 if (!string.IsNullOrWhiteSpace(template.DisplayName))
                     label = template.DisplayName;
             }
@@ -117,6 +120,20 @@ public sealed class PricingService : IPricingService
             LineTotal = total,
             AlreadyOwned = alreadyOwned
         };
+    }
+
+    /// <summary>Template price if set; otherwise catalog default, with $3/$5 fallbacks for known premium styles.</summary>
+    public static decimal ResolvePremiumTemplatePrice(FormattingTemplate template, decimal catalogFallback)
+    {
+        if (template.PremiumPrice is > 0)
+            return RoundMoney(template.PremiumPrice.Value);
+        var key = (template.StyleKey ?? "").Trim();
+        if (key.Equals("ElegantTrade", StringComparison.OrdinalIgnoreCase))
+            return 3.00m;
+        if (key.Equals("FineBook", StringComparison.OrdinalIgnoreCase)
+            || key.Equals("ElegantTradePOD", StringComparison.OrdinalIgnoreCase))
+            return 5.00m;
+        return RoundMoney(catalogFallback);
     }
 
     private static decimal RoundMoney(decimal value) =>

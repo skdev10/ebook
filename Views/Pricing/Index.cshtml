@@ -15,12 +15,18 @@
     }));
 }
 <div class="pricing-page">
-    <h1 class="pricing-hero" data-hero="0" style="font-size:28px;font-weight:800;margin:0 0 8px;">Simple, output-based pricing</h1>
-    <p class="pricing-hero" data-hero="1" style="color:#6B6B6B;margin:0 0 24px;">Write, format, and generate an AI cover free. You pay once, at export, for the pages and extras you actually use.</p>
+    <h1 class="pricing-hero" data-hero="0" style="font-size:28px;font-weight:800;margin:0 0 8px;">Try free. Pay only for what you use.</h1>
+    <p class="pricing-hero" data-hero="1" style="color:#6B6B6B;margin:0 0 24px;">First 20 writing pages are free. Extra pages are $0.50 each. Basic AI cover and basic formatting stay free. Custom cover, premium interiors, and print-ready files are optional add-ons — never forced.</p>
     @if (!rules.Any())
     {
         <div class="pricing-error" role="alert">Pricing is not configured yet. Ask an admin to restore the rate card, then refresh this page.</div>
     }
+    <div class="pricing-offer-grid pricing-hero" data-hero="1b">
+        <article class="pricing-offer"><span class="chip-free">FREE</span><h3>Write 20 pages</h3><p>Start a book with no card. Extra pages $0.50 each.</p></article>
+        <article class="pricing-offer"><span class="chip-free">FREE</span><h3>Basic AI cover</h3><p>Generate a cover from your title and style.</p></article>
+        <article class="pricing-offer"><span class="chip-locked">$10</span><h3>Custom image</h3><p>Upload your art. Pay only when you export the clean file.</p></article>
+        <article class="pricing-offer"><span class="chip-locked">$20–$30</span><h3>Print-ready</h3><p>Paperback or hardcover wrap for Amazon KDP.</p></article>
+    </div>
     <div class="pricing-grid">
         <div class="price-card">
             <h2 style="margin:0 0 16px;font-size:18px;">Rate card</h2>

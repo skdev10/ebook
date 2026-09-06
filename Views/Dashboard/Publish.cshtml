@@ -1464,6 +1464,28 @@
         </section>
     }
 
+    @if (bookId > 0)
+    {
+        <section class="publish-card publish-card--checkout mb-8" id="publishLiveBill" data-book-id="@bookId">
+            <div class="publish-card-title">
+                <i class="fas fa-receipt" aria-hidden="true"></i>
+                <h2>Your order</h2>
+            </div>
+            <p class="publish-card-sub">First 20 writing pages are free. Extra pages, a custom cover, premium formatting, and print packages appear here before you pay.</p>
+            <div class="invoice-usage" id="publishBillUsage">
+                <div><strong id="pubBillPages">—</strong><span>Total pages</span></div>
+                <div><strong id="pubBillFree">—</strong><span>Free pages</span></div>
+                <div><strong id="pubBillPaid">—</strong><span>Paid pages</span></div>
+                <div><strong id="pubBillTotal">$0.00</strong><span>Due now</span></div>
+            </div>
+            <div id="publishBillLines" class="invoice-table" style="margin-top:12px;"></div>
+            <div class="mt-4 flex flex-wrap gap-3">
+                <a class="pay-btn" id="publishPayLink" href="/checkout/@bookId@(showPrintExports ? (isPaperbackFormat ? "?format=paperback" : "") : "")" style="width:auto;min-width:220px;">Review &amp; pay</a>
+                <span id="publishBillFreeNote" class="text-sm text-emerald-700 font-semibold hidden">All selected features are free — export without paying.</span>
+            </div>
+        </section>
+    }
+
     <section class="publish-export-stores" id="publishExportStores" aria-labelledby="publishExportStoresTitle" data-guided-tour="pub-export">
         <h2 id="publishExportStoresTitle">@(isPrintReadyFlow && !isBothFormat ? "Export print-ready files" : "Export your book")</h2>
         @if (bookId > 0)
@@ -1601,13 +1623,26 @@
     var publishBookFormat = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(publishBookFormat));
     var publishFormatterSnapshot = @Html.Raw(publishFormatterSnapshotJson);
 
+    function redirectIfPaymentRequired(res, payload) {
+        var url = payload && payload.checkoutUrl;
+        if (res && res.status === 402) {
+            window.location = url || ('/checkout/' + bookId + (isPaperbackFormat ? '?format=paperback' : ''));
+            return true;
+        }
+        return false;
+    }
+
     function parseExportErrorResponse(res, fallbackMsg) {
         var ct = (res.headers.get('Content-Type') || '').toLowerCase();
         if (ct.indexOf('application/json') >= 0) {
             return res.json().then(function (j) {
+                if (redirectIfPaymentRequired(res, j))
+                    throw new Error('Payment required — opening your order.');
                 throw new Error((j && j.message) ? j.message : fallbackMsg);
             });
         }
+        if (redirectIfPaymentRequired(res, null))
+            throw new Error('Payment required — opening your order.');
         return res.text().then(function (t) {
             throw new Error(t || fallbackMsg);
         });
@@ -2401,6 +2436,8 @@
         }).then(function (res) {
             if (!res.ok) {
                 return res.json().catch(function () { return {}; }).then(function (j) {
+                    if (redirectIfPaymentRequired(res, j))
+                        throw new Error('Payment required — opening your order.');
                     throw new Error((j && j.message) ? j.message : 'Export failed.');
                 });
             }
@@ -2472,6 +2509,8 @@
             .then(function (res) {
                 if (!res.ok) {
                     return res.json().catch(function () { return {}; }).then(function (j) {
+                        if (redirectIfPaymentRequired(res, j))
+                            throw new Error('Payment required — opening your order.');
                         throw new Error((j && j.message) ? j.message : 'Export failed.');
                     });
                 }
@@ -3133,8 +3172,38 @@
 
     syncPublishModeFromContext();
 
+    function loadPublishLiveBill() {
+        var box = document.getElementById('publishLiveBill');
+        if (!box || !bookId) return;
+        var pb = isPaperbackFormat || isBothFormat;
+        fetch('/pricing/quote/' + bookId + '?paperback=' + (pb ? 'true' : 'false') + '&hardcover=false', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' }
+        }).then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.success) return;
+            var money = window.PricingUI ? window.PricingUI.money : function (n) { return '$' + Number(n).toFixed(2); };
+            var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+            set('pubBillPages', String(d.pageCount || 0));
+            set('pubBillFree', String(Math.min(d.pageCount || 0, d.freePages || 0)));
+            set('pubBillPaid', String(d.paidPages || 0));
+            set('pubBillTotal', money(d.total || 0));
+            var linesEl = document.getElementById('publishBillLines');
+            if (linesEl && window.PricingUI) {
+                window.PricingUI.syncReceipt(linesEl, (d.lines || []).map(function (l) {
+                    return { key: l.key, label: l.description + (l.breakdown ? ' — ' + l.breakdown : ''), amount: l.lineTotal };
+                }));
+            }
+            var pay = document.getElementById('publishPayLink');
+            var freeNote = document.getElementById('publishBillFreeNote');
+            if (d.checkoutPath && pay) pay.href = d.checkoutPath;
+            if (freeNote) freeNote.classList.toggle('hidden', !(d.allowed || d.total <= 0));
+            if (pay) pay.textContent = (d.total > 0) ? ('Review & pay ' + money(d.total)) : 'Review order';
+        }).catch(function () { /* non-fatal */ });
+    }
+
     if (bookId > 0) {
         loadSavedCoverPreview();
+        loadPublishLiveBill();
         ensureFormatterSavedOnServer(1).catch(function () { return false; });
     }
 })();

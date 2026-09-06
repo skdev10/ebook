@@ -1,41 +1,54 @@
 @{
     var meterBookId = ViewBag.SelectedBookId as int? ?? 0;
 }
-<div id="writingCostMeter" class="pricing-meter" data-book-id="@meterBookId" style="background:#fff;border:1px solid var(--dash-border, #E5E5E5);border-radius:var(--dash-card-radius, 14px);padding:14px 16px;">
-    <div style="font-size:12px;color:#64748b;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;">Writing cost</div>
-    <div class="pricing-money" style="font-size:13px;">
-        <div><span id="meterPages">0</span> pages</div>
-        <div class="meter-bar" aria-hidden="true">
-            <span id="meterBillFill" class="meter-fill is-bill"></span>
-            <span id="meterFreeFill" class="meter-fill is-free"></span>
+<div id="writingCostMeter" class="pricing-meter" data-book-id="@meterBookId">
+    <div class="meter-head">
+        <div>
+            <div class="meter-kicker">Writing bill</div>
+            <div class="meter-title">First 20 pages free</div>
         </div>
-        <div>Running writing cost: <strong id="meterCost" data-value="0">$0.00</strong></div>
+        <div class="meter-running pricing-money" id="meterCost" data-value="0">$0.00</div>
     </div>
-    <p style="margin:8px 0 0;font-size:12px;color:#6B6B6B;">Nothing is charged until you export. Keep writing, you can stop, edit or delete pages any time.</p>
+    <div class="meter-stats" aria-live="polite">
+        <div><span id="meterPages">0</span><small>Total pages</small></div>
+        <div><span id="meterFree">20</span><small>Free</small></div>
+        <div><span id="meterPaid">0</span><small>Paid pages</small></div>
+        <div><span id="meterRate">$0.50</span><small>Per extra page</small></div>
+    </div>
+    <div class="meter-bar" aria-hidden="true">
+        <span id="meterBillFill" class="meter-fill is-bill"></span>
+        <span id="meterFreeFill" class="meter-fill is-free"></span>
+    </div>
+    <p class="meter-copy">Additional pages are $0.50 each and appear on your order at checkout. Nothing is charged until you pay.</p>
     <div class="meter-notice" id="meterNotice" role="status">
         <span id="meterNoticeText"></span>
-        <button type="button" id="meterNoticeDismiss" aria-label="Dismiss">×</button>
+        <a class="meter-bill-link" id="meterCheckoutLink" href="/checkout/@meterBookId">View order</a>
     </div>
 </div>
 <script>
 (function () {
-    var rates = { perPage: null, free: 0, wordsPerPage: null };
+    var rates = { perPage: 0.50, free: 20, wordsPerPage: 275 };
     var root = document.getElementById("writingCostMeter");
     var bookId = (root && root.getAttribute("data-book-id")) || "0";
     try {
         var q = new URLSearchParams(location.search);
         if (q.get("bookId")) bookId = q.get("bookId");
     } catch (e) {}
-    var noticeKey = "pricingMeterNotice:" + bookId;
-    var crossed = false;
+    var link = document.getElementById("meterCheckoutLink");
+    if (link && bookId && bookId !== "0") link.href = "/checkout/" + bookId;
 
     fetch("/pricing/rates", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
         (d.rules || []).forEach(function (rule) {
             if (rule.key === "writing.per_page") { rates.perPage = rule.unitAmount; rates.free = rule.freeAllowance; }
         });
         if (d.wordsPerPage) rates.wordsPerPage = d.wordsPerPage;
+        var rateEl = document.getElementById("meterRate");
+        if (rateEl) rateEl.textContent = "$" + Number(rates.perPage).toFixed(2);
+        var freeEl = document.getElementById("meterFree");
+        if (freeEl) freeEl.textContent = String(rates.free || 0);
         tick();
-    }).catch(function () {});
+        refreshServer();
+    }).catch(function () { tick(); });
 
     function words() {
         var el = document.getElementById("bookResult") || document.querySelector("[data-word-count]");
@@ -43,14 +56,17 @@
         return (text.match(/\b\w+\b/g) || []).length;
     }
 
-    function tick() {
-        if (!rates.wordsPerPage || rates.perPage == null) return;
-        var pages = Math.ceil(words() / rates.wordsPerPage) || 0;
-        var billable = Math.max(0, pages - (rates.free || 0));
-        var cost = billable * rates.perPage;
+    function paint(pages, paid, cost) {
+        pages = Math.max(0, pages || 0);
+        paid = Math.max(0, paid || 0);
+        cost = Math.max(0, cost || 0);
         var pagesEl = document.getElementById("meterPages");
+        var paidEl = document.getElementById("meterPaid");
         var costEl = document.getElementById("meterCost");
+        var freeEl = document.getElementById("meterFree");
         if (pagesEl) pagesEl.textContent = String(pages);
+        if (paidEl) paidEl.textContent = String(paid);
+        if (freeEl) freeEl.textContent = String(Math.min(pages, rates.free || 0));
         if (costEl && window.PricingUI) window.PricingUI.countTo(costEl, cost, 220);
         else if (costEl) costEl.textContent = "$" + cost.toFixed(2);
         var max = Math.max(pages, rates.free || 1, 1);
@@ -58,36 +74,43 @@
         var bf = document.getElementById("meterBillFill");
         if (ff) ff.style.transform = "scaleX(" + (Math.min(pages, rates.free) / max) + ")";
         if (bf) bf.style.transform = "scaleX(" + (pages / max) + ")";
-
-        if (pages > (rates.free || 0) && bookId && bookId !== "0") {
-            var seen = false;
-            try { seen = localStorage.getItem(noticeKey) === "1"; } catch (e) {}
-            if (!seen && !crossed) {
-                crossed = true;
-                try { localStorage.setItem(noticeKey, "1"); } catch (e) {}
-                var notice = document.getElementById("meterNotice");
-                var text = document.getElementById("meterNoticeText");
-                if (text) {
-                    text.textContent = "You are past the " + rates.free + " free pages. Writing is now $" + Number(rates.perPage).toFixed(2) + " per page.";
-                }
-                if (notice) notice.classList.add("is-on");
-                if (root) {
-                    root.classList.remove("is-pulse");
-                    void root.offsetWidth;
-                    root.classList.add("is-pulse");
-                }
+        if (root) root.classList.toggle("is-over", paid > 0);
+        var notice = document.getElementById("meterNotice");
+        var text = document.getElementById("meterNoticeText");
+        if (paid > 0) {
+            if (text) {
+                text.textContent = pages + " pages · " + paid + " paid × $" + Number(rates.perPage).toFixed(2) + " = $" + cost.toFixed(2) + ". This line is on your order.";
             }
+            if (notice) notice.classList.add("is-on");
+        } else if (notice) {
+            notice.classList.remove("is-on");
         }
     }
 
-    var dismiss = document.getElementById("meterNoticeDismiss");
-    if (dismiss) {
-        dismiss.addEventListener("click", function () {
-            var notice = document.getElementById("meterNotice");
-            if (notice) notice.classList.remove("is-on");
-        });
+    function tick() {
+        if (!rates.wordsPerPage || rates.perPage == null) return;
+        var pages = Math.ceil(words() / rates.wordsPerPage) || 0;
+        var paid = Math.max(0, pages - (rates.free || 0));
+        paint(pages, paid, paid * rates.perPage);
     }
+
+    function refreshServer() {
+        if (!bookId || bookId === "0") return;
+        fetch("/pricing/quote/" + encodeURIComponent(bookId), { credentials: "same-origin", headers: { "Accept": "application/json" } })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (d) {
+                if (!d || !d.success) return;
+                if (typeof d.writingUnit === "number") rates.perPage = d.writingUnit;
+                if (typeof d.freePages === "number") rates.free = d.freePages;
+                var rateEl = document.getElementById("meterRate");
+                if (rateEl) rateEl.textContent = "$" + Number(rates.perPage).toFixed(2);
+                paint(d.pageCount, d.paidPages, Number(d.writingCost) || 0);
+            })
+            .catch(function () {});
+    }
+
     setInterval(tick, 4000);
+    setInterval(refreshServer, 12000);
     document.addEventListener("input", tick);
 })();
 </script>

@@ -28,6 +28,86 @@ public class PricingEngineTests
 
     private static PricingService Service(ApplicationDbContext ctx) => new(ctx);
 
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(20, 0)]
+    [InlineData(21, 0.50)]
+    [InlineData(40, 10)]
+    [InlineData(100, 40)]
+    [InlineData(200, 90)]
+    public async Task Writing_pages_follow_20_free_then_fifty_cents(int pages, decimal expected)
+    {
+        await using var ctx = CreateContext(nameof(Writing_pages_follow_20_free_then_fifty_cents) + pages);
+        var quote = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = pages });
+        Assert.Equal(expected, quote.Total);
+        Assert.Equal(pages, quote.PageCount);
+        Assert.Equal(20, quote.FreeAllowance);
+        Assert.Equal(Math.Max(0, pages - 20), quote.PaidPages);
+    }
+
+    [Fact]
+    public async Task Premium_template_defaults_are_3_and_5()
+    {
+        await using var ctx = CreateContext(nameof(Premium_template_defaults_are_3_and_5));
+        ctx.FormattingTemplates.AddRange(
+            new FormattingTemplate { Id = 10, StyleKey = "ElegantTrade", DisplayName = "Premium Formatting 1", IsPremium = true },
+            new FormattingTemplate { Id = 9, StyleKey = "FineBook", DisplayName = "Premium Formatting 2", IsPremium = true });
+        await ctx.SaveChangesAsync();
+        var three = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, PremiumTemplateId = 10 });
+        var five = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, PremiumTemplateId = 9 });
+        Assert.Equal(3.00m, three.Total);
+        Assert.Equal(5.00m, five.Total);
+    }
+
+    [Fact]
+    public async Task Quote_200_custom_cover_premium5_hardcover_is_135()
+    {
+        await using var ctx = CreateContext(nameof(Quote_200_custom_cover_premium5_hardcover_is_135));
+        ctx.FormattingTemplates.Add(new FormattingTemplate
+        {
+            Id = 7,
+            StyleKey = "FineBook",
+            DisplayName = "Premium Formatting 2",
+            IsPremium = true,
+            PremiumPrice = 5.00m
+        });
+        await ctx.SaveChangesAsync();
+        var quote = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest
+        {
+            PageCount = 200,
+            CustomCover = true,
+            PremiumTemplateId = 7,
+            Hardcover = true
+        });
+        Assert.Equal(135.00m, quote.Total);
+        Assert.Equal(90.00m, quote.Lines.Single(l => l.Key == PricingKeys.WritingPerPage).LineTotal);
+        Assert.Equal(10.00m, quote.Lines.Single(l => l.Key == PricingKeys.CoverCustomImage).LineTotal);
+        Assert.Equal(5.00m, quote.Lines.Single(l => l.Key == PricingKeys.FormattingPremium).LineTotal);
+        Assert.Equal(30.00m, quote.Lines.Single(l => l.Key == PricingKeys.ExportHardcover).LineTotal);
+    }
+
+    [Fact]
+    public async Task Basic_ai_cover_and_basic_formatting_are_free()
+    {
+        await using var ctx = CreateContext(nameof(Basic_ai_cover_and_basic_formatting_are_free));
+        var quote = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 20 });
+        Assert.Equal(0m, quote.Total);
+        Assert.DoesNotContain(quote.Lines, l => l.Key == PricingKeys.CoverCustomImage);
+        Assert.DoesNotContain(quote.Lines, l => l.Key == PricingKeys.FormattingPremium);
+    }
+
+    [Fact]
+    public async Task Custom_cover_is_10_and_print_packages_match_catalog()
+    {
+        await using var ctx = CreateContext(nameof(Custom_cover_is_10_and_print_packages_match_catalog));
+        var coverOnly = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, CustomCover = true });
+        Assert.Equal(10.00m, coverOnly.Total);
+        var pb = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, Paperback = true });
+        Assert.Equal(20.00m, pb.Total);
+        var hc = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, Hardcover = true });
+        Assert.Equal(30.00m, hc.Total);
+    }
+
     [Fact]
     public async Task Quote_200_pages_custom_cover_premium_paperback_is_123()
     {

@@ -623,6 +623,22 @@
                     <p class="cov-format-hint">Each interior book can have separate eBook and paperback covers — all exportable.</p>
                 </div>
 
+                <div class="cov-price-tiers mb-4" id="covPriceTiers">
+                    <article class="cov-price-tier is-free">
+                        <div class="cov-price-tier__top">
+                            <h3>Basic AI Cover</h3>
+                            <span class="chip-free">FREE</span>
+                        </div>
+                        <p>Title, style, and AI art. Generate as many fronts as you need — no charge.</p>
+                    </article>
+                    <article class="cov-price-tier is-paid">
+                        <div class="cov-price-tier__top">
+                            <h3>Custom Image Cover</h3>
+                            <span class="chip-locked" id="covCustomPriceChip">$10</span>
+                        </div>
+                        <p>Upload your own image. Design stays free; the clean file unlocks on your order.</p>
+                    </article>
+                </div>
                 <div class="mb-3" data-guided-tour="cov-format" id="covFormatBlock">
                     <label class="block text-sm text-slate-600 mb-1.5 font-medium">Cover type</label>
                     <div id="covFormatSeg" class="cov-format-seg" role="radiogroup" aria-label="Cover type">
@@ -689,6 +705,8 @@
                         fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
                             var rule = (d.rules || []).find(function (x) { return x.key === 'cover.custom_image'; });
                             if (rule && a) a.textContent = 'Unlock uploaded cover — $' + Number(rule.unitAmount).toFixed(2);
+                            var chip = document.getElementById('covCustomPriceChip');
+                            if (rule && chip) chip.textContent = '$' + Number(rule.unitAmount).toFixed(0);
                         }).catch(function () {});
                         var freeBtn = document.getElementById('useFreeAiCoverBtn');
                         if (freeBtn) {
@@ -766,8 +784,11 @@
                 <div class="border border-slate-200 rounded-[20px] p-1.5 bg-white focus-within:border-violet-500 focus-within:ring-2 focus-within:ring-violet-500/20 transition-all duration-200">
                     <textarea id="backCoverSummary" rows="6" maxlength="4000" placeholder="A short synopsis for the back cover — mood, stakes, and why readers should open the book…" class="w-full px-4 py-3 text-base text-slate-800 outline-none resize-y bg-slate-50/40 focus:bg-white transition-colors rounded-[14px] min-h-[7rem]"></textarea>
                     <div class="flex flex-wrap items-center justify-between gap-2 px-2.5 py-2">
-                        <p id="backCoverSummaryHint" class="text-[11px] text-slate-400 mb-0">Shows on the back panel of the full wrap preview and print wrap PDF.</p>
-                        <span id="backCoverSummaryWarn" class="hidden text-[11px] font-semibold text-amber-700">Text may be too long for the back panel.</span>
+                        <p id="backCoverSummaryHint" class="text-[11px] text-slate-400 mb-0">Included in paperback/hardcover packages — printed on the back panel.</p>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="btnUseBookSummary" class="text-[11px] font-bold text-violet-700 underline">Use book description</button>
+                            <span id="backCoverSummaryWarn" class="hidden text-[11px] font-semibold text-amber-700">Text may be too long for the back panel.</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3627,6 +3648,16 @@
     }
 
     (function bindBackCoverSummary() {
+        var useDesc = document.getElementById('btnUseBookSummary');
+        if (useDesc) {
+            useDesc.addEventListener('click', function () {
+                var fromBook = selectedBook && (selectedBook.description || selectedBook.bookDescription || '');
+                if (backCoverSummary && fromBook) {
+                    backCoverSummary.value = String(fromBook).trim();
+                    scheduleSaveBackCoverSummary();
+                }
+            });
+        }
         if (!backCoverSummary) return;
         backCoverSummary.addEventListener('input', function () {
             scheduleSaveBackCoverSummary();
