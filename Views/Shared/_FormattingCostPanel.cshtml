@@ -1,0 +1,16 @@
+@* Page-count formatting estimate. Updates via POST /api/pricing/calculate. *@
+<aside class="fmt-writing-cost" id="fmtWritingCostPanel" data-guided-tour="fmt-pricing" aria-live="polite">
+    <h3 class="fmt-writing-cost__title">Formatting Cost Estimate</h3>
+    <p class="fmt-writing-cost__error" id="fmtPageCountError" hidden>Please write or load a book first</p>
+    <dl class="fmt-writing-cost__rows">
+        <div><dt>Your book</dt><dd id="fmtCostPages">—</dd></div>
+        <div><dt>Free pages</dt><dd id="fmtCostFree">20 pages</dd></div>
+        <div><dt>Chargeable</dt><dd id="fmtCostPaid">0 pages</dd></div>
+        <div><dt>Rate</dt><dd>$0.50/page</dd></div>
+    </dl>
+    <div class="fmt-writing-cost__total">
+        <span>TOTAL</span>
+        <strong id="fmtCostTotal" class="is-free">$0.00</strong>
+    </div>
+    <p class="fmt-writing-cost__note">First 20 pages always free</p>
+</aside>

@@ -14,6 +14,8 @@ public sealed class AdminUserWorkspaceViewModel
     public DateTime LastLoginAt { get; set; }
     public int ProfileCompletionPercentage { get; set; }
     public bool HasCompletedTour { get; set; }
+    public int AICoverGenerationsUsed { get; set; }
+    public int AICoverGenerationLimit { get; set; } = 5;
 
     public string? PlanName { get; set; }
     public decimal? PlanRate { get; set; }

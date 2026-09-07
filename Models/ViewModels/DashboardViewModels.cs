@@ -153,6 +153,10 @@ namespace EBookDashboard.Models
         public string SignupMethod { get; set; } = "Manual"; // Manual, Google, Facebook
         public int ProfileCompletionPercentage { get; set; }
         public int BooksCreated { get; set; }
+        /// <summary>Lifetime AI cover generations used.</summary>
+        public int AICoverGenerationsUsed { get; set; }
+        /// <summary>Lifetime AI cover cap (default 5).</summary>
+        public int AICoverGenerationLimit { get; set; } = 5;
         /// <summary>Active subscription plan name from the user panel, when one exists.</summary>
         public string? PlanName { get; set; }
     }

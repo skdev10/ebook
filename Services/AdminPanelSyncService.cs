@@ -134,6 +134,8 @@ public sealed class AdminPanelSyncService : IAdminPanelSyncService
             LastLoginAt = user.LastLoginAt,
             ProfileCompletionPercentage = CalculateProfileCompletion(user),
             HasCompletedTour = user.HasCompletedTour == true,
+            AICoverGenerationsUsed = user.AICoverGenerationsUsed,
+            AICoverGenerationLimit = user.AICoverGenerationLimit > 0 ? user.AICoverGenerationLimit : 5,
             PlanName = plan?.PlanName,
             PlanRate = plan?.PlanRate,
             PlanStart = plan?.StartDate,

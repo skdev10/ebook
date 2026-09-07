@@ -2351,37 +2351,9 @@
                             </div>
                         }
 
-                        <div class="group" data-guided-tour="fmt-manuscript">
-                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Manuscript</label>
-                            <p class="text-xs text-gray-400 mb-2 leading-snug">Upload your existing manuscript to start formatting. No need to write a new book. DOCX / PDF (TXT, MD also ok).</p>
-                            <div class="fmt-ms-row">
-                                <input type="file" id="fmt-ms-file" accept=".docx,.pdf,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" />
-                                <div id="fmt-ms-dropzone" class="fmt-ms-drop-hint" tabindex="0" role="button" aria-label="Drop manuscript file here" title="Drop DOCX or PDF here">
-                                    <span class="fmt-ms-drop-hint__text">Drop or Browse</span>
-                                </div>
-                                <div class="fmt-ms-meta min-w-0 flex-1">
-                                    <p id="fmt-ms-last" class="text-xs text-gray-500 mt-0 mb-0 leading-snug truncate">
-                                        @{
-                                            var msLabel = ViewBag.LastManuscriptUploadedLabel as string ?? "";
-                                            var msName = ViewBag.LastManuscriptFileName as string ?? "";
-                                            var hasMs = ViewBag.HasManuscriptOnFile as bool? ?? false;
-                                        }
-                                        @if (!string.IsNullOrEmpty(msLabel))
-                                        {
-                                            <text>@msLabel@(string.IsNullOrEmpty(msName) ? "" : $" · {msName}")</text>
-                                        }
-                                        else if (hasMs)
-                                        {
-                                            <text>On file — drop or browse to refresh</text>
-                                        }
-                                        else
-                                        {
-                                            <text>No file yet</text>
-                                        }
-                                    </p>
-                                    <p id="fmt-ms-status" class="text-xs min-h-[1.1rem] mt-0.5 mb-0 leading-snug truncate" aria-live="polite"></p>
-                                </div>
-                            </div>
+                        <div class="group" data-guided-tour="fmt-book">
+                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Your book</label>
+                            <p class="text-xs text-gray-500 mb-0 leading-snug">Formats the book you wrote on this platform. First 20 pages are always free; extra pages are $0.50 each.</p>
                         </div>
 
                         <div class="group" data-guided-tour="fmt-format">
@@ -2442,6 +2414,7 @@
                                 </div>
                                 <a class="pay-btn hidden" id="fmtBillPay" href="#">Pay &amp; download</a>
                             </div>
+                            @await Html.PartialAsync("_FormattingCostPanel")
                             <script>
                             (function () {
                                 var q = new URLSearchParams(location.search);
@@ -2999,6 +2972,7 @@
                 queueAutosave(800);
             }
         }
+        if (typeof window.refreshFormattingCostPanel === 'function') window.refreshFormattingCostPanel();
     }
     window.syncFormatterPageCountUi = syncFormatterPageCountUi;
 
@@ -7595,7 +7569,15 @@
                     if (msg) setFormatterSaveStatus(msg, ok === false);
                 }
                 if (!bid) { showToast('Select a book first.'); setExportStatus('Select a book first.', false); return; }
-                if (!bookChapters.length) { showToast('Add manuscript or chapters before export.'); setExportStatus('Add chapters first.', false); return; }
+                var pagesNow = typeof window.getFormatterPreviewPageCount === 'function' ? window.getFormatterPreviewPageCount() : 0;
+                if (!pagesNow) {
+                    var pageErr = document.getElementById('fmtPageCountError');
+                    if (pageErr) pageErr.hidden = false;
+                    showToast('Please write or load a book first');
+                    setExportStatus('Please write or load a book first', false);
+                    return;
+                }
+                if (!bookChapters.length) { showToast('Please write or load a book first'); setExportStatus('Please write or load a book first', false); return; }
                 if (btn) btn.disabled = true;
                 setExportStatus('Exporting…', null);
                 try {

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using Microsoft.EntityFrameworkCore;
@@ -76,6 +77,12 @@ public sealed class CoverGenerationJobQueue : ICoverGenerationJobQueue
                 var gen = scope.ServiceProvider.GetRequiredService<ICoverFrontGenerationService>();
                 var result = await gen.GenerateAsync(userId, reqCopy, CancellationToken.None);
 
+                if (!result.Success)
+                {
+                    var quota = scope.ServiceProvider.GetRequiredService<IAiCoverQuotaService>();
+                    await quota.ReleaseAsync(userId, CancellationToken.None);
+                }
+
                 var snap = new CoverGenerationJobSnapshot
                 {
                     Status = result.Success ? "complete" : "error",
@@ -97,6 +104,16 @@ public sealed class CoverGenerationJobQueue : ICoverGenerationJobQueue
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Background front cover generation crashed for book {BookId}", reqCopy.BookId);
+                try
+                {
+                    using var failScope = _scopeFactory.CreateScope();
+                    var quota = failScope.ServiceProvider.GetRequiredService<IAiCoverQuotaService>();
+                    await quota.ReleaseAsync(userId, CancellationToken.None);
+                }
+                catch (Exception releaseEx)
+                {
+                    _logger.LogWarning(releaseEx, "Could not refund AI cover quota for user {UserId}", userId);
+                }
                 var err = new CoverGenerationJobSnapshot
                 {
                     Status = "error",

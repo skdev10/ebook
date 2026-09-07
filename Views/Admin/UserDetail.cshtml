@@ -33,6 +33,7 @@
         <div>Joined @Model.CreatedAt.ToString("yyyy-MM-dd")</div>
         <div>Last login @lastLogin</div>
         <div>Tour @(Model.HasCompletedTour ? "completed" : "not completed")</div>
+        <div>AI covers @Model.AICoverGenerationsUsed / @(Model.AICoverGenerationLimit > 0 ? Model.AICoverGenerationLimit : 5)</div>
     </div>
 </div>
 
@@ -42,6 +43,7 @@
     <div class="ws-card"><div class="ws-kpi">@Model.PublishedCount</div><div class="ws-label">Published</div></div>
     <div class="ws-card"><div class="ws-kpi">@Model.ChapterCount</div><div class="ws-label">Chapters</div></div>
     <div class="ws-card"><div class="ws-kpi">@Model.CoverCount</div><div class="ws-label">Covers</div></div>
+    <div class="ws-card"><div class="ws-kpi">@Model.AICoverGenerationsUsed / @(Model.AICoverGenerationLimit > 0 ? Model.AICoverGenerationLimit : 5)</div><div class="ws-label">AI cover uses</div></div>
     <div class="ws-card"><div class="ws-kpi">@Model.LifetimeBilled.ToString("N2")</div><div class="ws-label">Billed</div></div>
 </div>
 

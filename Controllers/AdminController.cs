@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Security.Claims;
 
@@ -97,7 +98,9 @@ namespace EBookDashboard.Controllers
                         LastLoginAt = u.LastLoginAt,
                         SignupMethod = string.IsNullOrEmpty(u.Password) ? "OAuth" : "Manual",
                         ProfileCompletionPercentage = CalculateProfileCompletion(u),
-                        BooksCreated = _context.Books.Count(b => b.UserId == u.UserId)
+                        BooksCreated = _context.Books.Count(b => b.UserId == u.UserId),
+                        AICoverGenerationsUsed = u.AICoverGenerationsUsed,
+                        AICoverGenerationLimit = u.AICoverGenerationLimit > 0 ? u.AICoverGenerationLimit : 5
                     })
                     .ToList(),
                 RecentBooks = await (from b in _context.Books
@@ -253,7 +256,9 @@ namespace EBookDashboard.Controllers
                 LastLoginAt = u.LastLoginAt,
                 SignupMethod = string.IsNullOrEmpty(u.Password) ? "OAuth" : "Manual",
                 ProfileCompletionPercentage = CalculateProfileCompletion(u),
-                BooksCreated = _context.Books.Count(b => b.UserId == u.UserId)
+                BooksCreated = _context.Books.Count(b => b.UserId == u.UserId),
+                AICoverGenerationsUsed = u.AICoverGenerationsUsed,
+                AICoverGenerationLimit = u.AICoverGenerationLimit > 0 ? u.AICoverGenerationLimit : 5
             }).ToList();
 
             await _panelSync.EnrichUserRowsAsync(viewModel);
@@ -960,7 +965,9 @@ namespace EBookDashboard.Controllers
                         LastLoginAt = u.LastLoginAt,
                         SignupMethod = string.IsNullOrEmpty(u.Password) ? "OAuth" : "Manual",
                         ProfileCompletionPercentage = CalculateProfileCompletion(u),
-                        BooksCreated = _context.Books.Count(b => b.UserId == u.UserId)
+                        BooksCreated = _context.Books.Count(b => b.UserId == u.UserId),
+                        AICoverGenerationsUsed = u.AICoverGenerationsUsed,
+                        AICoverGenerationLimit = u.AICoverGenerationLimit > 0 ? u.AICoverGenerationLimit : 5
                     })
                     .ToListAsync();
                 return Json(new { success = true, users = allUsers });
@@ -981,7 +988,9 @@ namespace EBookDashboard.Controllers
                     LastLoginAt = u.LastLoginAt,
                     SignupMethod = string.IsNullOrEmpty(u.Password) ? "OAuth" : "Manual",
                     ProfileCompletionPercentage = CalculateProfileCompletion(u),
-                    BooksCreated = _context.Books.Count(b => b.UserId == u.UserId)
+                    BooksCreated = _context.Books.Count(b => b.UserId == u.UserId),
+                    AICoverGenerationsUsed = u.AICoverGenerationsUsed,
+                    AICoverGenerationLimit = u.AICoverGenerationLimit > 0 ? u.AICoverGenerationLimit : 5
                 })
                 .ToListAsync();
 
@@ -1102,10 +1111,40 @@ namespace EBookDashboard.Controllers
                 booksCreated = books,
                 profileCompletion = CalculateProfileCompletion(user),
                 planName = plan ?? "",
-                workspaceUrl = Url.Action("UserDetail", "Admin", new { id = user.UserId })
+                workspaceUrl = Url.Action("UserDetail", "Admin", new { id = user.UserId }),
+                aiCoverGenerationsUsed = user.AICoverGenerationsUsed,
+                aiCoverGenerationLimit = user.AICoverGenerationLimit > 0 ? user.AICoverGenerationLimit : 5
             };
 
             return Json(new { success = true, user = userDetails });
+        }
+
+        /// <summary>Sets a user's lifetime AI cover uses back to zero.</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> ResetAiCoverQuota(int userId)
+        {
+            if (!await IsCurrentUserAdminAsync())
+                return Json(new { success = false, message = "Unauthorized" });
+            var quota = HttpContext.RequestServices.GetRequiredService<IAiCoverQuotaService>();
+            await quota.ResetAsync(userId);
+            var snap = await quota.GetAsync(userId);
+            return Json(new { success = true, used = snap.Used, limit = snap.Limit, remaining = snap.Remaining });
+        }
+
+        /// <summary>Sets a custom lifetime AI cover generation cap for one user.</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> SetAiCoverLimit(int userId, int limit)
+        {
+            if (!await IsCurrentUserAdminAsync())
+                return Json(new { success = false, message = "Unauthorized" });
+            if (limit < 1 || limit > 500)
+                return Json(new { success = false, message = "Limit must be between 1 and 500." });
+            var quota = HttpContext.RequestServices.GetRequiredService<IAiCoverQuotaService>();
+            await quota.SetLimitAsync(userId, limit);
+            var snap = await quota.GetAsync(userId);
+            return Json(new { success = true, used = snap.Used, limit = snap.Limit, remaining = snap.Remaining });
         }
 
         // POST: /Admin/DeactivateUser

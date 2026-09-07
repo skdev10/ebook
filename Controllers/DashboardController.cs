@@ -59,6 +59,7 @@ namespace EBookDashboard.Controllers
         private readonly ICoverFrontGenerationService _coverFrontGenerationService;
         private readonly IBookCoverDesignService _bookCoverDesigns;
         private readonly IWebHostEnvironment _env;
+        private readonly IAiCoverQuotaService _aiCoverQuota;
 
         public DashboardController(
             IFeatureCartService featureCartService,
@@ -82,7 +83,8 @@ namespace EBookDashboard.Controllers
             ICoverGenerationJobQueue coverGenerationJobQueue,
             ICoverFrontGenerationService coverFrontGenerationService,
             IBookCoverDesignService bookCoverDesigns,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            IAiCoverQuotaService aiCoverQuota)
         {
             _featureCartService = featureCartService;
             _context = context;
@@ -106,6 +108,7 @@ namespace EBookDashboard.Controllers
             _coverFrontGenerationService = coverFrontGenerationService;
             _bookCoverDesigns = bookCoverDesigns;
             _env = env;
+            _aiCoverQuota = aiCoverQuota;
         }
 
         [Route("")]
@@ -1207,6 +1210,34 @@ namespace EBookDashboard.Controllers
             return Json(new { success = true, hasCompletedTour = true });
         }
 
+        /// <summary>Clears the first-login tour flag so Profile → Replay Tour can run again.</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Route("ReplayTour")]
+        public async Task<IActionResult> ReplayTour()
+        {
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            if (user == null)
+                return Json(new { success = false });
+            user.HasCompletedTour = false;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return Json(new { success = true, hasCompletedTour = false });
+        }
+
+        /// <summary>Lifetime AI cover generation quota for the signed-in user.</summary>
+        [HttpGet]
+        [Route("CoverQuota")]
+        public async Task<IActionResult> CoverQuota(CancellationToken cancellationToken)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+            var snap = await _aiCoverQuota.GetAsync(sessionUserId.Value, cancellationToken);
+            return Json(CoverQuotaPayload(snap, true));
+        }
+
         [Route("EBook")]
         public IActionResult EBook()
         {
@@ -1340,9 +1371,9 @@ namespace EBookDashboard.Controllers
             if (book == null)
                 return Json(new { success = false, status = "error", message = "Book not found." });
 
-            if (!req.Wait)
+            var existingJob = _coverGenerationJobQueue.GetStatus(sessionUserId.Value, req.BookId);
+            if (existingJob?.Status == "processing")
             {
-                _coverGenerationJobQueue.Start(sessionUserId.Value, req);
                 return Json(new
                 {
                     success = true,
@@ -1351,14 +1382,47 @@ namespace EBookDashboard.Controllers
                 });
             }
 
+            var reserved = await _aiCoverQuota.TryReserveAsync(sessionUserId.Value, cancellationToken);
+            if (!reserved.Reserved)
+            {
+                return Json(new
+                {
+                    success = false,
+                    status = "error",
+                    limitReached = true,
+                    used = reserved.Snapshot.Used,
+                    limit = reserved.Snapshot.Limit,
+                    remaining = reserved.Snapshot.Remaining,
+                    message = $"You've used all {reserved.Snapshot.Limit} free AI cover generations."
+                });
+            }
+
+            if (!req.Wait)
+            {
+                _coverGenerationJobQueue.Start(sessionUserId.Value, req);
+                return Json(new
+                {
+                    success = true,
+                    status = "processing",
+                    used = reserved.Snapshot.Used,
+                    limit = reserved.Snapshot.Limit,
+                    remaining = reserved.Snapshot.Remaining,
+                    message = "Generating front cover — this may take a few minutes while the AI queue runs."
+                });
+            }
+
             try
             {
                 var result = await _coverFrontGenerationService.GenerateAsync(sessionUserId.Value, req, CancellationToken.None);
                 if (!result.Success)
+                {
+                    await _aiCoverQuota.ReleaseAsync(sessionUserId.Value, CancellationToken.None);
                     return Json(new { success = false, status = "error", message = result.Message });
+                }
 
                 HttpContext.Session.SetString("CoverDesignHasGenerated", "1");
                 HttpContext.Session.SetString("CoverDesignLastBookId", req.BookId.ToString());
+                var snap = await _aiCoverQuota.GetAsync(sessionUserId.Value, CancellationToken.None);
 
                 return Json(new
                 {
@@ -1367,15 +1431,21 @@ namespace EBookDashboard.Controllers
                     coverUrl = result.CoverUrl,
                     image_base64 = result.ImageBase64,
                     imageDataUrl = result.ImageDataUrl,
-                    options = result.Options
+                    options = result.Options,
+                    used = snap.Used,
+                    limit = snap.Limit,
+                    remaining = snap.Remaining,
+                    limitReached = snap.LimitReached
                 });
             }
             catch (OperationCanceledException)
             {
+                await _aiCoverQuota.ReleaseAsync(sessionUserId.Value, CancellationToken.None);
                 return Json(new { success = false, status = "error", message = "Request timed out." });
             }
             catch (Exception ex)
             {
+                await _aiCoverQuota.ReleaseAsync(sessionUserId.Value, CancellationToken.None);
                 _logger.LogError(ex, "GenerateCover failed for book {BookId}", req.BookId);
                 return Json(new { success = false, status = "error", message = ex.Message });
             }
@@ -1403,6 +1473,21 @@ namespace EBookDashboard.Controllers
             {
                 HttpContext.Session.SetString("CoverDesignHasGenerated", "1");
                 HttpContext.Session.SetString("CoverDesignLastBookId", bookId.ToString());
+                var quota = await _aiCoverQuota.GetAsync(sessionUserId.Value, cancellationToken);
+                return Json(new
+                {
+                    success = true,
+                    status = snap.Status,
+                    message = snap.Message,
+                    coverUrl = snap.CoverUrl,
+                    image_base64 = snap.ImageBase64,
+                    imageDataUrl = snap.ImageDataUrl,
+                    options = snap.Options,
+                    used = quota.Used,
+                    limit = quota.Limit,
+                    remaining = quota.Remaining,
+                    limitReached = quota.LimitReached
+                });
             }
 
             return Json(new
@@ -1416,6 +1501,18 @@ namespace EBookDashboard.Controllers
                 options = snap.Options
             });
         }
+
+        private static object CoverQuotaPayload(AiCoverQuotaSnapshot snap, bool success) => new
+        {
+            success,
+            used = snap.Used,
+            limit = snap.Limit,
+            remaining = snap.Remaining,
+            limitReached = snap.LimitReached,
+            message = snap.LimitReached
+                ? $"You've used all {snap.Limit} free AI cover generations."
+                : $"{snap.Remaining} of {snap.Limit} free uses remaining."
+        };
 
         /// <summary>Same body as <see cref="GenerateCover"/> — alias for clients that call a dedicated regenerate action.</summary>
         [HttpPost]

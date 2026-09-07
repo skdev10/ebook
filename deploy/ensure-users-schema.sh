@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
-# Apply one-time users table columns required for signup + onboarding tour.
-# Safe to re-run (uses IF NOT EXISTS).
+# Apply users-table columns required for signup, onboarding tour, and AI cover quota.
+# Safe to re-run (uses IF NOT EXISTS / column checks).
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/EbookAI}"
-SQL_FILE="${APP_DIR}/DatabaseScripts/add_has_completed_tour.sql"
+TOUR_SQL="${APP_DIR}/DatabaseScripts/add_has_completed_tour.sql"
+QUOTA_SQL="${APP_DIR}/DatabaseScripts/add_ai_cover_quota.sql"
 ENV_FILE="${ENV_FILE:-/etc/default/ebookai}"
-
-if [[ ! -f "$SQL_FILE" ]]; then
-  echo "    [users-schema] SQL file missing: $SQL_FILE (skip)"
-  exit 0
-fi
 
 if [[ -f "$ENV_FILE" ]]; then
   set -a
@@ -43,10 +39,28 @@ if ! mysql_run -e "USE \`${DB_NAME}\`; SELECT 1" >/dev/null 2>&1; then
   exit 0
 fi
 
-if mysql_run -N -e "USE \`${DB_NAME}\`; SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='users' AND COLUMN_NAME='HasCompletedTour';" 2>/dev/null | grep -q '^1$'; then
-  echo "    [users-schema] HasCompletedTour column already present (skip)"
-  exit 0
+column_exists() {
+  mysql_run -N -e "USE \`${DB_NAME}\`; SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='${DB_NAME}' AND TABLE_NAME='users' AND COLUMN_NAME='$1';" 2>/dev/null | grep -q '^1$'
+}
+
+if [[ -f "$TOUR_SQL" ]]; then
+  if column_exists "HasCompletedTour"; then
+    echo "    [users-schema] HasCompletedTour already present"
+  else
+    echo "    [users-schema] Applying add_has_completed_tour.sql..."
+    mysql_run "${DB_NAME}" < "$TOUR_SQL" && echo "    [users-schema] tour OK" || echo "    [users-schema] WARN: tour SQL failed"
+  fi
+else
+  echo "    [users-schema] Missing $TOUR_SQL (skip tour column)"
 fi
 
-echo "    [users-schema] Applying add_has_completed_tour.sql to ${DB_NAME}..."
-mysql_run "${DB_NAME}" < "$SQL_FILE" && echo "    [users-schema] OK" || echo "    [users-schema] WARN: SQL apply failed (check table name users)"
+if [[ -f "$QUOTA_SQL" ]]; then
+  if column_exists "AICoverGenerationsUsed" && column_exists "AICoverGenerationLimit"; then
+    echo "    [users-schema] AI cover quota columns already present"
+  else
+    echo "    [users-schema] Applying add_ai_cover_quota.sql..."
+    mysql_run "${DB_NAME}" < "$QUOTA_SQL" && echo "    [users-schema] quota OK" || echo "    [users-schema] WARN: quota SQL failed"
+  fi
+else
+  echo "    [users-schema] Missing $QUOTA_SQL (skip cover quota columns)"
+fi

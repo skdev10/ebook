@@ -629,7 +629,7 @@
                             <h3>Basic AI Cover</h3>
                             <span class="chip-free">FREE</span>
                         </div>
-                        <p>Title, style, and AI art. Generate as many fronts as you need — no charge.</p>
+                        <p>Title, style, and AI art. 5 free generations per account — make them count.</p>
                     </article>
                     <article class="cov-price-tier is-paid">
                         <div class="cov-price-tier__top">
@@ -802,6 +802,7 @@
                     <i data-lucide="wand-2" class="w-4 h-4" stroke-width="1.75"></i>
                     <span id="btnGenerateLabel">Generate Front Cover</span>
                 </button>
+                @await Html.PartialAsync("_CoverLimitBadge")
                 <button type="button" id="btnRegenerate" class="hidden inline-flex items-center justify-center gap-2 w-full rounded-[14px] bg-white text-violet-700 border-2 border-violet-200 px-5 py-3 text-sm font-semibold hover:bg-violet-50 transition-colors" title="Regenerate — create a fresh cover with the current fields">
                     <i data-lucide="refresh-cw" class="w-4 h-4" stroke-width="1.75"></i>
                     <span id="btnRegenerateLabel">Regenerate Full Cover</span>
@@ -910,6 +911,7 @@
 
 <script src="~/js/cover-kdp-export.js" asp-append-version="true"></script>
 <script src="~/js/module-export.js" asp-append-version="true"></script>
+<script src="~/js/ai-cover-limit.js" asp-append-version="true"></script>
 <script>
 (function () {
     'use strict';
@@ -1199,16 +1201,26 @@
                 ? 'Generate the front cover for this manuscript'
                 : 'Generate front cover (add Book Summary before full wrap)');
         if (btnGenerate && !busy) {
-            btnGenerate.disabled = !ok;
-            btnGenerate.title = needMsg;
+            if (window.__aiCoverLimitReached) {
+                btnGenerate.disabled = true;
+                btnGenerate.title = "You've used all free AI cover generations.";
+            } else {
+                btnGenerate.disabled = !ok;
+                btnGenerate.title = needMsg;
+            }
         }
         if (btnRegenerate && !busy) {
-            btnRegenerate.disabled = !ok;
-            btnRegenerate.title = ok
-                ? (isEbookCoverMode()
-                    ? 'Regenerate a fresh front cover'
-                    : 'Regenerate a fresh cover with the current fields')
-                : needMsg;
+            if (window.__aiCoverLimitReached) {
+                btnRegenerate.disabled = true;
+                btnRegenerate.title = "You've used all free AI cover generations.";
+            } else {
+                btnRegenerate.disabled = !ok;
+                btnRegenerate.title = ok
+                    ? (isEbookCoverMode()
+                        ? 'Regenerate a fresh front cover'
+                        : 'Regenerate a fresh cover with the current fields')
+                    : needMsg;
+            }
         }
         var hint = document.getElementById('covGenerateHint');
         if (hint && !busy) {
@@ -2751,6 +2763,7 @@
                 d = await pollGenerateCoverStatus(900000, 3000);
             }
             if (d.status === 'error' || d.success === false) {
+                if (d.limitReached && window.AiCoverLimit) window.AiCoverLimit.apply(d);
                 toast('error', d.message || 'Generation failed.');
                 return false;
             }
@@ -2760,6 +2773,7 @@
             }
             if (d.coverUrl && selectedBook) selectedBook.aiCoverLastPreview = d.coverUrl;
             applyGenerationSuccess(d, 'generate');
+            if (d.remaining != null && window.AiCoverLimit) window.AiCoverLimit.onGenerated(d);
             return true;
         } catch (err) {
             console.error('[CoverDesign] GenerateCover fetch error', err);

@@ -5180,6 +5180,21 @@ namespace EBookDashboard.Controllers
             var book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == sessionUserId.Value);
             if (book == null) return Json(new { success = false, message = "Book not found." });
 
+            var quota = HttpContext.RequestServices.GetRequiredService<IAiCoverQuotaService>();
+            var reserved = await quota.TryReserveAsync(sessionUserId.Value);
+            if (!reserved.Reserved)
+            {
+                return Json(new
+                {
+                    success = false,
+                    limitReached = true,
+                    used = reserved.Snapshot.Used,
+                    limit = reserved.Snapshot.Limit,
+                    remaining = reserved.Snapshot.Remaining,
+                    message = $"You've used all {reserved.Snapshot.Limit} free AI cover generations."
+                });
+            }
+
             var prompt = body != null && body.TryGetValue("prompt", out var p) ? (p ?? "").Trim() : "";
             var title = body != null && body.TryGetValue("title", out var t) ? (t ?? "").Trim() : (book.Title ?? "").Trim();
             var styleKey = body != null && body.TryGetValue("style", out var s) ? (s ?? "").Trim() : "modern";
@@ -5206,7 +5221,10 @@ namespace EBookDashboard.Controllers
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.GenerateCoverUrl, "/api/generate-cover").Trim();
             var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
             if (string.IsNullOrEmpty(apiKey))
+            {
+                await quota.ReleaseAsync(sessionUserId.Value);
                 return Json(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
+            }
 
             // Payload must match external API (no undocumented "prompt" key — direction folded into cover_style)
             var payloadObj = new JObject
@@ -5233,6 +5251,7 @@ namespace EBookDashboard.Controllers
 
                 if (!response.IsSuccessStatusCode)
                 {
+                    await quota.ReleaseAsync(sessionUserId.Value);
                     _logger.LogWarning("Cover API HTTP {Code}: {Body}", (int)response.StatusCode,
                         responseData?.Length > 800 ? responseData.Substring(0, 800) + "…" : responseData);
                     var errMsg = $"Cover service returned {(int)response.StatusCode}. ";
@@ -5249,7 +5268,20 @@ namespace EBookDashboard.Controllers
 
                 var urls = ExtractCoverImageUrlsFromApiResponse(responseData);
                 if (urls.Count > 0)
-                    return Json(new { success = true, options = urls.ToArray() });
+                {
+                    var snap = await quota.GetAsync(sessionUserId.Value);
+                    return Json(new
+                    {
+                        success = true,
+                        options = urls.ToArray(),
+                        used = snap.Used,
+                        limit = snap.Limit,
+                        remaining = snap.Remaining,
+                        limitReached = snap.LimitReached
+                    });
+                }
+
+                await quota.ReleaseAsync(sessionUserId.Value);
 
                 _logger.LogWarning("Cover API success but no image URLs parsed. Body preview: {Body}",
                     responseData?.Length > 600 ? responseData.Substring(0, 600) + "…" : responseData);
@@ -5261,10 +5293,12 @@ namespace EBookDashboard.Controllers
             }
             catch (TaskCanceledException)
             {
+                await quota.ReleaseAsync(sessionUserId.Value);
                 return Json(new { success = false, message = "Cover generation timed out. Try again or use a smaller size." });
             }
             catch (Exception ex)
             {
+                await quota.ReleaseAsync(sessionUserId.Value);
                 _logger.LogError(ex, "Generate cover API failed for bookId={BookId}", bookId);
                 return Json(new { success = false, message = "Could not reach cover service: " + ex.Message });
             }

@@ -152,6 +152,98 @@
         calculate();
     }
 
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
-    else boot();
+    function moneyFmt(n) {
+        return "$" + Number(n || 0).toFixed(2);
+    }
+
+    function animateText(el, next) {
+        if (!el) return;
+        var prev = el.getAttribute("data-val") || "";
+        if (prev === next) return;
+        el.setAttribute("data-val", next);
+        el.classList.remove("is-tick");
+        void el.offsetWidth;
+        el.classList.add("is-tick");
+        el.textContent = next;
+    }
+
+    function bootFormattingCost() {
+        var panel = document.getElementById("fmtWritingCostPanel");
+        if (!panel) return;
+        var pagesEl = document.getElementById("fmtCostPages");
+        var freeEl = document.getElementById("fmtCostFree");
+        var paidEl = document.getElementById("fmtCostPaid");
+        var totalEl = document.getElementById("fmtCostTotal");
+        var errEl = document.getElementById("fmtPageCountError");
+        var timer = 0;
+        var seq = 0;
+
+        function pageCount() {
+            if (typeof window.getFormatterPreviewPageCount === "function") {
+                var n = parseInt(window.getFormatterPreviewPageCount(), 10);
+                return Number.isFinite(n) && n > 0 ? n : 0;
+            }
+            return 0;
+        }
+
+        function paint(d, pages) {
+            if (errEl) {
+                errEl.hidden = pages > 0;
+            }
+            if (!d || pages <= 0) {
+                animateText(pagesEl, "—");
+                animateText(freeEl, "20 pages");
+                animateText(paidEl, "0 pages");
+                if (totalEl) {
+                    totalEl.textContent = "$0.00";
+                    totalEl.className = "is-free";
+                }
+                return;
+            }
+            animateText(pagesEl, (d.pageCount || pages) + " pages");
+            animateText(freeEl, (d.freePages || 20) + " pages");
+            animateText(paidEl, (d.paidPages || 0) + " pages");
+            var total = Number(d.writingCost != null ? d.writingCost : d.total || 0);
+            if (totalEl) {
+                totalEl.textContent = moneyFmt(total);
+                totalEl.className = total <= 0 ? "is-free" : "is-paid";
+            }
+        }
+
+        function calculate() {
+            var pages = pageCount();
+            var my = ++seq;
+            if (pages <= 0) {
+                paint(null, 0);
+                return;
+            }
+            fetch("/api/pricing/calculate", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: { "Content-Type": "application/json", Accept: "application/json" },
+                body: JSON.stringify({ pageCount: pages, isCustomCover: false, templateId: 0, exportType: "ebook" })
+            }).then(function (r) { return r.json(); }).then(function (d) {
+                if (my !== seq) return;
+                if (d && d.success !== false) paint(d, pages);
+            }).catch(function () { /* keep last numbers */ });
+        }
+
+        window.refreshFormattingCostPanel = function () {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(calculate, 180);
+        };
+
+        calculate();
+        window.setInterval(function () {
+            if (document.visibilityState === "visible") calculate();
+        }, 4000);
+    }
+
+    function start() {
+        boot();
+        bootFormattingCost();
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+    else start();
 })();

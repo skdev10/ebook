@@ -24,6 +24,14 @@ namespace EBookDashboard.Models
         public Roles? Role { get; set; } // navigation property
         public string AuthorCode { get; set; } = string.Empty;
         public DateTime? UpdatedAt { get; set; }
+
+        /// <summary>First-login onboarding. Same meaning as the prompt's HasSeenTour.</summary>
         public bool? HasCompletedTour { get; set; }
+
+        /// <summary>Lifetime AI cover generations consumed.</summary>
+        public int AICoverGenerationsUsed { get; set; }
+
+        /// <summary>Lifetime free AI cover cap. Default 5. Admin may raise this per user.</summary>
+        public int AICoverGenerationLimit { get; set; } = 5;
     }
 }

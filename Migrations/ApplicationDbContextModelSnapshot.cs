@@ -2675,6 +2675,12 @@ namespace EBookDashboard.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<int>("AICoverGenerationLimit")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AICoverGenerationsUsed")
+                        .HasColumnType("int");
+
                     b.Property<bool?>("HasCompletedTour")
                         .HasColumnType("tinyint(1)");
 

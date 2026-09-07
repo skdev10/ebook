@@ -281,6 +281,7 @@ builder.Services.AddScoped<IPrintWrapCompositor, PrintWrapCompositor>();
 builder.Services.AddScoped<IImageOcrService, ImageOcrService>();
 builder.Services.AddSingleton<IPrintWrapPregenerationQueue, PrintWrapPregenerationQueue>();
 builder.Services.AddSingleton<ICoverGenerationJobQueue, CoverGenerationJobQueue>();
+builder.Services.AddScoped<IAiCoverQuotaService, AiCoverQuotaService>();
 builder.Services.AddScoped<ICoverFrontGenerationService, CoverFrontGenerationService>();
 builder.Services.AddHostedService<ChromiumPdfWarmupHostedService>();
 builder.Services.AddScoped<IEpubExportService, EpubExportService>();

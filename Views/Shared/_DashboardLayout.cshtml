@@ -3531,7 +3531,7 @@
     <link rel="stylesheet" href="~/css/ui-enhancements.css" asp-append-version="true" />
     <script src="~/js/pricing-ui.js" asp-append-version="true"></script>
 </head>
-<body>
+<body class="ebook-ui">
     <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
     <!-- Mobile Menu Toggle -->
     <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
@@ -3568,17 +3568,17 @@
                     </a>
                 </li>
                 <li>
-                    <a href="@sidebarAiWriterUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "active" : "")">
+                    <a href="@sidebarAiWriterUrl" data-entry-direct="true" data-guided-tour="nav-ai-writer" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "active" : "")">
                         <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">AI Writer</span>
                     </a>
                 </li>
                 <li>
-                    <a href="@sidebarFormatUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "active" : "")">
+                    <a href="@sidebarFormatUrl" data-entry-direct="true" data-guided-tour="nav-format" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "active" : "")">
                         <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Book Formatting</span>
                     </a>
                 </li>
                 <li>
-                    <a href="@sidebarCoverUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
+                    <a href="@sidebarCoverUrl" data-entry-direct="true" data-guided-tour="nav-cover" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "active" : "")">
                         <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Cover Design</span>
                     </a>
                 </li>
@@ -3586,11 +3586,11 @@
                 {
                 <li>
                     @if (hasGeneratedBook) {
-                        <a href="@sidebarPublishUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "active" : "")">
+                        <a href="@sidebarPublishUrl" data-entry-direct="true" data-guided-tour="nav-export" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "active" : "")">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     } else {
-                        <a href="#" class="sidebar-locked-feature" data-locked="Publish" title="Select a book from the Dashboard first" data-goto="@sidebarAiWriterUrl">
+                        <a href="#" class="sidebar-locked-feature" data-guided-tour="nav-export" data-locked="Publish" title="Select a book from the Dashboard first" data-goto="@sidebarAiWriterUrl">
                             <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Publish</span>
                         </a>
                     }
@@ -3635,7 +3635,7 @@
                 </li>
                 *@
                 <li>
-                    <a href="/Books/EBookHub" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Books" && ViewContext.RouteData.Values["Action"]?.ToString() == "EBookHub" ? "active" : "")">
+                    <a href="/Books/EBookHub" data-guided-tour="nav-hub" class="@(ViewContext.RouteData.Values["Controller"]?.ToString() == "Books" && ViewContext.RouteData.Values["Action"]?.ToString() == "EBookHub" ? "active" : "")">
                         <i data-lucide="users-round" class="sidebar-lucide-icon" stroke-width="1.5"></i><span class="nav-text">Ebook Hub</span>
                     </a>
                 </li>
@@ -5030,6 +5030,13 @@
         var __tourCompletionPersisted = false;
 
         const GUIDED_TOUR_ROUTES = {
+            'onboarding': [
+                { sel: '[data-guided-tour="nav-ai-writer"]', title: 'Write Your Book with AI', body: 'Tell us your topic, set your chapters and pages — our AI writes your complete book draft for you.' },
+                { sel: '[data-guided-tour="nav-cover"]', title: 'Design Your Cover', body: 'Generate a professional cover with AI — you get 5 free generations. Make them count!' },
+                { sel: '[data-guided-tour="nav-format"]', title: 'Format Like a Pro', body: 'Choose from basic (free) or premium formatting templates. First 20 pages are always free.' },
+                { sel: '[data-guided-tour="nav-export"]', title: 'Export Your Book', body: 'Download as eBook (free), or get a Paperback/Hardcover ready file. Pay only at the end — nothing upfront.' },
+                { sel: '[data-guided-tour="nav-hub"]', title: 'Publish to the Hub', body: 'Once your book is ready, list it on our marketplace. Readers discover and buy your work.' }
+            ],
             'dashboard': [
                 { sel: '#dash-hero-cta', title: 'Open Formatting', body: 'Best place to start. Upload your file, set the layout, and preview your book.' },
                 { sel: '#dash-hero-cta-ai', title: 'Start with AI', body: 'Optional. Use AI to write or edit chapters when you need help.' },
@@ -5045,9 +5052,10 @@
                 { sel: '[data-guided-tour="ai-next-step"]', title: 'Export Docs', body: 'Download a Word file of your book. In a guided flow, you can also go to Book Formatting next.' }
             ],
             'formatter': [
-                { sel: '[data-guided-tour="fmt-manuscript"]', title: 'Upload manuscript', body: 'Upload a DOCX or PDF. Your chapters appear in the book preview.' },
+                { sel: '[data-guided-tour="fmt-book"]', title: 'Your book', body: 'Formatting uses the book you wrote here. First 20 pages are always free; extra pages are $0.50 each.' },
                 { sel: '[data-guided-tour="fmt-format"]', title: 'Book format', body: 'Choose Ebook, Paperback, or Both.' },
                 { sel: '[data-guided-tour="fmt-style"]', title: 'Look and feel', body: 'Pick chapter style, text size, and line spacing. The preview updates live.' },
+                { sel: '[data-guided-tour="fmt-pricing"]', title: 'Live cost', body: 'Page count drives the bill. Watch the estimate update before you export.' },
                 { sel: '[data-guided-tour="fmt-preview"]', title: 'Book preview', body: 'See your book like real pages. Flip with the side arrows.' },
                 { sel: '[data-guided-tour="fmt-actions"]', title: 'Export', body: 'Export PDF for print, or EPUB for ebook. Then continue to Cover Design if you are in the guided flow.' }
             ],
@@ -5055,7 +5063,7 @@
                 { sel: '[data-guided-tour="cov-format"]', title: 'Cover type', body: 'Pick eBook (front only), Paperback (full wrap), or Both so you can preview each format.' },
                 { sel: '[data-guided-tour="cov-fields"]', title: 'Cover details', body: 'Set genre and style so the AI knows the look you want.' },
                 { sel: '[data-guided-tour="cov-prompt"]', title: 'Describe the cover', body: 'Add colors, mood, or images. Then generate the cover.' },
-                { sel: '[data-guided-tour="cov-generate"]', title: 'Generate', body: 'Create the front cover. For paperback, the full wrap builds next.' },
+                { sel: '[data-guided-tour="cov-generate"]', title: 'Generate', body: 'Create the front cover. You get 5 free AI generations for life — make them count.' },
                 { sel: '[data-guided-tour="cov-preview"]', title: 'Cover preview', body: 'Check your cover here before you download.' },
                 { sel: '[data-guided-tour="cov-downloads"]', title: 'Download', body: 'After generate: Download Front. When the full wrap is ready: Download Full Cover.' }
             ],
@@ -5225,7 +5233,7 @@
                         '<div class="gt-title"></div><div class="gt-body"></div><div class="gt-actions">' +
                         '<span class="gt-stepcount"></span>' +
                         '<button type="button" class="gt-skip" data-gt="skip">Skip</button>' +
-                        '<button type="button" class="gt-next" data-gt="next">' + (isLast ? 'Done' : 'Next') + '</button></div>';
+                        '<button type="button" class="gt-next" data-gt="next">' + (isLast ? "Got it! Let's go \uD83D\uDE80" : 'Next \u2192') + '</button></div>';
                     pop.querySelector('.gt-title').textContent = steps[i].title;
                     pop.querySelector('.gt-body').textContent = steps[i].body;
                     pop.querySelector('.gt-stepcount').textContent = (i + 1) + ' / ' + steps.length;
@@ -5269,6 +5277,8 @@
             var route = guidedTourRouteKey();
             startGuidedTourForRoute(route, options || {});
         }
+        window.startGuidedTourForRoute = startGuidedTourForRoute;
+        window.startGuidedTourForCurrentPage = startGuidedTourForCurrentPage;
 
         function maybeAutoStartGuidedTour() {
             fetch('/Dashboard/TourStatus', {
@@ -5283,7 +5293,7 @@
                     return;
                 }
                 setTimeout(function () {
-                    startGuidedTourForCurrentPage({ persistCompletion: true });
+                    startGuidedTourForRoute('onboarding', { persistCompletion: true });
                 }, 700);
             })
             .catch(function () { /* do not block app startup */ });
@@ -5518,6 +5528,7 @@
     @RenderSection("Scripts", required: false)
     <script src="~/js/pricing-realtime.js" asp-append-version="true"></script>
     <script src="~/js/mobile-bottom-sheet.js" asp-append-version="true"></script>
+    <script src="~/js/tour.js" asp-append-version="true"></script>
 </body>
 </html>
 </html>

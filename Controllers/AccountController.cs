@@ -812,6 +812,28 @@ namespace EBookDashboard.Controllers
             });
         }
 
+        /// <summary>Marks the first-login tour complete. Alias of POST /Dashboard/CompleteTour.</summary>
+        [Authorize]
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [Route("Account/CompleteTour")]
+        public async Task<IActionResult> CompleteTour()
+        {
+            var userEmail = User.FindFirst(ClaimTypes.Email)?.Value ?? "";
+            if (string.IsNullOrEmpty(userEmail))
+                userEmail = User.Identity?.Name ?? "";
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserEmail == userEmail);
+            if (user == null)
+                return Json(new { success = false });
+            if (user.HasCompletedTour != true)
+            {
+                user.HasCompletedTour = true;
+                user.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+            return Json(new { success = true });
+        }
+
         //--------------------------------------------------------------------------
         //-----------------  Forgot Password   --------------------------------------
         //--------------------------------------------------------------------------

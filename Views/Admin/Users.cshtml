@@ -583,6 +583,7 @@
                     <th>Signup Method</th>
                     <th>Profile Completion</th>
                     <th>Books Created</th>
+                    <th>AI Cover Uses</th>
                     <th>Plan</th>
                         <th>Last Login</th>
                     <th>Status</th>
@@ -618,6 +619,18 @@
                             </div>
                             </td>
                         <td class="table-cell">@user.BooksCreated</td>
+                        <td class="table-cell">
+                            @{
+                                var coverLimit = user.AICoverGenerationLimit > 0 ? user.AICoverGenerationLimit : 5;
+                            }
+                            <div style="display:flex;flex-direction:column;gap:6px;min-width:120px;">
+                                <span id="aiCoverUses-@user.UserId">@user.AICoverGenerationsUsed / @coverLimit</span>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <button type="button" class="btn-icon" data-action="reset-cover-quota" data-user-id="@user.UserId" title="Reset quota">Reset Quota</button>
+                                    <button type="button" class="btn-icon" data-action="edit-cover-limit" data-user-id="@user.UserId" data-limit="@coverLimit" title="Edit limit">Edit Limit</button>
+                                </div>
+                            </div>
+                        </td>
                         <td class="table-cell">@(string.IsNullOrWhiteSpace(user.PlanName) ? "—" : user.PlanName)</td>
                         <td class="table-cell">
                             @(user.LastLoginAt?.ToString("MMM dd, yyyy") ?? "Never")
@@ -795,9 +808,72 @@
 				case 'deactivate': return deactivateUser(userId);
 				case 'reactivate': return reactivateUser(userId);
 				case 'delete': return deleteUser(userId);
+				case 'reset-cover-quota': return resetAiCoverQuota(userId);
+				case 'edit-cover-limit': return editAiCoverLimit(userId, parseInt(actionEl.getAttribute('data-limit') || '5', 10));
 			}
 		});
     });
+
+    function adminCoverQuotaToken() {
+        return document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+    }
+
+    function paintCoverUses(userId, used, limit) {
+        var el = document.getElementById('aiCoverUses-' + userId);
+        if (el) el.textContent = used + ' / ' + limit;
+        document.querySelectorAll('[data-action="edit-cover-limit"][data-user-id="' + userId + '"]').forEach(function (btn) {
+            btn.setAttribute('data-limit', String(limit));
+        });
+    }
+
+    function resetAiCoverQuota(userId) {
+        fetch('@Url.Action("ResetAiCoverQuota", "Admin")', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'RequestVerificationToken': adminCoverQuotaToken()
+            },
+            body: 'userId=' + encodeURIComponent(userId)
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (!data || !data.success) {
+                Swal.fire({ icon: 'error', title: 'Error', text: (data && data.message) || 'Could not reset quota.' });
+                return;
+            }
+            paintCoverUses(userId, data.used, data.limit);
+            Swal.fire({ icon: 'success', title: 'Quota reset', timer: 1600, showConfirmButton: false });
+        }).catch(function (err) {
+            Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Could not reset quota.' });
+        });
+    }
+
+    function editAiCoverLimit(userId, currentLimit) {
+        Swal.fire({
+            title: 'Edit AI cover limit',
+            input: 'number',
+            inputValue: currentLimit || 5,
+            inputAttributes: { min: 1, max: 500, step: 1 },
+            showCancelButton: true,
+            confirmButtonText: 'Save'
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
+            var limit = parseInt(result.value, 10);
+            fetch('@Url.Action("SetAiCoverLimit", "Admin")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'RequestVerificationToken': adminCoverQuotaToken()
+                },
+                body: 'userId=' + encodeURIComponent(userId) + '&limit=' + encodeURIComponent(limit)
+            }).then(function (r) { return r.json(); }).then(function (data) {
+                if (!data || !data.success) {
+                    Swal.fire({ icon: 'error', title: 'Error', text: (data && data.message) || 'Could not update limit.' });
+                    return;
+                }
+                paintCoverUses(userId, data.used, data.limit);
+                Swal.fire({ icon: 'success', title: 'Limit updated', timer: 1600, showConfirmButton: false });
+            });
+        });
+    }
 
     // User Actions
     function togglePasswordVisibility(inputId, buttonId) {
