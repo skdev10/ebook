@@ -1930,9 +1930,8 @@ namespace EBookDashboard.Controllers
                 || string.Equals(req.BookFormat, "Both", StringComparison.OrdinalIgnoreCase)
                 || (req.PublishingPlatform ?? "").Contains("print", StringComparison.OrdinalIgnoreCase)
                 || (req.PublishingPlatform ?? "").Contains("kdp", StringComparison.OrdinalIgnoreCase);
-            var interiorHardcover = string.Equals(req.BookFormat, "Hardcover", StringComparison.OrdinalIgnoreCase);
             var interiorGate = await ExportGating.RequirePaidJsonAsync(
-                HttpContext, req.BookId, paperback: interiorPaperback && !interiorHardcover, hardcover: interiorHardcover, cancellationToken);
+                HttpContext, req.BookId, paperback: interiorPaperback, hardcover: false, cancellationToken);
             if (interiorGate != null) return interiorGate;
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);
@@ -2283,12 +2282,11 @@ namespace EBookDashboard.Controllers
             if (download || isPdf)
             {
                 var printPackage = isPdf || partEarly is "wrap" or "hardcover";
-                var printHardcover = string.Equals(part, "hardcover", StringComparison.OrdinalIgnoreCase);
                 var assetGate = await ExportGating.RequirePaidJsonAsync(
                     HttpContext,
                     bookId,
-                    paperback: printPackage && !printHardcover,
-                    hardcover: printPackage && printHardcover,
+                    paperback: printPackage,
+                    hardcover: false,
                     cancellationToken);
                 if (assetGate != null) return assetGate;
             }
@@ -3078,12 +3076,14 @@ namespace EBookDashboard.Controllers
                 return Json(new { success = false, message = "Please sign in." });
 
             var format = (req.Format ?? "").Trim();
-            if (format.Equals("Print", StringComparison.OrdinalIgnoreCase)) format = "Paperback";
+            if (format.Equals("Print", StringComparison.OrdinalIgnoreCase)
+                || format.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
+                || format.Equals("Hardback", StringComparison.OrdinalIgnoreCase))
+                format = "Paperback";
             if (!format.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
                 && !format.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
-                && !format.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
                 && !format.Equals("Both", StringComparison.OrdinalIgnoreCase))
-                return Json(new { success = false, message = "Format must be Ebook, Paperback, Hardcover, or Both." });
+                return Json(new { success = false, message = "Format must be Ebook, Paperback, or Both." });
 
             var owns = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == req.BookId && b.UserId == sessionUserId.Value, cancellationToken);

@@ -3,7 +3,8 @@
 # Safe to re-run (uses IF NOT EXISTS / column checks).
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/opt/EbookAI}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 TOUR_SQL="${APP_DIR}/DatabaseScripts/add_has_completed_tour.sql"
 QUOTA_SQL="${APP_DIR}/DatabaseScripts/add_ai_cover_quota.sql"
 ENV_FILE="${ENV_FILE:-/etc/default/ebookai}"

@@ -32,6 +32,10 @@
         : (bookId > 0 ? "Add chapters in AI Writer" : "No book selected");
     var publishBookFormat = (ViewBag.PublishBookFormat as string ?? "Ebook").Trim();
     var publishFormatterSnapshotJson = ViewBag.PublishFormatterSnapshot as string ?? "{}";
+    if (publishBookFormat.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
+        || publishBookFormat.Equals("Hardback", StringComparison.OrdinalIgnoreCase)
+        || publishBookFormat.Equals("Print", StringComparison.OrdinalIgnoreCase))
+        publishBookFormat = "Paperback";
     if (!publishBookFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
         && !publishBookFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
         && !publishBookFormat.Equals("Both", StringComparison.OrdinalIgnoreCase))
@@ -2014,7 +2018,7 @@
     function draftIndicatesPrintReady() {
         var draft = getFormatterDraftSnapshot();
         var fmt = (draft.bookFormat || publishBookFormat || '').trim();
-        if (fmt === 'Print') fmt = 'Paperback';
+        if (fmt === 'Print' || fmt === 'Hardcover' || fmt === 'Hardback') fmt = 'Paperback';
         return fmt === 'Paperback' || fmt === 'Both';
     }
 
@@ -2093,7 +2097,7 @@
         var titleEl = document.getElementById('publishHeroTitle');
         var copyEl = document.getElementById('publishHeroCopy');
         var fmt = (publishBookFormat || 'Ebook').trim();
-        if (fmt === 'Print') fmt = 'Paperback';
+        if (fmt === 'Print' || fmt === 'Hardcover' || fmt === 'Hardback') fmt = 'Paperback';
         if (titleEl) {
             titleEl.textContent = fmt === 'Ebook'
                 ? 'Download your ebook'
@@ -2148,7 +2152,7 @@
 
     function setPublishFormat(fmt, persist) {
         var norm = (fmt || 'Ebook').trim();
-        if (norm === 'Print') norm = 'Paperback';
+        if (norm === 'Print' || norm === 'Hardcover' || norm === 'Hardback') norm = 'Paperback';
         if (norm !== 'Ebook' && norm !== 'Paperback' && norm !== 'Both') norm = 'Ebook';
         publishBookFormat = norm;
         var hidden = document.getElementById('pubFormat');
@@ -2170,7 +2174,7 @@
 
     function syncPublishModeFromContext() {
         var fmt = (publishBookFormat || 'Ebook').trim();
-        if (fmt === 'Print') fmt = 'Paperback';
+        if (fmt === 'Print' || fmt === 'Hardcover' || fmt === 'Hardback') fmt = 'Paperback';
         isPaperbackFormat = fmt === 'Paperback';
         isBothFormat = fmt === 'Both';
         isPrintReadyFlow = isPaperbackFormat || isBothFormat;
@@ -2781,7 +2785,7 @@
                 'Create or sign in to your Amazon account and open Kindle Direct Publishing (KDP).',
                 'Add your author name, contributor roles, and publisher imprint (if any).',
                 'Enter bank account details and complete tax interview (W-9 / W-8BEN as applicable).',
-                'Choose format: Kindle eBook, paperback, and/or hardcover; set trim size for print.',
+                'Choose format: Kindle eBook or paperback; set trim size for print.',
                 'Upload your interior manuscript and cover files.',
                 'Set list price, territories, and optional KDP Select enrollment, then publish.'
             ]

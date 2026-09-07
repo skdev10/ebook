@@ -116,13 +116,13 @@
             '<div class="dbk-amz-shell">' +
             '<div class="dbk-amz-head">' +
             '<h2 class="dbk-amz-h1">Print Cover Calculator and Templates</h2>' +
-            '<p class="dbk-amz-lead">Enter your book details and tap <strong>Calculate dimensions</strong>. Results and downloads stay inside this app — nothing opens Amazon in a new tab. Hardcover adds wrap and hinge; paperback uses bleed on the full spread.</p>' +
+            '<p class="dbk-amz-lead">Enter your book details and tap <strong>Calculate dimensions</strong>. Results and downloads stay inside this app — nothing opens Amazon in a new tab. Paperback uses 0.125&quot; bleed on the full spread.</p>' +
             '</div>' +
             '<div class="dbk-amz-grid">' +
             '<div class="dbk-amz-sidebar">' +
             '<h3 class="dbk-amz-h2">Enter Your Book Information</h3>' +
             '<form id="' + prefix + '_CalcForm" class="dbk-form">' +
-            fieldRow(prefix, 'Binding type', 'binding', ['Hardcover', 'Paperback'], 'Paperback') +
+            fieldRow(prefix, 'Binding type', 'binding', ['Paperback'], 'Paperback') +
             fieldRow(prefix, 'Interior type', 'interior', ['Premium color', 'Standard color', 'Black & white'], 'Black & white') +
             fieldRow(prefix, 'Reading Direction', 'direction', ['Right to Left', 'Left to Right'], 'Right to Left') +
             fieldRow(prefix, 'Measurement units', 'units', ['Millimeters', 'Inches'], 'Millimeters') +
@@ -239,7 +239,7 @@
             return el ? el.value : '';
         }
         return {
-            binding: v('binding'),
+            binding: 'Paperback',
             interior: v('interior'),
             direction: v('direction'),
             units: v('units'),
@@ -319,8 +319,8 @@
             if (m9) { m9.classList.add('dbk-m9-rtl'); m9.classList.remove('dbk-m9-ltr'); }
         }
 
-        if (m4) m4.style.display = f.binding === 'Hardcover' ? 'flex' : 'none';
-        if (m5) m5.style.display = f.binding === 'Hardcover' ? 'flex' : 'none';
+        if (m4) m4.style.display = 'none';
+        if (m5) m5.style.display = 'none';
 
         return c;
     }

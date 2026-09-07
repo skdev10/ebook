@@ -136,7 +136,7 @@
             });
         }
 
-        ["calcCover", "calcCoverAi", "calcEbook", "calcPb", "calcHc", "calcTemplate", "calcFmt"].forEach(function (id) {
+        ["calcCover", "calcCoverAi", "calcEbook", "calcPb", "calcTemplate", "calcFmt"].forEach(function (id) {
             var el = document.getElementById(id);
             if (!el) return;
             el.addEventListener("change", calculate);

@@ -12,12 +12,10 @@
     var cover = rules.FirstOrDefault(r => r.Key == PricingKeys.CoverCustomImage);
     var fmt = rules.FirstOrDefault(r => r.Key == PricingKeys.FormattingPremium);
     var pb = rules.FirstOrDefault(r => r.Key == PricingKeys.ExportPaperback);
-    var hc = rules.FirstOrDefault(r => r.Key == PricingKeys.ExportHardcover);
     var freePages = writing?.FreeAllowance ?? 20;
     var perPage = writing?.UnitAmount ?? 0.50m;
     var coverAmt = cover?.UnitAmount ?? 10m;
     var pbAmt = pb?.UnitAmount ?? 20m;
-    var hcAmt = hc?.UnitAmount ?? 30m;
     var ratesJson = JsonSerializer.Serialize(rules.Select(r => new
     {
         key = r.Key,
@@ -89,12 +87,11 @@
         <article class="pricing-offer pricing-plan-card">
             <span class="chip-locked">PRINT</span>
             <h3>Print-ready</h3>
-            <p class="pricing-plan-card__price"><span>$@Amt(pbAmt)–$@Amt(hcAmt)</span><small>optional</small></p>
+            <p class="pricing-plan-card__price"><span>$@Amt(pbAmt)</span><small>optional</small></p>
             <p>Amazon KDP wrap files when you are ready to print. Never required.</p>
             <ul>
                 <li>eBook export — $0.00</li>
                 <li>Paperback-ready file — $@Amt(pbAmt)</li>
-                <li>Hardcover-ready file — $@Amt(hcAmt)</li>
                 <li>Re-downloads after payment stay free</li>
             </ul>
         </article>
@@ -139,7 +136,6 @@
                 <div class="pricing-seg__row">
                     <label class="pricing-seg__opt"><input type="radio" name="calcExport" id="calcEbook" value="ebook" checked> eBook · Free</label>
                     <label class="pricing-seg__opt"><input type="radio" name="calcExport" id="calcPb" value="paperback"> Paperback · $@Amt(pbAmt)</label>
-                    <label class="pricing-seg__opt"><input type="radio" name="calcExport" id="calcHc" value="hardcover"> Hardcover · $@Amt(hcAmt)</label>
                 </div>
             </div>
         </div>

@@ -47,9 +47,7 @@ public sealed class PricingCalculatorService
         if (kind == "ebook")
             return 0m;
         var quote = await QuoteAsync(0, customCover: false, templateId: 0, exportType: kind);
-        return kind == "hardcover"
-            ? LineTotal(quote, PricingKeys.ExportHardcover)
-            : LineTotal(quote, PricingKeys.ExportPaperback);
+        return LineTotal(quote, PricingKeys.ExportPaperback);
     }
 
     public async Task<PricingBreakdown> GetFullBreakdown(PricingInput input)
@@ -63,18 +61,14 @@ public sealed class PricingCalculatorService
         var cover = quote.Lines.FirstOrDefault(l => l.Key == PricingKeys.CoverCustomImage);
         var formatting = quote.Lines.FirstOrDefault(l => l.Key == PricingKeys.FormattingPremium);
         var paperback = quote.Lines.FirstOrDefault(l => l.Key == PricingKeys.ExportPaperback);
-        var hardcover = quote.Lines.FirstOrDefault(l => l.Key == PricingKeys.ExportHardcover);
 
         var coverLabel = input.IsCustomCover ? (cover?.Description ?? "Custom image cover") : "AI-generated cover";
         var fmtLabel = input.TemplateId > 0
             ? (formatting?.Description ?? "Premium formatting")
             : "Basic formatting";
-        var exportLabel = export switch
-        {
-            "paperback" => paperback?.Description ?? "Paperback-ready file",
-            "hardcover" => hardcover?.Description ?? "Hardcover-ready file",
-            _ => "eBook (PDF / EPUB)"
-        };
+        var exportLabel = export == "paperback"
+            ? (paperback?.Description ?? "Paperback-ready file")
+            : "eBook (PDF / EPUB)";
 
         return new PricingBreakdown
         {
@@ -89,7 +83,7 @@ public sealed class PricingCalculatorService
             FormattingLabel = fmtLabel,
             FormattingCost = formatting?.LineTotal ?? 0m,
             ExportLabel = exportLabel,
-            ExportCost = (paperback?.LineTotal ?? 0m) + (hardcover?.LineTotal ?? 0m),
+            ExportCost = paperback?.LineTotal ?? 0m,
             Total = quote.Total
         };
     }
@@ -102,17 +96,15 @@ public sealed class PricingCalculatorService
             CustomCover = customCover,
             PremiumTemplateId = templateId > 0 ? templateId : null,
             Paperback = exportType == "paperback",
-            Hardcover = exportType == "hardcover"
+            Hardcover = false
         });
     }
 
     private static string NormalizeExport(string? exportType)
     {
         var t = (exportType ?? "ebook").Trim().ToLowerInvariant();
-        if (t is "paperback" or "print")
+        if (t is "paperback" or "print" or "hardcover" or "hardback")
             return "paperback";
-        if (t is "hardcover" or "hardback")
-            return "hardcover";
         return "ebook";
     }
 

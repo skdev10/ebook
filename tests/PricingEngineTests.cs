@@ -267,9 +267,9 @@ public class PricingEngineTests
     }
 
     [Fact]
-    public async Task Calculator_200_custom_cover_premium5_hardcover_is_135()
+    public async Task Calculator_200_custom_cover_premium5_hardcover_maps_to_paperback()
     {
-        await using var ctx = CreateContext(nameof(Calculator_200_custom_cover_premium5_hardcover_is_135));
+        await using var ctx = CreateContext(nameof(Calculator_200_custom_cover_premium5_hardcover_maps_to_paperback));
         ctx.FormattingTemplates.Add(new FormattingTemplate
         {
             Id = 7,
@@ -290,8 +290,8 @@ public class PricingEngineTests
         Assert.Equal(90.00m, bill.WritingCost);
         Assert.Equal(10.00m, bill.CoverCost);
         Assert.Equal(5.00m, bill.FormattingCost);
-        Assert.Equal(30.00m, bill.ExportCost);
-        Assert.Equal(135.00m, bill.Total);
+        Assert.Equal(20.00m, bill.ExportCost);
+        Assert.Equal(125.00m, bill.Total);
         Assert.True(bill.RequiresPayment);
     }
 }

@@ -56,10 +56,6 @@
                         { <option value="Paperback" selected>Paperback</option> }
                         else
                         { <option value="Paperback">Paperback</option> }
-                        @if (Model.BindingType == "Hardcover")
-                        { <option value="Hardcover" selected>Hardcover</option> }
-                        else
-                        { <option value="Hardcover">Hardcover</option> }
                     </select>
 
                     <div class="fmt-print-only" id="fmtPrintSettings" style="@(isPrint ? "" : "display:none")">

@@ -360,9 +360,8 @@ namespace EBookDashboard.Controllers
             var f = (format ?? "").Trim();
             if (f.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
                 || f.Equals("Hardback", StringComparison.OrdinalIgnoreCase)
-                || f.Equals("Case laminate", StringComparison.OrdinalIgnoreCase))
-                return "Hardcover";
-            if (f.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
+                || f.Equals("Case laminate", StringComparison.OrdinalIgnoreCase)
+                || f.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
                 || f.Equals("Print", StringComparison.OrdinalIgnoreCase)
                 || f.Equals("Both", StringComparison.OrdinalIgnoreCase)
                 || f.Equals("Ebook + Paperback", StringComparison.OrdinalIgnoreCase))
@@ -3317,8 +3316,7 @@ namespace EBookDashboard.Controllers
             if (!owns)
                 return NotFound(new { success = false, message = "Book not found." });
 
-            var printHardcover = string.Equals(fmt, "Hardcover", StringComparison.OrdinalIgnoreCase);
-            var printGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: !printHardcover, hardcover: printHardcover, cancellationToken);
+            var printGate = await ExportGating.RequirePaidJsonAsync(HttpContext, req.BookId, paperback: true, hardcover: false, cancellationToken);
             if (printGate != null) return printGate;
 
             var details = await _bookService.GetBookDetailsForPreviewAsync(sessionUserId.Value, req.BookId);

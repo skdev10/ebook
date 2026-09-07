@@ -5,7 +5,6 @@
     var quote = Model?.Quote ?? new EBookDashboard.Models.PriceQuote();
     var title = ViewBag.BookTitle as string ?? "this book";
     var paperback = ViewBag.Paperback as bool? ?? false;
-    var hardcover = ViewBag.Hardcover as bool? ?? false;
     var freeAllowance = ViewBag.FreeAllowance as int? ?? quote.FreeAllowance;
     var checkoutError = ViewBag.CheckoutError as string;
     var total = quote.Total;
@@ -72,7 +71,6 @@
         <fieldset class="invoice-addons">
             <legend>Optional print packages</legend>
             <label><input type="checkbox" id="billPaperback" @(paperback ? "checked" : "") /> Paperback — Amazon print-ready wrap <strong>$20</strong></label>
-            <label><input type="checkbox" id="billHardcover" @(hardcover ? "checked" : "") /> Hardcover — Amazon print-ready wrap <strong>$30</strong></label>
             <p>Select only what you need. Writing, custom cover, and premium formatting already on this book stay on the bill.</p>
         </fieldset>
     </div>
@@ -119,9 +117,8 @@
     if (UI && totalEl) UI.countTo(totalEl, @total.ToString(System.Globalization.CultureInfo.InvariantCulture), 220);
 
     var pb = document.getElementById("billPaperback");
-    var hc = document.getElementById("billHardcover");
     function flags() {
-        return { paperback: !!(pb && pb.checked), hardcover: !!(hc && hc.checked) };
+        return { paperback: !!(pb && pb.checked), hardcover: false };
     }
     function money(n) { return (window.PricingUI ? window.PricingUI.money(n) : ("$" + Number(n).toFixed(2))); }
 
@@ -172,7 +169,6 @@
         }).then(function (r) { return r.json(); }).then(applyQuote).catch(function () {});
     }
     if (pb) pb.addEventListener("change", refresh);
-    if (hc) hc.addEventListener("change", refresh);
 
     var btn = document.getElementById("payBtn");
     if (!btn) return;

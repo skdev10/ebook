@@ -45,8 +45,7 @@
             <div class="grid sm:grid-cols-3 gap-3 mb-6">
                 @foreach (var t in new[] {
                     (ProjectType.Ebook, "Ebook", "Reflowable file for phones and e-readers. No trim size."),
-                    (ProjectType.Paperback, "Paperback", "Printed softcover with fixed page size and gutter."),
-                    (ProjectType.Hardcover, "Hardcover", "Printed case laminate cover with wrap allowance.")
+                    (ProjectType.Paperback, "Paperback", "Printed softcover with fixed page size and gutter.")
                 })
                 {
                     <label class="rounded-xl border p-4 cursor-pointer @(Model.ProjectType==t.Item1 ? "border-violet-400 bg-violet-50" : "border-gray-200")">

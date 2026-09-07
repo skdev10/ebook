@@ -753,12 +753,13 @@ namespace EBookDashboard.Controllers
                         .Select(b => new BookDropdownItem { BookId = b.BookId, Title = b.Title })
                         .ToListAsync();
                     var emptyFormat = string.IsNullOrWhiteSpace(format) ? "Paperback" : format.Trim();
-                    if (emptyFormat.Equals("Print", StringComparison.OrdinalIgnoreCase))
+                    if (emptyFormat.Equals("Print", StringComparison.OrdinalIgnoreCase)
+                        || emptyFormat.Equals("Hardcover", StringComparison.OrdinalIgnoreCase)
+                        || emptyFormat.Equals("Hardback", StringComparison.OrdinalIgnoreCase))
                         emptyFormat = "Paperback";
                     else if (!emptyFormat.Equals("Ebook", StringComparison.OrdinalIgnoreCase)
                              && !emptyFormat.Equals("Both", StringComparison.OrdinalIgnoreCase)
-                             && !emptyFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase)
-                             && !emptyFormat.Equals("Hardcover", StringComparison.OrdinalIgnoreCase))
+                             && !emptyFormat.Equals("Paperback", StringComparison.OrdinalIgnoreCase))
                         emptyFormat = "Paperback";
 
                     ViewBag.UserId = userId;

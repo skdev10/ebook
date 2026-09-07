@@ -5295,8 +5295,6 @@
         if (hint) {
             if (fmt === 'Paperback') {
                 hint.textContent = 'Paperback: design your full wrap in Cover Design; Publish offers wrap PNG + interior PDF.';
-            } else if (fmt === 'Hardcover') {
-                hint.textContent = 'Hardcover: design your case wrap in Cover Design; Publish offers wrap + interior PDF.';
             } else if (fmt === 'Both') {
                 hint.textContent = 'Both: ebook front cover + EPUB and paperback full wrap + PDF on Publish.';
             } else {
@@ -7036,8 +7034,7 @@
                 bookId: bid,
                 bookTitle: titleForSave || null,
                 format: fmt === 'Both' ? 'Both'
-                    : (fmt === 'Hardcover' ? 'Hardcover'
-                    : (fmt === 'Paperback' ? 'Paperback' : 'Ebook')),
+                    : (fmt === 'Hardcover' || fmt === 'Paperback' ? 'Paperback' : 'Ebook'),
                 interiorStyle: state.interiorStyle,
                 textSize: state.textSize,
                 lineSpacing: state.lineSpacing,
@@ -7390,7 +7387,7 @@
             } else if (f === 'Ebook') {
                 showToast('Ebook preview — reflowable single page (no print bleed).');
             } else if (f === 'Paperback' || f === 'Hardcover') {
-                showToast((f === 'Hardcover' ? 'Hardcover' : 'Paperback') + ' preview — two-page print book view.');
+                showToast('Paperback preview — two-page print book view.');
             }
             // Switch spread vs single-page shell geometry, then rebuild pages.
             if (typeof invalidateReaderPageCaches === 'function') invalidateReaderPageCaches();

@@ -34,19 +34,20 @@ public partial class CheckoutController
             return RedirectToAction("Index", "Dashboard");
         }
 
-        var paperback = string.Equals(format, "paperback", StringComparison.OrdinalIgnoreCase);
-        var hardcover = string.Equals(format, "hardcover", StringComparison.OrdinalIgnoreCase);
+        var paperback = string.Equals(format, "paperback", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(format, "hardcover", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(format, "hardback", StringComparison.OrdinalIgnoreCase);
         ViewData["Title"] = "Checkout";
         ViewBag.BookTitle = book.Title;
         ViewBag.Paperback = paperback;
-        ViewBag.Hardcover = hardcover;
+        ViewBag.Hardcover = false;
         var writingRule = await _context.PricingRules.AsNoTracking()
             .FirstOrDefaultAsync(r => r.Key == PricingKeys.WritingPerPage && r.IsActive);
         ViewBag.FreeAllowance = writingRule?.FreeAllowance ?? 0;
         try
         {
             var access = HttpContext.RequestServices.GetRequiredService<IExportAccessService>();
-            var eval = await access.EvaluateAsync(userId.Value, bookId, paperback, hardcover);
+            var eval = await access.EvaluateAsync(userId.Value, bookId, paperback, hardcover: false);
             return View("BookBill", eval);
         }
         catch (Exception ex)
@@ -77,7 +78,7 @@ public partial class CheckoutController
             var orders = HttpContext.RequestServices.GetRequiredService<IOrderService>();
             var payments = HttpContext.RequestServices.GetRequiredService<IPaymentService>();
 
-            var eval = await access.EvaluateAsync(userId.Value, req.BookId, req.Paperback, req.Hardcover);
+            var eval = await access.EvaluateAsync(userId.Value, req.BookId, req.Paperback, hardcover: false);
             if (eval.Quote.Total <= 0)
                 return Json(new { success = true, free = true, downloadUrl = "/Dashboard/Publish?bookId=" + req.BookId });
 

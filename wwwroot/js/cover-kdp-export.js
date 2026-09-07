@@ -340,6 +340,7 @@
      * Paper type is intentionally fixed to KDP white paper to keep this automatic.
      */
     function computeKdpDimensionsMm(binding, interior, paper, trimStr, pages) {
+        if (/hard/i.test(String(binding || ''))) binding = 'Paperback';
         var raw = String(trimStr || '').split(/[x×]/i);
         var trimW = parseFloat((raw[0] || '152.4').trim()) || 152.4;
         var trimH = parseFloat((raw[1] || '228.6').trim()) || 228.6;
@@ -632,7 +633,7 @@
                     var b = root.querySelector('#' + prefix + '_binding');
                     if (b && d.bindingType) {
                         var bt = String(d.bindingType).toLowerCase();
-                        b.value = bt.indexOf('hard') >= 0 ? 'Hardcover' : 'Paperback';
+                        b.value = 'Paperback';
                     }
                     var intSel = root.querySelector('#' + prefix + '_interior');
                     if (intSel && d.interiorType) {
@@ -1083,6 +1084,7 @@
      * Matches case-bound cover diagram; paperback uses bleed margin and zero hinge gap.
      */
     function spineInchesPerPage(binding, paper, interior) {
+        if (/hard/i.test(String(binding || ''))) binding = 'Paperback';
         if (binding === 'Hardcover') return hardcoverSpinePerPage();
         if (interior === 'Premium color' || interior === 'Standard color') return paperThickness('premiumColor');
         if (paper && paper.indexOf('Cream') >= 0) return paperThickness('cream');
@@ -1103,7 +1105,8 @@
     function computeCoverLayout(options) {
         options = options || {};
         var binding = options.bindingType || 'Paperback';
-        var isHard = binding === 'Hardcover';
+        if (/hard/i.test(String(binding))) binding = 'Paperback';
+        var isHard = false;
         var trim = parseTrim(options.trimKey || '6x9');
         var pages = clampPaperbackPages(options.pageCount, 100);
         var interior = options.interiorType || 'Black & white';
