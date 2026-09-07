@@ -12,9 +12,11 @@
 }
 <div class="bill-page invoice-page">
     <header class="invoice-hero">
-        <p class="invoice-kicker">Secure checkout</p>
-        <h1>Itemized order</h1>
-        <p class="invoice-lead">Pay once for what you used. First @(freeAllowance > 0 ? freeAllowance : 20) writing pages stay free. Re-downloads after payment are always free.</p>
+        <div>
+            <p class="invoice-kicker">Secure checkout</p>
+            <h1>Itemized order</h1>
+            <p class="invoice-lead">Pay once for what you used. First @(freeAllowance > 0 ? freeAllowance : 20) writing pages stay free. Re-downloads after payment are always free.</p>
+        </div>
     </header>
 
     <div class="invoice-usage" aria-label="Page usage">
@@ -24,87 +26,98 @@
         <div><strong>$@total.ToString("0.00")</strong><span>Due now</span></div>
     </div>
 
-    <div class="bill-card invoice-card">
-        <div class="invoice-card-head">
-            <div>
-                <div class="invoice-label">Invoice for</div>
-                <h2>@title</h2>
-            </div>
-            <div class="invoice-badge">USD</div>
-        </div>
-        @if (!string.IsNullOrWhiteSpace(checkoutError))
-        {
-            <div class="pricing-error" role="alert">@checkoutError Refresh this page. If it continues, open Support.</div>
-        }
-        else if (quote.Lines == null || !quote.Lines.Any())
-        {
-            <div class="pricing-empty">No billable lines yet. Keep writing, or export a free ebook from Publish.</div>
-        }
-        else
-        {
-            <div class="invoice-table" role="table">
-                <div class="invoice-row invoice-row--head" role="row">
-                    <span>Service</span>
-                    <span>Qty</span>
-                    <span>Unit</span>
-                    <span>Amount</span>
+    <div class="invoice-shell">
+        <div class="bill-card invoice-card">
+            <div class="invoice-card-head">
+                <div>
+                    <div class="invoice-label">Invoice for</div>
+                    <h2>@title</h2>
                 </div>
-                @{ var i = 0; }
-                @foreach (var line in quote.Lines)
-                {
-                    <div class="invoice-row bill-line @(line.AlreadyOwned ? "owned" : "") @(line.LineTotal <= 0 ? "is-free" : "")" data-stagger="@i" role="row">
-                        <div>
-                            <div class="bill-line-main">@line.Description</div>
-                            @if (!string.IsNullOrWhiteSpace(line.Breakdown))
-                            {
-                                <div class="bill-line-arith">@line.Breakdown</div>
-                            }
-                        </div>
-                        <span class="pricing-money">@line.Quantity</span>
-                        <span class="pricing-money">$@line.UnitAmount.ToString("0.00")</span>
-                        <span class="bill-line-amt pricing-money">@(line.AlreadyOwned || line.LineTotal <= 0 ? "Free" : "$" + line.LineTotal.ToString("0.00"))</span>
+                <div class="invoice-badge">USD</div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(checkoutError))
+            {
+                <div class="pricing-error" role="alert">@checkoutError Refresh this page. If it continues, open Support.</div>
+            }
+            else if (quote.Lines == null || !quote.Lines.Any())
+            {
+                <div class="pricing-empty">No billable lines yet. Keep writing, or export a free ebook from Publish.</div>
+            }
+            else
+            {
+                <div class="invoice-table" role="table">
+                    <div class="invoice-row invoice-row--head" role="row">
+                        <span>Service</span>
+                        <span class="invoice-col-num invoice-col-qty">Qty</span>
+                        <span class="invoice-col-num invoice-col-unit">Unit</span>
+                        <span class="invoice-col-num">Amount</span>
                     </div>
-                    i++;
+                    @{ var i = 0; }
+                    @foreach (var line in quote.Lines)
+                    {
+                        <div class="invoice-row bill-line @(line.AlreadyOwned ? "owned" : "") @(line.LineTotal <= 0 ? "is-free" : "")" data-stagger="@i" role="row">
+                            <div>
+                                <div class="bill-line-main">@line.Description</div>
+                                @if (!string.IsNullOrWhiteSpace(line.Breakdown))
+                                {
+                                    <div class="bill-line-arith">@line.Breakdown</div>
+                                }
+                            </div>
+                            <span class="pricing-money invoice-col-num invoice-col-qty">@line.Quantity</span>
+                            <span class="pricing-money invoice-col-num invoice-col-unit">$@line.UnitAmount.ToString("0.00")</span>
+                            <span class="bill-line-amt pricing-money invoice-col-num">@(line.AlreadyOwned || line.LineTotal <= 0 ? "Free" : "$" + line.LineTotal.ToString("0.00"))</span>
+                        </div>
+                        i++;
+                    }
+                </div>
+            }
+            <fieldset class="invoice-addons">
+                <legend>Optional print package</legend>
+                <label class="invoice-addon-row" for="billPaperback">
+                    <input type="checkbox" id="billPaperback" @(paperback ? "checked" : "") />
+                    <span>
+                        <span class="bill-line-main">Paperback</span>
+                        <span class="bill-line-arith">Amazon print-ready wrap + interior PDF</span>
+                    </span>
+                    <strong class="pricing-money">$20</strong>
+                </label>
+                <p>Add only if you need print files. Writing, custom cover, and premium formatting already on this book stay on the bill.</p>
+            </fieldset>
+        </div>
+
+        <aside class="bill-card invoice-pay">
+            <div class="invoice-label">Amount due</div>
+            <div class="bill-total" id="billTotal" data-value="0">$@total.ToString("0.00")</div>
+            <p class="invoice-due-note" id="billDueNote">
+                @(dueLines.Count > 0 ? dueLines.Count + " paid line" + (dueLines.Count == 1 ? "" : "s") : "Nothing to pay — export is unlocked")
+            </p>
+            <div class="pay-error" id="payError" role="alert"></div>
+            <div class="invoice-pay-actions">
+                @if (string.IsNullOrWhiteSpace(checkoutError))
+                {
+                    <button type="button" class="pay-btn @(total > 0 ? "" : "hidden")" id="payBtn">Pay $@total.ToString("0.00") with Stripe</button>
+                    <a class="pay-btn @(total > 0 ? "hidden" : "")" id="freeContinue" href="/Dashboard/Publish?bookId=@Model.BookId">Continue — $0.00</a>
+                }
+                else
+                {
+                    <button type="button" class="pay-btn" disabled>Pay unavailable</button>
+                }
+                @if (freeAllowance > 0)
+                {
+                    <a class="ghost-btn" href="/Books/AIGenerateBook?bookId=@Model.BookId">Keep writing — first @freeAllowance pages free</a>
+                }
+                else
+                {
+                    <a class="ghost-btn" href="/Books/AIGenerateBook?bookId=@Model.BookId">Keep writing</a>
                 }
             </div>
-        }
-        <fieldset class="invoice-addons">
-            <legend>Optional print packages</legend>
-            <label><input type="checkbox" id="billPaperback" @(paperback ? "checked" : "") /> Paperback — Amazon print-ready wrap <strong>$20</strong></label>
-            <p>Select only what you need. Writing, custom cover, and premium formatting already on this book stay on the bill.</p>
-        </fieldset>
+            <ul class="invoice-trust">
+                <li>Price is calculated on the server</li>
+                <li>Stripe processes the card — we never store numbers</li>
+                <li>Paid features stay unlocked on this book</li>
+            </ul>
+        </aside>
     </div>
-
-    <aside class="bill-card invoice-pay">
-        <div class="invoice-label">Amount due</div>
-        <div class="bill-total" id="billTotal" data-value="0">$@total.ToString("0.00")</div>
-        <p class="invoice-due-note" id="billDueNote">
-            @(dueLines.Count > 0 ? dueLines.Count + " paid line" + (dueLines.Count == 1 ? "" : "s") : "Nothing to pay — export is unlocked")
-        </p>
-        <div class="pay-error" id="payError" role="alert"></div>
-        @if (string.IsNullOrWhiteSpace(checkoutError))
-        {
-            <button type="button" class="pay-btn @(total > 0 ? "" : "hidden")" id="payBtn">Pay $@total.ToString("0.00") with Stripe</button>
-            <a class="pay-btn @(total > 0 ? "hidden" : "")" id="freeContinue" href="/Dashboard/Publish?bookId=@Model.BookId">Continue — $0.00</a>
-        }
-        else
-        {
-            <button type="button" class="pay-btn" disabled>Pay unavailable</button>
-        }
-        @if (freeAllowance > 0)
-        {
-            <a class="ghost-btn" href="/Books/AIGenerateBook?bookId=@Model.BookId">Keep writing — first @freeAllowance pages free</a>
-        }
-        else
-        {
-            <a class="ghost-btn" href="/Books/AIGenerateBook?bookId=@Model.BookId">Keep writing</a>
-        }
-        <ul class="invoice-trust">
-            <li>Server-side price — frontend cannot change the total</li>
-            <li>Card processed by Stripe. We never store card numbers</li>
-            <li>Paid features stay unlocked on this book</li>
-        </ul>
-    </aside>
 </div>
 <script>
 (function () {
@@ -150,7 +163,9 @@
                 var row = document.createElement("div");
                 row.className = "invoice-row bill-line is-in" + (line.alreadyOwned ? " owned" : "") + (Number(line.lineTotal) <= 0 ? " is-free" : "");
                 row.innerHTML = "<div><div class=\"bill-line-main\"></div><div class=\"bill-line-arith\"></div></div>"
-                    + "<span class=\"pricing-money\"></span><span class=\"pricing-money\"></span><span class=\"bill-line-amt pricing-money\"></span>";
+                    + "<span class=\"pricing-money invoice-col-num invoice-col-qty\"></span>"
+                    + "<span class=\"pricing-money invoice-col-num invoice-col-unit\"></span>"
+                    + "<span class=\"bill-line-amt pricing-money invoice-col-num\"></span>";
                 row.querySelector(".bill-line-main").textContent = line.description || "";
                 row.querySelector(".bill-line-arith").textContent = line.breakdown || "";
                 row.children[1].textContent = String(line.quantity || 0);
