@@ -252,6 +252,7 @@ builder.Services.Configure<EBookDashboard.Models.Options.PricingOptions>(
     builder.Configuration.GetSection(EBookDashboard.Models.Options.PricingOptions.SectionName));
 builder.Services.AddScoped<IPageCountService, PageCountService>();
 builder.Services.AddScoped<IPricingService, PricingService>();
+builder.Services.AddScoped<PricingCalculatorService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IEntitlementService, EntitlementService>();
 builder.Services.AddScoped<IPaymentService, StripePaymentService>();
@@ -265,7 +266,8 @@ builder.Services.AddScoped<IAPIRawResponseService, APIRawResponseService>();
 builder.Services.AddScoped<BookProcessingService>();
 builder.Services.AddScoped<IAuthorPlansService, AuthorPlansService>();
 builder.Services.AddScoped<IAuthorBillsService, AuthorBillsService>();
-// OpenAIService2 disabled — voice uses ExternalApi:AudioUrl only.
+// OpenAI Whisper is a fallback when ExternalApi /api/audio is down.
+builder.Services.AddScoped<OpenAIService2>();
 builder.Services.AddScoped<CommonMethodsService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddSingleton<EBookDashboard.Services.PdfExport.PdfHtmlExportServiceResolver>();

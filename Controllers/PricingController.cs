@@ -26,6 +26,14 @@ public class PricingController : Controller
             .Where(r => r.IsActive)
             .OrderBy(r => r.Id)
             .ToListAsync();
+        var templates = await _context.FormattingTemplates.AsNoTracking()
+            .OrderBy(t => t.Id)
+            .ToListAsync();
+        var premiumFallback = rules.FirstOrDefault(r => r.Key == PricingKeys.FormattingPremium)?.UnitAmount ?? 3.00m;
+        ViewBag.FormattingTemplates = templates;
+        ViewBag.TemplatePrices = templates.ToDictionary(
+            t => t.Id,
+            t => t.IsPremium ? PricingService.ResolvePremiumTemplatePrice(t, premiumFallback) : 0m);
         ViewData["Title"] = "Pricing";
         return View(rules);
     }

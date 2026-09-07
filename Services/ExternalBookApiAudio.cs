@@ -90,6 +90,8 @@ public static class ExternalBookApiAudio
         form.Add(new StringContent(bookId.ToString(CultureInfo.InvariantCulture)), "book_id");
         var chapterSafe = chapter < 1 ? 1 : chapter;
         form.Add(new StringContent(chapterSafe.ToString(CultureInfo.InvariantCulture)), "chapter");
+        form.Add(new StringContent(userId.ToString(CultureInfo.InvariantCulture)), "userId");
+        form.Add(new StringContent(bookId.ToString(CultureInfo.InvariantCulture)), "bookId");
 
         // Some upstream stacks require the key to exist even when unused.
         if (sendLocalPath)
@@ -108,7 +110,7 @@ public static class ExternalBookApiAudio
         if (!string.IsNullOrEmpty(authHdr))
             req.Headers.TryAddWithoutValidation("Authorization", authHdr);
 
-        var http = httpClientFactory.CreateClient(BookApiConstants.HttpClientNameShort);
+        var http = httpClientFactory.CreateClient(BookApiConstants.HttpClientNameLong);
         using var response = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)

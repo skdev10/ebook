@@ -1,10 +1,23 @@
 @model List<EBookDashboard.Models.PricingRule>
+@using EBookDashboard.Models
 @using System.Text.Json
 @{
     ViewData["Title"] = "Pricing";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
-    var rules = Model ?? new List<EBookDashboard.Models.PricingRule>();
+    var rules = Model ?? new List<PricingRule>();
+    var templates = ViewBag.FormattingTemplates as IEnumerable<FormattingTemplate> ?? Enumerable.Empty<FormattingTemplate>();
+    var templatePrices = ViewBag.TemplatePrices as Dictionary<int, decimal> ?? new Dictionary<int, decimal>();
     string Amt(decimal n) => n.ToString("0.00");
+    var writing = rules.FirstOrDefault(r => r.Key == PricingKeys.WritingPerPage);
+    var cover = rules.FirstOrDefault(r => r.Key == PricingKeys.CoverCustomImage);
+    var fmt = rules.FirstOrDefault(r => r.Key == PricingKeys.FormattingPremium);
+    var pb = rules.FirstOrDefault(r => r.Key == PricingKeys.ExportPaperback);
+    var hc = rules.FirstOrDefault(r => r.Key == PricingKeys.ExportHardcover);
+    var freePages = writing?.FreeAllowance ?? 20;
+    var perPage = writing?.UnitAmount ?? 0.50m;
+    var coverAmt = cover?.UnitAmount ?? 10m;
+    var pbAmt = pb?.UnitAmount ?? 20m;
+    var hcAmt = hc?.UnitAmount ?? 30m;
     var ratesJson = JsonSerializer.Serialize(rules.Select(r => new
     {
         key = r.Key,
@@ -13,113 +26,134 @@
         freeAllowance = r.FreeAllowance,
         currency = r.Currency
     }));
+    var templatesJson = JsonSerializer.Serialize(templates.Select(t => new
+    {
+        id = t.Id,
+        displayName = t.DisplayName,
+        isPremium = t.IsPremium,
+        unitAmount = templatePrices.GetValueOrDefault(t.Id)
+    }));
 }
-<div class="pricing-page">
-    <h1 class="pricing-hero" data-hero="0" style="font-size:28px;font-weight:800;margin:0 0 8px;">Try free. Pay only for what you use.</h1>
-    <p class="pricing-hero" data-hero="1" style="color:#6B6B6B;margin:0 0 24px;">First 20 writing pages are free. Extra pages are $0.50 each. Basic AI cover and basic formatting stay free. Custom cover, premium interiors, and print-ready files are optional add-ons — never forced.</p>
+<div class="pricing-page pricing-studio">
+    <header class="pricing-hero pricing-studio__hero" data-hero="0">
+        <p class="pricing-studio__kicker">Usage-based publishing</p>
+        <h1 class="pricing-hero">Try free. Pay only for what you use.</h1>
+        <p class="pricing-studio__lead">Write, design, and format first. Checkout happens only when you export. First @freePages writing pages are free. Extra pages are $@Amt(perPage) each.</p>
+    </header>
+
     @if (!rules.Any())
     {
         <div class="pricing-error" role="alert">Pricing is not configured yet. Ask an admin to restore the rate card, then refresh this page.</div>
     }
-    <div class="pricing-offer-grid pricing-hero" data-hero="1b">
-        <article class="pricing-offer"><span class="chip-free">FREE</span><h3>Write 20 pages</h3><p>Start a book with no card. Extra pages $0.50 each.</p></article>
-        <article class="pricing-offer"><span class="chip-free">FREE</span><h3>Basic AI cover</h3><p>Generate a cover from your title and style.</p></article>
-        <article class="pricing-offer"><span class="chip-locked">$10</span><h3>Custom image</h3><p>Upload your art. Pay only when you export the clean file.</p></article>
-        <article class="pricing-offer"><span class="chip-locked">$20–$30</span><h3>Print-ready</h3><p>Paperback or hardcover wrap for Amazon KDP.</p></article>
+
+    <div class="pricing-offer-grid pricing-plans pricing-hero" data-hero="1">
+        <article class="pricing-offer pricing-plan-card is-featured">
+            <span class="chip-free">FREE TO START</span>
+            <h3>Creator</h3>
+            <p class="pricing-plan-card__price"><span>$0</span><small>to begin</small></p>
+            <p>@freePages writing pages, AI cover, basic interior, and eBook export.</p>
+            <ul>
+                <li>AI Writer — first @freePages pages free</li>
+                <li>AI-generated cover included</li>
+                <li>Basic formatting template</li>
+                <li>eBook PDF &amp; EPUB — always free</li>
+            </ul>
+        </article>
+        <article class="pricing-offer pricing-plan-card">
+            <span class="chip-locked">USAGE</span>
+            <h3>Writing</h3>
+            <p class="pricing-plan-card__price"><span>$@Amt(perPage)</span><small>/ extra page</small></p>
+            <p>After @freePages pages, only the extra pages appear on your invoice.</p>
+            <ul>
+                <li>Pages 1–@freePages stay $0.00</li>
+                <li>Pages @(freePages + 1)+ × $@Amt(perPage)</li>
+                <li>Counted from your book preview</li>
+                <li>Pay once at export — not while writing</li>
+            </ul>
+        </article>
+        <article class="pricing-offer pricing-plan-card">
+            <span class="chip-locked">ADD-ONS</span>
+            <h3>Studio</h3>
+            <p class="pricing-plan-card__price"><span>$@Amt(coverAmt)</span><small>custom cover</small></p>
+            <p>Upload your own art, or pick a premium interior. AI cover stays free.</p>
+            <ul>
+                <li>AI cover — $0.00</li>
+                <li>Custom image cover — $@Amt(coverAmt)</li>
+                @foreach (var t in templates.Where(x => x.IsPremium).Take(3))
+                {
+                    <li>@t.DisplayName — $@Amt(templatePrices.GetValueOrDefault(t.Id, fmt?.UnitAmount ?? 3m))</li>
+                }
+                <li>Basic template — $0.00</li>
+            </ul>
+        </article>
+        <article class="pricing-offer pricing-plan-card">
+            <span class="chip-locked">PRINT</span>
+            <h3>Print-ready</h3>
+            <p class="pricing-plan-card__price"><span>$@Amt(pbAmt)–$@Amt(hcAmt)</span><small>optional</small></p>
+            <p>Amazon KDP wrap files when you are ready to print. Never required.</p>
+            <ul>
+                <li>eBook export — $0.00</li>
+                <li>Paperback-ready file — $@Amt(pbAmt)</li>
+                <li>Hardcover-ready file — $@Amt(hcAmt)</li>
+                <li>Re-downloads after payment stay free</li>
+            </ul>
+        </article>
     </div>
-    <div class="pricing-grid">
-        <div class="price-card">
-            <h2 style="margin:0 0 16px;font-size:18px;">Rate card</h2>
-            @foreach (var r in rules)
-            {
-                <div class="price-row" tabindex="0" data-key="@r.Key" data-amount="@Amt(r.UnitAmount)" data-free="@r.FreeAllowance">
-                    <div>
-                        <div style="font-weight:700;">@r.DisplayName</div>
-                        <div style="font-size:12px;color:#64748b;">@r.Key @if (r.FreeAllowance > 0) { <span class="chip-free">@r.FreeAllowance free pages</span> }</div>
-                    </div>
-                    <div class="price-amt">$@Amt(r.UnitAmount)</div>
+
+    <div class="calc-card calc-studio pricing-hero" data-hero="2">
+        <div class="calc-studio__controls">
+            <h2>Live cost calculator</h2>
+            <p class="price-card__hint">Move the sliders. The navy receipt on the right is calculated on the server — nothing is charged until you export.</p>
+
+            <div class="pricing-field pricing-pages">
+                <label for="calcPagesNumber">Page count <strong id="calcPagesLabel">40</strong></label>
+                <div class="pricing-pages__inputs">
+                    <input id="calcPagesNumber" type="number" min="1" max="400" value="40" inputmode="numeric" aria-label="Page count" />
+                    <input id="calcPages" type="range" min="1" max="400" value="40" />
                 </div>
-            }
-            <div class="price-row" tabindex="0">
-                <div><div style="font-weight:700;">eBook (EPUB/PDF)</div><div style="font-size:12px;color:#64748b;">Always included</div></div>
-                <div class="price-amt"><span class="chip-free">Free</span></div>
+                <p class="pricing-field__hint">First @freePages pages free, then $@Amt(perPage) each.</p>
+            </div>
+
+            <div class="pricing-seg" role="group" aria-label="Cover">
+                <span class="pricing-seg__label">Cover</span>
+                <div class="pricing-seg__row">
+                    <label class="pricing-seg__opt"><input type="radio" name="calcCoverMode" id="calcCoverAi" value="ai" checked> AI cover · Free</label>
+                    <label class="pricing-seg__opt"><input type="radio" name="calcCoverMode" id="calcCover" value="custom"> Custom image · $@Amt(coverAmt)</label>
+                </div>
+            </div>
+
+            <div class="pricing-field">
+                <label for="calcTemplate">Formatting template</label>
+                <select id="calcTemplate">
+                    <option value="0" selected>Basic / default — Free</option>
+                    @foreach (var t in templates.Where(x => x.IsPremium))
+                    {
+                        <option value="@t.Id">@t.DisplayName — $@Amt(templatePrices.GetValueOrDefault(t.Id, fmt?.UnitAmount ?? 3m))</option>
+                    }
+                </select>
+                <input type="checkbox" id="calcFmt" class="sr-only" tabindex="-1" aria-hidden="true" />
+            </div>
+
+            <div class="pricing-seg" role="group" aria-label="Export">
+                <span class="pricing-seg__label">Export</span>
+                <div class="pricing-seg__row">
+                    <label class="pricing-seg__opt"><input type="radio" name="calcExport" id="calcEbook" value="ebook" checked> eBook · Free</label>
+                    <label class="pricing-seg__opt"><input type="radio" name="calcExport" id="calcPb" value="paperback"> Paperback · $@Amt(pbAmt)</label>
+                    <label class="pricing-seg__opt"><input type="radio" name="calcExport" id="calcHc" value="hardcover"> Hardcover · $@Amt(hcAmt)</label>
+                </div>
             </div>
         </div>
-        <div class="calc-card pricing-hero" data-hero="2">
-            <h2 style="margin:0 0 12px;font-size:18px;">Live cost calculator</h2>
-            <label style="font-size:13px;color:#64748b;" for="calcPages">Page count: <strong id="calcPagesLabel">200</strong></label>
-            <input id="calcPages" type="range" min="1" max="400" value="200" />
-            <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcCover" checked> Custom image cover</label>
-            <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcFmt" checked> Premium formatting</label>
-            <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcPb" checked> Paperback package</label>
-            <label style="display:block;margin:6px 0;"><input type="checkbox" id="calcHc"> Hardcover package</label>
-            <div id="calcLines" style="margin-top:16px;border-top:1px solid #f3f4f6;padding-top:8px;min-height:8rem;"></div>
-            <div class="calc-total" id="calcTotal" data-value="0">$0.00</div>
-            <p style="font-size:13px;color:#6B6B6B;margin-top:12px;">A full 200-page book is about $123 here versus $300 to $1,000 elsewhere.</p>
-        </div>
+
+        @await Html.PartialAsync("_PricingPanel", new List<QuoteLine>())
     </div>
 </div>
-<div class="pricing-sticky-bar" aria-live="polite">
-    <span style="font-size:13px;color:#64748b;">Estimated total</span>
-    <span class="pricing-money" id="calcTotalSticky">$0.00</span>
+<div class="pricing-sticky-bar" id="pricingStickyBar" aria-live="polite">
+    <button type="button" class="pricing-sticky-bar__hit" id="pricingSheetToggle" aria-expanded="false">
+        <span>Estimated total</span>
+        <span class="pricing-money" id="calcTotalSticky">$0.00</span>
+    </button>
+    <a class="pricing-sticky-bar__cta" href="/Account/UserLogin">Start free</a>
 </div>
+<div class="pricing-sheet-overlay" id="pricingSheetOverlay" hidden></div>
 <script type="application/json" id="pricingRatesJson">@Html.Raw(ratesJson)</script>
-<script>
-(function () {
-    var UI = window.PricingUI;
-    document.querySelectorAll(".pricing-hero").forEach(function (el) {
-        var i = parseInt(el.getAttribute("data-hero") || "0", 10);
-        if (UI && UI.prefersReduced()) { el.classList.add("is-in"); return; }
-        setTimeout(function () { el.classList.add("is-in"); }, i * 60);
-    });
-
-    var rows = {};
-    var block = document.getElementById("pricingRatesJson");
-    try {
-        (JSON.parse(block.textContent || "[]") || []).forEach(function (r) {
-            rows[r.key] = { amount: Number(r.unitAmount) || 0, free: parseInt(r.freeAllowance || 0, 10) || 0, name: r.displayName };
-        });
-    } catch (e) {}
-
-    var slider = document.getElementById("calcPages");
-    if (slider) {
-        slider.addEventListener("pointerdown", function () { slider.classList.add("is-drag"); });
-        window.addEventListener("pointerup", function () { slider.classList.remove("is-drag"); });
-    }
-
-    function recalc() {
-        var pages = parseInt(document.getElementById("calcPages").value, 10);
-        document.getElementById("calcPagesLabel").textContent = String(pages);
-        var w = rows["writing.per_page"] || { amount: 0, free: 0 };
-        var billable = Math.max(0, pages - w.free);
-        var lines = [{ key: "writing", label: "Writing", amount: billable * w.amount }];
-        if (document.getElementById("calcCover").checked)
-            lines.push({ key: "cover", label: "Custom cover", amount: (rows["cover.custom_image"] || { amount: 0 }).amount });
-        if (document.getElementById("calcFmt").checked)
-            lines.push({ key: "fmt", label: "Premium formatting", amount: (rows["formatting.premium"] || { amount: 0 }).amount });
-        if (document.getElementById("calcPb").checked)
-            lines.push({ key: "pb", label: "Paperback", amount: (rows["export.paperback"] || { amount: 0 }).amount });
-        if (document.getElementById("calcHc").checked)
-            lines.push({ key: "hc", label: "Hardcover", amount: (rows["export.hardcover"] || { amount: 0 }).amount });
-        lines.push({ key: "ebook", label: "eBook", amount: 0 });
-        var total = lines.reduce(function (s, l) { return s + l.amount; }, 0);
-        if (UI) UI.syncReceipt(document.getElementById("calcLines"), lines);
-        var totalEl = document.getElementById("calcTotal");
-        var sticky = document.getElementById("calcTotalSticky");
-        if (UI) {
-            UI.countTo(totalEl, total, 220);
-            if (sticky) sticky.textContent = UI.money(total);
-        } else {
-            totalEl.textContent = "$" + total.toFixed(2);
-            if (sticky) sticky.textContent = totalEl.textContent;
-        }
-    }
-    ["calcPages", "calcCover", "calcFmt", "calcPb", "calcHc"].forEach(function (id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener("input", recalc);
-        el.addEventListener("change", recalc);
-    });
-    recalc();
-})();
-</script>
+<script type="application/json" id="pricingTemplatesJson">@Html.Raw(templatesJson)</script>

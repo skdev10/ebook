@@ -20,10 +20,19 @@ public partial class CheckoutController
         if (userId == null)
             return RedirectToAction("UserLogin", "Account");
 
+        if (bookId <= 0)
+        {
+            TempData["InfoMessage"] = "Open a book from the Dashboard, then unlock the cover from that project.";
+            return RedirectToAction("CoverDesign", "Dashboard");
+        }
+
         var book = await _context.Books.AsNoTracking()
             .FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId.Value);
         if (book == null)
-            return NotFound();
+        {
+            TempData["InfoMessage"] = "That book was not found. Choose a project from the Dashboard.";
+            return RedirectToAction("Index", "Dashboard");
+        }
 
         var paperback = string.Equals(format, "paperback", StringComparison.OrdinalIgnoreCase);
         var hardcover = string.Equals(format, "hardcover", StringComparison.OrdinalIgnoreCase);

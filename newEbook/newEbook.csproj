@@ -11,8 +11,10 @@
     <AssemblyName>EBookDashboard</AssemblyName>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <UseAppHost>false</UseAppHost>
+  <!-- Nested duplicate of the web app — do not host a second Kestrel in Visual Studio. -->
+  <PropertyGroup>
+    <NoDefaultLaunchSettingsFile>true</NoDefaultLaunchSettingsFile>
+    <IsPublishable>false</IsPublishable>
   </PropertyGroup>
 
   <ItemGroup>

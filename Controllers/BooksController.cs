@@ -382,7 +382,7 @@ namespace EBookDashboard.Controllers
 
             // Soft modules: open Cover Design empty when no book — attach via Continue Editing or after writing.
             if (bookId <= 0)
-                return RedirectToAction("CoverDesign", "Dashboard", new { bookId = 0, flow, coverType, guided, entry });
+                return RedirectToAction("CoverDesign", "Dashboard", new { flow, coverType, guided, entry });
 
             var owns = await _context.Books.AsNoTracking()
                 .AnyAsync(b => b.BookId == bookId && b.UserId == userId.Value);
@@ -2931,6 +2931,28 @@ namespace EBookDashboard.Controllers
                 _logger.LogError(ex, "SaveChapterContent failed");
                 return StatusCode(500, new { success = false, message = "Could not save chapter: " + ex.Message });
             }
+        }
+
+        /// <summary>Save the measured book-preview page count so writing bill and checkout match the open book.</summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> SaveBillablePageCount([FromBody] SaveBillablePageCountRequest request)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+            if (request == null || request.BookId <= 0)
+                return BadRequest(new { success = false, message = "BookId is required." });
+            if (request.PageCount < 1 || request.PageCount > 828)
+                return BadRequest(new { success = false, message = "Page count is out of range." });
+
+            var owns = await _context.Books.AsNoTracking()
+                .AnyAsync(b => b.BookId == request.BookId && b.UserId == sessionUserId.Value);
+            if (!owns)
+                return NotFound(new { success = false, message = "Book not found." });
+
+            await UpsertSettingAsync($"book:{request.BookId}:printReadyPageCount", request.PageCount.ToString(), "Book");
+            return Json(new { success = true, bookId = request.BookId, pageCount = request.PageCount });
         }
 
         /// <summary>Rename a chapter title and persist to MySQL (chapters + related metadata).</summary>

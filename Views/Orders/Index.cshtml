@@ -1,49 +1,120 @@
-@model List<EBookDashboard.Models.Order>
+@model EBookDashboard.Models.ViewModels.OrdersPageViewModel
 @{
     ViewData["Title"] = "Orders";
     Layout = "~/Views/Shared/_DashboardLayout.cshtml";
-    var orders = Model ?? new List<EBookDashboard.Models.Order>();
+    var page = Model ?? new EBookDashboard.Models.ViewModels.OrdersPageViewModel();
+    var open = page.OpenBills ?? new List<EBookDashboard.Models.ViewModels.OpenBookBillRow>();
+    var receipts = page.Receipts ?? new List<Order>();
+    var paidReceipts = receipts.Where(o => o.Status == OrderStatus.Paid).ToList();
+    var openDue = open.Sum(r => r.AmountDue);
+    var hasAnything = open.Count > 0 || receipts.Count > 0;
 }
-<div class="orders-page">
-    <h1 style="margin:0 0 16px;">Orders and receipts</h1>
-    @if (!orders.Any())
+<div class="orders-page orders-studio">
+    <header class="orders-studio__hero">
+        <p class="pricing-studio__kicker">Billing</p>
+        <h1>Orders and receipts</h1>
+        <p>Each book you write has a live bill here. Paid exports show as receipts. You are charged only when you export above the free tier.</p>
+    </header>
+
+    @if (!hasAnything)
     {
         <div class="orders-empty">
-            <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true" style="margin-bottom:12px;">
-                <rect x="8" y="10" width="32" height="28" rx="4" fill="none" stroke="#94a3b8" stroke-width="2"></rect>
-                <path d="M16 20h16M16 26h10" stroke="#94a3b8" stroke-width="2" stroke-linecap="round"></path>
-            </svg>
-            <h2 style="margin:0 0 8px;font-size:18px;">No orders yet</h2>
-            <p style="color:#64748b;margin:0 0 12px;">You are only charged when you export something bigger than the free tier.</p>
+            <h2>No books yet</h2>
+            <p>Start a manuscript. Your live bill and later receipts will show up on this page.</p>
+            <a href="/Books/AIGenerateBook">Open AI Writer</a>
+            <span> · </span>
             <a href="/pricing">See pricing</a>
         </div>
     }
     else
     {
-        foreach (var o in orders)
+        <div class="orders-summary" aria-label="Billing overview">
+            <div><strong>@open.Count</strong><span>@(open.Count == 1 ? "open book" : "open books")</span></div>
+            <div><strong class="orders-money">$@openDue.ToString("0.00")</strong><span>estimated due</span></div>
+            <div><strong>@paidReceipts.Count</strong><span>@(paidReceipts.Count == 1 ? "paid receipt" : "paid receipts")</span></div>
+        </div>
+
+        @if (open.Count > 0)
         {
-            <details class="orders-card">
-                <summary>
-                    <span><strong>#@o.Id · @o.Status</strong><div style="font-size:12px;color:#64748b;">@o.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC @if (o.BookId.HasValue) { <text>· book @o.BookId</text> }</div></span>
-                    <span class="orders-money">$@o.Total.ToString("0.00") @o.Currency</span>
-                </summary>
-                <div class="orders-body">
-                    @if (o.Items == null || !o.Items.Any())
+            <section class="orders-section">
+                <h2>Open books</h2>
+                <p class="orders-section__hint">Estimate from your manuscript. Pay at checkout when you export.</p>
+                <div class="orders-open-list">
+                    @foreach (var row in open)
                     {
-                        <div class="pricing-empty">No line items on this receipt.</div>
-                    }
-                    else
-                    {
-                        foreach (var item in o.Items)
-                        {
-                            <div style="display:flex;justify-content:space-between;font-size:13px;" class="orders-money">
-                                <span>@item.Description</span>
-                                <span>$@item.LineTotal.ToString("0.00")</span>
+                        var freeUsed = row.FreeAllowance > 0 ? Math.Min(row.PageCount, row.FreeAllowance) : 0;
+                        <article class="orders-open-card">
+                            <div class="orders-open-card__main">
+                                <h3>@row.Title</h3>
+                                <p>
+                                    @row.PageCount @(row.PageCount == 1 ? "page" : "pages")
+                                    @if (row.FreeAllowance > 0)
+                                    {
+                                        <text> · @freeUsed of @row.FreeAllowance free</text>
+                                    }
+                                    @if (row.PaidPages > 0)
+                                    {
+                                        <text> · @row.PaidPages extra</text>
+                                    }
+                                </p>
                             </div>
-                        }
+                            <div class="orders-open-card__due">
+                                <strong class="orders-money">$@row.AmountDue.ToString("0.00")</strong>
+                                <span>@(row.AmountDue > 0 ? "due at export" : "nothing due")</span>
+                            </div>
+                            <div class="orders-open-card__actions">
+                                <a href="/Books/AIGenerateBook?bookId=@row.BookId">Continue writing</a>
+                                <a class="orders-open-card__bill" href="/checkout/@row.BookId">View bill</a>
+                            </div>
+                        </article>
                     }
                 </div>
-            </details>
+            </section>
         }
+
+        <section class="orders-section">
+            <h2>Receipts</h2>
+            @if (receipts.Count == 0)
+            {
+                <p class="orders-section__hint">No paid exports yet. When you check out, the receipt lands here.</p>
+            }
+            else
+            {
+                foreach (var o in receipts)
+                {
+                    <details class="orders-card">
+                        <summary>
+                            <span>
+                                <strong>#@o.Id · @o.Status</strong>
+                                <div class="orders-card__meta">
+                                    @o.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm") UTC
+                                    @if (o.BookId.HasValue)
+                                    {
+                                        <text>· book @o.BookId</text>
+                                    }
+                                </div>
+                            </span>
+                            <span class="orders-money">$@o.Total.ToString("0.00") @o.Currency</span>
+                        </summary>
+                        <div class="orders-body">
+                            @if (o.Items == null || !o.Items.Any())
+                            {
+                                <div class="pricing-empty">No line items on this receipt.</div>
+                            }
+                            else
+                            {
+                                foreach (var item in o.Items)
+                                {
+                                    <div class="orders-line">
+                                        <span>@item.Description</span>
+                                        <span class="orders-money">$@item.LineTotal.ToString("0.00")</span>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </details>
+                }
+            }
+        </section>
     }
 </div>

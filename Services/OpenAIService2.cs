@@ -22,8 +22,23 @@ public class OpenAIService2
         }
     }
 
+    /// <summary>True when Whisper can transcribe without the chat formatting step.</summary>
+    public bool CanTranscribe => _audioClient != null;
+
     /// <summary>When false, voice-to-text should use <see cref="ExternalBookApiAudio"/> (same key/URL as chapter generation).</summary>
     public bool IsConfigured => !string.IsNullOrEmpty(_apiKey) && _audioClient != null && _chatClient != null;
+
+    /// <summary>Transcribes a local audio file with Whisper and returns plain text.</summary>
+    public async Task<string> TranscribeFileAsync(string audioFilePath, CancellationToken cancellationToken = default)
+    {
+        if (_audioClient == null)
+            throw new InvalidOperationException("OpenAI Whisper is not configured. Set OpenAI:ApiKey.");
+        if (!System.IO.File.Exists(audioFilePath))
+            throw new FileNotFoundException("Audio file not found.", audioFilePath);
+
+        AudioTranscription transcription = await _audioClient.TranscribeAudioAsync(audioFilePath);
+        return (transcription.Text ?? string.Empty).Trim();
+    }
 
     public async Task<string> TranscribeAudioAsync(
         string userId,

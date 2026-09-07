@@ -699,9 +699,10 @@
                     <script>
                     (function () {
                         var q = new URLSearchParams(location.search);
-                        var id = q.get('bookId') || (location.pathname.match(/Cover\/(\d+)/) || [])[1];
+                        var rawId = q.get('bookId') || (location.pathname.match(/Cover\/(\d+)/) || [])[1];
+                        var parsedId = parseInt(rawId || '0', 10);
+                        var id = parsedId > 0 ? String(parsedId) : '';
                         var a = document.getElementById('unlockCoverBtn');
-                        if (a && id) a.href = '/checkout/' + id;
                         fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
                             var rule = (d.rules || []).find(function (x) { return x.key === 'cover.custom_image'; });
                             if (rule && a) a.textContent = 'Unlock uploaded cover — $' + Number(rule.unitAmount).toFixed(2);
@@ -2860,9 +2861,51 @@
         }
     }
 
+    function resolveCoverCheckoutBookId() {
+        var fromSelected = selectedBook && parseInt(selectedBook.bookId, 10);
+        if (fromSelected > 0) return fromSelected;
+        if (initialBookId > 0) return initialBookId;
+        try {
+            var q = parseInt(new URLSearchParams(location.search).get('bookId') || '0', 10);
+            if (q > 0) return q;
+            var path = location.pathname.match(/Cover\/(\d+)/);
+            var fromPath = path ? parseInt(path[1], 10) : 0;
+            if (fromPath > 0) return fromPath;
+            var last = parseInt(sessionStorage.getItem('coverDesign_lastBookId') || '0', 10);
+            if (last > 0) return last;
+            var fmt = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10);
+            if (fmt > 0) return fmt;
+        } catch (_) {}
+        return 0;
+    }
+
+    function syncUnlockCoverLink() {
+        var a = document.getElementById('unlockCoverBtn');
+        if (!a) return;
+        var id = resolveCoverCheckoutBookId();
+        a.href = id > 0 ? ('/checkout/' + id) : '#';
+        a.setAttribute('aria-disabled', id > 0 ? 'false' : 'true');
+    }
+
+    (function bindUnlockCoverCheckout() {
+        var a = document.getElementById('unlockCoverBtn');
+        if (!a) return;
+        syncUnlockCoverLink();
+        a.addEventListener('click', function (e) {
+            var id = resolveCoverCheckoutBookId();
+            if (id > 0) {
+                a.href = '/checkout/' + id;
+                return;
+            }
+            e.preventDefault();
+            toast('info', 'Open this book from the Dashboard first, then unlock the uploaded cover.');
+        });
+    })();
+
     function bindBook(bookId) {
         var id = parseInt(bookId, 10) || 0;
         selectedBook = id > 0 ? (books.find(function (b) { return b.bookId === id; }) || null) : null;
+        syncUnlockCoverLink();
         if (!selectedBook) {
             // Soft mid-entry: no book — keep draft fields editable, clear book-bound assets.
             selectedPath = '';

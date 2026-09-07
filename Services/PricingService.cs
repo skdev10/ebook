@@ -130,8 +130,9 @@ public sealed class PricingService : IPricingService
         var key = (template.StyleKey ?? "").Trim();
         if (key.Equals("ElegantTrade", StringComparison.OrdinalIgnoreCase))
             return 3.00m;
-        if (key.Equals("FineBook", StringComparison.OrdinalIgnoreCase)
-            || key.Equals("ElegantTradePOD", StringComparison.OrdinalIgnoreCase))
+        if (key.Equals("FineBook", StringComparison.OrdinalIgnoreCase))
+            return 4.00m;
+        if (key.Equals("ElegantTradePOD", StringComparison.OrdinalIgnoreCase))
             return 5.00m;
         return RoundMoney(catalogFallback);
     }

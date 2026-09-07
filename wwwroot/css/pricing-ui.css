@@ -84,10 +84,6 @@
 .pricing-offer p { margin: 0; font-size: 13px; color: #64748b; }
 .pricing-page { max-width: 1120px; margin: 0 auto; padding: 24px 16px 88px; }
 .pricing-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
-@media (min-width: 960px) {
-  .pricing-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); align-items: start; }
-  .pricing-page .calc-card { position: sticky; top: 24px; }
-}
 .price-card, .calc-card { padding: 24px; }
 .pricing-hero {
   opacity: 0;

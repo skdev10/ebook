@@ -12,17 +12,20 @@ namespace EBookDashboard.Controllers
         private readonly IConfiguration _configuration;
         private readonly ILogger<AudioToTextController> _logger;
         private readonly IWebHostEnvironment _env;
+        private readonly OpenAIService2 _openAi;
 
         public AudioToTextController(
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
             ILogger<AudioToTextController> logger,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            OpenAIService2 openAi)
         {
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
             _env = env;
+            _openAi = openAi;
         }
 
         [HttpPost("convert")]
@@ -122,6 +125,21 @@ namespace EBookDashboard.Controllers
                     _logger.LogWarning("External API key empty (ExternalApi:ApiKey) — skipping external transcription.");
                 }
                  
+                if (string.IsNullOrWhiteSpace(text) && _openAi.CanTranscribe)
+                {
+                    try
+                    {
+                        text = await _openAi.TranscribeFileAsync(savedFilePath, HttpContext.RequestAborted);
+                        _logger.LogInformation(
+                            "Whisper fallback transcription length: {Len} chars.",
+                            string.IsNullOrEmpty(text) ? 0 : text.Length);
+                    }
+                    catch (Exception whisperEx)
+                    {
+                        _logger.LogWarning(whisperEx, "OpenAI Whisper fallback failed.");
+                    }
+                }
+
                 if (!string.IsNullOrWhiteSpace(text))
                 {   
                     return Ok(new

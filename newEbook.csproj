@@ -3,6 +3,7 @@
   <PropertyGroup>
     <UserSecretsId>a1b2c3d4-e5f6-4789-a012-3456789abcde</UserSecretsId>
     <TargetFramework>net8.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
     <RazorLangVersion>8.0</RazorLangVersion>
     <UseRazorSourceGenerator>true</UseRazorSourceGenerator>
     <NoWarn>$(NoWarn);NU1603;NU1605;CS8618;CS8604;CS8601;CS8600;CS8602;CS8603;CS8605;CS8629;CS8619;CS0168;CS1998;CS0472;CS0169;CS0649</NoWarn>
@@ -12,9 +13,7 @@
     <AssemblyName>EBookDashboard</AssemblyName>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <UseAppHost>false</UseAppHost>
-  </PropertyGroup>
+  <!-- Do not set UseAppHost=false: Visual Studio Web Tools then registers two SelfHostWebServer entries. -->
 
   <ItemGroup>
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />

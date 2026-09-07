@@ -1,6 +1,6 @@
 namespace EBookDashboard.Models.Options;
 
-/// <summary>Billing page-count configuration. PDF rendered pages are never used for pricing.</summary>
+/// <summary>Billing page-count configuration. Layout pages from the book preview take priority when saved.</summary>
 public sealed class PricingOptions
 {
     public const string SectionName = "Pricing";

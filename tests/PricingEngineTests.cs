@@ -46,16 +46,19 @@ public class PricingEngineTests
     }
 
     [Fact]
-    public async Task Premium_template_defaults_are_3_and_5()
+    public async Task Premium_template_defaults_are_3_4_and_5()
     {
-        await using var ctx = CreateContext(nameof(Premium_template_defaults_are_3_and_5));
+        await using var ctx = CreateContext(nameof(Premium_template_defaults_are_3_4_and_5));
         ctx.FormattingTemplates.AddRange(
             new FormattingTemplate { Id = 10, StyleKey = "ElegantTrade", DisplayName = "Premium Formatting 1", IsPremium = true },
-            new FormattingTemplate { Id = 9, StyleKey = "FineBook", DisplayName = "Premium Formatting 2", IsPremium = true });
+            new FormattingTemplate { Id = 9, StyleKey = "FineBook", DisplayName = "Premium Formatting 2", IsPremium = true },
+            new FormattingTemplate { Id = 11, StyleKey = "ElegantTradePOD", DisplayName = "Premium Formatting 3", IsPremium = true });
         await ctx.SaveChangesAsync();
         var three = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, PremiumTemplateId = 10 });
-        var five = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, PremiumTemplateId = 9 });
+        var four = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, PremiumTemplateId = 9 });
+        var five = await Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 10, PremiumTemplateId = 11 });
         Assert.Equal(3.00m, three.Total);
+        Assert.Equal(4.00m, four.Total);
         Assert.Equal(5.00m, five.Total);
     }
 
@@ -177,6 +180,46 @@ public class PricingEngineTests
     }
 
     [Fact]
+    public async Task PageCount_uses_saved_layout_pages_over_word_estimate()
+    {
+        await using var ctx = CreateContext(nameof(PageCount_uses_saved_layout_pages_over_word_estimate));
+        ctx.Books.Add(new Books { BookId = 11, UserId = 1, Title = "Preview", WordCount = 200, Status = "Draft" });
+        ctx.Settings.Add(new Settings
+        {
+            SettingId = 1,
+            Key = "book:11:printReadyPageCount",
+            Value = "23",
+            Category = "Book"
+        });
+        await ctx.SaveChangesAsync();
+        var pages = new PageCountService(ctx, Options.Create(new PricingOptions { WordsPerPage = 275 }));
+        Assert.Equal(23, await pages.GetBillablePageCountAsync(11));
+    }
+
+    [Fact]
+    public async Task PageCount_uses_merged_chapter_words_when_book_wordcount_is_stale()
+    {
+        await using var ctx = CreateContext(nameof(PageCount_uses_merged_chapter_words_when_book_wordcount_is_stale));
+        ctx.Books.Add(new Books { BookId = 12, UserId = 1, Title = "Draft", WordCount = 1, Status = "Draft" });
+        ctx.APIRawResponse.Add(new APIRawResponse
+        {
+            ResponseId = 1,
+            Endpoint = "test",
+            Chapter = 1,
+            Title = "One",
+            RequestData = "",
+            ResponseData = "",
+            BookId = 12,
+            Content = string.Join(" ", Enumerable.Repeat("page", 550)),
+            CreatedAt = DateTime.UtcNow
+        });
+        await ctx.SaveChangesAsync();
+        var pages = new PageCountService(ctx, Options.Create(new PricingOptions { WordsPerPage = 275 }));
+        Assert.Equal(550, await pages.GetWordCountAsync(12));
+        Assert.Equal(2, await pages.GetBillablePageCountAsync(12));
+    }
+
+    [Fact]
     public async Task Owned_custom_cover_line_present_with_zero_total()
     {
         await using var ctx = CreateContext(nameof(Owned_custom_cover_line_present_with_zero_total));
@@ -201,5 +244,54 @@ public class PricingEngineTests
         await ctx.SaveChangesAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             Service(ctx).BuildQuoteAsync(new PriceQuoteRequest { PageCount = 50 }));
+    }
+
+    [Fact]
+    public async Task Calculator_20_pages_ai_cover_basic_ebook_is_free()
+    {
+        await using var ctx = CreateContext(nameof(Calculator_20_pages_ai_cover_basic_ebook_is_free));
+        var calc = new PricingCalculatorService(ctx, Service(ctx));
+        var bill = await calc.GetFullBreakdown(new PricingInput
+        {
+            PageCount = 20,
+            IsCustomCover = false,
+            TemplateId = 0,
+            ExportType = "ebook"
+        });
+        Assert.Equal(0m, bill.Total);
+        Assert.False(bill.RequiresPayment);
+        Assert.Equal(0m, bill.WritingCost);
+        Assert.Equal(0m, bill.CoverCost);
+        Assert.Equal(0m, bill.FormattingCost);
+        Assert.Equal(0m, bill.ExportCost);
+    }
+
+    [Fact]
+    public async Task Calculator_200_custom_cover_premium5_hardcover_is_135()
+    {
+        await using var ctx = CreateContext(nameof(Calculator_200_custom_cover_premium5_hardcover_is_135));
+        ctx.FormattingTemplates.Add(new FormattingTemplate
+        {
+            Id = 7,
+            StyleKey = "ElegantTradePOD",
+            DisplayName = "Premium Formatting 3",
+            IsPremium = true,
+            PremiumPrice = 5.00m
+        });
+        await ctx.SaveChangesAsync();
+        var calc = new PricingCalculatorService(ctx, Service(ctx));
+        var bill = await calc.GetFullBreakdown(new PricingInput
+        {
+            PageCount = 200,
+            IsCustomCover = true,
+            TemplateId = 7,
+            ExportType = "hardcover"
+        });
+        Assert.Equal(90.00m, bill.WritingCost);
+        Assert.Equal(10.00m, bill.CoverCost);
+        Assert.Equal(5.00m, bill.FormattingCost);
+        Assert.Equal(30.00m, bill.ExportCost);
+        Assert.Equal(135.00m, bill.Total);
+        Assert.True(bill.RequiresPayment);
     }
 }

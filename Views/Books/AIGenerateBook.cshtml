@@ -1845,6 +1845,7 @@
                 <div class="flex flex-col gap-2">
                     <label for="ChapterTitleVisible" class="text-sm font-medium text-slate-500">Chapter Title</label>
                     <input type="text" id="ChapterTitleVisible" value="" maxlength="200" placeholder="Chapter title loads when you pick a book / chapter" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm" autocomplete="off">
+                    <p class="text-[11px] text-slate-400 mt-1 mb-0">This is the chapter’s name (table of contents and page heading). It does not delete anything.</p>
                 </div>
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Chapter No.</label>
@@ -1856,6 +1857,9 @@
                         <button id="addChapterBtn" type="button" class="chapter-inline-action chapter-inline-add add-chapter-btn-inline" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">
                             <i class="fas fa-plus text-[11px]" aria-hidden="true"></i>
                         </button>
+                        <button id="deleteChapterBtn" type="button" class="chapter-inline-action chapter-inline-remove" title="Remove this chapter from the book (not just the title)" aria-label="Remove chapter" disabled>
+                            <i class="fas fa-minus text-[11px]" aria-hidden="true"></i>
+                        </button>
                     </div>
                     <div class="flex items-center gap-2 pt-1" data-guided-tour="ai-upload">
                         <input type="file" id="chapterImportFileInput" accept=".pdf,.txt,.text,.md,.markdown,.docx,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" class="hidden" aria-label="Upload document (PDF, Word, TXT, or Markdown)" />
@@ -1863,7 +1867,7 @@
                         <button type="button" id="chapterDocUploadBtn" class="writer-upload-icon-btn writer-upload-icon-btn--doc" title="Upload manuscript (PDF, Word, TXT, Markdown)" aria-label="Upload manuscript">
                             <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
                         </button>
-                        <button type="button" id="chapterOcrImageBtn" class="writer-upload-icon-btn writer-upload-icon-btn--img" title="Select one or more book page images — text fills Book Title, Chapter Title, topic, and preview" aria-label="Upload page images to book preview">
+                        <button type="button" id="chapterOcrImageBtn" class="writer-upload-icon-btn writer-upload-icon-btn--img" title="Select one or more book page images — text fills the selected book and preview" aria-label="Upload page images to book preview">
                             <i class="fas fa-images" aria-hidden="true"></i>
                         </button>
                         <p id="chapterOcrStatus" class="text-[11px] text-slate-400 mb-0 min-h-[1em] flex-1 truncate" aria-live="polite"></p>
@@ -3085,6 +3089,7 @@ window.refreshAiWriterTotalPages = async function () {
         if (n > 0) {
             valEl.textContent = String(n);
             wrap.classList.remove('hidden');
+            try { document.dispatchEvent(new CustomEvent('ebook:pages-changed', { detail: { pages: n } })); } catch (eEvt) {}
         } else {
             wrap.classList.add('hidden');
         }
@@ -9991,6 +9996,15 @@ document.addEventListener('DOMContentLoaded', function() {
              if (raw) { try { data = JSON.parse(raw); } catch (e) { data = {}; } }
              if (!res.ok) {
                  var errMsg = (data && (data.message || data.Message)) ? String(data.message || data.Message) : ('HTTP ' + res.status);
+                 var trySpeech = (data && data.suggestBrowserSpeech === true) || res.status >= 500;
+                 if (trySpeech && ebookHasLiveSpeechRecognition()) {
+                     showNotification('Voice servers are busy. Speak now — text will appear in the topic box.', 'info');
+                     var mic = document.getElementById('startRecBtn');
+                     window.setTimeout(function () {
+                         if (mic && voiceInputMode === 'idle') mic.click();
+                     }, 250);
+                     return;
+                 }
                  showNotification('Upload failed: ' + errMsg, 'error');
                  return;
              }

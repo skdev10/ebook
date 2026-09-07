@@ -1,6 +1,9 @@
 namespace EBookDashboard.Interfaces;
 
-/// <summary>Billing page count from word-count proxy. Never reads rendered PDF pages.</summary>
+/// <summary>
+/// Billing page count: measured writer/formatter layout pages when saved,
+/// otherwise a word-count estimate from the merged manuscript.
+/// </summary>
 public interface IPageCountService
 {
     Task<int> GetBillablePageCountAsync(int bookId);

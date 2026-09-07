@@ -1,0 +1,28 @@
+@model List<EBookDashboard.Models.QuoteLine>
+@{
+    var lines = Model ?? new List<EBookDashboard.Models.QuoteLine>();
+}
+<aside class="pricing-panel" id="pricingPanel" aria-label="Your order summary">
+    <div class="pricing-panel__handle" aria-hidden="true"><span></span></div>
+    <p class="pricing-panel__kicker">Your order summary</p>
+    <h2 class="pricing-panel__title">Estimate</h2>
+    <div class="pricing-panel__lines" id="pricingPanelLines">
+        @foreach (var line in lines)
+        {
+            <div class="line-item calc-line" data-key="@line.Key">
+                <span data-lab>@line.Description</span>
+                <span data-amt class="amount @(line.LineTotal <= 0 ? "free" : "")">$@line.LineTotal.ToString("0.00")</span>
+            </div>
+        }
+    </div>
+    <div class="total-row">
+        <span>Total</span>
+        <span class="pricing-money calc-total" id="calcTotal" data-value="0">$0.00</span>
+    </div>
+    <p class="pricing-panel__note" id="pricingPanelNote">Nothing is charged until you export. First 20 writing pages stay free.</p>
+    @{
+        var ctaHref = User.Identity?.IsAuthenticated == true ? "/Books/AIGenerateBook" : "/Account/UserLogin";
+        var ctaLabel = User.Identity?.IsAuthenticated == true ? "Open AI Writer" : "Start writing free";
+    }
+    <a class="pricing-panel__cta btn-primary" id="pricingPanelCta" href="@ctaHref">@ctaLabel</a>
+</aside>

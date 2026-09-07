@@ -36,6 +36,7 @@
     } catch (e) {}
     var link = document.getElementById("meterCheckoutLink");
     if (link && bookId && bookId !== "0") link.href = "/checkout/" + bookId;
+    var lastPersistedPages = 0;
 
     fetch("/pricing/rates", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
         (d.rules || []).forEach(function (rule) {
@@ -50,10 +51,32 @@
         refreshServer();
     }).catch(function () { tick(); });
 
-    function words() {
+    function currentBookId() {
+        var el = document.getElementById("BookId");
+        var fromEl = el && String(el.value || "").trim();
+        if (fromEl && fromEl !== "0") return fromEl;
+        try {
+            var q = new URLSearchParams(location.search);
+            if (q.get("bookId")) return q.get("bookId");
+        } catch (e) {}
+        return bookId;
+    }
+
+    function visibleWords() {
         var el = document.getElementById("bookResult") || document.querySelector("[data-word-count]");
         var text = el ? (el.innerText || el.textContent || "") : "";
         return (text.match(/\b\w+\b/g) || []).length;
+    }
+
+    function liveLayoutPages() {
+        if (typeof window.getAiWriterLocalTotalPages === "function") {
+            var n = parseInt(String(window.getAiWriterLocalTotalPages() || "0"), 10) || 0;
+            if (n > 0) return n;
+        }
+        var badge = document.getElementById("aiWriterTotalPagesValue");
+        var fromBadge = parseInt(String((badge && badge.textContent) || "0"), 10) || 0;
+        if (fromBadge > 0) return fromBadge;
+        return 0;
     }
 
     function paint(pages, paid, cost) {
@@ -85,18 +108,46 @@
         } else if (notice) {
             notice.classList.remove("is-on");
         }
+        persistPages(pages);
     }
 
-    function tick() {
-        if (!rates.wordsPerPage || rates.perPage == null) return;
-        var pages = Math.ceil(words() / rates.wordsPerPage) || 0;
+    function quoteFromPages(pages) {
+        pages = Math.max(0, pages || 0);
         var paid = Math.max(0, pages - (rates.free || 0));
         paint(pages, paid, paid * rates.perPage);
     }
 
+    function persistPages(pages) {
+        var bid = currentBookId();
+        if (!bid || bid === "0" || pages <= 0) return;
+        if (lastPersistedPages === pages && String(bookId) === String(bid)) return;
+        lastPersistedPages = pages;
+        bookId = bid;
+        if (link) link.href = "/checkout/" + bid;
+        fetch("/Books/SaveBillablePageCount", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({ bookId: parseInt(bid, 10), pageCount: pages })
+        }).catch(function () {});
+    }
+
+    function tick() {
+        if (rates.perPage == null) return;
+        var live = liveLayoutPages();
+        if (live > 0) {
+            quoteFromPages(live);
+            return;
+        }
+        if (!rates.wordsPerPage) return;
+        var pages = Math.ceil(visibleWords() / rates.wordsPerPage) || 0;
+        quoteFromPages(pages);
+    }
+
     function refreshServer() {
-        if (!bookId || bookId === "0") return;
-        fetch("/pricing/quote/" + encodeURIComponent(bookId), { credentials: "same-origin", headers: { "Accept": "application/json" } })
+        var bid = currentBookId();
+        if (!bid || bid === "0") return;
+        fetch("/pricing/quote/" + encodeURIComponent(bid), { credentials: "same-origin", headers: { "Accept": "application/json" } })
             .then(function (r) { return r.ok ? r.json() : null; })
             .then(function (d) {
                 if (!d || !d.success) return;
@@ -104,13 +155,17 @@
                 if (typeof d.freePages === "number") rates.free = d.freePages;
                 var rateEl = document.getElementById("meterRate");
                 if (rateEl) rateEl.textContent = "$" + Number(rates.perPage).toFixed(2);
-                paint(d.pageCount, d.paidPages, Number(d.writingCost) || 0);
+                var live = liveLayoutPages();
+                var pages = Math.max(live, d.pageCount || 0);
+                quoteFromPages(pages);
             })
             .catch(function () {});
     }
 
-    setInterval(tick, 4000);
+    setInterval(tick, 2000);
     setInterval(refreshServer, 12000);
     document.addEventListener("input", tick);
+    document.addEventListener("ebook:pages-changed", tick);
+    window.addEventListener("ebook:pages-changed", tick);
 })();
 </script>
