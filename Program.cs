@@ -290,8 +290,6 @@ builder.Services.AddScoped<IBookPageMetricsService, BookPageMetricsService>();
 builder.Services.AddScoped<IChapterIterationService, ChapterIterationService>();
 builder.Services.Configure<ChapterGenerationOptions>(
     builder.Configuration.GetSection(ChapterGenerationOptions.SectionName));
-builder.Services.Configure<MobileAccessOptions>(
-    builder.Configuration.GetSection(MobileAccessOptions.SectionName));
 builder.Services.Configure<BookPaymentOptions>(
     builder.Configuration.GetSection(BookPaymentOptions.SectionName));
 builder.Services.Configure<EBookDashboard.Configuration.KdpSpecs>(
@@ -520,8 +518,6 @@ app.Use(async (context, next) =>
 app.UseStaticFiles();
 
 app.UseRouting();
-
-app.UseMiddleware<EBookDashboard.Middleware.MobileBlockMiddleware>();
 
 app.UseRequestTimeouts();
 

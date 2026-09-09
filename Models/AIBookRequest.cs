@@ -18,6 +18,11 @@ namespace EBookDashboard.Models
         [JsonProperty("title")]
         public string Title { get; set; }= string.Empty;
 
+        /// <summary>Book title from Writer (not the chapter title in <see cref="Title"/>).</summary>
+        [JsonProperty("book_title")]
+        [NotMapped]
+        public string? BookTitle { get; set; }
+
 
         [JsonProperty("chapter")]
         public int Chapter { get; set; }   // 👈 Should be INT (not string)

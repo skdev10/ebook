@@ -133,7 +133,33 @@ public static class BookDraftGuard
         if (await HasApiManuscriptAsync(context, userId, bookId, cancellationToken))
             return false;
 
+        // Title-only chapter rows / empty API stubs still belong to this book.
+        // Reusing the row would leak those titles into the next "new book".
+        if (await HasAnyChapterRecordsAsync(context, userId, bookId, cancellationToken))
+            return false;
+
         return true;
+    }
+
+    /// <summary>True when the book already has chapter/API/iteration rows (even without manuscript body).</summary>
+    public static async Task<bool> HasAnyChapterRecordsAsync(
+        ApplicationDbContext context,
+        int userId,
+        int bookId,
+        CancellationToken cancellationToken = default)
+    {
+        if (bookId <= 0) return false;
+        if (await context.Chapters.AsNoTracking().AnyAsync(c => c.BookId == bookId, cancellationToken))
+            return true;
+        if (userId > 0
+            && await context.APIRawResponse.AsNoTracking()
+                .AnyAsync(r => r.UserId == userId && r.BookId == bookId, cancellationToken))
+            return true;
+        if (userId > 0
+            && await context.ChapterIterations.AsNoTracking()
+                .AnyAsync(i => i.UserId == userId && i.BookId == bookId, cancellationToken))
+            return true;
+        return false;
     }
 
     /// <summary>Returns the user's newest near-empty Untitled draft, if any.</summary>

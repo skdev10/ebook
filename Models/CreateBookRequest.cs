@@ -34,6 +34,11 @@ namespace EBookDashboard.Models
         public DateTime? UpdatedAt { get; set; } = new DateTime(1980, 1, 1);
         public string Status { get; set; } = string.Empty;
 
-       
+        /// <summary>
+        /// When true (default), a placeholder "Untitled Book" may reuse a truly empty draft.
+        /// Explicit New Book / generate-on-blank must set this false so prior chapter titles cannot leak.
+        /// </summary>
+        [NotMapped]
+        public bool ReuseEmptyUntitled { get; set; } = true;
     }
 }

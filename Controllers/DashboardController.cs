@@ -263,7 +263,8 @@ namespace EBookDashboard.Controllers
                 ManuscriptPath = "",
                 Subtitle = "",
                 AuthorCode = user.UserId.ToString(),
-                BookCode = Guid.NewGuid().ToString("N")[..12]
+                BookCode = Guid.NewGuid().ToString("N")[..12],
+                ReuseEmptyUntitled = false
             };
             return await _bookService.CreateBookFromRequestAsync(request);
         }

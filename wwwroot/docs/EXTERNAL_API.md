@@ -252,11 +252,16 @@ Sizes: `VALID_SIZES` · Qualities: `VALID_QUALITIES`
 {
   "user_id": "u123",
   "book_id": "b456",
-  "highlights": []
+  "highlights": [
+    {
+      "chapter_name": "Artificial Intelligence",
+      "detailed_bullet_summary": "Book title: Artificial Intelligence. Suggest five chapter titles about this book."
+    }
+  ]
 }
 ```
 
-`highlights` is a list of highlight items used to suggest chapter names.
+`highlights` is a list of `{ chapter_name, detailed_bullet_summary }`. The Writer wand icon sends the current book title here. The API returns about five names (`suggest_chapter_name` / `chapter_titles`); the user picks one and it is stored.
 
 ---
 

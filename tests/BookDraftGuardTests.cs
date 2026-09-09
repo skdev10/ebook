@@ -75,6 +75,32 @@ public class BookDraftGuardTests
     }
 
     [Fact]
+    public async Task IsNearEmptyBookAsync_false_when_chapter_title_exists_without_body()
+    {
+        await using var ctx = CreateContext(nameof(IsNearEmptyBookAsync_false_when_chapter_title_exists_without_body));
+        ctx.Books.Add(new Books
+        {
+            BookId = 21,
+            UserId = 10,
+            Title = "Untitled Book",
+            Status = "Draft",
+            WordCount = 0,
+            CreatedAt = DateTime.UtcNow
+        });
+        ctx.Chapters.Add(new Chapters
+        {
+            BookId = 21,
+            Title = "Introduction of AI in Agriculture",
+            Content = "",
+            ChapterNumber = 1
+        });
+        await ctx.SaveChangesAsync();
+
+        Assert.False(await BookDraftGuard.IsNearEmptyBookAsync(ctx, 10, 21));
+        Assert.Null(await BookDraftGuard.FindReusableEmptyUntitledAsync(ctx, 10));
+    }
+
+    [Fact]
     public async Task FindReusableEmptyUntitledAsync_returns_newest_near_empty_draft()
     {
         await using var ctx = CreateContext(nameof(FindReusableEmptyUntitledAsync_returns_newest_near_empty_draft));

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>@ViewData["Title"] - EBookDashboard</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -51,7 +51,6 @@
     <script src="~/js/pricing-ui.js" asp-append-version="true"></script>
     <script src="~/js/pricing-realtime.js" asp-append-version="true"></script>
     <script src="~/js/mobile-bottom-sheet.js" asp-append-version="true"></script>
-    <partial name="_MobileBlockOverlay" />
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

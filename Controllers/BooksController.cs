@@ -817,6 +817,7 @@ namespace EBookDashboard.Controllers
                     UserId = jo["UserId"]?.ToString() ?? jo["user_id"]?.ToString(),
                     BookId = jo["BookId"]?.ToString() ?? jo["book_id"]?.ToString(),
                     Title = jo["Title"]?.ToString() ?? jo["title"]?.ToString() ?? string.Empty,
+                    BookTitle = jo["BookTitle"]?.ToString() ?? jo["book_title"]?.ToString() ?? string.Empty,
                     Chapter = chapterVal,
                     UserInput = jo["UserInput"]?.ToString() ?? jo["user_input"]?.ToString() ?? string.Empty,
                     ChapterTopic = jo["ChapterTopic"]?.ToString() ?? jo["chapter_topic"]?.ToString() ?? string.Empty,
@@ -852,9 +853,10 @@ namespace EBookDashboard.Controllers
             model.UserId = sessionUserId.Value.ToString(CultureInfo.InvariantCulture);
             if (!int.TryParse(model.BookId, out var genBookId) || genBookId <= 0)
             {
-                // Soft Writer entry has no bookId — create a draft so generate + Export Docs can work.
-                var draftTitle = (model.Title ?? "").Trim();
-                if (string.IsNullOrEmpty(draftTitle))
+                // Soft Writer entry has no bookId — create a *new* draft (never reuse a prior untitled
+                // row that may still hold chapter titles from another attempt).
+                var draftTitle = (model.BookTitle ?? "").Trim();
+                if (string.IsNullOrEmpty(draftTitle) || BookDraftGuard.IsPlaceholderTitle(draftTitle))
                     draftTitle = "Untitled Book";
                 try
                 {
@@ -874,7 +876,8 @@ namespace EBookDashboard.Controllers
                         AuthorCode = "",
                         BookCode = "",
                         WordCount = 0,
-                        Status = "Draft"
+                        Status = "Draft",
+                        ReuseEmptyUntitled = false
                     });
                     genBookId = created.BookId;
                     model.BookId = genBookId.ToString(CultureInfo.InvariantCulture);
@@ -2584,6 +2587,7 @@ namespace EBookDashboard.Controllers
         // Additional actions for managing chapters can be added here
         [AllowAnonymous]
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         [DisableRequestTimeout]
         [Route("Books/EditChapter")]
         public async Task<IActionResult> EditChapter([FromBody] APIEditChapterRequest model)
@@ -2606,7 +2610,18 @@ namespace EBookDashboard.Controllers
                 if (string.IsNullOrEmpty(apiKey))
                     return BadRequest(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
 
-                var json = JsonConvert.SerializeObject(model);
+                var sessionUserId = HttpContext.Session.GetInt32("UserId");
+                if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
+                    return Json(new { success = false, error = true, message = "Please sign in again, then retry." });
+                model.UserId = sessionUserId.Value.ToString(CultureInfo.InvariantCulture);
+
+                var json = new JObject
+                {
+                    ["user_id"] = model.UserId,
+                    ["book_id"] = (model.BookId ?? "").Trim(),
+                    ["chapter"] = string.IsNullOrWhiteSpace(model.Chapter) ? "1" : model.Chapter.Trim(),
+                    ["changes"] = model.Changes ?? ""
+                }.ToString(Newtonsoft.Json.Formatting.None);
                 using var httpRequestEdit = new HttpRequestMessage(HttpMethod.Post, apiUrl)
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
@@ -5715,26 +5730,137 @@ namespace EBookDashboard.Controllers
             }
         }
 
-        /// <summary>POST to external API to get 5 suggested chapter names. Returns suggest_chapter_name for UI.</summary>
+        /// <summary>POST to external API to get suggested chapter names. Extra client fields are stripped so FastAPI does not 422.</summary>
         [HttpPost]
-        public async Task<IActionResult> BookChaptersName([FromBody] JObject body)
+        [IgnoreAntiforgeryToken]
+        public async Task<IActionResult> BookChaptersName([FromBody] System.Text.Json.JsonElement bodyEl)
         {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
+                return Unauthorized(new { success = false, message = "Please sign in again." });
+            JObject body;
+            try
+            {
+                body = bodyEl.ValueKind == System.Text.Json.JsonValueKind.Object
+                    ? JObject.Parse(bodyEl.GetRawText())
+                    : new JObject();
+            }
+            catch (Exception)
+            {
+                body = new JObject();
+            }
+
+            var bookTitle = FirstJsonString(body, "book_title", "bookTitle", "BookTitle");
+            var topic = FirstJsonString(body, "topic", "user_input", "userInput", "UserInput");
+            var currentChapter = FirstJsonString(body, "chapter_name", "chapterName", "title", "Title");
+
+            var bookTok = body["book_id"] ?? body["bookId"] ?? body["BookId"];
+            var bookIdStr = "0";
+            if (int.TryParse(bookTok?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var suggestBookId) && suggestBookId > 0)
+            {
+                var book = await _context.Books.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.BookId == suggestBookId && b.UserId == sessionUserId.Value);
+                if (book != null)
+                {
+                    bookIdStr = suggestBookId.ToString(CultureInfo.InvariantCulture);
+                    if (string.IsNullOrWhiteSpace(bookTitle) && !BookDraftGuard.IsPlaceholderTitle(book.Title))
+                        bookTitle = book.Title;
+                }
+            }
+
+            var subject = FirstNonEmpty(bookTitle, topic, currentChapter);
+            var summary = string.IsNullOrWhiteSpace(topic)
+                ? ("Book title: " + (string.IsNullOrWhiteSpace(subject) ? "this book" : subject) + ". Suggest five chapter titles about this book.")
+                : ("Book title: " + (string.IsNullOrWhiteSpace(bookTitle) ? subject : bookTitle) + ". Chapter brief: " + topic + ". Suggest five chapter titles about this book.");
+            var highlights = ChapterTitleSuggester.NormalizeHighlights(
+                new JArray
+                {
+                    new JObject
+                    {
+                        ["chapter_name"] = string.IsNullOrWhiteSpace(subject) ? "Chapter" : subject,
+                        ["detailed_bullet_summary"] = summary
+                    }
+                },
+                bookTitle,
+                topic,
+                currentChapter);
+            var upstreamBody = ChapterTitleSuggester.BuildUpstreamPayload(
+                sessionUserId.Value.ToString(CultureInfo.InvariantCulture),
+                bookIdStr,
+                highlights);
+
             var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.BookChaptersNameUrl, "/api/book_chapters_name");
             try
             {
-                var content = new StringContent(body?.ToString() ?? "{}", Encoding.UTF8, "application/json");
+                var content = new StringContent(upstreamBody.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
                 using var httpReq = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
                 using var response = await _bookApiClient.SendAsync(httpReq, BookApiCallTimeoutKind.Standard, HttpContext.RequestAborted);
                 var json = await response.Content.ReadAsStringAsync();
-                if (response.IsSuccessStatusCode)
-                    return Content(json, "application/json");
-                return StatusCode((int)response.StatusCode, json);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Book chapters name API {Status}: {Body}", (int)response.StatusCode, TruncateForLog(json));
+                    return StatusCode((int)response.StatusCode, new
+                    {
+                        success = false,
+                        message = "Chapter title suggestion API failed (" + (int)response.StatusCode + ").",
+                        detail = TruncateForLog(json, 800)
+                    });
+                }
+
+                var titles = ChapterTitleSuggester.ParseTitles(json);
+                if (titles.Count == 0)
+                {
+                    _logger.LogInformation("Book chapters name API returned no titles for book {BookId}: {Body}", bookIdStr, TruncateForLog(json, 800));
+                    return Json(new
+                    {
+                        success = false,
+                        source = "upstream",
+                        titles = Array.Empty<string>(),
+                        message = "The API did not return chapter titles. Try again in a moment."
+                    });
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    source = "upstream",
+                    titles,
+                    suggest_chapter_name = ChapterTitleSuggester.ToHtmlList(titles)
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Book chapters name API failed.");
-                return BadRequest(new { success = false, message = ex.Message });
+                return StatusCode(503, new { success = false, message = "Chapter title suggestion API is unreachable. Try again." });
             }
+        }
+
+        private static string FirstNonEmpty(params string?[] values)
+        {
+            foreach (var v in values)
+            {
+                if (!string.IsNullOrWhiteSpace(v))
+                    return v.Trim();
+            }
+            return "";
+        }
+
+        private static string FirstJsonString(JObject body, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                var t = body[key]?.ToString();
+                if (!string.IsNullOrWhiteSpace(t))
+                    return t.Trim();
+            }
+            return "";
+        }
+
+        private static string TruncateForLog(string? value, int max = 500)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "";
+            return value.Length <= max ? value : value[..max];
         }
 
         /// <summary>Proxies POST /api/refine_cover_prompt to the FastAPI upstream.</summary>

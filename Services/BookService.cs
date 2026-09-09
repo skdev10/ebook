@@ -176,7 +176,7 @@ namespace EBookDashboard.Services
         //=============================================
         public async Task<Books> CreateBookFromRequestAsync(CreateBookRequest request)
         {
-            if (BookDraftGuard.IsPlaceholderTitle(request.Title))
+            if (request.ReuseEmptyUntitled && BookDraftGuard.IsPlaceholderTitle(request.Title))
             {
                 var reusable = await BookDraftGuard.FindReusableEmptyUntitledAsync(_context, request.UserId);
                 if (reusable != null)
@@ -631,15 +631,24 @@ namespace EBookDashboard.Services
         }
 
         /// <summary>
+        /// Chapter rows for this user+book only. Legacy rows with BookId unset may match ParsedBookId,
+        /// but a row that already belongs to another BookId must never leak in.
+        /// </summary>
+        private IQueryable<APIRawResponse> QueryRawResponsesForBook(int userId, int bookId)
+        {
+            var bookKey = bookId.ToString(CultureInfo.InvariantCulture);
+            return _context.APIRawResponse.AsNoTracking()
+                .Where(c => c.UserId == userId && (
+                    c.BookId == bookId
+                    || ((c.BookId == null || c.BookId == 0) && c.ParsedBookId == bookKey)));
+        }
+
+        /// <summary>
         /// One row per chapter: latest by CreatedAt, ordered by chapter number (fixes duplicate rows and wrong ordering).
         /// </summary>
         private async Task<List<ChapterDto>> GetLatestChapterRowsAsync(int userId, int bookId, bool noTracking = false, bool includeBodies = true)
         {
-            var bookKey = bookId.ToString(CultureInfo.InvariantCulture);
-            var query = _context.APIRawResponse.AsNoTracking()
-                .Where(c => c.UserId == userId
-                            && (c.BookId == bookId
-                                || (c.ParsedBookId != null && c.ParsedBookId == bookKey)))
+            var query = QueryRawResponsesForBook(userId, bookId)
                 .OrderByDescending(c => c.CreatedAt);
 
             List<ChapterDto> mapped;
@@ -706,10 +715,7 @@ namespace EBookDashboard.Services
 
         private async Task<List<ChapterDto>> LoadRawChapterRowsAsync(int userId, int bookId, int chapterNo, int? responseId)
         {
-            var bookKey = bookId.ToString(CultureInfo.InvariantCulture);
-            IQueryable<APIRawResponse> rawQuery = _context.APIRawResponse.AsNoTracking()
-                .Where(c => c.UserId == userId
-                            && (c.BookId == bookId || (c.ParsedBookId != null && c.ParsedBookId == bookKey)));
+            IQueryable<APIRawResponse> rawQuery = QueryRawResponsesForBook(userId, bookId);
             if (chapterNo > 0)
                 rawQuery = rawQuery.Where(c => c.Chapter == chapterNo);
             if (responseId.HasValue && responseId.Value > 0)
@@ -1146,14 +1152,23 @@ namespace EBookDashboard.Services
         //=========================================
         public async Task<int> GetLastChapterAsync(int userId, int bookId)
         {
-            var lastChapter = await _context.APIRawResponse
-                .Where(x => x.UserId == userId && x.BookId == bookId && x.Chapter != null)
-                .OrderByDescending(x => x.Chapter)
-                .Select(x => x.Chapter)
-                .FirstOrDefaultAsync();
+            int lastFromRaw = 0;
+            if (userId > 0 && bookId > 0)
+            {
+                lastFromRaw = await _context.APIRawResponse
+                    .Where(x => x.UserId == userId && x.BookId == bookId && x.Chapter != null)
+                    .MaxAsync(x => (int?)x.Chapter) ?? 0;
+            }
 
-            // If no chapter found, return 0 (or 1 if you want to start from Chapter 1)
-            return lastChapter;
+            int lastFromChapters = 0;
+            if (bookId > 0 && await _context.Chapters.AnyAsync(c => c.BookId == bookId))
+            {
+                lastFromChapters = await _context.Chapters
+                    .Where(c => c.BookId == bookId)
+                    .MaxAsync(c => c.ChapterNumber);
+            }
+
+            return Math.Max(lastFromRaw, lastFromChapters);
         }
         public List<string> ExtractChapterNames(string json)
         {

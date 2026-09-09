@@ -189,7 +189,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>@ViewData["Title"] eBook Ai</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3534,9 +3534,12 @@
 <body class="ebook-ui">
     <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
     <!-- Mobile Menu Toggle -->
-    <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu">
+    <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">
         <i class="fas fa-bars"></i>
     </button>
+    <header class="m-topbar" hidden>
+        <h1 class="m-topbar-title">@(ViewData["Title"] ?? "eBook Ai")</h1>
+    </header>
     <!-- Add this hidden field for JavaScript to access userId -->
     @* style="display:none;" > *@
     <div class="form-group" style="display:none;">
@@ -3908,6 +3911,38 @@
             @RenderBody()
         </main>
     </div>
+    <nav class="m-tabbar" hidden aria-label="Primary">
+        <a href="/Dashboard" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Index" || (ViewContext.RouteData.Values["Controller"]?.ToString() == "Dashboard" && ViewContext.RouteData.Values["Action"]?.ToString() == null) ? "is-active" : "")">
+            <i data-lucide="layout-grid" class="sidebar-lucide-icon" stroke-width="1.5"></i>
+            <span>Home</span>
+        </a>
+        <a href="@sidebarAiWriterUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "AIGenerateBook" || ViewContext.RouteData.Values["Action"]?.ToString() == "Writer" ? "is-active" : "")">
+            <i data-lucide="pen-line" class="sidebar-lucide-icon" stroke-width="1.5"></i>
+            <span>Writer</span>
+        </a>
+        <a href="@sidebarFormatUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesignCalculatorFixing" || ViewContext.RouteData.Values["Action"]?.ToString() == "Formatting" ? "is-active" : "")">
+            <i data-lucide="file-text" class="sidebar-lucide-icon" stroke-width="1.5"></i>
+            <span>Format</span>
+        </a>
+        <a href="@sidebarCoverUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "CoverDesign" || ViewContext.RouteData.Values["Action"]?.ToString() == "Cover" ? "is-active" : "")">
+            <i data-lucide="image" class="sidebar-lucide-icon" stroke-width="1.5"></i>
+            <span>Cover</span>
+        </a>
+        @if (hasGeneratedBook)
+        {
+            <a href="@sidebarPublishUrl" data-entry-direct="true" class="@(ViewContext.RouteData.Values["Action"]?.ToString() == "Publish" ? "is-active" : "")">
+                <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i>
+                <span>Publish</span>
+            </a>
+        }
+        else
+        {
+            <a href="#" class="sidebar-locked-feature" data-locked="Publish" data-goto="@sidebarAiWriterUrl">
+                <i data-lucide="rocket" class="sidebar-lucide-icon" stroke-width="1.5"></i>
+                <span>Publish</span>
+            </a>
+        }
+    </nav>
 
     <script>
         document.querySelectorAll('.has-sub > .menu-link').forEach(item => {
@@ -4215,9 +4250,11 @@
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 
     <script>
-        // Smooth, no-shake scroll lock manager
+        // Scroll lock: iOS position-fixed on mobile; overflow + padding on desktop (cart/modals).
         const ScrollLock = (() => {
-            let lockCount = 0;
+            let locked = false;
+            let savedY = 0;
+            let mode = null;
             let originalPaddingRight = '';
             let originalOverflow = '';
 
@@ -4226,45 +4263,58 @@
                 return width > 0 ? width : 0;
             };
 
-            const apply = () => {
-                const sbw = getScrollbarWidth();
-                if (lockCount === 1) {
+            const isMobileLock = () => !!(window.MOBILE_MQ && window.MOBILE_MQ.matches);
+
+            const lock = () => {
+                if (locked) return;
+                if (isMobileLock()) {
+                    savedY = window.scrollY;
+                    document.body.style.position = 'fixed';
+                    document.body.style.top = '-' + savedY + 'px';
+                    document.body.style.width = '100%';
+                    mode = 'ios';
+                } else {
                     originalOverflow = document.body.style.overflow;
                     originalPaddingRight = document.body.style.paddingRight;
-                    if (sbw > 0) {
-                        document.body.style.paddingRight = sbw + 'px';
-                    }
+                    const sbw = getScrollbarWidth();
+                    if (sbw > 0) document.body.style.paddingRight = sbw + 'px';
                     document.body.style.overflow = 'hidden';
+                    mode = 'overflow';
                 }
+                locked = true;
             };
 
-            const remove = () => {
-                if (lockCount === 0) {
+            const unlock = () => {
+                if (!locked) return;
+                if (mode === 'ios') {
+                    document.body.style.position = '';
+                    document.body.style.top = '';
+                    document.body.style.width = '';
+                    window.scrollTo(0, savedY);
+                } else if (mode === 'overflow') {
                     document.body.style.overflow = originalOverflow || '';
                     document.body.style.paddingRight = originalPaddingRight || '';
                     originalOverflow = '';
                     originalPaddingRight = '';
                 }
+                mode = null;
+                locked = false;
             };
 
-            const recalc = () => {
-                if (lockCount > 0) {
-                    const sbw = getScrollbarWidth();
-                    if (sbw > 0) {
-                        document.body.style.paddingRight = sbw + 'px';
-                    } else {
-                        document.body.style.paddingRight = '';
-                    }
-                }
-            };
+            window.addEventListener('pagehide', unlock);
 
             return {
-                lock() { lockCount++; apply(); },
-                unlock() { if (lockCount > 0) lockCount--; remove(); },
-                recalc,
-                isLocked() { return lockCount > 0; }
+                lock,
+                unlock,
+                recalc() {
+                    if (!locked || mode !== 'overflow') return;
+                    const sbw = getScrollbarWidth();
+                    document.body.style.paddingRight = sbw > 0 ? sbw + 'px' : '';
+                },
+                isLocked() { return locked; }
             };
         })();
+        window.ScrollLock = ScrollLock;
 
         // Cart functionality
         const Cart = (() => {
@@ -4713,42 +4763,31 @@
             }
         }
 
-        // Toggle mobile sidebar (no shake)
+        function isMobileMq() {
+            return !!(window.MOBILE_MQ && window.MOBILE_MQ.matches);
+        }
+
+        // Toggle mobile sidebar — MobileUi owns history, focus, and scroll lock.
         function toggleSidebar() {
+            if (window.MobileUi && typeof window.MobileUi.toggleDrawer === 'function') {
+                window.MobileUi.toggleDrawer();
+                return;
+            }
             const sidebar = document.getElementById('sidebar');
             const menuToggle = document.getElementById('menuToggle');
             const backdrop = document.getElementById('sidebarBackdrop');
-
             if (!sidebar || !menuToggle) return;
-
-            const willOpen = !sidebar.classList.contains('active');
             sidebar.classList.toggle('active');
-
+            const open = sidebar.classList.contains('active') && isMobileMq();
             if (backdrop) {
-                if (sidebar.classList.contains('active') && window.innerWidth <= 768) {
-                    backdrop.classList.add('show');
-                    backdrop.setAttribute('aria-hidden', 'false');
-                } else {
-                    backdrop.classList.remove('show');
-                    backdrop.setAttribute('aria-hidden', 'true');
-                }
+                backdrop.classList.toggle('show', open);
+                backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
             }
-
-            if (sidebar.classList.contains('active')) {
-                menuToggle.style.opacity = '0';
-                menuToggle.style.pointerEvents = 'none';
-            } else {
-                menuToggle.style.opacity = '1';
-                menuToggle.style.pointerEvents = 'auto';
-            }
-
-            if (window.innerWidth <= 768) {
-                if (sidebar.classList.contains('active')) {
-                    ScrollLock.lock();
-                } else {
-                    ScrollLock.unlock();
-                }
-            }
+            menuToggle.style.opacity = open ? '0' : '1';
+            menuToggle.style.pointerEvents = open ? 'none' : 'auto';
+            menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (open) ScrollLock.lock();
+            else ScrollLock.unlock();
         }
 
         // Initialize all DOM elements and event listeners
@@ -4898,32 +4937,37 @@
                 const menuToggle = document.getElementById('menuToggle');
                 const backdrop = document.getElementById('sidebarBackdrop');
 
-                if (window.innerWidth <= 768 && sidebar && sidebar.classList.contains('active')) {
+                if (isMobileMq() && sidebar && sidebar.classList.contains('active')) {
                     const clickToggle = menuToggle && (menuToggle === e.target || menuToggle.contains(e.target));
                     const clickBackdrop = backdrop && (backdrop === e.target || backdrop.contains(e.target));
                     if (clickBackdrop) return;
                     if (!sidebar.contains(e.target) && !clickToggle) {
-                        toggleSidebar();
+                        if (window.MobileUi && window.MobileUi.closeDrawer) window.MobileUi.closeDrawer();
+                        else toggleSidebar();
                     }
                 }
             });
 
             // Recalculate scroll compensation on resize (no shake)
             window.addEventListener('resize', () => {
-                if (window.innerWidth > 768) {
-                    const sb = document.getElementById('sidebar');
-                    const bd = document.getElementById('sidebarBackdrop');
-                    const mt = document.getElementById('menuToggle');
-                    if (sb) sb.classList.remove('active');
-                    if (bd) {
-                        bd.classList.remove('show');
-                        bd.setAttribute('aria-hidden', 'true');
+                if (!isMobileMq()) {
+                    if (window.MobileUi && typeof window.MobileUi.leaveMobile === 'function') {
+                        window.MobileUi.leaveMobile();
+                    } else {
+                        const sb = document.getElementById('sidebar');
+                        const bd = document.getElementById('sidebarBackdrop');
+                        const mt = document.getElementById('menuToggle');
+                        if (sb) sb.classList.remove('active');
+                        if (bd) {
+                            bd.classList.remove('show');
+                            bd.setAttribute('aria-hidden', 'true');
+                        }
+                        if (mt) {
+                            mt.style.opacity = '1';
+                            mt.style.pointerEvents = 'auto';
+                        }
+                        ScrollLock.unlock();
                     }
-                    if (mt) {
-                        mt.style.opacity = '1';
-                        mt.style.pointerEvents = 'auto';
-                    }
-                    ScrollLock.unlock();
                 }
                 if (ScrollLock.isLocked()) {
                     ScrollLock.recalc();
@@ -5524,11 +5568,12 @@
             })();
         </script>
     }
-    <partial name="_MobileBlockOverlay" />
     @RenderSection("Scripts", required: false)
     <script src="~/js/pricing-realtime.js" asp-append-version="true"></script>
     <script src="~/js/mobile-bottom-sheet.js" asp-append-version="true"></script>
     <script src="~/js/tour.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/css/mobile.css" asp-append-version="true" />
+    <script src="~/js/mobile-ui.js" asp-append-version="true"></script>
 </body>
 </html>
 </html>
