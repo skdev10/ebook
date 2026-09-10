@@ -1,4 +1,4 @@
-﻿@using Microsoft.EntityFrameworkCore
+@using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Http
 @using EBookDashboard.Services
@@ -435,11 +435,22 @@
             .main-content.main-content-pinned {
                 margin-left: var(--dash-sidebar-w-expanded);
                 width: calc(100% - var(--dash-sidebar-w-expanded));
-                /* Fixed viewport height so the dashboard scrolls inside its own column â€”
-                   no document scroll, so no empty space above the header while scrolling. */
+                /* Viewport-tall column: inner dashboard body scrolls; do not clip with overflow:hidden. */
                 height: 100vh;
                 height: 100dvh;
-                overflow: hidden;
+                max-height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+
+            .main-content.main-content-pinned > .dash-home-shell {
+                flex: 1 1 auto;
+                min-height: 0;
+                height: 100%;
+                max-height: 100%;
             }
         }
 
@@ -1561,6 +1572,31 @@
 
                 .sidebar.active {
                     transform: translateX(0);
+                }
+
+                .sidebar.active .sidebar-header {
+                    justify-content: flex-start;
+                    padding: 14px 16px 18px;
+                }
+
+                .sidebar.active .sidebar-header .logo-link {
+                    justify-content: flex-start;
+                    width: 100%;
+                }
+
+                .sidebar.active .sidebar-header .logo-link .sidebar-logo-icon {
+                    display: none !important;
+                }
+
+                .sidebar.active .sidebar-header .logo-link .sidebar-logo-img {
+                    display: block !important;
+                    height: 42px;
+                    width: auto;
+                    max-width: min(176px, 64vw);
+                    object-fit: contain;
+                    background: #fff;
+                    border-radius: 10px;
+                    padding: 6px 12px;
                 }
 
                 .sidebar.active .nav-text,
@@ -3538,7 +3574,18 @@
         <i class="fas fa-bars"></i>
     </button>
     <header class="m-topbar" hidden>
+        <img class="m-topbar-brand" src="@Url.Content("~/images/logo/ebook-ai-logo.png")" alt="ebook Ai" />
         <h1 class="m-topbar-title">@(ViewData["Title"] ?? "eBook Ai")</h1>
+        <a class="m-topbar-profile" href="/Dashboard/Profile" aria-label="Profile">
+            @if (!string.IsNullOrWhiteSpace(sidebarProfilePicturePath))
+            {
+                <img src="@Url.Content(sidebarProfilePicturePath.StartsWith("/") || sidebarProfilePicturePath.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? sidebarProfilePicturePath : "~/" + sidebarProfilePicturePath.TrimStart('/'))" alt="" />
+            }
+            else
+            {
+                <img src="@Url.Content("~/images/default-avatar.svg")" alt="" />
+            }
+        </a>
     </header>
     <!-- Add this hidden field for JavaScript to access userId -->
     @* style="display:none;" > *@
@@ -5573,6 +5620,7 @@
     <script src="~/js/mobile-bottom-sheet.js" asp-append-version="true"></script>
     <script src="~/js/tour.js" asp-append-version="true"></script>
     <link rel="stylesheet" href="~/css/mobile.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/mobile-screens.css" asp-append-version="true" />
     <script src="~/js/mobile-ui.js" asp-append-version="true"></script>
 </body>
 </html>

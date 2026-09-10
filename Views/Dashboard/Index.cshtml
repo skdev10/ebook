@@ -258,6 +258,9 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 1rem;
     }
+    .m-library-tabs,
+    .m-hero-mosaic,
+    .dash-hero-cta-m { display: none; }
     @@media (min-width: 640px) { #drafts-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @@media (min-width: 768px) { #drafts-list { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     @@media (min-width: 1024px) { #drafts-list { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
@@ -272,9 +275,9 @@
     }
 }
 
-<div class="bg-white text-gray-800 antialiased h-full flex flex-1 overflow-hidden w-full">
+<div class="dash-home-shell bg-white text-gray-800 antialiased flex flex-1 w-full min-h-0">
     <!-- Main Content -->
-    <main class="flex-1 h-full overflow-y-auto bg-white relative">
+    <main class="flex-1 overflow-y-auto bg-white relative min-h-0">
         @if (TempData["WelcomeMessage"] is string welcomeMsg && !string.IsNullOrWhiteSpace(welcomeMsg))
         {
             <div class="mx-4 sm:mx-8 mt-4 rounded-xl border border-violet-200 bg-violet-50 text-violet-950 text-sm px-4 py-3 shadow-sm" role="status">@welcomeMsg</div>
@@ -285,19 +288,50 @@
         }
         <div class="max-w-[96rem] mx-auto px-8 lg:px-14 py-8" data-aos="fade-up" data-aos-duration="500">
             <!-- Search -->
-            <div class="relative mb-10 group">
+            <div class="relative mb-10 group dash-search-wrap">
                 <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-purple-600 transition-colors"></i>
                 <input id="search-input" type="text" placeholder="Search your books, drafts, or authors..." class="w-full pl-12 pr-4 py-3 rounded-full border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300 transition-all placeholder:text-gray-400 text-gray-700">
             </div>
 
             <!-- Hero: single Start CTA (no cover preview) — continue drafts below -->
-            <div class="flex flex-col items-start gap-4 mb-12 max-w-2xl">
+            <div class="m-dash-hero flex flex-col items-start gap-4 mb-12 max-w-2xl">
+                @{
+                    var mosaicCovers = new List<string>();
+                    foreach (var d in draftBooksShow)
+                    {
+                        var c = DashCoverSrc(d.CoverImagePath);
+                        if (!string.IsNullOrWhiteSpace(c) && !mosaicCovers.Contains(c)) mosaicCovers.Add(c);
+                    }
+                    foreach (var p in publishedBooks)
+                    {
+                        var c = DashCoverSrc(p.CoverUrl);
+                        if (!string.IsNullOrWhiteSpace(c) && !mosaicCovers.Contains(c)) mosaicCovers.Add(c);
+                    }
+                    if (mosaicCovers.Count == 0)
+                    {
+                        mosaicCovers.Add(defaultCoverPlaceholder);
+                        mosaicCovers.Add(newBookHeroCover);
+                    }
+                    var mosaicSeed = mosaicCovers.Count;
+                    while (mosaicCovers.Count < 5)
+                    {
+                        mosaicCovers.Add(mosaicCovers[mosaicCovers.Count % mosaicSeed]);
+                    }
+                }
+                <div class="m-hero-mosaic" aria-hidden="true">
+                    @for (var i = 0; i < Math.Min(5, mosaicCovers.Count); i++)
+                    {
+                        <img src="@mosaicCovers[i]" alt="" />
+                    }
+                </div>
                 <p class="text-xs font-bold uppercase tracking-wider text-violet-600 mb-0">Your workspace</p>
                 <h1 id="dash-hero-title" class="font-serif text-4xl sm:text-5xl text-gray-900 mb-0 leading-tight tracking-tight">@heroTitle</h1>
                 <p id="dash-hero-desc" class="text-gray-500 text-base sm:text-lg mb-2 leading-relaxed">@heroDesc</p>
                 <div class="dash-hero-actions">
                     <a id="dash-hero-cta" href="@heroPrimaryUrl" data-start-guided-flow="true" class="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-800 active:scale-95 text-white px-8 py-3.5 rounded-full font-semibold transition-all shadow-lg shadow-purple-200 text-base" data-editor-reset-new="1" data-book-id="0" data-unsaved-ignore="true">
-                        <i class="fas fa-pen-nib text-sm"></i> @heroPrimaryLabel
+                        <i class="fas fa-pen-nib text-sm"></i>
+                        <span class="dash-hero-cta-label dash-hero-cta-desk">@heroPrimaryLabel</span>
+                        <span class="dash-hero-cta-m">Let's go</span>
                     </a>
                 </div>
             </div>
@@ -354,9 +388,9 @@
                 </div>
             }
 
-            <!-- Books in progress -->
-            <div class="mb-10">
-                <div class="flex items-center justify-between mb-3">
+            <!-- Books in progress — always visible so returning users can resume after login -->
+            <div class="mb-10 dash-continue-section" data-guided-tour="dash-continue">
+                <div class="flex items-center justify-between mb-3 dash-continue-head">
                     <h2 class="font-serif text-2xl font-semibold text-gray-900 tracking-tight">Continue Editing</h2>
                     @if (hasDraftModal)
                     {
@@ -364,6 +398,10 @@
                             <i class="fas fa-ellipsis-h w-4 h-4"></i>
                         </button>
                     }
+                </div>
+                <div class="m-library-tabs" aria-label="Library">
+                    <span class="m-library-tab is-active">In Progress</span>
+                    <a class="m-library-tab" href="/Dashboard/MyBooks">Published</a>
                 </div>
                 <p class="text-sm text-slate-500 mb-6 max-w-2xl">Resume where you left off — Writer, Formatting, or Cover Design. Open any module from the cards above.</p>
                 <div id="drafts-list" class="gap-4">
@@ -453,12 +491,12 @@
                             <div class="col-span-full pt-0 text-xs text-gray-400">Showing 8 of @demoDrafts.Count drafts</div>
                         }
                     }
-                    else if (!Model.HasAnyBooks)
+                    else
                     {
                         <div class="col-span-full border border-dashed border-violet-200 rounded-2xl p-8 text-center bg-violet-50/40">
                             <img src="@defaultCoverPlaceholder" alt="" class="w-16 h-20 rounded-lg mx-auto mb-4 object-cover dash-placeholder-cover" />
                             <p class="text-gray-700 font-medium mb-2">No books in progress yet</p>
-                            <p class="text-gray-500 text-sm mb-0 max-w-md mx-auto">Your drafts will appear here with progress through Writer → Format → Cover → Publish. Use <strong class="text-gray-700">Start with AI</strong> above to begin.</p>
+                            <p class="text-gray-500 text-sm mb-0 max-w-md mx-auto">Your drafts will appear here after you start writing. Use <strong class="text-gray-700">Start with AI</strong> above, then come back here anytime — even after logout — to keep writing.</p>
                         </div>
                     }
                 </div>
@@ -467,7 +505,7 @@
 
             @if (publishedBooks.Any())
             {
-                <div class="mb-10">
+                <div class="mb-10 dash-published-section">
                     <div class="flex items-center justify-between mb-6">
                         <h2 class="font-serif text-2xl font-semibold text-gray-900 tracking-tight">Published Books</h2>
                         <span class="text-xs font-semibold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">@publishedBooks.Count published</span>

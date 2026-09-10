@@ -140,16 +140,16 @@
                     <h2 id="profileNameHeading" class="text-xl font-medium text-slate-900 tracking-tight text-center">@(Model?.UserName ?? "User")</h2>
                     <p class="text-sm text-slate-500 mt-1 text-center">@(Model?.UserRole ?? "Reader") · @planLabel</p>
 
-                    <div class="w-full mt-8 flex flex-col border-t border-slate-100 text-left">
-                        <div class="flex justify-between items-center py-3.5 border-b border-slate-100">
+                    <div class="w-full mt-8 flex flex-col border-t border-slate-100 text-left profile-stats-strip">
+                        <div class="flex justify-between items-center py-3.5 border-b border-slate-100 profile-stat">
                             <span class="text-sm font-medium text-slate-500">Books in library</span>
                             <span class="text-sm font-semibold text-violet-600">@(Model?.TotalBooks ?? 0)</span>
                         </div>
-                        <div class="flex justify-between items-center py-3.5 border-b border-slate-100">
+                        <div class="flex justify-between items-center py-3.5 border-b border-slate-100 profile-stat">
                             <span class="text-sm font-medium text-slate-500">Published</span>
                             <span class="text-sm font-semibold text-emerald-600">@(Model?.BooksRead ?? 0)</span>
                         </div>
-                        <div class="flex justify-between items-center py-3.5">
+                        <div class="flex justify-between items-center py-3.5 profile-stat">
                             <span class="text-sm font-medium text-slate-500">Drafts / in progress</span>
                             <span class="text-sm font-semibold text-amber-600">@(Model?.BooksReading ?? 0)</span>
                         </div>

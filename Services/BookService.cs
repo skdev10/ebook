@@ -125,7 +125,7 @@ namespace EBookDashboard.Services
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error getting next chapter number: {ex.Message}");
-                return 1;
+                throw;
             }
         }
 
@@ -234,6 +234,8 @@ namespace EBookDashboard.Services
         //=======================================
         public async Task<bool> UpdateBookAsync(Books book)
         {
+            if (!BookDraftGuard.IsPlaceholderTitle(book.Title))
+                await BookDraftGuard.EnsureUniqueTitleAsync(_context, book.UserId, book.Title, book.BookId);
             book.UpdatedAt = DateTime.UtcNow;
             _context.Books.Update(book);
             return await _context.SaveChangesAsync() > 0;

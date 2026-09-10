@@ -1,0 +1,145 @@
+/* Figma-inspired auth screens (login, register, reset). Desktop ≥768px unchanged. */
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap");
+
+@media (max-width: 767px) {
+  :root {
+    --m-olive: #5c5339;
+    --m-olive-deep: #4a4330;
+    --m-lime: #d4f07a;
+    --m-cream: #f6f3e8;
+    --m-page: #f4f1ea;
+    --m-ink: #2c291f;
+    --m-muted: #7a7464;
+  }
+
+  body.auth-page-shell,
+  body.min-h-screen.bg-\[\#f5f7f9\] {
+    background: var(--m-olive) !important;
+    padding: 0 !important;
+    align-items: stretch !important;
+  }
+
+  body.auth-page-shell > .absolute,
+  body.min-h-screen > .absolute {
+    display: none !important;
+  }
+
+  .auth-card,
+  body.min-h-screen > .relative.z-10 {
+    background: var(--m-olive) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    min-height: 100dvh !important;
+    height: 100dvh !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .auth-form-column {
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 48px 22px 28px !important;
+    justify-content: flex-end !important;
+    align-items: stretch !important;
+    min-height: 100dvh !important;
+  }
+
+  .auth-form-column > div,
+  .auth-form-column .max-w-md,
+  .auth-form-column .max-w-\[340px\] {
+    max-width: 100% !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    margin-top: auto;
+  }
+
+  .auth-form-column h1,
+  body.min-h-screen h1 {
+    font-family: "Playfair Display", Georgia, serif !important;
+    font-size: 2.15rem !important;
+    line-height: 1.15 !important;
+    color: var(--m-cream) !important;
+    text-align: left !important;
+    margin-bottom: 0.6rem !important;
+  }
+
+  .auth-form-column p,
+  body.min-h-screen p.text-slate-500,
+  body.min-h-screen p.text-gray-500 {
+    color: rgba(246, 243, 232, 0.78) !important;
+    text-align: left !important;
+  }
+
+  .auth-form-column label,
+  .auth-form-column .text-gray-400,
+  .auth-form-column .text-gray-500,
+  .auth-form-column .text-gray-600,
+  .auth-form-column .text-gray-700,
+  .auth-form-column .text-slate-400,
+  .auth-form-column .text-slate-500,
+  body.min-h-screen label {
+    color: rgba(246, 243, 232, 0.85) !important;
+  }
+
+  .auth-form-column input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+  body.min-h-screen input[type="text"],
+  body.min-h-screen input[type="email"],
+  body.min-h-screen input[type="password"],
+  body.min-h-screen select,
+  body.min-h-screen textarea {
+    background: var(--m-cream) !important;
+    border: 0 !important;
+    color: var(--m-ink) !important;
+    border-radius: 16px !important;
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .auth-form-column button[type="submit"],
+  body.min-h-screen button[type="submit"] {
+    background: var(--m-lime) !important;
+    color: var(--m-olive-deep) !important;
+    border-radius: 999px !important;
+    box-shadow: none !important;
+    min-height: 52px;
+    font-weight: 700;
+  }
+
+  #btnSubmit {
+    background: var(--m-lime) !important;
+    color: var(--m-olive-deep) !important;
+    border-radius: 50% !important;
+    box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.35) !important;
+    width: 96px !important;
+    height: 96px !important;
+    min-height: 96px !important;
+    min-width: 96px;
+    padding: 0 12px !important;
+    margin-left: auto;
+    font-weight: 800;
+    font-size: 0.88rem;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .auth-form-column a {
+    color: var(--m-lime) !important;
+  }
+
+  .auth-premium-hero,
+  .hidden.md\:flex {
+    display: none !important;
+  }
+
+  .auth-form-column .flex.items-center.justify-between {
+    color: rgba(246, 243, 232, 0.85);
+  }
+
+  .auth-form-column .rounded-full.border,
+  body.min-h-screen a.rounded-full.border {
+    background: var(--m-cream) !important;
+    border: 0 !important;
+    color: var(--m-ink) !important;
+  }
+}

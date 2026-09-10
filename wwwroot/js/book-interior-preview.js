@@ -74,7 +74,10 @@
 
         var availW = Math.max(0, host.clientWidth);
         var availH = Math.max(0, host.clientHeight - reserve);
-        if (availW < 48 || availH < 48) return false;
+        if (availW < 48) return false;
+        if (availH < 48) {
+            availH = Math.max(360, Math.floor(availW / (ratio > 0 ? ratio : DEFAULT_RATIO)));
+        }
 
         var maxHeightCap = opts.maxHeightPx > 0 ? opts.maxHeightPx : availH;
         var cappedH = Math.min(availH, maxHeightCap);
@@ -255,6 +258,13 @@
         }
     }
 
+    function isPhonePreview() {
+        try {
+            if (global.MOBILE_MQ && typeof global.MOBILE_MQ.matches === 'boolean') return global.MOBILE_MQ.matches;
+        } catch (e) { /* ignore */ }
+        return !!(global.matchMedia && global.matchMedia('(max-width: 767px)').matches);
+    }
+
     global.BookInteriorPreview = {
         init: init,
         wireTocLinks: wireTocLinks,
@@ -263,6 +273,7 @@
         syncPreviewLayout: syncPreviewLayout,
         showLoadingOverlay: showLoadingOverlay,
         hideLoadingOverlay: hideLoadingOverlay,
-        preloadAdjacentPage: preloadAdjacentPage
+        preloadAdjacentPage: preloadAdjacentPage,
+        isPhonePreview: isPhonePreview
     };
 })(window);

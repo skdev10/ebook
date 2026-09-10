@@ -122,10 +122,9 @@
             max-height: calc(100dvh - 5rem);
             width: auto;
             max-width: 100%;
-            min-height: 0;
+            min-height: 22rem;
             height: auto;
             margin-inline: auto;
-            aspect-ratio: 6 / 9;
         }
         .ai-writer-preview-stack {
             align-items: center;
@@ -154,6 +153,7 @@
         }
         .ai-writer-preview-meta .preview-intro-desc { display: none; }
         .ai-writer-preview-meta #preview-book-title { font-size: 1.5rem; line-height: 1.25; }
+        .m-open-now { display: none; }
         #chatContainer.chat-container { margin-bottom: 0; }
     }
     /* 6×9 in ebook page — fixed trim, paginated (no inner scroll trap) */
@@ -321,15 +321,14 @@
         position: relative;
         z-index: 1;
     }
-    /* 6×9 shell — fixed trim; page turns via arrows (no inner scroll trap) */
+    /* Book shell size is set by syncAiWriterPreviewLayout (open-spread 12×9 on desktop). */
     #bookResult .paginated-reader-shell.book-page-preview-shell {
         position: relative;
-        width: min(100%, 100%);
-        max-width: min(100%, 100%);
+        width: auto;
+        max-width: 100%;
         margin-inline: auto;
-        aspect-ratio: 6 / 9;
         height: auto;
-        min-height: 0;
+        min-height: 22rem;
         max-height: none;
         overflow: hidden;
         flex-shrink: 0;
@@ -337,12 +336,16 @@
         flex-direction: column;
         box-sizing: border-box;
     }
+    @@media (min-width: 768px) {
+        #bookResult .paginated-reader-shell.book-page-preview-shell.is-open-spread {
+            overflow: visible;
+        }
+    }
     @@media (min-width: 1024px) {
         #bookResult .paginated-reader-shell.book-page-preview-shell {
-            width: min(100%, 100%);
-            max-width: min(100%, 100%);
+            width: auto;
+            max-width: 100%;
             margin-inline: auto;
-            aspect-ratio: 6 / 9;
             max-height: none;
         }
     }
@@ -1636,17 +1639,59 @@
         min-height: calc(100dvh - 7.5rem);
         z-index: 1;
     }
-    #bookResult .paginated-reader-shell.book-page-preview-shell,
-    #bookResult .paginated-reader-shell.book-page-preview-shell.is-open-spread {
+    #bookResult .paginated-reader-shell.book-page-preview-shell {
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         z-index: 3 !important;
         margin-inline: auto !important;
         max-height: calc(100dvh - 5.5rem) !important;
-        aspect-ratio: 12 / 9 !important;
-        width: 100% !important;
         max-width: 100% !important;
+    }
+    @@media (min-width: 768px) {
+        #bookResult .paginated-reader-shell.book-page-preview-shell,
+        #bookResult .paginated-reader-shell.book-page-preview-shell.is-open-spread {
+            aspect-ratio: 12 / 9 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+    }
+    @@media (max-width: 767px) {
+        #bookResult #chapterPreviewScrollHost.book-preview-stage {
+            min-height: 0 !important;
+            padding: 0.45rem 0.3rem 0.6rem !important;
+            justify-content: flex-start !important;
+        }
+        #bookResult .paginated-reader-shell.book-page-preview-shell {
+            aspect-ratio: 6 / 9 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 0 !important;
+            max-height: min(72dvh, 36rem) !important;
+            background: #fffef8 !important;
+            border: 1px solid rgba(68, 48, 36, 0.28) !important;
+            box-shadow:
+                0 1px 0 rgba(255, 255, 255, 0.95) inset,
+                0 12px 28px -12px rgba(28, 25, 23, 0.45) !important;
+            overflow: hidden !important;
+            border-radius: 3px !important;
+        }
+        #bookResult #preview-content .book-single-leaf {
+            width: 100%;
+            height: 100%;
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+            background: #fffef8;
+        }
+        #bookResult #preview-content .book-single-leaf .book-open-page {
+            flex: 1 1 auto;
+            min-height: 0;
+            box-shadow: none;
+        }
+        #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
+            overflow: hidden !important;
+        }
     }
     #bookResult .paginated-reader-shell.book-page-preview-shell::before {
         display: none !important;
@@ -1977,6 +2022,7 @@
                 <p class="preview-intro-desc text-sm text-slate-500 leading-relaxed m-0">
                     Your manuscript appears as a real book page. Uploaded images show inside the preview. Use the side arrows to turn pages.
                 </p>
+                <a class="m-open-now" href="#GenerateBtn">Open Now</a>
                 <div id="chatContainer" class="chat-container hidden flex-col flex-shrink-0" aria-live="polite"></div>
             </div>
             <!-- Side-by-side preview (edit mode: Original | Regenerated) -->
@@ -2540,7 +2586,8 @@ window.syncChapterNoDropdownAndHidden = function (chapterNum) {
         var previewContent = document.getElementById('preview-content');
         if (previewContent) previewContent.innerHTML = '';
         var pTitle = document.getElementById('preview-book-title');
-        if (pTitle) pTitle.textContent = '';
+        if (pTitle) pTitle.textContent = 'Your book pages';
+        if (typeof window.showPreviewEmptyState === 'function') window.showPreviewEmptyState();
         try {
             var u = new URL(window.location.href);
             u.searchParams.delete('bookId');
@@ -3041,12 +3088,16 @@ window.syncAiWriterPreviewLayout = function () {
     var viewport = document.getElementById('preview-content');
     var previewPane = document.querySelector('.ai-writer-preview-pane');
     if (!scrollHost || !shell) return;
-    shell.classList.add('is-open-spread');
+    var phone = window.BookInteriorPreview && typeof window.BookInteriorPreview.isPhonePreview === 'function'
+        ? window.BookInteriorPreview.isPhonePreview()
+        : window.matchMedia('(max-width: 767px)').matches;
+    if (phone) shell.classList.remove('is-open-spread');
+    else shell.classList.add('is-open-spread');
     scrollHost.classList.add('book-preview-stage');
 
     function syncPreviewPaneWidth(w) {
         if (!previewPane) return;
-        if (window.innerWidth >= 1024) {
+        if (phone || window.innerWidth >= 1024) {
             previewPane.style.width = '';
             previewPane.style.maxWidth = '';
             return;
@@ -3057,12 +3108,16 @@ window.syncAiWriterPreviewLayout = function () {
     }
 
     var nav = null;
-    var isDesktopPreview = window.innerWidth >= 1024;
+    var isDesktopPreview = !phone && window.innerWidth >= 1024;
     var remPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-    var maxShellH = Math.max(440, Math.floor(window.innerHeight - 4.25 * remPx));
-    var minHostH = isDesktopPreview
-        ? Math.max(520, Math.floor(window.innerHeight * 0.78))
-        : Math.max(360, Math.floor(window.innerHeight * 0.55));
+    var maxShellH = phone
+        ? Math.max(360, Math.floor(window.innerHeight - 10.5 * remPx))
+        : Math.max(440, Math.floor(window.innerHeight - 4.25 * remPx));
+    var minHostH = phone
+        ? Math.max(420, Math.floor((scrollHost.clientWidth || 320) * 1.5))
+        : (isDesktopPreview
+            ? Math.max(520, Math.floor(window.innerHeight * 0.78))
+            : Math.max(360, Math.floor(window.innerHeight * 0.55)));
 
     if (window.BookInteriorPreview && typeof window.BookInteriorPreview.syncPreviewLayout === 'function') {
         window.BookInteriorPreview.syncPreviewLayout({
@@ -3073,8 +3128,8 @@ window.syncAiWriterPreviewLayout = function () {
             navDock: nav,
             minHostHeightPx: minHostH,
             preferHeight: isDesktopPreview,
-            maxHeightPx: isDesktopPreview ? maxShellH : 0,
-            aspectRatio: 12 / 9,
+            maxHeightPx: phone || isDesktopPreview ? maxShellH : 0,
+            aspectRatio: phone ? (6 / 9) : (12 / 9),
             widthFactor: 1,
             syncMeasureTypography: true,
             onLayoutChange: function (changed) {
@@ -3105,17 +3160,18 @@ window.syncAiWriterPreviewLayout = function () {
 
     var paneW = scrollHost.clientWidth || 320;
     var shellH = maxShellH;
-    var shellW = Math.floor(shellH * (12 / 9));
+    var ratio = phone ? (6 / 9) : (12 / 9);
+    var shellW = Math.floor(shellH * ratio);
     if (shellW > Math.floor(paneW)) {
         shellW = Math.floor(paneW);
-        shellH = Math.floor(shellW * (9 / 12));
+        shellH = Math.floor(shellW / ratio);
     }
     syncPreviewPaneWidth(shellW);
     shell.style.width = shellW + 'px';
     shell.style.height = shellH + 'px';
     shell.style.maxWidth = '100%';
     shell.style.maxHeight = shellH + 'px';
-    shell.style.aspectRatio = '6 / 9';
+    shell.style.aspectRatio = phone ? '6 / 9' : '12 / 9';
 };
 
 window.ensureChapterPagesForMeta = function (ch) {
@@ -3159,7 +3215,10 @@ window.renderCurrentReaderPage = function () {
     var shell = document.getElementById('paginatedReaderShell');
     var pages = window._previewChapterPages || [];
     var pi = Math.max(0, Math.min(window._previewPageIndex || 0, Math.max(0, pages.length - 1)));
-    pi = (pi % 2 === 0) ? pi : Math.max(0, pi - 1);
+    var phone = window.BookInteriorPreview && typeof window.BookInteriorPreview.isPhonePreview === 'function'
+        ? window.BookInteriorPreview.isPhonePreview()
+        : window.matchMedia('(max-width: 767px)').matches;
+    if (!phone) pi = (pi % 2 === 0) ? pi : Math.max(0, pi - 1);
     window._previewPageIndex = pi;
     var right = pi + 1;
     function faceHtml(idx, side) {
@@ -3178,13 +3237,23 @@ window.renderCurrentReaderPage = function () {
             '<div class="book-open-folio writer-page-folio" aria-label="Page ' + pageNum + '">' + pageNum + '</div></div>';
     }
     if (viewport) {
-        if (shell) shell.classList.add('is-open-spread');
-        viewport.innerHTML =
-            '<div class="book-open-spread" role="group" aria-label="Open book spread">' +
-                faceHtml(pi, 'verso') +
-                '<div class="book-open-spine" aria-hidden="true"></div>' +
-                faceHtml(right, 'recto') +
-            '</div>';
+        if (shell) {
+            if (phone) shell.classList.remove('is-open-spread');
+            else shell.classList.add('is-open-spread');
+        }
+        if (phone) {
+            viewport.innerHTML =
+                '<div class="book-single-leaf" role="group" aria-label="Book page">' +
+                    faceHtml(pi, 'recto') +
+                '</div>';
+        } else {
+            viewport.innerHTML =
+                '<div class="book-open-spread" role="group" aria-label="Open book spread">' +
+                    faceHtml(pi, 'verso') +
+                    '<div class="book-open-spine" aria-hidden="true"></div>' +
+                    faceHtml(right, 'recto') +
+                '</div>';
+        }
         viewport.scrollTop = 0;
     }
     window.updateChapterPreviewNavUI();
@@ -3201,9 +3270,13 @@ window.readerNavNext = function () {
     var ci = window._previewChapterIndex || 0;
     var pages = window._previewChapterPages || [];
     var list = window._previewChaptersMeta || [];
-    var left = (pi % 2 === 0) ? pi : Math.max(0, pi - 1);
-    if (left + 2 < pages.length) {
-        window._previewPageIndex = left + 2;
+    var phone = window.BookInteriorPreview && typeof window.BookInteriorPreview.isPhonePreview === 'function'
+        ? window.BookInteriorPreview.isPhonePreview()
+        : window.matchMedia('(max-width: 767px)').matches;
+    var left = phone ? pi : ((pi % 2 === 0) ? pi : Math.max(0, pi - 1));
+    var step = phone ? 1 : 2;
+    if (left + step < pages.length) {
+        window._previewPageIndex = left + step;
         window.renderCurrentReaderPage();
         window.requestAnimationFrame(function () {
             if (typeof window.scrollAiWriterChapterToTop === 'function') window.scrollAiWriterChapterToTop();
@@ -3222,9 +3295,13 @@ window.readerNavPrevious = function () {
     }
     var pi = window._previewPageIndex || 0;
     var ci = window._previewChapterIndex || 0;
-    var left = (pi % 2 === 0) ? pi : Math.max(0, pi - 1);
+    var phone = window.BookInteriorPreview && typeof window.BookInteriorPreview.isPhonePreview === 'function'
+        ? window.BookInteriorPreview.isPhonePreview()
+        : window.matchMedia('(max-width: 767px)').matches;
+    var left = phone ? pi : ((pi % 2 === 0) ? pi : Math.max(0, pi - 1));
+    var step = phone ? 1 : 2;
     if (left > 0) {
-        window._previewPageIndex = Math.max(0, left - 2);
+        window._previewPageIndex = Math.max(0, left - step);
         window.renderCurrentReaderPage();
         window.requestAnimationFrame(function () {
             if (typeof window.scrollAiWriterChapterToTop === 'function') window.scrollAiWriterChapterToTop();
@@ -3639,13 +3716,20 @@ window.showPreviewEmptyState = function () {
         previewHeader.classList.add('hidden');
         previewHeader.setAttribute('aria-hidden', 'true');
     }
-    previewContent.innerHTML = '<div class="preview-empty-state" role="status">'
-        + '<i class="fas fa-book-open" aria-hidden="true"></i>'
-        + '<p><strong>No generated chapter yet</strong></p>'
-        + '<p>Write your brief on the left, then click <strong>Generate</strong>. The full chapter will appear here.</p>'
+    previewContent.innerHTML = '<div class="writer-empty-book preview-empty-state" role="status">'
+        + '<div class="writer-empty-page">'
+        + '<div class="writer-empty-lines" aria-hidden="true"></div>'
+        + '<p class="writer-empty-kicker">Blank pages</p>'
+        + '<p><strong>Your book will appear here</strong></p>'
+        + '<p>Add a chapter with +, write a brief, then tap <strong>Generate</strong>.</p>'
+        + '</div>'
         + '</div>';
     previewContent.classList.add('text-slate-400');
     previewContent.classList.remove('text-slate-800');
+    var pageVal = document.getElementById('aiWriterTotalPagesValue');
+    if (pageVal) pageVal.textContent = '—';
+    var ind = document.getElementById('aiWriterPageIndicator');
+    if (ind) ind.textContent = 'Page 1 of 1';
 };
 
 /** Show the chapter title bar for the SELECTED chapter. */
@@ -3992,10 +4076,13 @@ window.updateChapterPreviewNavUI = function () {
         if (nsFull) nsFull.style.visibility = '';
         var pi = window._writerPageIndex || 0;
         var total = window._writerBookPages.length;
-        var left = (pi % 2 === 0) ? pi : (pi - 1);
+        var phoneNav = window.BookInteriorPreview && typeof window.BookInteriorPreview.isPhonePreview === 'function'
+            ? window.BookInteriorPreview.isPhonePreview()
+            : window.matchMedia('(max-width: 767px)').matches;
+        var left = phoneNav ? pi : ((pi % 2 === 0) ? pi : (pi - 1));
         if (left < 0) left = 0;
-        var right = left + 1;
-        var spreadLabel = right < total
+        var right = phoneNav ? left : (left + 1);
+        var spreadLabel = (!phoneNav && right < total)
             ? ('Pages ' + (left + 1) + '–' + (right + 1) + ' of ' + total)
             : ('Page ' + (left + 1) + ' of ' + total);
         var pageLabel = (window.AiWriterReadMode && typeof window.AiWriterReadMode.pageLabel === 'function')
@@ -4007,9 +4094,9 @@ window.updateChapterPreviewNavUI = function () {
             pageInd.classList.remove('hidden');
         }
         if (prev) prev.disabled = left <= 0;
-        if (next) next.disabled = right >= total;
+        if (next) next.disabled = phoneNav ? (left >= total - 1) : (right >= total);
         if (psFull) psFull.disabled = left <= 0;
-        if (nsFull) nsFull.disabled = right >= total;
+        if (nsFull) nsFull.disabled = phoneNav ? (left >= total - 1) : (right >= total);
         if (fill) fill.style.width = total ? ((Math.min(right + 1, total)) / total * 100) + '%' : '0%';
         if (idxBtn) {
             idxBtn.style.display = list.length > 1 ? '' : 'none';
@@ -4047,9 +4134,12 @@ window.updateChapterPreviewNavUI = function () {
     var ch = list[chIdx] || {};
     var pageCount = (window._previewChapterPages && window._previewChapterPages.length) || 1;
     var chCount = list.length;
-    var leftPg = (pgIdx % 2 === 0) ? pgIdx : Math.max(0, pgIdx - 1);
-    var rightPg = leftPg + 1;
-    var spreadText = rightPg < pageCount
+    var phoneNav = window.BookInteriorPreview && typeof window.BookInteriorPreview.isPhonePreview === 'function'
+        ? window.BookInteriorPreview.isPhonePreview()
+        : window.matchMedia('(max-width: 767px)').matches;
+    var leftPg = phoneNav ? pgIdx : ((pgIdx % 2 === 0) ? pgIdx : Math.max(0, pgIdx - 1));
+    var rightPg = phoneNav ? leftPg : (leftPg + 1);
+    var spreadText = (!phoneNav && rightPg < pageCount)
         ? ('Pages ' + (leftPg + 1) + '–' + (rightPg + 1) + ' of ' + pageCount)
         : ('Page ' + (leftPg + 1) + ' of ' + pageCount);
     if (label) {
@@ -4092,7 +4182,7 @@ window.updateChapterPreviewNavUI = function () {
         return;
     }
     if (prev) prev.disabled = (chIdx <= 0 && leftPg <= 0);
-    if (next) next.disabled = (chIdx >= chCount - 1 && leftPg + 2 >= pageCount);
+    if (next) next.disabled = (chIdx >= chCount - 1 && leftPg + (phoneNav ? 1 : 2) >= pageCount);
     if (fill) {
         var frac = chCount ? ((chIdx + (Math.min(leftPg + 2, pageCount)) / pageCount) / chCount) : 0;
         fill.style.width = (Math.min(1, frac) * 100) + '%';
@@ -5832,7 +5922,9 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 var msg = (result.data && result.data.message) ? result.data.message : 'Could not autosave.';
                 setWriterAutoSaveStatus(msg, true);
-                setTimeout(function () { queueWriterAutosave(1200); }, 1200);
+                var isDup = /already exists/i.test(msg);
+                if (isDup && typeof showNotification === 'function') showNotification(msg, 'error');
+                if (!isDup) setTimeout(function () { queueWriterAutosave(1200); }, 1200);
             }
         }).catch(function () {
             setWriterAutoSaveStatus('Could not autosave. Retrying…', true);
@@ -6331,7 +6423,8 @@ document.addEventListener('DOMContentLoaded', function() {
           if (userInput) {
               userInput.addEventListener('keypress', function(e) {
                   if (e.key === 'Enter') {
-                      generateBook();
+                      e.preventDefault();
+                      confirmGenerateChapter();
                   }
               });
           }
@@ -6646,6 +6739,8 @@ document.addEventListener('DOMContentLoaded', function() {
               var errMsg = 'Failed to create book.';
               try { var err = JSON.parse(responseText); errMsg = err.message || errMsg; } catch (e) { if (responseText) errMsg = responseText; }
               showNotification(errMsg, 'error');
+              var titleEl = document.getElementById('createBookModalTitle');
+              if (titleEl) { titleEl.focus(); titleEl.select(); }
           } catch (err) {
               showNotification('Error: ' + (err.message || 'Network error'), 'error');
           } finally {
@@ -6845,6 +6940,9 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
        async function addNewChapter() {
+                if (window._addingChapter) return;
+                window._addingChapter = true;
+                try {
                 const userId = document.getElementById("UserId").value;
                 let bookId = document.getElementById('BookId').value;
                 // Beginner blank Writer: create a draft book from the title field, then add chapter 1.
@@ -6998,6 +7096,10 @@ document.addEventListener('DOMContentLoaded', function() {
           if (typeof window.updatePreviewUI === 'function') window.updatePreviewUI();
           if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
           setVersionHistoryPanelVisible(true);
+
+      } finally {
+          window._addingChapter = false;
+      }
 
       }
 
@@ -7812,6 +7914,10 @@ document.addEventListener('DOMContentLoaded', function() {
      //   Run on button click ⚙️ Generate – show theme-matched confirmation modal
      //=============================================
      function confirmGenerateChapter() {
+         if (window._writerGenerateBusy) {
+             if (typeof showNotification === 'function') showNotification('A chapter is already generating. Wait for it to finish.', 'info');
+             return;
+         }
          if (typeof window.requireChapterTitleForAction === 'function' && !window.requireChapterTitleForAction('generate')) return;
          var genModal = document.getElementById('generateConfirmModal');
          var etaHint = document.getElementById('generateConfirmEtaHint');
@@ -7903,6 +8009,12 @@ document.addEventListener('DOMContentLoaded', function() {
      async function generateBook() {
          console.log("🟢 Step 1: generateBook() function started");
 
+         var generateBtnGate = document.getElementById("GenerateBtn");
+         if (window._writerGenerateBusy || (generateBtnGate && generateBtnGate.getAttribute('data-generating') === '1')) {
+             if (typeof showNotification === 'function') showNotification('A chapter is already generating. Wait for it to finish.', 'info');
+             return;
+         }
+
          if (typeof window.requireChapterTitleForAction === 'function' && !window.requireChapterTitleForAction('generate')) {
              hideGenerateLoading();
              return;
@@ -7910,7 +8022,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
          // --- Step 2: Collect input values from the page ---
          const chapterNum = parseInt(document.getElementById('ChapterNo').value, 10) || 1;
-         var genToken = (window._writerGenerateSeq = (window._writerGenerateSeq || 0) + 1);
          const requestData = {
              UserId: document.getElementById('UserId').value,
              BookId: document.getElementById('BookId').value,
@@ -7965,6 +8076,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (procText) procText.textContent = 'Generating your chapter…';
             }
             if (generateBtn) { generateBtn.disabled = true; generateBtn.setAttribute('data-generating', '1'); }
+            window._writerGenerateBusy = true;
+            var genToken = (window._writerGenerateSeq = (window._writerGenerateSeq || 0) + 1);
 
           // Show loading state immediately
             showGenerateLoading();
@@ -7977,10 +8090,19 @@ document.addEventListener('DOMContentLoaded', function() {
           // Disable all buttons and show loading state
            manageButtonStates("Generate");
 
-          //btnText.style.display = 'none';
-          //btnLoading.style.display = 'inline-block';
+         function doneCommon() {
+             window._writerGenerateBusy = false;
+             if (messageElement) { messageElement.classList.add('hidden'); messageElement.classList.remove('flex'); }
+             enableControls();
+             if (generateBtn) {
+                 generateBtn.removeAttribute('data-generating');
+                 generateBtn.disabled = false;
+             }
+             if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
+         }
 
           // New draft (no book id): ask server for next chapter index. Existing book: keep user's ChapterNo / dropdown (add-chapter flow).
+          try {
           if (!requestData.BookId || requestData.BookId === "0") {
               let chapterNo = 0;
               const apiUrl = `/Books/GetNextChapterNumber?userId=${encodeURIComponent(requestData.UserId)}&bookId=${encodeURIComponent(requestData.BookId)}`;
@@ -7995,21 +8117,18 @@ document.addEventListener('DOMContentLoaded', function() {
           } else {
               ensureChapterDropdownOption(requestData.Chapter);
           }
+          } catch (nextErr) {
+              doneCommon();
+              hideGenerateLoading();
+              if (typeof window.hideChapterGenerationOverlay === 'function') window.hideChapterGenerationOverlay();
+              if (typeof showNotification === 'function') showNotification('Could not start generation. Try again.', 'error');
+              return;
+          }
          console.log("📋 Step 2: Collected input data:", requestData);
 
          var originalBrief = (document.getElementById('UserInput') && document.getElementById('UserInput').value)
              ? String(document.getElementById('UserInput').value).trim() : '';
          if (originalBrief) addMessage(originalBrief, true);
-
-         function doneCommon() {
-             if (messageElement) { messageElement.classList.add('hidden'); messageElement.classList.remove('flex'); }
-             enableControls();
-             if (generateBtn) {
-                 generateBtn.removeAttribute('data-generating');
-                 generateBtn.disabled = false;
-             }
-             if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
-         }
 
          (async function runChapterGenerate() {
              var genTimeoutMs = (typeof window.__chapterGenFetchTimeoutMs === 'number' && window.__chapterGenFetchTimeoutMs > 60000)
@@ -8049,7 +8168,6 @@ document.addEventListener('DOMContentLoaded', function() {
                  console.log("📨 Response status:", response.status);
                  const responseText = await response.text();
                  var savedResponseIdHeader = response.headers && response.headers.get ? response.headers.get('X-Saved-Response-Id') : null;
-                 doneCommon();
 
                  if (response.ok) {
                      if (!responseText || responseText.trim() === '') {
@@ -8155,6 +8273,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  showNotification(aborted ? 'Generation timed out' : 'Generation failed', 'error');
                  if (typeof window.setBookResultStatusBanner === 'function') window.setBookResultStatusBanner('', false);
              } finally {
+                 doneCommon();
                  hideGenerateLoading();
                  if (typeof window.hideChapterGenerationOverlay === 'function') window.hideChapterGenerationOverlay();
              }
@@ -8181,7 +8300,11 @@ document.addEventListener('DOMContentLoaded', function() {
                   ? window.getChapterTitleForRequest(editCh)
                   : (document.getElementById('Title') ? document.getElementById('Title').value : ''),
               chapter: String(editCh),
-              changes: document.getElementById('UserInput')?.value || ''
+              changes: document.getElementById('UserInput')?.value || '',
+              content: (typeof window.getWriterPreviewChapterHtmlForEdit === 'function' ? window.getWriterPreviewChapterHtmlForEdit() : '')
+                  || (document.getElementById('preview-content') && document.getElementById('preview-content').innerHTML)
+                  || window._currentChapterContent
+                  || ''
           };
            // Create a new AbortController for this request
              abortController = new AbortController();
@@ -8259,7 +8382,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  window.showChapterGenerationOverlay('Applying edits…');
              }
              controller = new AbortController();
-             timeoutId = setTimeout(function () { controller.abort(); }, 180000);
+             timeoutId = setTimeout(function () { controller.abort(); }, (typeof window.__chapterGenFetchTimeoutMs === 'number' && window.__chapterGenFetchTimeoutMs > 60000) ? window.__chapterGenFetchTimeoutMs : (12 * 60 * 1000));
              const response = await fetch('/Books/EditChapter', {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
@@ -9404,24 +9527,29 @@ document.addEventListener('DOMContentLoaded', function() {
             var chNoEl = document.getElementById('ChapterNo');
             var chNo = chNoEl ? parseInt(chNoEl.value, 10) : NaN;
             if (!Number.isFinite(chNo) || chNo < 1) chNo = 1;
-            var ix = chNo - 1;
-            var entry = window.buildPreviewMetaEntryFromGeneration(bookData, phBase, ix);
-            if (!entry) return ix;
-            while (chaptersMeta.length < ix) {
-                var n = chaptersMeta.length + 1;
-                chaptersMeta.push({
-                    html: '<p class="manuscript-p text-slate-500">No content for this chapter yet.</p>',
-                    title: '',
-                    wordCount: 0,
-                    chapterNo: n
-                });
+            var entry = window.buildPreviewMetaEntryFromGeneration(bookData, phBase, Math.max(0, chNo - 1));
+            if (!entry) return 0;
+            entry.chapterNo = chNo;
+            var ix = -1;
+            for (var i = 0; i < chaptersMeta.length; i++) {
+                var existingNo = parseInt(String((chaptersMeta[i] && (chaptersMeta[i].chapterNo || chaptersMeta[i].chapter)) || '0'), 10);
+                if (existingNo === chNo) { ix = i; break; }
             }
-            if (chaptersMeta.length === ix) {
-                chaptersMeta.push(entry);
-            } else {
+            if (ix >= 0) {
                 chaptersMeta[ix] = entry;
+                return ix;
             }
-            return ix;
+            chaptersMeta.push(entry);
+            chaptersMeta.sort(function (a, b) {
+                var an = parseInt(String((a && (a.chapterNo || a.chapter)) || '0'), 10) || 0;
+                var bn = parseInt(String((b && (b.chapterNo || b.chapter)) || '0'), 10) || 0;
+                return an - bn;
+            });
+            for (var j = 0; j < chaptersMeta.length; j++) {
+                if (parseInt(String((chaptersMeta[j] && (chaptersMeta[j].chapterNo || chaptersMeta[j].chapter)) || '0'), 10) === chNo)
+                    return j;
+            }
+            return Math.max(0, chaptersMeta.length - 1);
         };
         /** When BookId is not saved yet, still cache chapters for prev/next without calling GetFullBookContent. */
         window.patchLocalPreviewMetaAfterGeneration = function (bookData) {
@@ -9686,14 +9814,20 @@ document.addEventListener('DOMContentLoaded', function() {
                          book_id: String(state.bookId || ''),
                          title: state.title || '',
                         chapter: String(parseInt(state.chapter, 10) || 1),
-                         changes: prompt
+                         changes: prompt,
+                         content: state.originalText || state.originalContent || ''
                      }),
                      credentials: 'same-origin',
                      signal: controller.signal
                  }).then(function(r) {
                      return r.text().then(function(text) {
-                         if (!r.ok) return { error: true, message: (text && text.length < 200) ? text : ('Request failed (' + r.status + ')') };
-                         try { return JSON.parse(text); } catch (_) { return (text && text.trim()) ? { content: text } : {}; }
+                         var parsed = {};
+                         try { parsed = (text && text.trim()) ? JSON.parse(text) : {}; } catch (_) { parsed = { message: text }; }
+                         if (!r.ok) {
+                             var msg = (parsed && (parsed.message || parsed.Message)) ? String(parsed.message || parsed.Message) : ('Request failed (' + r.status + ')');
+                             return { error: true, message: msg, detail: parsed && parsed.detail };
+                         }
+                         return parsed;
                      });
                  }).then(function(data) {
                      done();
@@ -9973,23 +10107,11 @@ document.addEventListener('DOMContentLoaded', function() {
              block.className = 'reader-chapter-block';
              block.appendChild(streamEl);
              previewContent.appendChild(block);
+             previewContent.classList.remove('text-slate-400');
+             previewContent.classList.add('text-slate-800');
              var br = document.getElementById("bookResult");
-             if (br) br.scrollIntoView({ behavior: 'smooth', block: 'start' });
+             if (br) br.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-             if (chars.length === 0) {
-                 streamEl.removeAttribute('aria-busy');
-                 streamEl.textContent = '';
-                 var detail = (bookData && (bookData.message || bookData.Message || bookData.detail)) ? String(bookData.message || bookData.Message || bookData.detail) : '';
-                 if (typeof addMessage === 'function') {
-                     addMessage('The server responded but no chapter text was found. Compare your Postman JSON to fields: data.content, content, chapters[0].content, text. ' + (detail ? ('Server note: ' + detail) : ''), false);
-                 }
-                 if (typeof showNotification === 'function') showNotification('No chapter text in response — check chat / API shape.', 'error');
-                 if (typeof onDone === 'function') onDone();
-                 return;
-             }
-             var idx = 0;
-             // Faster typing simulation for typical chapters; very long chapters skip animation so preview + Finalize are usable immediately.
-             var CHARS_PER_FRAME = 28;
              function finalizeFormattedBody() {
                  var bodyForFmt = typeof applyTemplatePlaceholders === 'function' ? applyTemplatePlaceholders(content, phBase) : content;
                  bodyForFmt = typeof normalizeManuscriptEscapes === 'function' ? normalizeManuscriptEscapes(bodyForFmt) : bodyForFmt;
@@ -10010,33 +10132,40 @@ document.addEventListener('DOMContentLoaded', function() {
                      list = [{ html: fragment, title: cleanTitle || title || '', wordCount: plain.split(/\s+/).filter(Boolean).length, chapterNo: chNo }];
                      ix = 0;
                  }
-                 if (typeof window.setPreviewChaptersFromList === 'function') {
+                 if (!list.length) {
+                     previewContent.innerHTML = '<div class="reader-chapter-block">' + (bodyHtml || '<p class="manuscript-p">' + esc(String(content || '')) + '</p>') + '</div>';
+                 } else if (typeof window.setPreviewChaptersFromList === 'function') {
                      window.setPreviewChaptersFromList(list, ix, 0);
                  } else {
                      previewContent.innerHTML = '<div class="reader-chapter-block">' + bodyHtml + '</div>';
+                 }
+                 if (typeof window.syncAiWriterPreviewLayout === 'function') {
+                     requestAnimationFrame(function () { window.syncAiWriterPreviewLayout(); });
                  }
                  if (typeof window.scrollAiWriterPreviewColumnToBottom === 'function') window.scrollAiWriterPreviewColumnToBottom();
                  try { streamEl.removeAttribute('aria-busy'); } catch (e) {}
                  if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
                  if (typeof onDone === 'function') onDone();
              }
-             if (chars.length > 4000) {
-                 try { streamEl.removeAttribute('aria-busy'); } catch (e) {}
-                 finalizeFormattedBody();
+
+             var plainForChars = String(content || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+             if (!plainForChars) {
+                 streamEl.removeAttribute('aria-busy');
+                 var detail = (bookData && (bookData.message || bookData.Message || bookData.detail)) ? String(bookData.message || bookData.Message || bookData.detail) : '';
+                 if (typeof addMessage === 'function') {
+                     addMessage('The server responded but no chapter text was found. ' + (detail ? ('Server note: ' + detail) : ''), false);
+                 }
+                 if (typeof showNotification === 'function') showNotification('No chapter text in response.', 'error');
+                 if (typeof onDone === 'function') onDone();
                  return;
              }
-             function pump() {
-                 var end = Math.min(idx + CHARS_PER_FRAME, chars.length);
-                 streamEl.textContent += chars.slice(idx, end).join('');
-                 idx = end;
-                 if (typeof window.scrollAiWriterPreviewColumnToBottom === 'function') window.scrollAiWriterPreviewColumnToBottom();
-                 if (idx < chars.length) {
-                     requestAnimationFrame(pump);
-                 } else {
-                     finalizeFormattedBody();
-                 }
+             try {
+                 finalizeFormattedBody();
+             } catch (previewErr) {
+                 console.error('Preview render failed', previewErr);
+                 previewContent.innerHTML = '<div class="reader-chapter-block"><p class="manuscript-p">' + esc(plainForChars) + '</p></div>';
+                 if (typeof onDone === 'function') onDone();
              }
-             requestAnimationFrame(pump);
          }
          //===(20-31)============================================
          // ========= On Save Button SAVE the BOOK ==============

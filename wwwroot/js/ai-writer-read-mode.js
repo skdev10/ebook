@@ -407,8 +407,15 @@
         return 'Page ' + (pageIdx + 1);
     }
 
+    function isPhonePreview() {
+        return global.BookInteriorPreview && typeof global.BookInteriorPreview.isPhonePreview === 'function'
+            ? global.BookInteriorPreview.isPhonePreview()
+            : !!(global.matchMedia && global.matchMedia('(max-width: 767px)').matches);
+    }
+
     function getSpreadLeftIndex(idx) {
         var i = Math.max(0, idx | 0);
+        if (isPhonePreview()) return i;
         return (i % 2 === 0) ? i : (i - 1);
     }
 
@@ -476,14 +483,25 @@
         pageIdx = getSpreadLeftIndex(pageIdx);
         global._writerPageIndex = pageIdx;
         var rightIdx = pageIdx + 1;
+        var phone = isPhonePreview();
         if (viewport) {
-            if (shell) shell.classList.add('is-open-spread');
-            viewport.innerHTML =
-                '<div class="book-open-spread" role="group" aria-label="Open book spread" data-kdp-bleed="0">' +
-                    buildWriterSpreadFace(pageIdx, pages, 'verso') +
-                    '<div class="book-open-spine" aria-hidden="true"></div>' +
-                    buildWriterSpreadFace(rightIdx, pages, 'recto') +
-                '</div>';
+            if (shell) {
+                if (phone) shell.classList.remove('is-open-spread');
+                else shell.classList.add('is-open-spread');
+            }
+            if (phone) {
+                viewport.innerHTML =
+                    '<div class="book-single-leaf" role="group" aria-label="Book page">' +
+                        buildWriterSpreadFace(pageIdx, pages, 'recto') +
+                    '</div>';
+            } else {
+                viewport.innerHTML =
+                    '<div class="book-open-spread" role="group" aria-label="Open book spread" data-kdp-bleed="0">' +
+                        buildWriterSpreadFace(pageIdx, pages, 'verso') +
+                        '<div class="book-open-spine" aria-hidden="true"></div>' +
+                        buildWriterSpreadFace(rightIdx, pages, 'recto') +
+                    '</div>';
+            }
             viewport.scrollTop = 0;
             var leftBody = pages[pageIdx] || '';
             var isCover = leftBody.indexOf('writer-cover-page') >= 0;
@@ -548,8 +566,9 @@
 
         if (typeof global.invalidateReaderPageCaches === 'function') global.invalidateReaderPageCaches();
 
-        // Open-book mode: pagination must measure one face (half shell), not the full 12×9 spread.
-        shell.classList.add('is-open-spread');
+        // Desktop: open-book spread measures one face. Phone: one 6×9 page, full shell.
+        if (isPhonePreview()) shell.classList.remove('is-open-spread');
+        else shell.classList.add('is-open-spread');
 
         applyInteriorFormatting(formatting);
         if (formatting.interiorCss) ensureInteriorCss(formatting.interiorCss);
@@ -636,7 +655,7 @@
     function navNext() {
         var pi = global._writerPageIndex || 0;
         var pages = global._writerBookPages || [];
-        var next = getSpreadLeftIndex(pi) + 2;
+        var next = isPhonePreview() ? (pi + 1) : (getSpreadLeftIndex(pi) + 2);
         if (next < pages.length) {
             renderWriterPage(next);
             global.requestAnimationFrame(function () {
@@ -647,7 +666,7 @@
 
     function navPrev() {
         var pi = global._writerPageIndex || 0;
-        var prev = getSpreadLeftIndex(pi) - 2;
+        var prev = isPhonePreview() ? (pi - 1) : (getSpreadLeftIndex(pi) - 2);
         if (prev >= 0) {
             renderWriterPage(prev);
             global.requestAnimationFrame(function () {

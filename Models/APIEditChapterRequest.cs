@@ -20,5 +20,13 @@ namespace EBookDashboard.Models
         [JsonProperty("changes")]
         [JsonPropertyName("changes")]
         public string? Changes { get; set; } = string.Empty;
+
+        [JsonProperty("content")]
+        [JsonPropertyName("content")]
+        public string? Content { get; set; }
+
+        [JsonProperty("title")]
+        [JsonPropertyName("title")]
+        public string? Title { get; set; }
     }
 }

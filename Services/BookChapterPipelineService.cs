@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -16,11 +15,6 @@ namespace EBookDashboard.Services;
 
 public class BookChapterPipelineService : IBookChapterPipelineService
 {
-    private const int MaxContinuityChars = 14_000;
-
-    /// <summary>Serializes concurrent generation for the same (book, chapter) slot only — different chapters on one book can run in parallel.</summary>
-    private static readonly ConcurrentDictionary<string, SemaphoreSlim> ChapterSlotLocks = new();
-
     private readonly ApplicationDbContext _db;
     private readonly IConfiguration _configuration;
     private readonly IAPIRawResponseService _rawResponseService;
@@ -52,8 +46,6 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         _genOptions = genOptions;
         _logger = logger;
     }
-
-    private static string LockKey(int bookId, int chapterNumber) => $"{bookId}:{chapterNumber}";
 
     public async Task<IReadOnlyList<ChapterListItemDto>> ListChaptersAsync(int userId, int bookId, CancellationToken cancellationToken = default)
     {
@@ -182,7 +174,7 @@ public class BookChapterPipelineService : IBookChapterPipelineService
                 ? $"Write chapter {chapterNumber}: {chapter.Title}. Maintain continuity with prior chapters."
                 : $"Write chapter {chapterNumber} for the book \"{book.Title}\". Maintain continuity with prior chapters.";
 
-        var continuity = await BuildContinuityPrefixAsync(bookId, chapterNumber, cancellationToken);
+        var continuity = await ChapterPromptComposer.BuildContinuityPrefixAsync(_db, bookId, chapterNumber, cancellationToken);
         var (_, _, descHint, _) = chapter != null ? DecodeSubtitleMeta(chapter.SubTitle) : (null, null, null, null);
         var toneLine = GetToneLineFromChapter(chapter);
         var lengthLine = GetLengthLineFromChapter(chapter);
@@ -217,12 +209,9 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         var opts = _genOptions.Value;
         var maxRetries = Math.Clamp(opts.MaxRetries, 0, 20);
         var serializeSlot = opts.SerializeSameChapterOnly;
-        SemaphoreSlim? slot = null;
+        IDisposable? slotLease = null;
         if (serializeSlot)
-        {
-            slot = ChapterSlotLocks.GetOrAdd(LockKey(bookId, chapterNumber), _ => new SemaphoreSlim(1, 1));
-            await slot.WaitAsync(cancellationToken);
-        }
+            slotLease = await ChapterGenerationSlotLock.AcquireAsync(bookId, chapterNumber, cancellationToken);
 
         try
         {
@@ -231,8 +220,7 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         }
         finally
         {
-            if (slot != null)
-                slot.Release();
+            slotLease?.Dispose();
         }
     }
 
@@ -523,30 +511,5 @@ public class BookChapterPipelineService : IBookChapterPipelineService
         if (c == null) return null;
         var (_, words, _, _) = DecodeSubtitleMeta(c.SubTitle);
         return words is null or <= 0 ? null : $"Target length (approximate words): {words}\n\n";
-    }
-
-    private async Task<string> BuildContinuityPrefixAsync(int bookId, int beforeChapter, CancellationToken cancellationToken)
-    {
-        var prior = await _db.Chapters.AsNoTracking()
-            .Where(c => c.BookId == bookId && c.ChapterNumber < beforeChapter)
-            .OrderBy(c => c.ChapterNumber)
-            .Select(c => new { c.ChapterNumber, c.Title, c.Content })
-            .ToListAsync(cancellationToken);
-
-        var sb = new StringBuilder();
-        foreach (var p in prior)
-        {
-            if (string.IsNullOrWhiteSpace(p.Content)) continue;
-            var plain = Regex.Replace(p.Content, "<[^>]+>", " ");
-            plain = Regex.Replace(plain, @"\s+", " ").Trim();
-            if (plain.Length < 40) continue;
-            if (plain.Length > 6000) plain = plain[..6000] + "…";
-            var block = $"[Prior chapter {p.ChapterNumber} — {p.Title} (continuity only; do not repeat in output):]\n{plain}\n\n";
-            if (sb.Length + block.Length > MaxContinuityChars) break;
-            sb.Append(block);
-        }
-
-        if (sb.Length == 0) return "";
-        return sb + "\n---\n\n[Write ONLY the new chapter from the brief below — pure narrative prose:]\n\n";
     }
 }

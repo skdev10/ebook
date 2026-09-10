@@ -9,7 +9,7 @@ public sealed class DuplicateBookTitleException : InvalidOperationException
     public string Title { get; }
 
     public DuplicateBookTitleException(string title)
-        : base($"A book titled \"{title}\" already exists. Please choose a different title or open the existing book.")
+        : base($"A book named \"{title}\" already exists. Please choose a different name.")
     {
         Title = title;
     }

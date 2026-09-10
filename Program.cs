@@ -262,6 +262,7 @@ builder.Services.AddScoped<ICheckoutService, CheckoutService>();
 builder.Services.AddScoped<IPlanFeaturesService, PlanFeaturesService>();
 //
 builder.Services.AddScoped<IAPIRawResponseService, APIRawResponseService>();
+builder.Services.AddScoped<ChapterEditService>();
 // Add this to your services
 builder.Services.AddScoped<BookProcessingService>();
 builder.Services.AddScoped<IAuthorPlansService, AuthorPlansService>();

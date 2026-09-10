@@ -120,7 +120,11 @@ public sealed class BookGeneratorService : IBookGeneratorService
         book.BookContentHtml = sanitized;
         book.UpdatedAt = DateTime.UtcNow;
         if (!string.IsNullOrWhiteSpace(request.BookTitle))
-            book.Title = request.BookTitle.Trim();
+        {
+            var nextTitle = request.BookTitle.Trim();
+            await BookDraftGuard.EnsureUniqueTitleAsync(_context, userId, nextTitle, bookId, cancellationToken);
+            book.Title = nextTitle;
+        }
 
         await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, request.BookTitle);
         await _context.SaveChangesAsync(cancellationToken);

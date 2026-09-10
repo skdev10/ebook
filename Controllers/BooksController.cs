@@ -67,6 +67,7 @@ namespace EBookDashboard.Controllers
         private readonly IBookGeneratorService _bookGeneratorService;
         private readonly IPrintWrapGenerationService _printWrapGenerationService;
         private readonly IImageOcrService _imageOcr;
+        private readonly ChapterEditService _chapterEdit;
 
         public BooksController(
             IBookService bookService,
@@ -88,7 +89,8 @@ namespace EBookDashboard.Controllers
             BookFlowStateService bookFlow,
             IBookGeneratorService bookGeneratorService,
             IPrintWrapGenerationService printWrapGenerationService,
-            IImageOcrService imageOcr)
+            IImageOcrService imageOcr,
+            ChapterEditService chapterEdit)
         {
             _httpClientFactory = httpClientFactory;
             _bookApiClient = bookApiClient;
@@ -111,6 +113,7 @@ namespace EBookDashboard.Controllers
             _bookGeneratorService = bookGeneratorService;
             _printWrapGenerationService = printWrapGenerationService;
             _imageOcr = imageOcr;
+            _chapterEdit = chapterEdit;
         }
         //===========================================
         //           On Page Load 
@@ -889,6 +892,10 @@ namespace EBookDashboard.Controllers
                         _logger.LogWarning(flowEx, "AIGenerateBook: flow step save failed for new book {BookId}", genBookId);
                     }
                 }
+                catch (DuplicateBookTitleException dupEx)
+                {
+                    return Json(new { error = true, message = dupEx.Message });
+                }
                 catch (Exception createEx)
                 {
                     _logger.LogError(createEx, "AIGenerateBook: could not auto-create draft book for user {UserId}", sessionUserId.Value);
@@ -938,8 +945,10 @@ namespace EBookDashboard.Controllers
 
             var responseData = string.Empty;
             int? rawResponseId = null;
+            IDisposable? genSlot = null;
             try
             {
+                genSlot = await ChapterGenerationSlotLock.AcquireAsync(genBookId, Math.Max(1, model.Chapter), CancellationToken.None);
                 var userBrief = ChapterPromptComposer.NormalizeUserBrief(
                     !string.IsNullOrWhiteSpace(model.ChapterTopic) ? model.ChapterTopic : model.UserInput);
                 model.UserInput = userBrief;
@@ -1121,6 +1130,10 @@ namespace EBookDashboard.Controllers
                 Console.WriteLine($"❌ Generate chapter error: {ex.Message}");
                 return Json(new { error = true, message = "Generation failed. Please try again.", detail = ex.Message });
             }
+            finally
+            {
+                genSlot?.Dispose();
+            }
         }
 
         /// <summary>Legacy edit forwarder (query/form). Prefer <see cref="AIEditBook"/> or <see cref="EditChapter"/> with JSON body.</summary>
@@ -1159,94 +1172,41 @@ namespace EBookDashboard.Controllers
             if (model == null)
                 return Json(new { error = true, message = "Invalid request data" });
 
-            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit");
-            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
-            {
-                _logger.LogError("AIEditBook: invalid absolute upstream URL: {Url}", apiUrl);
-                return Json(new { error = true, message = "Server misconfiguration: ExternalApi edit URL is not a valid absolute URL.", detail = apiUrl });
-            }
-            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
-            if (string.IsNullOrEmpty(apiKey))
-                return Json(new { error = true, message = ExternalApiKeyResolver.MissingKeyUserMessage });
-
             var sessionUserId = HttpContext.Session.GetInt32("UserId");
             if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
                 return Json(new { error = true, message = "Please sign in again, then retry." });
-            model.UserId = sessionUserId.Value.ToString(CultureInfo.InvariantCulture);
 
-            var userId = model.UserId ?? "";
-            var bookId = model.BookId ?? "";
-            if (int.TryParse(bookId, out var editBookId) && editBookId > 0)
+            try
             {
-                var owns = await _context.Books.AsNoTracking()
-                    .AnyAsync(b => b.BookId == editBookId && b.UserId == sessionUserId.Value);
-                if (!owns)
-                    return Json(new { error = true, message = "Book not found. Open your project from the Dashboard." });
+                var result = await _chapterEdit.EditAsync(
+                    sessionUserId.Value,
+                    model.BookId ?? "",
+                    model.Chapter.ToString(CultureInfo.InvariantCulture),
+                    model.Changes ?? "",
+                    originalContent: null,
+                    model.Title,
+                    HttpContext.RequestAborted);
+
+                if (!result.Success)
+                    return Json(new { error = true, message = result.Message, detail = result.Detail });
+
+                return Json(new
+                {
+                    success = true,
+                    responseId = result.ResponseId,
+                    content = result.Content,
+                    data = new { content = result.Content }
+                });
             }
-            var chapter = model.Chapter;
-            var changes = model.Changes ?? "";
-
-            var payload = new JObject
+            catch (OperationCanceledException)
             {
-                ["user_id"] = userId,
-                ["book_id"] = bookId,
-                ["chapter"] = chapter.ToString(),
-                ["changes"] = changes
-            };
-            var json = payload.ToString();
-            string responseData = "";
-
-            for (int attempt = 1; attempt <= 2; attempt++)
-            {
-                try
-                {
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-                    using var requestMsg = new HttpRequestMessage(HttpMethod.Post, apiUrl) { Content = content };
-
-                    using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-                    using var response = await _bookApiClient.SendAsync(requestMsg, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
-                    responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
-
-                    try
-                    {
-                        var saveTask = _rawResponseService.SaveRawResponseEditAsync(model, responseData, apiUrl, response.StatusCode.ToString());
-                        if (await Task.WhenAny(saveTask, Task.Delay(TimeSpan.FromSeconds(8))) == saveTask)
-                            await saveTask;
-                    }
-                    catch (Exception saveEx) { _logger.LogWarning(saveEx, "Raw response save failed"); }
-
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var normalized = UpstreamResponseParser.NormalizeChapterJson(responseData);
-                        return Content(normalized ?? responseData, "application/json");
-                    }
-
-                    if (attempt == 1 && (int)response.StatusCode >= 500) { await Task.Delay(1000); continue; }
-                    return Json(new { error = true, message = $"API error: {response.StatusCode}", detail = responseData?.Length > 300 ? responseData.Substring(0, 300) + "..." : responseData });
-                }
-                catch (TaskCanceledException ex)
-                {
-                    _logger.LogWarning(ex, "Edit API timeout");
-                    if (attempt == 2) return Json(new { error = true, message = "The edit request took too long. Please try again with shorter instructions, or retry in a few minutes." });
-                    await Task.Delay(1000);
-                }
-                catch (HttpRequestException ex)
-                {
-                    _logger.LogWarning(ex, "Edit API network error");
-                    try { await _rawResponseService.SaveRawResponseEditAsync(model, "Network error: " + ex.Message, apiUrl, "500", ex.Message); } catch { }
-                    if (attempt == 2) return Json(new { error = true, message = "Network error. Please try again." });
-                    await Task.Delay(1000);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Edit API error");
-                    try { await _rawResponseService.SaveRawResponseEditAsync(model, responseData, apiUrl, "500", ex.Message); } catch { }
-                    if (attempt == 2) return Json(new { error = true, message = "Editing failed. Please try again." });
-                    await Task.Delay(1000);
-                }
+                return Json(new { error = true, message = "The edit request timed out. Try again with a shorter instruction." });
             }
-
-            return Json(new { error = true, message = "Editing failed. Please try again." });
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "AIEditBook failed");
+                return Json(new { error = true, message = "Editing failed. Please try again." });
+            }
         }
         //------------------------------------------
         // Upload Book Cover Page Picture
@@ -1555,6 +1515,17 @@ namespace EBookDashboard.Controllers
                     if (book == null)
                         return NotFound("Book not found or access denied.");
 
+                    if (!string.IsNullOrWhiteSpace(bookTitle))
+                    {
+                        try
+                        {
+                            await BookDraftGuard.EnsureUniqueTitleAsync(_context, userId, bookTitle, existingBookId);
+                        }
+                        catch (DuplicateBookTitleException dupEx)
+                        {
+                            return Conflict(new { success = false, message = dupEx.Message });
+                        }
+                    }
                     book.Title = bookTitle ?? book.Title;
                     book.UpdatedAt = DateTime.UtcNow;
                     book.Status = "Saved";
@@ -1585,6 +1556,14 @@ namespace EBookDashboard.Controllers
                 }
 
                 // Create new book
+                try
+                {
+                    await BookDraftGuard.EnsureUniqueTitleAsync(_context, userId, bookTitle);
+                }
+                catch (DuplicateBookTitleException dupEx)
+                {
+                    return Conflict(new { success = false, message = dupEx.Message });
+                }
                 var newBook = new Books
                 {
                     Title = bookTitle,
@@ -2200,8 +2179,7 @@ namespace EBookDashboard.Controllers
                 return Json(new
                 {
                     success = false,
-                    message = ex.Message,
-                    nextChapterNumber = 1 // Fallback to 1
+                    message = ex.Message
                 });
             }
         }
@@ -2594,131 +2572,50 @@ namespace EBookDashboard.Controllers
         {
             if (model == null)
                 return BadRequest(new { success = false, error = true, message = "Invalid request payload." });
-            var apiUrl = _bookApiClient.ResolveUrl(_externalApiOptions.Value.EditUrl, "/api/edit").Trim();
-            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out _))
-            {
-                _logger.LogError("EditChapter (body): invalid absolute upstream URL: {Url}", apiUrl);
-                return BadRequest(new { success = false, message = "Server misconfiguration: ExternalApi edit URL is not a valid absolute URL.", detail = apiUrl });
-            }
-            var apiKey = ExternalApiKeyResolver.Resolve(_configuration);
 
-            string responseData = string.Empty;
-            int? rawResponseId = null;
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
+                return Json(new { success = false, error = true, message = "Please sign in again, then retry." });
 
             try
             {
-                if (string.IsNullOrEmpty(apiKey))
-                    return BadRequest(new { success = false, message = ExternalApiKeyResolver.MissingKeyUserMessage });
+                var result = await _chapterEdit.EditAsync(
+                    sessionUserId.Value,
+                    model.BookId ?? "",
+                    model.Chapter ?? "1",
+                    model.Changes ?? "",
+                    model.Content,
+                    model.Title,
+                    HttpContext.RequestAborted);
 
-                var sessionUserId = HttpContext.Session.GetInt32("UserId");
-                if (!sessionUserId.HasValue || sessionUserId.Value <= 0)
-                    return Json(new { success = false, error = true, message = "Please sign in again, then retry." });
-                model.UserId = sessionUserId.Value.ToString(CultureInfo.InvariantCulture);
-
-                var json = new JObject
+                if (!result.Success)
                 {
-                    ["user_id"] = model.UserId,
-                    ["book_id"] = (model.BookId ?? "").Trim(),
-                    ["chapter"] = string.IsNullOrWhiteSpace(model.Chapter) ? "1" : model.Chapter.Trim(),
-                    ["changes"] = model.Changes ?? ""
-                }.ToString(Newtonsoft.Json.Formatting.None);
-                using var httpRequestEdit = new HttpRequestMessage(HttpMethod.Post, apiUrl)
-                {
-                    Content = new StringContent(json, Encoding.UTF8, "application/json")
-                };
-
-                Console.WriteLine($"📤Forwarding edit request to API: {json}");
-
-                using var upstreamCts = BookApiUpstreamCancellation.CreateLongRunning(_configuration);
-                using var response = await _bookApiClient.SendAsync(httpRequestEdit, BookApiCallTimeoutKind.LongRunning, upstreamCts.Token);
-                responseData = await response.Content.ReadAsStringAsync(upstreamCts.Token);
-
-                // Save raw response for audit (do not fail the client if this throws)
-                try
-                {
-                    rawResponseId = await _rawResponseService.SaveRawResponseAsync(
-                        // reuse AIBookRequest-like object for logging; create minimal AIBookRequest
-                        new AIBookRequest
-                        {
-                            UserId = model.UserId,
-                            BookId = model.BookId,
-                            Chapter = int.TryParse(model.Chapter, out var c) ? c : 0,
-                            UserInput = model.Changes
-                        },
-                        responseData,
-                        apiUrl,
-                        response.StatusCode.ToString()
-                    );
-                }
-                catch (Exception saveEx)
-                {
-                    _logger.LogWarning(saveEx, "EditChapter: SaveRawResponseAsync failed; continuing with upstream body.");
-                }
-
-                Console.WriteLine($"📥 Edit API response status: {response.StatusCode}");
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var statusMessage = $"Edit API error: {(int)response.StatusCode}";
-                    return StatusCode((int)response.StatusCode, new
+                    var status = result.HttpStatus is >= 400 and < 600 ? result.HttpStatus : 500;
+                    return StatusCode(status, new
                     {
                         success = false,
                         error = true,
-                        message = statusMessage,
-                        detail = responseData?.Length > 300 ? responseData.Substring(0, 300) + "..." : responseData
+                        message = result.Message,
+                        detail = result.Detail
                     });
                 }
-                // Optionally parse and persist edited content into Chapters table
-                string newContent = string.Empty;
-                JObject? parsedJson = null;
-                try
-                {
-                    parsedJson = JsonConvert.DeserializeObject<JObject>(responseData);
-                    newContent = parsedJson?["data"]?["content"]?.ToString() ?? parsedJson?["content"]?.ToString() ?? string.Empty;
 
-                    if (!string.IsNullOrEmpty(newContent) && int.TryParse(model.BookId, out int bookId))
-                    {
-                        int chapterNum = int.TryParse(model.Chapter, out var ch) ? ch : 0;
-                        var chapter = await _context.Chapters.FirstOrDefaultAsync(c => c.BookId == bookId && c.ChapterNumber == chapterNum);
-
-                        if (chapter != null)
-                        {
-                            chapter.Content = System.Net.WebUtility.HtmlDecode(newContent);
-                            chapter.UpdatedAt = DateTime.UtcNow;
-                            _context.Chapters.Update(chapter);
-                            await _context.SaveChangesAsync();
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log parsing/persistence error but still return api response
-                    Console.WriteLine($"⚠️ Unable to persist edited chapter: {ex.Message}");
-                }
                 return Json(new
                 {
                     success = true,
-                    responseId = rawResponseId,
-                    content = newContent,
-                    data = parsedJson ?? new JObject()
+                    responseId = result.ResponseId,
+                    content = result.Content,
+                    data = new { content = result.Content }
                 });
+            }
+            catch (OperationCanceledException)
+            {
+                return StatusCode(504, new { success = false, error = true, message = "The edit request timed out. Try again with a shorter instruction." });
             }
             catch (Exception ex)
             {
-                // Save error (if not saved already)
-                if (rawResponseId == null)
-                {
-                    await _rawResponseService.SaveRawResponseAsync(
-                        new AIBookRequest { UserId = model.UserId, BookId = model.BookId, Chapter = int.TryParse(model.Chapter, out var c) ? c : 0, UserInput = model.Changes },
-                        responseData,
-                        apiUrl,
-                        "500",
-                        $"Forwarding error: {ex.Message}"
-                    );
-                }
-
-                Console.WriteLine($"❌ EditChapter Exception: {ex.Message}");
-                return StatusCode(500, new { success = false, error = true, message = "Editing failed on server.", detail = ex.Message });
+                _logger.LogWarning(ex, "EditChapter failed");
+                return StatusCode(500, new { success = false, error = true, message = "Editing failed. Please try again." });
             }
         }
 
@@ -2812,8 +2709,15 @@ namespace EBookDashboard.Controllers
 
                 if (model.BookTitleOnly)
                 {
-                    if (!string.IsNullOrWhiteSpace(model.BookTitle))
-                        await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, model.BookTitle);
+                    try
+                    {
+                        if (!string.IsNullOrWhiteSpace(model.BookTitle))
+                            await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, model.BookTitle);
+                    }
+                    catch (DuplicateBookTitleException dupEx)
+                    {
+                        return Conflict(new { success = false, message = dupEx.Message });
+                    }
                     await _context.Entry(book).ReloadAsync();
                     return Json(new
                     {
@@ -2824,8 +2728,15 @@ namespace EBookDashboard.Controllers
                     });
                 }
 
-                if (!string.IsNullOrWhiteSpace(model.BookTitle))
-                    await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, model.BookTitle);
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(model.BookTitle))
+                        await BookTitleResolver.SyncBookTitleAsync(_context, userId, bookId, model.BookTitle);
+                }
+                catch (DuplicateBookTitleException dupEx)
+                {
+                    return Conflict(new { success = false, message = dupEx.Message });
+                }
 
                 var titleTrim = TruncateTitle(model.ChapterTitle);
                 if (string.IsNullOrEmpty(titleTrim))

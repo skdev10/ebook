@@ -205,21 +205,6 @@ namespace EBookDashboard.Controllers
             catch (DuplicateBookTitleException dupEx)
             {
                 _logger.LogInformation(dupEx, "StartNewBook: duplicate title for user {UserId}", user.UserId);
-                var existing = await BookFlowStateService.WhereNotPublished(_context.Books.AsNoTracking())
-                    .Where(b => b.UserId == user.UserId && b.Title != null)
-                    .OrderByDescending(b => b.CreatedAt)
-                    .ToListAsync();
-                var fallback = existing
-                    .FirstOrDefault(b => string.Equals((b.Title ?? "").Trim(), trimmedTitle, StringComparison.OrdinalIgnoreCase))
-                    ?.BookId ?? 0;
-                if (fallback > 0)
-                {
-                    await SetActiveBookForUserAsync(user.UserId, fallback);
-                    HttpContext.Session.SetInt32("LastSelectedBookId", fallback);
-                    HttpContext.Session.SetInt32(BookFlowStateService.SessionEntryBookIdKey, fallback);
-                    TempData["InfoMessage"] = $"A book titled \"{trimmedTitle}\" already exists — opened that book instead.";
-                    return RedirectToAction("AIGenerateBook", "Books", new { bookId = fallback });
-                }
                 TempData["InfoMessage"] = dupEx.Message;
                 return RedirectToAction(nameof(Index));
             }
@@ -611,20 +596,14 @@ namespace EBookDashboard.Controllers
             // Dashboard display data — exclude seeded demo placeholders from user drafts.
             var userDraftBooks = books
                 .Where(b => !BookFlowStateService.IsPublishedStatus(b.Status) && !IsDemoSeedTitle(b.Title))
+                .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
-            var meaningfulDraftBooks = new List<Books>();
-            foreach (var draft in userDraftBooks)
-            {
-                if (!await BookDraftGuard.HasGeneratedManuscriptAsync(_context, user.UserId, draft.BookId))
-                    continue;
-                meaningfulDraftBooks.Add(draft);
-            }
             var publishedBooks = books
                 .Where(b => BookFlowStateService.IsPublishedStatus(b.Status) && !IsDemoSeedTitle(b.Title))
                 .OrderByDescending(b => b.UpdatedAt ?? b.CreatedAt)
                 .ToList();
-            var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, meaningfulDraftBooks);
-            var pendingBooks = meaningfulDraftBooks;
+            var lastWorkedBook = await ResolveLastWorkedBookAsync(user.UserId, userDraftBooks);
+            var pendingBooks = userDraftBooks;
             var allUserBookIds = books.Where(b => !IsDemoSeedTitle(b.Title)).Select(b => b.BookId).ToList();
             var flowMap = await LoadBookFlowMapAsync(allUserBookIds);
             var lastWorkByBookId = await LoadLastWorkUrlsByBookIdAsync(allUserBookIds);

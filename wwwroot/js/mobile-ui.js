@@ -311,6 +311,7 @@
     }
 
     function enterMobile() {
+        document.documentElement.classList.add("is-mobile-ui");
         bindMobileListeners();
         labelTables();
         var mt = menuToggleEl();
@@ -321,6 +322,7 @@
     }
 
     function leaveMobile() {
+        document.documentElement.classList.remove("is-mobile-ui");
         closeDrawer();
         var lock = scrollLock();
         if (lock && lock.unlock) lock.unlock();
@@ -372,7 +374,11 @@
         if (MOBILE_MQ.addEventListener) MOBILE_MQ.addEventListener("change", onBreakpointChange);
         else if (MOBILE_MQ.addListener) MOBILE_MQ.addListener(onBreakpointChange);
 
-        if (!MOBILE_MQ.matches) return;
+        if (!MOBILE_MQ.matches) {
+            document.documentElement.classList.remove("is-mobile-ui");
+            return;
+        }
+        document.documentElement.classList.add("is-mobile-ui");
         enterMobile();
     }
 

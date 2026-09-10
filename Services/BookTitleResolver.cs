@@ -131,6 +131,8 @@ public static class BookTitleResolver
         var trimmed = title!.Trim();
         if (trimmed.Length > 250) trimmed = trimmed[..250];
 
+        await BookDraftGuard.EnsureUniqueTitleAsync(context, userId, trimmed, bookId, ct);
+
         var book = await context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, ct);
         if (book != null)
         {

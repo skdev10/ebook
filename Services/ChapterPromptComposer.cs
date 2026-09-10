@@ -124,31 +124,71 @@ public static class ChapterPromptComposer
             .Select(c => new { c.ChapterNumber, c.Title, c.Content })
             .ToListAsync(cancellationToken);
 
+        var rawLatest = await db.APIRawResponse.AsNoTracking()
+            .Where(r => r.BookId == bookId && r.Chapter > 0 && r.Chapter < beforeChapter)
+            .OrderBy(r => r.Chapter)
+            .ThenByDescending(r => r.CreatedAt)
+            .Select(r => new { r.Chapter, r.Title, r.Content, r.ResponseData })
+            .ToListAsync(cancellationToken);
+
+        var rawByChapter = new Dictionary<int, (string? Title, string Text)>();
+        foreach (var row in rawLatest)
+        {
+            if (rawByChapter.ContainsKey(row.Chapter))
+                continue;
+            var text = FirstUsablePlain(row.Content);
+            if (string.IsNullOrEmpty(text))
+                text = FirstUsablePlain(UpstreamResponseParser.ExtractContent(row.ResponseData));
+            if (!string.IsNullOrEmpty(text))
+                rawByChapter[row.Chapter] = (row.Title, text);
+        }
+
         var sb = new StringBuilder();
+        var seen = new HashSet<int>();
         foreach (var p in prior)
         {
-            if (string.IsNullOrWhiteSpace(p.Content))
-                continue;
+            seen.Add(p.ChapterNumber);
+            var plain = FirstUsablePlain(p.Content);
+            if (string.IsNullOrEmpty(plain) && rawByChapter.TryGetValue(p.ChapterNumber, out var fromRaw))
+                plain = fromRaw.Text;
+            AppendContinuityBlock(sb, p.ChapterNumber, p.Title, plain);
+        }
 
-            var plain = Regex.Replace(p.Content, "<[^>]+>", " ");
-            plain = Regex.Replace(plain, @"\s+", " ").Trim();
-            if (plain.Length < 40)
+        foreach (var kv in rawByChapter.OrderBy(x => x.Key))
+        {
+            if (seen.Contains(kv.Key))
                 continue;
-            if (plain.Length > 4000)
-                plain = plain[..4000] + "…";
-
-            var block = $"[Prior chapter {p.ChapterNumber} (continuity only — do not repeat in output):]\n{plain}";
-            if (sb.Length + block.Length + 200 > MaxContinuityChars)
-                break;
-            if (sb.Length > 0)
-                sb.Append("\n\n");
-            sb.Append(block);
+            AppendContinuityBlock(sb, kv.Key, kv.Value.Title, kv.Value.Text);
         }
 
         if (sb.Length == 0)
             return string.Empty;
 
         return sb + "\n\n---\n\n[Write ONLY the new chapter from this brief — pure narrative prose, no headings or meta:]\n";
+    }
+
+    private static void AppendContinuityBlock(StringBuilder sb, int chapterNumber, string? title, string? plain)
+    {
+        if (string.IsNullOrWhiteSpace(plain) || plain.Length < 40)
+            return;
+        if (plain.Length > 4000)
+            plain = plain[..4000] + "…";
+        var label = string.IsNullOrWhiteSpace(title) ? $"Prior chapter {chapterNumber}" : $"Prior chapter {chapterNumber} ({title.Trim()})";
+        var block = $"[{label} (continuity only — do not repeat in output):]\n{plain}";
+        if (sb.Length + block.Length + 200 > MaxContinuityChars)
+            return;
+        if (sb.Length > 0)
+            sb.Append("\n\n");
+        sb.Append(block);
+    }
+
+    private static string FirstUsablePlain(string? htmlOrText)
+    {
+        if (string.IsNullOrWhiteSpace(htmlOrText))
+            return string.Empty;
+        var plain = Regex.Replace(htmlOrText, "<[^>]+>", " ");
+        plain = Regex.Replace(plain, @"\s+", " ").Trim();
+        return plain;
     }
 
     /// <summary>Display label: Chapter {number}: {title}</summary>
@@ -199,5 +239,30 @@ public static class ChapterPromptComposer
         }
 
         return text.Trim();
+    }
+
+    /// <summary>Rewrite prompt for <c>/api/generate_chapter</c> when <c>/api/edit</c> has no stored chapter.</summary>
+    public static string BuildEditRewritePrompt(string instructions, string originalChapter, string? title)
+    {
+        var changes = (instructions ?? string.Empty).Trim();
+        var original = (originalChapter ?? string.Empty).Trim();
+        if (original.Length > 100_000)
+            original = original[..100_000];
+
+        var heading = string.IsNullOrWhiteSpace(title) ? "" : $"Title: {title.Trim()}\n\n";
+        return $"""
+Revise the existing chapter using the author's instructions. Output only the complete revised chapter as polished literary prose.
+
+Author instructions:
+{changes}
+
+{heading}Current chapter:
+{original}
+
+Rules:
+- Output the full revised chapter only.
+- Keep the same story unless the instructions change it.
+- No meta-commentary, no "Chapter N" labels, no regenerate/UI language.
+""";
     }
 }
