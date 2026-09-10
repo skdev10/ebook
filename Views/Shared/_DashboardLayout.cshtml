@@ -1,4 +1,4 @@
-@using Microsoft.EntityFrameworkCore
+﻿@using Microsoft.EntityFrameworkCore
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Http
 @using EBookDashboard.Services
@@ -3562,12 +3562,14 @@
 
     </style>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/desktop-only-lock.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pricing-ui.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/pricing-panel.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/ui-enhancements.css" asp-append-version="true" />
     <script src="~/js/pricing-ui.js" asp-append-version="true"></script>
 </head>
 <body class="ebook-ui">
+    <partial name="_DesktopOnlyLock" />
     <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
     <!-- Mobile Menu Toggle -->
     <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">

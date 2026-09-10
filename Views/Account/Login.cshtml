@@ -27,6 +27,7 @@
     </style>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/mobile-auth.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/desktop-only-lock.css" asp-append-version="true" />
 </head>
 <body class="auth-page-shell bg-[#f5f7f9] flex items-center justify-center p-4 sm:p-8 relative overflow-x-hidden overflow-y-auto antialiased text-gray-800">
 
@@ -183,5 +184,6 @@
             <text>document.addEventListener('DOMContentLoaded', function () { setTimeout(autoFillReader, 500); });</text>
         }
     </script>
+    <partial name="_DesktopOnlyLock" />
 </body>
 </html>

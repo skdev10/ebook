@@ -1,0 +1,29 @@
+<div id="desktopOnlyLock" class="desktop-only-lock" hidden role="alertdialog" aria-modal="true" aria-labelledby="desktopOnlyLockTitle" aria-describedby="desktopOnlyLockText">
+    <div class="desktop-only-lock__card">
+        <div class="desktop-only-lock__icon" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <h2 id="desktopOnlyLockTitle" class="desktop-only-lock__title">Desktop only</h2>
+        <p id="desktopOnlyLockText" class="desktop-only-lock__text">Yeh application sirf desktop par use hoti hai. Please open eBook Ai on a laptop or computer.</p>
+        <p class="desktop-only-lock__hint">Phone / tablet supported nahi hai.</p>
+    </div>
+</div>
+<script>
+(function () {
+    var mq = window.matchMedia("(max-width: 767px)");
+    function syncDesktopOnlyLock() {
+        document.documentElement.classList.toggle("desktop-only-blocked", mq.matches);
+        var lock = document.getElementById("desktopOnlyLock");
+        if (lock) {
+            if (mq.matches) lock.removeAttribute("hidden");
+            else lock.setAttribute("hidden", "");
+        }
+    }
+    syncDesktopOnlyLock();
+    if (mq.addEventListener) mq.addEventListener("change", syncDesktopOnlyLock);
+    else if (mq.addListener) mq.addListener(syncDesktopOnlyLock);
+})();
+</script>

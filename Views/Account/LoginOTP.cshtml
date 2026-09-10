@@ -352,6 +352,7 @@
     </style>
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/mobile-auth.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/desktop-only-lock.css" asp-append-version="true" />
 </head>
 <body>
     <div class="auth-container" data-aos="fade-up">
@@ -618,5 +619,6 @@
             otpInputs[0].focus();
         });
     </script>
+    <partial name="_DesktopOnlyLock" />
 </body>
 </html>
