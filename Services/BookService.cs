@@ -1223,7 +1223,7 @@ namespace EBookDashboard.Services
                     i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNumber,
                     cancellationToken);
             if (!hasChapterData)
-                return (false, "Chapter not found.");
+                return (true, $"Chapter {chapterNumber} was already removed.");
 
             var finalizeRows = await _context.FinalizeChapters
                 .Where(f => f.UserId == userId && f.BookId == bookId && f.Chapter == chapterNumber)

@@ -2042,6 +2042,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Deletes one chapter and all related drafts, iterations, and finalized rows from AI Writer.</summary>
         [HttpPost]
+        [IgnoreAntiforgeryToken]
         [Route("Books/DeleteChapter")]
         public async Task<IActionResult> DeleteWriterChapter([FromBody] DeleteWriterChapterRequest req, CancellationToken cancellationToken)
         {

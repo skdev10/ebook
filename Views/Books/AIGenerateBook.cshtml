@@ -1909,7 +1909,7 @@
                         <button id="addChapterBtn" type="button" class="chapter-inline-action chapter-inline-add add-chapter-btn-inline" onclick="addNewChapter()" title="Add a new chapter" aria-label="Add a chapter">
                             <i class="fas fa-plus text-[11px]" aria-hidden="true"></i>
                         </button>
-                        <button id="deleteChapterBtn" type="button" class="chapter-inline-action chapter-inline-remove" title="Remove this chapter from the book (not just the title)" aria-label="Remove chapter" disabled>
+                        <button id="deleteChapterBtn" type="button" class="chapter-inline-action chapter-inline-remove" title="Remove this chapter from the book (not just the title)" aria-label="Remove chapter" disabled onclick="if (window.confirmDeleteCurrentChapter) confirmDeleteCurrentChapter();">
                             <i class="fas fa-minus text-[11px]" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -2497,6 +2497,12 @@ window.syncChapterNoDropdownAndHidden = function (chapterNum) {
         }
         if (t) window.__writerChapterTitles[String(n)] = t;
         else delete window.__writerChapterTitles[String(n)];
+    };
+
+    window.forgetChapterTitle = function (chapterId) {
+        var n = parseInt(String(chapterId), 10);
+        if (!Number.isFinite(n) || n < 1) return;
+        if (window.__writerChapterTitles) delete window.__writerChapterTitles[String(n)];
     };
 
     window.getChapterTitleForRequest = function (chapterId) {
@@ -7099,6 +7105,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       } finally {
           window._addingChapter = false;
+          if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
       }
 
       }
@@ -7108,20 +7115,41 @@ document.addEventListener('DOMContentLoaded', function() {
           return s === 'readonly' || s === 'finalized' || s === 'final';
       };
 
+      window.getSelectedWriterChapterNo = function () {
+          var ddl = document.getElementById('ChapterDropdown');
+          if (ddl && ddl.value && ddl.value !== '0') {
+              var fromDdl = parseInt(String(ddl.value), 10);
+              if (fromDdl > 0) return fromDdl;
+          }
+          var hidden = document.getElementById('ChapterNo');
+          var fromHidden = parseInt(String((hidden && hidden.value) || ''), 10);
+          if (fromHidden > 0 && ddl) {
+              for (var i = 0; i < ddl.options.length; i++) {
+                  if (ddl.options[i].value === String(fromHidden) && !ddl.options[i].disabled) return fromHidden;
+              }
+          }
+          return 0;
+      };
+
       window.updateDeleteChapterButtonState = function () {
           var btn = document.getElementById('deleteChapterBtn');
           var bookId = document.getElementById('BookId') && document.getElementById('BookId').value;
-          var ddl = document.getElementById('ChapterDropdown');
           var statusEl = document.getElementById('Status');
           if (!btn) return;
           var hasBook = bookId && bookId !== '0';
-          var hasChapter = ddl && ddl.options.length > 0 && ddl.value && ddl.value !== '0';
+          var chapterNo = typeof window.getSelectedWriterChapterNo === 'function'
+              ? window.getSelectedWriterChapterNo()
+              : 0;
           var isFinalized = statusEl && typeof window.isWriterChapterFinalizedStatus === 'function'
               && window.isWriterChapterFinalizedStatus(statusEl.value);
-          btn.disabled = !hasBook || !hasChapter;
-          btn.title = isFinalized
-              ? 'Remove this finalized chapter permanently (included in export until deleted)'
-              : 'Remove the selected chapter and all its versions';
+          btn.disabled = !hasBook || !(chapterNo > 0);
+          btn.title = !hasBook
+              ? 'Select or create a book first'
+              : (!chapterNo
+                  ? 'Select a chapter, then click to remove it'
+                  : (isFinalized
+                      ? 'Remove this finalized chapter permanently (included in export until deleted)'
+                      : 'Remove the selected chapter and all its versions'));
       };
 
       window.removeChapterFromPreviewMeta = function (chapterNo) {
@@ -7165,16 +7193,20 @@ document.addEventListener('DOMContentLoaded', function() {
       window.confirmDeleteCurrentChapter = async function (chapterNoOverride) {
           var userId = document.getElementById('UserId') && document.getElementById('UserId').value;
           var bookId = document.getElementById('BookId') && document.getElementById('BookId').value;
-          var chapterNo = chapterNoOverride != null && chapterNoOverride !== ''
-              ? String(chapterNoOverride)
-              : String((document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value) || '');
+          var parsedOverride = parseInt(String(chapterNoOverride == null ? '' : chapterNoOverride), 10);
+          var chapterNo = (parsedOverride > 0)
+              ? String(parsedOverride)
+              : String((typeof window.getSelectedWriterChapterNo === 'function' && window.getSelectedWriterChapterNo())
+                  || (document.getElementById('ChapterNo') && document.getElementById('ChapterNo').value)
+                  || '');
           if (!bookId || bookId === '0') {
               if (typeof Swal !== 'undefined') Swal.fire('Select a book', 'Choose or create a book first.', 'warning');
               else if (typeof showNotification === 'function') showNotification('Select a book first.', 'error');
               return;
           }
-          if (!chapterNo || chapterNo === '0') {
-              if (typeof showNotification === 'function') showNotification('Select a chapter to delete.', 'error');
+          if (!chapterNo || chapterNo === '0' || !(parseInt(chapterNo, 10) > 0)) {
+              if (typeof Swal !== 'undefined') Swal.fire('Select a chapter', 'Chapter select karein, phir remove dabayein.', 'info');
+              else if (typeof showNotification === 'function') showNotification('Select a chapter to delete.', 'error');
               return;
           }
 
@@ -7208,9 +7240,12 @@ document.addEventListener('DOMContentLoaded', function() {
           var deleteBtn = document.getElementById('deleteChapterBtn');
           if (deleteBtn) deleteBtn.disabled = true;
           try {
+              var token = document.querySelector('input[name="__RequestVerificationToken"]');
+              var headers = { 'Content-Type': 'application/json' };
+              if (token && token.value) headers['RequestVerificationToken'] = token.value;
               var res = await fetch('/Books/DeleteChapter', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: headers,
                   credentials: 'same-origin',
                   body: JSON.stringify({
                       bookId: parseInt(bookId, 10),
@@ -7218,20 +7253,43 @@ document.addEventListener('DOMContentLoaded', function() {
                   })
               });
               var data = await res.json().catch(function () { return { success: false, message: 'Invalid response' }; });
+              var alreadyGone = data && /not found|already removed/i.test(String(data.message || ''));
               if (!res.ok || !data.success) {
-                  var msg = (data && data.message) || 'Could not delete chapter.';
-                  if (typeof showNotification === 'function') showNotification(msg, 'error');
-                  else if (typeof Swal !== 'undefined') Swal.fire('Delete failed', msg, 'error');
-                  return;
+                  if (!(res.status === 200 || res.status === 400 || res.status === 404) || !alreadyGone) {
+                      var msg = (data && data.message) || 'Could not delete chapter.';
+                      if (typeof showNotification === 'function') showNotification(msg, 'error');
+                      else if (typeof Swal !== 'undefined') Swal.fire('Delete failed', msg, 'error');
+                      return;
+                  }
               }
 
               if (typeof window.removeChapterFromPreviewMeta === 'function') {
                   window.removeChapterFromPreviewMeta(chapterNo);
               }
               if (typeof window.closeChapterIndexFlyout === 'function') window.closeChapterIndexFlyout();
+              var ddl = document.getElementById('ChapterDropdown');
+              if (ddl) {
+                  for (var i = ddl.options.length - 1; i >= 0; i--) {
+                      if (ddl.options[i].value === String(chapterNo)) ddl.remove(i);
+                  }
+              }
+              if (typeof window.forgetChapterTitle === 'function') window.forgetChapterTitle(chapterNo);
+              else if (window.__writerChapterTitles) delete window.__writerChapterTitles[String(chapterNo)];
               clearChapterVersionHistoryUi();
               if (typeof loadBookAllChaptersNumbers === 'function') {
                   await loadBookAllChaptersNumbers(false);
+              }
+              if (ddl && (!ddl.value || ddl.value === '0')) {
+                  var leftover = [];
+                  for (var j = 0; j < ddl.options.length; j++) {
+                      if (ddl.options[j].value && ddl.options[j].value !== '0' && !ddl.options[j].disabled) leftover.push(ddl.options[j].value);
+                  }
+                  if (leftover.length === 0) {
+                      ddl.innerHTML = '<option value="" selected disabled>Add a chapter → click +</option>';
+                      var hiddenCh = document.getElementById('ChapterNo');
+                      if (hiddenCh) hiddenCh.value = '0';
+                      if (typeof window.setActiveChapter === 'function') window.setActiveChapter(0);
+                  }
               }
               if (typeof window.refreshFullBookPreviewFromWriter === 'function') {
                   window.refreshFullBookPreviewFromWriter();
@@ -7239,8 +7297,8 @@ document.addEventListener('DOMContentLoaded', function() {
               if (typeof window.refreshChapterWorkflowProgress === 'function') {
                   window.refreshChapterWorkflowProgress();
               }
-              if (typeof showNotification === 'function') showNotification(data.message || 'Chapter deleted.', 'success');
-              else if (typeof Swal !== 'undefined') Swal.fire('Deleted', data.message || 'Chapter deleted.', 'success');
+              if (typeof showNotification === 'function') showNotification((data && data.message) || 'Chapter deleted.', 'success');
+              else if (typeof Swal !== 'undefined') Swal.fire('Deleted', (data && data.message) || 'Chapter deleted.', 'success');
           } catch (err) {
               if (typeof showNotification === 'function') showNotification('Delete failed: ' + (err.message || 'Unknown error'), 'error');
           } finally {
@@ -7273,6 +7331,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // ==== Update hidden field ===========
         document.getElementById("ChapterNo").value=selectedValue;
+        if (typeof window.setActiveChapter === 'function' && selectedValue && selectedValue !== '0') {
+            window.setActiveChapter(selectedValue);
+        }
+        if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
         clearChapterVersionHistoryUi();
         //=======================================
         if (selectedValue === "0")
@@ -8755,6 +8817,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
              }
              if (typeof window.setActiveChapter === 'function') window.setActiveChapter(0);
+             if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
              return;
          }
          console.log("Fetching chapters for userId:", userId, "bookId:", bookIdNum);
@@ -8777,6 +8840,9 @@ document.addEventListener('DOMContentLoaded', function() {
                   ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
                   window.__writerChapterTitles = Object.create(null);
                   if (typeof window.setActiveChapter === 'function') window.setActiveChapter(0);
+                  var hiddenEmpty = document.getElementById('ChapterNo');
+                  if (hiddenEmpty) hiddenEmpty.value = '0';
+                  if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
                   return;
               }
 
