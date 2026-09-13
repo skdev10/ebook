@@ -262,9 +262,15 @@
             '#bookResult #preview-content .reader-chapter-block .reader-page-body .manuscript-p {' +
             'max-width: var(--ilt-text-max, 100%); margin-inline: auto; width: 100%; box-sizing: border-box; }' +
             '#bookResult #preview-content .reader-chapter-block .reader-page-title,' +
-            '#bookResult #preview-content .reader-chapter-block .manuscript-chapter-heading.reader-page-title {' +
+            '#bookResult #preview-content .reader-chapter-block .manuscript-chapter-heading.reader-page-title,' +
+            '#bookResult #preview-content .fmt-chapter-opener,' +
+            '#bookResult #preview-content .writer-chapter-opener {' +
             'font-family: var(--heading-font, Georgia, serif); color: var(--heading-color, inherit);' +
-            'text-align: center; margin: 0 0 0.65rem; font-weight: 600; }' +
+            'text-align: center; margin: 0.15rem 0 1rem; font-weight: 600; }' +
+            '#bookResult #preview-content .fmt-ch-eyebrow { display:block; letter-spacing:0.22em; font-size:0.78em; font-weight:700; }' +
+            '#bookResult #preview-content .fmt-ch-title { display:block; font-size:1.05em; margin-top:0.15em; }' +
+            '#bookResult #preview-content .fmt-ch-rule { display:block; width:3.25rem; height:1px; margin:0.4em auto 0; background:rgba(68,48,36,0.38); }' +
+            '#bookResult #preview-content .reader-chapter-block[data-chapter-start="1"] { padding-top: 0.4rem; }' +
             '#bookResult #chapterPreviewScrollHost.book-preview-stage {' +
             'background: #edf0f4 !important; align-items: center !important; }';
     }
@@ -278,7 +284,7 @@
             d.innerHTML = html;
             var block = d.querySelector('.reader-chapter-block');
             if (!block) return html;
-            var heading = block.querySelector('.manuscript-chapter-heading, h1, h2, h3, h4, h5, h6');
+            var heading = block.querySelector('.fmt-chapter-opener, .manuscript-chapter-heading, h1, h2, h3, h4, h5, h6');
             var titleHtml = '';
             if (heading) {
                 heading.classList.add('reader-page-title');
@@ -342,7 +348,13 @@
                 ch._pagesCacheKey = key;
             }
             for (var p = 0; p < pages.length; p++) {
-                chapterPages.push(normalizeChapterPageHtml(pages[p]));
+                var pageHtml = normalizeChapterPageHtml(pages[p]);
+                if (p === 0) {
+                    pageHtml = typeof global.markReaderBlockChapterStart === 'function'
+                        ? global.markReaderBlockChapterStart(pageHtml)
+                        : pageHtml;
+                }
+                chapterPages.push(pageHtml);
                 chapterIdxs.push(i);
             }
         }

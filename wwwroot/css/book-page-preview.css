@@ -440,6 +440,22 @@
         flex: 1 1 auto;
         min-height: 0;
         overflow: hidden;
+        padding-top: 0.65rem;
+        padding-bottom: 0.75rem;
+    }
+
+    #bookResult .book-single-leaf .fmt-chapter-opener,
+    #bookResult .book-single-leaf .writer-chapter-opener {
+        margin-bottom: 0.85rem;
+    }
+
+    #bookResult .book-single-leaf .fmt-ch-eyebrow {
+        font-size: 0.72em;
+        letter-spacing: 0.18em;
+    }
+
+    #bookResult .book-single-leaf .reader-chapter-block[data-chapter-start="1"] {
+        padding-top: 0.55rem;
     }
 
     #book-formatter-root .book-page-preview-shell.is-open-spread,
@@ -886,9 +902,51 @@
     line-height: 1.25;
 }
 
+.book-open-page-inner .fmt-chapter-opener,
+.book-open-page-inner .writer-chapter-opener {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    margin: 0.15rem 0 1.05rem;
+    padding: 0.15rem 0 0.2rem;
+}
+
+.book-open-page-inner .fmt-ch-eyebrow {
+    display: block;
+    font-size: 0.78em;
+    letter-spacing: 0.22em;
+    font-weight: 700;
+    color: #44403c;
+    margin: 0;
+}
+
+.book-open-page-inner .fmt-ch-title {
+    display: block;
+    font-size: 1.05em;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin: 0.12em 0 0;
+    max-width: 100%;
+    line-height: 1.3;
+}
+
+.book-open-page-inner .fmt-ch-rule {
+    display: block;
+    width: 3.25rem;
+    height: 1px;
+    margin: 0.45em auto 0;
+    background: rgba(68, 48, 36, 0.38);
+}
+
+.book-open-page-inner .reader-chapter-block[data-chapter-start="1"] {
+    padding-top: 0.4rem;
+}
+
 .book-open-page-inner [data-chapter-start] p:first-of-type::first-letter,
 .book-open-page-inner .drop-cap-start::first-letter,
-.book-open-page-inner .reader-chapter-block[data-chapter-start] > p:first-of-type::first-letter {
+.book-open-page-inner .reader-chapter-block[data-chapter-start] > p:first-of-type::first-letter,
+.book-open-page-inner .reader-chapter-block[data-chapter-start="1"] .reader-page-body > p:first-of-type::first-letter {
     float: left;
     font-size: 3.1em;
     line-height: 0.85;

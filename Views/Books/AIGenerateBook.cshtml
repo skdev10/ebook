@@ -378,7 +378,7 @@
         pointer-events: none;
         overflow: visible;
         box-sizing: border-box;
-        padding: 1rem;
+        padding: 0;
         margin: 0;
         font-size: 0.8125rem;
         line-height: 1.65;
@@ -390,6 +390,23 @@
         padding: 0;
         margin: 0;
     }
+    #bookResult #previewMeasureHost.preview-measure-host p,
+    #bookResult #previewMeasureHost.preview-measure-host .manuscript-p {
+        margin: 0 0 0.18em 0 !important;
+    }
+    #previewMeasureHost .fmt-chapter-opener,
+    #previewMeasureHost .writer-chapter-opener,
+    #previewMeasureHost .manuscript-chapter-heading {
+        text-align: center;
+        text-indent: 0;
+        margin: 0.15rem 0 1rem;
+        font-weight: 600;
+        line-height: 1.25;
+    }
+    #previewMeasureHost .fmt-ch-eyebrow { display: block; letter-spacing: 0.22em; font-size: 0.78em; font-weight: 700; }
+    #previewMeasureHost .fmt-ch-title { display: block; font-size: 1.05em; margin-top: 0.12em; }
+    #previewMeasureHost .fmt-ch-rule { display: block; width: 3.25rem; height: 1px; margin: 0.4em auto 0; }
+    #previewMeasureHost .reader-chapter-block[data-chapter-start="1"] { padding-top: 0.4rem; }
     #bookResult #preview-content.chapter-preview-viewport {
         padding-bottom: 0.65rem;
     }
@@ -673,10 +690,9 @@
     }
     #bookResult .book-page-content .manuscript-heading { color: var(--heading-color, #1e293b); font-weight: 600; margin: 1.15rem 0 0.65rem 0; line-height: 1.25; break-after: avoid; page-break-after: avoid; }
     #bookResult #preview-content .reader-chapter-block {
-        display: flex;
-        flex-direction: column;
-        min-height: 100%;
-        height: 100%;
+        display: block;
+        min-height: 0;
+        height: auto;
         box-sizing: border-box;
     }
     #bookResult #preview-content .reader-chapter-block > :first-child {
@@ -1487,7 +1503,45 @@
         background: #eef2ff;
         color: #4338ca;
     }
-    .writer-upload-icon-btn i { font-size: 0.95rem; line-height: 1; }
+    .writer-new-book-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        flex-shrink: 0;
+        white-space: nowrap;
+        min-height: 3.25rem;
+        padding: 0 1.05rem;
+        border-radius: 0.85rem;
+        border: 1px solid #ddd6fe;
+        background: #f5f3ff;
+        color: #5b21b6;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+    }
+    .writer-new-book-btn i { font-size: 0.75rem; }
+    .writer-new-book-btn:hover {
+        background: #6d28d9;
+        border-color: #6d28d9;
+        color: #fff;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px -10px rgba(109, 40, 217, 0.7);
+    }
+    .writer-new-book-btn:active {
+        transform: translateY(0);
+    }
+    @@media (max-width: 480px) {
+        .writer-new-book-btn span { display: none; }
+        .writer-new-book-btn {
+            width: 3.25rem;
+            padding: 0;
+        }
+        .writer-new-book-btn i { font-size: 0.9rem; }
+    }
     .ai-writer-sidebar label.text-sm {
         margin-bottom: 0;
     }
@@ -1542,31 +1596,40 @@
         padding: 0;
         line-height: 1;
     }
-    /* Writer open-spread: match Formatting — generous top/bottom + left/right page margins */
+    /* Writer open-spread: keep margins, but don't starve the text block */
     #bookResult .book-open-page-inner {
-        padding: clamp(2.4rem, 5.2vw, 3.5rem) clamp(2.4rem, 6vw, 3.6rem) clamp(2.55rem, 5vw, 3.4rem) !important;
+        padding: 0.7rem 1.1rem 0.8rem !important;
         box-sizing: border-box !important;
     }
     #bookResult .book-open-page--verso .book-open-page-inner {
-        padding-left: clamp(2.5rem, 6.4vw, 4rem) !important;
-        padding-right: clamp(2.65rem, 6.8vw, 4.2rem) !important;
-        padding-top: clamp(2.4rem, 5.2vw, 3.5rem) !important;
-        padding-bottom: clamp(2.55rem, 5vw, 3.4rem) !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1rem !important;
+        padding-top: 0.7rem !important;
+        padding-bottom: 0.8rem !important;
     }
     #bookResult .book-open-page--recto .book-open-page-inner {
-        padding-left: clamp(2.65rem, 6.8vw, 4.2rem) !important;
-        padding-right: clamp(2.5rem, 6.4vw, 4rem) !important;
-        padding-top: clamp(2.4rem, 5.2vw, 3.5rem) !important;
-        padding-bottom: clamp(2.55rem, 5vw, 3.4rem) !important;
+        padding-left: 1rem !important;
+        padding-right: 1.25rem !important;
+        padding-top: 0.7rem !important;
+        padding-bottom: 0.8rem !important;
     }
     #bookResult .fmt-chapter-sink {
-        display: block !important;
-        width: 100% !important;
-        height: clamp(4.75rem, 22vh, 8rem) !important;
-        min-height: 4.75rem !important;
-        flex-shrink: 0 !important;
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
         visibility: hidden !important;
         pointer-events: none !important;
+    }
+    #bookResult .book-open-page-inner .reader-chapter-block p,
+    #bookResult .book-open-page-inner .reader-page-body p,
+    #bookResult .book-open-page-inner .reader-page-body .manuscript-p {
+        margin: 0 0 0.18em 0 !important;
+    }
+    #bookResult #preview-content .reader-chapter-block {
+        display: block;
+        min-height: 0;
+        height: auto;
+        box-sizing: border-box;
     }
     /* Modals on this page: match single-line control height */
     #createBookModal input#createBookModalTitle,
@@ -1691,6 +1754,19 @@
         }
         #bookResult #preview-content.chapter-preview-viewport.book-page-preview-content {
             overflow: hidden !important;
+        }
+        #bookResult .book-single-leaf .book-open-page-inner {
+            padding: 0.65rem 0.95rem 0.75rem !important;
+        }
+        #bookResult .book-single-leaf .fmt-chapter-opener,
+        #bookResult .book-single-leaf .writer-chapter-opener {
+            margin-bottom: 0.85rem;
+        }
+        #bookResult .book-single-leaf .fmt-ch-eyebrow {
+            font-size: 0.72em;
+        }
+        #bookResult .book-single-leaf .reader-chapter-block[data-chapter-start="1"] {
+            padding-top: 0.55rem;
         }
     }
     #bookResult .paginated-reader-shell.book-page-preview-shell::before {
@@ -1851,10 +1927,7 @@
             </div>
 
             <section class="flex flex-col gap-3" data-guided-tour="ai-write-section">
-                <div class="flex items-center justify-between gap-2">
-                    <h2 class="font-serif-custom text-xl font-medium tracking-tight text-slate-800">Write with AI</h2>
-                    <button type="button" id="writerApiDocsBtn" class="text-[11px] font-medium text-violet-600 hover:text-violet-800 underline-offset-2 hover:underline bg-transparent border-0 p-0 cursor-pointer">API docs</button>
-                </div>
+                <h2 class="font-serif-custom text-xl font-medium tracking-tight text-slate-800">Write with AI</h2>
                 @* Book picker hidden — book comes from Dashboard / ?bookId= (same as Cover Design). Keep select for JS sync. *@
                 @if (Model?.UserBooks != null && Model.UserBooks.Count > 0)
                 {
@@ -1886,8 +1959,13 @@
                 }
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-slate-500">Book Title</label>
-                    <input type="text" id="BookTitle" value="@initialBookTitle" placeholder="Enter Book Title" class="form-input-uniform w-full bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
-                    <button type="button" id="beginNewBookBtn" class="self-start text-[11px] font-medium text-violet-600 hover:text-violet-800 underline-offset-2 hover:underline bg-transparent border-0 p-0 cursor-pointer">Start a new book</button>
+                    <div class="flex items-stretch gap-2">
+                        <input type="text" id="BookTitle" value="@initialBookTitle" placeholder="Enter Book Title" class="form-input-uniform flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-4 py-3.5 text-base text-slate-800 placeholder:text-slate-300 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all shadow-sm">
+                        <button type="button" id="beginNewBookBtn" class="writer-new-book-btn" title="Start a new blank book" aria-label="Start a new book">
+                            <i class="fas fa-plus" aria-hidden="true"></i>
+                            <span>New book</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="flex flex-col gap-2">
                     <label for="Title" class="text-sm font-medium text-slate-500">Chapter Title</label>
@@ -2228,97 +2306,6 @@
 </style>
 
 @Html.AntiForgeryToken()
-
-<div id="writerApiDocsModal" class="chapter-edit-modal-overlay fixed inset-0 z-[9999] hidden items-center justify-center p-4" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="writerApiDocsTitle">
-    <div class="chapter-edit-modal-box relative bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col mx-auto" onclick="event.stopPropagation()">
-        <div class="flex items-center justify-between px-6 py-4 text-white" style="background-color:#5b21b6;">
-            <h3 id="writerApiDocsTitle" class="text-lg font-bold">AI Writer API</h3>
-            <button type="button" id="writerApiDocsClose" class="p-2 rounded-xl hover:bg-white/20 text-white" aria-label="Close"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="p-6 overflow-y-auto text-sm text-slate-700 space-y-4 leading-relaxed">
-            <p class="text-slate-500 text-xs">Upstream base: <code>http://162.229.248.26:8001</code>. Header: <code>X-API-Key</code>. This app calls these through your signed-in session — the key stays on the server.</p>
-            <p><a class="text-violet-700 font-semibold underline" href="/docs/EXTERNAL_API.md" target="_blank" rel="noopener">Open full documentation</a>
-               · <a class="text-violet-700 font-semibold underline" href="/Books/ApiDocumentation" target="_blank" rel="noopener">JSON catalog</a></p>
-            <div>
-                <h4 class="font-semibold text-slate-800">Generate chapter — POST /api/generate_chapter</h4>
-                <pre class="bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto text-xs">{
-  "user_id": "u123",
-  "book_id": "b456",
-  "chapter": "18",
-  "user_input": "how gravity descover"
-}</pre>
-                <p class="text-xs text-slate-500">Writer: Generate. Result heading example: “The gravitational force is invented in 8790”.</p>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Edit chapter — POST /api/edit</h4>
-                <pre class="bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto text-xs">{
-  "user_id": "u123",
-  "book_id": "b456",
-  "chapter": "18",
-  "changes": "replace in heading with 8790 with 6789"
-}</pre>
-                <p class="text-xs text-slate-500">Writer: Edit. Change title or body with a natural-language instruction, then Save draft.</p>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Chapter title suggestions — POST /api/book_chapters_name</h4>
-                <pre class="bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto text-xs">{
-  "user_id": "u123",
-  "book_id": "b456",
-  "highlights": [
-    { "chapter_name": "Artificial Intelligence", "detailed_bullet_summary": "Suggest five chapter titles about this book." }
-  ]
-}</pre>
-                <p class="text-xs text-slate-500">Writer: wand icon next to Chapter Title. Suggestions are recommendations only — you can still type your own name. Stored in <code>suggest_chapter_name</code> until you pick one.</p>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Approve — POST /api/approve</h4>
-                <pre class="bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto text-xs">{ "user_id": "user_id", "book_id": "book_id", "chapter": 18, "approve": true }</pre>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Audio — POST /api/audio</h4>
-                <p class="text-xs">Formats: .mp3 .mp4 .mpeg .mpga .m4a .wav .webm. Writer: microphone / audio upload.</p>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Queue — GET /api/queue-data</h4>
-                <p class="text-xs">Running vs waiting requests.</p>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Front cover — POST /api/generate-cover</h4>
-                <pre class="bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto text-xs">{
-  "title": "The Power of Gravity",
-  "author_name": "Hasan Rahim",
-  "category": "Science",
-  "cover_style": "Modern Illustration",
-  "size": "1024x1536",
-  "quality": "medium"
-}</pre>
-                <p class="text-xs text-slate-500">Sizes: 1024x1024, 1536x1024, 1024x1536, auto. Quality: low, medium, high, auto.</p>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Edit cover — POST /api/edit-cover</h4>
-                <pre class="bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto text-xs">{
-  "encoded_image": "iVBORw0KGgoAAAANSUhEUgAA...",
-  "image_direction": "image direction in prompt",
-  "size": "1024x1536"
-}</pre>
-            </div>
-            <div>
-                <h4 class="font-semibold text-slate-800">Spine wrap — POST /api/generate-spine-book-cover</h4>
-                <pre class="bg-slate-50 border border-slate-200 rounded-xl p-3 overflow-x-auto text-xs">{
-  "title": "Peter Pan",
-  "author_name": "J. M. Barrie",
-  "size": "1536x1024",
-  "quality": "high",
-  "Interior_trim_size": "6 x 9 in",
-  "page_count": 40,
-  "paper_type": "white"
-}</pre>
-                <p class="text-xs text-slate-500">Split variant: <code>POST /api/generate-spine-book-cover-split</code> (same fields; optional <code>encoded_image</code> for a saved front).</p>
-            </div>
-        </div>
-    </div>
-</div>
-
 
 <script>
 window.EBOOK_FORMATTER_BOOK_KEY = 'ebook_formatter_book_id';
@@ -2912,7 +2899,7 @@ window.splitOversizedHtmlSegment = function (segmentHtml, maxH, mh) {
  * half-width / face-height, otherwise Total pages undercounts and text overflows.
  */
 window.getReaderPageMeasureBox = function (shellEl, viewportEl) {
-    var SPINE_PX = 10;
+    var SPINE_PX = 12;
     var isSpread = !!(shellEl && shellEl.classList && shellEl.classList.contains('is-open-spread'));
     var shellW = shellEl ? shellEl.clientWidth : 0;
     var shellH = shellEl ? shellEl.clientHeight : 0;
@@ -2921,62 +2908,56 @@ window.getReaderPageMeasureBox = function (shellEl, viewportEl) {
         faceW = Math.max(48, Math.floor((shellW - SPINE_PX) / 2));
     }
 
-    var padY = 0;
-    var blockPad = 0;
+    var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     var fontSize = '';
     var lineHeight = '';
-    var padding = '';
+    var padY = 0;
+    var padX = 0;
+    var headH = 0;
+    var folioH = 0;
 
-    if (viewportEl) {
+    var liveInner = viewportEl && viewportEl.querySelector('.book-open-page-inner');
+    var liveHead = viewportEl && viewportEl.querySelector('.book-open-running-head');
+    var liveFolio = viewportEl && viewportEl.querySelector('.book-open-folio');
+    if (liveInner) {
+        var is = window.getComputedStyle(liveInner);
+        fontSize = is.fontSize || fontSize;
+        lineHeight = is.lineHeight || lineHeight;
+        padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
+        padX = (parseFloat(is.paddingLeft) || 0) + (parseFloat(is.paddingRight) || 0);
+    }
+    if (liveHead) headH = liveHead.getBoundingClientRect().height || 0;
+    if (liveFolio) folioH = liveFolio.getBoundingClientRect().height || 0;
+
+    if (headH < 8) headH = Math.ceil(2.15 * rem);
+    if (folioH < 8) folioH = Math.ceil(1.55 * rem);
+    if (padY < 8) padY = Math.ceil(1.55 * rem);
+    if (padX < 8) padX = Math.ceil(2.4 * rem);
+
+    if (!fontSize && viewportEl) {
         var vs = window.getComputedStyle(viewportEl);
-        padY = (parseFloat(vs.paddingTop) || 0) + (parseFloat(vs.paddingBottom) || 0);
         fontSize = vs.fontSize;
         lineHeight = vs.lineHeight;
-        padding = vs.padding;
-        var sample = viewportEl.querySelector('.reader-chapter-block');
-        if (sample) {
-            var bs = window.getComputedStyle(sample);
-            blockPad = (parseFloat(bs.paddingTop) || 0) + (parseFloat(bs.paddingBottom) || 0);
-        }
+    }
+    if (!fontSize) {
+        fontSize = (Math.max(11.5, Math.min(14.1, (faceW || shellW) * 0.0105)) + 'px');
+        lineHeight = lineHeight || '1.55';
     }
 
-    var chromeY = 0;
-    if (isSpread) {
-        // Match .book-open-running-head + .book-open-folio + page-inner vertical padding.
-        var rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-        var headH = Math.ceil(2.55 * rem) + 1; // min-height + padding + border
-        var folioH = Math.ceil(1.35 * rem);
-        var innerPadY = Math.ceil(0.7 * rem);
-        chromeY = headH + folioH + innerPadY;
-        // Prefer face typography from a live page-inner when present.
-        var liveInner = viewportEl && viewportEl.querySelector('.book-open-page-inner');
-        if (liveInner) {
-            var is = window.getComputedStyle(liveInner);
-            fontSize = is.fontSize || fontSize;
-            lineHeight = is.lineHeight || lineHeight;
-            padding = is.padding || padding;
-            padY = (parseFloat(is.paddingTop) || 0) + (parseFloat(is.paddingBottom) || 0);
-        } else {
-            // Approximate .book-open-page-inner before first paint.
-            fontSize = fontSize || (Math.max(11.5, Math.min(14.1, shellW * 0.0105)) + 'px');
-            lineHeight = lineHeight || '1.55';
-            padding = '0.45rem 0.95rem 0.15rem';
-            padY = Math.ceil(0.6 * rem);
-        }
-    }
-
+    var chromeY = headH + folioH;
     var baseH = 0;
-    if (viewportEl && viewportEl.clientHeight >= 32) baseH = viewportEl.clientHeight;
-    else if (shellH >= 48) baseH = shellH;
-    var maxH = Math.max(0, baseH - padY - blockPad - chromeY - 8);
+    if (shellH >= 48) baseH = shellH;
+    else if (viewportEl && viewportEl.clientHeight >= 32) baseH = viewportEl.clientHeight;
+    var maxH = Math.max(0, baseH - chromeY - padY - 4);
+    var contentW = Math.max(48, faceW - padX);
 
     return {
         isSpread: isSpread,
-        width: faceW,
+        width: contentW,
         maxHeight: maxH,
         fontSize: fontSize,
         lineHeight: lineHeight,
-        padding: padding
+        padding: '0'
     };
 };
 
@@ -2994,28 +2975,35 @@ window.getReaderLayoutCacheKey = function (shellEl, viewportEl) {
 
 /** Split full chapter HTML into page fragments that fit the fixed reader viewport (no scroll). */
 window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
+    function finishPages(list) {
+        var out = (list && list.length) ? list : [fullHtml];
+        if (typeof window.markReaderBlockChapterStart === 'function') {
+            out[0] = window.markReaderBlockChapterStart(out[0]);
+        }
+        return out;
+    }
     var mh = document.getElementById('previewMeasureHost');
-    if (!mh || !shellEl || !viewportEl) return [fullHtml];
+    if (!mh || !shellEl || !viewportEl) return finishPages([fullHtml]);
     var box = window.getReaderPageMeasureBox(shellEl, viewportEl);
     var w = box.width;
     var maxH = box.maxHeight;
-    if (w < 48 || maxH < 48) return [fullHtml];
+    if (w < 48 || maxH < 48) return finishPages([fullHtml]);
     mh.style.width = w + 'px';
-    mh.style.padding = box.padding || '';
+    mh.style.padding = box.padding || '0';
     mh.style.fontSize = box.fontSize || '';
     mh.style.lineHeight = box.lineHeight || '';
     mh.style.boxSizing = 'border-box';
     mh.innerHTML = fullHtml;
     var block = mh.firstElementChild;
     if (!block || !block.classList || !block.classList.contains('reader-chapter-block')) {
-        return [fullHtml];
+        return finishPages([fullHtml]);
     }
     var segments = [];
     var c = block.children;
     for (var i = 0; i < c.length; i++) {
         segments.push(c[i].outerHTML);
     }
-    if (!segments.length) return [fullHtml];
+    if (!segments.length) return finishPages([fullHtml]);
 
     function blockHeight(innerConcat) {
         mh.innerHTML = '<div class="reader-chapter-block">' + innerConcat + '</div>';
@@ -3085,7 +3073,8 @@ window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
     if (window.BookReaderPagination && typeof window.BookReaderPagination.stripTrailingHeadingsFromChapterBlockPages === 'function') {
         pages = window.BookReaderPagination.stripTrailingHeadingsFromChapterBlockPages(pages);
     }
-    return pages.length ? pages : [fullHtml];
+    if (!pages.length) pages = [fullHtml];
+    return finishPages(pages);
 };
 
 window.syncAiWriterPreviewLayout = function () {
@@ -3403,11 +3392,43 @@ window.formatChapterDisplayName = function (chapterNo, title) {
     return '';
 };
 
-window.buildPreviewChapterHeadingHtml = function (titleRaw, escFn) {
-    var t = window.sanitizeChapterTitleForInput(titleRaw);
-    if (!t) return '';
-    var esc = escFn || function (x) { return String(x == null ? '' : x); };
-    return '<h4 class="manuscript-chapter-heading">' + esc(t) + '</h4>';
+window.markReaderBlockChapterStart = function (html) {
+    if (!html) return html;
+    try {
+        var d = document.createElement('div');
+        d.innerHTML = html;
+        var block = d.querySelector('.reader-chapter-block');
+        if (block) block.setAttribute('data-chapter-start', '1');
+        return d.innerHTML;
+    } catch (e) {
+        return html;
+    }
+};
+
+/** Visible chapter opener: always "Chapter N" + optional title (never empty). */
+window.buildPreviewChapterHeadingHtml = function (titleRaw, escFn, chapterNo) {
+    var n = parseInt(String(chapterNo), 10);
+    if (!Number.isFinite(n) || n < 1) {
+        var fromTitle = String(titleRaw || '').match(/chapter\s*(\d+)/i);
+        n = fromTitle ? parseInt(fromTitle[1], 10) : 1;
+        if (!Number.isFinite(n) || n < 1) n = 1;
+    }
+    var t = window.sanitizeChapterTitleForInput
+        ? window.sanitizeChapterTitleForInput(titleRaw)
+        : String(titleRaw == null ? '' : titleRaw).trim();
+    if (t && /^chapter\s+\d+$/i.test(t)) t = '';
+    var esc = typeof escFn === 'function' ? escFn : function (x) {
+        return String(x == null ? '' : x)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    };
+    var titleHtml = t ? ('<span class="fmt-ch-title">' + esc(t) + '</span>') : '';
+    return '<header class="fmt-chapter-opener manuscript-chapter-heading writer-chapter-opener">' +
+        '<span class="fmt-ch-eyebrow">Chapter ' + n + '</span>' +
+        titleHtml +
+        '<span class="fmt-ch-rule" aria-hidden="true"></span>' +
+        '</header>';
 };
 
 window.stripAugmentedTopicFromText = function (raw) {
@@ -4564,7 +4585,7 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                 });
                 var title = typeof ap === 'function' ? ap(titleRaw, phCtx) : titleRaw;
                 var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
-                    ? window.buildPreviewChapterHeadingHtml(title, esc)
+                    ? window.buildPreviewChapterHeadingHtml(title, esc, chNo)
                     : '';
                 var bodyRaw = ch.content || '';
                 var body = typeof ap === 'function' ? ap(bodyRaw, phCtx) : bodyRaw;
@@ -5407,7 +5428,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             var newMeta = mapped.map(function (c) {
                 var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
-                    ? window.buildPreviewChapterHeadingHtml(c.title, escFn) : '';
+                    ? window.buildPreviewChapterHeadingHtml(c.title, escFn, c.chapterNo) : '';
                 var raw = String(c.content || '');
                 var normalized = typeof window.normalizeManuscriptEscapes === 'function'
                     ? window.normalizeManuscriptEscapes(raw) : raw;
@@ -6073,7 +6094,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                         };
                         var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
-                            ? window.buildPreviewChapterHeadingHtml(titleRaw, escT)
+                            ? window.buildPreviewChapterHeadingHtml(titleRaw, escT, chNum)
                             : '';
                         var bodyHtml;
                         if (String(txt).indexOf('<') >= 0) {
@@ -6338,25 +6359,6 @@ document.addEventListener('DOMContentLoaded', function() {
                       window.location.assign('/Books/Writer');
                   });
               }
-              var docsBtn = document.getElementById('writerApiDocsBtn');
-              var docsModal = document.getElementById('writerApiDocsModal');
-              var docsClose = document.getElementById('writerApiDocsClose');
-              function closeWriterApiDocs() {
-                  if (!docsModal) return;
-                  docsModal.classList.add('hidden');
-                  docsModal.style.display = 'none';
-              }
-              if (docsBtn && docsBtn.dataset.wired !== '1') {
-                  docsBtn.dataset.wired = '1';
-                  docsBtn.addEventListener('click', function () {
-                      if (!docsModal) return;
-                      docsModal.classList.remove('hidden');
-                      docsModal.style.display = 'flex';
-                      docsModal.classList.add('flex');
-                  });
-              }
-              if (docsClose) docsClose.addEventListener('click', closeWriterApiDocs);
-              if (docsModal) docsModal.addEventListener('click', function (e) { if (e.target === docsModal) closeWriterApiDocs(); });
           })();
 
           // Visible "Change book" select → same attach path as Formatting (URL bookId).
@@ -9576,7 +9578,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             var title = ap ? ap(titleRaw, phCtx) : titleRaw;
             var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
-                ? window.buildPreviewChapterHeadingHtml(title, esc)
+                ? window.buildPreviewChapterHeadingHtml(title, esc, chNo)
                 : '';
             var body = ap ? ap(content, phCtx) : content;
             body = typeof normalizeManuscriptEscapes === 'function' ? normalizeManuscriptEscapes(body) : body;
@@ -9700,7 +9702,7 @@ document.addEventListener('DOMContentLoaded', function() {
                  });
                  var title = typeof applyTemplatePlaceholders === 'function' ? applyTemplatePlaceholders(titleRaw, phCtx) : titleRaw;
                  var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
-                     ? window.buildPreviewChapterHeadingHtml(title, escapeHtml)
+                     ? window.buildPreviewChapterHeadingHtml(title, escapeHtml, chNo)
                      : '';
                  var raw = (ch.content != null && ch.content !== '') ? ch.content : (ch.Content != null && ch.Content !== '') ? ch.Content : (ch.responseData != null && ch.responseData !== '') ? ch.responseData : ((ch.data && ch.data.content) ? ch.data.content : (ch.requestData || ''));
                  var content = (typeof getContentFromPossibleJson === 'function' ? getContentFromPossibleJson(raw) : raw) || "No content available.";
@@ -10188,9 +10190,9 @@ document.addEventListener('DOMContentLoaded', function() {
                  if (typeof window.patchPreviewMetaArrayWithGeneration === 'function') {
                      ix = window.patchPreviewMetaArrayWithGeneration(list, bookData, phBase);
                  } else {
-                     var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
-                         ? window.buildPreviewChapterHeadingHtml(title, esc)
-                         : '';
+                var headingHtml = typeof window.buildPreviewChapterHeadingHtml === 'function'
+                    ? window.buildPreviewChapterHeadingHtml(title, esc, chNo)
+                    : '';
                      var fragment = headingHtml + bodyHtml;
                      var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                      var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
