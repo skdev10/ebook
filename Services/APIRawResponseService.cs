@@ -34,9 +34,14 @@ namespace EBookDashboard.Services
 
         public async Task<int> SaveRawResponseEditAsync(AIBookRequestEdit request, string responseData, string endpoint, string statusCode, string? errorMessage = null)
         {
-            int userId = int.TryParse(request.UserId, out int uid) ? uid : 0;
-            // Generate BookId using the async method
-            int generatedBookId = 1; //await _commonMethodsService.GenerateBookIdAsync(userId);
+            int userId = int.TryParse(request.UserId, out int uid) && uid > 0 ? uid : 0;
+            int bookId = 0;
+            if (!string.IsNullOrWhiteSpace(request.BookId)
+                && int.TryParse(request.BookId.Trim(), out var parsedBookId)
+                && parsedBookId > 0)
+            {
+                bookId = parsedBookId;
+            }
             string userChange = "";
             // Extract user input if responseData is not null
             if (!string.IsNullOrEmpty(request.Changes))
@@ -62,7 +67,7 @@ namespace EBookDashboard.Services
                 RequestData = JsonConvert.SerializeObject(request.Changes),
                 ResponseData = dataToStore,
                 UserId = userId,
-                BookId = request.BookId != null && int.TryParse(request.BookId, out int bid) ? bid : generatedBookId,
+                BookId = bookId,
                 StatusCode = statusCode,
                 ErrorMessage = errorMessage,
                 CreatedAt = DateTime.UtcNow
@@ -86,6 +91,11 @@ namespace EBookDashboard.Services
             try
             {
                 await _chapterIterationService.RecordSuccessfulGenerationAsync(rawResponse.ResponseId);
+                if (userId > 0 && bookId > 0 && request.Chapter > 0)
+                {
+                    await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                        userId, bookId, request.Chapter, rawResponse.ResponseId);
+                }
             }
             catch (Exception ex)
             {
@@ -93,7 +103,7 @@ namespace EBookDashboard.Services
             }
 
             // Update Status to "Edit" in Books table (user is editing)
-            int bookId = rawResponse.BookId ?? 0;
+            bookId = rawResponse.BookId ?? bookId;
             if (bookId > 0 && userId > 0)
             {
                 var book = await _context.Books
@@ -115,9 +125,14 @@ namespace EBookDashboard.Services
         //==================================================
         public async Task<int> SaveRawResponseAsync(AIBookRequest request, string responseData, string endpoint, string statusCode, string? errorMessage = null)
         {
-            int userId = int.TryParse(request.UserId, out int uid) ? uid : 0;
-            // Generate BookId using the async method
-            int generatedBookId = 1; //await _commonMethodsService.GenerateBookIdAsync(userId);
+            int userId = int.TryParse(request.UserId, out int uid) && uid > 0 ? uid : 0;
+            int bookId = 0;
+            if (!string.IsNullOrWhiteSpace(request.BookId)
+                && int.TryParse(request.BookId.Trim(), out var parsedBookId)
+                && parsedBookId > 0)
+            {
+                bookId = parsedBookId;
+            }
             string userInput = "";
             string content1 = "";
             string content2 = "";
@@ -165,11 +180,11 @@ namespace EBookDashboard.Services
                         !string.IsNullOrWhiteSpace(request.ChapterTopic) ? request.ChapterTopic : request.UserInput)),
                 ResponseData = dataToStore,
                 UserId = userId,
-                BookId = request.BookId != null && int.TryParse(request.BookId, out int bid) ? bid : generatedBookId,
+                BookId = bookId,
                 StatusCode = statusCode,
                 ErrorMessage = errorMessage,
                 CreatedAt = DateTime.UtcNow,
-                Content = content1,
+                Content = !string.IsNullOrWhiteSpace(content1) ? content1 : content2,
                 // ✅ FIXED — Save list of chapters properly
                 ChapterNames = JsonConvert.SerializeObject(chapterNames)   // or: string.Join(",", chapters)
             };

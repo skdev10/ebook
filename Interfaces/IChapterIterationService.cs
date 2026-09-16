@@ -23,8 +23,9 @@ namespace EBookDashboard.Interfaces
         Task<bool> FinalizeByResponseIdAsync(int userId, int bookId, int chapterNumber, int responseId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Marks the iteration for <paramref name="responseId"/> as the current official version in history (clears sibling finals).
-        /// Does not write ReadOnly rows to <c>chapters</c> — AI Writer can keep regenerating the same chapter number.
+        /// Marks the iteration for <paramref name="responseId"/> as the current version in history (clears sibling finals)
+        /// and upserts the matching <c>chapters</c> row as Draft so generate/import land in the library table immediately.
+        /// Finalize still upgrades that row to ReadOnly.
         /// </summary>
         Task<bool> PromoteAsCurrentVersionAsync(int userId, int bookId, int chapterNumber, int responseId, CancellationToken cancellationToken = default);
 

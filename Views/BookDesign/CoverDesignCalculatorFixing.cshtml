@@ -468,6 +468,18 @@
     #book-formatter-root .reader-page-body .manuscript-p:last-child {
         margin-bottom: 0;
     }
+    #book-formatter-root .fmt-uploaded-page,
+    #book-formatter-root .reader-page-body .fmt-uploaded-page {
+        margin: 0 0 1rem 0;
+        text-align: center;
+    }
+    #book-formatter-root .fmt-uploaded-page img,
+    #book-formatter-root .reader-page-body .fmt-uploaded-page img {
+        max-width: 100%;
+        height: auto;
+        display: inline-block;
+        border-radius: 2px;
+    }
     .reader-page-body {
         font-family: 'Merriweather', serif;
         text-align: left;
@@ -1282,6 +1294,16 @@
         opacity: 0.45;
         cursor: not-allowed;
         transform: none;
+    }
+    .fmt-ms-icon-btn--img {
+        border-color: #e2e8f0;
+        background: #fff;
+        color: #475569;
+    }
+    .fmt-ms-icon-btn--img:hover {
+        border-color: #c4b5fd;
+        background: #f5f3ff;
+        color: #6d28d9;
     }
     .fmt-ms-drop-hint {
         display: inline-flex;
@@ -2353,7 +2375,23 @@
 
                         <div class="group" data-guided-tour="fmt-book">
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5">Your book</label>
-                            <p class="text-xs text-gray-500 mb-0 leading-snug">Formats the book you wrote on this platform. First 20 pages are always free; extra pages are $0.50 each.</p>
+                            <p class="text-xs text-gray-500 mb-2 leading-snug">Upload a Word/PDF or page photos — your book opens in the preview on the right. First 20 pages are free; extra pages are $0.50 each.</p>
+                            <div class="fmt-ms-row" id="fmt-ms-row">
+                                <input type="file" id="fmt-ms-file" class="hidden" accept=".docx,.pdf,.txt,.md,.markdown,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-label="Upload manuscript (Word, PDF, TXT, Markdown)" />
+                                <input type="file" id="fmt-ms-images" class="hidden" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,image/png,image/jpeg,image/webp,image/tiff" multiple aria-label="Upload one or more book page images" />
+                                <button type="button" id="fmt-ms-doc-btn" class="fmt-ms-icon-btn" title="Upload document (Word, PDF, TXT, Markdown)" aria-label="Upload document">
+                                    <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
+                                </button>
+                                <button type="button" id="fmt-ms-img-btn" class="fmt-ms-icon-btn fmt-ms-icon-btn--img" title="Upload page images — they appear in the book preview" aria-label="Upload page images">
+                                    <i class="fas fa-images" aria-hidden="true"></i>
+                                </button>
+                                <div id="fmt-ms-dropzone" class="fmt-ms-drop-hint" tabindex="0" role="button" aria-label="Drop a manuscript or page images to fill the preview">
+                                    <i class="fas fa-cloud-arrow-up fmt-ms-drop-hint__icon" aria-hidden="true"></i>
+                                    <span>Drop file or images</span>
+                                </div>
+                            </div>
+                            <p id="fmt-ms-status" class="text-xs text-gray-400 min-h-[1.1rem] mt-1.5 mb-0 leading-snug" aria-live="polite"></p>
+                            <p id="fmt-ms-last" class="text-xs text-gray-400 mt-0.5 mb-0 leading-snug"></p>
                         </div>
 
                         <div class="group" data-guided-tour="fmt-format">
@@ -2783,8 +2821,8 @@
 
     /* No client timeout: let the server finish loading from DB so the book always completes */
     const FORMATTER_BOOK_KEY = typeof window.EBOOK_FORMATTER_BOOK_KEY === 'string' ? window.EBOOK_FORMATTER_BOOK_KEY : 'ebook_formatter_book_id';
-    const PREVIEW_EMPTY_MSG = 'Open your book from the Dashboard (Continue Editing), then return to Book Formatting to see your preview.';
-    const PREVIEW_NO_DATA_MSG = 'No chapters yet. Open AI Writer from the Dashboard, add chapters, then come back here.';
+    const PREVIEW_EMPTY_MSG = 'Upload a Word/PDF or page images on the left — your book appears here. You can also pick a book above.';
+    const PREVIEW_NO_DATA_MSG = 'No chapters yet. Upload a document or page images on the left, or generate chapters in AI Writer.';
     const PREVIEW_ERROR_MSG = 'Something went wrong. Please try again or select another book.';
 
     const root = document.getElementById('book-formatter-root');
@@ -6799,7 +6837,6 @@
         if (!bid || bid <= 0) {
             syncFormatterSwitchBookLink(0);
             showEmptyState();
-            showToast('Open your book from the Dashboard under Continue Editing.');
             return;
         }
 
@@ -7296,6 +7333,9 @@
         (function initManuscriptUpload() {
             var dropzone = document.getElementById('fmt-ms-dropzone');
             var fileInput = document.getElementById('fmt-ms-file');
+            var imageInput = document.getElementById('fmt-ms-images');
+            var docBtn = document.getElementById('fmt-ms-doc-btn');
+            var imgBtn = document.getElementById('fmt-ms-img-btn');
             var statusEl = document.getElementById('fmt-ms-status');
             var lastEl = document.getElementById('fmt-ms-last');
             if (!fileInput || !dropzone) return;
@@ -7303,7 +7343,7 @@
             function setMsStatus(msg, ok) {
                 if (!statusEl) return;
                 statusEl.textContent = msg || '';
-                statusEl.className = 'text-xs min-h-[1.1rem] mt-0.5 mb-0 leading-snug truncate ' +
+                statusEl.className = 'text-xs min-h-[1.1rem] mt-1.5 mb-0 leading-snug ' +
                     (msg ? (ok ? 'text-emerald-600' : 'text-red-600') : 'text-gray-400');
             }
 
@@ -7317,18 +7357,76 @@
                 return typeof bookId !== 'undefined' ? (parseInt(bookId, 10) || 0) : 0;
             }
 
+            function isImageFile(file) {
+                if (!file) return false;
+                return /^image\//i.test(file.type || '') || /\.(png|jpe?g|webp|tiff?|bmp)$/i.test(file.name || '');
+            }
+
+            function isDocFile(file) {
+                if (!file) return false;
+                return /\.(docx|pdf|txt|md|markdown)$/i.test(file.name || '');
+            }
+
+            function setBusy(on) {
+                dropzone.setAttribute('aria-busy', on ? 'true' : 'false');
+                dropzone.classList.toggle('opacity-60', !!on);
+                dropzone.classList.toggle('pointer-events-none', !!on);
+                if (docBtn) docBtn.disabled = !!on;
+                if (imgBtn) imgBtn.disabled = !!on;
+            }
+
+            async function refreshPreviewAfterImport(data, bid, successLabel) {
+                var newBid = parseInt(data && data.bookId, 10) || bid;
+                if (newBid > 0 && newBid !== bid) {
+                    try {
+                        var url = new URL(window.location.href);
+                        url.searchParams.set('bookId', String(newBid));
+                        window.location.href = url.toString();
+                        return;
+                    } catch (eNav) {
+                        window.location.href = '/Books/Formatting/' + newBid;
+                        return;
+                    }
+                }
+                if (lastEl) {
+                    var label = (data && data.lastUploadedLabel) || '';
+                    var name = (data && data.fileName) || '';
+                    lastEl.textContent = label
+                        ? ('Last uploaded on ' + label + (name ? ' · ' + name : ''))
+                        : (successLabel || 'Uploaded.');
+                }
+                setMsStatus((successLabel || 'Imported') + ' Preview updating…', true);
+                try {
+                    if (typeof formatterBookPayloadKey === 'function') {
+                        sessionStorage.removeItem(formatterBookPayloadKey(newBid || bid));
+                    }
+                } catch (e0) { /* optional */ }
+                lastLoadedBookPayloadSignature = '';
+                if (typeof loadBookContent === 'function' && (newBid || bid) > 0) {
+                    await loadBookContent(newBid || bid);
+                    try {
+                        syncFmtPreviewLayout();
+                        if (bookChapters.length) {
+                            ensureReaderPages(true);
+                            togglePreviewMode();
+                            fmtScheduleRepaginateAfterLayout();
+                        }
+                    } catch (ePrev) { console.warn('[Book Formatter] preview refresh after upload', ePrev); }
+                }
+                setMsStatus(successLabel || 'Preview updated.', true);
+            }
+
             async function uploadManuscriptFile(file) {
                 var bid = currentBookId();
                 if (!file) {
                     setMsStatus('Select a file to upload.', false);
                     return;
                 }
-                if (!/\.(docx|pdf|txt|md|markdown)$/i.test(file.name || '')) {
-                    setMsStatus('Allowed: DOCX or PDF (also TXT/MD).', false);
+                if (!isDocFile(file)) {
+                    setMsStatus('Allowed documents: Word (.docx), PDF, TXT, or Markdown.', false);
                     return;
                 }
-                dropzone.setAttribute('aria-busy', 'true');
-                dropzone.classList.add('opacity-60', 'pointer-events-none');
+                setBusy(true);
                 setMsStatus(bid <= 0 ? 'Creating book and importing…' : 'Uploading and parsing…', true);
                 try {
                     var fd = new FormData();
@@ -7343,57 +7441,85 @@
                         setMsStatus((data && data.message) || 'Upload failed.', false);
                         return;
                     }
-                    var newBid = parseInt(data.bookId, 10) || bid;
-                    if (newBid > 0 && newBid !== bid) {
-                        try {
-                            var url = new URL(window.location.href);
-                            url.searchParams.set('bookId', String(newBid));
-                            window.location.href = url.toString();
-                            return;
-                        } catch (eNav) {
-                            window.location.href = '/Books/Formatting/' + newBid;
-                            return;
-                        }
-                    }
-                    if (lastEl) {
-                        var label = data.lastUploadedLabel || '';
-                        var name = data.fileName || '';
-                        lastEl.textContent = label
-                            ? ('Last uploaded on ' + label + (name ? ' · ' + name : ''))
-                            : 'Manuscript uploaded.';
-                    }
-                    setMsStatus('Imported ' + (data.chapterCount || 0) + ' chapter(s). Preview updating…', true);
-                    try {
-                        if (typeof formatterBookPayloadKey === 'function') {
-                            sessionStorage.removeItem(formatterBookPayloadKey(newBid || bid));
-                        }
-                    } catch (e0) { /* optional */ }
-                    lastLoadedBookPayloadSignature = '';
-                    if (typeof loadBookContent === 'function' && (newBid || bid) > 0) {
-                        await loadBookContent(newBid || bid);
-                        try {
-                            syncFmtPreviewLayout();
-                            if (bookChapters.length) {
-                                ensureReaderPages(true);
-                                togglePreviewMode();
-                                fmtScheduleRepaginateAfterLayout();
-                            }
-                        } catch (ePrev) { console.warn('[Book Formatter] preview refresh after upload', ePrev); }
-                    }
-                    setMsStatus('Imported ' + (data.chapterCount || 0) + ' chapter(s). TOC / preview updated.', true);
+                    await refreshPreviewAfterImport(
+                        data,
+                        bid,
+                        'Imported ' + (data.chapterCount || 0) + ' chapter(s). TOC / preview updated.');
                     if (typeof showToast === 'function') showToast('Manuscript imported');
                 } catch (err) {
                     setMsStatus('Network error during upload.', false);
                 } finally {
-                    dropzone.removeAttribute('aria-busy');
-                    dropzone.classList.remove('opacity-60', 'pointer-events-none');
+                    setBusy(false);
                     fileInput.value = '';
                 }
+            }
+
+            async function uploadImageFiles(fileList) {
+                var bid = currentBookId();
+                var files = Array.prototype.filter.call(fileList || [], isImageFile);
+                if (!files.length) {
+                    setMsStatus('Use PNG, JPG, or WebP page images.', false);
+                    return;
+                }
+                setBusy(true);
+                setMsStatus(bid <= 0
+                    ? 'Creating book from ' + files.length + ' image(s)…'
+                    : 'Uploading ' + files.length + ' image(s) into the preview…', true);
+                try {
+                    var fd = new FormData();
+                    files.forEach(function (f) { fd.append('files', f); });
+                    var res = await fetch('/Books/UploadFormatterImages' + (bid > 0 ? ('/' + bid) : ''), {
+                        method: 'POST',
+                        body: fd,
+                        credentials: 'same-origin'
+                    });
+                    var data = await res.json().catch(function () { return null; });
+                    if (!res.ok || !data || !data.success) {
+                        setMsStatus((data && data.message) || 'Image upload failed.', false);
+                        return;
+                    }
+                    await refreshPreviewAfterImport(
+                        data,
+                        bid,
+                        'Imported ' + (data.imageCount || files.length) + ' page image(s). Preview updated.');
+                    if (typeof showToast === 'function') showToast('Images imported into book preview');
+                } catch (err) {
+                    setMsStatus('Network error during image upload.', false);
+                } finally {
+                    setBusy(false);
+                    if (imageInput) imageInput.value = '';
+                }
+            }
+
+            function handleIncomingFiles(list) {
+                var files = Array.prototype.slice.call(list || []);
+                if (!files.length) return;
+                if (files.some(isImageFile) && !files.some(isDocFile)) {
+                    uploadImageFiles(files);
+                    return;
+                }
+                var doc = files.find(isDocFile);
+                if (doc) {
+                    uploadManuscriptFile(doc);
+                    return;
+                }
+                if (files.some(isImageFile)) {
+                    uploadImageFiles(files.filter(isImageFile));
+                    return;
+                }
+                setMsStatus('Use a Word/PDF file or PNG/JPG page images.', false);
             }
 
             fileInput.addEventListener('change', function () {
                 if (fileInput.files && fileInput.files[0]) uploadManuscriptFile(fileInput.files[0]);
             });
+            if (imageInput) {
+                imageInput.addEventListener('change', function () {
+                    if (imageInput.files && imageInput.files.length) uploadImageFiles(imageInput.files);
+                });
+            }
+            if (docBtn) docBtn.addEventListener('click', function () { fileInput.click(); });
+            if (imgBtn) imgBtn.addEventListener('click', function () { if (imageInput) imageInput.click(); });
             dropzone.addEventListener('click', function () { fileInput.click(); });
             dropzone.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
@@ -7401,18 +7527,18 @@
             ['dragenter', 'dragover'].forEach(function (ev) {
                 dropzone.addEventListener(ev, function (e) {
                     e.preventDefault(); e.stopPropagation();
-                    dropzone.classList.add('border-violet-400', 'bg-violet-50');
+                    dropzone.classList.add('border-violet-400', 'bg-violet-50', 'is-drag');
                 });
             });
             ['dragleave', 'drop'].forEach(function (ev) {
                 dropzone.addEventListener(ev, function (e) {
                     e.preventDefault(); e.stopPropagation();
-                    dropzone.classList.remove('border-violet-400', 'bg-violet-50');
+                    dropzone.classList.remove('border-violet-400', 'bg-violet-50', 'is-drag');
                 });
             });
             dropzone.addEventListener('drop', function (e) {
                 var files = e.dataTransfer && e.dataTransfer.files;
-                if (files && files[0]) uploadManuscriptFile(files[0]);
+                if (files && files.length) handleIncomingFiles(files);
             });
         })();
 
@@ -7976,6 +8102,11 @@
             var node = kids[i];
             var tag = node.tagName ? node.tagName.toLowerCase() : '';
             if (tag === 'hr') { res.push({ type:'scene' }); continue; }
+            if (tag === 'img') {
+                var loneSrc = node.getAttribute && node.getAttribute('src');
+                if (loneSrc) res.push({ type:'image', src:loneSrc });
+                continue;
+            }
             if (/^h[1-6]$/.test(tag)) {
                 // #2: keep in-chapter subsection headings and start each on a new page.
                 // Skip only the chapter's own opening heading (handled by the chapter opener).

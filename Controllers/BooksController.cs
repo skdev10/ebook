@@ -1033,29 +1033,42 @@ namespace EBookDashboard.Controllers
                         Console.WriteLine("📋 PreviewOnly: returning content without saving to database.");
                     }
 
-                    // Track each successful generation as its own iteration (chapter_iterations), including PreviewOnly —
-                    // the writer always uses preview mode so drafts are not written to `chapters` until Finalize.
+                    // PreviewOnly still persists: apirawresponse + chapter_iterations + chapters (Draft).
+                    // Finalize later upgrades the same chapters row to ReadOnly.
                     if (rawResponseId > 0)
                     {
                         try
                         {
                             // Do not tie to RequestAborted — browser/proxy disconnect (504) must not cancel draft bookkeeping.
-                            await _chapterIterationService.RecordSuccessfulGenerationAsync(rawResponseId.Value, CancellationToken.None);
-                            var promoteBookId = genBookId;
-                            if (promoteBookId <= 0)
+                            var savedRaw = await _context.APIRawResponse
+                                .FirstOrDefaultAsync(r => r.ResponseId == rawResponseId.Value, CancellationToken.None);
+                            if (savedRaw != null && genBookId > 0 && savedRaw.BookId != genBookId)
                             {
-                                var savedRaw = await _context.APIRawResponse.AsNoTracking()
-                                    .FirstOrDefaultAsync(r => r.ResponseId == rawResponseId.Value, CancellationToken.None);
-                                promoteBookId = savedRaw?.BookId ?? 0;
+                                savedRaw.BookId = genBookId;
+                                await _context.SaveChangesAsync(CancellationToken.None);
                             }
+                            if (savedRaw != null && string.IsNullOrWhiteSpace(savedRaw.Content) && !string.IsNullOrWhiteSpace(responseData))
+                            {
+                                var extracted = UpstreamResponseParser.ExtractContent(responseData);
+                                if (!string.IsNullOrWhiteSpace(extracted))
+                                {
+                                    savedRaw.Content = extracted;
+                                    await _context.SaveChangesAsync(CancellationToken.None);
+                                }
+                            }
+
+                            await _chapterIterationService.RecordSuccessfulGenerationAsync(rawResponseId.Value, CancellationToken.None);
+                            var promoteBookId = genBookId > 0 ? genBookId : (savedRaw?.BookId ?? 0);
                             if (promoteBookId > 0 && model.Chapter > 0)
                             {
-                                await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                                var promoted = await _chapterIterationService.PromoteAsCurrentVersionAsync(
                                     sessionUserId.Value,
                                     promoteBookId,
                                     model.Chapter,
                                     rawResponseId.Value,
                                     CancellationToken.None);
+                                if (!promoted)
+                                    _logger.LogWarning("AIGenerateBook: chapter {Chapter} for book {BookId} did not land in chapters table (response {ResponseId}).", model.Chapter, promoteBookId, rawResponseId.Value);
                             }
                         }
                         catch (Exception itEx)
@@ -4603,6 +4616,228 @@ namespace EBookDashboard.Controllers
             {
                 _logger.LogWarning(ex, "UploadManuscript failed for book {BookId} file {Name}", bookId, file.FileName);
                 return Json(new { success = false, message = ChapterDocumentImportService.MapImportExceptionMessage(ex) });
+            }
+        }
+
+        /// <summary>
+        /// Formatter image import: save page photos, OCR text when possible, and show them in the book preview.
+        /// </summary>
+        [HttpPost]
+        [IgnoreAntiforgeryToken]
+        [RequestSizeLimit(80L * 1024L * 1024L)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 80L * 1024L * 1024L)]
+        [Route("Books/UploadFormatterImages/{bookId:int}")]
+        [Route("Books/UploadFormatterImages")]
+        public async Task<IActionResult> UploadFormatterImages(int bookId, CancellationToken cancellationToken = default)
+        {
+            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            if (sessionUserId == null)
+                return Json(new { success = false, message = "Please sign in." });
+
+            if (bookId <= 0 && Request.HasFormContentType)
+                _ = int.TryParse(Request.Form["bookId"].FirstOrDefault(), out bookId);
+
+            if (!Request.HasFormContentType || Request.Form.Files.Count == 0)
+                return Json(new { success = false, message = "Select one or more PNG or JPG page images." });
+
+            var allowedExt = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff", ".bmp"
+            };
+            var images = Request.Form.Files
+                .Where(f => f != null && f.Length > 0)
+                .Where(f =>
+                {
+                    var ext = Path.GetExtension(f.FileName ?? "").ToLowerInvariant();
+                    return allowedExt.Contains(ext)
+                        || (f.ContentType ?? "").StartsWith("image/", StringComparison.OrdinalIgnoreCase);
+                })
+                .Take(40)
+                .ToList();
+
+            if (images.Count == 0)
+                return Json(new { success = false, message = "Use PNG, JPG, or WebP page images." });
+
+            var userId = sessionUserId.Value;
+            Books? book = null;
+            if (bookId > 0)
+            {
+                book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
+                if (book == null)
+                    return Json(new { success = false, message = "Book not found." });
+            }
+
+            try
+            {
+                var firstName = Path.GetFileNameWithoutExtension(images[0].FileName ?? "Uploaded book");
+                var suggestedTitle = string.IsNullOrWhiteSpace(firstName)
+                    ? (images.Count > 1 ? $"Uploaded book ({images.Count} pages)" : "Uploaded book")
+                    : firstName.Replace('_', ' ').Trim();
+                if (suggestedTitle.Length > 80)
+                    suggestedTitle = suggestedTitle[..77].Trim() + "…";
+
+                if (book == null)
+                {
+                    var newTitle = suggestedTitle;
+                    if (await BookDraftGuard.TitleExistsForUserAsync(_context, userId, newTitle, cancellationToken: cancellationToken))
+                        newTitle = $"{newTitle} {DateTime.UtcNow:MMM d HH:mm}";
+                    book = new Books
+                    {
+                        UserId = userId,
+                        AuthorId = userId,
+                        Title = newTitle,
+                        Status = "Draft",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Books.Add(book);
+                    await _context.SaveChangesAsync(cancellationToken);
+                    bookId = book.BookId;
+                }
+
+                var relDir = Path.Combine(
+                    "uploads",
+                    userId.ToString(CultureInfo.InvariantCulture),
+                    "books",
+                    bookId.ToString(CultureInfo.InvariantCulture),
+                    "pages");
+                var absDir = Path.Combine(_hostEnvironment.WebRootPath, relDir);
+                Directory.CreateDirectory(absDir);
+
+                var htmlParts = new List<string>();
+                var savedCount = 0;
+                var stamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture);
+
+                for (var i = 0; i < images.Count; i++)
+                {
+                    var file = images[i];
+                    var ext = Path.GetExtension(file.FileName ?? "").ToLowerInvariant();
+                    if (string.IsNullOrWhiteSpace(ext) || !allowedExt.Contains(ext))
+                        ext = ".jpg";
+                    var safeFile = Regex.Replace(Path.GetFileNameWithoutExtension(file.FileName ?? $"page-{i + 1}"), @"[^\w\.\-]+", "_");
+                    if (string.IsNullOrWhiteSpace(safeFile)) safeFile = $"page-{i + 1}";
+                    var fileName = $"{stamp}-{i + 1:00}-{safeFile}{ext}";
+                    var absPath = Path.Combine(absDir, fileName);
+                    await using (var fs = new FileStream(absPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    {
+                        await file.CopyToAsync(fs, cancellationToken);
+                    }
+                    var url = "/" + Path.Combine(relDir, fileName).Replace('\\', '/');
+                    savedCount++;
+
+                    string ocrText = "";
+                    try
+                    {
+                        byte[] bytes;
+                        await using (var ms = new MemoryStream())
+                        {
+                            await using var read = new FileStream(absPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                            await read.CopyToAsync(ms, cancellationToken);
+                            bytes = ms.ToArray();
+                        }
+                        ocrText = ChapterDocumentImportService.SanitizeImportedText(
+                            await _imageOcr.ExtractTextAsync(bytes, cancellationToken) ?? "");
+                    }
+                    catch (Exception ocrEx)
+                    {
+                        _logger.LogDebug(ocrEx, "OCR skipped for formatter image {Name}", file.FileName);
+                    }
+
+                    var alt = WebUtility.HtmlEncode($"Page {i + 1}");
+                    var pageHtml = new StringBuilder();
+                    pageHtml.Append("<figure class=\"fmt-uploaded-page\" data-ocr-page=\"").Append(i + 1).Append("\">")
+                        .Append("<img src=\"").Append(url).Append("\" alt=\"").Append(alt).Append("\" />")
+                        .Append("</figure>");
+                    if (!string.IsNullOrWhiteSpace(ocrText))
+                    {
+                        foreach (var para in Regex.Split(ocrText.Trim(), @"\n\s*\n"))
+                        {
+                            var line = WebUtility.HtmlEncode(para.Trim()).Replace("\n", "<br/>");
+                            if (!string.IsNullOrWhiteSpace(line))
+                                pageHtml.Append("<p class=\"manuscript-p\">").Append(line).Append("</p>");
+                        }
+                    }
+                    htmlParts.Add(pageHtml.ToString());
+                }
+
+                if (savedCount == 0)
+                    return Json(new { success = false, message = "Could not save those images." });
+
+                var bodyHtml = string.Join("\n", htmlParts);
+                var chapterTitle = images.Count > 1 ? "Chapter 1" : (suggestedTitle ?? "Chapter 1");
+                if (chapterTitle.Length > 120) chapterTitle = chapterTitle[..117].Trim() + "…";
+
+                book.UpdatedAt = DateTime.UtcNow;
+                if (string.IsNullOrWhiteSpace(book.Title))
+                    book.Title = suggestedTitle;
+                await _context.SaveChangesAsync(cancellationToken);
+
+                var existingNos = await _context.APIRawResponse.AsNoTracking()
+                    .Where(r => r.UserId == userId && r.BookId == bookId)
+                    .Select(r => r.Chapter)
+                    .Distinct()
+                    .ToListAsync(cancellationToken);
+                var chapterTableNos = await _context.Chapters.AsNoTracking()
+                    .Where(c => c.BookId == bookId)
+                    .Select(c => c.ChapterNumber)
+                    .ToListAsync(cancellationToken);
+                foreach (var no in existingNos.Concat(chapterTableNos).Distinct().Where(n => n > 0).OrderByDescending(n => n))
+                    await _bookService.DeleteWriterChapterAsync(userId, bookId, no, cancellationToken);
+
+                var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
+                    userId, bookId, 1, chapterTitle, bodyHtml, null, "image-import", cancellationToken);
+                if (responseId <= 0)
+                    return Json(new { success = false, message = "Images were saved but the chapter could not be created." });
+
+                var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
+                    userId, bookId, 1, responseId, cancellationToken);
+                if (!promoted)
+                {
+                    await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                        userId, bookId, 1, responseId, cancellationToken);
+                }
+
+                HttpContext.Session.SetString("HasGeneratedBook", "1");
+                HttpContext.Session.SetInt32("LastSelectedBookId", bookId);
+                try
+                {
+                    await _bookFlow.SaveStepAsync(bookId, BookFlowStateService.StepFormat, "upload-images", cancellationToken);
+                }
+                catch (Exception flowEx)
+                {
+                    _logger.LogDebug(flowEx, "UploadFormatterImages: flow step save skipped for book {BookId}", bookId);
+                }
+
+                var structureSource = new List<(int No, string Title, string Body)>
+                {
+                    (1, chapterTitle, bodyHtml)
+                };
+                var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(structureSource);
+
+                return Json(new
+                {
+                    success = true,
+                    bookId,
+                    fileName = images[0].FileName,
+                    imageCount = savedCount,
+                    chapterCount = chapters.Count,
+                    lastUploadedLabel = DateTime.UtcNow.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
+                    chapters = chapters.Select(c => new
+                    {
+                        c.ChapterNo,
+                        c.Title,
+                        c.Matter,
+                        c.WordCount,
+                        c.StartPage,
+                        c.PageCount
+                    }).ToList(),
+                    toc,
+                    pages
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "UploadFormatterImages failed for book {BookId}", bookId);
+                return Json(new { success = false, message = "Could not import those images. Try smaller PNG or JPG files." });
             }
         }
 

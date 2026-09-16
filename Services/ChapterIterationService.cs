@@ -90,52 +90,73 @@ namespace EBookDashboard.Services
             if (content.Length > 2_000_000)
                 content = content.Substring(0, 2_000_000) + "\n...[truncated for iteration storage]";
 
-            // Serializable transaction: stable next IterationNumber under concurrent generates for the same chapter.
-            IExecutionStrategy strategy = _db.Database.CreateExecutionStrategy();
-            await strategy.ExecuteAsync(async () =>
+            try
             {
-                await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-                try
+                IExecutionStrategy strategy = _db.Database.CreateExecutionStrategy();
+                await strategy.ExecuteAsync(async () =>
                 {
-                    var seriesGuid = await _db.Set<ChapterIteration>()
-                        .Where(i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNumber)
-                        .Select(i => i.ChapterSeriesGuid)
-                        .FirstOrDefaultAsync(cancellationToken);
-
-                    if (seriesGuid == Guid.Empty)
-                        seriesGuid = Guid.NewGuid();
-
-                    var maxIt = await _db.Set<ChapterIteration>()
-                        .Where(i => i.ChapterSeriesGuid == seriesGuid)
-                        .MaxAsync(i => (int?)i.IterationNumber, cancellationToken) ?? 0;
-
-                    var utc = DateTime.UtcNow;
-                    var row = new ChapterIteration
+                    await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+                    try
                     {
-                        ChapterSeriesGuid = seriesGuid,
-                        BookId = bookId,
-                        UserId = userId,
-                        ChapterNumber = chapterNumber,
-                        IterationNumber = maxIt + 1,
-                        ResponseId = responseId,
-                        Title = raw.Title,
-                        Content = content,
-                        GenerationDate = utc.Date,
-                        GenerationTime = utc.TimeOfDay,
-                        IsFinalized = false,
-                        IsLocked = false
-                    };
+                        await InsertIterationRowAsync(raw, userId, bookId, chapterNumber, responseId, content, cancellationToken);
+                        await tx.CommitAsync(cancellationToken);
+                    }
+                    catch
+                    {
+                        await tx.RollbackAsync(cancellationToken);
+                        throw;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Serializable chapter_iterations insert failed for response {Id}; retrying without isolation", responseId);
+                if (await _db.Set<ChapterIteration>().AnyAsync(i => i.ResponseId == responseId, cancellationToken))
+                    return;
+                await InsertIterationRowAsync(raw, userId, bookId, chapterNumber, responseId, content, cancellationToken);
+            }
+        }
 
-                    _db.Set<ChapterIteration>().Add(row);
-                    await _db.SaveChangesAsync(cancellationToken);
-                    await tx.CommitAsync(cancellationToken);
-                }
-                catch
-                {
-                    await tx.RollbackAsync(cancellationToken);
-                    throw;
-                }
-            });
+        private async Task InsertIterationRowAsync(
+            APIRawResponse raw,
+            int userId,
+            int bookId,
+            int chapterNumber,
+            int responseId,
+            string content,
+            CancellationToken cancellationToken)
+        {
+            var seriesGuid = await _db.Set<ChapterIteration>()
+                .Where(i => i.UserId == userId && i.BookId == bookId && i.ChapterNumber == chapterNumber)
+                .Select(i => i.ChapterSeriesGuid)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (seriesGuid == Guid.Empty)
+                seriesGuid = Guid.NewGuid();
+
+            var maxIt = await _db.Set<ChapterIteration>()
+                .Where(i => i.ChapterSeriesGuid == seriesGuid)
+                .MaxAsync(i => (int?)i.IterationNumber, cancellationToken) ?? 0;
+
+            var utc = DateTime.UtcNow;
+            var row = new ChapterIteration
+            {
+                ChapterSeriesGuid = seriesGuid,
+                BookId = bookId,
+                UserId = userId,
+                ChapterNumber = chapterNumber,
+                IterationNumber = maxIt + 1,
+                ResponseId = responseId,
+                Title = raw.Title,
+                Content = content,
+                GenerationDate = utc.Date,
+                GenerationTime = utc.TimeOfDay,
+                IsFinalized = false,
+                IsLocked = false
+            };
+
+            _db.Set<ChapterIteration>().Add(row);
+            await _db.SaveChangesAsync(cancellationToken);
         }
 
         /// <inheritdoc />
@@ -190,66 +211,98 @@ namespace EBookDashboard.Services
 
         /// <inheritdoc />
         public Task<bool> FinalizeByResponseIdAsync(int userId, int bookId, int chapterNumber, int responseId, CancellationToken cancellationToken = default)
-            => PromoteIterationCoreAsync(userId, bookId, chapterNumber, responseId, upsertLibraryChapter: true, cancellationToken);
+            => PromoteIterationCoreAsync(userId, bookId, chapterNumber, responseId, libraryStatus: "ReadOnly", cancellationToken);
 
         /// <inheritdoc />
         public Task<bool> PromoteAsCurrentVersionAsync(int userId, int bookId, int chapterNumber, int responseId, CancellationToken cancellationToken = default)
-            => PromoteIterationCoreAsync(userId, bookId, chapterNumber, responseId, upsertLibraryChapter: false, cancellationToken);
+            => PromoteIterationCoreAsync(userId, bookId, chapterNumber, responseId, libraryStatus: "Draft", cancellationToken);
 
         private async Task<bool> PromoteIterationCoreAsync(
             int userId,
             int bookId,
             int chapterNumber,
             int responseId,
-            bool upsertLibraryChapter,
+            string libraryStatus,
             CancellationToken cancellationToken)
         {
             if (responseId <= 0 || userId <= 0 || bookId <= 0) return false;
 
-            var strategy = _db.Database.CreateExecutionStrategy();
-            return await strategy.ExecuteAsync(async () =>
+            try
             {
-                await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
-                try
+                var strategy = _db.Database.CreateExecutionStrategy();
+                return await strategy.ExecuteAsync(async () =>
                 {
-                    var iter = await EnsureIterationRowAsync(userId, bookId, chapterNumber, responseId, cancellationToken);
-                    if (iter == null)
+                    await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+                    try
+                    {
+                        var ok = await PromoteIterationInCurrentContextAsync(
+                            userId, bookId, chapterNumber, responseId, libraryStatus, cancellationToken);
+                        if (!ok)
+                        {
+                            await tx.RollbackAsync(cancellationToken);
+                            return false;
+                        }
+
+                        await tx.CommitAsync(cancellationToken);
+                        return true;
+                    }
+                    catch
                     {
                         await tx.RollbackAsync(cancellationToken);
-                        return false;
+                        throw;
                     }
-
-                    var siblings = await _db.Set<ChapterIteration>()
-                        .Where(i => i.ChapterSeriesGuid == iter.ChapterSeriesGuid && i.ChapterIterationId != iter.ChapterIterationId)
-                        .ToListAsync(cancellationToken);
-                    foreach (var s in siblings)
-                    {
-                        s.IsFinalized = false;
-                        s.IsLocked = false;
-                        s.FinalizedDate = null;
-                        s.FinalizedTime = null;
-                    }
-
-                    var now = DateTime.UtcNow;
-                    iter.IsFinalized = true;
-                    iter.IsLocked = true;
-                    iter.FinalizedDate = now.Date;
-                    iter.FinalizedTime = now.TimeOfDay;
-
-                    if (upsertLibraryChapter)
-                        UpsertMainChapterFromIteration(userId, iter);
-
-                    await _db.SaveChangesAsync(cancellationToken);
-                    await tx.CommitAsync(cancellationToken);
-                    return true;
-                }
-                catch (Exception ex)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Promote iteration (serializable) failed for response {ResponseId}; retrying without isolation", responseId);
+                try
                 {
-                    _logger.LogWarning(ex, "Promote iteration failed for response {ResponseId}", responseId);
-                    await tx.RollbackAsync(cancellationToken);
+                    return await PromoteIterationInCurrentContextAsync(
+                        userId, bookId, chapterNumber, responseId, libraryStatus, cancellationToken);
+                }
+                catch (Exception retryEx)
+                {
+                    _logger.LogWarning(retryEx, "Promote iteration failed for response {ResponseId}", responseId);
                     return false;
                 }
-            });
+            }
+        }
+
+        private async Task<bool> PromoteIterationInCurrentContextAsync(
+            int userId,
+            int bookId,
+            int chapterNumber,
+            int responseId,
+            string libraryStatus,
+            CancellationToken cancellationToken)
+        {
+            var iter = await EnsureIterationRowAsync(userId, bookId, chapterNumber, responseId, cancellationToken);
+            if (iter == null)
+                return false;
+
+            var siblings = await _db.Set<ChapterIteration>()
+                .Where(i => i.ChapterSeriesGuid == iter.ChapterSeriesGuid && i.ChapterIterationId != iter.ChapterIterationId)
+                .ToListAsync(cancellationToken);
+            foreach (var s in siblings)
+            {
+                s.IsFinalized = false;
+                s.IsLocked = false;
+                s.FinalizedDate = null;
+                s.FinalizedTime = null;
+            }
+
+            var now = DateTime.UtcNow;
+            iter.IsFinalized = true;
+            iter.IsLocked = true;
+            iter.FinalizedDate = now.Date;
+            iter.FinalizedTime = now.TimeOfDay;
+
+            if (!string.IsNullOrWhiteSpace(libraryStatus))
+                UpsertMainChapterFromIteration(userId, iter, libraryStatus);
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return true;
         }
 
         private async Task<ChapterIteration?> EnsureIterationRowAsync(
@@ -421,9 +474,9 @@ namespace EBookDashboard.Services
         }
 
         /// <summary>
-        /// Official library chapter row: only the finalized iteration is copied into <c>chapters</c>.
+        /// Official library chapter row in <c>chapters</c>. Generate writes Draft; Finalize writes ReadOnly.
         /// </summary>
-        private void UpsertMainChapterFromIteration(int userId, ChapterIteration iter)
+        private void UpsertMainChapterFromIteration(int userId, ChapterIteration iter, string status)
         {
             var title = string.IsNullOrWhiteSpace(iter.Title)
                 ? $"Chapter {iter.ChapterNumber}"
@@ -434,16 +487,25 @@ namespace EBookDashboard.Services
             var content = iter.Content ?? string.Empty;
             var wc = ApproximateWordCount(content);
             var now = DateTime.UtcNow;
+            var nextStatus = string.IsNullOrWhiteSpace(status) ? "Draft" : status.Trim();
+            var nextIsOfficial = IsOfficialLibraryStatus(nextStatus);
 
             var row = _db.Chapters.FirstOrDefault(c => c.BookId == iter.BookId && c.ChapterNumber == iter.ChapterNumber);
             if (row != null)
             {
+                // Do not demote a finalized library chapter back to Draft.
+                if (IsOfficialLibraryStatus(row.Status) && !nextIsOfficial)
+                    return;
+
                 row.Title = title;
                 row.Content = content;
-                row.Status = "ReadOnly";
+                row.Status = nextStatus;
                 row.WordCount = wc;
                 row.UpdatedAt = now;
                 row.UpdatedByUserId = userId;
+                if (row.LanguageId <= 0) row.LanguageId = 1;
+                if (row.SrNo <= 0) row.SrNo = iter.ChapterNumber;
+                if (row.OrderIndex <= 0) row.OrderIndex = iter.ChapterNumber;
                 return;
             }
 
@@ -458,13 +520,18 @@ namespace EBookDashboard.Services
                 Content = content,
                 LanguageId = 1,
                 WordCount = wc,
-                Status = "ReadOnly",
+                Status = nextStatus,
                 CreatedAt = now,
                 UpdatedAt = now,
                 UpdatedByUserId = userId,
                 IsPublished = false
             });
         }
+
+        private static bool IsOfficialLibraryStatus(string? status) =>
+            string.Equals(status, "ReadOnly", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Final", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Finalized", StringComparison.OrdinalIgnoreCase);
 
         private static int ApproximateWordCount(string? html)
         {

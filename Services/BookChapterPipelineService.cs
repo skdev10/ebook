@@ -262,6 +262,12 @@ public class BookChapterPipelineService : IBookChapterPipelineService
                     try
                     {
                         await _chapterIterationService.RecordSuccessfulGenerationAsync(rawId, cancellationToken);
+                        var userId = int.TryParse(aiRequest.UserId, out var uid) ? uid : 0;
+                        if (userId > 0 && bookId > 0 && chapterNumber > 0)
+                        {
+                            await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                                userId, bookId, chapterNumber, rawId, cancellationToken);
+                        }
                     }
                     catch (Exception itEx)
                     {
