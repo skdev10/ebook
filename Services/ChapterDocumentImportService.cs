@@ -262,7 +262,9 @@ public static class ChapterDocumentImportService
                     continue;
                 }
 
-                var isChapterStart = text.Length > 0 && IsDocxChapterBoundary(styleId, text);
+                var isChapterStart = text.Length > 0 && (
+                    IsDocxChapterBoundary(styleId, text)
+                    || (LooksLikeChapterTitle(text) && curBody.Length >= 280));
 
                 if (isChapterStart)
                 {
@@ -296,6 +298,15 @@ public static class ChapterDocumentImportService
             }
 
             Flush();
+            if (chapters.Count == 1)
+            {
+                var resplit = ResplitSingleChapterOnHeadings(chapters[0]);
+                if (resplit.Count >= 2)
+                {
+                    chapters.Clear();
+                    chapters.AddRange(resplit);
+                }
+            }
             combinedPlainText = plain.ToString();
         }
         catch (Exception ex) when (ex is FileFormatException or InvalidDataException or OpenXmlPackageException)
@@ -495,6 +506,37 @@ public static class ChapterDocumentImportService
     private static bool LooksLikePointHeading(string? text)
         => Regex.IsMatch((text ?? string.Empty).Trim(), @"^\d{1,2}[\.\)\]]\s+\S");
 
+    /// <summary>
+    /// A chapter-sized title such as "Disadvantages of Technology" — not a numbered point.
+    /// </summary>
+    internal static bool LooksLikeChapterTitle(string? text)
+    {
+        var t = (text ?? string.Empty).Trim();
+        if (LooksLikePointHeading(t) || !LooksLikeStandaloneHeading(t))
+            return false;
+        var words = Regex.Split(t, @"\s+").Where(w => w.Length > 0).ToArray();
+        return words.Length is >= 2 and <= 8;
+    }
+
+    private static bool IsChapterBoundaryLine(string line, string[] lines, int index, List<(int lineIdx, string title)> boundaries)
+    {
+        if (line.Length > 120)
+            return false;
+        if (LooksLikePointHeading(line))
+            return false;
+        if (IsExplicitChapterMarker(line))
+            return true;
+        if (!LooksLikeChapterTitle(line) || !IsPrecededByBreak(lines, index))
+            return false;
+
+        var prevIdx = boundaries.Count > 0 ? boundaries[^1].lineIdx : -1;
+        var charsSince = 0;
+        for (var i = prevIdx + 1; i < index; i++)
+            charsSince += lines[i].Trim().Length;
+        // Need a real preceding chapter body so scene-less opening titles stay put.
+        return charsSince >= 280;
+    }
+
     private static bool IsDocxChapterBoundary(string styleId, string text)
     {
         if (LooksLikePointHeading(text))
@@ -595,11 +637,11 @@ public static class ChapterDocumentImportService
             if (line.Length == 0)
                 continue;
 
-            // Only real chapter banners start a new chapter. Points / H2 / "1. Title"
-            // stay inside the current chapter as headings.
-            if (IsExplicitChapterMarker(line) && line.Length <= 120)
+            if (IsChapterBoundaryLine(line, lines, i, boundaries))
             {
-                var title = ExtractExplicitChapterTitle(line);
+                var title = IsExplicitChapterMarker(line)
+                    ? ExtractExplicitChapterTitle(line)
+                    : line;
                 boundaries.Add((i, TruncateSuggestedTitle(title)));
             }
         }
@@ -635,9 +677,14 @@ public static class ChapterDocumentImportService
                 bodyBuilder.AppendLine(lines[l]);
 
             var body = bodyBuilder.ToString().Trim();
-            // Skip empty chapters (heading with no content).
             if (body.Length == 0)
-                continue;
+            {
+                // Keep a titled chapter even if the next banner is immediate —
+                // otherwise "Chapter 2: Title" can be dropped.
+                if (string.IsNullOrWhiteSpace(boundaries[b].title))
+                    continue;
+                body = "";
+            }
 
             chapterNo++;
             var title = boundaries[b].title;
@@ -650,6 +697,13 @@ public static class ChapterDocumentImportService
         {
             var (no, title) = SuggestChapterFromBodyText(text);
             result.Add(new ImportedChapter(no, title, FormatImportedBodyAsHtml(text.Trim())));
+        }
+
+        if (result.Count == 1)
+        {
+            var resplit = ResplitSingleChapterOnHeadings(result[0]);
+            if (resplit.Count >= 2)
+                return resplit;
         }
 
         return result;
@@ -669,8 +723,12 @@ public static class ChapterDocumentImportService
         var structuredHasHeadings = structured.Any(c =>
             (c.Body ?? "").Contains("manuscript-heading", StringComparison.OrdinalIgnoreCase)
             || (c.Body ?? "").Contains("<h", StringComparison.OrdinalIgnoreCase));
-        // A fallback that exploded section points into many chapters is worse.
-        if (structuredHasHeadings && fallback.Count > structured.Count)
+        var fallbackLooksLikeRealChapters = fallback.Count(c =>
+            IsExplicitChapterMarker(c.Title ?? "") || LooksLikeChapterTitle(c.Title ?? "")) >= 2;
+        // Prefer a real Chapter 2 split over one blob that only has in-body headings.
+        if (fallbackLooksLikeRealChapters && fallback.Count > structured.Count)
+            return fallback;
+        if (structuredHasHeadings && fallback.Count > structured.Count && !fallbackLooksLikeRealChapters)
             return structured;
         if (!structuredHasHeadings && fallback.Count > structured.Count)
             return fallback;
@@ -874,18 +932,29 @@ public static class ChapterDocumentImportService
 
         var rx = new Regex(@"<h([1-2])\b[^>]*>([\s\S]*?)</h\1>", RegexOptions.IgnoreCase);
         var matches = rx.Matches(html);
-        if (matches.Count < 2)
+        if (matches.Count == 0)
             return new List<ImportedChapter> { chapter };
 
         var splitAt = matches.Cast<Match>().Where(m =>
         {
             var text = System.Net.WebUtility.HtmlDecode(Regex.Replace(m.Groups[2].Value, "<[^>]+>", string.Empty)).Trim();
-            return IsExplicitChapterMarker(text);
+            if (LooksLikePointHeading(text))
+                return false;
+            if (IsExplicitChapterMarker(text))
+                return true;
+            return LooksLikeChapterTitle(text) && m.Index >= 280;
         }).ToList();
-        if (splitAt.Count < 2)
+        if (splitAt.Count == 0)
             return new List<ImportedChapter> { chapter };
 
         var result = new List<ImportedChapter>();
+        if (splitAt[0].Index >= 280)
+        {
+            var preface = PromoteHeadingParagraphs(html[..splitAt[0].Index].Trim());
+            if (preface.Length > 0)
+                result.Add(new ImportedChapter(1, TruncateSuggestedTitle(chapter.Title), preface));
+        }
+
         for (var i = 0; i < splitAt.Count; i++)
         {
             var title = System.Net.WebUtility.HtmlDecode(
@@ -923,7 +992,10 @@ public static class ChapterDocumentImportService
 
         var upperLetters = t.Count(ch => char.IsLetter(ch) && char.IsUpper(ch));
         var isAllCaps = upperLetters >= letters * 0.85;
-        var titleCase = words.Count(w => char.IsLetter(w[0]) && char.IsUpper(w[0])) >= Math.Max(1, (int)Math.Ceiling(words.Length * 0.7));
+        var significant = words.Where(w => w.Length > 3 || char.IsUpper(w[0])).ToArray();
+        if (significant.Length == 0) significant = words;
+        var titleCase = significant.Count(w => char.IsLetter(w[0]) && char.IsUpper(w[0]))
+                        >= Math.Max(1, (int)Math.Ceiling(significant.Length * 0.7));
         return isAllCaps || titleCase || IsChapterHeadingLine(t) || LooksLikePointHeading(t);
     }
 

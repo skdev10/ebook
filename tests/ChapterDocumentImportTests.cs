@@ -222,6 +222,41 @@ public class ChapterDocumentImportTests
     }
 
     [Fact]
+    public void SplitIntoChapters_treats_named_chapter_two_as_its_own_chapter()
+    {
+        var chapter1 = new string('x', 320);
+        var text = $"""
+            Chapter 1
+            {chapter1} first chapter continues with real paragraphs.
+
+            Chapter 2: Disadvantages of Technology
+            Technology also creates new problems for families and schools.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 2, $"Expected Chapter 2 split, got {chapters.Count}");
+        Assert.Contains("Disadvantages", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("families", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Disadvantages of Technology", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SplitIntoChapters_treats_plain_chapter_title_after_body_as_chapter_two()
+    {
+        var chapter1 = "People gained speed and convenience from modern tools. " + new string('a', 260);
+        var text = $"""
+            Chapter 1
+            {chapter1}
+
+            Disadvantages of Technology
+            The same tools can isolate people from each other.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 2, $"Expected named Chapter 2, got {chapters.Count}");
+        Assert.Contains("Disadvantages", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isolate", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void SplitIntoChapters_keeps_numbered_points_in_first_chapter()
     {
         var text = """

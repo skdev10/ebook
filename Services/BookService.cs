@@ -31,7 +31,7 @@ namespace EBookDashboard.Services
         public async Task<IEnumerable<Books>> GetAllBooksAsync()
         {
             return await _context.Books
-                                 .Include(b => b.Chapters)
+                                 .AsNoTracking()
                                  .ToListAsync();
         }
 

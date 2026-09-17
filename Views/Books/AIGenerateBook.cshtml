@@ -7876,7 +7876,9 @@ document.addEventListener('DOMContentLoaded', function() {
            if (letters < 3) return false;
            var upper = (t.match(/[A-Z\u00C0-\u00DE\u0400-\u042F]/g) || []).length;
            var allCaps = upper >= letters * 0.85;
-           var titleCase = words.filter(function(w) { return /^[A-Z\u00C0-\u00DE\u0400-\u042F]/.test(w); }).length >= Math.max(1, Math.ceil(words.length * 0.7));
+           var significant = words.filter(function(w) { return w.length > 3 || /^[A-Z\u00C0-\u00DE\u0400-\u042F]/.test(w); });
+           if (!significant.length) significant = words;
+           var titleCase = significant.filter(function(w) { return /^[A-Z\u00C0-\u00DE\u0400-\u042F]/.test(w); }).length >= Math.max(1, Math.ceil(significant.length * 0.7));
            var chapter = /^(?:#+\s*)?(?:Chapter|CHAPTER|Part|PART|Prologue|Epilogue|Introduction|Conclusion|Section)\b/i.test(t);
            return allCaps || titleCase || chapter;
        }

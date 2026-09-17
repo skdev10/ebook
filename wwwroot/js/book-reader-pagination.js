@@ -21,7 +21,7 @@
         return el && tmp.children.length === 1 && isHeadingElement(el);
     }
 
-    /** Pull trailing h1–h6 / .manuscript-heading from inner HTML (not wrapped in reader-chapter-block). */
+    /** Pull trailing heading cluster (one or more headings) so they stay with the next page. */
     function pullTrailingHeadingFromInnerHtml(innerHtml) {
         var html = String(innerHtml || '').trim();
         if (!html) return null;
@@ -29,10 +29,12 @@
         tmp.innerHTML = html;
         var children = Array.prototype.slice.call(tmp.children || []);
         if (!children.length) return null;
-        var last = children[children.length - 1];
-        if (!isHeadingElement(last)) return null;
-        var headingHtml = last.outerHTML;
-        children.pop();
+        var taken = [];
+        while (children.length && isHeadingElement(children[children.length - 1])) {
+            taken.unshift(children.pop());
+        }
+        if (!taken.length) return null;
+        var headingHtml = taken.map(function (n) { return n.outerHTML; }).join('');
         var remain = children.map(function (n) { return n.outerHTML; }).join('');
         if (!remain.trim() && children.length === 0) {
             return { bodyWithoutHeading: '', headingHtml: headingHtml };

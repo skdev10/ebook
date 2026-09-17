@@ -4294,16 +4294,18 @@
         for (var i = 0; i < flat.length; i++) {
             var seg = flat[i];
             var segIsHeading = isFlowHeadingSegment(seg);
-            if (segIsHeading && i + 1 < flat.length && !isFlowHeadingSegment(flat[i + 1])) {
-                seg = seg + flat[i + 1];
-                i++;
-            }
-            // #2: a major subsection heading consistently starts at the top of a new page.
-            // Flush whatever is already accumulated so the heading opens a fresh page.
-            // (acc is empty right after a chapter opener, so this won't strand the title page.)
-            if (segIsHeading && acc) {
-                var headingOrphan = pushPage(acc, pageOpts());
-                acc = headingOrphan || '';
+            // Keep heading clusters (H2 + H3) with the first following paragraph.
+            if (segIsHeading) {
+                var j = i + 1;
+                while (j < flat.length && isFlowHeadingSegment(flat[j])) {
+                    seg += flat[j];
+                    j++;
+                }
+                if (j < flat.length && !isFlowHeadingSegment(flat[j])) {
+                    seg += flat[j];
+                    j++;
+                }
+                i = j - 1;
             }
             var trial = acc ? (acc + seg) : seg;
             if (fmtPageContentFits(buildReaderPageBlockHtml(trial, pageOpts()))) {
@@ -4386,9 +4388,10 @@
 
                 var nextBody = outP[i + 1].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
                 if (!nextBody || !nextBody[2].trim()) continue;
-                var firstBlockMatch = nextBody[2].match(/^(\s*<(?:p|h[1-6]|li|blockquote)[^>]*>[\s\S]*?<\/(?:p|h[1-6]|li|blockquote)>)/i);
+                var firstBlockMatch = nextBody[2].match(/^(\s*<(?:p|li|blockquote)[^>]*>[\s\S]*?<\/(?:p|li|blockquote)>)/i);
                 if (!firstBlockMatch) continue;
                 var block = firstBlockMatch[1];
+                if (/<h[1-6]\b/i.test(block)) continue;
                 if (wordCountInHtml(block) > 12) continue;
 
                 var curBody = outP[i].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
@@ -5685,7 +5688,9 @@
         if (letters < 3) return false;
         var upper = (t.match(/[A-Z\u00C0-\u00DE\u0400-\u042F]/g) || []).length;
         var allCaps = upper >= letters * 0.85;
-        var titleCase = words.filter(function(w) { return /^[A-Z\u00C0-\u00DE\u0400-\u042F]/.test(w); }).length >= Math.max(1, Math.ceil(words.length * 0.7));
+        var significant = words.filter(function(w) { return w.length > 3 || /^[A-Z\u00C0-\u00DE\u0400-\u042F]/.test(w); });
+        if (!significant.length) significant = words;
+        var titleCase = significant.filter(function(w) { return /^[A-Z\u00C0-\u00DE\u0400-\u042F]/.test(w); }).length >= Math.max(1, Math.ceil(significant.length * 0.7));
         var chapter = /^(?:#+\s*)?(?:Chapter|CHAPTER|Part|PART|Prologue|Epilogue|Introduction|Conclusion|Section)\b/i.test(t);
         return allCaps || titleCase || chapter;
     }
