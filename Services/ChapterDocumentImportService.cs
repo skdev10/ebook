@@ -655,7 +655,8 @@ public static class ChapterDocumentImportService
 
             var (no, title) = SuggestChapterFromBodyText(text);
             result.Add(new ImportedChapter(no, title, FormatImportedBodyAsHtml(text.Trim())));
-            return result;
+            var resplit = ResplitSingleChapterOnHeadings(result[0]);
+            return resplit.Count >= 2 ? resplit : result;
         }
 
         // Capture any preface text before the first heading as chapter content prepended to chapter 1.

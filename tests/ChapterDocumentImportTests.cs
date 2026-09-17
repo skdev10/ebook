@@ -257,6 +257,23 @@ public class ChapterDocumentImportTests
     }
 
     [Fact]
+    public void SplitIntoChapters_empty_manuscript_returns_no_chapters()
+    {
+        Assert.Empty(ChapterDocumentImportService.SplitIntoChapters(""));
+        Assert.Empty(ChapterDocumentImportService.SplitIntoChapters("   \n\n  "));
+    }
+
+    [Fact]
+    public void SplitIntoChapters_single_chapter_without_second_title_stays_one()
+    {
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(
+            "Chapter 1 Opening\n\nOnly one chapter lives in this short book.");
+        Assert.Single(chapters);
+        Assert.Contains("Opening", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Only one chapter", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void SplitIntoChapters_keeps_numbered_points_in_first_chapter()
     {
         var text = """
