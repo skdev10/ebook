@@ -166,13 +166,14 @@ public class ChapterDocumentImportTests
     }
 
     [Fact]
-    public void SplitIntoChapters_uses_blank_line_headings_as_chapter_titles()
+    public void SplitIntoChapters_keeps_section_points_inside_one_chapter()
     {
         var text = "THE HIDDEN ROAD\n\nOnce upon a time a traveler left home.\n\nTHE RIVER CROSSING\n\nThe water was cold and fast.";
         var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
-        Assert.True(chapters.Count >= 2, $"Expected 2 heading chapters, got {chapters.Count}");
-        Assert.Contains("HIDDEN", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("RIVER", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(chapters);
+        Assert.Contains("HIDDEN", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RIVER", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("manuscript-heading", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -209,15 +210,58 @@ public class ChapterDocumentImportTests
     }
 
     [Fact]
-    public void SplitIntoChapters_heading_without_trailing_blank_line()
+    public void SplitIntoChapters_heading_without_trailing_blank_line_stays_in_body()
     {
         var text = "THE HIDDEN ROAD\nOnce upon a time a traveler left home.\n\nTHE RIVER CROSSING\nThe water was cold and fast.";
         var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
-        Assert.True(chapters.Count >= 2, $"Expected 2 heading chapters, got {chapters.Count}");
-        Assert.Contains("HIDDEN", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("RIVER", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Single(chapters);
+        Assert.Contains("HIDDEN", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RIVER", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("traveler", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("water", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("water", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SplitIntoChapters_keeps_numbered_points_in_first_chapter()
+    {
+        var text = """
+            Chapter 1 Getting Started
+
+            1. What this book is
+            This chapter explains the idea.
+
+            2. How to use the points
+            Read each point, then move on.
+
+            3. Next steps
+            Keep the same chapter open.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.Single(chapters);
+        Assert.Contains("Getting Started", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("What this book is", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("How to use the points", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("manuscript-heading", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExtractDocxChapters_keeps_heading2_points_inside_chapter()
+    {
+        var bytes = BuildSimpleDocx(
+            ("Heading1", "Chapter 1 Getting Started"),
+            (null, "This chapter has three points."),
+            ("Heading2", "1. What this book is"),
+            (null, "The idea is simple."),
+            ("Heading2", "2. How to use the points"),
+            (null, "Read them in order."),
+            ("Heading2", "3. Next steps"),
+            (null, "Stay in this chapter."));
+        var chapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out _);
+        Assert.Single(chapters);
+        Assert.Contains("Getting Started", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("manuscript-heading", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("What this book is", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Next steps", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
