@@ -164,4 +164,159 @@ public class ChapterDocumentImportTests
         var norm = ChapterDocumentImportService.NormalizeInlineChapterHeadings(raw);
         Assert.Contains("\n\nChapter 2", norm);
     }
+
+    [Fact]
+    public void SplitIntoChapters_uses_blank_line_headings_as_chapter_titles()
+    {
+        var text = "THE HIDDEN ROAD\n\nOnce upon a time a traveler left home.\n\nTHE RIVER CROSSING\n\nThe water was cold and fast.";
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 2, $"Expected 2 heading chapters, got {chapters.Count}");
+        Assert.Contains("HIDDEN", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RIVER", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FormatImportedBodyAsHtml_keeps_markdown_headings()
+    {
+        var html = ChapterDocumentImportService.FormatImportedBodyAsHtml("## A Quiet Town\n\nPeople lived simply there.");
+        Assert.Contains("<h2", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("A Quiet Town", html);
+        Assert.Contains("<p", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FormatBodyToHtml_promotes_isolated_title_case_line()
+    {
+        var html = BookManuscriptHtmlFormatter.FormatBodyToHtml("A Quiet Town\n\nPeople lived simply there.");
+        Assert.Contains("<h2", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("A Quiet Town", html);
+        Assert.Contains("People lived simply there", html);
+    }
+
+    [Fact]
+    public void PreferRicherChapterSplit_keeps_structured_headings_and_images()
+    {
+        var structured = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Dawn", "<h2 class=\"manuscript-heading\">Dawn</h2><p>Light.</p><img src=\"x\" />")
+        };
+        var fallback = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Chapter 1", "Light.")
+        };
+        var chosen = ChapterDocumentImportService.PreferRicherChapterSplit(structured, fallback);
+        Assert.Same(structured, chosen);
+    }
+
+    [Fact]
+    public void SplitIntoChapters_heading_without_trailing_blank_line()
+    {
+        var text = "THE HIDDEN ROAD\nOnce upon a time a traveler left home.\n\nTHE RIVER CROSSING\nThe water was cold and fast.";
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 2, $"Expected 2 heading chapters, got {chapters.Count}");
+        Assert.Contains("HIDDEN", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("RIVER", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("traveler", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("water", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void FormatImportedBodyAsHtml_promotes_title_case_paragraphs()
+    {
+        var html = ChapterDocumentImportService.FormatImportedBodyAsHtml("<p>A Quiet Town</p><p>People lived simply there.</p>");
+        Assert.Contains("<h2", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("A Quiet Town", html);
+        Assert.Contains("<p", html, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PromoteHeadingParagraphs_converts_heading_like_paragraphs()
+    {
+        var html = ChapterDocumentImportService.PromoteHeadingParagraphs(
+            "<p>THE MARKET SQUARE</p><p>Vendors shouted over the crowd.</p>");
+        Assert.Contains("<h2", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("THE MARKET SQUARE", html);
+        Assert.DoesNotContain("<p>THE MARKET SQUARE</p>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ExtractDocxChapters_uses_heading1_as_chapter_title()
+    {
+        var bytes = BuildSimpleDocx(
+            ("Heading1", "Chapter 1 The Beginning"),
+            (null, "Once upon a time the story started."),
+            ("Heading1", "Chapter 2 The Middle"),
+            (null, "And then more things happened."));
+        var chapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out _);
+        Assert.True(chapters.Count >= 2, $"Expected 2 chapters, got {chapters.Count}");
+        Assert.Contains("Beginning", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Middle", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<p>", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExtractDocxChapters_treats_bold_centered_line_as_heading()
+    {
+        var bytes = BuildBoldCenteredDocx("A Hidden Door", "The wall opened onto a stair.");
+        var chapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var plain);
+        Assert.NotEmpty(chapters);
+        Assert.True(
+            chapters[0].Title.Contains("Hidden", StringComparison.OrdinalIgnoreCase)
+            || chapters[0].Body.Contains("manuscript-heading", StringComparison.OrdinalIgnoreCase)
+            || plain.Contains("#"),
+            "Bold centered title should become a chapter title or in-body heading.");
+    }
+
+    private static byte[] BuildSimpleDocx(params (string? StyleId, string Text)[] paragraphs)
+    {
+        using var ms = new MemoryStream();
+        using (var doc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(
+                   ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
+        {
+            var main = doc.AddMainDocumentPart();
+            var body = new DocumentFormat.OpenXml.Wordprocessing.Body();
+            foreach (var (styleId, text) in paragraphs)
+            {
+                var para = new DocumentFormat.OpenXml.Wordprocessing.Paragraph();
+                if (!string.IsNullOrEmpty(styleId))
+                {
+                    para.ParagraphProperties = new DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties(
+                        new DocumentFormat.OpenXml.Wordprocessing.ParagraphStyleId { Val = styleId });
+                }
+                para.Append(new DocumentFormat.OpenXml.Wordprocessing.Run(
+                    new DocumentFormat.OpenXml.Wordprocessing.Text(text)));
+                body.Append(para);
+            }
+            main.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(body);
+            main.Document.Save();
+        }
+        return ms.ToArray();
+    }
+
+    private static byte[] BuildBoldCenteredDocx(string heading, string body)
+    {
+        using var ms = new MemoryStream();
+        using (var doc = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Create(
+                   ms, DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
+        {
+            var main = doc.AddMainDocumentPart();
+            var titlePara = new DocumentFormat.OpenXml.Wordprocessing.Paragraph(
+                new DocumentFormat.OpenXml.Wordprocessing.ParagraphProperties(
+                    new DocumentFormat.OpenXml.Wordprocessing.Justification { Val = DocumentFormat.OpenXml.Wordprocessing.JustificationValues.Center }),
+                new DocumentFormat.OpenXml.Wordprocessing.Run(
+                    new DocumentFormat.OpenXml.Wordprocessing.RunProperties(
+                        new DocumentFormat.OpenXml.Wordprocessing.Bold(),
+                        new DocumentFormat.OpenXml.Wordprocessing.FontSize { Val = "32" }),
+                    new DocumentFormat.OpenXml.Wordprocessing.Text(heading)));
+            var bodyPara = new DocumentFormat.OpenXml.Wordprocessing.Paragraph(
+                new DocumentFormat.OpenXml.Wordprocessing.Run(
+                    new DocumentFormat.OpenXml.Wordprocessing.RunProperties(
+                        new DocumentFormat.OpenXml.Wordprocessing.FontSize { Val = "22" }),
+                    new DocumentFormat.OpenXml.Wordprocessing.Text(body)));
+            main.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(
+                new DocumentFormat.OpenXml.Wordprocessing.Body(titlePara, bodyPara));
+            main.Document.Save();
+        }
+        return ms.ToArray();
+    }
 }

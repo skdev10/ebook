@@ -3724,14 +3724,11 @@ namespace EBookDashboard.Controllers
                 {
                     var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
                     text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
-                    var docxHasImages = docxChapters.Any(c => c.Body.Contains("<img", StringComparison.OrdinalIgnoreCase));
-                    if (docxChapters.Count > 0 && (docxHasImages || docxChapters.Count > 1))
-                        splitChapters = docxChapters; // keep structured HTML (images + headings)
-                    else
-                        splitChapters = ChapterDocumentImportService.SplitIntoChapters(
-                            string.IsNullOrWhiteSpace(text)
-                                ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
-                                : text);
+                    var fallback = ChapterDocumentImportService.SplitIntoChapters(
+                        string.IsNullOrWhiteSpace(text)
+                            ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
+                            : text);
+                    splitChapters = ChapterDocumentImportService.PreferRicherChapterSplit(docxChapters, fallback);
                 }
                 else
                 {
@@ -4458,14 +4455,11 @@ namespace EBookDashboard.Controllers
                 {
                     var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
                     text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
-                    var docxHasImages = docxChapters.Any(c => c.Body.Contains("<img", StringComparison.OrdinalIgnoreCase));
-                    if (docxChapters.Count > 0 && (docxHasImages || docxChapters.Count > 1))
-                        splitChapters = docxChapters;
-                    else
-                        splitChapters = ChapterDocumentImportService.SplitIntoChapters(
-                            string.IsNullOrWhiteSpace(text)
-                                ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
-                                : text);
+                    var fallback = ChapterDocumentImportService.SplitIntoChapters(
+                        string.IsNullOrWhiteSpace(text)
+                            ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
+                            : text);
+                    splitChapters = ChapterDocumentImportService.PreferRicherChapterSplit(docxChapters, fallback);
                 }
                 else
                 {

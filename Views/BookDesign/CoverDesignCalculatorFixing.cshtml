@@ -5674,6 +5674,42 @@
         }
     }
 
+    function looksLikeStandaloneHeading(t) {
+        t = String(t || '').trim();
+        if (t.length < 2 || t.length > 80) return false;
+        if (/[.!?,]$/.test(t)) return false;
+        if (/^\d+$/.test(t)) return false;
+        var words = t.split(/\s+/).filter(Boolean);
+        if (words.length < 1 || words.length > 12) return false;
+        var letters = (t.match(/[A-Za-z\u00C0-\u024F\u0400-\u04FF]/g) || []).length;
+        if (letters < 3) return false;
+        var upper = (t.match(/[A-Z\u00C0-\u00DE\u0400-\u042F]/g) || []).length;
+        var allCaps = upper >= letters * 0.85;
+        var titleCase = words.filter(function(w) { return /^[A-Z\u00C0-\u00DE\u0400-\u042F]/.test(w); }).length >= Math.max(1, Math.ceil(words.length * 0.7));
+        var chapter = /^(?:#+\s*)?(?:Chapter|CHAPTER|Part|PART|Prologue|Epilogue|Introduction|Conclusion|Section)\b/i.test(t);
+        return allCaps || titleCase || chapter;
+    }
+
+    function promoteHeadingParagraphs(html) {
+        try {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(String(html || ''), 'text/html');
+            Array.prototype.slice.call(doc.body.children).forEach(function(el) {
+                if (!el || String(el.tagName || '').toLowerCase() !== 'p') return;
+                if (el.querySelector && el.querySelector('img')) return;
+                var t = (el.textContent || '').trim();
+                if (!looksLikeStandaloneHeading(t)) return;
+                var h = doc.createElement('h2');
+                h.className = 'manuscript-heading manuscript-h2';
+                h.innerHTML = el.innerHTML;
+                el.replaceWith(h);
+            });
+            return doc.body.innerHTML;
+        } catch (e) {
+            return html;
+        }
+    }
+
     function formatManuscriptPlainToHtml(s) {
         var lines = s.split('\n');
         var out = [];
@@ -5694,6 +5730,12 @@
                 out.push('<h' + level + ' class="manuscript-heading manuscript-h' + level + '">' + escapeHtml(hm[2].trim()) + '</h' + level + '>');
                 continue;
             }
+            var precededByBreak = i === 0 || !String(lines[i - 1] || '').trim();
+            if (precededByBreak && looksLikeStandaloneHeading(t)) {
+                flushPara();
+                out.push('<h2 class="manuscript-heading manuscript-h2">' + escapeHtml(t) + '</h2>');
+                continue;
+            }
             if (/^(?:\-{3,}|\*{3,}|_{3,})$/.test(t)) {
                 flushPara();
                 out.push('<hr class="manuscript-hr" />');
@@ -5710,7 +5752,7 @@
         if (!src) return '<p class="text-gray-500">No content.</p>';
         var looksLikeHtml = /<\s*(p|h1|h2|h3|h4|h5|h6|blockquote|ul|ol|li|br|div|hr)\b/i.test(src);
         if (looksLikeHtml) {
-            return sanitizeManuscriptHtml(src);
+            return promoteHeadingParagraphs(sanitizeManuscriptHtml(src));
         }
         return formatManuscriptPlainToHtml(src);
     }

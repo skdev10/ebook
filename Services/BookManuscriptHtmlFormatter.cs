@@ -197,7 +197,7 @@ public static class BookManuscriptHtmlFormatter
         if (IsLikelyHtml(s))
         {
             var htmlNorm = NormalizeManuscriptEscapes(s);
-            return SanitizeHtml(htmlNorm);
+            return SanitizeHtml(ChapterDocumentImportService.PromoteHeadingParagraphs(htmlNorm));
         }
 
         var lines = s.Split('\n');
@@ -212,8 +212,9 @@ public static class BookManuscriptHtmlFormatter
             para.Clear();
         }
 
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
+            var line = lines[i];
             var t = line.Trim();
             if (string.IsNullOrEmpty(t))
             {
@@ -228,6 +229,14 @@ public static class BookManuscriptHtmlFormatter
                 var level = hm.Groups[1].Value.Length;
                 var text = EscapeHtml(hm.Groups[2].Value.Trim());
                 outParts.Add($"""<h{level} class="manuscript-heading manuscript-h{level}">{text}</h{level}>""");
+                continue;
+            }
+
+            var precededByBreak = i == 0 || string.IsNullOrWhiteSpace(lines[i - 1]);
+            if (precededByBreak && ChapterDocumentImportService.LooksLikeStandaloneHeading(t))
+            {
+                FlushPara();
+                outParts.Add($"""<h2 class="manuscript-heading manuscript-h2">{EscapeHtml(t)}</h2>""");
                 continue;
             }
 

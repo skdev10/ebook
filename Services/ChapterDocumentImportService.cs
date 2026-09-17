@@ -108,23 +108,34 @@ public static class ChapterDocumentImportService
                 new MemoryStream(bytes, writable: false),
                 new ParsingOptions { UseLenientParsing = true });
 
+            var pages = document.GetPages().ToList();
+            var medianFont = EstimatePdfMedianFontSize(pages);
             var sb = new StringBuilder();
-            foreach (var page in document.GetPages())
+            foreach (var page in pages)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
+                    var lines = BuildPdfReadingOrderLines(page);
+                    if (lines.Count > 0)
+                    {
+                        foreach (var (lineText, avgFont, isBold, isCentered) in lines)
+                        {
+                            var text = lineText.Trim();
+                            if (text.Length == 0)
+                                continue;
+                            if (LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out var mark))
+                                sb.Append(mark).Append(' ').Append(text).AppendLine();
+                            else
+                                sb.AppendLine(text);
+                        }
+                        continue;
+                    }
+
                     var pageText = (page.Text ?? string.Empty).Trim();
                     if (pageText.Length > 0)
                     {
                         sb.AppendLine(pageText);
-                        continue;
-                    }
-
-                    var words = page.GetWords();
-                    if (words != null && words.Any())
-                    {
-                        sb.AppendLine(string.Join(" ", words.Select(w => w.Text)));
                         continue;
                     }
 
@@ -206,14 +217,34 @@ public static class ChapterDocumentImportService
             if (mainPart == null || body == null)
                 return chapters;
 
+            var bodyFontPt = EstimateDocxBodyFontSizePt(body);
             var plain = new StringBuilder();
             var curTitle = string.Empty;
             var curBody = new StringBuilder();
             var curNo = 0;
+            var sawBookTitle = false;
+
+            var items = new List<(string Text, int? Level, string Imgs, string StyleId)>();
+            foreach (var para in body.Descendants<Paragraph>())
+            {
+                var text = (para.InnerText ?? string.Empty).Trim();
+                var headingLevel = ResolveDocxHeadingLevel(para, mainPart, bodyFontPt);
+                var imgs = ExtractParagraphImagesHtml(para, mainPart);
+                var styleId = para.ParagraphProperties?.ParagraphStyleId?.Val?.Value ?? string.Empty;
+                if (text.Length == 0 && imgs.Length == 0)
+                    continue;
+                items.Add((text, headingLevel, imgs, styleId));
+            }
+
+            var h1ChapterCount = items.Count(i =>
+                i.Level == 1 && i.Text.Length > 0 && !IsTitleStyleId(i.StyleId) && !IsSubtitleStyleId(i.StyleId));
+            var strongH2Count = items.Count(i =>
+                i.Level == 2 && i.Text.Length > 0 && (IsChapterHeadingLine(i.Text) || LooksLikeStandaloneHeading(i.Text)));
+            var splitOnH2 = h1ChapterCount == 0 && strongH2Count >= 2;
 
             void Flush()
             {
-                var html = curBody.ToString().Trim();
+                var html = PromoteHeadingParagraphs(curBody.ToString().Trim());
                 if (html.Length == 0 && string.IsNullOrEmpty(curTitle))
                     return;
                 curNo++;
@@ -223,28 +254,43 @@ public static class ChapterDocumentImportService
                 curTitle = string.Empty;
             }
 
-            foreach (var para in body.Elements<Paragraph>())
+            foreach (var (text, headingLevel, imgs, styleId) in items)
             {
-                var styleId = para.ParagraphProperties?.ParagraphStyleId?.Val?.Value ?? string.Empty;
-                var text = (para.InnerText ?? string.Empty).Trim();
-                var isHeadingStyle = styleId.StartsWith("Heading", StringComparison.OrdinalIgnoreCase)
-                    && (styleId.EndsWith("1", StringComparison.Ordinal)
-                        || styleId.EndsWith("2", StringComparison.Ordinal)
-                        || styleId.Equals("Heading", StringComparison.OrdinalIgnoreCase)
-                        || styleId.Equals("Title", StringComparison.OrdinalIgnoreCase));
-                var isHeadingText = text.Length is > 0 and <= 120 && Regex.IsMatch(
-                    text,
-                    @"^(?:Chapter|CHAPTER|Part|PART|Prologue|Epilogue|Introduction|Conclusion)\b",
-                    RegexOptions.IgnoreCase);
+                // Book title (Word Title style) is not a chapter — skip it once at the top.
+                if (!sawBookTitle
+                    && headingLevel == 1
+                    && IsTitleStyleId(styleId)
+                    && !IsChapterHeadingLine(text)
+                    && text.Length > 0)
+                {
+                    sawBookTitle = true;
+                    plain.AppendLine("# " + text);
+                    continue;
+                }
 
-                var imgs = ExtractParagraphImagesHtml(para, mainPart);
+                var isChapterStart = text.Length > 0 && (
+                    headingLevel == 1
+                    || IsChapterHeadingLine(text)
+                    || (splitOnH2 && headingLevel == 2 && LooksLikeStandaloneHeading(text)));
 
-                if ((isHeadingStyle || isHeadingText) && text.Length > 0)
+                if (isChapterStart)
                 {
                     if (curBody.Length > 0 || !string.IsNullOrEmpty(curTitle))
                         Flush();
                     curTitle = text;
-                    plain.AppendLine(text);
+                    plain.AppendLine("# " + text);
+                    if (imgs.Length > 0) curBody.Append(imgs);
+                    continue;
+                }
+
+                if (headingLevel is >= 2 and <= 6 && text.Length > 0)
+                {
+                    var lvl = headingLevel.Value;
+                    curBody.Append("<h").Append(lvl)
+                        .Append(" class=\"manuscript-heading manuscript-h").Append(lvl).Append("\">")
+                        .Append(System.Net.WebUtility.HtmlEncode(text))
+                        .Append("</h").Append(lvl).Append('>');
+                    plain.Append('#', lvl).Append(' ').AppendLine(text);
                     if (imgs.Length > 0) curBody.Append(imgs);
                     continue;
                 }
@@ -259,6 +305,15 @@ public static class ChapterDocumentImportService
             }
 
             Flush();
+            if (chapters.Count == 1)
+            {
+                var resplit = ResplitSingleChapterOnHeadings(chapters[0]);
+                if (resplit.Count >= 2)
+                {
+                    chapters.Clear();
+                    chapters.AddRange(resplit);
+                }
+            }
             combinedPlainText = plain.ToString();
         }
         catch (Exception ex) when (ex is FileFormatException or InvalidDataException or OpenXmlPackageException)
@@ -515,7 +570,7 @@ public static class ChapterDocumentImportService
             if (line.Length == 0)
                 continue;
 
-            // Markdown heading: #, ##, ### ...
+            // Markdown heading: #, ##, ### (chapter-level). Deeper headings stay in the body.
             var hm = Regex.Match(line, @"^(#{1,3})\s+(.+?)\s*#*$");
             if (hm.Success)
             {
@@ -531,6 +586,20 @@ public static class ChapterDocumentImportService
                 boundaries.Add((i, TruncateSuggestedTitle(string.IsNullOrEmpty(rest) ? line : rest)));
                 continue;
             }
+
+            // "1. The Beginning" / "1) Opening" — common Word/PDF chapter numbering.
+            var numMatch = Regex.Match(line, @"^(\d{1,2})[\.\)\]]\s+(.{2,80})$");
+            if (numMatch.Success && LooksLikeStandaloneHeading(numMatch.Groups[2].Value))
+            {
+                boundaries.Add((i, TruncateSuggestedTitle(numMatch.Groups[2].Value.Trim())));
+                continue;
+            }
+
+            // Isolated ALL-CAPS / Title Case line after a blank line (Word/PDF heading without a style).
+            if (LooksLikeStandaloneHeading(line) && IsPrecededByBreak(lines, i))
+            {
+                boundaries.Add((i, TruncateSuggestedTitle(line)));
+            }
         }
 
         // Fallback: scan full string for chapter markers when line-based detection found < 2.
@@ -541,7 +610,7 @@ public static class ChapterDocumentImportService
                 return inline;
 
             var (no, title) = SuggestChapterFromBodyText(text);
-            result.Add(new ImportedChapter(no, title, text.Trim()));
+            result.Add(new ImportedChapter(no, title, FormatImportedBodyAsHtml(text.Trim())));
             return result;
         }
 
@@ -572,16 +641,59 @@ public static class ChapterDocumentImportService
             var title = boundaries[b].title;
             if (string.IsNullOrWhiteSpace(title))
                 title = $"Chapter {chapterNo}";
-            result.Add(new ImportedChapter(chapterNo, title, body));
+            result.Add(new ImportedChapter(chapterNo, title, FormatImportedBodyAsHtml(body)));
         }
 
         if (result.Count == 0)
         {
             var (no, title) = SuggestChapterFromBodyText(text);
-            result.Add(new ImportedChapter(no, title, text.Trim()));
+            result.Add(new ImportedChapter(no, title, FormatImportedBodyAsHtml(text.Trim())));
+        }
+
+        if (result.Count == 1)
+        {
+            var resplit = ResplitSingleChapterOnHeadings(result[0]);
+            if (resplit.Count >= 2)
+                return resplit;
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Pick the richer chapter split from Word structure vs plain-text fallback
+    /// so headings survive even when Word styles are missing.
+    /// </summary>
+    public static List<ImportedChapter> PreferRicherChapterSplit(List<ImportedChapter> structured, List<ImportedChapter> fallback)
+    {
+        if (structured == null || structured.Count == 0)
+            return fallback ?? new List<ImportedChapter>();
+        if (fallback == null || fallback.Count == 0)
+            return structured;
+
+        var structuredHasHeadings = structured.Any(c =>
+            (c.Body ?? "").Contains("<h", StringComparison.OrdinalIgnoreCase)
+            || (!string.IsNullOrWhiteSpace(c.Title) && !Regex.IsMatch(c.Title, @"^Chapter\s+\d+$", RegexOptions.IgnoreCase)));
+        if (!structuredHasHeadings && fallback.Count > structured.Count)
+            return fallback;
+
+        static int Score(List<ImportedChapter> list)
+        {
+            var score = list.Count * 10;
+            foreach (var c in list)
+            {
+                var body = c.Body ?? "";
+                if (body.Contains("<h", StringComparison.OrdinalIgnoreCase)) score += 8;
+                if (body.Contains("manuscript-heading", StringComparison.OrdinalIgnoreCase)) score += 6;
+                if (body.Contains("<img", StringComparison.OrdinalIgnoreCase)) score += 20;
+                if (!string.IsNullOrWhiteSpace(c.Title)
+                    && !Regex.IsMatch(c.Title, @"^Chapter\s+\d+$", RegexOptions.IgnoreCase))
+                    score += 2;
+            }
+            return score;
+        }
+
+        return Score(structured) >= Score(fallback) ? structured : fallback;
     }
 
     /// <summary>Removes a leading Chapter/Part/Section heading from a line, leaving the body text.</summary>
@@ -640,7 +752,7 @@ public static class ChapterDocumentImportService
             if (headingEnd > end) headingEnd = contentStart;
             var body = text[headingEnd..end].Trim();
             if (body.Length == 0) continue;
-            result.Add(new ImportedChapter(result.Count + 1, starts[i].Title, body));
+            result.Add(new ImportedChapter(result.Count + 1, starts[i].Title, FormatImportedBodyAsHtml(body)));
         }
 
         return result;
@@ -667,6 +779,489 @@ public static class ChapterDocumentImportService
             return "This Word file could not be read. Re-save it as .docx and upload again.";
 
         return "Could not read this file. Please try uploading a different export or paste the text instead.";
+    }
+
+    /// <summary>Turn remaining markdown / isolated heading lines into HTML the formatter already renders.</summary>
+    public static string FormatImportedBodyAsHtml(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return string.Empty;
+        var raw = body.Trim();
+        if (raw.Contains("<p", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("<h", StringComparison.OrdinalIgnoreCase))
+            return PromoteHeadingParagraphs(raw);
+
+        var lines = raw.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+        var sb = new StringBuilder();
+        var para = new StringBuilder();
+
+        void FlushPara()
+        {
+            var t = para.ToString().Trim();
+            para.Clear();
+            if (t.Length == 0) return;
+            sb.Append("<p class=\"manuscript-p\">").Append(System.Net.WebUtility.HtmlEncode(t)).Append("</p>");
+        }
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.Length == 0)
+            {
+                FlushPara();
+                continue;
+            }
+
+            var hm = Regex.Match(line, @"^(#{1,6})\s+(.+?)\s*#*$");
+            if (hm.Success)
+            {
+                FlushPara();
+                var lvl = Math.Clamp(hm.Groups[1].Value.Length, 1, 6);
+                sb.Append("<h").Append(lvl).Append(" class=\"manuscript-heading manuscript-h").Append(lvl).Append("\">")
+                    .Append(System.Net.WebUtility.HtmlEncode(hm.Groups[2].Value.Trim()))
+                    .Append("</h").Append(lvl).Append('>');
+                continue;
+            }
+
+            if (LooksLikeStandaloneHeading(line) && IsPrecededByBreak(lines, i))
+            {
+                FlushPara();
+                sb.Append("<h2 class=\"manuscript-heading manuscript-h2\">")
+                    .Append(System.Net.WebUtility.HtmlEncode(line))
+                    .Append("</h2>");
+                continue;
+            }
+
+            if (para.Length > 0) para.Append(' ');
+            para.Append(line);
+        }
+
+        FlushPara();
+        return PromoteHeadingParagraphs(sb.Length > 0 ? sb.ToString() : raw);
+    }
+
+    /// <summary>
+    /// Turn heading-like <c>&lt;p&gt;</c> blocks into real <c>&lt;h2&gt;</c> so Word/PDF
+    /// titles that were not styled still render as headings in preview and export.
+    /// </summary>
+    public static string PromoteHeadingParagraphs(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return html ?? string.Empty;
+        if (!html.Contains("<p", StringComparison.OrdinalIgnoreCase))
+            return html;
+
+        return Regex.Replace(
+            html,
+            @"<p(?:\s[^>]*)?>([\s\S]*?)</p>",
+            m =>
+            {
+                var inner = m.Groups[1].Value;
+                if (inner.Contains("<img", StringComparison.OrdinalIgnoreCase))
+                    return m.Value;
+                var text = System.Net.WebUtility.HtmlDecode(Regex.Replace(inner, "<[^>]+>", string.Empty)).Trim();
+                if (!LooksLikeStandaloneHeading(text))
+                    return m.Value;
+                return "<h2 class=\"manuscript-heading manuscript-h2\">" + inner + "</h2>";
+            },
+            RegexOptions.IgnoreCase);
+    }
+
+    private static List<ImportedChapter> ResplitSingleChapterOnHeadings(ImportedChapter chapter)
+    {
+        var html = chapter.Body ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(html))
+            return new List<ImportedChapter> { chapter };
+
+        var rx = new Regex(@"<h([1-2])\b[^>]*>([\s\S]*?)</h\1>", RegexOptions.IgnoreCase);
+        var matches = rx.Matches(html);
+        if (matches.Count < 2)
+            return new List<ImportedChapter> { chapter };
+
+        var h1s = matches.Cast<Match>().Where(m => m.Groups[1].Value == "1").ToList();
+        var chapterLike = matches.Cast<Match>().Where(m =>
+        {
+            var text = System.Net.WebUtility.HtmlDecode(Regex.Replace(m.Groups[2].Value, "<[^>]+>", string.Empty)).Trim();
+            return m.Groups[1].Value == "1" || IsChapterHeadingLine(text) || LooksLikeStandaloneHeading(text);
+        }).ToList();
+
+        var splitAt = h1s.Count >= 2 ? h1s : (chapterLike.Count >= 2 ? chapterLike : null);
+        if (splitAt == null)
+            return new List<ImportedChapter> { chapter };
+
+        var result = new List<ImportedChapter>();
+        for (var i = 0; i < splitAt.Count; i++)
+        {
+            var title = System.Net.WebUtility.HtmlDecode(
+                Regex.Replace(splitAt[i].Groups[2].Value, "<[^>]+>", string.Empty)).Trim();
+            var start = splitAt[i].Index + splitAt[i].Length;
+            var end = i + 1 < splitAt.Count ? splitAt[i + 1].Index : html.Length;
+            if (start > end) continue;
+            var body = PromoteHeadingParagraphs(html[start..end].Trim());
+            if (body.Length == 0 && string.IsNullOrWhiteSpace(title))
+                continue;
+            result.Add(new ImportedChapter(result.Count + 1,
+                TruncateSuggestedTitle(string.IsNullOrWhiteSpace(title) ? $"Chapter {result.Count + 1}" : title),
+                body));
+        }
+
+        return result.Count >= 2 ? result : new List<ImportedChapter> { chapter };
+    }
+
+    internal static bool LooksLikeStandaloneHeading(string line)
+    {
+        var t = (line ?? string.Empty).Trim();
+        if (t.Length is < 2 or > 80)
+            return false;
+        if (t.EndsWith('.') || t.EndsWith('!') || t.EndsWith('?') || t.EndsWith(','))
+            return false;
+        if (Regex.IsMatch(t, @"^\d+$"))
+            return false;
+        var words = Regex.Split(t, @"\s+").Where(w => w.Length > 0).ToArray();
+        if (words.Length is < 1 or > 12)
+            return false;
+
+        var letters = t.Count(char.IsLetter);
+        if (letters < 3)
+            return false;
+
+        var upperLetters = t.Count(ch => char.IsLetter(ch) && char.IsUpper(ch));
+        var isAllCaps = upperLetters >= letters * 0.85;
+        var titleCase = words.Count(w => char.IsLetter(w[0]) && char.IsUpper(w[0])) >= Math.Max(1, (int)Math.Ceiling(words.Length * 0.7));
+        return isAllCaps || titleCase || IsChapterHeadingLine(t);
+    }
+
+    private static bool IsPrecededByBreak(string[] lines, int index)
+        => index == 0 || string.IsNullOrWhiteSpace(lines[index - 1]);
+
+    private static bool IsTitleStyleId(string? styleId)
+        => string.Equals(styleId, "Title", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(styleId, "BookTitle", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSubtitleStyleId(string? styleId)
+        => string.Equals(styleId, "Subtitle", StringComparison.OrdinalIgnoreCase);
+
+    private static int? ResolveDocxHeadingLevel(Paragraph para, MainDocumentPart mainPart, double bodyFontPt)
+    {
+        var text = (para.InnerText ?? string.Empty).Trim();
+        if (text.Length == 0)
+            return null;
+
+        var pPr = para.ParagraphProperties;
+        var outline = pPr?.OutlineLevel?.Val?.Value;
+        if (outline != null)
+        {
+            var lvl = outline.Value + 1;
+            if (lvl is >= 1 and <= 6)
+                return lvl;
+        }
+
+        var styleId = pPr?.ParagraphStyleId?.Val?.Value ?? string.Empty;
+        var fromStyle = HeadingLevelFromStyleName(styleId);
+        if (fromStyle != null)
+            return fromStyle;
+
+        fromStyle = HeadingLevelFromStyleDefinitions(styleId, mainPart);
+        if (fromStyle != null)
+            return fromStyle;
+
+        if (text.Length <= 120 && IsChapterHeadingLine(text))
+            return 1;
+
+        var runSize = GetParagraphEffectiveFontSizePt(para, mainPart);
+        var isBold = ParagraphIsEffectivelyBold(para, mainPart);
+        var isCenter = ParagraphIsCentered(para, mainPart);
+
+        if (runSize.HasValue && bodyFontPt > 0 && text.Length <= 100)
+        {
+            if (runSize.Value >= bodyFontPt * 1.4) return 1;
+            if (runSize.Value >= bodyFontPt * 1.18) return 2;
+        }
+
+        if (text.Length <= 80 && LooksLikeStandaloneHeading(text))
+        {
+            if (isCenter && isBold) return 1;
+            if (isCenter || isBold) return 2;
+            if (runSize.HasValue && bodyFontPt > 0 && runSize.Value >= bodyFontPt * 1.08)
+                return 2;
+        }
+
+        if (text.Length is >= 3 and <= 60 && isBold && isCenter)
+            return 1;
+
+        if (text.Length is >= 3 and <= 70 && isBold && !EndsLikeSentence(text))
+            return 2;
+
+        return null;
+    }
+
+    private static bool EndsLikeSentence(string text)
+        => text.EndsWith('.') || text.EndsWith('!') || text.EndsWith('?') || text.EndsWith(',');
+
+    private static int? HeadingLevelFromStyleName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+        var n = name.Trim();
+        if (n.Equals("Title", StringComparison.OrdinalIgnoreCase) || n.Equals("BookTitle", StringComparison.OrdinalIgnoreCase))
+            return 1;
+        if (n.Equals("Subtitle", StringComparison.OrdinalIgnoreCase))
+            return 2;
+        if (Regex.IsMatch(n, @"^(chapter\s*title|chaptitle|chaphead|chapterhead)$", RegexOptions.IgnoreCase))
+            return 1;
+        var m = Regex.Match(n, @"(?:heading|überschrift|kop|titulo|titre|nagłówek|заголовок)\s*([1-6])", RegexOptions.IgnoreCase);
+        if (m.Success && int.TryParse(m.Groups[1].Value, out var lvl))
+            return lvl;
+        m = Regex.Match(n, @"heading\s*([1-6])", RegexOptions.IgnoreCase);
+        if (m.Success && int.TryParse(m.Groups[1].Value, out lvl))
+            return lvl;
+        return null;
+    }
+
+    private static int? HeadingLevelFromStyleDefinitions(string styleId, MainDocumentPart mainPart)
+    {
+        if (string.IsNullOrWhiteSpace(styleId))
+            return null;
+        var styles = mainPart.StyleDefinitionsPart?.Styles;
+        if (styles == null)
+            return null;
+
+        var style = styles.Elements<Style>()
+            .FirstOrDefault(s => string.Equals(s.StyleId?.Value, styleId, StringComparison.OrdinalIgnoreCase));
+        if (style == null)
+            return null;
+
+        var fromName = HeadingLevelFromStyleName(style.StyleName?.Val?.Value)
+                       ?? HeadingLevelFromStyleName(style.StyleId?.Value)
+                       ?? HeadingLevelFromStyleName(style.BasedOn?.Val?.Value);
+        if (fromName != null)
+            return fromName;
+
+        var styleOutline = style.StyleParagraphProperties?.OutlineLevel?.Val?.Value;
+        if (styleOutline != null)
+        {
+            var lvl = styleOutline.Value + 1;
+            if (lvl is >= 1 and <= 6)
+                return lvl;
+        }
+
+        return null;
+    }
+
+    private static double? GetFirstRunFontSizePt(Paragraph para)
+        => GetParagraphEffectiveFontSizePt(para, null);
+
+    private static double? GetParagraphEffectiveFontSizePt(Paragraph para, MainDocumentPart? mainPart)
+    {
+        foreach (var run in para.Descendants<Run>())
+        {
+            var sz = ParseHalfPoints(run.RunProperties?.FontSize?.Val?.Value)
+                     ?? ParseHalfPoints(run.RunProperties?.FontSizeComplexScript?.Val?.Value);
+            if (sz.HasValue)
+                return sz;
+        }
+
+        var markSz = ParseHalfPoints(para.ParagraphProperties?.ParagraphMarkRunProperties?.GetFirstChild<FontSize>()?.Val?.Value);
+        if (markSz.HasValue)
+            return markSz;
+
+        var styleId = para.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
+        if (mainPart != null && !string.IsNullOrWhiteSpace(styleId))
+        {
+            var fromStyle = GetStyleChainValue(mainPart, styleId, style =>
+                ParseHalfPoints(style.StyleRunProperties?.FontSize?.Val?.Value)
+                ?? ParseHalfPoints(style.StyleRunProperties?.FontSizeComplexScript?.Val?.Value));
+            if (fromStyle.HasValue)
+                return fromStyle;
+        }
+
+        return null;
+    }
+
+    private static double? ParseHalfPoints(string? val)
+    {
+        if (val != null && double.TryParse(val, NumberStyles.Float, CultureInfo.InvariantCulture, out var halfPoints) && halfPoints > 0)
+            return halfPoints / 2.0;
+        return null;
+    }
+
+    private static bool ParagraphIsEffectivelyBold(Paragraph para, MainDocumentPart mainPart)
+    {
+        var runs = para.Descendants<Run>()
+            .Where(r => !string.IsNullOrWhiteSpace(r.InnerText))
+            .ToList();
+        if (runs.Count == 0)
+            return IsOn(para.ParagraphProperties?.ParagraphMarkRunProperties?.GetFirstChild<Bold>());
+
+        var styleId = para.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
+        var styleBold = !string.IsNullOrWhiteSpace(styleId)
+            && GetStyleChainValue(mainPart, styleId, style =>
+            {
+                var b = style.StyleRunProperties?.Bold;
+                return b == null ? (bool?)null : IsOn(b);
+            }) == true;
+
+        var boldRuns = 0;
+        var letterRuns = 0;
+        foreach (var run in runs)
+        {
+            if (!run.InnerText.Any(char.IsLetter))
+                continue;
+            letterRuns++;
+            if (IsOn(run.RunProperties?.Bold) || styleBold)
+                boldRuns++;
+        }
+        return letterRuns > 0 && boldRuns >= letterRuns;
+    }
+
+    private static bool ParagraphIsCentered(Paragraph para, MainDocumentPart mainPart)
+    {
+        var jc = para.ParagraphProperties?.Justification?.Val?.Value;
+        if (jc == JustificationValues.Center)
+            return true;
+
+        var styleId = para.ParagraphProperties?.ParagraphStyleId?.Val?.Value;
+        if (string.IsNullOrWhiteSpace(styleId))
+            return false;
+        return GetStyleChainValue(mainPart, styleId, style =>
+        {
+            var v = style.StyleParagraphProperties?.Justification?.Val?.Value;
+            if (v == null) return (bool?)null;
+            return v == JustificationValues.Center;
+        }) == true;
+    }
+
+    private static bool IsOn(OnOffType? prop)
+    {
+        if (prop == null) return false;
+        if (prop.Val == null) return true;
+        return prop.Val.Value;
+    }
+
+    private static T? GetStyleChainValue<T>(MainDocumentPart mainPart, string? styleId, Func<Style, T?> getter, int depth = 0)
+    {
+        if (string.IsNullOrWhiteSpace(styleId) || depth > 8)
+            return default;
+        var styles = mainPart.StyleDefinitionsPart?.Styles;
+        if (styles == null)
+            return default;
+        var style = styles.Elements<Style>()
+            .FirstOrDefault(s => string.Equals(s.StyleId?.Value, styleId, StringComparison.OrdinalIgnoreCase));
+        if (style == null)
+            return default;
+        var value = getter(style);
+        if (value != null)
+            return value;
+        return GetStyleChainValue(mainPart, style.BasedOn?.Val?.Value, getter, depth + 1);
+    }
+
+    private static double EstimateDocxBodyFontSizePt(Body body)
+    {
+        var sizes = new Dictionary<double, int>();
+        foreach (var run in body.Descendants<Run>())
+        {
+            var szVal = run.RunProperties?.FontSize?.Val?.Value;
+            if (szVal != null && double.TryParse(szVal, NumberStyles.Float, CultureInfo.InvariantCulture, out var halfPoints))
+            {
+                var pt = halfPoints / 2.0;
+                sizes[pt] = sizes.GetValueOrDefault(pt) + Math.Max(1, run.InnerText?.Length ?? 1);
+            }
+        }
+        return sizes.Count == 0 ? 11.0 : sizes.OrderByDescending(kv => kv.Value).First().Key;
+    }
+
+    private static bool LooksLikePdfHeading(string text, double avgFont, double medianFont, bool isBold, bool isCentered, out string mark)
+    {
+        mark = "#";
+        if (text.Length is < 2 or > 100)
+            return false;
+        if (IsChapterHeadingLine(text))
+        {
+            mark = "#";
+            return true;
+        }
+
+        var looksLikeTitle = LooksLikeStandaloneHeading(text);
+        if (medianFont > 0 && avgFont >= medianFont * 1.4)
+        {
+            mark = "#";
+            return true;
+        }
+        if (medianFont > 0 && avgFont >= medianFont * 1.18)
+        {
+            mark = "##";
+            return true;
+        }
+        if (looksLikeTitle && (isBold || isCentered))
+        {
+            mark = isCentered && isBold ? "#" : "##";
+            return true;
+        }
+        if (looksLikeTitle && medianFont > 0 && avgFont >= medianFont * 1.08)
+        {
+            mark = "##";
+            return true;
+        }
+        return false;
+    }
+
+    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered)> BuildPdfReadingOrderLines(UglyToad.PdfPig.Content.Page page)
+    {
+        var words = page.GetWords()?.ToList() ?? new List<UglyToad.PdfPig.Content.Word>();
+        if (words.Count == 0)
+            return new List<(string, double, bool, bool)>();
+
+        var ordered = words.OrderByDescending(w => w.BoundingBox.Top).ThenBy(w => w.BoundingBox.Left).ToList();
+        var lines = new List<List<UglyToad.PdfPig.Content.Word>>();
+        const double lineToleranceRatio = 0.4;
+
+        foreach (var word in ordered)
+        {
+            var wordHeight = Math.Max(1.0, word.BoundingBox.Top - word.BoundingBox.Bottom);
+            var line = lines.Count > 0 ? lines[^1] : null;
+            if (line != null && Math.Abs(line[0].BoundingBox.Top - word.BoundingBox.Top) < wordHeight * lineToleranceRatio + 2)
+                line.Add(word);
+            else
+                lines.Add(new List<UglyToad.PdfPig.Content.Word> { word });
+        }
+
+        var pageWidth = page.Width > 0 ? page.Width : 0;
+        var result = new List<(string, double, bool, bool)>();
+        foreach (var line in lines)
+        {
+            var sortedLine = line.OrderBy(w => w.BoundingBox.Left).ToList();
+            var text = string.Join(" ", sortedLine.Select(w => w.Text));
+            var letters = sortedLine.SelectMany(w => w.Letters).ToList();
+            var sizes = letters.Select(l => l.FontSize).Where(s => s > 0).ToList();
+            var avgSize = sizes.Count > 0 ? sizes.Average() : 0.0;
+            var names = letters.Select(l => l.FontName ?? string.Empty).ToList();
+            var boldCount = names.Count(n =>
+                n.Contains("Bold", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Black", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Heavy", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Semibold", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Demi", StringComparison.OrdinalIgnoreCase));
+            var isBold = names.Count > 0 && boldCount >= names.Count * 0.55;
+            var left = sortedLine[0].BoundingBox.Left;
+            var right = sortedLine[^1].BoundingBox.Right;
+            var mid = (left + right) / 2.0;
+            var isCentered = pageWidth > 0 && Math.Abs(mid - pageWidth / 2.0) < pageWidth * 0.18
+                             && (right - left) < pageWidth * 0.72;
+            result.Add((text, avgSize, isBold, isCentered));
+        }
+        return result;
+    }
+
+    private static double EstimatePdfMedianFontSize(List<UglyToad.PdfPig.Content.Page> pages)
+    {
+        var sizes = pages.SelectMany(p => p.Letters ?? Enumerable.Empty<UglyToad.PdfPig.Content.Letter>())
+            .Select(l => l.FontSize)
+            .Where(s => s > 0)
+            .OrderBy(s => s)
+            .ToList();
+        if (sizes.Count == 0)
+            return 0;
+        return sizes[sizes.Count / 2];
     }
 
     private static string TruncateSuggestedTitle(string s, int max = 150)
