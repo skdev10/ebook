@@ -1262,6 +1262,60 @@
         background: linear-gradient(135deg, #f59e0b, #d97706);
         box-shadow: 0 8px 18px -10px rgba(217, 119, 6, 0.65);
     }
+    .fmt-ms-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+        padding: 0.9rem;
+        border-radius: 1rem;
+        border: 1px solid #ddd6fe;
+        background: #faf5ff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .fmt-ms-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.55rem;
+    }
+    .fmt-ms-card-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        padding: 0.75rem 0.85rem;
+        border-radius: 0.85rem;
+        border: 1px solid #ddd6fe;
+        background: #fff;
+        color: #4c1d95;
+        cursor: pointer;
+        text-align: left;
+        transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+    .fmt-ms-card-btn:hover {
+        transform: translateY(-1px);
+        border-color: #7c3aed;
+        background: #f5f3ff;
+    }
+    .fmt-ms-card-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .fmt-ms-card-btn__title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .fmt-ms-card-btn__hint {
+        font-size: 0.68rem;
+        font-weight: 500;
+        color: #64748b;
+        line-height: 1.3;
+    }
+    .fmt-ms-card-btn--img {
+        border-color: #e2e8f0;
+        color: #334155;
+    }
     .fmt-ms-row {
         display: flex;
         align-items: center;
@@ -2342,9 +2396,34 @@
                         <input type="hidden" id="selected-book-id" value="@bookId" />
                         <div id="formatter-display-author" class="hidden" aria-hidden="true">@((ViewBag.DisplayAuthorName as string) ?? "")</div>
 
+                        <div class="group" data-guided-tour="fmt-book" id="fmt-upload-panel">
+                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Upload your book</label>
+                            <p class="text-xs text-gray-500 mb-2 leading-snug">Add a Word/PDF or page photos here — they open in the preview on the right. First 20 pages are free; extra pages are $0.50 each.</p>
+                            <div class="fmt-ms-panel" id="fmt-ms-row">
+                                <input type="file" id="fmt-ms-file" class="hidden" accept=".docx,.pdf,.txt,.md,.markdown,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-label="Upload manuscript (Word, PDF, TXT, Markdown)" />
+                                <input type="file" id="fmt-ms-images" class="hidden" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,image/png,image/jpeg,image/webp,image/tiff" multiple aria-label="Upload one or more book page images" />
+                                <div class="fmt-ms-actions">
+                                    <button type="button" id="fmt-ms-doc-btn" class="fmt-ms-card-btn" title="Upload document (Word, PDF, TXT, Markdown)" aria-label="Upload document">
+                                        <span class="fmt-ms-card-btn__title"><i class="fas fa-file-upload" aria-hidden="true"></i> Upload document</span>
+                                        <span class="fmt-ms-card-btn__hint">Word, PDF, TXT, Markdown</span>
+                                    </button>
+                                    <button type="button" id="fmt-ms-img-btn" class="fmt-ms-card-btn fmt-ms-card-btn--img" title="Upload page images — they appear in the book preview" aria-label="Upload page images">
+                                        <span class="fmt-ms-card-btn__title"><i class="fas fa-images" aria-hidden="true"></i> Upload images</span>
+                                        <span class="fmt-ms-card-btn__hint">PNG or JPG book pages</span>
+                                    </button>
+                                </div>
+                                <div id="fmt-ms-dropzone" class="fmt-ms-drop-hint" tabindex="0" role="button" aria-label="Drop a manuscript or page images to fill the preview">
+                                    <i class="fas fa-cloud-upload-alt fmt-ms-drop-hint__icon" aria-hidden="true"></i>
+                                    <span>Drop file or images here</span>
+                                </div>
+                            </div>
+                            <p id="fmt-ms-status" class="text-xs text-gray-400 min-h-[1.1rem] mt-1.5 mb-0 leading-snug" aria-live="polite"></p>
+                            <p id="fmt-ms-last" class="text-xs text-gray-400 mt-0.5 mb-0 leading-snug"></p>
+                        </div>
+
                         @if (Model?.UserBooks != null && Model.UserBooks.Count > 0)
                         {
-                            <div class="group" data-guided-tour="fmt-book">
+                            <div class="group">
                                 <label for="fmt-book-select" class="block text-xs font-semibold text-gray-500 mb-2.5">Change book <span class="font-normal text-gray-400">(optional)</span></label>
                                 <div class="relative">
                                     <select id="fmt-book-select" class="fmt-book-select w-full bg-white border border-gray-100 hover:border-gray-200 text-gray-700 rounded-xl py-3.5 pl-4 pr-10 text-sm cursor-pointer shadow-sm appearance-none focus:border-violet-300 focus:ring-2 focus:ring-violet-100 outline-none" aria-label="Select book to format">
@@ -2372,27 +2451,6 @@
                                 </div>
                             </div>
                         }
-
-                        <div class="group" data-guided-tour="fmt-book">
-                            <label class="block text-xs font-semibold text-gray-500 mb-2.5">Your book</label>
-                            <p class="text-xs text-gray-500 mb-2 leading-snug">Upload a Word/PDF or page photos — your book opens in the preview on the right. First 20 pages are free; extra pages are $0.50 each.</p>
-                            <div class="fmt-ms-row" id="fmt-ms-row">
-                                <input type="file" id="fmt-ms-file" class="hidden" accept=".docx,.pdf,.txt,.md,.markdown,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-label="Upload manuscript (Word, PDF, TXT, Markdown)" />
-                                <input type="file" id="fmt-ms-images" class="hidden" accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,image/png,image/jpeg,image/webp,image/tiff" multiple aria-label="Upload one or more book page images" />
-                                <button type="button" id="fmt-ms-doc-btn" class="fmt-ms-icon-btn" title="Upload document (Word, PDF, TXT, Markdown)" aria-label="Upload document">
-                                    <i class="fas fa-file-arrow-up" aria-hidden="true"></i>
-                                </button>
-                                <button type="button" id="fmt-ms-img-btn" class="fmt-ms-icon-btn fmt-ms-icon-btn--img" title="Upload page images — they appear in the book preview" aria-label="Upload page images">
-                                    <i class="fas fa-images" aria-hidden="true"></i>
-                                </button>
-                                <div id="fmt-ms-dropzone" class="fmt-ms-drop-hint" tabindex="0" role="button" aria-label="Drop a manuscript or page images to fill the preview">
-                                    <i class="fas fa-cloud-arrow-up fmt-ms-drop-hint__icon" aria-hidden="true"></i>
-                                    <span>Drop file or images</span>
-                                </div>
-                            </div>
-                            <p id="fmt-ms-status" class="text-xs text-gray-400 min-h-[1.1rem] mt-1.5 mb-0 leading-snug" aria-live="polite"></p>
-                            <p id="fmt-ms-last" class="text-xs text-gray-400 mt-0.5 mb-0 leading-snug"></p>
-                        </div>
 
                         <div class="group" data-guided-tour="fmt-format">
                             <label class="block text-xs font-semibold text-gray-500 mb-2.5" id="format-field-label">Book format</label>

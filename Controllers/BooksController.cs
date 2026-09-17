@@ -4216,7 +4216,9 @@ namespace EBookDashboard.Controllers
             if (!string.IsNullOrWhiteSpace(fmt))
                 HttpContext.Session.SetString("LastSelectedFormat", fmt);
 
-            var redirectUrl = _bookFlow.BuildResumeUrl(bookId, BookFlowStateService.StepFormat, formatPath);
+            var encBook = Uri.EscapeDataString(bookId.ToString(CultureInfo.InvariantCulture));
+            var encFmt = Uri.EscapeDataString(string.IsNullOrWhiteSpace(fmt) ? "Ebook" : fmt);
+            var redirectUrl = $"/BookDesign/CoverDesignCalculatorFixing?bookId={encBook}&format={encFmt}";
             return Json(new { success = true, redirectUrl });
         }
 
