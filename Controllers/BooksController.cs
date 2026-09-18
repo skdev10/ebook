@@ -3764,13 +3764,7 @@ namespace EBookDashboard.Controllers
                             ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
                             : suggestedBookTitle.Trim();
                         if (await BookDraftGuard.TitleExistsForUserAsync(_context, userId, newTitle, cancellationToken: cancellationToken))
-                        {
-                            return Json(new
-                            {
-                                success = false,
-                                message = $"A book titled \"{newTitle}\" already exists. Open that book or use a different file/title."
-                            });
-                        }
+                            newTitle = $"{newTitle} {DateTime.UtcNow:MMM d HH:mm}";
                         var newBook = new Books
                         {
                             UserId = userId,
@@ -4425,7 +4419,11 @@ namespace EBookDashboard.Controllers
             {
                 book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
                 if (book == null)
-                    return Json(new { success = false, message = "Book not found." });
+                {
+                    // Stale URL / session book id — create a new book instead of failing the upload.
+                    _logger.LogWarning("UploadManuscript: book {BookId} not found for user {UserId}; creating a new book from upload.", bookId, userId);
+                    bookId = 0;
+                }
             }
 
             byte[] bytes;
@@ -4480,13 +4478,7 @@ namespace EBookDashboard.Controllers
                         ? Path.GetFileNameWithoutExtension(file.FileName ?? "Imported Book")
                         : suggestedBookTitle.Trim();
                     if (await BookDraftGuard.TitleExistsForUserAsync(_context, userId, newTitle, cancellationToken: cancellationToken))
-                    {
-                        return Json(new
-                        {
-                            success = false,
-                            message = $"A book titled \"{newTitle}\" already exists. Select that book first or use a different title."
-                        });
-                    }
+                        newTitle = $"{newTitle} {DateTime.UtcNow:MMM d HH:mm}";
                     book = new Books
                     {
                         UserId = userId,
@@ -4660,7 +4652,10 @@ namespace EBookDashboard.Controllers
             {
                 book = await _context.Books.FirstOrDefaultAsync(b => b.BookId == bookId && b.UserId == userId, cancellationToken);
                 if (book == null)
-                    return Json(new { success = false, message = "Book not found." });
+                {
+                    _logger.LogWarning("UploadFormatterImages: book {BookId} not found for user {UserId}; creating a new book from upload.", bookId, userId);
+                    bookId = 0;
+                }
             }
 
             try

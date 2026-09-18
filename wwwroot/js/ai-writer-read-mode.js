@@ -266,16 +266,17 @@
             '#bookResult #preview-content .fmt-chapter-opener,' +
             '#bookResult #preview-content .writer-chapter-opener {' +
             'font-family: var(--heading-font, Georgia, serif); color: var(--heading-color, inherit);' +
-            'text-align: center; margin: 0.15rem 0 1rem; font-weight: 600; }' +
-            '#bookResult #preview-content .fmt-ch-eyebrow { display:block; letter-spacing:0.22em; font-size:0.78em; font-weight:700; }' +
-            '#bookResult #preview-content .fmt-ch-title { display:block; font-size:1.05em; margin-top:0.15em; }' +
-            '#bookResult #preview-content .fmt-ch-rule { display:block; width:3.25rem; height:1px; margin:0.4em auto 0; background:rgba(68,48,36,0.38); }' +
-            '#bookResult #preview-content .reader-chapter-block[data-chapter-start="1"] { padding-top: 0.4rem; }' +
+            'text-align: center; margin: 0.25rem 0 0.85rem; font-weight: 600; }' +
+            '#bookResult #preview-content .fmt-ch-flourish { display:block; font-size:1.15em; color:#8a6f3f; line-height:1; }' +
+            '#bookResult #preview-content .fmt-ch-eyebrow { display:block; letter-spacing:0.28em; font-size:0.72em; font-weight:700; text-transform:uppercase; }' +
+            '#bookResult #preview-content .fmt-ch-title { display:block; font-size:1.18em; margin-top:0.12em; letter-spacing:0.08em; }' +
+            '#bookResult #preview-content .fmt-ch-rule { display:block; width:4.25rem; height:2px; margin:0.4em auto 0; background:linear-gradient(90deg,transparent,rgba(138,111,63,.85),transparent); }' +
+            '#bookResult #preview-content .reader-chapter-block[data-chapter-start="1"] { padding-top: 0.25rem; }' +
             '#bookResult #chapterPreviewScrollHost.book-preview-stage {' +
             'background: #edf0f4 !important; align-items: center !important; }';
     }
 
-    /** Match formatter DOM: reader-chapter-block > reader-page-title + reader-page-body */
+    /** Match formatter DOM: reader-chapter-block > opener + reader-page-body */
     function normalizeChapterPageHtml(html) {
         if (!html || html.indexOf('reader-page-body') >= 0) return html;
         if (html.indexOf('front-matter-page') >= 0 || html.indexOf('writer-cover-page') >= 0) return html;
@@ -284,22 +285,76 @@
             d.innerHTML = html;
             var block = d.querySelector('.reader-chapter-block');
             if (!block) return html;
-            var heading = block.querySelector('.fmt-chapter-opener, .manuscript-chapter-heading, h1, h2, h3, h4, h5, h6');
+            var heading = block.querySelector('.fmt-chapter-opener, .writer-chapter-opener');
             var titleHtml = '';
             if (heading) {
                 heading.classList.add('reader-page-title');
-                if (!heading.classList.contains('manuscript-chapter-heading')) {
-                    heading.classList.add('manuscript-chapter-heading');
-                }
                 titleHtml = heading.outerHTML;
                 heading.remove();
             }
             var bodyInner = block.innerHTML.trim();
-            block.innerHTML = titleHtml + '<section class="reader-page-body">' + (bodyInner || '<p class="text-slate-500">No content.</p>') + '</section>';
+            if (/preview-empty-state/i.test(bodyInner) || /^\s*<p[^>]*>\s*No content\.?\s*<\/p>\s*$/i.test(bodyInner)) {
+                bodyInner = '';
+            }
+            block.innerHTML = titleHtml + '<section class="reader-page-body">' + bodyInner + '</section>';
             return d.innerHTML;
         } catch (e) {
             return html;
         }
+    }
+
+    function isGenericChapterTitle(t) {
+        var s = String(t || '').replace(/\s+/g, ' ').trim();
+        if (!s) return true;
+        return /^(untitled|your chapter|ebook chapter|chapter\s*\d+)$/i.test(s);
+    }
+
+    function looksLikePointHeadingText(t) {
+        return /^\d{1,2}[\.\)\]]\s+\S/.test(String(t || '').trim());
+    }
+
+    function pickChapterDisplayTitle(ch, html) {
+        var t = String((ch && (ch.title || ch.chapterTitle)) || '').trim();
+        if (t && !isGenericChapterTitle(t)) return t;
+        try {
+            var d = document.createElement('div');
+            d.innerHTML = String(html || '');
+            var h = d.querySelector('h1, h2, h3, .manuscript-heading');
+            if (h) {
+                var ht = (h.textContent || '').replace(/\s+/g, ' ').trim();
+                if (ht && !looksLikePointHeadingText(ht) && ht.length <= 90) return ht;
+            }
+        } catch (e) { /* keep stored title */ }
+        return t;
+    }
+
+    function ensureWriterChapterOpener(html, ch, narrativeOrd) {
+        html = String(html || '');
+        if (/fmt-chapter-opener/.test(html)) return html;
+        var chNo = ch && ch.chapterNo != null ? parseInt(ch.chapterNo, 10) : narrativeOrd;
+        if (!Number.isFinite(chNo) || chNo < 1) chNo = narrativeOrd || 1;
+        var title = pickChapterDisplayTitle(ch, html);
+        var opener = typeof global.buildPreviewChapterHeadingHtml === 'function'
+            ? global.buildPreviewChapterHeadingHtml(title, escapeHtml, chNo)
+            : ('<header class="fmt-chapter-opener manuscript-chapter-heading writer-chapter-opener">' +
+                '<span class="fmt-ch-flourish" aria-hidden="true">\u2766</span>' +
+                '<span class="fmt-ch-eyebrow">Chapter ' + chNo + '</span>' +
+                (title ? '<span class="fmt-ch-title">' + escapeHtml(title) + '</span>' : '') +
+                '<span class="fmt-ch-rule" aria-hidden="true"></span></header>');
+        try {
+            var wrap = document.createElement('div');
+            wrap.innerHTML = html;
+            var first = wrap.firstElementChild;
+            if (first && /^(H1|H2|H3)$/i.test(first.tagName)) {
+                var ht = (first.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                var tn = String(title || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                if (tn && ht === tn) {
+                    first.remove();
+                    html = wrap.innerHTML;
+                }
+            }
+        } catch (e) { /* keep html */ }
+        return opener + html;
     }
 
     function waitForShellReady(cb, tries) {
@@ -334,10 +389,11 @@
             if (!ch || ch.loading) continue;
             var html = String(ch.html || '').trim();
             if (!html) continue;
+            html = ensureWriterChapterOpener(html, ch, i + 1);
             var fullHtml = '<div class="reader-chapter-block">' + html + '</div>';
-            var key = typeof global.getReaderLayoutCacheKey === 'function'
+            var key = (typeof global.getReaderLayoutCacheKey === 'function'
                 ? global.getReaderLayoutCacheKey(shell, viewport)
-                : (shell.clientWidth + 'x' + shell.clientHeight);
+                : (shell.clientWidth + 'x' + shell.clientHeight)) + '|opener-v3|' + html.length;
             var pages;
             if (ch._pagesCache && ch._pagesCacheKey === key && ch._pagesCache.length) {
                 pages = ch._pagesCache;
@@ -356,6 +412,38 @@
                 }
                 chapterPages.push(pageHtml);
                 chapterIdxs.push(i);
+            }
+        }
+        if (global.BookReaderPagination && typeof global.BookReaderPagination.fillUnderfilledPages === 'function') {
+            var mh = document.getElementById('previewMeasureHost');
+            var box = typeof global.getReaderPageMeasureBox === 'function'
+                ? global.getReaderPageMeasureBox(shell, viewport)
+                : null;
+            if (mh && box && box.maxHeight >= 48) {
+                mh.style.width = box.width + 'px';
+                mh.style.padding = box.padding || '0';
+                mh.style.fontSize = box.fontSize || '';
+                mh.style.lineHeight = box.lineHeight || '';
+                mh.style.boxSizing = 'border-box';
+                mh.style.height = 'auto';
+                mh.style.minHeight = '0';
+                mh.style.overflow = 'visible';
+                var filled = global.BookReaderPagination.fillUnderfilledPages(chapterPages, chapterIdxs, {
+                    fits: function (html) {
+                        mh.innerHTML = html.indexOf('reader-chapter-block') >= 0
+                            ? html
+                            : ('<div class="reader-chapter-block">' + html + '</div>');
+                        var b = mh.firstElementChild;
+                        if (b) {
+                            b.style.height = 'auto';
+                            b.style.minHeight = '0';
+                        }
+                        // No +N tolerance — maxHeight already includes safety slack.
+                        return !!(b && b.scrollHeight <= box.maxHeight);
+                    }
+                });
+                chapterPages = filled.pages || chapterPages;
+                chapterIdxs = filled.chapterIdxs || chapterIdxs;
             }
         }
         return { pages: chapterPages, idxs: chapterIdxs };
@@ -736,6 +824,7 @@
         pageLabel: pageLabel,
         applyInteriorFormatting: applyInteriorFormatting,
         syncContextFromDom: syncContextFromDom,
-        normalizeChapterPageHtml: normalizeChapterPageHtml
+        normalizeChapterPageHtml: normalizeChapterPageHtml,
+        ensureWriterChapterOpener: ensureWriterChapterOpener
     };
 })(window);

@@ -389,6 +389,8 @@
     #bookResult #preview-content .reader-chapter-block {
         padding: 0;
         margin: 0;
+        height: auto !important;
+        min-height: 0 !important;
     }
     #bookResult #previewMeasureHost.preview-measure-host p,
     #bookResult #previewMeasureHost.preview-measure-host .manuscript-p {
@@ -411,7 +413,7 @@
         padding-bottom: 0.65rem;
     }
     #bookResult .reader-chapter-block p {
-        margin: 0 0 0.65rem 0;
+        margin: 0 0 0.22em 0;
         color: var(--body-color, inherit);
         line-height: var(--ilt-body-lh, 1.65);
         font-size: var(--ilt-body-px, 0.8125rem);
@@ -2853,10 +2855,8 @@ window.splitOversizedHtmlSegment = function (segmentHtml, maxH, mh) {
     if (tag === 'p') {
         openTag = '<p class="manuscript-p">';
         closeTag = '</p>';
-    } else if (/^h[1-6]$/.test(tag)) {
-        var lvl = tag[1];
-        openTag = '<' + tag + ' class="manuscript-heading manuscript-h' + lvl + '">';
-        closeTag = '</' + tag + '>';
+    } else if (/^h[1-6]$/.test(tag) || (el.className && String(el.className).indexOf('manuscript-heading') >= 0)) {
+        return ['<div class="reader-chapter-block">' + segmentHtml + '</div>'];
     } else {
         openTag = '<div class="manuscript-p">';
         closeTag = '</div>';
@@ -2897,6 +2897,8 @@ window.splitOversizedHtmlSegment = function (segmentHtml, maxH, mh) {
  * Measure box for one physical page face.
  * Open-book spread shells are 12×9 (two faces + spine) — pagination MUST measure at
  * half-width / face-height, otherwise Total pages undercounts and text overflows.
+ * maxHeight is intentionally a bit under the painted content box so last-line
+ * descenders never clip under overflow:hidden (running head + folio chrome).
  */
 window.getReaderPageMeasureBox = function (shellEl, viewportEl) {
     var SPINE_PX = 12;
@@ -2929,9 +2931,10 @@ window.getReaderPageMeasureBox = function (shellEl, viewportEl) {
     if (liveHead) headH = liveHead.getBoundingClientRect().height || 0;
     if (liveFolio) folioH = liveFolio.getBoundingClientRect().height || 0;
 
-    if (headH < 8) headH = Math.ceil(2.15 * rem);
-    if (folioH < 8) folioH = Math.ceil(1.55 * rem);
-    if (padY < 8) padY = Math.ceil(1.55 * rem);
+    // Folio CSS uses min-height 2.35rem + padding — keep fallbacks honest.
+    if (headH < 8) headH = Math.ceil(2.55 * rem);
+    if (folioH < 8) folioH = Math.ceil(2.85 * rem);
+    if (padY < 8) padY = Math.ceil(1.85 * rem);
     if (padX < 8) padX = Math.ceil(2.4 * rem);
 
     if (!fontSize && viewportEl) {
@@ -2944,11 +2947,25 @@ window.getReaderPageMeasureBox = function (shellEl, viewportEl) {
         lineHeight = lineHeight || '1.55';
     }
 
+    var lhPx = parseFloat(lineHeight);
+    if (!isFinite(lhPx) || lhPx < 8) {
+        lhPx = (parseFloat(fontSize) || 13) * 1.55;
+    }
+    // One line of air so glyphs never sit under the folio clip edge.
+    var safetySlack = Math.max(16, Math.ceil(lhPx + 4));
+
     var chromeY = headH + folioH;
     var baseH = 0;
     if (shellH >= 48) baseH = shellH;
     else if (viewportEl && viewportEl.clientHeight >= 32) baseH = viewportEl.clientHeight;
-    var maxH = Math.max(0, baseH - chromeY - padY - 4);
+
+    // Prefer the painted content box when the open-book face exists.
+    var maxH = 0;
+    if (liveInner && liveInner.clientHeight >= 48) {
+        maxH = Math.max(0, liveInner.clientHeight - padY - safetySlack);
+    } else {
+        maxH = Math.max(0, baseH - chromeY - padY - safetySlack);
+    }
     var contentW = Math.max(48, faceW - padX);
 
     return {
@@ -2957,7 +2974,8 @@ window.getReaderPageMeasureBox = function (shellEl, viewportEl) {
         maxHeight: maxH,
         fontSize: fontSize,
         lineHeight: lineHeight,
-        padding: '0'
+        padding: '0',
+        safetySlack: safetySlack
     };
 };
 
@@ -3176,14 +3194,18 @@ window.ensureChapterPagesForMeta = function (ch) {
     }
     var shell = document.getElementById('paginatedReaderShell');
     var viewport = document.getElementById('preview-content');
-    var fullHtml = '<div class="reader-chapter-block">' + (ch.html || '<p class="text-slate-500">No content for this chapter.</p>') + '</div>';
+    var html = String(ch.html || '').trim() || '<p class="text-slate-500">No content for this chapter.</p>';
+    if (window.AiWriterReadMode && typeof window.AiWriterReadMode.ensureWriterChapterOpener === 'function') {
+        html = window.AiWriterReadMode.ensureWriterChapterOpener(html, ch, parseInt(ch.chapterNo, 10) || 1);
+    }
+    var fullHtml = '<div class="reader-chapter-block">' + html + '</div>';
     if (!shell || !viewport) {
         window._previewChapterPages = [fullHtml];
         return;
     }
-    var key = typeof window.getReaderLayoutCacheKey === 'function'
+    var key = (typeof window.getReaderLayoutCacheKey === 'function'
         ? window.getReaderLayoutCacheKey(shell, viewport)
-        : (shell.clientWidth + 'x' + shell.clientHeight);
+        : (shell.clientWidth + 'x' + shell.clientHeight)) + '|opener-v3|' + html.length;
     if (ch._pagesCache && ch._pagesCacheKey === key && ch._pagesCache.length) {
         window._previewChapterPages = ch._pagesCache;
         return;
@@ -3425,6 +3447,7 @@ window.buildPreviewChapterHeadingHtml = function (titleRaw, escFn, chapterNo) {
     };
     var titleHtml = t ? ('<span class="fmt-ch-title">' + esc(t) + '</span>') : '';
     return '<header class="fmt-chapter-opener manuscript-chapter-heading writer-chapter-opener">' +
+        '<span class="fmt-ch-flourish" aria-hidden="true">\u2766</span>' +
         '<span class="fmt-ch-eyebrow">Chapter ' + n + '</span>' +
         titleHtml +
         '<span class="fmt-ch-rule" aria-hidden="true"></span>' +

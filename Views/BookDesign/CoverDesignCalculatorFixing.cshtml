@@ -506,16 +506,25 @@
     }
     .reader-page-body > :first-child { margin-top: 0 !important; }
     .reader-chapter-block {
-        display: flex;
-        flex-direction: column;
-        min-height: 100%;
-        height: 100%;
+        display: block;
+        min-height: 0;
+        height: auto;
     }
-    .reader-page-body .manuscript-heading {
+    #fmt-preview-measure-host .reader-chapter-block {
+        height: auto !important;
+        min-height: 0 !important;
+    }
+    .reader-page-body .manuscript-heading,
+    .reader-page-body h2,
+    .reader-page-body h3 {
         font-weight: 700;
-        margin: 1rem 0 0.5rem 0;
-        line-height: 1.25;
+        margin: 0.7em 0 0.28em 0;
+        line-height: 1.3;
         text-indent: 0;
+        text-align: left;
+        text-transform: none;
+        letter-spacing: 0.01em;
+        font-size: 1.05em;
         break-after: avoid;
         page-break-after: avoid;
         break-inside: avoid;
@@ -528,9 +537,9 @@
         break-inside: avoid;
         page-break-inside: avoid;
     }
-    .reader-page-body .manuscript-h1 { font-size: 1.5rem; }
-    .reader-page-body .manuscript-h2 { font-size: 1.28rem; }
-    .reader-page-body .manuscript-h3 { font-size: 1.12rem; }
+    .reader-page-body .manuscript-h1 { font-size: 1.12em; }
+    .reader-page-body .manuscript-h2 { font-size: 1.05em; }
+    .reader-page-body .manuscript-h3 { font-size: 1.02em; }
     .reader-page-body .manuscript-h4 { font-size: 1.05rem; }
     .reader-page-body .manuscript-h5 { font-size: 1rem; }
     .reader-page-body .manuscript-h6 { font-size: 0.95rem; color: #64748b; }
@@ -848,14 +857,14 @@
     #book-formatter-root .book-page-running-head.is-empty { visibility: hidden; }
 
     /* ---------- CHAPTER OPENER (structured: flourish / eyebrow / title / rule) ---------- */
-    /* Fixed-height sink — same in live preview + measure host (title not stuck to top) */
     #book-formatter-root .fmt-chapter-sink,
     #fmt-preview-measure-host .fmt-chapter-sink {
-        display: block !important;
-        width: 100% !important;
-        height: clamp(4.75rem, 22vh, 8rem) !important;
-        min-height: 4.75rem !important;
-        flex-shrink: 0 !important;
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
         pointer-events: none !important;
         visibility: hidden !important;
     }
@@ -869,8 +878,25 @@
         border: 0;
         line-height: 1.2;
     }
-    #book-formatter-root .fmt-chapter-opener .fmt-ch-flourish { display: none; }
-    #book-formatter-root .fmt-chapter-opener .fmt-ch-rule { display: none; }
+    #book-formatter-root .fmt-chapter-opener.is-inline-start {
+        margin-top: 1.15rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid rgba(138, 111, 63, 0.38);
+    }
+    #book-formatter-root .fmt-chapter-opener .fmt-ch-flourish {
+        display: block;
+        font-size: 1.15em;
+        line-height: 1;
+        color: #8a6f3f;
+        margin: 0 0 0.2rem;
+    }
+    #book-formatter-root .fmt-chapter-opener .fmt-ch-rule {
+        display: block;
+        width: 4.25rem;
+        height: 2px;
+        margin: 0.4em auto 0;
+        background: linear-gradient(90deg, transparent, rgba(138, 111, 63, 0.8), transparent);
+    }
     #book-formatter-root .fmt-chapter-opener .fmt-ch-eyebrow {
         display: block;
         font-size: 0.72em;
@@ -2502,19 +2528,8 @@
                                 <button type="button" class="fmt-int-card" data-style="POD"><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">Chapter One</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">POD</span></button>
                                 <button type="button" class="fmt-int-card" data-style="ElegantTrade" data-premium="1"><span class="fmt-lock"><span class="fmt-lock-amt" data-premium-price></span></span><span class="fmt-int-card__preview"><span class="fmt-int-card__ch">CHAPTER ONE</span><span class="fmt-int-card__rule"></span><span class="fmt-int-card__body">Lorem ipsum dolor sit amet, consectetur adipiscing elit sed do.</span></span><span class="fmt-int-card__name">Elegant trade <span class="fmt-premium-badge">Premium</span></span></button>
                             </div>
-                            <div class="fmt-live-bill" id="fmtLiveBill">
-                                <div>
-                                    <div class="fmt-live-bill__kicker">Formatting order</div>
-                                    <div class="fmt-live-bill__title" id="fmtBillTitle">Basic formatting — FREE</div>
-                                    <p id="fmtBillHint">You can format and preview without paying. Premium styles unlock on checkout.</p>
-                                </div>
-                                <a class="pay-btn hidden" id="fmtBillPay" href="#">Pay &amp; download</a>
-                            </div>
-                            @await Html.PartialAsync("_FormattingCostPanel")
                             <script>
                             (function () {
-                                var q = new URLSearchParams(location.search);
-                                var bookId = q.get('bookId') || '0';
                                 var prices = {};
                                 fetch('/pricing/rates', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (d) {
                                     var fallback = (d.rules || []).find(function (x) { return x.key === 'formatting.premium'; });
@@ -2528,33 +2543,7 @@
                                         var el = card.querySelector('[data-premium-price]');
                                         if (el) el.textContent = '$' + Number(amt).toFixed(0);
                                     });
-                                    syncFmtBill();
                                 }).catch(function () {});
-
-                                function selectedStyle() {
-                                    var on = document.querySelector('.fmt-int-card.is-active, .fmt-int-card[aria-pressed="true"]');
-                                    return (on && on.getAttribute('data-style')) || (document.getElementById('style-select') || {}).value || '';
-                                }
-                                function syncFmtBill() {
-                                    var style = selectedStyle();
-                                    var premium = !!document.querySelector('.fmt-int-card[data-style="' + style + '"][data-premium="1"]');
-                                    var amt = premium ? (prices[style] || 3) : 0;
-                                    var title = document.getElementById('fmtBillTitle');
-                                    var hint = document.getElementById('fmtBillHint');
-                                    var pay = document.getElementById('fmtBillPay');
-                                    if (title) title.textContent = premium ? ('Premium style — $' + Number(amt).toFixed(2)) : 'Basic formatting — FREE';
-                                    if (hint) hint.textContent = premium
-                                        ? 'Only this style is billed. Writing and cover stay optional.'
-                                        : 'You can format and preview without paying. Premium styles unlock on checkout.';
-                                    if (pay) {
-                                        pay.classList.toggle('hidden', !premium || bookId === '0');
-                                        if (bookId !== '0') pay.href = '/checkout/' + bookId;
-                                    }
-                                }
-                                var cards = document.getElementById('fmt-interior-cards');
-                                if (cards) cards.addEventListener('click', function () { setTimeout(syncFmtBill, 0); });
-                                var sel = document.getElementById('style-select');
-                                if (sel) sel.addEventListener('change', syncFmtBill);
                             })();
                             </script>
                         </div>
@@ -2934,6 +2923,8 @@
     // Start-to-finish flow always passes bookId in the URL from Writer / Dashboard.
     if (initialBookId > 0) {
         try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(initialBookId)); } catch (e) {}
+    } else {
+        try { sessionStorage.removeItem(FORMATTER_BOOK_KEY); } catch (e) {}
     }
 
     let bookChapters = [];
@@ -3507,6 +3498,30 @@
         return !/<\s*(p|div|h[1-6]|ul|ol|blockquote)\b/i.test(s) && /\n/.test(s);
     }
 
+    function isGenericChapterTitle(t) {
+        var s = String(t || '').replace(/\s+/g, ' ').trim();
+        if (!s) return true;
+        return /^(untitled|your chapter|ebook chapter|chapter\s*\d+)$/i.test(s);
+    }
+
+    function looksLikePointHeadingText(t) {
+        return /^\d{1,2}[\.\)\]]\s+\S/.test(String(t || '').trim());
+    }
+
+    function pickFmtChapterDisplayTitle(title, html) {
+        var t = String(title || '').trim();
+        if (t && !isGenericChapterTitle(t)) return t;
+        try {
+            var doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+            var h = doc.body && doc.body.querySelector('h1, h2, h3, .manuscript-heading');
+            if (h) {
+                var ht = (h.textContent || '').replace(/\s+/g, ' ').trim();
+                if (ht && !looksLikePointHeadingText(ht) && ht.length <= 90) return ht;
+            }
+        } catch (e) { /* keep stored title */ }
+        return t;
+    }
+
     function buildFmtChapterHeading(chapterNo, chapterTitle) {
         var n = parseInt(chapterNo, 10);
         if (!Number.isFinite(n) || n <= 0) n = 1;
@@ -3518,8 +3533,7 @@
         // Structured opener (flourish / eyebrow / title / rule). Each theme shows
         // only the parts it wants via CSS, so the chapter opening reads like a
         // real book — different per interior style.
-        return '<div class="fmt-chapter-sink" aria-hidden="true"></div>' +
-            '<header class="fmt-chapter-opener manuscript-chapter-heading">' +
+        return '<header class="fmt-chapter-opener manuscript-chapter-heading">' +
             '<span class="fmt-ch-flourish" aria-hidden="true">\u2766</span>' +
             '<span class="fmt-ch-eyebrow">' + escapeHtml(eyebrow) + '</span>' +
             titleHtml +
@@ -3909,8 +3923,8 @@
     }
 
     function fmtPageFitSlackPx() {
-        // Extra air above the folio so last lines never collide with page numbers.
-        return 88;
+        // Small air above the folio so last lines never collide with page numbers.
+        return 28;
     }
 
     function syncFmtMeasureHostClasses(mh) {
@@ -4199,10 +4213,10 @@
     function buildReaderPageBlockHtml(bodyHtml, opts) {
         opts = opts || {};
         var titleBlock = '';
-        if (opts.includeTitle && !opts.hasBodyLeadingHeading) {
+        if (opts.includeTitle) {
             titleBlock = opts.chapterHeadingHtml
                 ? String(opts.chapterHeadingHtml)
-                : ('<article class="reader-page-title">' + escapeHtml(opts.title || '') + '</article>');
+                : ('<header class="fmt-chapter-opener manuscript-chapter-heading"><span class="fmt-ch-eyebrow">' + escapeHtml(opts.title || '') + '</span></header>');
         }
         var bodyClass = opts.isClassic ? 'reader-page-body classic-body' : 'reader-page-body';
         var chapterAttr = opts.chapterStart ? ' data-chapter-start="1"' : '';
@@ -4350,6 +4364,13 @@
         pages = stripTrailingHeadingsFromReaderPages(pages);
         var merged = mergeUnderfilledReaderPages(pages, chapterIdxs);
         merged = pullOrphansToFillPages(merged.pages, merged.chapterIdxs);
+        if (window.BookReaderPagination && typeof window.BookReaderPagination.fillUnderfilledPages === 'function' && fmtCanMeasurePages()) {
+            merged = window.BookReaderPagination.fillUnderfilledPages(merged.pages, merged.chapterIdxs, {
+                fits: function (html) {
+                    return fmtPageContentFits(stripEmbeddedPageFooters(html));
+                }
+            });
+        }
         return merged;
     }
 
@@ -4384,7 +4405,7 @@
                 if (outC[i] !== outC[i + 1]) continue;
                 if (outP[i + 1].indexOf('data-chapter-start') >= 0) continue;
                 var h = measureFmtPageBlock(stripEmbeddedPageFooters(outP[i]));
-                if (h / maxH >= 0.72) continue;
+                if (h / maxH >= 0.88) continue;
 
                 var nextBody = outP[i + 1].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
                 if (!nextBody || !nextBody[2].trim()) continue;
@@ -4392,7 +4413,7 @@
                 if (!firstBlockMatch) continue;
                 var block = firstBlockMatch[1];
                 if (/<h[1-6]\b/i.test(block)) continue;
-                if (wordCountInHtml(block) > 12) continue;
+                if (wordCountInHtml(block) > 28) continue;
 
                 var curBody = outP[i].match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
                 if (!curBody) continue;
@@ -5776,10 +5797,11 @@
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
             const content = (ch && ch.content && String(ch.content).trim()) || '';
             const normalizedContent = expandMonolithicChapterHtml(stripRedundantChapterOpenings(title, content));
-            const paras = expandParasForPaging(splitChapterIntoParas(normalizedContent));
-            const hasBodyLeadingHeading = /^\s*(<h[1-6]\b|#{1,6}\s+)/i.test(normalizedContent);
+            const displayTitle = pickFmtChapterDisplayTitle(title, normalizedContent);
+            const pagingContent = stripDuplicateLeadingHeading(displayTitle, normalizedContent);
+            const paras = expandParasForPaging(splitChapterIntoParas(pagingContent));
             const chapterNo = (ch && ch.chapterNo != null) ? ch.chapterNo : (ci + 1);
-            const chapterHeadingHtml = buildFmtChapterHeading(chapterNo, title);
+            const chapterHeadingHtml = buildFmtChapterHeading(chapterNo, displayTitle);
 
             if (paras.length === 0) {
                 var emptyBody = isClassic
@@ -5798,9 +5820,9 @@
                         : novelParaToBodySegment(paras[si]));
                 }
                 var chapterPages = paginateChapterFlow(segments, {
-                    title: title,
+                    title: displayTitle,
                     chapterHeadingHtml: chapterHeadingHtml,
-                    hasBodyLeadingHeading: hasBodyLeadingHeading,
+                    hasBodyLeadingHeading: false,
                     isClassic: isClassic,
                     chapterStart: true
                 });
@@ -5812,7 +5834,7 @@
                 var pageChunks = chunkParasIntoPages(paras);
                 for (let pi = 0; pi < pageChunks.length; pi++) {
                     const chunk = pageChunks[pi];
-                    const titleBlock = (pi === 0 && !hasBodyLeadingHeading)
+                    const titleBlock = (pi === 0)
                         ? chapterHeadingHtml
                         : '';
                     const chunkText = chunk.join('\n\n');
@@ -5937,7 +5959,7 @@
         });
     }
 
-    /** Merge consecutive pages when under-filled — never across chapter boundaries. */
+    /** Merge consecutive pages when under-filled — same chapter only (openers stay intact). */
     function mergeUnderfilledReaderPages(pages, chapterIdxs) {
         if (!Array.isArray(pages) || pages.length < 2 || !fmtCanMeasurePages()) {
             return { pages: pages, chapterIdxs: chapterIdxs || [] };
@@ -5956,10 +5978,9 @@
             for (var i = 0; i < outP.length; i++) {
                 if (i < outP.length - 1
                     && outC[i] === outC[i + 1]
-                    && outP[i + 1].indexOf('data-chapter-start') < 0
-                    && outP[i].indexOf('reader-page-title') < 0) {
+                    && outP[i + 1].indexOf('data-chapter-start') < 0) {
                     var hCur = measureFmtPageBlock(stripEmbeddedPageFooters(outP[i]));
-                    if (hCur / maxH < 0.72) {
+                    if (hCur / maxH < 0.88) {
                         var merged = mergeReaderPageBodies(outP[i], outP[i + 1]);
                         if (merged && fmtPageContentFits(stripEmbeddedPageFooters(merged))) {
                             nextP.push(merged);
@@ -5983,9 +6004,12 @@
         var ma = String(a || '').match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
         var mb = String(b || '').match(/(<section class="reader-page-body[^"]*">)([\s\S]*?)(<\/section>)/);
         if (!ma || !mb) return null;
-        var titleA = (a.indexOf('reader-page-title') >= 0) ? (a.match(/<article class="reader-page-title">[\s\S]*?<\/article>/) || [''])[0] : '';
+        var opener = '';
+        var openerMatch = String(a || '').match(/<header[^>]*class="[^"]*fmt-chapter-opener[\s\S]*?<\/header>/i)
+            || String(a || '').match(/<article class="reader-page-title">[\s\S]*?<\/article>/);
+        if (openerMatch) opener = openerMatch[0];
         var chAttr = a.indexOf('data-chapter-start') >= 0 ? ' data-chapter-start="1"' : '';
-        return '<div class="reader-chapter-block"' + chAttr + '>' + titleA +
+        return '<div class="reader-chapter-block"' + chAttr + '>' + opener +
             ma[1] + ma[2] + mb[2] + ma[3] + '</div>';
     }
 
@@ -6805,13 +6829,16 @@
     }
 
     function resolveFormatterBookId() {
+        // Soft modules: never revive a book from sessionStorage when the URL/page is blank.
+        // Stale session ids caused UploadManuscript → "Book not found."
         var bid = getBookIdFromUrl();
         if (!bid || bid <= 0) bid = initialBookId;
         if (!bid || bid <= 0) {
             try { bid = parseInt((document.getElementById('selected-book-id') && document.getElementById('selected-book-id').value) || '0', 10); } catch (e) { bid = 0; }
         }
         if (!bid || bid <= 0) {
-            try { bid = parseInt(sessionStorage.getItem(FORMATTER_BOOK_KEY) || '0', 10); } catch (e) { bid = 0; }
+            var sel = document.getElementById('fmt-book-select');
+            if (sel) bid = parseInt(sel.value || '0', 10) || 0;
         }
         return Number.isFinite(bid) && bid > 0 ? bid : 0;
     }
@@ -7453,13 +7480,16 @@
             }
 
             function currentBookId() {
-                var root = document.getElementById('book-formatter-root');
-                var fromRoot = root ? parseInt(root.getAttribute('data-book-id') || '0', 10) : 0;
-                if (fromRoot > 0) return fromRoot;
+                if (typeof resolveFormatterBookId === 'function') {
+                    var resolved = resolveFormatterBookId();
+                    if (resolved > 0) return resolved;
+                }
                 var hid = document.getElementById('selected-book-id');
                 var fromHid = hid ? parseInt(hid.value || '0', 10) : 0;
                 if (fromHid > 0) return fromHid;
-                return typeof bookId !== 'undefined' ? (parseInt(bookId, 10) || 0) : 0;
+                var rootEl = document.getElementById('book-formatter-root');
+                var fromRoot = rootEl ? parseInt(rootEl.getAttribute('data-book-id') || '0', 10) : 0;
+                return fromRoot > 0 ? fromRoot : 0;
             }
 
             function isImageFile(file) {
@@ -7536,12 +7566,23 @@
                 try {
                     var fd = new FormData();
                     fd.append('file', file);
+                    fd.append('bookId', String(bid > 0 ? bid : 0));
                     var res = await fetch('/Books/UploadManuscript' + (bid > 0 ? ('/' + bid) : ''), {
                         method: 'POST',
                         body: fd,
                         credentials: 'same-origin'
                     });
                     var data = await res.json().catch(function () { return null; });
+                    // Stale/deleted book id → retry as a fresh import (server also soft-recovers).
+                    if (data && !data.success && /book not found/i.test(String(data.message || '')) && bid > 0) {
+                        fd.set('bookId', '0');
+                        res = await fetch('/Books/UploadManuscript', {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'same-origin'
+                        });
+                        data = await res.json().catch(function () { return null; });
+                    }
                     if (!res.ok || !data || !data.success) {
                         setMsStatus((data && data.message) || 'Upload failed.', false);
                         return;
@@ -7573,12 +7614,22 @@
                 try {
                     var fd = new FormData();
                     files.forEach(function (f) { fd.append('files', f); });
+                    fd.append('bookId', String(bid > 0 ? bid : 0));
                     var res = await fetch('/Books/UploadFormatterImages' + (bid > 0 ? ('/' + bid) : ''), {
                         method: 'POST',
                         body: fd,
                         credentials: 'same-origin'
                     });
                     var data = await res.json().catch(function () { return null; });
+                    if (data && !data.success && /book not found/i.test(String(data.message || '')) && bid > 0) {
+                        fd.set('bookId', '0');
+                        res = await fetch('/Books/UploadFormatterImages', {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'same-origin'
+                        });
+                        data = await res.json().catch(function () { return null; });
+                    }
                     if (!res.ok || !data || !data.success) {
                         setMsStatus((data && data.message) || 'Image upload failed.', false);
                         return;

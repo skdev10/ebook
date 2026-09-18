@@ -467,7 +467,9 @@
 /* Keep-with-next: in-chapter headings never orphan at page bottom (preview + print). */
 .reader-page-body .manuscript-heading,
 .reader-page-body h1, .reader-page-body h2, .reader-page-body h3,
-.reader-page-body h4, .reader-page-body h5, .reader-page-body h6 {
+.reader-page-body h4, .reader-page-body h5, .reader-page-body h6,
+.reader-page-body .fmt-chapter-opener,
+.reader-page-body .writer-chapter-opener {
     break-after: avoid;
     page-break-after: avoid;
     break-inside: avoid;
@@ -475,7 +477,9 @@
 }
 .reader-page-body .manuscript-heading + *,
 .reader-page-body h1 + *, .reader-page-body h2 + *, .reader-page-body h3 + *,
-.reader-page-body h4 + *, .reader-page-body h5 + *, .reader-page-body h6 + * {
+.reader-page-body h4 + *, .reader-page-body h5 + *, .reader-page-body h6 + *,
+.reader-page-body .fmt-chapter-opener + *,
+.reader-page-body .writer-chapter-opener + * {
     break-before: avoid;
     page-break-before: avoid;
 }
@@ -804,8 +808,7 @@
     min-height: 0;
     overflow: hidden;
     box-sizing: border-box;
-    /* Generous top/bottom so chapter titles sit lower and last lines clear the folio */
-    padding: clamp(2.4rem, 5.2vw, 3.5rem) clamp(2.4rem, 6vw, 3.6rem) clamp(2.55rem, 5vw, 3.4rem);
+    padding: clamp(0.7rem, 1.8vw, 1.05rem) clamp(0.95rem, 2.4vw, 1.35rem) clamp(0.75rem, 1.8vw, 1.1rem);
     font-family: Georgia, "Times New Roman", serif;
     font-size: var(--fmt-font-size, var(--ilt-body-px, 11pt));
     line-height: var(--fmt-line-height, var(--ilt-body-lh, 1.55));
@@ -818,27 +821,25 @@
 }
 
 .book-open-page--verso .book-open-page-inner {
-    padding-top: clamp(2.4rem, 5.2vw, 3.5rem);
-    padding-bottom: clamp(2.55rem, 5vw, 3.4rem);
-    padding-left: clamp(2.5rem, 6.4vw, 4rem);
-    padding-right: clamp(2.65rem, 6.8vw, 4.2rem);
+    padding-top: clamp(0.7rem, 1.8vw, 1.05rem);
+    padding-bottom: clamp(0.75rem, 1.8vw, 1.1rem);
+    padding-left: clamp(1.05rem, 2.6vw, 1.45rem);
+    padding-right: clamp(0.9rem, 2.2vw, 1.25rem);
 }
 
 .book-open-page--recto .book-open-page-inner {
-    padding-top: clamp(2.4rem, 5.2vw, 3.5rem);
-    padding-bottom: clamp(2.55rem, 5vw, 3.4rem);
-    padding-left: clamp(2.65rem, 6.8vw, 4.2rem);
-    padding-right: clamp(2.5rem, 6.4vw, 4rem);
+    padding-top: clamp(0.7rem, 1.8vw, 1.05rem);
+    padding-bottom: clamp(0.75rem, 1.8vw, 1.1rem);
+    padding-left: clamp(0.9rem, 2.2vw, 1.25rem);
+    padding-right: clamp(1.05rem, 2.6vw, 1.45rem);
 }
 
 .fmt-chapter-sink {
-    display: block;
-    width: 100%;
-    height: clamp(4.75rem, 22vh, 8rem);
-    min-height: 4.75rem;
-    flex-shrink: 0;
-    pointer-events: none;
-    visibility: hidden;
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
 .book-open-spread.fmt-live-spread .reader-chapter-block[data-chapter-start="1"],
@@ -879,64 +880,120 @@
 
 .book-open-page-inner p:first-of-type,
 .book-open-page-inner [data-chapter-start] p:first-of-type,
-.book-open-page-inner .manuscript-chapter-heading + p,
-.book-open-page-inner h1 + p,
+.book-open-page-inner .fmt-chapter-opener + p,
+.book-open-page-inner .fmt-chapter-opener + .reader-page-body p:first-of-type,
+.book-open-page-inner .manuscript-heading + p,
 .book-open-page-inner h2 + p,
 .book-open-page-inner h3 + p {
     text-indent: 0;
 }
 
-.book-open-page-inner h1,
+/* In-chapter section headings — not chapter banners */
+.book-open-page-inner h1.manuscript-heading,
 .book-open-page-inner h2,
 .book-open-page-inner h3,
-.book-open-page-inner .manuscript-chapter-heading,
-.book-open-page-inner .fmt-chapter-opener,
-.book-open-page-inner .chapter-opener {
-    text-align: center;
+.book-open-page-inner h4,
+.book-open-page-inner .manuscript-heading,
+.book-open-page-inner .manuscript-h2,
+.book-open-page-inner .manuscript-h3 {
+    text-align: left;
     text-indent: 0 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 600;
-    margin: 0.35em 0 1em;
-    padding-top: 0;
-    line-height: 1.25;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-weight: 700;
+    font-size: 1.02em;
+    margin: 0.7em 0 0.28em;
+    padding-top: 0.1em;
+    line-height: 1.3;
+    color: #1c1917;
+    break-after: avoid;
+    page-break-after: avoid;
+}
+
+.book-open-page-inner h2.reader-page-title,
+.book-open-page-inner h3.reader-page-title {
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 1.02em;
+    margin: 0.7em 0 0.28em;
 }
 
 .book-open-page-inner .fmt-chapter-opener,
-.book-open-page-inner .writer-chapter-opener {
+.book-open-page-inner .writer-chapter-opener,
+.book-open-page-inner [data-chapter-start="1"] > .fmt-chapter-opener,
+.book-open-page-inner [data-chapter-start="1"] > header.reader-page-title {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.2rem;
-    margin: 0.15rem 0 1.05rem;
-    padding: 0.15rem 0 0.2rem;
+    text-align: center;
+    text-indent: 0 !important;
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 600;
+    margin: 0.2rem 0 0.85rem;
+    padding: 0.15rem 0 0.35rem;
+    line-height: 1.25;
+    break-after: avoid;
+    page-break-after: avoid;
+    break-inside: avoid;
+}
+
+.book-open-page-inner .fmt-chapter-opener.is-inline-start,
+.book-open-page-inner .writer-chapter-opener.is-inline-start {
+    margin-top: 1.15rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid rgba(138, 111, 63, 0.38);
+}
+
+.book-open-page-inner .fmt-ch-flourish {
+    display: block;
+    font-size: 1.15em;
+    line-height: 1;
+    color: #8a6f3f;
+    opacity: 0.9;
+    margin: 0 0 0.1rem;
 }
 
 .book-open-page-inner .fmt-ch-eyebrow {
     display: block;
-    font-size: 0.78em;
-    letter-spacing: 0.22em;
+    font-size: 0.72em;
+    letter-spacing: 0.28em;
     font-weight: 700;
-    color: #44403c;
+    font-variant: small-caps;
+    text-transform: uppercase;
+    color: #5c4a3a;
     margin: 0;
 }
 
 .book-open-page-inner .fmt-ch-title {
     display: block;
-    font-size: 1.05em;
-    letter-spacing: 0.06em;
+    font-size: 1.18em;
+    letter-spacing: 0.08em;
     font-weight: 600;
-    margin: 0.12em 0 0;
+    margin: 0.08em 0 0;
     max-width: 100%;
-    line-height: 1.3;
+    line-height: 1.28;
+    color: #1c1917;
 }
 
 .book-open-page-inner .fmt-ch-rule {
     display: block;
-    width: 3.25rem;
-    height: 1px;
-    margin: 0.45em auto 0;
-    background: rgba(68, 48, 36, 0.38);
+    width: 4.25rem;
+    height: 2px;
+    margin: 0.4em auto 0;
+    background: linear-gradient(90deg, transparent, rgba(138, 111, 63, 0.85), transparent);
+    border: 0;
+}
+
+.book-open-page-inner .fmt-chapter-opener + p,
+.book-open-page-inner .writer-chapter-opener + p,
+.book-open-page-inner .fmt-chapter-opener + .reader-page-body,
+.book-open-page-inner .manuscript-heading + p,
+.book-open-page-inner h2 + p,
+.book-open-page-inner h3 + p {
+    break-before: avoid;
+    page-break-before: avoid;
 }
 
 .book-open-page-inner .reader-chapter-block[data-chapter-start="1"] {
