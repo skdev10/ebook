@@ -3159,6 +3159,9 @@
         if (!specsEl) return;
         var specs;
         try { specs = JSON.parse(specsEl.textContent || '{}'); } catch (e) { return; }
+        window.__iltClientSpecs = specs;
+        if (specs.spacing && specs.spacing.typography)
+            window.__iltTypography = specs.spacing.typography;
         var styleEl = document.getElementById('style-select');
         var interior = styleEl ? (styleEl.value || 'Novel') : 'Novel';
         var interiors = specs.interiors || specs;
@@ -6071,13 +6074,30 @@
         var previewLineSp = String(lineSp);
         const interior = styleEl ? styleEl.value : 'Novel';
 
+        // Same InteriorTypographyPresets mapping as Chromium PDF (pt → CSS px).
         var fontSize;
         var ptSmall = 10, ptMed = 11, ptLarge = 12;
+        var classicPtSmall = 14, classicPtMed = 17, classicPtLarge = 19;
+        try {
+            var specs = window.__iltTypography || null;
+            if (!specs && window.__iltClientSpecs) {
+                var root = window.__iltClientSpecs;
+                specs = (root.spacing && root.spacing.typography) || root.typography || null;
+            }
+            if (specs) {
+                if (specs.ptSmall != null) ptSmall = Number(specs.ptSmall) || ptSmall;
+                if (specs.ptMedium != null) ptMed = Number(specs.ptMedium) || ptMed;
+                if (specs.ptLarge != null) ptLarge = Number(specs.ptLarge) || ptLarge;
+                if (specs.classicPtSmall != null) classicPtSmall = Number(specs.classicPtSmall) || classicPtSmall;
+                if (specs.classicPtMedium != null) classicPtMed = Number(specs.classicPtMedium) || classicPtMed;
+                if (specs.classicPtLarge != null) classicPtLarge = Number(specs.classicPtLarge) || classicPtLarge;
+            }
+        } catch (eTy) { /* keep defaults */ }
         function fmtPxFromPt(pt) { return (pt * 96 / 72).toFixed(2) + 'px'; }
         if (interior === 'Classic') {
-            if (size === 'Small') fontSize = '14px';
-            else if (size === 'Large') fontSize = '19px';
-            else fontSize = '17px';
+            if (size === 'Small') fontSize = fmtPxFromPt(classicPtSmall);
+            else if (size === 'Large') fontSize = fmtPxFromPt(classicPtLarge);
+            else fontSize = fmtPxFromPt(classicPtMed);
         } else {
             if (size === 'Small') fontSize = fmtPxFromPt(ptSmall);
             else if (size === 'Large') fontSize = fmtPxFromPt(ptLarge);

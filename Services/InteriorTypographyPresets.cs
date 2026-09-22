@@ -122,7 +122,7 @@ public static class InteriorTypographyPresets
     private static string PxFromPt(double pt) =>
         (pt * 96.0 / 72.0).ToString("0.##", CultureInfo.InvariantCulture);
 
-    /// <summary>Payload for formatter preview JS (font sizes per size tier).</summary>
+    /// <summary>Payload for formatter preview JS (font sizes per size tier — matches PDF).</summary>
     public static object ClientTypographyPayload() => new
     {
         ptSmall = PtSmall,
@@ -130,6 +130,12 @@ public static class InteriorTypographyPresets
         ptLarge = PtLarge,
         pxSmall = PxFromPt(PtSmall),
         pxMedium = PxFromPt(PtMedium),
-        pxLarge = PxFromPt(PtLarge)
+        pxLarge = PxFromPt(PtLarge),
+        classicPtSmall = ClassicPointSize("Small"),
+        classicPtMedium = ClassicPointSize("Medium"),
+        classicPtLarge = ClassicPointSize("Large"),
+        classicPxSmall = PxFromPt(ClassicPointSize("Small")),
+        classicPxMedium = PxFromPt(ClassicPointSize("Medium")),
+        classicPxLarge = PxFromPt(ClassicPointSize("Large"))
     };
 }

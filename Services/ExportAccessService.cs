@@ -1,6 +1,8 @@
 using EBookDashboard.Interfaces;
 using EBookDashboard.Models;
+using EBookDashboard.Models.Options;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace EBookDashboard.Services;
 
@@ -10,17 +12,20 @@ public sealed class ExportAccessService : IExportAccessService
     private readonly IPageCountService _pages;
     private readonly IPricingService _pricing;
     private readonly IEntitlementService _entitlements;
+    private readonly BookPaymentOptions _payment;
 
     public ExportAccessService(
         ApplicationDbContext context,
         IPageCountService pages,
         IPricingService pricing,
-        IEntitlementService entitlements)
+        IEntitlementService entitlements,
+        IOptionsSnapshot<BookPaymentOptions> payment)
     {
         _context = context;
         _pages = pages;
         _pricing = pricing;
         _entitlements = entitlements;
+        _payment = payment.Value;
     }
 
     /// <inheritdoc />
@@ -73,9 +78,12 @@ public sealed class ExportAccessService : IExportAccessService
         if (paperback) checkout += "?format=paperback";
         else if (hardcover) checkout += "?format=hardcover";
 
+        // Stripe later: set BookPayment:RequirePaymentForExport=true to restore checkout gating.
+        var allowed = !_payment.RequirePaymentForExport || quote.Total <= 0m;
+
         return new ExportAccessResult
         {
-            Allowed = quote.Total <= 0m,
+            Allowed = allowed,
             Quote = quote,
             PageCount = pageCount,
             BookId = bookId,

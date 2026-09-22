@@ -27,4 +27,10 @@ public class BookPaymentOptions
 
     /// <summary>Relative path for cancel; <c>{bookId}</c> is replaced when present.</summary>
     public string CancelPathTemplate { get; set; } = "/Checkout/BookPayment?bookId={bookId}";
+
+    /// <summary>
+    /// When false, PDF/EPUB/DOCX downloads are allowed without Stripe checkout.
+    /// Keep false until Stripe billing is ready; flip to true to re-enable paywall.
+    /// </summary>
+    public bool RequirePaymentForExport { get; set; } = false;
 }

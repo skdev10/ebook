@@ -171,11 +171,12 @@
         var interior = formatting.interiorStyle || 'Novel';
         var size = formatting.textSize || 'Medium';
         var lineSp = String(formatting.lineSpacing || '1.6');
+        // Match InteriorTypographyPresets / PDF: Classic uses 14/17/19 pt → CSS px (not raw px).
         var fontSize;
         if (interior === 'Classic') {
-            if (size === 'Small') fontSize = '14px';
-            else if (size === 'Large') fontSize = '19px';
-            else fontSize = '17px';
+            if (size === 'Small') fontSize = fmtPxFromPt(14);
+            else if (size === 'Large') fontSize = fmtPxFromPt(19);
+            else fontSize = fmtPxFromPt(17);
         } else {
             if (size === 'Small') fontSize = fmtPxFromPt(10);
             else if (size === 'Large') fontSize = fmtPxFromPt(12);
