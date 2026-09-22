@@ -43,6 +43,92 @@
         return { bodyWithoutHeading: remain, headingHtml: headingHtml };
     }
 
+    function pageInnerHtml(pageHtml) {
+        var wrap = document.createElement('div');
+        wrap.innerHTML = String(pageHtml || '');
+        var block = wrap.querySelector('.reader-chapter-block');
+        return block ? block.innerHTML : String(pageHtml || '');
+    }
+
+    function pageHasChapterStart(pageHtml) {
+        return String(pageHtml || '').indexOf('data-chapter-start') >= 0;
+    }
+
+    /** True when a page body is only heading/opener chrome (no body paragraphs). */
+    function isHeadingOnlyInner(innerHtml) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = String(innerHtml || '');
+        var kids = Array.prototype.slice.call(tmp.children || []);
+        if (!kids.length) {
+            var text = (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+            return !text;
+        }
+        return kids.every(function (el) {
+            return isHeadingElement(el) || isOpenerElement(el) || isSinkElement(el);
+        });
+    }
+
+    function isHeadingOnlyPage(pageHtml) {
+        if (isFrontMatterHtml(pageHtml)) return false;
+        return isHeadingOnlyInner(pageInnerHtml(pageHtml));
+    }
+
+    /**
+     * Never leave a page that only contains a heading/opener.
+     * Merge forward into the next page, or backward into the previous page.
+     */
+    function mergeHeadingOnlyChapterBlockPages(pages) {
+        if (!Array.isArray(pages) || !pages.length) return pages;
+        var out = pages.slice();
+        var guard = 0;
+        while (guard++ < out.length + 8) {
+            var moved = false;
+            for (var i = 0; i < out.length; i++) {
+                if (!isHeadingOnlyPage(out[i])) continue;
+                var inner = pageInnerHtml(out[i]);
+                if (!(inner || '').replace(/\s+/g, '').length) {
+                    out.splice(i, 1);
+                    moved = true;
+                    break;
+                }
+                var keepStart = pageHasChapterStart(out[i]);
+                if (i < out.length - 1 && !isFrontMatterHtml(out[i + 1])) {
+                    var wrapNext = document.createElement('div');
+                    wrapNext.innerHTML = out[i + 1];
+                    var nextBlock = wrapNext.querySelector('.reader-chapter-block');
+                    if (nextBlock) {
+                        nextBlock.insertAdjacentHTML('afterbegin', inner);
+                        if (keepStart) nextBlock.setAttribute('data-chapter-start', '1');
+                        out[i + 1] = nextBlock.outerHTML;
+                    } else {
+                        out[i + 1] = wrapChapterBlock(inner + out[i + 1], keepStart);
+                    }
+                    out.splice(i, 1);
+                    moved = true;
+                    break;
+                }
+                if (i > 0 && !isFrontMatterHtml(out[i - 1])) {
+                    var wrapPrev = document.createElement('div');
+                    wrapPrev.innerHTML = out[i - 1];
+                    var prevBlock = wrapPrev.querySelector('.reader-chapter-block');
+                    if (prevBlock) {
+                        prevBlock.insertAdjacentHTML('beforeend', inner);
+                        out[i - 1] = prevBlock.outerHTML;
+                    } else {
+                        out[i - 1] = wrapChapterBlock(pageInnerHtml(out[i - 1]) + inner, pageHasChapterStart(out[i - 1]));
+                    }
+                    out.splice(i, 1);
+                    moved = true;
+                    break;
+                }
+            }
+            if (!moved) break;
+        }
+        return out.filter(function (p) {
+            return (pageInnerHtml(p) || '').replace(/\s+/g, '').length > 0 || isFrontMatterHtml(p);
+        });
+    }
+
     /** After paginating reader-chapter-block pages, move orphan headings to the next page. */
     function stripTrailingHeadingsFromChapterBlockPages(pages) {
         if (!Array.isArray(pages) || pages.length < 2) return pages;
@@ -55,6 +141,10 @@
             var inner = block.innerHTML;
             var pulled = pullTrailingHeadingFromInnerHtml(inner);
             if (!pulled) continue;
+            // Never flush an empty page that only donated its heading.
+            if (!(pulled.bodyWithoutHeading || '').replace(/\s+/g, '').length) {
+                continue;
+            }
             block.innerHTML = pulled.bodyWithoutHeading;
             out[i] = block.outerHTML;
 
@@ -68,12 +158,13 @@
                 out[i + 1] = '<div class="reader-chapter-block">' + pulled.headingHtml + out[i + 1] + '</div>';
             }
         }
-        return out.filter(function (p) {
+        out = out.filter(function (p) {
             var w = document.createElement('div');
             w.innerHTML = p;
             var b = w.querySelector('.reader-chapter-block');
             return b && (b.textContent || '').trim().length > 0;
         });
+        return mergeHeadingOnlyChapterBlockPages(out);
     }
 
     /** When packing segments, avoid flushing a page that ends with a lone heading. */
@@ -172,6 +263,10 @@
                     i += pushHeadingWithNext(nodes, i) - 1;
                     continue;
                 }
+                if (n.classList && n.classList.contains('manuscript-keep-next')) {
+                    units.push(n.outerHTML);
+                    continue;
+                }
                 units.push(n.outerHTML);
             }
         }
@@ -244,8 +339,10 @@
         isHeadingElement: isHeadingElement,
         isHeadingSegmentHtml: isHeadingSegmentHtml,
         isFrontMatterHtml: isFrontMatterHtml,
+        isHeadingOnlyPage: isHeadingOnlyPage,
         pullTrailingHeadingFromInnerHtml: pullTrailingHeadingFromInnerHtml,
         stripTrailingHeadingsFromChapterBlockPages: stripTrailingHeadingsFromChapterBlockPages,
+        mergeHeadingOnlyChapterBlockPages: mergeHeadingOnlyChapterBlockPages,
         splitAccBeforeFlush: splitAccBeforeFlush,
         flattenKeepTogetherUnits: flattenKeepTogetherUnits,
         fillUnderfilledPages: fillUnderfilledPages

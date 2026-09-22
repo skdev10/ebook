@@ -3076,10 +3076,10 @@ window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
             var candidate = pendingHeading ? (pendingHeading + seg) : seg;
             if (blockHeight(candidate) <= maxH) {
                 acc = candidate;
-            } else if (pendingHeading && blockHeight(pendingHeading) <= maxH) {
-                pages.push('<div class="reader-chapter-block">' + pendingHeading + '</div>');
-                if (blockHeight(seg) <= maxH) acc = seg;
-                else pushOversizedSegment(seg);
+            } else if (pendingHeading) {
+                // Never flush a heading-only page — word-split heading+body together.
+                pushOversizedSegment(candidate);
+                acc = '';
             } else {
                 pushOversizedSegment(candidate);
             }
@@ -3090,6 +3090,9 @@ window.splitHtmlIntoReaderPages = function (fullHtml, shellEl, viewportEl) {
     flushAcc();
     if (window.BookReaderPagination && typeof window.BookReaderPagination.stripTrailingHeadingsFromChapterBlockPages === 'function') {
         pages = window.BookReaderPagination.stripTrailingHeadingsFromChapterBlockPages(pages);
+    }
+    if (window.BookReaderPagination && typeof window.BookReaderPagination.mergeHeadingOnlyChapterBlockPages === 'function') {
+        pages = window.BookReaderPagination.mergeHeadingOnlyChapterBlockPages(pages);
     }
     if (!pages.length) pages = [fullHtml];
     return finishPages(pages);

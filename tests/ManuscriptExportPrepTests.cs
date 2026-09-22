@@ -250,6 +250,27 @@ public class ManuscriptExportPrepTests
         Assert.Contains("page-break-after: avoid", css, StringComparison.Ordinal);
         Assert.Contains("page-break-before: avoid", css, StringComparison.Ordinal);
         Assert.Contains(".reader-page-body h2 + *", css, StringComparison.Ordinal);
+        Assert.Contains("manuscript-keep-next", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WrapHeadingsWithFollowingContent_keeps_heading_with_next_paragraph()
+    {
+        var html = BookManuscriptHtmlFormatter.WrapHeadingsWithFollowingContent(
+            "<h2 class=\"manuscript-heading manuscript-h2\">Scene</h2><p>Body text here.</p><p>More.</p>");
+
+        Assert.Contains("manuscript-keep-next", html, StringComparison.Ordinal);
+        Assert.Contains("<h2", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Body text here.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("break-before:page", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildPdfInContentPageChromeCss_does_not_force_subsection_page_breaks()
+    {
+        var css = InteriorLayoutTokens.BuildPdfInContentPageChromeCss();
+        Assert.DoesNotContain("manuscript-h2:not(:first-child)", css, StringComparison.Ordinal);
+        Assert.Contains("page-break-before:avoid", css, StringComparison.Ordinal);
     }
 
     [Fact]

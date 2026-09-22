@@ -282,7 +282,55 @@ public static class BookManuscriptHtmlFormatter
         var cleaned = ChapterContentNormalizer.NormalizeForManuscript(rawContent);
         var bodyRaw = ApplyPlaceholders(cleaned, ph);
         var bodyHtml = FormatBodyToHtml(bodyRaw);
-        return StripRedundantChapterOpenings(bodyHtml, chapterDisplayTitle);
+        bodyHtml = StripRedundantChapterOpenings(bodyHtml, chapterDisplayTitle);
+        return WrapHeadingsWithFollowingContent(bodyHtml);
+    }
+
+    /// <summary>
+    /// Wrap each in-body heading with its following block so Chromium PDF never orphans a heading alone on a page.
+    /// </summary>
+    public static string WrapHeadingsWithFollowingContent(string? contentHtml)
+    {
+        var html = (contentHtml ?? "").Trim();
+        if (string.IsNullOrEmpty(html)) return html;
+
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml("<div id=\"wrap\">" + html + "</div>");
+            var wrap = doc.GetElementbyId("wrap");
+            if (wrap == null) return html;
+
+            var children = wrap.ChildNodes
+                .Where(n => n.NodeType == HtmlNodeType.Element)
+                .ToList();
+
+            for (var i = 0; i < children.Count; i++)
+            {
+                var node = children[i];
+                if (!HeadingTags.Contains(node.Name)) continue;
+
+                // Include consecutive heading cluster + first following body block.
+                var end = i + 1;
+                while (end < children.Count && HeadingTags.Contains(children[end].Name))
+                    end++;
+                if (end >= children.Count) continue;
+
+                var keep = HtmlNode.CreateNode("<div class=\"manuscript-keep-next\"></div>");
+                node.ParentNode.InsertBefore(keep, node);
+                for (var k = i; k <= end; k++)
+                    keep.AppendChild(children[k]);
+
+                children.RemoveRange(i, end - i + 1);
+                children.Insert(i, keep);
+            }
+
+            return string.Concat(wrap.ChildNodes.Select(n => n.OuterHtml)).Trim();
+        }
+        catch
+        {
+            return html;
+        }
     }
 
     /// <summary>Remove leading headings that duplicate the chapter title (formatter preview behaviour).</summary>

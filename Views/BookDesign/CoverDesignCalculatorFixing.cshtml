@@ -4336,8 +4336,17 @@
                     if (fmtPageContentFits(buildReaderPageBlockHtml(orphanHeading + seg, pageOpts()))) {
                         acc = orphanHeading + seg;
                     } else {
-                        acc = orphanHeading;
-                        i--;
+                        // Keep heading glued to the oversized segment; word-split together so
+                        // the heading never becomes its own page.
+                        var glued = orphanHeading + seg;
+                        var wordParts = splitFlowSegmentByWords(glued, pageOpts(), '');
+                        for (var wi0 = 0; wi0 < wordParts.length; wi0++) {
+                            var part0 = wordParts[wi0];
+                            var po0 = pageOpts();
+                            if (wi0 < wordParts.length - 1) pushPage(part0, po0);
+                            else acc = part0;
+                        }
+                        if (!acc && wordParts.length) acc = wordParts[wordParts.length - 1];
                     }
                 } else {
                     i--;
@@ -4356,8 +4365,8 @@
             }
         }
         if (acc) {
-            var trailingOrphan = pushPage(acc, pageOpts());
-            if (trailingOrphan) pushPage(trailingOrphan, pageOpts());
+            // Final page: never peel a trailing heading onto its own empty page.
+            pages.push(buildReaderPageBlockHtml(acc, pageOpts()));
         }
         return pages;
     }
@@ -4373,6 +4382,19 @@
                     return fmtPageContentFits(stripEmbeddedPageFooters(html));
                 }
             });
+        }
+        if (window.BookReaderPagination && typeof window.BookReaderPagination.mergeHeadingOnlyChapterBlockPages === 'function') {
+            var cleaned = window.BookReaderPagination.mergeHeadingOnlyChapterBlockPages(merged.pages);
+            if (cleaned.length !== merged.pages.length) {
+                // Re-align chapter indexes to surviving pages (best-effort: keep last known).
+                var newIdx = [];
+                for (var ci = 0; ci < cleaned.length; ci++) {
+                    newIdx.push(merged.chapterIdxs[Math.min(ci, merged.chapterIdxs.length - 1)] || 0);
+                }
+                merged = { pages: cleaned, chapterIdxs: newIdx };
+            } else {
+                merged.pages = cleaned;
+            }
         }
         return merged;
     }
@@ -8528,10 +8550,13 @@
                 continue;
             }
             if (blk.type === 'section') {
-                // #2: a major subsection always opens at the top of a fresh page, unless the
-                // current page only holds the chapter opener (avoid a near-empty page right after it).
+                // Prefer keep-with-next: only open a fresh page when the current page already
+                // has body text. Never leave a section heading alone on a committed page.
                 var onlyChapterOpener = pageBlocks.length === 1 && pageBlocks[0].type === 'chapter';
-                if (pageBlocks.length && !onlyChapterOpener) commit();
+                var hasBodyAlready = pageBlocks.some(function (pb) {
+                    return pb.type === 'para' || pb.type === 'image' || pb.type === 'scene';
+                });
+                if (pageBlocks.length && !onlyChapterOpener && hasBodyAlready) commit();
                 host.appendChild(renderBlock(blk));
                 pageBlocks.push(blk);
                 continue;
@@ -8554,21 +8579,91 @@
                 commit();
                 blocks.splice(k + 1, 0, { type:'para', text:sp.rest, cont:true });
             } else {
-                if (pageBlocks.length) commit();
+                // If current page only has heading/opener chrome, carry it with this paragraph
+                // onto the next page instead of committing a heading-only page.
+                var onlyHeadingChrome = pageBlocks.length > 0 && pageBlocks.every(function (pb) {
+                    return pb.type === 'section' || pb.type === 'chapter';
+                });
+                if (pageBlocks.length && !onlyHeadingChrome) {
+                    commit();
+                } else if (onlyHeadingChrome) {
+                    // Keep heading blocks; they'll stay with the paragraph below.
+                }
                 var fn = renderBlock(blk);
                 host.appendChild(fn);
                 if (host.scrollHeight > geo.contentH + 0.5) {
                     host.removeChild(fn);
-                    var r = splitParagraph(blk.text, geo.contentH, blk.first, blk.cont);
-                    pageBlocks.push({ type:'para', text:r.fits, first:blk.first, cont:blk.cont });
-                    host.appendChild(renderBlock({ type:'para', text:r.fits, first:blk.first, cont:blk.cont }));
-                    commit();
-                    if (r.rest) blocks.splice(k + 1, 0, { type:'para', text:r.rest, cont:true });
+                    var r = splitParagraph(blk.text, geo.contentH - (onlyHeadingChrome ? host.scrollHeight : 0), blk.first, blk.cont);
+                    if (r.fits) {
+                        pageBlocks.push({ type:'para', text:r.fits, first:blk.first, cont:blk.cont });
+                        host.appendChild(renderBlock({ type:'para', text:r.fits, first:blk.first, cont:blk.cont }));
+                        commit();
+                        if (r.rest) blocks.splice(k + 1, 0, { type:'para', text:r.rest, cont:true });
+                    } else if (onlyHeadingChrome) {
+                        // Heading + even one line won't fit — put heading+para on next fresh page.
+                        var carried = pageBlocks.slice();
+                        pageBlocks = [];
+                        reset();
+                        carried.forEach(function (cb) {
+                            host.appendChild(renderBlock(cb));
+                            pageBlocks.push(cb);
+                        });
+                        var r2 = splitParagraph(blk.text, geo.contentH - host.scrollHeight, blk.first, blk.cont);
+                        pageBlocks.push({ type:'para', text:r2.fits || blk.text, first:blk.first, cont:blk.cont });
+                        host.appendChild(renderBlock({ type:'para', text:r2.fits || blk.text, first:blk.first, cont:blk.cont }));
+                        if (r2.rest) {
+                            commit();
+                            blocks.splice(k + 1, 0, { type:'para', text:r2.rest, cont:true });
+                        }
+                    } else {
+                        pageBlocks.push({ type:'para', text:r.fits, first:blk.first, cont:blk.cont });
+                        host.appendChild(renderBlock({ type:'para', text:r.fits, first:blk.first, cont:blk.cont }));
+                        commit();
+                        if (r.rest) blocks.splice(k + 1, 0, { type:'para', text:r.rest, cont:true });
+                    }
                 } else pageBlocks.push(blk);
             }
         }
         if (pageBlocks.length) pages.push({ blocks:pageBlocks, chapter:currentChapter, chapterIndex:currentChapterIdx });
-        return pages;
+        return mergeHeadingOnlyIpvPages(pages);
+    }
+
+    /** Collapse pages that only contain chapter/section headings into neighboring pages. */
+    function mergeHeadingOnlyIpvPages(pages) {
+        if (!Array.isArray(pages) || pages.length < 2) return pages;
+        var out = pages.slice();
+        var guard = 0;
+        while (guard++ < out.length + 8) {
+            var moved = false;
+            for (var i = 0; i < out.length; i++) {
+                var blocks = out[i].blocks || [];
+                if (!blocks.length) { out.splice(i, 1); moved = true; break; }
+                var hasBody = blocks.some(function (b) {
+                    return b.type === 'para' || b.type === 'image' || b.type === 'scene';
+                });
+                var onlyHeading = !hasBody && blocks.every(function (b) {
+                    return b.type === 'section' || b.type === 'chapter';
+                });
+                if (!onlyHeading) continue;
+                if (i < out.length - 1) {
+                    out[i + 1].blocks = blocks.concat(out[i + 1].blocks || []);
+                    if (out[i].chapterIndex != null && out[i + 1].chapterIndex == null)
+                        out[i + 1].chapterIndex = out[i].chapterIndex;
+                    if (out[i].chapter) out[i + 1].chapter = out[i].chapter;
+                    out.splice(i, 1);
+                    moved = true;
+                    break;
+                }
+                if (i > 0) {
+                    out[i - 1].blocks = (out[i - 1].blocks || []).concat(blocks);
+                    out.splice(i, 1);
+                    moved = true;
+                    break;
+                }
+            }
+            if (!moved) break;
+        }
+        return out;
     }
 
     /** Jump the on-screen IPV tablet to the first page of chapter index (0-based). */

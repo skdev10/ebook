@@ -150,10 +150,10 @@ h2.subsection-heading {{
     margin-left: {Round(inside)}in;
     margin-right: {Round(outside)}in;
 }}
-.section-block {{ break-before: page; }}
+.section-block {{ break-before: auto; }}
 .section-block:first-child {{ break-before: avoid; }}
 .section-block.starts-recto {{ break-before: right; }}
-.subsection-block {{ break-before: auto; }}
+.subsection-block {{ break-before: auto; break-after: avoid; }}
 ");
 
         if (!options.PreviewMode)

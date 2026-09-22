@@ -202,12 +202,14 @@ public static class InteriorExportTheme
             ".reader-page-body .manuscript-h3, .reader-page-body .manuscript-h4, .reader-page-body .manuscript-h5, .reader-page-body .manuscript-h6, ",
             ".reader-page-body h1, .reader-page-body h2, .reader-page-body h3, .reader-page-body h4, .reader-page-body h5, .reader-page-body h6, ",
             ".chapter-body .manuscript-heading, .chapter-body h1, .chapter-body h2, .chapter-body h3, .chapter-body h4, .chapter-body h5, .chapter-body h6 { ",
+            "break-before: auto !important; page-break-before: avoid !important; ",
             "break-after: avoid !important; page-break-after: avoid !important; break-inside: avoid; page-break-inside: avoid; } ",
             ".reader-page-body .manuscript-heading + *, .reader-page-body h1 + *, .reader-page-body h2 + *, .reader-page-body h3 + *, ",
             ".reader-page-body h4 + *, .reader-page-body h5 + *, .reader-page-body h6 + *, ",
             ".chapter-body .manuscript-heading + *, .chapter-body h1 + *, .chapter-body h2 + *, .chapter-body h3 + *, ",
             ".chapter-body h4 + *, .chapter-body h5 + *, .chapter-body h6 + * { ",
-            "break-before: avoid !important; page-break-before: avoid !important; } ");
+            "break-before: avoid !important; page-break-before: avoid !important; } ",
+            ".manuscript-keep-next, .reader-page-body .manuscript-keep-next { break-inside: avoid !important; page-break-inside: avoid !important; } ");
 
     /// <summary>PDF interior CSS (embedded in print HTML) — layout numbers from <see cref="InteriorLayoutTokens"/>.</summary>
     public static string BuildPdfThemeCss(BookPdfExportOptions opt)
