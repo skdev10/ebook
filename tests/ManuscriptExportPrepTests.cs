@@ -263,6 +263,89 @@ public class ManuscriptExportPrepTests
         Assert.Contains("<h2", html, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Body text here.", html, StringComparison.Ordinal);
         Assert.DoesNotContain("break-before:page", html, StringComparison.Ordinal);
+        // Second paragraph stays outside the keep block so pagination can still flow.
+        var keepStart = html.IndexOf("manuscript-keep-next", StringComparison.Ordinal);
+        var keepClose = html.IndexOf("</div>", keepStart, StringComparison.OrdinalIgnoreCase);
+        Assert.True(keepStart >= 0 && keepClose > keepStart);
+        var keep = html[keepStart..keepClose];
+        Assert.Contains("Body text here.", keep, StringComparison.Ordinal);
+        Assert.DoesNotContain("More.", keep, StringComparison.Ordinal);
+        Assert.Contains("<p>More.</p>", html[keepClose..], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void WrapHeadingsWithFollowingContent_keeps_heading_cluster_with_first_body()
+    {
+        var html = BookManuscriptHtmlFormatter.WrapHeadingsWithFollowingContent(
+            "<h2 class=\"manuscript-heading manuscript-h2\">Part A</h2>" +
+            "<h3 class=\"manuscript-heading manuscript-h3\">Detail</h3>" +
+            "<p>First body.</p><p>Second body.</p>");
+
+        Assert.Contains("manuscript-keep-next", html, StringComparison.Ordinal);
+        Assert.Contains("Part A", html, StringComparison.Ordinal);
+        Assert.Contains("Detail", html, StringComparison.Ordinal);
+        Assert.Contains("First body.", html, StringComparison.Ordinal);
+        // Both headings ride with the first paragraph.
+        var keepStart = html.IndexOf("manuscript-keep-next", StringComparison.Ordinal);
+        var keepEnd = html.IndexOf("</div>", keepStart, StringComparison.Ordinal);
+        Assert.True(keepStart >= 0 && keepEnd > keepStart);
+        var keep = html[keepStart..keepEnd];
+        Assert.Contains("Part A", keep, StringComparison.Ordinal);
+        Assert.Contains("Detail", keep, StringComparison.Ordinal);
+        Assert.Contains("First body.", keep, StringComparison.Ordinal);
+        Assert.DoesNotContain("Second body.", keep, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WrapHeadingsWithFollowingContent_leaves_trailing_heading_unwrapped()
+    {
+        var html = BookManuscriptHtmlFormatter.WrapHeadingsWithFollowingContent(
+            "<p>Intro.</p><h2 class=\"manuscript-heading manuscript-h2\">Only heading</h2>");
+
+        Assert.DoesNotContain("manuscript-keep-next", html, StringComparison.Ordinal);
+        Assert.Contains("Only heading", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrepareChapterBodyForExport_wraps_uploaded_style_headings()
+    {
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Test Book", null, null, null, "Author");
+        var html = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(
+            "## Opening Scene\n\nThe fog rolled in over the pier.\n\nNext paragraph.",
+            ph,
+            "Chapter 1");
+
+        Assert.Contains("manuscript-keep-next", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Opening Scene", html, StringComparison.Ordinal);
+        Assert.Contains("fog rolled", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildPdfThemeCss_does_not_force_mid_chapter_h2_page_break()
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Novel" });
+        Assert.DoesNotContain("manuscript-h2:not(:first-child)", css, StringComparison.Ordinal);
+        Assert.DoesNotContain(".manuscript-h2 { break-before:page", css, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("break-after: avoid", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Classic_typography_preview_px_matches_pdf_pt_conversion()
+    {
+        var med = InteriorTypographyPresets.Resolve(new BookPdfExportOptions
+        {
+            InteriorStyle = "Classic",
+            TextSize = "Medium",
+            LineSpacing = "1.6"
+        });
+        Assert.Equal("17", med.BodyFontSizePt);
+        // 17pt * 96/72 = 22.666… → "22.67"
+        Assert.Equal("22.67", med.BodyFontSizePx);
+
+        var payload = InteriorTypographyPresets.ClientTypographyPayload();
+        var json = System.Text.Json.JsonSerializer.Serialize(payload);
+        Assert.Contains("\"classicPtMedium\":17", json, StringComparison.Ordinal);
+        Assert.Contains("\"classicPxMedium\":\"22.67\"", json, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -271,6 +354,8 @@ public class ManuscriptExportPrepTests
         var css = InteriorLayoutTokens.BuildPdfInContentPageChromeCss();
         Assert.DoesNotContain("manuscript-h2:not(:first-child)", css, StringComparison.Ordinal);
         Assert.Contains("page-break-before:avoid", css, StringComparison.Ordinal);
+        // Chapters still start on a fresh page — only subsections were relaxed.
+        Assert.Contains("section.chapter { break-before:page", css, StringComparison.Ordinal);
     }
 
     [Fact]
