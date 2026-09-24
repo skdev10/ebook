@@ -73,22 +73,43 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
-    public void PrepareChapterBodyForExport_strips_leading_chapter_banner_before_body()
+    public void PrepareChapterBodyForExport_does_not_flatten_opener_into_duplicate_text_heading()
     {
         var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Book", null, null, null, "Author")
-            .WithChapter("The Compound Interest of Tiny Habits", 1, 1);
+            .WithChapter("Introduction to Mobile Technology", 1, 1);
+        var raw = """
+            <header class="fmt-chapter-opener manuscript-chapter-heading">
+              <span class="fmt-ch-eyebrow">Chapter 1</span>
+              <span class="fmt-ch-title">Introduction to Mobile Technology</span>
+            </header>
+            <p>Mobile phones changed everything about daily life.</p>
+            """;
         var html = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(
-            "CHAPTER 1\n\nThe Compound Interest of Tiny Habits\n\nThere is a quiet arithmetic to change.",
-            ph,
-            "The Compound Interest of Tiny Habits");
+            raw, ph, "Introduction to Mobile Technology");
 
-        Assert.DoesNotContain("CHAPTER 1", html, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("quiet arithmetic", html, StringComparison.OrdinalIgnoreCase);
-        // Title may remain as body h2 only if it was not stripped — opener is separate.
-        // Leading chapter banner / duplicate title must not precede body prose.
+        Assert.DoesNotContain("fmt-chapter-opener", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Chapter 1Introduction", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(">Chapter 1<", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Mobile phones changed everything", html, StringComparison.Ordinal);
         Assert.DoesNotMatch(new System.Text.RegularExpressions.Regex(
-            @"^\s*<h[1-6][^>]*>\s*chapter\s*1",
+            @"^\s*<h[1-6]", System.Text.RegularExpressions.RegexOptions.IgnoreCase), html);
+    }
+
+    [Fact]
+    public void PrepareChapterBodyForExport_pdf_upload_style_chapter_banner_and_title()
+    {
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Ebook", null, null, null, "Author")
+            .WithChapter("Disadvantages of Technology", 2, 2);
+        var html = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(
+            "CHAPTER 2\n\nDisadvantages of Technology\n\nTechnology also creates new problems for families.",
+            ph,
+            "Disadvantages of Technology");
+
+        Assert.DoesNotContain("CHAPTER 2", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotMatch(new System.Text.RegularExpressions.Regex(
+            @"^\s*<h[1-6][^>]*>\s*Disadvantages of Technology",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase), html);
+        Assert.Contains("families", html, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -315,6 +336,9 @@ public class ManuscriptExportPrepTests
         Assert.Contains("<h2", html, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Body text here.", html, StringComparison.Ordinal);
         Assert.DoesNotContain("break-before:page", html, StringComparison.Ordinal);
+        // Must wrap in place — never clone (PDF export was doubling every section heading).
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "Scene"));
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "Body text here."));
         // Second paragraph stays outside the keep block so pagination can still flow.
         var keepStart = html.IndexOf("manuscript-keep-next", StringComparison.Ordinal);
         var keepClose = html.IndexOf("</div>", keepStart, StringComparison.OrdinalIgnoreCase);
@@ -337,6 +361,9 @@ public class ManuscriptExportPrepTests
         Assert.Contains("Part A", html, StringComparison.Ordinal);
         Assert.Contains("Detail", html, StringComparison.Ordinal);
         Assert.Contains("First body.", html, StringComparison.Ordinal);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "Part A"));
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "Detail"));
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "First body."));
         // Both headings ride with the first paragraph.
         var keepStart = html.IndexOf("manuscript-keep-next", StringComparison.Ordinal);
         var keepEnd = html.IndexOf("</div>", keepStart, StringComparison.Ordinal);
@@ -346,6 +373,27 @@ public class ManuscriptExportPrepTests
         Assert.Contains("Detail", keep, StringComparison.Ordinal);
         Assert.Contains("First body.", keep, StringComparison.Ordinal);
         Assert.DoesNotContain("Second body.", keep, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrepareChapterBodyForExport_pdf_upload_does_not_duplicate_section_headings()
+    {
+        var body = """
+            <p class="manuscript-p">Although technology has made our lives easier, it also has some disadvantages.</p>
+            <h2 class="manuscript-heading manuscript-h2">1. Health Problems</h2>
+            <p class="manuscript-p">Excessive use of computers and mobile devices can cause eye strain.</p>
+            <h2 class="manuscript-heading manuscript-h2">2. Privacy and Security Risks</h2>
+            <p class="manuscript-p">Personal information can be stolen or misused.</p>
+            """;
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Ebook", null, null, null, "Author")
+            .WithChapter("Disadvantages of Technology", 2, 2);
+        var html = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(
+            body, ph, "Disadvantages of Technology");
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "1\\. Health Problems"));
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "2\\. Privacy and Security Risks"));
+        Assert.Contains("manuscript-keep-next", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("CHAPTER", html, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

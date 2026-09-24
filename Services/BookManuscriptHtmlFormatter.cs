@@ -42,7 +42,9 @@ public static class BookManuscriptHtmlFormatter
     private static readonly HashSet<string> AllowedTags = new(StringComparer.OrdinalIgnoreCase)
     {
         "p", "br", "hr", "ul", "ol", "li", "strong", "b", "em", "i", "u",
-        "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre", "span", "div", "img"
+        "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre", "span", "div", "img",
+        // Keep structured chapter chrome so we can strip it cleanly (do not flatten to InnerText).
+        "header", "article", "nav", "section"
     };
 
     private static readonly HashSet<string> AllowedImgAttrs = new(StringComparer.OrdinalIgnoreCase)
@@ -138,6 +140,17 @@ public static class BookManuscriptHtmlFormatter
                 if (name is "#document" or "html" or "head" or "body") continue;
                 if (!AllowedTags.Contains(name))
                 {
+                    // Never dump chapter-opener InnerText into the body (that re-creates a duplicate heading).
+                    var cls = el.GetAttributeValue("class", "") ?? "";
+                    if (cls.Contains("fmt-chapter-opener", StringComparison.OrdinalIgnoreCase)
+                        || cls.Contains("writer-chapter-opener", StringComparison.OrdinalIgnoreCase)
+                        || cls.Contains("manuscript-chapter-heading", StringComparison.OrdinalIgnoreCase)
+                        || cls.Contains("reader-page-title", StringComparison.OrdinalIgnoreCase))
+                    {
+                        el.Remove();
+                        continue;
+                    }
+
                     var replacement = HtmlNode.CreateNode(EscapeHtml(el.InnerText));
                     el.ParentNode?.ReplaceChild(replacement, el);
                     continue;
@@ -275,19 +288,25 @@ public static class BookManuscriptHtmlFormatter
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>
-    /// Mirrors formatter preview: placeholders, HTML conversion, then strip duplicate chapter-opening headings.
+    /// Mirrors formatter preview: placeholders, strip duplicate chapter chrome, HTML conversion, strip again.
+    /// Strip runs before sanitize so &lt;header class="fmt-chapter-opener"&gt; is not flattened into body text.
     /// </summary>
     public static string PrepareChapterBodyForExport(string? rawContent, PlaceholderContext ph, string? chapterDisplayTitle)
     {
         var cleaned = ChapterContentNormalizer.NormalizeForManuscript(rawContent);
         var bodyRaw = ApplyPlaceholders(cleaned, ph);
+        // Remove saved openers / CHAPTER banners before SanitizeHtml can flatten <header> to plain text.
+        bodyRaw = StripRedundantChapterOpenings(bodyRaw, chapterDisplayTitle);
         var bodyHtml = FormatBodyToHtml(bodyRaw);
+        bodyHtml = StripRedundantChapterOpenings(bodyHtml, chapterDisplayTitle);
+        bodyHtml = ChapterDocumentImportService.PromoteHeadingParagraphs(bodyHtml);
         bodyHtml = StripRedundantChapterOpenings(bodyHtml, chapterDisplayTitle);
         return WrapHeadingsWithFollowingContent(bodyHtml);
     }
 
     /// <summary>
     /// Wrap each in-body heading with its following block so Chromium PDF never orphans a heading alone on a page.
+    /// Rebuilds markup (does not AppendChild across HAP documents — that clones and doubles every heading).
     /// </summary>
     public static string WrapHeadingsWithFollowingContent(string? contentHtml)
     {
@@ -305,27 +324,34 @@ public static class BookManuscriptHtmlFormatter
                 .Where(n => n.NodeType == HtmlNodeType.Element)
                 .ToList();
 
+            var parts = new List<string>(children.Count);
             for (var i = 0; i < children.Count; i++)
             {
                 var node = children[i];
-                if (!HeadingTags.Contains(node.Name)) continue;
+                if (!HeadingTags.Contains(node.Name))
+                {
+                    parts.Add(node.OuterHtml);
+                    continue;
+                }
 
                 // Include consecutive heading cluster + first following body block.
                 var end = i + 1;
                 while (end < children.Count && HeadingTags.Contains(children[end].Name))
                     end++;
-                if (end >= children.Count) continue;
+                if (end >= children.Count)
+                {
+                    for (var k = i; k < children.Count; k++)
+                        parts.Add(children[k].OuterHtml);
+                    break;
+                }
 
-                var keep = HtmlNode.CreateNode("<div class=\"manuscript-keep-next\"></div>");
-                node.ParentNode.InsertBefore(keep, node);
-                for (var k = i; k <= end; k++)
-                    keep.AppendChild(children[k]);
-
-                children.RemoveRange(i, end - i + 1);
-                children.Insert(i, keep);
+                var inner = string.Concat(
+                    children.Skip(i).Take(end - i + 1).Select(n => n.OuterHtml));
+                parts.Add("""<div class="manuscript-keep-next">""" + inner + "</div>");
+                i = end;
             }
 
-            return string.Concat(wrap.ChildNodes.Select(n => n.OuterHtml)).Trim();
+            return string.Concat(parts).Trim();
         }
         catch
         {
