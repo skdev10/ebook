@@ -675,32 +675,72 @@ namespace EBookDashboard.Controllers
         }
         // POST: Calculate dimensions
         [HttpPost]
-        public async Task<IActionResult> CalculateDimensions([FromBody] CalculationRequest request)
+        public Task<IActionResult> CalculateDimensions([FromBody] CalculationRequest request)
         {
             try
             {
-                // Your calculation logic here
-                var result = await CalculateCoverDimensions(request);
-
-                return Json(new { success = true, data = result });
+                var result = CalculateCoverDimensions(request);
+                return Task.FromResult<IActionResult>(Json(new { success = true, data = result }));
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = ex.Message });
+                return Task.FromResult<IActionResult>(Json(new { success = false, message = ex.Message }));
             }
         }
 
-        private async Task<object> CalculateCoverDimensions(CalculationRequest request)
+        private object CalculateCoverDimensions(CalculationRequest request)
         {
-            // Add your calculation logic here
-            // This is a placeholder - implement your actual calculation
+            request ??= new CalculationRequest();
+            var pages = request.PagesCount > 0 ? request.PagesCount : 24;
+            var binding = string.IsNullOrWhiteSpace(request.BindingType) ? "Paperback" : request.BindingType.Trim();
+            var paper = string.IsNullOrWhiteSpace(request.PaperType) ? "White" : request.PaperType.Trim();
+            var trim = string.IsNullOrWhiteSpace(request.TrimSize) ? "6 x 9 in" : request.TrimSize.Trim();
+            var layout = KdpPrintCoverCalculator.Calculate(pages, trim, paper, null, binding);
+
+            // Prefer config-driven CoverCalculator for paperback/hardcover full wrap when trim parses cleanly.
+            var (tw, th) = ParseTrimInches(trim);
+            var coverReq = new CoverRequest
+            {
+                Binding = binding.Contains("Hard", StringComparison.OrdinalIgnoreCase)
+                    ? BindingType.Hardcover
+                    : BindingType.Paperback,
+                Paper = paper.Contains("Cream", StringComparison.OrdinalIgnoreCase)
+                    ? PaperType.Cream
+                    : PaperType.White,
+                TrimWidth = tw,
+                TrimHeight = th,
+                PageCount = pages,
+                Units = Unit.Inches
+            };
+            var cover = new CoverCalculator().Calculate(coverReq);
+
             return new
             {
-                width = "13.5",
-                height = "9.25",
-                spineWidth = "0.5",
-                safeArea = "0.125"
+                width = cover.FullCoverWidthInches.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
+                height = cover.FullCoverHeightInches.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
+                spineWidth = cover.SpineWidthInches.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture),
+                safeArea = "0.125",
+                bindingType = layout.BindingType,
+                wrapWidthInches = layout.WrapWidthInches,
+                wrapHeightInches = layout.WrapHeightInches,
+                hingeGapInches = layout.HingeGapInches,
+                outerMarginInches = layout.OuterMarginInches,
+                warnings = cover.Warnings
             };
+        }
+
+        private static (double W, double H) ParseTrimInches(string trimSize)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(
+                trimSize ?? "",
+                @"(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (m.Success
+                && double.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var w)
+                && double.TryParse(m.Groups[2].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var h)
+                && w > 0 && h > 0)
+                return (w, h);
+            return (6.0, 9.0);
         }
         //==============================================
         //       On Page Load
