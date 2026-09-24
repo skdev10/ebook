@@ -350,20 +350,48 @@ public static class BookManuscriptHtmlFormatter
 
             while (true)
             {
-                var first = wrap.ChildNodes.FirstOrDefault(n =>
-                    n.NodeType == HtmlNodeType.Element && HeadingTags.Contains(n.Name));
+                var first = wrap.ChildNodes.FirstOrDefault(n => n.NodeType == HtmlNodeType.Element);
                 if (first == null) break;
 
-                var headKey = NormalizeHeadingCompareKey(first.InnerText);
-                if (string.IsNullOrEmpty(headKey)) break;
+                // Unwrap keep-next so we can strip a duplicated title heading inside it.
+                if (first.Name.Equals("div", StringComparison.OrdinalIgnoreCase)
+                    && (first.GetAttributeValue("class", "") ?? "").Contains("manuscript-keep-next", StringComparison.OrdinalIgnoreCase))
+                {
+                    var innerKids = first.ChildNodes.Where(n => n.NodeType == HtmlNodeType.Element).ToList();
+                    foreach (var kid in innerKids)
+                        first.ParentNode.InsertBefore(kid, first);
+                    first.Remove();
+                    continue;
+                }
 
-                var titleIsChapter = ChapterBannerRegex.IsMatch(titleText);
-                var headIsChapter = ChapterBannerRegex.IsMatch(headKey);
-                var matches = headKey == titleText
-                              || (titleIsChapter && headIsChapter && headKey == titleText);
-                if (!matches) break;
+                if (HeadingTags.Contains(first.Name))
+                {
+                    var headKey = NormalizeHeadingCompareKey(first.InnerText);
+                    if (string.IsNullOrEmpty(headKey)) break;
 
-                first.Remove();
+                    var titleIsChapter = ChapterBannerRegex.IsMatch(titleText);
+                    var headIsChapter = ChapterBannerRegex.IsMatch(headKey);
+                    var matches = headKey == titleText
+                                  || (titleIsChapter && headIsChapter && headKey == titleText);
+                    if (!matches) break;
+
+                    first.Remove();
+                    continue;
+                }
+
+                // Plain <p> title line that will later promote to <h2>.
+                if (first.Name.Equals("p", StringComparison.OrdinalIgnoreCase))
+                {
+                    var pKey = NormalizeHeadingCompareKey(first.InnerText);
+                    if (!string.IsNullOrEmpty(pKey) && pKey == titleText
+                        && ChapterDocumentImportService.LooksLikeStandaloneHeading(first.InnerText.Trim()))
+                    {
+                        first.Remove();
+                        continue;
+                    }
+                }
+
+                break;
             }
 
             return string.Concat(wrap.ChildNodes.Select(n => n.OuterHtml)).Trim();

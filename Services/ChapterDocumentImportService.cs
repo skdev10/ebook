@@ -654,7 +654,7 @@ public static class ChapterDocumentImportService
                 return inline;
 
             var (no, title) = SuggestChapterFromBodyText(text);
-            result.Add(new ImportedChapter(no, title, FormatImportedBodyAsHtml(text.Trim())));
+            result.Add(new ImportedChapter(no, title, FormatChapterBodyHtml(text.Trim(), title)));
             var resplit = ResplitSingleChapterOnHeadings(result[0]);
             return resplit.Count >= 2 ? resplit : result;
         }
@@ -666,11 +666,13 @@ public static class ChapterDocumentImportService
             var headingLineIdx = boundaries[b].lineIdx;
             var endLine = b + 1 < boundaries.Count ? boundaries[b + 1].lineIdx : lines.Length;
             var bodyBuilder = new StringBuilder();
+            var chapterTitle = boundaries[b].title ?? "";
 
             // PDF/import often puts "Chapter 1 Title … body…" on ONE line. Include trailing
-            // text after the heading token so we don't drop the whole chapter body.
+            // text after the heading token — but never re-inject the chapter title itself
+            // (preview already renders fmt-chapter-opener with that title).
             var headingLine = lines[headingLineIdx];
-            var afterHeading = StripChapterHeadingPrefix(headingLine);
+            var afterHeading = BodyRemainderAfterChapterTitle(StripChapterHeadingPrefix(headingLine), chapterTitle);
             if (!string.IsNullOrWhiteSpace(afterHeading))
                 bodyBuilder.AppendLine(afterHeading);
 
@@ -691,13 +693,13 @@ public static class ChapterDocumentImportService
             var title = boundaries[b].title;
             if (string.IsNullOrWhiteSpace(title))
                 title = $"Chapter {chapterNo}";
-            result.Add(new ImportedChapter(chapterNo, title, FormatImportedBodyAsHtml(body)));
+            result.Add(new ImportedChapter(chapterNo, title, FormatChapterBodyHtml(body, title)));
         }
 
         if (result.Count == 0)
         {
             var (no, title) = SuggestChapterFromBodyText(text);
-            result.Add(new ImportedChapter(no, title, FormatImportedBodyAsHtml(text.Trim())));
+            result.Add(new ImportedChapter(no, title, FormatChapterBodyHtml(text.Trim(), title)));
         }
 
         if (result.Count == 1)
@@ -709,6 +711,41 @@ public static class ChapterDocumentImportService
 
         return result;
     }
+
+    /// <summary>Format import body and strip a leading heading that duplicates the chapter title.</summary>
+    private static string FormatChapterBodyHtml(string? body, string? title)
+    {
+        var html = FormatImportedBodyAsHtml(body);
+        return BookManuscriptHtmlFormatter.StripRedundantChapterOpenings(html, title);
+    }
+
+    /// <summary>
+    /// Keep same-line body after a chapter banner, but drop text that is only the chapter title
+    /// (otherwise every upload shows title twice: opener + body &lt;h2&gt;).
+    /// </summary>
+    internal static string? BodyRemainderAfterChapterTitle(string? afterHeading, string? chapterTitle)
+    {
+        var rem = (afterHeading ?? "").Trim();
+        if (string.IsNullOrEmpty(rem)) return null;
+
+        var title = (chapterTitle ?? "").Trim();
+        if (string.IsNullOrEmpty(title)) return rem;
+
+        if (string.Equals(NormalizeTitleKey(rem), NormalizeTitleKey(title), StringComparison.Ordinal))
+            return null;
+
+        if (rem.StartsWith(title, StringComparison.OrdinalIgnoreCase))
+        {
+            var rest = rem[title.Length..].TrimStart(' ', '\t', ':', '-', '–', '—', '.', '—');
+            return string.IsNullOrWhiteSpace(rest) ? null : rest;
+        }
+
+        return rem;
+    }
+
+    private static string NormalizeTitleKey(string? s) =>
+        Regex.Replace((s ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
+
 
     /// <summary>
     /// Pick the richer chapter split from Word structure vs plain-text fallback
@@ -810,7 +847,7 @@ public static class ChapterDocumentImportService
             if (headingEnd > end) headingEnd = contentStart;
             var body = text[headingEnd..end].Trim();
             if (body.Length == 0) continue;
-            result.Add(new ImportedChapter(result.Count + 1, starts[i].Title, FormatImportedBodyAsHtml(body)));
+            result.Add(new ImportedChapter(result.Count + 1, starts[i].Title, FormatChapterBodyHtml(body, starts[i].Title)));
         }
 
         return result;
@@ -951,7 +988,7 @@ public static class ChapterDocumentImportService
         var result = new List<ImportedChapter>();
         if (splitAt[0].Index >= 280)
         {
-            var preface = PromoteHeadingParagraphs(html[..splitAt[0].Index].Trim());
+            var preface = FormatChapterBodyHtml(html[..splitAt[0].Index].Trim(), chapter.Title);
             if (preface.Length > 0)
                 result.Add(new ImportedChapter(1, TruncateSuggestedTitle(chapter.Title), preface));
         }
@@ -963,12 +1000,11 @@ public static class ChapterDocumentImportService
             var start = splitAt[i].Index + splitAt[i].Length;
             var end = i + 1 < splitAt.Count ? splitAt[i + 1].Index : html.Length;
             if (start > end) continue;
-            var body = PromoteHeadingParagraphs(html[start..end].Trim());
+            var resolvedTitle = TruncateSuggestedTitle(string.IsNullOrWhiteSpace(title) ? $"Chapter {result.Count + 1}" : title);
+            var body = FormatChapterBodyHtml(html[start..end].Trim(), resolvedTitle);
             if (body.Length == 0 && string.IsNullOrWhiteSpace(title))
                 continue;
-            result.Add(new ImportedChapter(result.Count + 1,
-                TruncateSuggestedTitle(string.IsNullOrWhiteSpace(title) ? $"Chapter {result.Count + 1}" : title),
-                body));
+            result.Add(new ImportedChapter(result.Count + 1, resolvedTitle, body));
         }
 
         return result.Count >= 2 ? result : new List<ImportedChapter> { chapter };

@@ -4616,7 +4616,9 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                 var bodyRaw = ch.content || '';
                 var body = typeof ap === 'function' ? ap(bodyRaw, phCtx) : bodyRaw;
                 body = typeof window.normalizeManuscriptEscapes === 'function' ? window.normalizeManuscriptEscapes(body) : body;
-                var bodyHtml = typeof fmt === 'function' ? fmt(body) : ('<p class="manuscript-p">' + esc(String(body)) + '</p>');
+                var bodyHtml = typeof window.bodyHtmlForChapterPreview === 'function'
+                    ? window.bodyHtmlForChapterPreview(title, body)
+                    : (typeof fmt === 'function' ? fmt(body) : ('<p class="manuscript-p">' + esc(String(body)) + '</p>'));
                 var fragment = headingHtml + bodyHtml;
                 var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
                 var wc = plain.split(/\s+/).filter(Boolean).length;
@@ -5458,9 +5460,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 var raw = String(c.content || '');
                 var normalized = typeof window.normalizeManuscriptEscapes === 'function'
                     ? window.normalizeManuscriptEscapes(raw) : raw;
-                var bodyHtml = typeof window.formatManuscriptBodyToHtml === 'function'
-                    ? window.formatManuscriptBodyToHtml(normalized)
-                    : (normalized.indexOf('<') >= 0 ? normalized : '<p class="manuscript-p">' + escFn(normalized) + '</p>');
+                var bodyHtml = typeof window.bodyHtmlForChapterPreview === 'function'
+                    ? window.bodyHtmlForChapterPreview(c.title, normalized)
+                    : (typeof window.formatManuscriptBodyToHtml === 'function'
+                        ? window.formatManuscriptBodyToHtml(normalized)
+                        : (normalized.indexOf('<') >= 0 ? normalized : '<p class="manuscript-p">' + escFn(normalized) + '</p>'));
                 var plain = normalized.indexOf('<') >= 0 ? normalized.replace(/<[^>]+>/g, ' ') : normalized;
                 var wc = plain.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean).length;
                 var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
@@ -6123,7 +6127,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             ? window.buildPreviewChapterHeadingHtml(titleRaw, escT, chNum)
                             : '';
                         var bodyHtml;
-                        if (String(txt).indexOf('<') >= 0) {
+                        if (typeof window.bodyHtmlForChapterPreview === 'function') {
+                            bodyHtml = window.bodyHtmlForChapterPreview(titleRaw, txt);
+                        } else if (String(txt).indexOf('<') >= 0) {
                             bodyHtml = typeof window.formatManuscriptBodyToHtml === 'function' ? window.formatManuscriptBodyToHtml(txt) : txt;
                         } else {
                             bodyHtml = '<p class="manuscript-p">' + String(txt).replace(/\n/g, '</p><p class="manuscript-p">') + '</p>';
@@ -7973,6 +7979,52 @@ document.addEventListener('DOMContentLoaded', function() {
            return out.length ? out.join('') : '<p class="text-slate-600">No content available.</p>';
        }
 
+       /** Drop leading body heading that duplicates the chapter opener title. */
+       function stripRedundantChapterOpenings(title, contentHtml) {
+           var html = String(contentHtml || '').trim();
+           var displayKey = String(title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+           if (!html || !displayKey) return html;
+           var chapterBannerRe = /^\s*(chapter|ch\.?)\s*\d+/i;
+           try {
+               var doc = new DOMParser().parseFromString(html, 'text/html');
+               var body = doc.body;
+               if (!body) return html;
+               while (body.firstElementChild) {
+                   var node = body.firstElementChild;
+                   var tag = (node.tagName || '').toLowerCase();
+                   if (tag === 'hr') { node.remove(); continue; }
+                   if (tag === 'div' && String(node.className || '').indexOf('manuscript-keep-next') >= 0) {
+                       while (node.firstChild) body.insertBefore(node.firstChild, node);
+                       node.remove();
+                       continue;
+                   }
+                   var textKey = String(node.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                   if (/^h[1-6]$/i.test(node.tagName || '')) {
+                       var cls = String(node.className || '');
+                       var isBanner = cls.indexOf('manuscript-chapter-heading') >= 0 || chapterBannerRe.test(textKey);
+                       if (isBanner || textKey === displayKey) { node.remove(); continue; }
+                       break;
+                   }
+                   if (tag === 'p' && textKey === displayKey && textKey.length <= 80) {
+                       node.remove();
+                       continue;
+                   }
+                   break;
+               }
+               return (body.innerHTML || '').trim();
+           } catch (e) { return html; }
+       }
+
+       function bodyHtmlForChapterPreview(title, rawBody) {
+           var bodyHtml = typeof formatManuscriptBodyToHtml === 'function'
+               ? formatManuscriptBodyToHtml(rawBody)
+               : String(rawBody || '');
+           return stripRedundantChapterOpenings(title, bodyHtml);
+       }
+
+       window.stripRedundantChapterOpenings = stripRedundantChapterOpenings;
+       window.bodyHtmlForChapterPreview = bodyHtmlForChapterPreview;
+
        window.escapeHtml = escapeHtml;
        window.normalizeManuscriptEscapes = normalizeManuscriptEscapes;
        window.formatManuscriptBodyToHtml = formatManuscriptBodyToHtml;
@@ -9653,7 +9705,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 : '';
             var body = ap ? ap(content, phCtx) : content;
             body = typeof normalizeManuscriptEscapes === 'function' ? normalizeManuscriptEscapes(body) : body;
-            var bodyHtml = fmt ? fmt(body) : ((body + '').indexOf('<') >= 0 ? body : '<p class="manuscript-p">' + esc(String(body)) + '</p>');
+            var bodyHtml = typeof bodyHtmlForChapterPreview === 'function'
+                ? bodyHtmlForChapterPreview(title, body)
+                : (fmt ? fmt(body) : ((body + '').indexOf('<') >= 0 ? body : '<p class="manuscript-p">' + esc(String(body)) + '</p>'));
             var fragment = headingHtml + bodyHtml;
             var plain = fragment.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
             var wc = plain.split(/\s+/).filter(Boolean).length;
@@ -9782,7 +9836,9 @@ document.addEventListener('DOMContentLoaded', function() {
                  content = normalizeManuscriptEscapes(content);
                  var text = content.indexOf('<') >= 0 ? content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : content;
                  var wc = text.split(/\s+/).filter(Boolean).length;
-                 var contentHtml = typeof formatManuscriptBodyToHtml === 'function' ? formatManuscriptBodyToHtml(content) : ((content + '').indexOf('<') >= 0 ? content : '<p>' + (content + '').replace(/\n/g, '</p><p>') + '</p>');
+                 var contentHtml = typeof bodyHtmlForChapterPreview === 'function'
+                     ? bodyHtmlForChapterPreview(title, content)
+                     : (typeof formatManuscriptBodyToHtml === 'function' ? formatManuscriptBodyToHtml(content) : ((content + '').indexOf('<') >= 0 ? content : '<p>' + (content + '').replace(/\n/g, '</p><p>') + '</p>'));
                  var fragment = headingHtml + contentHtml;
                  var cleanTitle = typeof window.sanitizeChapterTitleForInput === 'function'
                      ? window.sanitizeChapterTitleForInput(title) : title;
@@ -10254,7 +10310,9 @@ document.addEventListener('DOMContentLoaded', function() {
              function finalizeFormattedBody() {
                  var bodyForFmt = typeof applyTemplatePlaceholders === 'function' ? applyTemplatePlaceholders(content, phBase) : content;
                  bodyForFmt = typeof normalizeManuscriptEscapes === 'function' ? normalizeManuscriptEscapes(bodyForFmt) : bodyForFmt;
-                 var bodyHtml = typeof formatManuscriptBodyToHtml === 'function' ? formatManuscriptBodyToHtml(bodyForFmt) : ((bodyForFmt + '').indexOf('<') >= 0 ? bodyForFmt : '<p class="manuscript-p">' + esc(String(bodyForFmt)) + '</p>');
+                 var bodyHtml = typeof bodyHtmlForChapterPreview === 'function'
+                     ? bodyHtmlForChapterPreview(title, bodyForFmt)
+                     : (typeof formatManuscriptBodyToHtml === 'function' ? formatManuscriptBodyToHtml(bodyForFmt) : ((bodyForFmt + '').indexOf('<') >= 0 ? bodyForFmt : '<p class="manuscript-p">' + esc(String(bodyForFmt)) + '</p>'));
                  previewContent.innerHTML = '';
                  var list = (window._previewChaptersMeta && window._previewChaptersMeta.length) ? window._previewChaptersMeta.slice() : [];
                  var ix = 0;

@@ -5650,14 +5650,33 @@
         if (!titleText || !html) return html;
         try {
             var doc = new DOMParser().parseFromString(html, 'text/html');
-            var first = doc.body && doc.body.firstElementChild ? doc.body.firstElementChild : null;
-            if (!first || !/^h[1-6]$/i.test(first.tagName || '')) return html;
-            var headText = String(first.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+            var body = doc.body;
+            if (!body) return html;
             var titleCompact = titleText.replace(/\s+/g, ' ');
-            if (headText && (headText === titleCompact || (/^chapter\s+\d+\b/.test(headText) && /^chapter\s+\d+\b/.test(titleCompact) && headText === titleCompact))) {
-                first.remove();
-                return (doc.body.innerHTML || '').trim();
+            while (body.firstElementChild) {
+                var first = body.firstElementChild;
+                var tag = (first.tagName || '').toLowerCase();
+                if (tag === 'div' && String(first.className || '').indexOf('manuscript-keep-next') >= 0) {
+                    while (first.firstChild) body.insertBefore(first.firstChild, first);
+                    first.remove();
+                    continue;
+                }
+                var headText = String(first.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                if (!headText) { first.remove(); continue; }
+                if (/^h[1-6]$/i.test(first.tagName || '')) {
+                    if (headText === titleCompact || (/^chapter\s+\d+\b/.test(headText) && /^chapter\s+\d+\b/.test(titleCompact) && headText === titleCompact)) {
+                        first.remove();
+                        continue;
+                    }
+                    break;
+                }
+                if (tag === 'p' && headText === titleCompact && headText.length <= 80) {
+                    first.remove();
+                    continue;
+                }
+                break;
             }
+            return (body.innerHTML || '').trim();
         } catch (e) { /* ignore */ }
         return html;
     }
@@ -5677,6 +5696,11 @@
                     node.remove();
                     continue;
                 }
+                if ((node.tagName || '').toLowerCase() === 'div' && String(node.className || '').indexOf('manuscript-keep-next') >= 0) {
+                    while (node.firstChild) body.insertBefore(node.firstChild, node);
+                    node.remove();
+                    continue;
+                }
                 if (!/^h[1-6]$/i.test(node.tagName || '')) break;
                 var cls = String(node.className || '');
                 var textKey = String(node.textContent || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -5689,6 +5713,10 @@
         } catch (e) { /* ignore */ }
         return html;
     }
+
+    // Expose for AI Writer / shared preview paths.
+    window.stripRedundantChapterOpenings = stripRedundantChapterOpenings;
+    window.stripDuplicateLeadingHeading = stripDuplicateLeadingHeading;
 
     function sanitizeManuscriptHtml(unsafeHtml) {
         try {
@@ -5821,7 +5849,9 @@
             const ch = bookChapters[ci];
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
             const content = (ch && ch.content && String(ch.content).trim()) || '';
-            const normalizedContent = expandMonolithicChapterHtml(stripRedundantChapterOpenings(title, content));
+            // Promote heading-like <p> first, then strip title duplicates so opener is not doubled.
+            const formattedContent = formatChapterContent(content);
+            const normalizedContent = expandMonolithicChapterHtml(stripRedundantChapterOpenings(title, formattedContent));
             const displayTitle = pickFmtChapterDisplayTitle(title, normalizedContent);
             const pagingContent = stripDuplicateLeadingHeading(displayTitle, normalizedContent);
             const paras = expandParasForPaging(splitChapterIntoParas(pagingContent));
@@ -7207,15 +7237,15 @@
 
             if (response.status === 404) {
                 console.warn('[Book Formatter] GetFullBookContent 404');
-                showErrorState(null, 'No data available for this book.');
-                showToast('No data available.');
+                // Blank / new book — show empty studio, not a scary error toast.
+                bookChapters = [];
+                showLoadingState(false);
                 return;
             }
 
             if (response.status >= 500) {
                 console.error('[Book Formatter] GetFullBookContent server error:', response.status);
                 showErrorState(null, 'Server error. Please try again later.');
-                showToast('Server error. Please try again.');
                 return;
             }
 
@@ -7260,7 +7290,8 @@
                 return;
             }
             if (!bookChapters.length) {
-                showToast('No chapters yet.');
+                // Empty book / fresh upload slot — quiet studio, no error spam.
+                showLoadingState(false);
             } else if (!hadWarmCache) {
                 queueAutosave(400);
                 showToast('Book loaded');
@@ -7268,9 +7299,11 @@
         } catch (err) {
             console.error('[Book Formatter] loadBookContent error:', err);
             const bid = parseInt(document.getElementById('selected-book-id')?.value || '0', 10);
-            if (!hadWarmCache) {
+            if (!hadWarmCache && bookChapters.length === 0) {
+                // Keep blank studio quiet; only surface real failures when we had nothing to show.
                 showErrorState(null, PREVIEW_ERROR_MSG, bid > 0 ? bid : null);
-                showToast('Could not load book.');
+            } else if (!hadWarmCache) {
+                showToast('Could not refresh book.');
             }
         } finally {
             showLoadingState(false);

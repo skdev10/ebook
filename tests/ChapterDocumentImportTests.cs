@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using EBookDashboard.Services;
 using Xunit;
 
@@ -171,7 +172,8 @@ public class ChapterDocumentImportTests
         var text = "THE HIDDEN ROAD\n\nOnce upon a time a traveler left home.\n\nTHE RIVER CROSSING\n\nThe water was cold and fast.";
         var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
         Assert.Single(chapters);
-        Assert.Contains("HIDDEN", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("HIDDEN", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<h2 class=\"manuscript-heading manuscript-h2\">THE HIDDEN ROAD</h2>", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("RIVER", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("manuscript-heading", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
     }
@@ -215,10 +217,31 @@ public class ChapterDocumentImportTests
         var text = "THE HIDDEN ROAD\nOnce upon a time a traveler left home.\n\nTHE RIVER CROSSING\nThe water was cold and fast.";
         var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
         Assert.Single(chapters);
-        Assert.Contains("HIDDEN", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        // First banner becomes the chapter title (shown as opener) — must not also lead the body.
+        Assert.Contains("HIDDEN", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<h2 class=\"manuscript-heading manuscript-h2\">THE HIDDEN ROAD</h2>", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("RIVER", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("traveler", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("water", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SplitIntoChapters_does_not_duplicate_chapter_title_in_body()
+    {
+        var text = """
+            Chapter 1: Disadvantages of Technology
+
+            Technology also creates new problems for families and schools.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.Single(chapters);
+        Assert.Contains("Disadvantages", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("families", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        // Chapter opener owns the title — body must not start with the same <h2>.
+        var body = chapters[0].Body ?? "";
+        Assert.False(
+            Regex.IsMatch(body, @"^\s*<h[1-6][^>]*>\s*Disadvantages of Technology\s*</h[1-6]>", RegexOptions.IgnoreCase),
+            "Body must not reopen with the chapter title heading.");
     }
 
     [Fact]
