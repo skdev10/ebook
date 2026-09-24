@@ -33,6 +33,7 @@
 <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
 <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
 <script src="~/js/book-interior-preview.js" asp-append-version="true"></script>
+<script src="~/js/book-page-turn.js" asp-append-version="true"></script>
 <script src="~/js/ai-writer-read-mode.js" asp-append-version="true"></script>
 <script src="~/js/module-export.js" asp-append-version="true"></script>
 @if (ViewBag.InteriorThemeCss is string interiorThemeCss && !string.IsNullOrWhiteSpace(interiorThemeCss))
@@ -1697,11 +1698,12 @@
         border-radius: 14px !important;
         border: 1px solid rgba(68, 48, 36, 0.35);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-        padding: 0.4rem 0.5rem 0.55rem !important;
+        padding: 0.65rem 0.65rem 1.4rem !important;
         align-items: center !important;
         justify-content: center !important;
         gap: 0.35rem;
         min-height: calc(100dvh - 7.5rem);
+        overflow: visible !important;
         z-index: 1;
     }
     #bookResult .paginated-reader-shell.book-page-preview-shell {
@@ -1710,7 +1712,8 @@
         box-shadow: none !important;
         z-index: 3 !important;
         margin-inline: auto !important;
-        max-height: calc(100dvh - 5.5rem) !important;
+        margin-bottom: 0.35rem !important;
+        max-height: calc(100dvh - 9.5rem) !important;
         max-width: 100% !important;
     }
     @@media (min-width: 768px) {
@@ -3220,9 +3223,10 @@ window.ensureChapterPagesForMeta = function (ch) {
     window._previewChapterPages = pages;
 };
 
-window.renderCurrentReaderPage = function () {
+window.renderCurrentReaderPage = function (opts) {
+    opts = opts || {};
     if (window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length && window.AiWriterReadMode) {
-        window.AiWriterReadMode.renderWriterPage(window._writerPageIndex || 0);
+        window.AiWriterReadMode.renderWriterPage(window._writerPageIndex || 0, opts);
         return;
     }
     var meta = window._previewChaptersMeta || [];
@@ -3256,7 +3260,8 @@ window.renderCurrentReaderPage = function () {
             '<div class="book-open-page-inner">' + body + '</div>' +
             '<div class="book-open-folio writer-page-folio" aria-label="Page ' + pageNum + '">' + pageNum + '</div></div>';
     }
-    if (viewport) {
+    function apply() {
+        if (!viewport) return;
         if (shell) {
             if (phone) shell.classList.remove('is-open-spread');
             else shell.classList.add('is-open-spread');
@@ -3275,6 +3280,12 @@ window.renderCurrentReaderPage = function () {
                 '</div>';
         }
         viewport.scrollTop = 0;
+    }
+    var dir = opts.dir || 0;
+    if (!phone && dir && viewport && window.BookPageTurn && typeof window.BookPageTurn.animate === 'function') {
+        window.BookPageTurn.animate(viewport, dir, apply);
+    } else {
+        apply();
     }
     window.updateChapterPreviewNavUI();
     window.saveReaderBookState();
@@ -3297,7 +3308,7 @@ window.readerNavNext = function () {
     var step = phone ? 1 : 2;
     if (left + step < pages.length) {
         window._previewPageIndex = left + step;
-        window.renderCurrentReaderPage();
+        window.renderCurrentReaderPage({ dir: 1 });
         window.requestAnimationFrame(function () {
             if (typeof window.scrollAiWriterChapterToTop === 'function') window.scrollAiWriterChapterToTop();
         });
@@ -3322,7 +3333,7 @@ window.readerNavPrevious = function () {
     var step = phone ? 1 : 2;
     if (left > 0) {
         window._previewPageIndex = Math.max(0, left - step);
-        window.renderCurrentReaderPage();
+        window.renderCurrentReaderPage({ dir: -1 });
         window.requestAnimationFrame(function () {
             if (typeof window.scrollAiWriterChapterToTop === 'function') window.scrollAiWriterChapterToTop();
         });

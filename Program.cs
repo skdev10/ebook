@@ -487,6 +487,33 @@ catch (Exception ex)
     Console.WriteLine($"[Startup:BookCoverDesigns] {ex.GetType().Name}: {ex.Message}");
 }
 
+// Ensure admin book lifecycle history table exists (servers that skip EF Migrate).
+try
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.ExecuteSqlRaw(@"
+CREATE TABLE IF NOT EXISTS `bookstatetransitions` (
+  `BookStateTransitionId` int NOT NULL AUTO_INCREMENT,
+  `BookId` int NOT NULL,
+  `UserId` int NOT NULL,
+  `ActorUserId` int NULL,
+  `FromStatus` varchar(100) CHARACTER SET utf8mb4 NULL,
+  `ToStatus` varchar(100) CHARACTER SET utf8mb4 NOT NULL,
+  `Kind` varchar(50) CHARACTER SET utf8mb4 NOT NULL,
+  `MetadataJson` varchar(2000) CHARACTER SET utf8mb4 NULL,
+  `CreatedAt` datetime(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (`BookStateTransitionId`),
+  KEY `IX_bookstatetransitions_BookId` (`BookId`),
+  KEY `IX_bookstatetransitions_UserId` (`UserId`),
+  KEY `IX_bookstatetransitions_CreatedAt` (`CreatedAt`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[Startup:BookStateTransitions] {ex.GetType().Name}: {ex.Message}");
+}
+
 // HTTPS redirect only when Kestrel actually listens on HTTPS (avoids "Failed to determine the https port" on http-only profiles).
 if (app.Environment.IsDevelopment())
 {

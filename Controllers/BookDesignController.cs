@@ -30,6 +30,7 @@ namespace EBookDashboard.Controllers
         private readonly ILogger<BookDesignController> _logger;
         private readonly IBookRenderService _bookRenderService;
         private readonly IPrintWrapPregenerationQueue _printWrapPregenerationQueue;
+        private readonly ICurrentUserAccessor _currentUser;
 
         public BookDesignController(
             ApplicationDbContext context,
@@ -40,7 +41,8 @@ namespace EBookDashboard.Controllers
             BookFlowStateService bookFlow,
             ILogger<BookDesignController> logger,
             IBookRenderService bookRenderService,
-            IPrintWrapPregenerationQueue printWrapPregenerationQueue)
+            IPrintWrapPregenerationQueue printWrapPregenerationQueue,
+            ICurrentUserAccessor currentUser)
         {
             _context = context;
             _bookDesignService = bookDesignService ?? throw new ArgumentNullException(nameof(bookDesignService));
@@ -51,11 +53,15 @@ namespace EBookDashboard.Controllers
             _logger = logger;
             _bookRenderService = bookRenderService;
             _printWrapPregenerationQueue = printWrapPregenerationQueue;
+            _currentUser = currentUser;
         }
+
+        /// <summary>Claims-first user id (session alone must never bounce a still-authenticated user to login).</summary>
+        private int CurrentUserIdOrZero() => _currentUser.GetUserId() ?? 0;
         // GET: /BookDesign/CoverDesignCalculator
         public IActionResult Index(int bookId = 0)
         {
-            int userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+            int userId = CurrentUserIdOrZero();
 
             if (userId == 0)
             {
@@ -72,7 +78,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                int userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId"));
+                int userId = CurrentUserIdOrZero();
                 if (userId == 0)
                 {
                     return RedirectToAction("UserLogin", "Account");
@@ -129,7 +135,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+                var userId = CurrentUserIdOrZero();
                 if (userId == 0)
                     return Json(new { success = false, message = "Not logged in" });
 
@@ -156,7 +162,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+                var userId = CurrentUserIdOrZero();
                 if (userId == 0)
                     return Json(new List<object>());
 
@@ -185,7 +191,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userId = HttpContext.Session.GetInt32("UserId");
+                var userId = _currentUser.GetUserId();
                 if (!userId.HasValue || userId.Value <= 0)
                     return Unauthorized(new { success = false, message = "Please sign in." });
 
@@ -231,7 +237,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+                var userId = CurrentUserIdOrZero();
                 if (userId == 0)
                     return Json(new { success = false, message = "Not logged in" });
 
@@ -319,7 +325,7 @@ namespace EBookDashboard.Controllers
         [Route("BookDesign/PreviewBookHtml")]
         public async Task<IActionResult> PreviewBookHtml(int bookId, CancellationToken cancellationToken)
         {
-            var userId = HttpContext.Session.GetInt32("UserId");
+            var userId = _currentUser.GetUserId();
             if (userId == null) return Unauthorized("Please sign in.");
 
             if (bookId <= 0) return BadRequest("BookId is required.");
@@ -378,15 +384,27 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                var userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+                var userId = CurrentUserIdOrZero();
                 if (userId == 0)
                     return Json(new { success = false, message = "Not logged in" });
 
                 if (req == null || req.BookId <= 0)
                     return Json(new { success = false, message = "Invalid request" });
 
+                string? titleConflictMessage = null;
                 if (!string.IsNullOrWhiteSpace(req.BookTitle))
-                    await BookTitleResolver.SyncBookTitleAsync(_context, userId, req.BookId, req.BookTitle);
+                {
+                    try
+                    {
+                        await BookTitleResolver.SyncBookTitleAsync(_context, userId, req.BookId, req.BookTitle);
+                    }
+                    catch (DuplicateBookTitleException ex)
+                    {
+                        // Formatting still saves; surface a clear title conflict for the UI toast.
+                        titleConflictMessage = ex.Message;
+                        _logger.LogInformation(ex, "Skipped title sync for book {BookId}: {Message}", req.BookId, ex.Message);
+                    }
+                }
 
                 var existing = await _context.BookFormatting
                     .FirstOrDefaultAsync(f => f.BookId == req.BookId && f.UserId == userId);
@@ -481,7 +499,7 @@ namespace EBookDashboard.Controllers
                     _context.Settings.Update(draftSetting);
                 }
 
-                await _context.SaveChangesAsync();
+                await SaveSettingsWithRetryAsync();
 
                 var previewPages = ResolvePreviewPageCount(req, statePayload);
                 var maxPc = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
@@ -510,7 +528,7 @@ namespace EBookDashboard.Controllers
                         pageSetting.UpdatedAt = DateTime.UtcNow;
                         _context.Settings.Update(pageSetting);
                     }
-                    await _context.SaveChangesAsync();
+                    await SaveSettingsWithRetryAsync();
                 }
 
                 HttpContext.Session.SetString("FormattingDone", "1");
@@ -543,7 +561,43 @@ namespace EBookDashboard.Controllers
                         _printWrapPregenerationQueue.QueueAfterFrontCoverSaved(userId, req.BookId);
                 }
 
-                return Json(new { success = true, message = "Formatting saved.", previewPageCount = previewPages });
+                return Json(new
+                {
+                    success = true,
+                    message = titleConflictMessage ?? "Formatting saved.",
+                    titleConflict = !string.IsNullOrEmpty(titleConflictMessage),
+                    previewPageCount = previewPages
+                });
+
+                async Task SaveSettingsWithRetryAsync()
+                {
+                    const int maxAttempts = 3;
+                    DbUpdateException? last = null;
+                    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+                    {
+                        try
+                        {
+                            await _context.SaveChangesAsync();
+                            return;
+                        }
+                        catch (DbUpdateException ex) when (attempt < maxAttempts)
+                        {
+                            last = ex;
+                            foreach (var entry in _context.ChangeTracker.Entries<Settings>()
+                                         .Where(e => e.State == EntityState.Added)
+                                         .ToList())
+                            {
+                                entry.Entity.SettingId = await _context.NextSettingIdAsync();
+                            }
+                        }
+                    }
+                    throw last ?? new DbUpdateException("Could not save settings after retries.");
+                }
+            }
+            catch (DbUpdateException ex)
+            {
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return Json(new { success = false, message = detail });
             }
             catch (Exception ex)
             {
@@ -557,7 +611,7 @@ namespace EBookDashboard.Controllers
         [HttpGet]
         public async Task<IActionResult> GetCoverDesignByBook(int bookId)
         {
-            var userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId"));
+            var userId = CurrentUserIdOrZero();
 
             if (userId == 0)
             {
@@ -616,7 +670,7 @@ namespace EBookDashboard.Controllers
             {
                 return Json(new { success = false, message = "Invalid data" });
             }
-            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            var userId = CurrentUserIdOrZero();
 
             if (userId == 0)
             {
@@ -767,7 +821,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                int userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+                int userId = CurrentUserIdOrZero();
                 if (userId == 0)
                 {
                     return RedirectToAction("UserLogin", "Account");
@@ -1048,7 +1102,7 @@ namespace EBookDashboard.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "CoverDesignCalculatorFixing failed for bookId={BookId}", bookId);
-                var uid = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+                var uid = CurrentUserIdOrZero();
                 if (uid == 0)
                     return RedirectToAction("UserLogin", "Account");
 
@@ -1146,7 +1200,7 @@ namespace EBookDashboard.Controllers
         [Route("BookDesign/InteriorPreview")]
         public async Task<IActionResult> InteriorPreview(int bookId = 0)
         {
-            int userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+            int userId = CurrentUserIdOrZero();
             if (userId == 0)
                 return RedirectToAction("UserLogin", "Account");
 
@@ -1316,7 +1370,7 @@ namespace EBookDashboard.Controllers
         {
             try
             {
-                int userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId"));
+                int userId = CurrentUserIdOrZero();
                 if (userId == 0)
                 {
                     return RedirectToAction("UserLogin", "Account");
@@ -1368,7 +1422,7 @@ namespace EBookDashboard.Controllers
         [HttpGet]
         public IActionResult CoverDesignCalculator(int bookId = 0)
         {
-            int userId = Convert.ToInt32(HttpContext.Session.GetInt32("UserId") ?? 0);
+            int userId = CurrentUserIdOrZero();
             if (userId == 0)
                 return RedirectToAction("UserLogin", "Account");
             return RedirectToAction(nameof(CoverDesignCalculatorFixing), new { bookId });
@@ -1387,7 +1441,7 @@ namespace EBookDashboard.Controllers
         [Route("BookDesign/SelectTemplate")]
         public async Task<IActionResult> SelectTemplate(int bookId, int totalPages = 0)
         {
-            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            var userId = CurrentUserIdOrZero();
             if (userId <= 0)
                 return RedirectToAction("UserLogin", "Account");
 
@@ -1434,7 +1488,7 @@ namespace EBookDashboard.Controllers
         [Route("BookDesign/SaveSelection")]
         public async Task<IActionResult> SaveSelection(int bookId, int designId)
         {
-            var userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            var userId = CurrentUserIdOrZero();
             if (userId <= 0)
                 return Json(new { success = false, message = "Please sign in again." });
             if (bookId <= 0 || designId <= 0)

@@ -460,4 +460,26 @@ public static class BookManuscriptHtmlFormatter
 
     private static string NormalizeHeadingCompareKey(string? text) =>
         Regex.Replace((text ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
+
+    /// <summary>
+    /// Drop empty / whitespace-only paragraphs and heading shells left by Word/PDF import
+    /// (blank pages and large gaps in the formatter preview).
+    /// </summary>
+    public static string StripEmptyHtmlBlocks(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return string.Empty;
+
+        var cleaned = html;
+        // Empty block tags: <p></p>, <p>&nbsp;</p>, <p><br></p>, empty headings, etc.
+        cleaned = Regex.Replace(
+            cleaned,
+            @"<(p|div|h[1-6]|li|span)(\s[^>]*)?>\s*(?:&nbsp;|&#160;|&emsp;|&ensp;|<br\s*/?>|\u00a0|\s)*</\1>",
+            string.Empty,
+            RegexOptions.IgnoreCase);
+        // Collapse runs of blank lines left after removals
+        cleaned = Regex.Replace(cleaned, @"(?:\s*<br\s*/?>\s*){3,}", "<br/>", RegexOptions.IgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"(\s*\n){3,}", "\n\n");
+        return cleaned.Trim();
+    }
 }

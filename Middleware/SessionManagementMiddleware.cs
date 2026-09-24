@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using EBookDashboard.Models;
 using EBookDashboard.Services;
@@ -37,42 +38,46 @@ namespace EBookDashboard.Middleware
 
             QueueResumePersist(context);
 
-            // Track user session activity
+            // Track user session activity (aligned with auth cookie / session IdleTimeout = 120 min).
             if (context.User.Identity?.IsAuthenticated == true)
             {
                 var lastActivity = context.Session.GetString("LastActivity");
                 var currentTime = DateTime.UtcNow;
 
-                if (lastActivity != null)
+                if (!string.IsNullOrEmpty(lastActivity)
+                    && DateTime.TryParse(
+                        lastActivity,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.RoundtripKind,
+                        out var lastActivityTime))
                 {
-                    var lastActivityTime = DateTime.Parse(lastActivity);
-                    var inactivityPeriod = currentTime - lastActivityTime;
+                    var inactivityPeriod = currentTime - lastActivityTime.ToUniversalTime();
 
-                    // Auto-logout after 30 minutes of inactivity
-                    if (inactivityPeriod.TotalMinutes > 30)
+                    // Auto-logout after 120 minutes of inactivity (matches cookie ExpireTimeSpan).
+                    if (inactivityPeriod.TotalMinutes > 120)
                     {
-                        _logger.LogInformation("User session expired due to inactivity. User: {User}", 
+                        _logger.LogInformation("User session expired due to inactivity. User: {User}",
                             context.User.Identity.Name);
-                        
+
                         await context.SignOutAsync("AdminCookie");
                         await context.SignOutAsync("UserCookie");
                         context.Session.Clear();
-                        
+
                         if (IsAjaxRequest(context))
                         {
                             context.Response.StatusCode = 401;
                             await context.Response.WriteAsync("Session expired");
                             return;
                         }
-                        
+
                         context.Response.Redirect("/Account/UserLogin?sessionExpired=true");
                         return;
                     }
                 }
 
-                // Update last activity
-                context.Session.SetString("LastActivity", currentTime.ToString());
-                
+                // Round-trip UTC so parse never false-triggers logout across cultures.
+                context.Session.SetString("LastActivity", currentTime.ToString("O", CultureInfo.InvariantCulture));
+
                 // Track page views for analytics
                 var currentPage = context.Request.Path.Value;
                 if (!string.IsNullOrEmpty(currentPage) && !currentPage.Contains("/api/"))
@@ -141,6 +146,7 @@ namespace EBookDashboard.Middleware
             CancellationToken cancellationToken)
         {
             var key = $"user:{userId}:lastBookWorkUrl";
+            var clamped = Models.Settings.ClampValueLength(full, Models.Settings.DbCompatMaxValueLength) ?? full;
             var row = await db.Settings.FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
             if (row == null)
             {
@@ -149,23 +155,33 @@ namespace EBookDashboard.Middleware
                 {
                     SettingId = nextId,
                     Key = key,
-                    Value = full,
+                    Value = clamped,
                     Category = "Resume",
-                    Description = "Last book formatter / writer URL",
+                    Description = Models.Settings.ClampDescription("Last book formatter / writer URL"),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 });
             }
-            else if (!string.Equals(row.Value, full, StringComparison.Ordinal))
+            else if (!string.Equals(row.Value, clamped, StringComparison.Ordinal))
             {
-                row.Value = full;
+                row.Value = clamped;
                 row.UpdatedAt = DateTime.UtcNow;
             }
 
             if (bookId > 0)
-                await UpsertPerBookResumeUrlAsync(db, bookId, full, cancellationToken);
+                await UpsertPerBookResumeUrlAsync(db, bookId, clamped, cancellationToken);
 
-            await db.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException ex)
+            {
+                // Concurrent resume writes can collide on manually assigned SettingId — non-fatal.
+                _logger.LogWarning(ex, "Resume URL persist skipped for user {UserId} (concurrent SettingId).", userId);
+                foreach (var entry in db.ChangeTracker.Entries<Models.Settings>().Where(e => e.State == EntityState.Added).ToList())
+                    entry.State = EntityState.Detached;
+            }
 
             if (bookId > 0)
                 await TryPersistLastWorkedBookAsync(db, userId, bookId, cancellationToken);
@@ -181,21 +197,22 @@ namespace EBookDashboard.Middleware
             var perBookRow = await db.Settings.FirstOrDefaultAsync(s => s.Key == perBookKey, cancellationToken);
             if (perBookRow == null)
             {
+                // NextSettingIdAsync includes pending Added rows in this context (avoids duplicate PK).
                 var nextId = await db.NextSettingIdAsync(cancellationToken);
                 db.Settings.Add(new Settings
                 {
                     SettingId = nextId,
                     Key = perBookKey,
-                    Value = fullUrl,
+                    Value = Models.Settings.ClampValueLength(fullUrl, Models.Settings.DbCompatMaxValueLength) ?? fullUrl,
                     Category = "Resume",
-                    Description = "Last workflow URL for this book",
+                    Description = Models.Settings.ClampDescription("Last workflow URL for this book"),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 });
             }
             else if (!string.Equals(perBookRow.Value, fullUrl, StringComparison.Ordinal))
             {
-                perBookRow.Value = fullUrl;
+                perBookRow.Value = Models.Settings.ClampValueLength(fullUrl, Models.Settings.DbCompatMaxValueLength) ?? fullUrl;
                 perBookRow.UpdatedAt = DateTime.UtcNow;
             }
         }
@@ -242,7 +259,7 @@ namespace EBookDashboard.Middleware
                     Key = key,
                     Value = idText,
                     Category = "Resume",
-                    Description = "Last book the author worked on",
+                    Description = Models.Settings.ClampDescription("Last book the author worked on"),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 });
@@ -255,7 +272,15 @@ namespace EBookDashboard.Middleware
 
             // Resume bookmark only — never rewrite Books.isActive / UpdatedAt on GET.
             // Those writes raced with Writer/Format/Cover fetches and hung the portal.
-            await db.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                foreach (var entry in db.ChangeTracker.Entries<Settings>().Where(e => e.State == EntityState.Added).ToList())
+                    entry.State = EntityState.Detached;
+            }
         }
 
         private static bool ShouldTrackBookWorkPath(string path)

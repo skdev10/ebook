@@ -439,3 +439,19 @@ public class ChapterDocumentImportTests
         return ms.ToArray();
     }
 }
+
+public class ManuscriptEmptyBlockTests
+{
+    [Fact]
+    public void StripEmptyHtmlBlocks_removes_blank_paragraphs_and_nbsp()
+    {
+        var html = "<p class=\"manuscript-p\">Hello</p><p></p><p>&nbsp;</p><p><br/></p><h2>  </h2><p>World</p>";
+        var cleaned = BookManuscriptHtmlFormatter.StripEmptyHtmlBlocks(html);
+        Assert.Contains("Hello", cleaned);
+        Assert.Contains("World", cleaned);
+        Assert.DoesNotContain("<p></p>", cleaned);
+        Assert.DoesNotContain("&nbsp;", cleaned);
+        Assert.DoesNotContain("<h2>", cleaned);
+    }
+}
+

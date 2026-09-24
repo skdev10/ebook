@@ -47,11 +47,12 @@
     justify-content: center;
     width: 100%;
     box-sizing: border-box;
-    padding: 0.55rem 0.65rem 0.7rem;
+    padding: 0.75rem 0.75rem 1.35rem;
     background: var(--book-preview-stage-bg);
-    border-radius: 12px;
+    border-radius: 14px;
     min-height: 0;
-    overflow: hidden !important;
+    /* Keep bottom shadow / radius visible — don't clip the book */
+    overflow: visible !important;
     position: relative;
 }
 
@@ -743,11 +744,11 @@
     box-sizing: border-box;
     background: #fffef8;
     border: 1px solid rgba(68, 48, 36, 0.32);
-    border-radius: 2px;
+    border-radius: 8px;
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.95) inset,
         0 2px 4px rgba(28, 25, 23, 0.1),
-        0 22px 48px -14px rgba(28, 25, 23, 0.55),
+        0 18px 36px -12px rgba(28, 25, 23, 0.45),
         0 0 0 1px rgba(68, 48, 36, 0.22);
     overflow: hidden;
 }
@@ -1078,6 +1079,85 @@
     box-shadow: inset 0 0 0 5px rgba(220, 38, 38, 0.18);
     border: 1px dashed rgba(185, 28, 28, 0.4);
     box-sizing: border-box;
+}
+
+/* ===== Real open-book page turn (Formatter + AI Writer) ===== */
+.book-page-preview-shell.is-page-turning,
+#paginatedReaderShell.is-page-turning {
+    pointer-events: none;
+    overflow: visible !important;
+}
+
+.book-open-spread {
+    transform-style: preserve-3d;
+    perspective: 1800px;
+}
+
+.book-turn-leaf {
+    box-shadow:
+        -2px 0 8px rgba(28, 25, 23, 0.12),
+        0 8px 28px rgba(28, 25, 23, 0.18);
+    background: #fffef8 !important;
+    overflow: hidden;
+    will-change: transform;
+}
+
+.book-turn-leaf--forward {
+    border-left: 1px solid rgba(68, 48, 36, 0.18);
+}
+
+.book-turn-leaf--back {
+    border-right: 1px solid rgba(68, 48, 36, 0.18);
+}
+
+.book-turn-leaf.is-flipping-forward {
+    animation: bookLeafFlipForward 0.52s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+.book-turn-leaf.is-flipping-back {
+    animation: bookLeafFlipBack 0.52s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes bookLeafFlipForward {
+    0% {
+        transform: perspective(1800px) rotateY(0deg);
+        box-shadow: -2px 0 8px rgba(28, 25, 23, 0.12);
+        opacity: 1;
+    }
+    55% {
+        box-shadow: -18px 0 28px rgba(28, 25, 23, 0.28);
+        opacity: 1;
+    }
+    100% {
+        transform: perspective(1800px) rotateY(-178deg);
+        box-shadow: 4px 0 12px rgba(28, 25, 23, 0.08);
+        opacity: 0.15;
+    }
+}
+
+@keyframes bookLeafFlipBack {
+    0% {
+        transform: perspective(1800px) rotateY(0deg);
+        box-shadow: 2px 0 8px rgba(28, 25, 23, 0.12);
+        opacity: 1;
+    }
+    55% {
+        box-shadow: 18px 0 28px rgba(28, 25, 23, 0.28);
+        opacity: 1;
+    }
+    100% {
+        transform: perspective(1800px) rotateY(178deg);
+        box-shadow: -4px 0 12px rgba(28, 25, 23, 0.08);
+        opacity: 0.15;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .book-turn-leaf.is-flipping-forward,
+    .book-turn-leaf.is-flipping-back {
+        animation: none !important;
+        opacity: 0 !important;
+    }
 }
 
 @media (max-width: 720px) {

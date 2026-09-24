@@ -137,6 +137,16 @@ namespace EBookDashboard.Controllers
         [HttpGet]
         public async Task<IActionResult> UserLogin(string? registered = null)
         {
+            // Browser Back often returns here while the auth cookie is still valid —
+            // bounce signed-in users to the dashboard instead of showing the login form.
+            if (User?.Identity?.IsAuthenticated == true)
+            {
+                var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                if (string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase))
+                    return RedirectToAction("Dashboard", "Admin");
+                return RedirectToAction("Index", "Dashboard");
+            }
+
             await SetOAuthLoginAvailabilityAsync();
             if (TempData["LoginSuccess"] is string success && !string.IsNullOrWhiteSpace(success))
                 ViewBag.Success = success;

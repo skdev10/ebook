@@ -716,7 +716,8 @@ public static class ChapterDocumentImportService
     private static string FormatChapterBodyHtml(string? body, string? title)
     {
         var html = FormatImportedBodyAsHtml(body);
-        return BookManuscriptHtmlFormatter.StripRedundantChapterOpenings(html, title);
+        html = BookManuscriptHtmlFormatter.StripRedundantChapterOpenings(html, title);
+        return BookManuscriptHtmlFormatter.StripEmptyHtmlBlocks(html);
     }
 
     /// <summary>

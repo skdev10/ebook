@@ -1211,7 +1211,7 @@ namespace EBookDashboard.Controllers
         [Route("CoverQuota")]
         public async Task<IActionResult> CoverQuota(CancellationToken cancellationToken)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
             var snap = await _aiCoverQuota.GetAsync(sessionUserId.Value, cancellationToken);
@@ -1342,7 +1342,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, status = "error", message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
@@ -1440,7 +1440,7 @@ namespace EBookDashboard.Controllers
             if (bookId <= 0)
                 return Json(new { success = false, status = "error", message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
@@ -1511,7 +1511,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0 || string.IsNullOrWhiteSpace(req.Url))
                 return Json(new { success = false, message = "BookId and Url are required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
 
@@ -1550,7 +1550,7 @@ namespace EBookDashboard.Controllers
             if (req == null || string.IsNullOrWhiteSpace(req.EncodedImage))
                 return Json(new { success = false, status = "error", message = "encoded_image is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
@@ -1662,7 +1662,7 @@ namespace EBookDashboard.Controllers
         [Route("BookPdfPreviewData")]
         public async Task<IActionResult> BookPdfPreviewData(int bookId, bool full = false, CancellationToken cancellationToken = default)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
             if (bookId <= 0)
@@ -1759,7 +1759,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return BadRequest(new { success = false, message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Unauthorized(new { success = false, message = "Please sign in." });
 
@@ -1851,7 +1851,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return BadRequest(new { success = false, message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Unauthorized(new { success = false, message = "Please sign in." });
 
@@ -1896,7 +1896,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return BadRequest(new { success = false, message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Unauthorized(new { success = false, message = "Please sign in." });
 
@@ -1997,7 +1997,7 @@ namespace EBookDashboard.Controllers
 
         private async Task<IActionResult> GetPrintReadyCoverAssetsCoreAsync(int bookId, CancellationToken cancellationToken)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
             if (bookId <= 0)
@@ -2247,7 +2247,7 @@ namespace EBookDashboard.Controllers
             string? format = null,
             CancellationToken cancellationToken = default)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null) return Unauthorized();
             if (bookId <= 0) return BadRequest("Invalid book.");
 
@@ -2459,7 +2459,7 @@ namespace EBookDashboard.Controllers
         [Route("BookPageMetrics")]
         public async Task<IActionResult> BookPageMetrics(int bookId, CancellationToken cancellationToken = default)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
             if (bookId <= 0)
@@ -2507,7 +2507,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, status = "error", message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
@@ -2745,7 +2745,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, status = "error", message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, status = "error", message = "Please sign in." });
 
@@ -3051,7 +3051,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
 
@@ -3094,7 +3094,7 @@ namespace EBookDashboard.Controllers
         [Route("ListCoverDesigns")]
         public async Task<IActionResult> ListCoverDesigns(int bookId, CancellationToken cancellationToken)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
             if (bookId <= 0) return Json(new { success = false, message = "bookId is required." });
 
@@ -3112,7 +3112,7 @@ namespace EBookDashboard.Controllers
         [Route("CreateCoverDesign")]
         public async Task<IActionResult> CreateCoverDesign([FromBody] CoverDesignMutationRequest? req, CancellationToken cancellationToken)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, message = "bookId is required." });
@@ -3134,7 +3134,7 @@ namespace EBookDashboard.Controllers
         [Route("DuplicateCoverDesign")]
         public async Task<IActionResult> DuplicateCoverDesign([FromBody] CoverDesignIdRequest? req, CancellationToken cancellationToken)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
             if (req == null || req.CoverId <= 0)
                 return Json(new { success = false, message = "coverId is required." });
@@ -3149,7 +3149,7 @@ namespace EBookDashboard.Controllers
         [Route("DeleteCoverDesign")]
         public async Task<IActionResult> DeleteCoverDesign([FromBody] CoverDesignIdRequest? req, CancellationToken cancellationToken)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
             if (req == null || req.CoverId <= 0)
                 return Json(new { success = false, message = "coverId is required." });
@@ -3163,7 +3163,7 @@ namespace EBookDashboard.Controllers
         [Route("ActivateCoverDesign")]
         public async Task<IActionResult> ActivateCoverDesign([FromBody] CoverDesignIdRequest? req, CancellationToken cancellationToken)
         {
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null) return Json(new { success = false, message = "Please sign in." });
             if (req == null || req.CoverId <= 0)
                 return Json(new { success = false, message = "coverId is required." });
@@ -3200,7 +3200,7 @@ namespace EBookDashboard.Controllers
             if (req == null || req.BookId <= 0)
                 return Json(new { success = false, message = "BookId is required." });
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null)
                 return Json(new { success = false, message = "Please sign in." });
 
@@ -3804,7 +3804,7 @@ namespace EBookDashboard.Controllers
         [Route("Dashboard/ResetFlowStep")]
         public async Task<IActionResult> ResetFlowStep([FromBody] ResetFlowStepRequest req)
         {
-            var userId = HttpContext.Session.GetInt32("UserId");
+            var userId = _currentUser.GetUserId();
             if (userId == null)
                 return Json(new { success = false, message = "Please sign in." });
             if (req == null || req.BookId <= 0 || string.IsNullOrWhiteSpace(req.Step))
@@ -3846,7 +3846,7 @@ namespace EBookDashboard.Controllers
         [Route("ResetEditorDraft")]
         public async Task<IActionResult> ResetEditorDraft([FromBody] EditorDraftResetRequest req)
         {
-            var userId = HttpContext.Session.GetInt32("UserId");
+            var userId = _currentUser.GetUserId();
             if (userId == null)
                 return Json(new { success = false, message = "Please sign in." });
             if (req == null || req.BookId <= 0)
@@ -5158,7 +5158,7 @@ namespace EBookDashboard.Controllers
             if (user != null)
                 return user;
 
-            var sessionUserId = HttpContext.Session.GetInt32("UserId");
+            var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId is > 0)
             {
                 var fromSession = await _context.Users.FirstOrDefaultAsync(u => u.UserId == sessionUserId.Value);
@@ -5213,7 +5213,7 @@ namespace EBookDashboard.Controllers
                     Key = key,
                     Value = clampedValue,
                     Category = "Profile",
-                    Description = description,
+                    Description = Models.Settings.ClampDescription(description),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 });
@@ -5222,7 +5222,7 @@ namespace EBookDashboard.Controllers
             {
                 existing.Value = clampedValue;
                 existing.Category = "Profile";
-                existing.Description = description;
+                existing.Description = Models.Settings.ClampDescription(description);
                 existing.UpdatedAt = DateTime.UtcNow;
             }
         }

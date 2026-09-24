@@ -575,17 +575,24 @@
             '</div>';
     }
 
-    function renderWriterPage(pageIdx) {
+    function renderWriterPage(pageIdx, opts) {
+        opts = opts || {};
         var viewport = document.getElementById('preview-content');
         var shell = document.getElementById('paginatedReaderShell');
         var pages = global._writerBookPages || [];
         if (!pages.length) return;
+        if (global.BookPageTurn && typeof global.BookPageTurn.isBusy === 'function' && global.BookPageTurn.isBusy()) return;
         pageIdx = Math.max(0, Math.min(pageIdx, pages.length - 1));
         pageIdx = getSpreadLeftIndex(pageIdx);
+        var prevIdx = typeof global._writerPageIndex === 'number' ? global._writerPageIndex : pageIdx;
+        var dir = opts.dir;
+        if (!dir && pageIdx !== prevIdx) dir = pageIdx > prevIdx ? 1 : -1;
         global._writerPageIndex = pageIdx;
         var rightIdx = pageIdx + 1;
         var phone = isPhonePreview();
-        if (viewport) {
+
+        function apply() {
+            if (!viewport) return;
             if (shell) {
                 if (phone) shell.classList.remove('is-open-spread');
                 else shell.classList.add('is-open-spread');
@@ -609,6 +616,13 @@
             viewport.classList.toggle('writer-cover-active', isCover);
             viewport.classList.toggle('writer-front-matter-active', !isCover && pageIdx < (global._writerFrontMatterCount || 0));
         }
+
+        if (!phone && dir && viewport && global.BookPageTurn && typeof global.BookPageTurn.animate === 'function') {
+            global.BookPageTurn.animate(viewport, dir, apply);
+        } else {
+            apply();
+        }
+
         var previewHeader = document.getElementById('preview-chapter-header');
         if (previewHeader) previewHeader.classList.add('hidden');
         syncLegacyChapterIndex(pageIdx);
@@ -758,7 +772,7 @@
         var pages = global._writerBookPages || [];
         var next = isPhonePreview() ? (pi + 1) : (getSpreadLeftIndex(pi) + 2);
         if (next < pages.length) {
-            renderWriterPage(next);
+            renderWriterPage(next, { dir: 1 });
             global.requestAnimationFrame(function () {
                 if (typeof global.scrollAiWriterChapterToTop === 'function') global.scrollAiWriterChapterToTop();
             });
@@ -769,7 +783,7 @@
         var pi = global._writerPageIndex || 0;
         var prev = isPhonePreview() ? (pi - 1) : (getSpreadLeftIndex(pi) - 2);
         if (prev >= 0) {
-            renderWriterPage(prev);
+            renderWriterPage(prev, { dir: -1 });
             global.requestAnimationFrame(function () {
                 if (typeof global.scrollAiWriterChapterToTop === 'function') global.scrollAiWriterChapterToTop();
             });

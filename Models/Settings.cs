@@ -24,6 +24,9 @@ namespace EBookDashboard.Models
         
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        /// <summary>Matches <see cref="Description"/> column MaxLength / MySQL VARCHAR(200).</summary>
+        public const int MaxDescriptionLength = 200;
+
         /// <summary>Legacy short settings (non-LONGTEXT keys).</summary>
         public const int MaxShortValueLength = 1000;
 
@@ -45,6 +48,10 @@ namespace EBookDashboard.Models
             if (string.IsNullOrEmpty(value)) return value;
             return value.Length <= maxLen ? value : value.Substring(0, maxLen);
         }
+
+        /// <summary>Clamp <see cref="Description"/> to the column MaxLength (avoids EF/MySQL truncate errors).</summary>
+        public static string? ClampDescription(string? description)
+            => ClampValueLength(description, MaxDescriptionLength);
     }
 }
 

@@ -374,13 +374,19 @@ namespace EBookDashboard.Models
         /// <summary>
         /// Next <see cref="Settings.SettingId"/> for INSERTs when MySQL does not define <c>AUTO_INCREMENT</c> on that column
         /// (avoids: Field 'SettingId' doesn't have a default value).
+        /// Includes pending Added entities in this context so batch inserts before SaveChanges get distinct IDs.
         /// </summary>
         public async Task<int> NextSettingIdAsync(CancellationToken cancellationToken = default)
         {
-            var max = await Settings.AsNoTracking()
+            var dbMax = await Settings.AsNoTracking()
                 .Select(s => (int?)s.SettingId)
-                .MaxAsync(cancellationToken);
-            return (max ?? 0) + 1;
+                .MaxAsync(cancellationToken) ?? 0;
+            var trackedMax = ChangeTracker.Entries<Settings>()
+                .Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Unchanged)
+                .Select(e => e.Entity.SettingId)
+                .DefaultIfEmpty(0)
+                .Max();
+            return Math.Max(dbMax, trackedMax) + 1;
         }
     }
 }
