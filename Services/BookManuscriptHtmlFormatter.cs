@@ -338,7 +338,7 @@ public static class BookManuscriptHtmlFormatter
     {
         var titleText = NormalizeHeadingCompareKey(title);
         var html = (contentHtml ?? "").Trim();
-        if (string.IsNullOrEmpty(titleText) || string.IsNullOrEmpty(html))
+        if (string.IsNullOrEmpty(html))
             return html;
 
         try
@@ -364,26 +364,32 @@ public static class BookManuscriptHtmlFormatter
                     continue;
                 }
 
+                // Structured openers already rendered into saved HTML (preview/PDF would double them).
+                if (IsStructuredChapterOpener(first))
+                {
+                    first.Remove();
+                    continue;
+                }
+
                 if (HeadingTags.Contains(first.Name))
                 {
                     var headKey = NormalizeHeadingCompareKey(first.InnerText);
                     if (string.IsNullOrEmpty(headKey)) break;
 
-                    var titleIsChapter = ChapterBannerRegex.IsMatch(titleText);
-                    var headIsChapter = ChapterBannerRegex.IsMatch(headKey);
-                    var matches = headKey == titleText
-                                  || (titleIsChapter && headIsChapter && headKey == titleText);
-                    if (!matches) break;
-
-                    first.Remove();
-                    continue;
+                    if (HeadingsMatch(titleText, headKey) || ChapterBannerRegex.IsMatch(headKey))
+                    {
+                        first.Remove();
+                        continue;
+                    }
+                    break;
                 }
 
                 // Plain <p> title line that will later promote to <h2>.
                 if (first.Name.Equals("p", StringComparison.OrdinalIgnoreCase))
                 {
                     var pKey = NormalizeHeadingCompareKey(first.InnerText);
-                    if (!string.IsNullOrEmpty(pKey) && pKey == titleText
+                    if (!string.IsNullOrEmpty(pKey)
+                        && (HeadingsMatch(titleText, pKey) || ChapterBannerRegex.IsMatch(pKey))
                         && ChapterDocumentImportService.LooksLikeStandaloneHeading(first.InnerText.Trim()))
                     {
                         first.Remove();
@@ -428,21 +434,41 @@ public static class BookManuscriptHtmlFormatter
                     continue;
                 }
 
-                if (!HeadingTags.Contains(node.Name))
-                    break;
+                if (IsStructuredChapterOpener(node))
+                {
+                    node.Remove();
+                    continue;
+                }
 
-                var cls = node.GetAttributeValue("class", "");
-                var textKey = NormalizeHeadingCompareKey(node.InnerText);
-                var isChapterBanner = cls.Contains("manuscript-chapter-heading", StringComparison.OrdinalIgnoreCase)
-                                      || ChapterBannerRegex.IsMatch(textKey);
-                var duplicatesTitle = !string.IsNullOrEmpty(displayKey)
-                                      && !string.IsNullOrEmpty(textKey)
-                                      && textKey == displayKey;
+                if (HeadingTags.Contains(node.Name))
+                {
+                    var cls = node.GetAttributeValue("class", "");
+                    var textKey = NormalizeHeadingCompareKey(node.InnerText);
+                    var isChapterBanner = cls.Contains("manuscript-chapter-heading", StringComparison.OrdinalIgnoreCase)
+                                          || ChapterBannerRegex.IsMatch(textKey);
+                    var duplicatesTitle = HeadingsMatch(displayKey, textKey);
 
-                if (!isChapterBanner && !duplicatesTitle)
-                    break;
+                    if (!isChapterBanner && !duplicatesTitle)
+                        break;
 
-                node.Remove();
+                    node.Remove();
+                    continue;
+                }
+
+                // Standalone paragraph that repeats "CHAPTER N" / chapter title.
+                if (node.Name.Equals("p", StringComparison.OrdinalIgnoreCase))
+                {
+                    var pKey = NormalizeHeadingCompareKey(node.InnerText);
+                    if (!string.IsNullOrEmpty(pKey)
+                        && (ChapterBannerRegex.IsMatch(pKey) || HeadingsMatch(displayKey, pKey))
+                        && ChapterDocumentImportService.LooksLikeStandaloneHeading(node.InnerText.Trim()))
+                    {
+                        node.Remove();
+                        continue;
+                    }
+                }
+
+                break;
             }
 
             return string.Concat(wrap.ChildNodes.Select(n => n.OuterHtml)).Trim();
@@ -451,6 +477,39 @@ public static class BookManuscriptHtmlFormatter
         {
             return html;
         }
+    }
+
+    private static bool IsStructuredChapterOpener(HtmlNode node)
+    {
+        if (node == null) return false;
+        var name = node.Name ?? "";
+        var cls = node.GetAttributeValue("class", "") ?? "";
+        if (name.Equals("header", StringComparison.OrdinalIgnoreCase)
+            && (cls.Contains("fmt-chapter-opener", StringComparison.OrdinalIgnoreCase)
+                || cls.Contains("writer-chapter-opener", StringComparison.OrdinalIgnoreCase)
+                || cls.Contains("manuscript-chapter-heading", StringComparison.OrdinalIgnoreCase)))
+            return true;
+        if (name.Equals("article", StringComparison.OrdinalIgnoreCase)
+            && cls.Contains("reader-page-title", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    /// <summary>True when two heading strings refer to the same chapter title (ignores Chapter N: prefixes).</summary>
+    private static bool HeadingsMatch(string? a, string? b)
+    {
+        var ka = NormalizeHeadingCompareKey(a);
+        var kb = NormalizeHeadingCompareKey(b);
+        if (string.IsNullOrEmpty(ka) || string.IsNullOrEmpty(kb)) return false;
+        if (ka == kb) return true;
+
+        var sa = NormalizeHeadingCompareKey(ChapterBannerRegex.Replace(ka, ""));
+        var sb = NormalizeHeadingCompareKey(ChapterBannerRegex.Replace(kb, ""));
+        if (!string.IsNullOrEmpty(sa) && !string.IsNullOrEmpty(sb) && sa == sb)
+            return true;
+        if (!string.IsNullOrEmpty(sa) && sa == kb) return true;
+        if (!string.IsNullOrEmpty(sb) && sb == ka) return true;
+        return false;
     }
 
     private static readonly HashSet<string> HeadingTags = new(StringComparer.OrdinalIgnoreCase)

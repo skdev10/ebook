@@ -62,10 +62,17 @@ public static class InteriorPageMarkup
     public static string BuildFormatterChapterTitleHtml(string displayHeading, int narrativeOrdinal, string? interiorStyle = null)
     {
         var eyebrow = FormattableString.Invariant($"Chapter {narrativeOrdinal}");
-        var title = (displayHeading ?? "").Trim();
+        // Never show "Chapter N: …" again under the eyebrow — strip redundant prefix.
+        var title = BookChapterHeadingFormatter.GetDisplayTitle(displayHeading, narrativeOrdinal);
+        if (title.Equals($"Part {narrativeOrdinal}", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(displayHeading)
+            && !ChapterLooksLikeNumberOnly(displayHeading))
+            title = (displayHeading ?? "").Trim();
+
         var showTitle = !string.IsNullOrEmpty(title)
             && !System.Text.RegularExpressions.Regex.IsMatch(title, @"^chapter\s+\d+\s*:?\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
-            && !title.Equals(eyebrow, StringComparison.OrdinalIgnoreCase);
+            && !title.Equals(eyebrow, StringComparison.OrdinalIgnoreCase)
+            && !title.Equals($"Part {narrativeOrdinal}", StringComparison.OrdinalIgnoreCase);
 
         var sb = new System.Text.StringBuilder();
         sb.Append("<header class=\"fmt-chapter-opener manuscript-chapter-heading\">");
@@ -80,4 +87,9 @@ public static class InteriorPageMarkup
         return sb.ToString();
     }
 
+    private static bool ChapterLooksLikeNumberOnly(string? text) =>
+        System.Text.RegularExpressions.Regex.IsMatch(
+            (text ?? "").Trim(),
+            @"^\s*(chapter|ch\.?)\s*[0-9IVXLCMDivxlcdm]+\s*:?\s*$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 }

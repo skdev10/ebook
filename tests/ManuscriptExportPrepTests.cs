@@ -40,6 +40,58 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
+    public void StripRedundantChapterOpenings_removes_saved_fmt_opener_so_pdf_does_not_double()
+    {
+        var html = """
+            <header class="fmt-chapter-opener manuscript-chapter-heading writer-chapter-opener">
+              <span class="fmt-ch-eyebrow">Chapter 1</span>
+              <span class="fmt-ch-title">Introduction to Mobile Technology</span>
+            </header>
+            <h2 class="manuscript-h2">Chapter 1: Introduction to Mobile Technology</h2>
+            <p class="manuscript-p">Mobile phones changed everything.</p>
+            """;
+
+        var cleaned = BookManuscriptHtmlFormatter.StripRedundantChapterOpenings(
+            html,
+            "Introduction to Mobile Technology");
+
+        Assert.DoesNotContain("fmt-chapter-opener", cleaned, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<h2", cleaned, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Mobile phones changed everything", cleaned, StringComparison.Ordinal);
+        Assert.StartsWith("<p", cleaned, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildFormatterChapterTitleHtml_does_not_repeat_chapter_prefix_in_title()
+    {
+        var html = InteriorPageMarkup.BuildFormatterChapterTitleHtml(
+            "Chapter 2: Designing Invisible Rooms", narrativeOrdinal: 2);
+
+        Assert.Contains(">Chapter 2<", html, StringComparison.Ordinal);
+        Assert.Contains(">Designing Invisible Rooms<", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Chapter 2: Designing", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PrepareChapterBodyForExport_strips_leading_chapter_banner_before_body()
+    {
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Book", null, null, null, "Author")
+            .WithChapter("The Compound Interest of Tiny Habits", 1, 1);
+        var html = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(
+            "CHAPTER 1\n\nThe Compound Interest of Tiny Habits\n\nThere is a quiet arithmetic to change.",
+            ph,
+            "The Compound Interest of Tiny Habits");
+
+        Assert.DoesNotContain("CHAPTER 1", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("quiet arithmetic", html, StringComparison.OrdinalIgnoreCase);
+        // Title may remain as body h2 only if it was not stripped — opener is separate.
+        // Leading chapter banner / duplicate title must not precede body prose.
+        Assert.DoesNotMatch(new System.Text.RegularExpressions.Regex(
+            @"^\s*<h[1-6][^>]*>\s*chapter\s*1",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase), html);
+    }
+
+    [Fact]
     public void BuildChapterSectionsHtml_uses_preview_dom_structure()
     {
         var html = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(
