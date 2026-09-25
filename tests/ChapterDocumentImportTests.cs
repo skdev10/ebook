@@ -551,6 +551,116 @@ public class ChapterDocumentImportTests
         var outBytes = ChapterDocumentImportService.ShrinkImportedImage(tiny, ref ct);
         Assert.Equal(tiny, outBytes);
     }
+
+    [Fact]
+    public void MaterializeDataUriImages_rewrites_data_uri_to_file()
+    {
+        var webRoot = Path.Combine(Path.GetTempPath(), "ebook-fig-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(webRoot);
+        try
+        {
+            var payload = new byte[600];
+            new Random(1).NextBytes(payload);
+            var html = "<p class=\"manuscript-figure\"><img src=\"data:image/jpeg;base64,"
+                       + Convert.ToBase64String(payload) + "\" alt=\"\" /></p><p>Body</p>";
+            var chapters = new List<ChapterDocumentImportService.ImportedChapter>
+            {
+                new(1, "One", html)
+            };
+            var n = ChapterDocumentImportService.MaterializeDataUriImages(chapters, webRoot, "uploads/figs");
+            Assert.Equal(1, n);
+            Assert.DoesNotContain("data:image", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("/uploads/figs/fig-0001.jpg", chapters[0].Body, StringComparison.Ordinal);
+            Assert.True(File.Exists(Path.Combine(webRoot, "uploads", "figs", "fig-0001.jpg")));
+        }
+        finally
+        {
+            try { Directory.Delete(webRoot, true); } catch { /* temp */ }
+        }
+    }
+
+    [Fact]
+    public void ImportUploadedDocument_ninety_page_pdf_keeps_page_count_and_chapters()
+    {
+        var bytes = BuildLongTestPdf(90);
+        Assert.Equal(90, ChapterDocumentImportService.CountPdfPages(bytes));
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var (text, chapters) = ChapterDocumentImportService.ImportUploadedDocument(bytes, ".pdf");
+        sw.Stop();
+
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.True(chapters.Count >= 1, "Expected at least one imported chapter");
+        Assert.Contains("Page 1", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Page 90", text, StringComparison.OrdinalIgnoreCase);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(45), $"Import hung: {sw.Elapsed}");
+    }
+
+    private static byte[] BuildLongTestPdf(int pageCount)
+    {
+        var bodies = new List<string>(pageCount);
+        for (var i = 1; i <= pageCount; i++)
+        {
+            string heading;
+            if (i == 1) heading = "Preface";
+            else if ((i - 2) % 10 == 0) heading = "Chapter " + (((i - 2) / 10) + 1);
+            else heading = "";
+            var body = "Page " + i + " of the uploaded book. " + string.Join(" ", Enumerable.Repeat("story", 30));
+            var stream = "BT /F1 16 Tf 48 560 Td (" + PdfLiteral(heading) + ") Tj T* /F1 11 Tf (" + PdfLiteral(body) + ") Tj ET\n";
+            bodies.Add(stream);
+        }
+
+        var pageObj = new int[pageCount];
+        var streamObj = new int[pageCount];
+        var next = 4;
+        for (var i = 0; i < pageCount; i++)
+        {
+            pageObj[i] = next++;
+            streamObj[i] = next++;
+        }
+
+        var chunks = new List<string>
+        {
+            "%PDF-1.4\n",
+            "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
+            "2 0 obj << /Type /Pages /Count " + pageCount + " /Kids [" +
+                string.Join(" ", pageObj.Select(n => n + " 0 R")) + "] >> endobj\n",
+            "3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n"
+        };
+        for (var i = 0; i < pageCount; i++)
+        {
+            chunks.Add(pageObj[i] + " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 432 648] /Contents "
+                       + streamObj[i] + " 0 R /Resources << /Font << /F1 3 0 R >> >> >> endobj\n");
+            var stream = bodies[i];
+            chunks.Add(streamObj[i] + " 0 obj << /Length " + stream.Length + " >> stream\n" + stream + "endstream endobj\n");
+        }
+
+        var pos = 0;
+        var offsets = new int[next];
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            if (i > 0)
+                offsets[i] = pos;
+            pos += Encoding.ASCII.GetByteCount(chunks[i]);
+        }
+
+        var xref = new StringBuilder();
+        xref.Append("xref\n0 ").Append(next).Append('\n');
+        xref.Append("0000000000 65535 f \n");
+        for (var i = 1; i < next; i++)
+            xref.Append(offsets[i].ToString("D10")).Append(" 00000 n \n");
+
+        var bodyBytes = Encoding.ASCII.GetBytes(string.Concat(chunks));
+        var trailer = "trailer << /Size " + next + " /Root 1 0 R >>\nstartxref\n" + bodyBytes.Length + "\n%%EOF\n";
+        var tail = Encoding.ASCII.GetBytes(xref + trailer);
+        var pdf = new byte[bodyBytes.Length + tail.Length];
+        Buffer.BlockCopy(bodyBytes, 0, pdf, 0, bodyBytes.Length);
+        Buffer.BlockCopy(tail, 0, pdf, bodyBytes.Length, tail.Length);
+        return pdf;
+    }
+
+    private static string PdfLiteral(string text) =>
+        (text ?? "").Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
 }
 
 public class ManuscriptEmptyBlockTests

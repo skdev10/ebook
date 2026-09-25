@@ -39,7 +39,10 @@ namespace EBookDashboard.Services
                 ? "{}"
                 : JsonConvert.SerializeObject(new { chapter_topic = topic.Trim() });
 
-            var wrappedResponse = JsonConvert.SerializeObject(new { data = new { content = body } });
+            // Do not duplicate a multi-MB chapter into ResponseData — that packet kills large PDF imports.
+            var wrappedResponse = body.Length > 80_000
+                ? "{\"data\":{\"content\":\"[stored in Content column]\"}}"
+                : JsonConvert.SerializeObject(new { data = new { content = body } });
 
             var raw = new APIRawResponse
             {

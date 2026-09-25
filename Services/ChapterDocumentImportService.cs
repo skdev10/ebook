@@ -592,27 +592,52 @@ public static class ChapterDocumentImportService
             /* ignore */
         }
 
-        try
+        return false;
+    }
+
+    /// <summary>Write data-URI figures to disk so large-book chapter HTML stays small enough to save.</summary>
+    public static int MaterializeDataUriImages(List<ImportedChapter> chapters, string webRootPath, string relativeUrlDir)
+    {
+        if (chapters == null || chapters.Count == 0 || string.IsNullOrWhiteSpace(webRootPath))
+            return 0;
+
+        var rel = (relativeUrlDir ?? "").Replace('\\', '/').Trim('/');
+        if (string.IsNullOrEmpty(rel))
+            return 0;
+
+        var absDir = Path.Combine(webRootPath, rel.Replace('/', Path.DirectorySeparatorChar));
+        Directory.CreateDirectory(absDir);
+
+        var rx = new Regex(@"src=""data:(image/[^;""]+);base64,([A-Za-z0-9+/=]+)""",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var saved = 0;
+        for (var i = 0; i < chapters.Count; i++)
         {
-            if (img.TryGetBytesAsMemory(out var mem) && mem.Length > 800 && mem.Length <= 8_000_000)
+            var body = chapters[i].Body ?? "";
+            if (body.IndexOf("data:image", StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
+
+            var rewritten = rx.Replace(body, m =>
             {
-                using var image = Image.Load(mem.Span);
-                using var ms = new MemoryStream();
-                image.SaveAsJpeg(ms, new JpegEncoder { Quality = 72 });
-                if (ms.Length > 800)
+                try
                 {
-                    bytes = ms.ToArray();
-                    contentType = "image/jpeg";
-                    return true;
+                    var bytes = Convert.FromBase64String(m.Groups[2].Value);
+                    if (bytes.Length < 400)
+                        return m.Value;
+                    saved++;
+                    var name = $"fig-{saved:0000}.jpg";
+                    File.WriteAllBytes(Path.Combine(absDir, name), bytes);
+                    return "src=\"/" + rel + "/" + name + "\"";
                 }
-            }
-        }
-        catch
-        {
-            /* decode failed */
+                catch
+                {
+                    return m.Value;
+                }
+            });
+            chapters[i] = chapters[i] with { Body = rewritten };
         }
 
-        return false;
+        return saved;
     }
 
     public static List<ImportedChapter> SplitHtmlDocumentIntoChapters(string? html)

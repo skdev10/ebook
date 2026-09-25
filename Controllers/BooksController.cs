@@ -3681,7 +3681,9 @@ namespace EBookDashboard.Controllers
 
         [HttpPost]
         [IgnoreAntiforgeryToken]
-        [RequestSizeLimit(52_428_800)]
+        [DisableRequestTimeout]
+        [RequestSizeLimit(1024L * 1024L * 100L)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 1024L * 1024L * 100L)]
         [Route("Books/ImportChapterFile")]
         public async Task<IActionResult> ImportChapterFile(CancellationToken cancellationToken)
         {
@@ -3812,6 +3814,22 @@ namespace EBookDashboard.Controllers
                         _logger.LogWarning(msEx, "ImportChapterFile: manuscript file save failed for book {BookId}", bookId);
                     }
 
+                    try
+                    {
+                        var figRel = Path.Combine(
+                            "uploads",
+                            userId.ToString(CultureInfo.InvariantCulture),
+                            "books",
+                            bookId.ToString(CultureInfo.InvariantCulture),
+                            "figures").Replace('\\', '/');
+                        ChapterDocumentImportService.MaterializeDataUriImages(
+                            splitChapters, _hostEnvironment.WebRootPath, figRel);
+                    }
+                    catch (Exception figEx)
+                    {
+                        _logger.LogDebug(figEx, "ImportChapterFile: figure materialize skipped for book {BookId}", bookId);
+                    }
+
                     var lastChapterNo = await _context.APIRawResponse.AsNoTracking()
                         .Where(r => r.UserId == userId && r.BookId == bookId)
                         .Select(r => (int?)r.Chapter)
@@ -3882,18 +3900,18 @@ namespace EBookDashboard.Controllers
                     {
                         chapterNo = i < savedNumbers.Count ? savedNumbers[i] : c.ChapterNo,
                         title = c.Title,
-                        text = c.Body,
-                        characterCount = c.Body.Length
+                        text = "",
+                        characterCount = (c.Body ?? "").Length
                     })
                     .ToList();
-                var hasImages = chapters.Any(c => c.text.Contains("<img", StringComparison.OrdinalIgnoreCase));
+                var hasImages = splitChapters.Any(c => (c.Body ?? "").Contains("<img", StringComparison.OrdinalIgnoreCase));
                 var sourcePageCount = ext == ".pdf" ? ChapterDocumentImportService.CountPdfPages(bytes) : 0;
 
                 return Json(new
                 {
                     success = true,
                     fileName = file.FileName,
-                    text = chapters.Count > 0 ? "" : text,
+                    text = "",
                     characterCount = text.Length,
                     suggestedBookTitle,
                     suggestedChapterNo = savedNumbers.Count > 0 ? savedNumbers[0] : suggestedChapterNo,
@@ -3904,6 +3922,7 @@ namespace EBookDashboard.Controllers
                     saved = true,
                     bookId,
                     unlockFormatting = true,
+                    reloadFromServer = true,
                     pageCount = sourcePageCount,
                     pageCountSource = sourcePageCount > 0 ? "source_pdf" : "estimate"
                 });
@@ -4388,7 +4407,9 @@ namespace EBookDashboard.Controllers
         /// </summary>
         [HttpPost]
         [IgnoreAntiforgeryToken]
+        [DisableRequestTimeout]
         [RequestSizeLimit(1024L * 1024L * 100L)] // 100 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 1024L * 1024L * 100L)]
         [Route("Books/UploadManuscript/{bookId:int}")]
         [Route("Books/UploadManuscript")]
         public async Task<IActionResult> UploadManuscript(int bookId, IFormFile? file, CancellationToken cancellationToken = default)
@@ -4523,6 +4544,22 @@ namespace EBookDashboard.Controllers
                 foreach (var no in existingNos.Concat(chapterTableNos).Distinct().Where(n => n > 0).OrderByDescending(n => n))
                 {
                     await _bookService.DeleteWriterChapterAsync(userId, bookId, no, cancellationToken);
+                }
+
+                try
+                {
+                    var figRel = Path.Combine(
+                        "uploads",
+                        userId.ToString(CultureInfo.InvariantCulture),
+                        "books",
+                        bookId.ToString(CultureInfo.InvariantCulture),
+                        "figures").Replace('\\', '/');
+                    ChapterDocumentImportService.MaterializeDataUriImages(
+                        splitChapters, _hostEnvironment.WebRootPath, figRel);
+                }
+                catch (Exception figEx)
+                {
+                    _logger.LogDebug(figEx, "UploadManuscript: figure materialize skipped for book {BookId}", bookId);
                 }
 
                 var savedNumbers = new List<int>();
