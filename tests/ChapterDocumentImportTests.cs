@@ -535,6 +535,22 @@ public class ChapterDocumentImportTests
         }
         return ms.ToArray();
     }
+
+    [Fact]
+    public void CountPdfPages_returns_zero_for_non_pdf()
+    {
+        Assert.Equal(0, ChapterDocumentImportService.CountPdfPages(Encoding.UTF8.GetBytes("not a pdf")));
+        Assert.Equal(0, ChapterDocumentImportService.CountPdfPages(Array.Empty<byte>()));
+    }
+
+    [Fact]
+    public void ShrinkImportedImage_keeps_tiny_buffer()
+    {
+        var tiny = new byte[] { 1, 2, 3 };
+        var ct = "image/png";
+        var outBytes = ChapterDocumentImportService.ShrinkImportedImage(tiny, ref ct);
+        Assert.Equal(tiny, outBytes);
+    }
 }
 
 public class ManuscriptEmptyBlockTests

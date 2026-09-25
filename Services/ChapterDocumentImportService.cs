@@ -6,6 +6,8 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlAgilityPack;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Processing;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Exceptions;
@@ -97,6 +99,24 @@ public static class ChapterDocumentImportService
 
         var plain = SanitizeImportedText(ExtractText(bytes, ext, cancellationToken));
         return (plain, SplitIntoChapters(plain));
+    }
+
+    /// <summary>Exact PDF page count from the file catalog — not a word estimate.</summary>
+    public static int CountPdfPages(byte[] bytes)
+    {
+        if (bytes == null || bytes.Length < 8)
+            return 0;
+        try
+        {
+            using var document = PdfDocument.Open(
+                new MemoryStream(bytes, writable: false),
+                new ParsingOptions { UseLenientParsing = true });
+            return document.NumberOfPages;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     /// <summary>Decode uploaded text/markdown bytes (UTF-8/16, BOM, common Windows encodings).</summary>
@@ -492,9 +512,44 @@ public static class ChapterDocumentImportService
     internal static string ToFigureHtml(byte[] bytes, string contentType)
     {
         var ct = string.IsNullOrWhiteSpace(contentType) ? "image/png" : contentType;
+        bytes = ShrinkImportedImage(bytes, ref ct);
         return "<p class=\"manuscript-figure\" style=\"text-align:center;margin:1em 0;page-break-inside:avoid;\">"
                + "<img src=\"data:" + ct + ";base64," + Convert.ToBase64String(bytes)
                + "\" style=\"max-width:100%;height:auto;page-break-inside:avoid;\" alt=\"\" /></p>";
+    }
+
+    /// <summary>Downscale import figures so a 90-page PDF with diagrams does not hang the upload or browser.</summary>
+    public static byte[] ShrinkImportedImage(byte[] bytes, ref string contentType)
+    {
+        if (bytes == null || bytes.Length < 800)
+            return bytes ?? Array.Empty<byte>();
+        try
+        {
+            using var image = Image.Load(bytes);
+            const int maxEdge = 1200;
+            if (image.Width > maxEdge || image.Height > maxEdge)
+            {
+                image.Mutate(x => x.Resize(new ResizeOptions
+                {
+                    Mode = ResizeMode.Max,
+                    Size = new Size(maxEdge, maxEdge)
+                }));
+            }
+
+            using var ms = new MemoryStream();
+            image.SaveAsJpeg(ms, new JpegEncoder { Quality = 72 });
+            if (ms.Length > 400 && ms.Length < bytes.Length)
+            {
+                contentType = "image/jpeg";
+                return ms.ToArray();
+            }
+        }
+        catch
+        {
+            /* keep original bytes */
+        }
+
+        return bytes;
     }
 
     internal static bool TryDecodePdfImage(IPdfImage img, out byte[] bytes, out string contentType)
@@ -539,15 +594,15 @@ public static class ChapterDocumentImportService
 
         try
         {
-            if (img.TryGetBytesAsMemory(out var mem) && mem.Length > 800)
+            if (img.TryGetBytesAsMemory(out var mem) && mem.Length > 800 && mem.Length <= 8_000_000)
             {
                 using var image = Image.Load(mem.Span);
                 using var ms = new MemoryStream();
-                image.SaveAsPng(ms);
+                image.SaveAsJpeg(ms, new JpegEncoder { Quality = 72 });
                 if (ms.Length > 800)
                 {
                     bytes = ms.ToArray();
-                    contentType = "image/png";
+                    contentType = "image/jpeg";
                     return true;
                 }
             }

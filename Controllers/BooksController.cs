@@ -332,7 +332,9 @@ namespace EBookDashboard.Controllers
                 _logger.LogWarning(ex, "Formatting: could not load chapters for book {BookId}", bookId);
             }
 
-            var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(chapterSource);
+            var sourcePages = await GetSourcePdfPageCountAsync(bookId, cancellationToken);
+            var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(
+                chapterSource, sourcePages > 0 ? sourcePages : null);
             var versions = await ManuscriptVersionStore.LoadAsync(_context, bookId, cancellationToken);
             var active = versions.FirstOrDefault(v => v.Active) ?? versions.FirstOrDefault();
 
@@ -3839,6 +3841,9 @@ namespace EBookDashboard.Controllers
                     persisted = savedNumbers.Count > 0;
                     if (persisted)
                     {
+                        var sourcePages = ext == ".pdf" ? ChapterDocumentImportService.CountPdfPages(bytes) : 0;
+                        if (sourcePages > 0)
+                            await PersistSourcePdfPageCountAsync(bookId, sourcePages);
                         HttpContext.Session.SetString("HasGeneratedBook", "1");
                         try
                         {
@@ -3882,12 +3887,13 @@ namespace EBookDashboard.Controllers
                     })
                     .ToList();
                 var hasImages = chapters.Any(c => c.text.Contains("<img", StringComparison.OrdinalIgnoreCase));
+                var sourcePageCount = ext == ".pdf" ? ChapterDocumentImportService.CountPdfPages(bytes) : 0;
 
                 return Json(new
                 {
                     success = true,
                     fileName = file.FileName,
-                    text,
+                    text = chapters.Count > 0 ? "" : text,
                     characterCount = text.Length,
                     suggestedBookTitle,
                     suggestedChapterNo = savedNumbers.Count > 0 ? savedNumbers[0] : suggestedChapterNo,
@@ -3897,7 +3903,9 @@ namespace EBookDashboard.Controllers
                     hasImages,
                     saved = true,
                     bookId,
-                    unlockFormatting = true
+                    unlockFormatting = true,
+                    pageCount = sourcePageCount,
+                    pageCountSource = sourcePageCount > 0 ? "source_pdf" : "estimate"
                 });
             }
             catch (Exception ex)
@@ -4498,6 +4506,9 @@ namespace EBookDashboard.Controllers
 
                 var versions = await ManuscriptVersionStore.RecordAsync(
                     _context, bookId, manuscriptUrl, safeFile, cancellationToken);
+                var sourcePageCount = ext == ".pdf" ? ChapterDocumentImportService.CountPdfPages(bytes) : 0;
+                if (sourcePageCount > 0)
+                    await PersistSourcePdfPageCountAsync(bookId, sourcePageCount);
 
                 // Re-upload replaces chapter structure so TOC matches the latest manuscript.
                 var existingNos = await _context.APIRawResponse.AsNoTracking()
@@ -4555,7 +4566,8 @@ namespace EBookDashboard.Controllers
                         Title: string.IsNullOrWhiteSpace(c.Title) ? $"Chapter {i + 1}" : c.Title.Trim(),
                         Body: c.Body ?? ""))
                     .ToList();
-                var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(structureSource);
+                var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(
+                    structureSource, sourcePageCount > 0 ? sourcePageCount : null);
                 var active = versions.FirstOrDefault(v => v.Active) ?? versions.FirstOrDefault();
                 var chapterSummaries = chapters.Select(c => new
                 {
@@ -4579,7 +4591,9 @@ namespace EBookDashboard.Controllers
                     chapters = chapterSummaries,
                     toc,
                     pages,
-                    versions
+                    versions,
+                    pageCount = pages.Count,
+                    pageCountSource = sourcePageCount > 0 ? "source_pdf" : "estimate"
                 });
             }
             catch (Exception ex)
@@ -6183,6 +6197,24 @@ namespace EBookDashboard.Controllers
             var fullPath = Path.Combine(uploadsRoot, fileName);
             await System.IO.File.WriteAllBytesAsync(fullPath, bytes);
             return $"/uploads/{userId}/books/{bookId}/{fileName}";
+        }
+
+        private async Task<int> GetSourcePdfPageCountAsync(int bookId, CancellationToken cancellationToken = default)
+        {
+            var raw = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == ManuscriptVersionStore.SourcePdfPageCountKey(bookId))
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+            return int.TryParse(raw, out var n) && n > 0 ? n : 0;
+        }
+
+        private async Task PersistSourcePdfPageCountAsync(int bookId, int sourcePages)
+        {
+            if (bookId <= 0 || sourcePages < 1)
+                return;
+            var pages = sourcePages.ToString(CultureInfo.InvariantCulture);
+            await UpsertSettingAsync(ManuscriptVersionStore.SourcePdfPageCountKey(bookId), pages, "Book");
+            await UpsertSettingAsync(ManuscriptVersionStore.PrintReadyPageCountKey(bookId), pages, "Book");
         }
 
         private async Task UpsertSettingAsync(string key, string value, string category)

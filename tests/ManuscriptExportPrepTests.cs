@@ -10,6 +10,42 @@ namespace EBookDashboard.Tests;
 public class ManuscriptExportPrepTests
 {
     [Fact]
+    public void BuildStructure_uses_source_pdf_page_count()
+    {
+        var source = new List<(int No, string Title, string Body)>
+        {
+            (1, "Preface", "<p>Short lead-in.</p>"),
+            (2, "One", "<p>" + string.Join(" ", Enumerable.Repeat("word", 400)) + "</p>")
+        };
+        var (_, _, pages) = ManuscriptVersionStore.BuildStructure(source, 90);
+        Assert.Equal(90, pages.Count);
+        Assert.Equal(90, pages[^1].PageNumber);
+    }
+
+    [Fact]
+    public void AllocatePages_sums_to_uploaded_pdf_total()
+    {
+        var allocated = ManuscriptVersionStore.AllocatePages(new[] { 3, 10, 2 }, 90);
+        Assert.Equal(90, allocated.Sum());
+        Assert.Equal(3, allocated.Length);
+        Assert.All(allocated, n => Assert.True(n >= 1));
+    }
+
+    [Fact]
+    public void BookPageMetrics_uses_source_pdf_page_count()
+    {
+        var svc = new BookPageMetricsService();
+        var details = new BookDetailsResponseDto
+        {
+            Success = true,
+            Chapters = [new ChapterDto { Title = "A", Content = "<p>Hi</p>" }]
+        };
+        var m = svc.Estimate(details, new BookPdfExportOptions { Format = "Paperback" }, 90);
+        Assert.Equal(90, m.PageCount);
+        Assert.Equal("source_pdf", m.Basis);
+    }
+
+    [Fact]
     public void GetPreviewStyleHeading_uses_display_title_without_chapter_prefix()
     {
         var heading = BookChapterExportHelper.GetPreviewStyleHeading(

@@ -13,7 +13,7 @@ public sealed class BookPageMetricsService : IBookPageMetricsService
     private static readonly Regex WordRegex = new(@"\b[\p{L}\p{N}_']+\b", RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private static readonly Regex ImgRegex = new(@"<img\b", RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    public BookPageMetricsDto Estimate(BookDetailsResponseDto? details, BookPdfExportOptions? options)
+    public BookPageMetricsDto Estimate(BookDetailsResponseDto? details, BookPdfExportOptions? options, int? sourcePageCount = null)
     {
         var chapters = details?.Chapters ?? new List<ChapterDto>();
         var chapterCount = chapters.Count;
@@ -25,6 +25,18 @@ public sealed class BookPageMetricsService : IBookPageMetricsService
             words += CountWords(ch.Title);
             words += CountWords(ch.Content);
             images += CountImages(ch.Content);
+        }
+
+        if (sourcePageCount is > 0)
+        {
+            return new BookPageMetricsDto
+            {
+                PageCount = sourcePageCount.Value,
+                WordCount = words,
+                ChapterCount = chapterCount,
+                ImageCount = images,
+                Basis = "source_pdf"
+            };
         }
 
         var baseWordsPerPage = ResolveBaseWordsPerPage(options);

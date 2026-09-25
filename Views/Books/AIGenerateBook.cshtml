@@ -3666,23 +3666,27 @@ window.refreshAiWriterTotalPages = async function () {
             wrap.classList.add('hidden');
         }
     };
-    // Live open-book pagination is the source of truth on AI Writer.
-    if (localPages > 0 && window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
-        showCount(localPages);
-        return;
-    }
-    if (localPages > 0) showCount(localPages);
     try {
         var r = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         var d = await r.json().catch(function () { return {}; });
         var apiCount = (d && d.success && d.pageCount > 0) ? parseInt(String(d.pageCount), 10) : 0;
-        // Prefer saved Formatting count only when we do not yet have a live page build.
+        // Uploaded PDF page count is exact — do not replace it with reflow pagination.
+        if (apiCount > 0 && d && d.pageCountSource === 'source_pdf') {
+            showCount(apiCount);
+            return;
+        }
+        if (localPages > 0 && window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
+            showCount(localPages);
+            return;
+        }
+        if (localPages > 0) showCount(localPages);
         if (apiCount > 0 && d && d.pageCountSource === 'formatter' && localPages <= 0) showCount(apiCount);
         else if (apiCount > 0 && localPages <= 0) showCount(apiCount);
         else if (apiCount > 0 && localPages > 0) showCount(Math.max(apiCount, localPages));
         else if (!localPages) showCount(0);
     } catch (e) {
-        if (!localPages) showCount(0);
+        if (localPages > 0) showCount(localPages);
+        else showCount(0);
     }
 };
 document.addEventListener('DOMContentLoaded', function () {
@@ -5560,6 +5564,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/Books/ImportChapterFile', true);
             xhr.withCredentials = true;
+            xhr.timeout = 480000;
 
             xhr.upload.onprogress = function (e) {
                 if (e.lengthComputable) {
@@ -5569,6 +5574,12 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             xhr.upload.onload = function () { setDocProgress(70, 'Processing chapters…'); };
 
+            xhr.ontimeout = function () {
+                importInput.value = '';
+                if (typeof showNotification === 'function') showNotification('PDF import timed out. Try again — large books can take a few minutes.', 'error');
+                hideDocProgress(0);
+                setDocUploadBusy(false);
+            };
             xhr.onerror = function () {
                 importInput.value = '';
                 if (typeof showNotification === 'function') showNotification('Import failed. Please try again.', 'error');
@@ -5639,10 +5650,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
 
                     var cc = data.chapterCount || multi.length || 1;
-                    setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved');
+                    var pagesLabel = data.pageCount > 0 ? (' · ' + data.pageCount + ' PDF pages') : '';
+                    setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved' + pagesLabel);
                     if (typeof showNotification === 'function') {
-                        showNotification(cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved. Book Formatting is unlocked.', 'success');
+                        showNotification(cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved' + pagesLabel + '. Book Formatting is unlocked.', 'success');
                     }
+                    if (typeof window.refreshAiWriterTotalPages === 'function') window.refreshAiWriterTotalPages();
                 } catch (e) {
                     if (typeof showNotification === 'function') showNotification('Import processing failed.', 'error');
                 } finally {
