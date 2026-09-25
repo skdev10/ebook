@@ -343,10 +343,10 @@ namespace EBookDashboard.Controllers
                 Format = format,
                 BindingType = binding,
                 PreviewMode = previewMode,
-                InteriorStyle = string.IsNullOrWhiteSpace(fmtRow?.InteriorStyle) ? "Novel" : fmtRow!.InteriorStyle,
+                InteriorStyle = string.IsNullOrWhiteSpace(fmtRow?.InteriorStyle) ? "Classic" : fmtRow!.InteriorStyle,
                 TextSize = string.IsNullOrWhiteSpace(fmtRow?.TextSize) ? "Medium" : fmtRow!.TextSize,
-                LineSpacing = string.IsNullOrWhiteSpace(fmtRow?.LineSpacing) ? "1.6" : fmtRow!.LineSpacing,
-                TrimSizeLabel = "6 x 9 in",
+                LineSpacing = string.IsNullOrWhiteSpace(fmtRow?.LineSpacing) ? "1.4" : fmtRow!.LineSpacing,
+                TrimSizeLabel = "5.5 x 8.5 in",
                 MarginTopIn = (decimal)InteriorSpacingTheme.MarginTopIn,
                 MarginBottomIn = (decimal)InteriorSpacingTheme.MarginBottomIn,
                 MarginInsideIn = (decimal)InteriorSpacingTheme.MarginInsideIn,
@@ -4273,9 +4273,9 @@ namespace EBookDashboard.Controllers
                 BookTitle = body.BookTitle ?? "",
                 AuthorName = body.AuthorName ?? "",
                 Language = body.Language ?? "English",
-                ChaptersCount = body.ChaptersCount > 0 ? body.ChaptersCount : 5,
-                MinWordsPerChapter = body.MinWordsPerChapter > 0 ? body.MinWordsPerChapter : 800,
-                ToneDescription = body.ToneDescription ?? "descriptive"
+                ChaptersCount = body.ChaptersCount > 0 ? body.ChaptersCount : 12,
+                MinWordsPerChapter = body.MinWordsPerChapter > 0 ? body.MinWordsPerChapter : 1800,
+                ToneDescription = body.ToneDescription ?? "published trade nonfiction — clear, argument-driven, 5.5×8.5 hardcover/paperback"
             };
 
             if (string.IsNullOrWhiteSpace(request.BookTitle))

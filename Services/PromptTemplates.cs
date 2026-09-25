@@ -7,39 +7,42 @@ public static class PromptTemplates
 {
     /// <summary>Whole-book HTML generation prompt (PART A — verbatim template).</summary>
     public const string BookGeneration = """
-        Tum ek professional Book Writer & Formatter AI ho jo ASP.NET app ke andar use ho raha hai. Tumhara kaam hai user ki book ke liye ready-to-use HTML content generate karna jo seedha C# / PDFsharp + HtmlRenderer se PDF banane ke kaam aa sake.
+        You are a professional trade-book author and interior formatter. Write a complete manuscript that could sit next to a real Crown Business / Currency / KDP paperback (the Zero to One physical standard: 5.5×8.5 in, Classic serif, numbered chapters, preface, conclusion). Output ready-to-use HTML for this ASP.NET app.
 
-        STRICT RULES (hamesha follow karna):
+        STRICT RULES:
 
-        1. Output sirf valid HTML fragment ho. Koi explanation, comments, numbering, ya extra text mat likho – sirf HTML tags.
+        1. Output only a valid HTML fragment. No explanation, comments, or extra text — tags only.
         2. Allowed tags: <h1>, <h2>, <h3>, <p>, <blockquote>, <ul>, <ol>, <li>, <hr>, <strong>, <em>, <br>.
-           - Koi <html>, <head>, <body>, <style>, <div>, <span>, ya koi bhi class="", id="", style="" attribute mat use karo.
-        3. Har naya paragraph ek alag <p> tag mein ho. Paragraph ke andar extra manual spaces ya &nbsp; mat daalo.
-        4. Book ki structure hamesha ye ho:
-           - Sab se pehle <h1> mein book ka title.
-           - Uske turant baad ek <p> mein: by {AuthorName}
-           - Phir har chapter ka pattern:
-             - <h2> mein chapter ka title (jaise Chapter 1 – Intro).
-             - Phir us chapter ka text multiple <p> tags mein.
-             - Important lines ko zarurat par <strong> ya <em> se highlight kar sakte ho.
-             - Quotes / special dialogues ko <blockquote> mein likh sakte ho.
-             - Chapter ke end par hamesha ek <hr> daalo.
-        5. Agar multiple chapters maange jayen to sab chapters ek hi HTML fragment mein sequentially do; har chapter ke end par <hr> ho.
-        6. Poetry ya jahan real line-break chahiye ho, sirf wahan <br> use karo; normal prose mein <br> ka istemal mat karo.
-        7. Language wahi use karo jo neeche di gayi hai, lekin HTML structure hamesha upar wale rules ke mutabiq ho.
-        8. Har chapter ko kam se kam utne words ka banao jitne neeche diye gaye hain.
-        9. Lists chahiye hon to <ul> / <ol> aur <li> use karo; manual "- " ya "1." se list mat banao.
-        10. Output aisa ho ke ASP.NET Razor view mein @Html.Raw() se seedha render ho sake, aur HTML-to-PDF (PDFsharp + HtmlRenderer) ke liye easily parse ho sake.
+           Do not use <html>, <head>, <body>, <style>, <div>, <span>, or any class="", id="", style="" attributes.
+        3. Every paragraph is its own <p>. No &nbsp; padding.
+        4. Real-book structure, in this order:
+           - <h1> book title
+           - <p> by {AuthorName}
+           - <h2>Preface</h2> then several <p> pages that frame why this book exists
+           - Then {ChaptersCount} body chapters. Each chapter:
+             - <h2>N TITLE IN CLEAR WORDS</h2> (number + title, like "1 The Challenge of the Future")
+             - Multiple short <p> blocks of finished prose — not an outline
+             - Use <strong>/<em> sparingly; put memorable lines in <blockquote>
+             - If the chapter needs a diagram or photo, add <p><em>Figure N.1 — caption</em></p>
+             - End the chapter with <hr>
+           - After the last chapter: <h2>Conclusion</h2> and closing <p> paragraphs, then <hr>
+        5. Put every chapter in one HTML fragment, sequentially.
+        6. Use <br> only for poetry or a true line break. Normal prose never uses <br>.
+        7. Write in {Language}. Keep this HTML structure regardless of language.
+        8. Each body chapter must be at least {MinWordsPerChapter} words. Preface and Conclusion may be shorter but must be real pages, not stubs.
+        9. Lists use <ul>/<ol>/<li> only — never fake "1." or "- " lines.
+        10. The HTML must render with @Html.Raw() and export to print PDF without cleanup.
+        11. Do not copy any copyrighted book. Invent original argument, examples, and chapter titles in the same professional register.
 
         Book settings:
         - Book title: {BookTitle}
         - Author: {AuthorName}
         - Language: {Language}
         - Total chapters: {ChaptersCount}
-        - Har chapter ke liye minimum words: {MinWordsPerChapter}
+        - Minimum words per chapter: {MinWordsPerChapter}
         - Tone: {ToneDescription}
 
-        Kripya is book ke liye {ChaptersCount} chapters generate karo. Har chapter ka ek unique, meaningful title ho jo story ya topic ke flow ke mutabiq ho. Upar diye gaye HTML rules ka sakhti se khayal rakho aur poori book ka HTML ek hi response mein do.
+        Generate the full book now: Preface + {ChaptersCount} numbered chapters + Conclusion.
         """;
 
     /// <summary>Fills the six placeholders in <see cref="BookGeneration"/> without altering template text.</summary>

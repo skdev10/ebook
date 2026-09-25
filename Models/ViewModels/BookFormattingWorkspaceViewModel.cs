@@ -7,14 +7,14 @@ public sealed class BookFormattingWorkspaceViewModel
     public string BookTitle { get; set; } = "Untitled Book";
     public string Format { get; set; } = "Ebook";
     /// <summary>Normalized binding for preview: Ebook | Paperback | Hardcover.</summary>
-    public string BindingType { get; set; } = "Ebook";
+    public string BindingType { get; set; } = "Paperback";
     /// <summary>print = two-page spread; ebook = Kindle-style reflow.</summary>
-    public string PreviewMode { get; set; } = "ebook";
+    public string PreviewMode { get; set; } = "print";
     public bool IsPrintPreview => PreviewMode.Equals("print", StringComparison.OrdinalIgnoreCase);
-    public string InteriorStyle { get; set; } = "Novel";
+    public string InteriorStyle { get; set; } = "Classic";
     public string TextSize { get; set; } = "Medium";
-    public string LineSpacing { get; set; } = "1.6";
-    public string TrimSizeLabel { get; set; } = "6 x 9 in";
+    public string LineSpacing { get; set; } = "1.4";
+    public string TrimSizeLabel { get; set; } = "5.5 x 8.5 in";
     public decimal MarginTopIn { get; set; } = 0.625m;
     public decimal MarginBottomIn { get; set; } = 0.875m;
     public decimal MarginInsideIn { get; set; } = 0.8125m;

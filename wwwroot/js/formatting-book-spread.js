@@ -60,10 +60,10 @@
         screenIndex: 0,
         previewMode: 'print', // print | ebook
         binding: 'Paperback',
-        trimW: 6,
-        trimH: 9,
+        trimW: 5.5,
+        trimH: 8.5,
         margins: { top: 0.625, bottom: 0.875, inside: 0.8125, outside: 0.625 },
-        bleed: false,
+        bleed: true,
         bleedIn: (global.__kdpSpecs && global.__kdpSpecs.bleedIn) ?? 0.125,
         useKdp: true,
         fontPt: 11,

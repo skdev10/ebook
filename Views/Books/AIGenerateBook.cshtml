@@ -2397,7 +2397,7 @@ window.ensureAiWriterFormattingLoaded = function (bookId) {
         .then(function (d) {
             if (!d || !d.success || !d.data) return window._aiWriterFormatting || {};
             window._aiWriterFormatting = {
-                interiorStyle: d.data.interiorStyle || 'Novel',
+                interiorStyle: d.data.interiorStyle || 'Classic',
                 textSize: d.data.textSize || 'Medium',
                 lineSpacing: d.data.lineSpacing || '1.6',
                 pageBackgroundColor: '',
@@ -4588,7 +4588,7 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
             try { window._aiBookPreviewContext = Object.assign({}, phBase); } catch (e) {}
             window._aiWriterCoverUrl = phBase.coverImagePath || '';
             window._aiWriterFormatting = {
-                interiorStyle: (data.formatting && data.formatting.interiorStyle) || 'Novel',
+                interiorStyle: (data.formatting && data.formatting.interiorStyle) || 'Classic',
                 textSize: (data.formatting && data.formatting.textSize) || 'Medium',
                 lineSpacing: (data.formatting && data.formatting.lineSpacing) || '1.6',
                 pageBackgroundColor: (data.formatting && data.formatting.pageBackgroundColor) || '',

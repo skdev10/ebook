@@ -248,7 +248,7 @@ namespace EBookDashboard.Controllers
                 var draft = await _context.Settings
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Key == draftKey);
-                string lineSpacing = fmt?.LineSpacing ?? "1.6";
+                string lineSpacing = fmt?.LineSpacing ?? "1.4";
                 string publishingPlatformDraft = "";
                 if (!string.IsNullOrWhiteSpace(draft?.Value))
                 {
@@ -427,7 +427,7 @@ namespace EBookDashboard.Controllers
                 else if (!string.IsNullOrWhiteSpace(draftOpt.InteriorStyle))
                     existing.InteriorStyle = draftOpt.InteriorStyle;
                 else if (string.IsNullOrWhiteSpace(existing.InteriorStyle))
-                    existing.InteriorStyle = "Novel";
+                    existing.InteriorStyle = "Classic";
 
                 if (!string.IsNullOrWhiteSpace(req.TextSize))
                     existing.TextSize = InteriorExportTheme.NormalizeTextSize(req.TextSize);
@@ -893,11 +893,11 @@ namespace EBookDashboard.Controllers
                         InteriorType = "bw",
                         PaperType = "white",
                         MeasurementUnits = "inches",
-                        TrimSize = "6x9",
+                        TrimSize = "5.5x8.5",
                         Format = emptyFormat,
-                        InteriorStyle = "Novel",
+                        InteriorStyle = "Classic",
                         TextSize = "Medium",
-                        LineSpacing = "1.6",
+                        LineSpacing = "1.4",
                         PublishingPlatforms = "",
                         UserBooks = emptyBooks,
                         BookCoverPages = emptyCoverPages
@@ -1055,9 +1055,9 @@ namespace EBookDashboard.Controllers
 
                     // BookFormatting fields (use preferred format from query when coming from format buttons)
                     Format = preferredFormat,
-                    InteriorStyle = formatting?.InteriorStyle ?? "Novel",
+                    InteriorStyle = formatting?.InteriorStyle ?? "Classic",
                     TextSize = formatting?.TextSize ?? "Medium",
-                    LineSpacing = string.IsNullOrWhiteSpace(formatting?.LineSpacing) ? "1.6" : formatting!.LineSpacing,
+                    LineSpacing = string.IsNullOrWhiteSpace(formatting?.LineSpacing) ? "1.4" : formatting!.LineSpacing,
                     PublishingPlatform = formatting?.PublishingPlatform,
                     PublishingPlatforms = formatting?.PublishingPlatforms ?? "",
                     UserBooks = userBooks
