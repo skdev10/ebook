@@ -162,6 +162,38 @@ public class ChapterDocumentImportTests
     }
 
     [Fact]
+    public void RepairPdfImportText_joins_hyphen_space_and_drop_caps()
+    {
+        Assert.Equal("billion-dollar", ChapterDocumentImportService.RepairPdfImportText("billion- dollar"));
+        Assert.Equal("co-founder", ChapterDocumentImportService.RepairPdfImportText("co- founder"));
+        Assert.Equal("START WITH A THOUGHT", ChapterDocumentImportService.RepairPdfImportText("S TART WITH A THOUGHT"));
+        Assert.Equal("AS MATURE INDUSTRIES", ChapterDocumentImportService.RepairPdfImportText("A S MATURE INDUSTRIES"));
+        Assert.Equal("EVERY GREAT COMPANY", ChapterDocumentImportService.RepairPdfImportText("E VERY GREAT COMPANY"));
+    }
+
+    [Fact]
+    public void SplitIntoChapters_keeps_numbered_allcaps_chapter_banners()
+    {
+        var text = """
+            Preface
+
+            This book opens with a note to the reader.
+
+            1 THE CHALLENGE OF THE FUTURE
+            The first chapter explains the problem.
+
+            10 THE MECHANICS OF MAFIA
+            Start with a thought experiment.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 3, $"Expected preface + 2 numbered chapters, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CHALLENGE", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("first chapter", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("MECHANICS", chapters[2].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void SplitIntoChapters_keeps_preface_and_chapter_one()
     {
         var text = """

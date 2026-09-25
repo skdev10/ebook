@@ -156,7 +156,7 @@ public static class ChapterDocumentImportService
                     {
                         foreach (var (lineText, avgFont, isBold, isCentered, _) in lines)
                         {
-                            var text = lineText.Trim();
+                            var text = RepairPdfImportText(lineText);
                             if (text.Length == 0)
                                 continue;
                             if (LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out var mark))
@@ -167,7 +167,7 @@ public static class ChapterDocumentImportService
                         continue;
                     }
 
-                    var pageText = (page.Text ?? string.Empty).Trim();
+                    var pageText = RepairPdfImportText(page.Text ?? string.Empty);
                     if (pageText.Length > 0)
                     {
                         sb.AppendLine(pageText);
@@ -183,7 +183,23 @@ public static class ChapterDocumentImportService
                 }
                 catch
                 {
-                    /* skip unreadable page */
+                    // Never drop a page silently — first-half loss (Preface + Ch 1–7) came from this.
+                    try
+                    {
+                        var fallback = RepairPdfImportText(page.Text ?? string.Empty);
+                        if (fallback.Length > 0)
+                            sb.AppendLine(fallback);
+                        else if (page.Letters is { Count: > 0 })
+                        {
+                            foreach (var letter in page.Letters)
+                                sb.Append(letter.Value);
+                            sb.AppendLine();
+                        }
+                    }
+                    catch
+                    {
+                        /* page truly unreadable */
+                    }
                 }
             }
 
@@ -398,28 +414,41 @@ public static class ChapterDocumentImportService
                     /* some PDF image encodings are not readable */
                 }
 
-                var lines = BuildPdfReadingOrderLines(page);
-                foreach (var (lineText, avgFont, isBold, isCentered, top) in lines)
+                try
                 {
-                    var text = lineText.Trim();
-                    if (text.Length == 0)
-                        continue;
-                    if (LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out var mark))
+                    var lines = BuildPdfReadingOrderLines(page);
+                    foreach (var (lineText, avgFont, isBold, isCentered, top) in lines)
                     {
-                        var lvl = mark == "#" ? 1 : Math.Clamp(mark.Length, 2, 6);
-                        var headingHtml = "<h" + lvl + " class=\"manuscript-heading manuscript-h" + lvl + "\">"
-                                          + System.Net.WebUtility.HtmlEncode(text)
-                                          + "</h" + lvl + ">";
-                        blocks.Add((top, tie++, headingHtml, mark + " " + text + "\n"));
+                        var text = RepairPdfImportText(lineText);
+                        if (text.Length == 0)
+                            continue;
+                        if (LooksLikeNumberedChapterBanner(text) || LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out var mark))
+                        {
+                            if (!LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out mark))
+                                mark = "#";
+                            if (LooksLikeNumberedChapterBanner(text))
+                                mark = "#";
+                            var lvl = mark == "#" ? 1 : Math.Clamp(mark.Length, 2, 6);
+                            var headingHtml = "<h" + lvl + " class=\"manuscript-heading manuscript-h" + lvl + "\">"
+                                              + System.Net.WebUtility.HtmlEncode(text)
+                                              + "</h" + lvl + ">";
+                            blocks.Add((top, tie++, headingHtml, mark + " " + text + "\n"));
+                        }
+                        else
+                        {
+                            blocks.Add((
+                                top,
+                                tie++,
+                                "<p class=\"manuscript-p\">" + System.Net.WebUtility.HtmlEncode(text) + "</p>",
+                                text + "\n"));
+                        }
                     }
-                    else
-                    {
-                        blocks.Add((
-                            top,
-                            tie++,
-                            "<p class=\"manuscript-p\">" + System.Net.WebUtility.HtmlEncode(text) + "</p>",
-                            text + "\n"));
-                    }
+                }
+                catch
+                {
+                    var fallback = RepairPdfImportText(page.Text ?? string.Empty);
+                    if (fallback.Length > 0)
+                        blocks.Add((0, tie++, "<p class=\"manuscript-p\">" + System.Net.WebUtility.HtmlEncode(fallback) + "</p>", fallback + "\n"));
                 }
 
                 if (blocks.Count == 0)
@@ -432,7 +461,7 @@ public static class ChapterDocumentImportService
                 }
             }
 
-            combinedPlainText = plain.ToString();
+            combinedPlainText = RepairPdfImportText(plain.ToString());
             var htmlDoc = PromoteHeadingParagraphs(html.ToString());
             var fromHtml = SplitHtmlDocumentIntoChapters(htmlDoc);
             if (fromHtml.Count > 0)
@@ -755,7 +784,24 @@ public static class ChapterDocumentImportService
     private static bool IsChapterHeadingLine(string? text) =>
         Regex.IsMatch(text ?? string.Empty,
             @"^(?:#+\s*)?(?:Chapter|CHAPTER|Part|PART|Prologue|Epilogue|Introduction|Conclusion|Section)\b",
-            RegexOptions.IgnoreCase);
+            RegexOptions.IgnoreCase)
+        || LooksLikeNumberedChapterBanner(text);
+
+    /// <summary>
+    /// Fix print-PDF artifacts from Zero-to-One style books: "billion- dollar" → "billion-dollar",
+    /// drop-caps "S TART" / "A S" → "START" / "AS".
+    /// </summary>
+    public static string RepairPdfImportText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+        var s = text.Replace("\u00AD", "").Trim();
+        s = Regex.Replace(s, @"(\p{L})-\s+(\p{L})", "$1-$2");
+        // Drop-cap only at the start of a line/paragraph — not every "A WORD".
+        s = Regex.Replace(s, @"(?m)^([A-Z])\s+([A-Z]{2,})\b", "$1$2");
+        s = Regex.Replace(s, @"(?m)^([A-Z])\s+([A-Z])\b(?=\s+[A-Z])", "$1$2");
+        return s.Trim();
+    }
 
     /// <summary>
     /// True only for a real chapter/part banner. Numbered points ("1. Setup") and
@@ -771,7 +817,17 @@ public static class ChapterDocumentImportService
                    RegexOptions.IgnoreCase)
                || Regex.IsMatch(t, @"^(?:Part|PART)\s+(?:[0-9]+|[IVXLC]+)\b", RegexOptions.IgnoreCase)
                || Regex.IsMatch(t, @"^(?:Prologue|Epilogue)\b", RegexOptions.IgnoreCase)
-               || IsFrontMatterMarker(t);
+               || IsFrontMatterMarker(t)
+               || LooksLikeNumberedChapterBanner(t);
+    }
+
+    /// <summary>Print-book banners like "10 THE MECHANICS OF MAFIA" (not a lone page number).</summary>
+    internal static bool LooksLikeNumberedChapterBanner(string? text)
+    {
+        var t = Regex.Replace((text ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
+        if (t.Length == 0 || LooksLikePointHeading(t))
+            return false;
+        return Regex.IsMatch(t, @"^\d{1,2}\s+[A-Z][A-Z0-9\s,'’\-]{6,}$");
     }
 
     /// <summary>Preface / foreword / introduction banners must become their own chapters, not get dropped.</summary>
@@ -1615,7 +1671,13 @@ public static class ChapterDocumentImportService
         mark = "#";
         if (text.Length is < 2 or > 100)
             return false;
-        if (IsChapterHeadingLine(text))
+        if (IsChapterHeadingLine(text) || LooksLikeNumberedChapterBanner(text))
+        {
+            mark = "#";
+            return true;
+        }
+        // Large isolated chapter number (1–20) sitting above an ALL-CAPS title.
+        if (Regex.IsMatch(text, @"^\d{1,2}$") && medianFont > 0 && avgFont >= medianFont * 1.6)
         {
             mark = "#";
             return true;
@@ -1676,7 +1738,7 @@ public static class ChapterDocumentImportService
         foreach (var line in lines)
         {
             var sortedLine = line.OrderBy(w => w.BoundingBox.Left).ToList();
-            var text = string.Join(" ", sortedLine.Select(w => w.Text));
+            var text = JoinPdfWords(sortedLine);
             var letters = sortedLine.SelectMany(w => w.Letters).ToList();
             var sizes = letters.Select(l => l.FontSize).Where(s => s > 0).ToList();
             var avgSize = sizes.Count > 0 ? sizes.Average() : 0.0;
@@ -1697,6 +1759,54 @@ public static class ChapterDocumentImportService
             result.Add((text, avgSize, isBold, isCentered, top));
         }
         return result;
+    }
+
+    private static string JoinPdfWords(List<UglyToad.PdfPig.Content.Word> words)
+    {
+        if (words.Count == 0)
+            return string.Empty;
+        var sb = new StringBuilder();
+        for (var i = 0; i < words.Count; i++)
+        {
+            var current = words[i].Text ?? "";
+            if (current.Length == 0)
+                continue;
+            if (sb.Length == 0)
+            {
+                sb.Append(current);
+                continue;
+            }
+
+            var prev = sb[^1];
+            var prevWord = words[i - 1].Text ?? "";
+            var prevSize = AverageFontSize(words[i - 1]);
+            var curSize = AverageFontSize(words[i]);
+
+            // Soft hyphen / line-wrap: "billion-" + "dollar" → "billion-dollar"
+            if (prev == '-' || prev == '\u00AD')
+            {
+                sb.Append(current);
+                continue;
+            }
+
+            // Drop-cap: huge "S" + "TART" → "START"
+            if (prevWord.Length == 1 && char.IsLetter(prevWord[0])
+                && prevSize > 0 && curSize > 0 && prevSize >= curSize * 1.6)
+            {
+                sb.Append(current);
+                continue;
+            }
+
+            sb.Append(' ').Append(current);
+        }
+
+        return RepairPdfImportText(sb.ToString());
+    }
+
+    private static double AverageFontSize(UglyToad.PdfPig.Content.Word word)
+    {
+        var sizes = word.Letters?.Select(l => l.FontSize).Where(s => s > 0).ToList();
+        return sizes is { Count: > 0 } ? sizes.Average() : 0;
     }
 
     private static double EstimatePdfMedianFontSize(List<UglyToad.PdfPig.Content.Page> pages)
