@@ -23,6 +23,9 @@ public static class InteriorPrintDocumentBuilder
         for (var i = 0; i < ordered.Count; i++)
         {
             var ch = ordered[i];
+            if (InteriorFrontMatterBuilder.IsImportedContentsChapter(ch.Title))
+                continue;
+
             if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
                 narrativeOrdinal++;
 

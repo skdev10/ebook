@@ -51,6 +51,9 @@ public static class InteriorFrontMatterBuilder
         for (var i = 0; i < chapters.Count; i++)
         {
             var ch = chapters[i];
+            if (IsImportedContentsChapter(ch.Title))
+                continue;
+
             if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
                 tocNarrative++;
 
@@ -59,8 +62,7 @@ public static class InteriorFrontMatterBuilder
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
             var chapterLine = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
-            var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, chapterLine);
-            var subHeadings = ExtractHeadingsFromChapterBodyHtml(bodyHtml);
+            // Real Contents pages list chapters only — body h2 dump (import artifacts) made TOC unreadable.
 
             sb.AppendLine("""<li class="toc-item">""");
             var refClass = pdfTargetCounters ? "toc-page-ref toc-page-ref--counter" : "toc-page-ref";
@@ -85,18 +87,6 @@ public static class InteriorFrontMatterBuilder
             sb.AppendLine(CultureInvariant(
                 $"""<div class="toc-chapter-line"><span class="toc-entry-text"><a href="#ch-{sectionId}" class="toc-link">{WebUtility.HtmlEncode(chapterLine)}</a></span><span class="toc-leader" aria-hidden="true"></span>{pageRefInner}</div>"""));
 
-            if (subHeadings.Count > 0)
-            {
-                sb.AppendLine("""<ul class="toc-subheadings">""");
-                foreach (var h in subHeadings)
-                {
-                    sb.AppendLine(CultureInvariant(
-                        $"""<li class="toc-subheading-item"><span class="toc-sub-text">{WebUtility.HtmlEncode(h)}</span></li>"""));
-                }
-
-                sb.AppendLine("</ul>");
-            }
-
             sb.AppendLine("</li>");
         }
 
@@ -105,6 +95,12 @@ public static class InteriorFrontMatterBuilder
 
         sb.AppendLine("</ol></nav></div></div>");
         return sb.ToString();
+    }
+
+    internal static bool IsImportedContentsChapter(string? title)
+    {
+        var t = Regex.Replace((title ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
+        return t is "contents" or "table of contents" or "toc";
     }
 
     /// <summary>Pulls in-chapter headings (h1–h6) from formatted body HTML in document order.</summary>

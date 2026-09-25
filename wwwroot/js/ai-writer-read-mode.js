@@ -136,24 +136,19 @@
         for (var i = 0; i < chaptersMeta.length; i++) {
             var ch = chaptersMeta[i];
             if (!ch || ch.loading) continue;
+            var title = (ch.title || '').trim() || ('Chapter ' + (narrative + 1));
+            var tkey = String(title || '').trim().toLowerCase();
+            if (tkey === 'contents' || tkey === 'table of contents' || tkey === 'toc') continue;
             narrative++;
-            var title = (ch.title || '').trim() || ('Chapter ' + narrative);
             var chNo = ch.chapterNo != null ? ch.chapterNo : (i + 1);
             var line = getPreviewStyleHeading(title, chNo, narrative);
-            var subs = extractHeadingsFromHtml(ch.html || '');
             var startInChapters = chapterStartPages[i];
             var pageNo = (startInChapters != null ? startInChapters : 0) + pageOffset + 1;
-            var subHtml = '';
-            if (subs.length) {
-                subHtml = '<ul class="toc-subheadings">' + subs.map(function (h) {
-                    return '<li class="toc-subheading-item"><span class="toc-sub-text">' + escapeHtml(h) + '</span></li>';
-                }).join('') + '</ul>';
-            }
             items.push(
                 '<li class="toc-item"><div class="toc-chapter-line">' +
                 '<span class="toc-entry-text"><a href="#" class="toc-link" data-goto-page="' + pageNo + '">' + escapeHtml(line) + '</a></span>' +
                 '<span class="toc-leader" aria-hidden="true"></span>' +
-                '<span class="toc-page-ref">' + pageNo + '</span></div>' + subHtml + '</li>'
+                '<span class="toc-page-ref">' + pageNo + '</span></div></li>'
             );
         }
         if (!items.length) items.push('<li class="toc-item toc-item-empty">No chapters yet.</li>');

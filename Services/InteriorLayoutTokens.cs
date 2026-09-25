@@ -627,12 +627,6 @@ public static class InteriorLayoutTokens
 
         sb.Append("@media print { ");
 
-        sb.Append(".book-pdf-body .reader-page-body:not(.page-header + .page-body .reader-page-body) { ");
-
-        sb.Append("-webkit-box-decoration-break:clone; box-decoration-break:clone; ");
-
-        sb.Append("padding-top:var(--ilt-running-head-gap-below, ").Append(RunningHeadGapBelow).Append("); } ");
-
         sb.Append(".book-pdf-body .page-header + .page-body .reader-page-body, ");
 
         sb.Append(".book-pdf-body .reader-page-title + .reader-page-body { padding-top:0; } ");
@@ -673,7 +667,8 @@ public static class InteriorLayoutTokens
             ".book-pdf-body section.chapter .reader-page-body h3 { ",
             "break-before:auto; page-break-before:avoid; break-after:avoid; page-break-after:avoid; ",
             "break-inside:avoid; page-break-inside:avoid; } ",
-            ".book-pdf-body .manuscript-keep-next { break-inside:avoid; page-break-inside:avoid; } ");
+            ".book-pdf-body .manuscript-keep-next { break-inside:auto; page-break-inside:auto; } ",
+            ".book-pdf-body .manuscript-keep-next > :first-child { break-after:avoid; page-break-after:avoid; } ");
     }
 
 
@@ -750,7 +745,7 @@ public static class InteriorLayoutTokens
             "#book-formatter-root .book-open-spread .reader-chapter-block[data-chapter-start=\"1\"] .fmt-chapter-opener, ",
             "#book-formatter-root .book-open-spread .reader-chapter-block[data-chapter-start=\"1\"] .manuscript-chapter-heading, ",
             "#book-formatter-root .book-open-spread .reader-chapter-block[data-chapter-start=\"1\"] .reader-page-title { ",
-            "margin-top:var(--ilt-chapter-drop,1.25in); padding-top:0; } ");
+            "margin-top:var(--ilt-chapter-drop,0.7in); padding-top:0; } ");
 
     }
 
@@ -799,13 +794,13 @@ public static class InteriorLayoutTokens
 
             "letter-spacing: 0.06em; text-transform: uppercase; text-align: center; color: var(--heading-color, #1c1917); ",
 
-            "margin: 0 0 0.55in; padding-bottom: 0.22in; border-bottom: 1px solid rgba(120, 96, 72, 0.28); } ",
+            "margin: 0 0 0.28in; padding-bottom: 0.12in; border-bottom: 1px solid rgba(120, 96, 72, 0.28); } ",
 
             ".toc-nav { margin: 0; } ",
 
             ".toc-list { list-style: none; margin: 0; padding: 0; } ",
 
-            ".toc-item { margin: 0 0 0.38in; font-size: 10.5pt; line-height: 1.4; } ",
+            ".toc-item { margin: 0 0 0.12in; font-size: 10.5pt; line-height: 1.35; } ",
 
             ".toc-item-empty { color: #64748b; font-style: italic; } ",
 

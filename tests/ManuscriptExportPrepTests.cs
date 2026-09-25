@@ -206,7 +206,7 @@ public class ManuscriptExportPrepTests
         Assert.Contains("--ilt-pad-bottom: 0.875in", css, StringComparison.Ordinal);
         Assert.Contains("--ilt-pad-left: 0.8125in", css, StringComparison.Ordinal);
         Assert.Contains("--ilt-text-max: 100%", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-chapter-drop: 1.25in", css, StringComparison.Ordinal);
+        Assert.Contains("--ilt-chapter-drop: 0.7in", css, StringComparison.Ordinal);
         Assert.Contains(".toc-leader", css, StringComparison.Ordinal);
         Assert.Contains("book-page-running-head", css, StringComparison.Ordinal);
         Assert.Contains("fmt-mat-novel", css, StringComparison.Ordinal);
@@ -241,11 +241,11 @@ public class ManuscriptExportPrepTests
     }
 
     [Fact]
-    public void BuildSharedReaderLayoutCss_adds_running_head_gap_on_print_page_fragments()
+    public void BuildSharedReaderLayoutCss_does_not_clone_padding_onto_print_page_fragments()
     {
         var css = InteriorLayoutTokens.BuildSharedReaderLayoutCss();
-        Assert.Contains("box-decoration-break", css, StringComparison.Ordinal);
-        Assert.Contains("--ilt-running-head-gap-below", css, StringComparison.Ordinal);
+        Assert.DoesNotContain("box-decoration-break", css, StringComparison.Ordinal);
+        Assert.Contains("reader-page-title + .reader-page-body { padding-top:0; }", css, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -614,9 +614,57 @@ public class ManuscriptExportPrepTests
 
         Assert.Contains("toc-block", html, StringComparison.Ordinal);
         Assert.Contains("toc-leader", html, StringComparison.Ordinal);
-        Assert.Contains("toc-sub-text", html, StringComparison.Ordinal);
+        Assert.Contains("Opening", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("toc-sub-text", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Scene<", html, StringComparison.Ordinal);
         Assert.DoesNotContain("toc-hint", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Heading:", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildTocHtml_skips_imported_contents_chapter()
+    {
+        var ph = BookManuscriptHtmlFormatter.CreateBaseContext("Test Book", null, null, "Fiction", "Author");
+        var chapters = new List<ChapterDto>
+        {
+            new() { ChapterNumber = 0, Title = "Preface", Content = "<p>Lead</p>" },
+            new() { ChapterNumber = 1, Title = "Contents", Content = "<h2>Preface</h2><h2>Chapter 1</h2><h2>Zero to One</h2>" },
+            new() { ChapterNumber = 2, Title = "The Challenge of the Future", Content = "<p>Body</p>" }
+        };
+        var html = InteriorFrontMatterBuilder.BuildTocHtml(chapters, ph);
+
+        Assert.Contains("Preface", html, StringComparison.Ordinal);
+        Assert.Contains("The Challenge of the Future", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("toc-sub-text", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Zero to One<", html, StringComparison.Ordinal);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "toc-title"));
+    }
+
+    [Fact]
+    public void BuildChapterSectionsHtml_skips_imported_contents_chapter()
+    {
+        var html = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(
+            [
+                new ChapterDto { ChapterNumber = 1, Title = "Contents", Content = "<h2>Preface</h2><h2>Scene</h2>" },
+                new ChapterDto { ChapterNumber = 2, Title = "Opening", Content = "<p>Hello world.</p>" }
+            ],
+            BookManuscriptHtmlFormatter.CreateBaseContext("Book", null, null, null, "Author"),
+            new BookPdfExportOptions { InteriorStyle = "Classic", TextSize = "Medium", LineSpacing = "1.6" });
+
+        Assert.Contains("Opening", html, StringComparison.Ordinal);
+        Assert.Contains("Hello world.", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("id=\"ch-1\"", html, StringComparison.Ordinal);
+        Assert.Contains("id=\"ch-2\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Scene<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildPdfThemeCss_does_not_stack_vh_chapter_sink()
+    {
+        var css = InteriorExportTheme.BuildPdfThemeCss(new BookPdfExportOptions { InteriorStyle = "Classic" });
+        Assert.DoesNotMatch(@"padding-top:\s*\d+vh", css);
+        Assert.Contains("--ilt-chapter-drop: 0.7in", css, StringComparison.Ordinal);
+        Assert.Contains("break-inside: auto", css, StringComparison.Ordinal);
     }
 
     [Fact]

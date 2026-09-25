@@ -63,7 +63,7 @@ public static class InteriorSpacingTheme
     /// <summary>
     /// Chapter title sink — margin below running head so title sits ~¼ page down (≈2.25″ from trim).
     /// </summary>
-    public const double ChapterTitleSinkIn = 1.25;
+    public const double ChapterTitleSinkIn = 0.7;
 
     public static double ChapterDropMm => InToMm(ChapterTitleSinkIn);
 

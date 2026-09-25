@@ -3235,18 +3235,9 @@
         return 'Chapter ' + narrativeOrd + ': ' + t;
     }
 
-    function extractHeadingsFromBodyHtml(html) {
-        var out = [];
-        if (!html) return out;
-        try {
-            var d = document.createElement('div');
-            d.innerHTML = html;
-            d.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(function(h) {
-                var text = (h.textContent || '').replace(/\s+/g, ' ').trim();
-                if (text) out.push(text);
-            });
-        } catch (e) { /* ignore */ }
-        return out;
+    function isImportedContentsChapter(ch) {
+        var t = String((ch && (ch.chapterTitle || ch.title)) || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        return t === 'contents' || t === 'table of contents' || t === 'toc';
     }
 
     function firstReaderPageForChapter(chapterIdxs, ci) {
@@ -3264,19 +3255,11 @@
         var phNum = isFrontMatterChapter(ch) ? 1 : narrative;
         var title = (ch && ch.chapterTitle) || ('Chapter ' + (chapterIndex + 1));
         var line = getPreviewStyleHeading(title, ch && ch.chapterNo, phNum);
-        var bodyHtml = formatChapterContent((ch && ch.content) || '');
-        var subs = extractHeadingsFromBodyHtml(bodyHtml);
         var pageNo = firstReaderPageForChapter(chapterIdxs, chapterIndex) + frontMatterOffset + 1;
-        var subHtml = '';
-        if (subs.length) {
-            subHtml = '<ul class="toc-subheadings">' + subs.map(function(h) {
-                return '<li class="toc-subheading-item"><span class="toc-sub-text">' + escapeHtml(h) + '</span></li>';
-            }).join('') + '</ul>';
-        }
         return '<li class="toc-item"><div class="toc-chapter-line">' +
             '<span class="toc-entry-text"><a href="#" class="toc-link" data-goto-page="' + pageNo + '">' + escapeHtml(line) + '</a></span>' +
             '<span class="toc-leader" aria-hidden="true"></span>' +
-            '<span class="toc-page-ref">' + pageNo + '</span></div>' + subHtml + '</li>';
+            '<span class="toc-page-ref">' + pageNo + '</span></div></li>';
     }
 
     function wrapTocPageHtml(itemsHtml, continued) {
@@ -3314,6 +3297,7 @@
     function buildTocPages(chapterIdxs, frontMatterOffset) {
         var items = [];
         for (var i = 0; i < bookChapters.length; i++) {
+            if (isImportedContentsChapter(bookChapters[i])) continue;
             items.push(buildTocItemLiHtml(bookChapters[i], i, chapterIdxs, frontMatterOffset));
         }
         if (!items.length) items.push('<li class="toc-item toc-item-empty">No chapters yet.</li>');
@@ -5946,6 +5930,7 @@
 
         for (let ci = 0; ci < bookChapters.length; ci++) {
             const ch = bookChapters[ci];
+            if (isImportedContentsChapter(ch)) continue;
             const title = (ch && ch.chapterTitle) || ('Chapter ' + (ci + 1));
             const content = (ch && ch.content && String(ch.content).trim()) || '';
             // Promote heading-like <p> first, then strip title duplicates so opener is not doubled.

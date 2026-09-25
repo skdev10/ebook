@@ -488,8 +488,13 @@
 }
 .reader-page-body .manuscript-keep-next,
 .manuscript-root .manuscript-keep-next {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
+}
+.reader-page-body .manuscript-keep-next > :first-child,
+.manuscript-root .manuscript-keep-next > :first-child {
+    break-after: avoid;
+    page-break-after: avoid;
 }
 
 /* ── AI Writer full-book read mode: cover, front matter, TOC (6×9 shell) ── */

@@ -209,7 +209,8 @@ public static class InteriorExportTheme
             ".chapter-body .manuscript-heading + *, .chapter-body h1 + *, .chapter-body h2 + *, .chapter-body h3 + *, ",
             ".chapter-body h4 + *, .chapter-body h5 + *, .chapter-body h6 + * { ",
             "break-before: avoid !important; page-break-before: avoid !important; } ",
-            ".manuscript-keep-next, .reader-page-body .manuscript-keep-next { break-inside: avoid !important; page-break-inside: avoid !important; } ");
+            ".manuscript-keep-next, .reader-page-body .manuscript-keep-next { break-inside: auto; page-break-inside: auto; } ",
+            ".manuscript-keep-next > :first-child { break-after: avoid !important; page-break-after: avoid !important; } ");
 
     /// <summary>PDF interior CSS (embedded in print HTML) — layout numbers from <see cref="InteriorLayoutTokens"/>.</summary>
     public static string BuildPdfThemeCss(BookPdfExportOptions opt)
@@ -303,7 +304,7 @@ public static class InteriorExportTheme
         var sb = new System.Text.StringBuilder(8192);
 
         sb.Append(".book-pdf-body .reader-page-title:has(.fmt-chapter-opener) { border: none !important; padding-top: 0 !important; text-align: inherit; background: transparent; } ");
-        sb.Append(".book-pdf-body .fmt-chapter-opener { display: block; text-align: center; margin: 0 0 0.35in; padding: 0; border: 0; line-height: 1.2; } ");
+        sb.Append(".book-pdf-body .fmt-chapter-opener { display: block; text-align: center; margin: 0 0 0.18in; padding: 0; border: 0; line-height: 1.2; } ");
         sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-flourish { display: none; } ");
         sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-rule { display: none; } ");
         sb.Append(".book-pdf-body .fmt-chapter-opener .fmt-ch-eyebrow { display: block; font-size: 9pt; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.72; margin-bottom: 0.16in; font-weight: 600; } ");
@@ -337,18 +338,8 @@ public static class InteriorExportTheme
         sb.Append(".book-pdf-body.interior-contemporary .fmt-chapter-opener .fmt-ch-title { text-transform: uppercase; letter-spacing: 0.08em; color: #1f2937; } ");
         sb.Append(".book-pdf-body.interior-contemporary .fmt-chapter-opener .fmt-ch-rule { display: block; height: 2px; background: ").Append(blue).Append("; width: 2in; max-width: 55%; margin: 0.14in 0 0; } ");
 
-        // Chapter sink — opener starts partway down the page (matches formatter dropPct).
-        var sink = interior switch
-        {
-            "ElegantTrade" or "FineBook" or "ElegantTradePOD" => "2.4rem",
-            "Traditional" or "Classic" => "2rem",
-            "Minimalist" => "3.2rem",
-            "Contemporary" => "1.8rem",
-            "Modern" => "1.5rem",
-            "Clean" => "1.2rem",
-            _ => "1.7rem"
-        };
-        sb.Append(".book-pdf-body.").Append(wrap).Append(" .reader-chapter-block[data-chapter-start=\"1\"] .fmt-chapter-opener { padding-top: ").Append(sink).Append("; } ");
+        // Chapter drop already lives on .reader-page-title — do not add a second sink (empty half-pages).
+        sb.Append(".book-pdf-body.").Append(wrap).Append(" .reader-chapter-block[data-chapter-start=\"1\"] .fmt-chapter-opener { padding-top: 0; } ");
 
         return sb.ToString();
     }
@@ -401,23 +392,12 @@ public static class InteriorExportTheme
     private static string BuildPdfInteriorParityCss(string interior)
     {
         var wrap = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(interior); // interior-*
-        var sink = interior switch
-        {
-            "ElegantTrade" or "FineBook" or "ElegantTradePOD" => 30,
-            "Traditional" or "Classic" => 25,
-            "Minimalist" => 24,
-            "Contemporary" => 22,
-            "Novel" or "POD" => 20,
-            "Modern" => 18,
-            "Clean" => 15,
-            _ => 20
-        };
 
+        // Chapter drop already lives on .reader-page-title / .fmt-chapter-opener.
+        // A second vh sink left empty half-pages on export + PDF view.
         var css = string.Concat(
-            // When structured opener is present, sink is on .fmt-chapter-opener (see BuildFormatterChapterOpenerPdfCss).
-            ".book-pdf-body.", wrap, " .reader-page-title:not(:has(.fmt-chapter-opener)) { padding-top: ", sink.ToString(System.Globalization.CultureInfo.InvariantCulture), "vh; } ",
-            // Body text must never touch the chapter heading.
-            ".book-pdf-body .reader-page-title + .reader-page-body { margin-top: 12mm; } ");
+            ".book-pdf-body.", wrap, " .reader-page-title:not(:has(.fmt-chapter-opener)) { padding-top: 0; } ",
+            ".book-pdf-body .reader-page-title + .reader-page-body { margin-top: 0.18in; } ");
 
         if (interior is "ElegantTrade" or "ElegantTradePOD" or "Traditional" or "FineBook")
         {
