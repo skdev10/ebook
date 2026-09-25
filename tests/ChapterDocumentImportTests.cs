@@ -156,6 +156,71 @@ public class ChapterDocumentImportTests
         var text = "Preface text here. Chapter 1 The Beginning Once upon a time there was a story. Chapter 2 The Middle More story continues here. Chapter 3 The End Final words.";
         var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
         Assert.True(chapters.Count >= 3, $"Expected >= 3 chapters, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title + chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(chapters, c => c.Title.Contains("Beginning", StringComparison.OrdinalIgnoreCase)
+                                      || c.Body.Contains("Once upon a time", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SplitIntoChapters_keeps_preface_and_chapter_one()
+    {
+        var text = """
+            Preface
+
+            This book opens with a note to the reader about the diagrams inside.
+
+            Chapter 1: Getting Started
+
+            The first chapter explains the problem and the method.
+
+            Chapter 2: Next Steps
+
+            The second chapter continues the argument.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 3, $"Expected preface + 2 chapters, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("diagrams", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Getting Started", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("first chapter", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Next Steps", chapters[2].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SplitHtmlDocumentIntoChapters_keeps_headings_and_figures()
+    {
+        var html =
+            "<h1 class=\"manuscript-heading manuscript-h1\">Preface</h1>" +
+            "<p class=\"manuscript-p\">Opening note.</p>" +
+            "<p class=\"manuscript-figure\"><img src=\"data:image/png;base64,aaa\" alt=\"\" /></p>" +
+            "<h1 class=\"manuscript-heading manuscript-h1\">Chapter 1: The Start</h1>" +
+            "<h2 class=\"manuscript-heading manuscript-h2\">A Quiet Town</h2>" +
+            "<p class=\"manuscript-p\">People lived simply there.</p>";
+        var chapters = ChapterDocumentImportService.SplitHtmlDocumentIntoChapters(html);
+        Assert.True(chapters.Count >= 2, $"Expected preface + chapter 1, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<img", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Start", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("A Quiet Town", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("manuscript-heading", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PreferRicherChapterSplit_keeps_images_over_text_only_split()
+    {
+        var withImages = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Preface", "<p>Hi</p><img src=\"data:image/png;base64,x\" />"),
+            new(2, "Chapter 1", "<p>Body</p>")
+        };
+        var textOnly = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Chapter 1", "Hi"),
+            new(2, "Chapter 2", "Body"),
+            new(3, "Chapter 3", "More")
+        };
+        var chosen = ChapterDocumentImportService.PreferRicherChapterSplit(withImages, textOnly);
+        Assert.Same(withImages, chosen);
     }
 
     [Fact]

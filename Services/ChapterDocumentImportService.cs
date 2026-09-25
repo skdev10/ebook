@@ -4,7 +4,10 @@ using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using HtmlAgilityPack;
+using SixLabors.ImageSharp;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Exceptions;
 
 namespace EBookDashboard.Services;
@@ -64,6 +67,38 @@ public static class ChapterDocumentImportService
         throw new InvalidOperationException(SupportedFormatsMessage());
     }
 
+    /// <summary>
+    /// Import a manuscript for Writer/Formatting: keep preface, chapter 1, in-body headings,
+    /// and embedded figures (DOCX + PDF). Plain-text split is only a fallback.
+    /// </summary>
+    public static (string PlainText, List<ImportedChapter> Chapters) ImportUploadedDocument(
+        byte[] bytes,
+        string ext,
+        CancellationToken cancellationToken = default)
+    {
+        ext = (ext ?? string.Empty).ToLowerInvariant();
+        if (ext == ".docx")
+        {
+            var docxChapters = ExtractDocxChapters(bytes, out var docxPlain);
+            var text = SanitizeImportedText(docxPlain);
+            var fallback = SplitIntoChapters(
+                string.IsNullOrWhiteSpace(text) ? ExtractDocxTextAsPlain(bytes) : text);
+            return (text, PreferRicherChapterSplit(docxChapters, fallback));
+        }
+
+        if (ext == ".pdf")
+        {
+            var pdfChapters = ExtractPdfChapters(bytes, out var pdfPlain, cancellationToken);
+            var text = SanitizeImportedText(pdfPlain);
+            var fallback = SplitIntoChapters(
+                string.IsNullOrWhiteSpace(text) ? ExtractPdfTextAsPlain(bytes, cancellationToken) : text);
+            return (text, PreferRicherChapterSplit(pdfChapters, fallback));
+        }
+
+        var plain = SanitizeImportedText(ExtractText(bytes, ext, cancellationToken));
+        return (plain, SplitIntoChapters(plain));
+    }
+
     /// <summary>Decode uploaded text/markdown bytes (UTF-8/16, BOM, common Windows encodings).</summary>
     public static string DecodeTextFile(byte[] bytes)
     {
@@ -119,7 +154,7 @@ public static class ChapterDocumentImportService
                     var lines = BuildPdfReadingOrderLines(page);
                     if (lines.Count > 0)
                     {
-                        foreach (var (lineText, avgFont, isBold, isCentered) in lines)
+                        foreach (var (lineText, avgFont, isBold, isCentered, _) in lines)
                         {
                             var text = lineText.Trim();
                             if (text.Length == 0)
@@ -242,7 +277,12 @@ public static class ChapterDocumentImportService
                 if (html.Length == 0 && string.IsNullOrEmpty(curTitle))
                     return;
                 curNo++;
-                var title = string.IsNullOrWhiteSpace(curTitle) ? $"Chapter {curNo}" : curTitle;
+                var title = string.IsNullOrWhiteSpace(curTitle)
+                    ? (chapters.Count == 0 && items.Any(it =>
+                        IsDocxChapterBoundary(it.StyleId, it.Text) || IsExplicitChapterMarker(it.Text) || IsFrontMatterMarker(it.Text))
+                        ? "Preface"
+                        : $"Chapter {curNo}")
+                    : curTitle;
                 chapters.Add(new ImportedChapter(curNo, TruncateSuggestedTitle(title), html));
                 curBody.Clear();
                 curTitle = string.Empty;
@@ -315,6 +355,249 @@ public static class ChapterDocumentImportService
         }
 
         return chapters;
+    }
+
+    /// <summary>
+    /// Rich PDF extraction: reading-order text + inline figures, then split so preface,
+    /// chapter 1, section headings, and diagrams all survive into preview/PDF.
+    /// </summary>
+    public static List<ImportedChapter> ExtractPdfChapters(
+        byte[] bytes,
+        out string combinedPlainText,
+        CancellationToken cancellationToken = default)
+    {
+        combinedPlainText = string.Empty;
+        try
+        {
+            using var document = PdfDocument.Open(
+                new MemoryStream(bytes, writable: false),
+                new ParsingOptions { UseLenientParsing = true });
+
+            var pages = document.GetPages().ToList();
+            var medianFont = EstimatePdfMedianFontSize(pages);
+            var html = new StringBuilder();
+            var plain = new StringBuilder();
+
+            foreach (var page in pages)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var blocks = new List<(double Top, int Tie, string Html, string Plain)>();
+                var tie = 0;
+
+                try
+                {
+                    foreach (var img in page.GetImages())
+                    {
+                        if (!TryDecodePdfImage(img, out var imgBytes, out var contentType))
+                            continue;
+                        blocks.Add((img.BoundingBox.Top, tie++, ToFigureHtml(imgBytes, contentType), "[figure]\n"));
+                    }
+                }
+                catch
+                {
+                    /* some PDF image encodings are not readable */
+                }
+
+                var lines = BuildPdfReadingOrderLines(page);
+                foreach (var (lineText, avgFont, isBold, isCentered, top) in lines)
+                {
+                    var text = lineText.Trim();
+                    if (text.Length == 0)
+                        continue;
+                    if (LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out var mark))
+                    {
+                        var lvl = mark == "#" ? 1 : Math.Clamp(mark.Length, 2, 6);
+                        var headingHtml = "<h" + lvl + " class=\"manuscript-heading manuscript-h" + lvl + "\">"
+                                          + System.Net.WebUtility.HtmlEncode(text)
+                                          + "</h" + lvl + ">";
+                        blocks.Add((top, tie++, headingHtml, mark + " " + text + "\n"));
+                    }
+                    else
+                    {
+                        blocks.Add((
+                            top,
+                            tie++,
+                            "<p class=\"manuscript-p\">" + System.Net.WebUtility.HtmlEncode(text) + "</p>",
+                            text + "\n"));
+                    }
+                }
+
+                if (blocks.Count == 0)
+                    continue;
+
+                foreach (var block in blocks.OrderByDescending(b => b.Top).ThenBy(b => b.Tie))
+                {
+                    html.Append(block.Html);
+                    plain.Append(block.Plain);
+                }
+            }
+
+            combinedPlainText = plain.ToString();
+            var htmlDoc = PromoteHeadingParagraphs(html.ToString());
+            var fromHtml = SplitHtmlDocumentIntoChapters(htmlDoc);
+            if (fromHtml.Count > 0)
+                return fromHtml;
+
+            return SplitIntoChapters(combinedPlainText);
+        }
+        catch (PdfDocumentEncryptedException)
+        {
+            throw new InvalidOperationException("This PDF is password-protected. Export a copy without a password or paste the text instead.");
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            throw new InvalidOperationException(
+                "This PDF couldn't be read automatically — it may be scanned (image-only) or use an unusual format. "
+                + "Save it as a Word (.docx) or .txt file, or paste the text instead.");
+        }
+    }
+
+    internal static string ToFigureHtml(byte[] bytes, string contentType)
+    {
+        var ct = string.IsNullOrWhiteSpace(contentType) ? "image/png" : contentType;
+        return "<p class=\"manuscript-figure\" style=\"text-align:center;margin:1em 0;page-break-inside:avoid;\">"
+               + "<img src=\"data:" + ct + ";base64," + Convert.ToBase64String(bytes)
+               + "\" style=\"max-width:100%;height:auto;page-break-inside:avoid;\" alt=\"\" /></p>";
+    }
+
+    internal static bool TryDecodePdfImage(IPdfImage img, out byte[] bytes, out string contentType)
+    {
+        bytes = Array.Empty<byte>();
+        contentType = "image/png";
+        if (img == null || img.IsImageMask)
+            return false;
+
+        if (img.WidthInSamples > 0 && img.HeightInSamples > 0
+            && img.WidthInSamples < 32 && img.HeightInSamples < 32)
+            return false;
+
+        try
+        {
+            if (img.TryGetPng(out var png) && png is { Length: > 800 })
+            {
+                bytes = png;
+                contentType = "image/png";
+                return true;
+            }
+        }
+        catch
+        {
+            /* JPEG and some filters cannot become PNG */
+        }
+
+        try
+        {
+            var raw = img.RawBytes;
+            if (raw.Length > 800 && raw.Length >= 3 && raw[0] == 0xFF && raw[1] == 0xD8)
+            {
+                bytes = raw.ToArray();
+                contentType = "image/jpeg";
+                return true;
+            }
+        }
+        catch
+        {
+            /* ignore */
+        }
+
+        try
+        {
+            if (img.TryGetBytesAsMemory(out var mem) && mem.Length > 800)
+            {
+                using var image = Image.Load(mem.Span);
+                using var ms = new MemoryStream();
+                image.SaveAsPng(ms);
+                if (ms.Length > 800)
+                {
+                    bytes = ms.ToArray();
+                    contentType = "image/png";
+                    return true;
+                }
+            }
+        }
+        catch
+        {
+            /* decode failed */
+        }
+
+        return false;
+    }
+
+    public static List<ImportedChapter> SplitHtmlDocumentIntoChapters(string? html)
+    {
+        var result = new List<ImportedChapter>();
+        if (string.IsNullOrWhiteSpace(html))
+            return result;
+
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml("<div id=\"root\">" + html + "</div>");
+            var root = doc.GetElementbyId("root");
+            if (root == null)
+                return result;
+
+            var nodes = root.ChildNodes.Where(n => n.NodeType == HtmlNodeType.Element).ToList();
+            if (nodes.Count == 0)
+                return result;
+
+            string? currentTitle = null;
+            var body = new StringBuilder();
+
+            void Flush()
+            {
+                var content = body.ToString().Trim();
+                body.Clear();
+                if (content.Length == 0 && string.IsNullOrWhiteSpace(currentTitle))
+                    return;
+                var title = string.IsNullOrWhiteSpace(currentTitle)
+                    ? (result.Count == 0 ? "Preface" : $"Chapter {result.Count + 1}")
+                    : currentTitle!;
+                result.Add(new ImportedChapter(result.Count + 1, TruncateSuggestedTitle(title), FormatChapterBodyHtml(content, title)));
+                currentTitle = null;
+            }
+
+            foreach (var node in nodes)
+            {
+                var text = System.Net.WebUtility.HtmlDecode(node.InnerText ?? string.Empty).Trim();
+                var isHeading = node.Name.Length == 2
+                    && node.Name[0] is 'h' or 'H'
+                    && char.IsDigit(node.Name[1]);
+                var startsChapter = isHeading && text.Length > 0 && (
+                    IsExplicitChapterMarker(text)
+                    || IsFrontMatterMarker(text)
+                    || (node.Name.Equals("h1", StringComparison.OrdinalIgnoreCase)
+                        && LooksLikeChapterTitle(text)
+                        && body.Length >= 280));
+
+                if (startsChapter)
+                {
+                    Flush();
+                    currentTitle = IsExplicitChapterMarker(text) || IsFrontMatterMarker(text)
+                        ? ExtractExplicitChapterTitle(text)
+                        : text;
+                    continue;
+                }
+
+                body.Append(node.OuterHtml);
+            }
+
+            Flush();
+        }
+        catch
+        {
+            return result;
+        }
+
+        return result;
     }
 
     /// <summary>Reads inline images from a paragraph and returns centered, responsive base64 &lt;img&gt; blocks.</summary>
@@ -487,7 +770,20 @@ public static class ChapterDocumentImportService
                    @"^(?:Chapter|CHAPTER)\s+(?:[0-9]+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve)\b",
                    RegexOptions.IgnoreCase)
                || Regex.IsMatch(t, @"^(?:Part|PART)\s+(?:[0-9]+|[IVXLC]+)\b", RegexOptions.IgnoreCase)
-               || Regex.IsMatch(t, @"^(?:Prologue|Epilogue)\b", RegexOptions.IgnoreCase);
+               || Regex.IsMatch(t, @"^(?:Prologue|Epilogue)\b", RegexOptions.IgnoreCase)
+               || IsFrontMatterMarker(t);
+    }
+
+    /// <summary>Preface / foreword / introduction banners must become their own chapters, not get dropped.</summary>
+    internal static bool IsFrontMatterMarker(string? text)
+    {
+        var t = Regex.Replace((text ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
+        if (t.Length == 0)
+            return false;
+        return Regex.IsMatch(
+            t,
+            @"^(Preface|Foreword|Introduction|Acknowledgments?|Acknowledgements?|Dedication|Contents|Table of Contents)\b",
+            RegexOptions.IgnoreCase);
     }
 
     private static string ExtractExplicitChapterTitle(string line)
@@ -659,14 +955,37 @@ public static class ChapterDocumentImportService
             return resplit.Count >= 2 ? resplit : result;
         }
 
-        // Capture any preface text before the first heading as chapter content prepended to chapter 1.
+        // Keep text before the first heading (title page, preface, TOC leftovers) instead of dropping it.
         var chapterNo = 0;
+        string? leadingMatter = null;
+        if (boundaries[0].lineIdx > 0)
+        {
+            var lead = new StringBuilder();
+            for (var l = 0; l < boundaries[0].lineIdx; l++)
+                lead.AppendLine(lines[l]);
+            var leadText = lead.ToString().Trim();
+            if (leadText.Length > 0)
+                leadingMatter = leadText;
+        }
+
+        if (leadingMatter != null && !IsFrontMatterMarker(boundaries[0].title))
+        {
+            chapterNo++;
+            result.Add(new ImportedChapter(chapterNo, "Preface", FormatChapterBodyHtml(leadingMatter, "Preface")));
+            leadingMatter = null;
+        }
+
         for (var b = 0; b < boundaries.Count; b++)
         {
             var headingLineIdx = boundaries[b].lineIdx;
             var endLine = b + 1 < boundaries.Count ? boundaries[b + 1].lineIdx : lines.Length;
             var bodyBuilder = new StringBuilder();
             var chapterTitle = boundaries[b].title ?? "";
+            if (b == 0 && leadingMatter != null)
+            {
+                bodyBuilder.AppendLine(leadingMatter);
+                leadingMatter = null;
+            }
 
             // PDF/import often puts "Chapter 1 Title … body…" on ONE line. Include trailing
             // text after the heading token — but never re-inject the chapter title itself
@@ -762,10 +1081,17 @@ public static class ChapterDocumentImportService
         var structuredHasHeadings = structured.Any(c =>
             (c.Body ?? "").Contains("manuscript-heading", StringComparison.OrdinalIgnoreCase)
             || (c.Body ?? "").Contains("<h", StringComparison.OrdinalIgnoreCase));
+        var structuredHasImages = structured.Any(c =>
+            (c.Body ?? "").Contains("<img", StringComparison.OrdinalIgnoreCase));
+        var fallbackHasImages = fallback.Any(c =>
+            (c.Body ?? "").Contains("<img", StringComparison.OrdinalIgnoreCase));
+        // Never throw away extracted diagrams just because the text-only split found more chapters.
+        if (structuredHasImages && !fallbackHasImages)
+            return structured;
         var fallbackLooksLikeRealChapters = fallback.Count(c =>
             IsExplicitChapterMarker(c.Title ?? "") || LooksLikeChapterTitle(c.Title ?? "")) >= 2;
         // Prefer a real Chapter 2 split over one blob that only has in-body headings.
-        if (fallbackLooksLikeRealChapters && fallback.Count > structured.Count)
+        if (fallbackLooksLikeRealChapters && fallback.Count > structured.Count && !structuredHasImages)
             return fallback;
         if (structuredHasHeadings && fallback.Count > structured.Count && !fallbackLooksLikeRealChapters)
             return structured;
@@ -829,6 +1155,13 @@ public static class ChapterDocumentImportService
         if (starts.Count < 2)
             return result;
 
+        if (starts[0].Index > 0)
+        {
+            var preface = text[..starts[0].Index].Trim();
+            if (preface.Length > 0)
+                result.Add(new ImportedChapter(1, "Preface", FormatChapterBodyHtml(preface, "Preface")));
+        }
+
         for (var i = 0; i < starts.Count; i++)
         {
             var contentStart = starts[i].Index;
@@ -846,8 +1179,8 @@ public static class ChapterDocumentImportService
 
             var end = i + 1 < starts.Count ? starts[i + 1].Index : text.Length;
             if (headingEnd > end) headingEnd = contentStart;
-            var body = text[headingEnd..end].Trim();
-            if (body.Length == 0) continue;
+            var body = headingEnd < end ? text[headingEnd..end].Trim() : "";
+            // Keep Chapter 1 even when the banner sits on the same line as the next heading.
             result.Add(new ImportedChapter(result.Count + 1, starts[i].Title, FormatChapterBodyHtml(body, starts[i].Title)));
         }
 
@@ -987,11 +1320,12 @@ public static class ChapterDocumentImportService
             return new List<ImportedChapter> { chapter };
 
         var result = new List<ImportedChapter>();
-        if (splitAt[0].Index >= 280)
+        if (splitAt[0].Index > 0)
         {
-            var preface = FormatChapterBodyHtml(html[..splitAt[0].Index].Trim(), chapter.Title);
+            var leadHtml = html[..splitAt[0].Index].Trim();
+            var preface = FormatChapterBodyHtml(leadHtml, IsFrontMatterMarker(chapter.Title) ? chapter.Title : "Preface");
             if (preface.Length > 0)
-                result.Add(new ImportedChapter(1, TruncateSuggestedTitle(chapter.Title), preface));
+                result.Add(new ImportedChapter(1, IsFrontMatterMarker(chapter.Title) ? TruncateSuggestedTitle(chapter.Title) : "Preface", preface));
         }
 
         for (var i = 0; i < splitAt.Count; i++)
@@ -1308,14 +1642,20 @@ public static class ChapterDocumentImportService
             mark = "##";
             return true;
         }
+        // Title-case / ALL-CAPS isolated lines are section headings even when the PDF font is not larger.
+        if (looksLikeTitle)
+        {
+            mark = "##";
+            return true;
+        }
         return false;
     }
 
-    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered)> BuildPdfReadingOrderLines(UglyToad.PdfPig.Content.Page page)
+    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top)> BuildPdfReadingOrderLines(UglyToad.PdfPig.Content.Page page)
     {
         var words = page.GetWords()?.ToList() ?? new List<UglyToad.PdfPig.Content.Word>();
         if (words.Count == 0)
-            return new List<(string, double, bool, bool)>();
+            return new List<(string, double, bool, bool, double)>();
 
         var ordered = words.OrderByDescending(w => w.BoundingBox.Top).ThenBy(w => w.BoundingBox.Left).ToList();
         var lines = new List<List<UglyToad.PdfPig.Content.Word>>();
@@ -1332,7 +1672,7 @@ public static class ChapterDocumentImportService
         }
 
         var pageWidth = page.Width > 0 ? page.Width : 0;
-        var result = new List<(string, double, bool, bool)>();
+        var result = new List<(string, double, bool, bool, double)>();
         foreach (var line in lines)
         {
             var sortedLine = line.OrderBy(w => w.BoundingBox.Left).ToList();
@@ -1353,7 +1693,8 @@ public static class ChapterDocumentImportService
             var mid = (left + right) / 2.0;
             var isCentered = pageWidth > 0 && Math.Abs(mid - pageWidth / 2.0) < pageWidth * 0.18
                              && (right - left) < pageWidth * 0.72;
-            result.Add((text, avgSize, isBold, isCentered));
+            var top = sortedLine.Max(w => w.BoundingBox.Top);
+            result.Add((text, avgSize, isBold, isCentered, top));
         }
         return result;
     }

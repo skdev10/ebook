@@ -3719,26 +3719,8 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                string text;
-                List<ChapterDocumentImportService.ImportedChapter> splitChapters;
-
-                // .docx → rich path that preserves embedded images inline (HTML chapter bodies).
-                if (ext == ".docx")
-                {
-                    var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
-                    text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
-                    var fallback = ChapterDocumentImportService.SplitIntoChapters(
-                        string.IsNullOrWhiteSpace(text)
-                            ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
-                            : text);
-                    splitChapters = ChapterDocumentImportService.PreferRicherChapterSplit(docxChapters, fallback);
-                }
-                else
-                {
-                    text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
-                    text = ChapterDocumentImportService.SanitizeImportedText(text);
-                    splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
-                }
+                var (text, splitChapters) = ChapterDocumentImportService.ImportUploadedDocument(
+                    bytes, ext, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(text) && splitChapters.Count == 0)
                     return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR). Paste the text instead." });
@@ -4456,25 +4438,8 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                string text;
-                List<ChapterDocumentImportService.ImportedChapter> splitChapters;
-
-                if (ext == ".docx")
-                {
-                    var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
-                    text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
-                    var fallback = ChapterDocumentImportService.SplitIntoChapters(
-                        string.IsNullOrWhiteSpace(text)
-                            ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
-                            : text);
-                    splitChapters = ChapterDocumentImportService.PreferRicherChapterSplit(docxChapters, fallback);
-                }
-                else
-                {
-                    text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
-                    text = ChapterDocumentImportService.SanitizeImportedText(text);
-                    splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
-                }
+                var (text, splitChapters) = ChapterDocumentImportService.ImportUploadedDocument(
+                    bytes, ext, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(text) && splitChapters.Count == 0)
                     return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR)." });

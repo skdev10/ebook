@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using EBookDashboard.Models;
 using EBookDashboard.Models.ViewModels;
 using Microsoft.EntityFrameworkCore;
@@ -106,7 +107,9 @@ public static class ManuscriptVersionStore
         {
             var plain = StripTags(body);
             var words = CountWords(plain);
-            var pageCount = Math.Max(1, (int)Math.Ceiling(words / 250.0));
+            var figureCount = Regex.Matches(body ?? "", "<img\\b", RegexOptions.IgnoreCase).Count;
+            // Word-count alone hid illustration pages (54 diagrams → ~54 missing pages).
+            var pageCount = Math.Max(1, (int)Math.Ceiling(words / 250.0) + figureCount);
             var matter = ClassifyMatter(title, no);
             var safeTitle = string.IsNullOrWhiteSpace(title) ? $"Chapter {no}" : title.Trim();
 
