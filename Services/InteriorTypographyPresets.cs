@@ -111,9 +111,9 @@ public static class InteriorTypographyPresets
     private static double ClassicPointSize(string size) =>
         size switch
         {
-            "Small" => 14.0,
-            "Large" => 19.0,
-            _ => 17.0
+            "Small" => PtSmall,
+            "Large" => PtLarge,
+            _ => PtMedium
         };
 
     private static string FormatPt(double pt) =>

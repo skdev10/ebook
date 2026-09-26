@@ -3669,21 +3669,24 @@ window.refreshAiWriterTotalPages = async function () {
     try {
         var r = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         var d = await r.json().catch(function () { return {}; });
+        var locked = parseInt(window.__sourcePdfPageCount, 10);
+        if (Number.isFinite(locked) && locked > 0) {
+            showCount(locked);
+            return;
+        }
         var apiCount = (d && d.success && d.pageCount > 0) ? parseInt(String(d.pageCount), 10) : 0;
         // Uploaded PDF page count is exact — do not replace it with reflow pagination.
         if (apiCount > 0 && d && d.pageCountSource === 'source_pdf') {
+            window.__sourcePdfPageCount = apiCount;
             showCount(apiCount);
             return;
         }
-        if (localPages > 0 && window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
-            showCount(localPages);
+        if (apiCount > 0) {
+            showCount(apiCount);
             return;
         }
         if (localPages > 0) showCount(localPages);
-        if (apiCount > 0 && d && d.pageCountSource === 'formatter' && localPages <= 0) showCount(apiCount);
-        else if (apiCount > 0 && localPages <= 0) showCount(apiCount);
-        else if (apiCount > 0 && localPages > 0) showCount(Math.max(apiCount, localPages));
-        else if (!localPages) showCount(0);
+        else showCount(0);
     } catch (e) {
         if (localPages > 0) showCount(localPages);
         else showCount(0);
@@ -4618,7 +4621,10 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
             var esc = window.escapeHtml || function(x) {
                 return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             };
-            var previewCap = chapters.length > 6 ? 3 : chapters.length;
+            if (data.sourcePdfPageCount > 0) {
+                window.__sourcePdfPageCount = parseInt(String(data.sourcePdfPageCount), 10) || 0;
+                window.__pageCountSource = data.pageCountSource || 'source_pdf';
+            }
             chapters.forEach(function(ch, idx) {
                 var titleRaw = (ch.chapterTitle || '').trim();
                 var chNo = parseInt(ch.chapterNo, 10);
@@ -4643,7 +4649,6 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
                     ? window.buildPreviewChapterHeadingHtml(title, esc, chNo)
                     : '';
                 var bodyRaw = ch.content || '';
-                if (idx >= previewCap && bodyRaw.length > 1600) bodyRaw = bodyRaw.slice(0, 1600) + '…';
                 var body = typeof ap === 'function' ? ap(bodyRaw, phCtx) : bodyRaw;
                 body = typeof window.normalizeManuscriptEscapes === 'function' ? window.normalizeManuscriptEscapes(body) : body;
                 var bodyHtml = typeof window.bodyHtmlForChapterPreview === 'function'
@@ -5664,6 +5669,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             });
                         }
 
+                        if (data.pageCount > 0) {
+                            window.__sourcePdfPageCount = parseInt(String(data.pageCount), 10) || 0;
+                            window.__pageCountSource = data.pageCountSource || 'source_pdf';
+                        }
                         var cc = data.chapterCount || multi.length || 1;
                         var pagesLabel = data.pageCount > 0 ? (' · ' + data.pageCount + ' PDF pages') : '';
                         setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved' + pagesLabel);

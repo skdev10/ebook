@@ -474,14 +474,14 @@ public class ManuscriptExportPrepTests
             TextSize = "Medium",
             LineSpacing = "1.6"
         });
-        Assert.Equal("17", med.BodyFontSizePt);
-        // 17pt * 96/72 = 22.666… → "22.67"
-        Assert.Equal("22.67", med.BodyFontSizePx);
+        Assert.Equal("11", med.BodyFontSizePt);
+        // 11pt * 96/72 = 14.666… → "14.67"
+        Assert.Equal("14.67", med.BodyFontSizePx);
 
         var payload = InteriorTypographyPresets.ClientTypographyPayload();
         var json = System.Text.Json.JsonSerializer.Serialize(payload);
-        Assert.Contains("\"classicPtMedium\":17", json, StringComparison.Ordinal);
-        Assert.Contains("\"classicPxMedium\":\"22.67\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"classicPtMedium\":11", json, StringComparison.Ordinal);
+        Assert.Contains("\"classicPxMedium\":\"14.67\"", json, StringComparison.Ordinal);
     }
 
     [Fact]

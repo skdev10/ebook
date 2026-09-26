@@ -214,7 +214,7 @@ public static class InteriorLayoutTokens
 
             SheetPadding: new("0.8in", "0.72in", "0.7in", "0.84in"),
 
-            Body: new("1.125rem", "1.95", "1.25rem", "0.28em", "justify", "1.1rem", "0.55rem"),
+            Body: new("0.92rem", "1.55", "1.25rem", "0.28em", "justify", "1.1rem", "0.55rem"),
 
             Frame: new(
 

@@ -550,6 +550,7 @@ namespace EBookDashboard.Controllers
                 var exportOpt = await LoadExportOptionsForBookAsync(effectiveUserId, bookId, CancellationToken.None);
                 var interiorCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt)
                     + InteriorExportTheme.BuildAiWriterThemeBridgeCss(exportOpt);
+                var sourcePdfPages = await GetSourcePdfPageCountAsync(bookId, CancellationToken.None);
 
                 return Json(new
                 {
@@ -562,6 +563,8 @@ namespace EBookDashboard.Controllers
                     authorName = result.AuthorName ?? "",
                     coverImagePath = result.CoverImagePath ?? "",
                     totalChapters = result.TotalChapters,
+                    sourcePdfPageCount = sourcePdfPages,
+                    pageCountSource = sourcePdfPages > 0 ? "source_pdf" : "",
                     formatting = new
                     {
                         interiorStyle = exportOpt.InteriorStyle ?? "Novel",
@@ -571,11 +574,11 @@ namespace EBookDashboard.Controllers
                         previewAccent = exportOpt.PreviewAccent ?? ""
                     },
                     interiorCss,
-                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select((c, i) => new
+                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
                     {
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
-                        content = i < 3 ? (c.Content ?? "") : TruncateBookPreviewBody(c.Content, 1600)
+                        content = c.Content ?? ""
                     }).ToList()
                 });
             }

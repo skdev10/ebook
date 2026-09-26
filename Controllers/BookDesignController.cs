@@ -226,13 +226,11 @@ namespace EBookDashboard.Controllers
                     totalChapters = result.TotalChapters,
                     sourcePdfPageCount = sourcePdfPages,
                     pageCountSource = sourcePdfPages > 0 ? "source_pdf" : "",
-                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select((c, i) => new
+                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
                     {
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
-                        content = includeBodies
-                            ? (i < 4 ? (c.Content ?? "") : TruncateFormatterPreviewBody(c.Content, 2400))
-                            : "",
+                        content = includeBodies ? (c.Content ?? "") : "",
                         hasContent = !string.IsNullOrWhiteSpace(c.Content)
                     }).ToList()
                 });
@@ -517,6 +515,13 @@ namespace EBookDashboard.Controllers
                 await SaveSettingsWithRetryAsync();
 
                 var previewPages = ResolvePreviewPageCount(req, statePayload);
+                var sourceKey = ManuscriptVersionStore.SourcePdfPageCountKey(req.BookId);
+                var sourceRaw = await _context.Settings.AsNoTracking()
+                    .Where(s => s.Key == sourceKey)
+                    .Select(s => s.Value)
+                    .FirstOrDefaultAsync();
+                if (int.TryParse(sourceRaw, out var sourcePdfPages) && sourcePdfPages > 0)
+                    previewPages = sourcePdfPages;
                 var maxPc = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
                 if (previewPages is >= 1 && previewPages.Value <= maxPc)
                 {

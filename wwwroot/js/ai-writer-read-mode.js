@@ -374,11 +374,86 @@
         return ctx;
     }
 
+    function allocatePageShares(weights, targetTotal) {
+        var n = (weights && weights.length) || 0;
+        if (!n) return [];
+        targetTotal = Math.max(n, parseInt(targetTotal, 10) || n);
+        var allocated = new Array(n);
+        var remaining = targetTotal;
+        for (var i = 0; i < n; i++) {
+            var left = n - i;
+            if (left === 1) {
+                allocated[i] = Math.max(1, remaining);
+                break;
+            }
+            var remainWeight = 0;
+            for (var j = i; j < n; j++) remainWeight += Math.max(1, weights[j] || 1);
+            var share = Math.round(remaining * (Math.max(1, weights[i] || 1) / remainWeight));
+            share = Math.max(1, Math.min(share, remaining - (left - 1)));
+            allocated[i] = share;
+            remaining -= share;
+        }
+        return allocated;
+    }
+
+    function splitHtmlIntoPageChunks(html, parts) {
+        var raw = String(html || '');
+        if (parts <= 1) return [raw || '<p class="manuscript-p">&nbsp;</p>'];
+        var bits = raw.replace(/(<\/p>|<\/h[1-6]>|<\/div>)/gi, '$1\u0001').split('\u0001').filter(function (b) {
+            return b && b.trim();
+        });
+        if (!bits.length) bits = [raw || '<p class="manuscript-p">&nbsp;</p>'];
+        var total = 0;
+        for (var i = 0; i < bits.length; i++) total += bits[i].length;
+        var target = Math.max(1, Math.ceil(total / parts));
+        var chunks = [];
+        var cur = '';
+        for (var b = 0; b < bits.length; b++) {
+            cur += bits[b];
+            if (chunks.length < parts - 1 && cur.length >= target) {
+                chunks.push(cur);
+                cur = '';
+            }
+        }
+        if (cur) chunks.push(cur);
+        while (chunks.length < parts) chunks.push('<p class="manuscript-p">&nbsp;</p>');
+        if (chunks.length > parts) {
+            var extra = chunks.splice(parts - 1).join('');
+            chunks.push(extra);
+        }
+        return chunks;
+    }
+
     function paginateAllChapters(meta, shell, viewport) {
         var chapterPages = [];
         var chapterIdxs = [];
         var splitFn = global.splitHtmlIntoReaderPages;
         if (typeof splitFn !== 'function') return { pages: chapterPages, idxs: chapterIdxs };
+
+        var sourcePages = parseInt(global.__sourcePdfPageCount, 10);
+        if (Number.isFinite(sourcePages) && sourcePages > 0 && meta.length) {
+            var weights = meta.map(function (ch) {
+                return Math.max(1, Math.ceil(String((ch && ch.html) || '').length / 380));
+            });
+            var shares = allocatePageShares(weights, sourcePages);
+            for (var si = 0; si < meta.length; si++) {
+                var chSrc = meta[si];
+                if (!chSrc || chSrc.loading) continue;
+                var htmlSrc = String(chSrc.html || '').trim();
+                if (!htmlSrc) continue;
+                htmlSrc = ensureWriterChapterOpener(htmlSrc, chSrc, si + 1);
+                var chunks = splitHtmlIntoPageChunks('<div class="reader-chapter-block">' + htmlSrc + '</div>', shares[si]);
+                for (var sp = 0; sp < chunks.length; sp++) {
+                    var pageHtml = normalizeChapterPageHtml(chunks[sp]);
+                    if (sp === 0 && typeof global.markReaderBlockChapterStart === 'function') {
+                        pageHtml = global.markReaderBlockChapterStart(pageHtml);
+                    }
+                    chapterPages.push(pageHtml);
+                    chapterIdxs.push(si);
+                }
+            }
+            return { pages: chapterPages, idxs: chapterIdxs };
+        }
 
         var measureNow = meta.length <= 6 ? meta.length : 3;
         for (var i = 0; i < meta.length; i++) {
@@ -699,21 +774,29 @@
             if (chapterStartPages[ci] === undefined) chapterStartPages[ci] = j;
         }
 
-        var resolvedCover = resolveCoverUrl(coverUrl || global._aiWriterCoverUrl || ctx.coverImagePath || '');
-        var COVER_COUNT = 1;
-        var fmOffset = COVER_COUNT + FM_COUNT;
-        var toc = buildTocPage(meta, chapterStartPages, fmOffset);
-        var fmPages = [buildTitlePage(ctx), buildCopyrightPage(ctx), toc];
-        if (resolvedCover) {
-            fmPages.unshift(buildCoverPage(resolvedCover, ctx.bookTitle));
+        var sourcePages = parseInt(global.__sourcePdfPageCount, 10);
+        var allPages;
+        var allIdxs;
+        if (Number.isFinite(sourcePages) && sourcePages > 0) {
+            // Uploaded PDF page count is the book — do not prepend extra front-matter pages.
+            allPages = chapterPages;
+            allIdxs = chapterIdxs.slice();
         } else {
-            fmPages.unshift(buildCoverFallbackPage(ctx));
+            var resolvedCover = resolveCoverUrl(coverUrl || global._aiWriterCoverUrl || ctx.coverImagePath || '');
+            var COVER_COUNT = 1;
+            var fmOffset = COVER_COUNT + FM_COUNT;
+            var toc = buildTocPage(meta, chapterStartPages, fmOffset);
+            var fmPages = [buildTitlePage(ctx), buildCopyrightPage(ctx), toc];
+            if (resolvedCover) {
+                fmPages.unshift(buildCoverPage(resolvedCover, ctx.bookTitle));
+            } else {
+                fmPages.unshift(buildCoverFallbackPage(ctx));
+            }
+            allPages = fmPages.concat(chapterPages);
+            allIdxs = [];
+            for (var k = 0; k < fmPages.length; k++) allIdxs.push(-1);
+            allIdxs = allIdxs.concat(chapterIdxs);
         }
-
-        var allPages = fmPages.concat(chapterPages);
-        var allIdxs = [];
-        for (var k = 0; k < fmPages.length; k++) allIdxs.push(-1);
-        allIdxs = allIdxs.concat(chapterIdxs);
 
         global._writerFullBookMode = true;
         global._writerBookPages = allPages;
