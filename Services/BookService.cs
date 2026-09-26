@@ -776,7 +776,18 @@ namespace EBookDashboard.Services
                 if (book == null)
                     return null;
 
-                var chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true);
+                List<ChapterDto> chapters;
+                try
+                {
+                    chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true, includeBodies: true);
+                }
+                catch (Exception bodyEx)
+                {
+                    // Huge manuscripts can fail the full-body read (packet/timeout). Still return titles
+                    // so Writer/Formatter never show "No chapters yet" for a book that has chapters.
+                    chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true, includeBodies: false);
+                    _ = bodyEx;
+                }
 
                 var authorName = await ResolveAuthorDisplayNameAsync(userId);
                 var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
@@ -920,19 +931,20 @@ namespace EBookDashboard.Services
                 libHeads = libRows.Select(c => (c.ChapterNumber, c.Title, c.Status, c.CreatedAt, c.UpdatedAt, "")).ToList();
             }
 
-            bool HasBody(string? content) => !string.IsNullOrWhiteSpace(content);
             bool IsOfficialStatus(string? status) =>
                 string.Equals(status, "ReadOnly", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(status, "Final", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(status, "Finalized", StringComparison.OrdinalIgnoreCase);
 
+            // Keep title-only / newly added chapters in the list. Filtering empty bodies
+            // made large books look like "No chapters yet" after + or a big PDF import.
             var official = libHeads
-                .Where(c => IsOfficialStatus(c.Status) && (!includeBodies || HasBody(c.Content)))
+                .Where(c => IsOfficialStatus(c.Status))
                 .GroupBy(c => c.ChapterNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 
             var draftLibrary = libHeads
-                .Where(c => (!includeBodies || HasBody(c.Content)) && !official.ContainsKey(c.ChapterNumber))
+                .Where(c => !official.ContainsKey(c.ChapterNumber))
                 .GroupBy(c => c.ChapterNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 

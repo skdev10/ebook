@@ -5,6 +5,7 @@ using EBookDashboard.Models.DTO;
 using EBookDashboard.Models.ViewModels;
 using EBookDashboard.Services;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Timeouts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CognitiveServices.Speech.Transcription;
 using Microsoft.EntityFrameworkCore;
@@ -187,6 +188,7 @@ namespace EBookDashboard.Controllers
 
         /// <summary>Loads full book chapters for the Book Formatter preview (session-scoped).</summary>
         [HttpGet]
+        [DisableRequestTimeout]
         public async Task<IActionResult> GetFormatterBookContent(int bookId)
         {
             try
@@ -202,6 +204,15 @@ namespace EBookDashboard.Controllers
                 if (result == null || !result.Success)
                     return Json(new { success = false, message = result?.Message ?? "No book found." });
 
+                var sourcePdfPages = 0;
+                var sourceKey = ManuscriptVersionStore.SourcePdfPageCountKey(bookId);
+                var sourceRaw = await _context.Settings.AsNoTracking()
+                    .Where(s => s.Key == sourceKey)
+                    .Select(s => s.Value)
+                    .FirstOrDefaultAsync();
+                if (int.TryParse(sourceRaw, out var parsedPages) && parsedPages > 0)
+                    sourcePdfPages = parsedPages;
+
                 return Json(new
                 {
                     success = true,
@@ -214,6 +225,8 @@ namespace EBookDashboard.Controllers
                     coverImagePath = result.CoverImagePath ?? "",
                     totalChapters = result.TotalChapters,
                     bookContentHtml = result.BookContentHtml ?? "",
+                    sourcePdfPageCount = sourcePdfPages,
+                    pageCountSource = sourcePdfPages > 0 ? "source_pdf" : "",
                     chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
                     {
                         chapterNo = c.ChapterNumber,
@@ -983,29 +996,7 @@ namespace EBookDashboard.Controllers
 
                 var previewDetails = await _bookService.GetBookDetailsForPreviewAsync(userId, bookId);
                 if (previewDetails is { Success: true })
-                {
-                    ViewBag.InitialBookPayloadJson = JsonSerializer.Serialize(new
-                    {
-                        success = true,
-                        bookId = previewDetails.BookId,
-                        bookTitle = previewDetails.BookTitle,
-                        subtitle = previewDetails.Subtitle ?? "",
-                        description = previewDetails.Description ?? "",
-                        genre = previewDetails.Genre ?? "",
-                        authorName = previewDetails.AuthorName ?? "",
-                        coverImagePath = previewDetails.CoverImagePath ?? "",
-                        totalChapters = previewDetails.TotalChapters,
-                        chapters = previewDetails.Chapters
-                            .OrderBy(c => c.ChapterNumber)
-                            .Select(c => new
-                            {
-                                chapterNo = c.ChapterNumber,
-                                chapterTitle = c.Title,
-                                content = c.Content ?? ""
-                            })
-                            .ToList()
-                    });
-                }
+                    ViewBag.InitialBookPayloadJson = BuildSlimFormatterPayloadJson(previewDetails);
 
                 // Get data from service (may be null if no record saved yet)
                 var response = await _bookDesignService.GetCoverDesignCalculator(userId, bookId);
@@ -1150,29 +1141,7 @@ namespace EBookDashboard.Controllers
                     {
                         var previewDetails = await _bookService.GetBookDetailsForPreviewAsync(uid, recoveredBookId);
                         if (previewDetails is { Success: true })
-                        {
-                            ViewBag.InitialBookPayloadJson = JsonSerializer.Serialize(new
-                            {
-                                success = true,
-                                bookId = previewDetails.BookId,
-                                bookTitle = previewDetails.BookTitle,
-                                subtitle = previewDetails.Subtitle ?? "",
-                                description = previewDetails.Description ?? "",
-                                genre = previewDetails.Genre ?? "",
-                                authorName = previewDetails.AuthorName ?? "",
-                                coverImagePath = previewDetails.CoverImagePath ?? "",
-                                totalChapters = previewDetails.TotalChapters,
-                                chapters = previewDetails.Chapters
-                                    .OrderBy(c => c.ChapterNumber)
-                                    .Select(c => new
-                                    {
-                                        chapterNo = c.ChapterNumber,
-                                        chapterTitle = c.Title,
-                                        content = c.Content ?? ""
-                                    })
-                                    .ToList()
-                            });
-                        }
+                            ViewBag.InitialBookPayloadJson = BuildSlimFormatterPayloadJson(previewDetails);
                     }
                     catch (Exception previewEx)
                     {
@@ -1547,6 +1516,36 @@ namespace EBookDashboard.Controllers
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Page-boot payload: titles only. Full HTML is fetched by GetFormatterBookContent so
+        /// large books do not blow the Razor page / script tag and then show "No chapters yet".
+        /// </summary>
+        private static string BuildSlimFormatterPayloadJson(BookDetailsResponseDto details)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                success = true,
+                bookId = details.BookId,
+                bookTitle = details.BookTitle,
+                subtitle = details.Subtitle ?? "",
+                description = details.Description ?? "",
+                genre = details.Genre ?? "",
+                authorName = details.AuthorName ?? "",
+                coverImagePath = details.CoverImagePath ?? "",
+                totalChapters = details.TotalChapters,
+                chapters = (details.Chapters ?? new List<ChapterDto>())
+                    .OrderBy(c => c.ChapterNumber)
+                    .Select(c => new
+                    {
+                        chapterNo = c.ChapterNumber,
+                        chapterTitle = c.Title,
+                        content = "",
+                        hasContent = !string.IsNullOrWhiteSpace(c.Content)
+                    })
+                    .ToList()
+            });
         }
     }
 }

@@ -85,7 +85,7 @@ public static class ChapterDocumentImportService
             var text = SanitizeImportedText(docxPlain);
             var fallback = SplitIntoChapters(
                 string.IsNullOrWhiteSpace(text) ? ExtractDocxTextAsPlain(bytes) : text);
-            return (text, PreferRicherChapterSplit(docxChapters, fallback));
+            return (text, CoalesceSectionHeadingChapters(PreferRicherChapterSplit(docxChapters, fallback)));
         }
 
         if (ext == ".pdf")
@@ -94,11 +94,11 @@ public static class ChapterDocumentImportService
             var text = SanitizeImportedText(pdfPlain);
             var fallback = SplitIntoChapters(
                 string.IsNullOrWhiteSpace(text) ? ExtractPdfTextAsPlain(bytes, cancellationToken) : text);
-            return (text, PreferRicherChapterSplit(pdfChapters, fallback));
+            return (text, CoalesceSectionHeadingChapters(PreferRicherChapterSplit(pdfChapters, fallback)));
         }
 
         var plain = SanitizeImportedText(ExtractText(bytes, ext, cancellationToken));
-        return (plain, SplitIntoChapters(plain));
+        return (plain, CoalesceSectionHeadingChapters(SplitIntoChapters(plain)));
     }
 
     /// <summary>Exact PDF page count from the file catalog — not a word estimate.</summary>
@@ -485,9 +485,9 @@ public static class ChapterDocumentImportService
             var htmlDoc = PromoteHeadingParagraphs(html.ToString());
             var fromHtml = SplitHtmlDocumentIntoChapters(htmlDoc);
             if (fromHtml.Count > 0)
-                return fromHtml;
+                return CoalesceSectionHeadingChapters(fromHtml);
 
-            return SplitIntoChapters(combinedPlainText);
+            return CoalesceSectionHeadingChapters(SplitIntoChapters(combinedPlainText));
         }
         catch (PdfDocumentEncryptedException)
         {
@@ -683,8 +683,10 @@ public static class ChapterDocumentImportService
                 var startsChapter = isHeading && text.Length > 0 && (
                     IsExplicitChapterMarker(text)
                     || IsFrontMatterMarker(text)
+                    || LooksLikeNumberedChapterBanner(text)
                     || (node.Name.Equals("h1", StringComparison.OrdinalIgnoreCase)
                         && LooksLikeChapterTitle(text)
+                        && !IsAllCapsSectionTitle(text)
                         && body.Length >= 280));
 
                 if (startsChapter)
@@ -937,6 +939,72 @@ public static class ChapterDocumentImportService
 
     private static bool LooksLikePointHeading(string? text)
         => Regex.IsMatch((text ?? string.Empty).Trim(), @"^\d{1,2}[\.\)\]]\s+\S");
+
+    /// <summary>ALL-CAPS section titles ("STARTUP THINKING") are in-chapter headings, not chapters.</summary>
+    internal static bool IsAllCapsSectionTitle(string? text)
+    {
+        var t = Regex.Replace((text ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
+        if (IsExplicitChapterMarker(t) || LooksLikeNumberedChapterBanner(t) || IsFrontMatterMarker(t))
+            return false;
+        var letters = t.Where(char.IsLetter).ToArray();
+        return letters.Length >= 4 && letters.All(char.IsUpper);
+    }
+
+    /// <summary>
+    /// Fold short ALL-CAPS section dumps back into the previous chapter so a 14-chapter
+    /// book does not become 70+ fake chapters (and then "No chapters yet").
+    /// </summary>
+    public static List<ImportedChapter> CoalesceSectionHeadingChapters(List<ImportedChapter>? chapters)
+    {
+        if (chapters == null || chapters.Count == 0)
+            return new List<ImportedChapter>();
+        if (chapters.Count == 1)
+            return chapters;
+
+        var merged = new List<ImportedChapter>();
+        foreach (var ch in chapters)
+        {
+            var title = (ch.Title ?? string.Empty).Trim();
+            var body = ch.Body ?? string.Empty;
+            var plain = Regex.Replace(body, "<[^>]+>", " ");
+            plain = Regex.Replace(plain, @"\s+", " ").Trim();
+
+            if (merged.Count > 0 && Regex.IsMatch(title, @"^\d{1,2}$") && plain.Length < 80)
+            {
+                // Lone "1" banner — keep as opener of the next real title if possible.
+                merged.Add(ch);
+                continue;
+            }
+
+            if (merged.Count > 0
+                && Regex.IsMatch(merged[^1].Title ?? "", @"^\d{1,2}$")
+                && (IsAllCapsSectionTitle(title) || LooksLikeChapterTitle(title)))
+            {
+                var prev = merged[^1];
+                var combinedTitle = TruncateSuggestedTitle(prev.Title + " " + title);
+                merged[^1] = new ImportedChapter(prev.ChapterNo, combinedTitle, prev.Body + body);
+                continue;
+            }
+
+            var isReal = IsExplicitChapterMarker(title)
+                || LooksLikeNumberedChapterBanner(title)
+                || IsFrontMatterMarker(title);
+            if (!isReal && merged.Count > 0 && IsAllCapsSectionTitle(title) && plain.Length < 700)
+            {
+                var prev = merged[^1];
+                var heading = "<h2 class=\"manuscript-heading manuscript-h2\">"
+                              + System.Net.WebUtility.HtmlEncode(title) + "</h2>";
+                merged[^1] = new ImportedChapter(prev.ChapterNo, prev.Title, prev.Body + heading + body);
+                continue;
+            }
+
+            merged.Add(ch);
+        }
+
+        return merged
+            .Select((c, i) => new ImportedChapter(i + 1, c.Title, c.Body))
+            .ToList();
+    }
 
     /// <summary>
     /// A chapter-sized title such as "Disadvantages of Technology" — not a numbered point.
@@ -1225,9 +1293,12 @@ public static class ChapterDocumentImportService
         if (structuredHasImages && !fallbackHasImages)
             return structured;
         var fallbackLooksLikeRealChapters = fallback.Count(c =>
-            IsExplicitChapterMarker(c.Title ?? "") || LooksLikeChapterTitle(c.Title ?? "")) >= 2;
-        // Prefer a real Chapter 2 split over one blob that only has in-body headings.
-        if (fallbackLooksLikeRealChapters && fallback.Count > structured.Count && !structuredHasImages)
+            IsExplicitChapterMarker(c.Title ?? "") || LooksLikeNumberedChapterBanner(c.Title ?? "")) >= 2;
+        var fallbackOverSplit = fallback.Count > Math.Max(20, structured.Count * 2)
+            && fallback.Count(c => IsExplicitChapterMarker(c.Title ?? "")) < 3;
+        // Prefer a real Chapter 2 split over one blob that only has in-body headings —
+        // but never take a 50+ heading dump over a tighter structured book.
+        if (fallbackLooksLikeRealChapters && fallback.Count > structured.Count && !structuredHasImages && !fallbackOverSplit)
             return fallback;
         if (structuredHasHeadings && fallback.Count > structured.Count && !fallbackLooksLikeRealChapters)
             return structured;
@@ -1764,28 +1835,14 @@ public static class ChapterDocumentImportService
         }
 
         var looksLikeTitle = LooksLikeStandaloneHeading(text);
-        if (medianFont > 0 && avgFont >= medianFont * 1.4)
-        {
-            mark = "#";
-            return true;
-        }
+        // Only real chapter banners are H1. ALL-CAPS / large-font section titles stay H2
+        // so "STARTUP THINKING" does not become its own chapter.
         if (medianFont > 0 && avgFont >= medianFont * 1.18)
         {
             mark = "##";
             return true;
         }
-        if (looksLikeTitle && (isBold || isCentered))
-        {
-            mark = isCentered && isBold ? "#" : "##";
-            return true;
-        }
-        if (looksLikeTitle && medianFont > 0 && avgFont >= medianFont * 1.08)
-        {
-            mark = "##";
-            return true;
-        }
-        // Title-case / ALL-CAPS isolated lines are section headings even when the PDF font is not larger.
-        if (looksLikeTitle)
+        if (looksLikeTitle && (isBold || isCentered || avgFont >= medianFont * 1.08 || medianFont <= 0))
         {
             mark = "##";
             return true;

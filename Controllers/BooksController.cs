@@ -529,6 +529,7 @@ namespace EBookDashboard.Controllers
         // Get full book content (all chapters) for page-flip preview
         //=======================================================
         [HttpGet]
+        [DisableRequestTimeout]
         public async Task<IActionResult> GetFullBookContent(int bookId, int userId = 0)
         {
             try
@@ -1883,6 +1884,7 @@ namespace EBookDashboard.Controllers
         // Load Selected Book from Drop-Down from Books table
         //==============================================
         [HttpGet]
+        [DisableRequestTimeout]
         public async Task<IActionResult> GetBookDetails(int userId, int bookId)
         {
             try
@@ -3839,21 +3841,28 @@ namespace EBookDashboard.Controllers
                     {
                         var no = ++lastChapterNo;
                         var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {no}" : sc.Title.Trim();
-                        var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                            userId, bookId, no, chTitle, sc.Body, null, "doc-import", cancellationToken);
-                        if (responseId <= 0)
-                            throw new InvalidOperationException($"Could not save chapter {no} to the database.");
-
-                        // Finalize + upsert into chapters table so formatting / export see the content.
-                        var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
-                            userId, bookId, no, responseId, cancellationToken);
-                        if (!promoted)
+                        try
                         {
-                            // Fallback: keep iteration current even if library upsert fails.
-                            await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                            var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
+                                userId, bookId, no, chTitle, sc.Body, null, "doc-import", cancellationToken);
+                            if (responseId <= 0)
+                                throw new InvalidOperationException($"Could not save chapter {no} to the database.");
+
+                            // Finalize + upsert into chapters table so formatting / export see the content.
+                            var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
                                 userId, bookId, no, responseId, cancellationToken);
+                            if (!promoted)
+                            {
+                                // Fallback: keep iteration current even if library upsert fails.
+                                await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                                    userId, bookId, no, responseId, cancellationToken);
+                            }
+                            savedNumbers.Add(no);
                         }
-                        savedNumbers.Add(no);
+                        catch (Exception oneEx)
+                        {
+                            _logger.LogWarning(oneEx, "ImportChapterFile: skipped chapter {No} ({Title}) for book {BookId}", no, chTitle, bookId);
+                        }
                     }
 
                     persisted = savedNumbers.Count > 0;
@@ -4568,19 +4577,26 @@ namespace EBookDashboard.Controllers
                 {
                     chapterNo++;
                     var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {chapterNo}" : sc.Title.Trim();
-                    var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                        userId, bookId, chapterNo, chTitle, sc.Body, null, "doc-import", cancellationToken);
-                    if (responseId <= 0)
-                        throw new InvalidOperationException($"Could not save chapter {chapterNo}.");
-
-                    var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
-                        userId, bookId, chapterNo, responseId, cancellationToken);
-                    if (!promoted)
+                    try
                     {
-                        await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                        var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
+                            userId, bookId, chapterNo, chTitle, sc.Body, null, "doc-import", cancellationToken);
+                        if (responseId <= 0)
+                            throw new InvalidOperationException($"Could not save chapter {chapterNo}.");
+
+                        var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
                             userId, bookId, chapterNo, responseId, cancellationToken);
+                        if (!promoted)
+                        {
+                            await _chapterIterationService.PromoteAsCurrentVersionAsync(
+                                userId, bookId, chapterNo, responseId, cancellationToken);
+                        }
+                        savedNumbers.Add(chapterNo);
                     }
-                    savedNumbers.Add(chapterNo);
+                    catch (Exception oneEx)
+                    {
+                        _logger.LogWarning(oneEx, "UploadManuscript: skipped chapter {No} ({Title}) for book {BookId}", chapterNo, chTitle, bookId);
+                    }
                 }
 
                 if (savedNumbers.Count == 0)

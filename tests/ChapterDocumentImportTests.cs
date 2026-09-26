@@ -256,6 +256,54 @@ public class ChapterDocumentImportTests
     }
 
     [Fact]
+    public void SplitHtmlDocumentIntoChapters_keeps_allcaps_section_h2_in_same_chapter()
+    {
+        var html =
+            "<h1>Chapter 1: The Challenge of the Future</h1>" +
+            "<p class=\"manuscript-p\">Whenever I interview someone for a job I ask a question.</p>" +
+            "<h2>STARTUP THINKING</h2>" +
+            "<p class=\"manuscript-p\">Brilliant thinking is rare, but courage is rarer.</p>" +
+            "<h2>ZERO TO ONE: THE FUTURE OF PROGRESS</h2>" +
+            "<p class=\"manuscript-p\">Doing what we already know how to do takes the world from 1 to n.</p>";
+        var chapters = ChapterDocumentImportService.SplitHtmlDocumentIntoChapters(html);
+        Assert.Single(chapters);
+        Assert.Contains("Challenge", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("STARTUP THINKING", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ZERO TO ONE", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CoalesceSectionHeadingChapters_folds_tiny_allcaps_dumps()
+    {
+        var input = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "1 THE CHALLENGE OF THE FUTURE", "<p>Whenever I interview someone.</p>"),
+            new(2, "STARTUP THINKING", "<p>Short aside.</p>"),
+            new(3, "2 PARTY LIKE IT’S 1999", "<p>The first time I came to Silicon Valley.</p>")
+        };
+        var merged = ChapterDocumentImportService.CoalesceSectionHeadingChapters(input);
+        Assert.Equal(2, merged.Count);
+        Assert.Contains("CHALLENGE", merged[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("STARTUP THINKING", merged[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1999", merged[1].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PreferRicherChapterSplit_rejects_heading_dump_fallback()
+    {
+        var structured = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Preface", "<p>Note</p><h2 class=\"manuscript-heading\">STARTUP THINKING</h2><p>Body</p>"),
+            new(2, "Chapter 1", "<p>More</p>")
+        };
+        var dump = Enumerable.Range(1, 40)
+            .Select(i => new ChapterDocumentImportService.ImportedChapter(i, $"SECTION TITLE {i}", "<p>x</p>"))
+            .ToList();
+        var chosen = ChapterDocumentImportService.PreferRicherChapterSplit(structured, dump);
+        Assert.Same(structured, chosen);
+    }
+
+    [Fact]
     public void NormalizeInlineChapterHeadings_inserts_breaks()
     {
         var raw = "Hello Chapter 2 World";
@@ -577,6 +625,27 @@ public class ChapterDocumentImportTests
         {
             try { Directory.Delete(webRoot, true); } catch { /* temp */ }
         }
+    }
+
+    [Fact]
+    public void ImportUploadedDocument_user_print_pdf_from_downloads()
+    {
+        var path = @"C:\Users\SK\Downloads\ebook-chapter-Sep-23-2248-241-print (5).pdf";
+        if (!File.Exists(path))
+            return;
+
+        var bytes = File.ReadAllBytes(path);
+        var pages = ChapterDocumentImportService.CountPdfPages(bytes);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var (text, chapters) = ChapterDocumentImportService.ImportUploadedDocument(bytes, ".pdf");
+        sw.Stop();
+
+        Assert.True(pages >= 20, $"Expected a long book, got {pages} PDF pages");
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.True(chapters.Count >= 1, "Expected imported chapters");
+        Assert.True(chapters.Count <= 28, $"Over-split into {chapters.Count} chapters: {string.Join(" | ", chapters.Select(c => c.Title).Take(16))}");
+        Assert.True(sw.Elapsed < TimeSpan.FromMinutes(3), $"Import hung: {sw.Elapsed}");
+        Console.WriteLine($"USER_PDF pages={pages} chapters={chapters.Count} chars={text.Length} elapsed={sw.Elapsed} titles={string.Join(" | ", chapters.Select(c => c.Title).Take(20))}");
     }
 
     [Fact]

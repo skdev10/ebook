@@ -2941,6 +2941,7 @@
     }
 
     let bookChapters = [];
+    try { window.__sourcePdfPageCount = 0; } catch (eSrc) { /* ignore */ }
     let formatterBookTitle = '';
     /** Book-level fields for template placeholders ([Title], etc.) */
     let bookPreviewContext = { bookTitle: '', subtitle: '', description: '', genre: '', authorName: '' };
@@ -3036,12 +3037,11 @@
         return FORMATTER_BOOK_PAYLOAD_PREFIX + String(bid || 0);
     }
 
-    /** Page count shown in preview — source of truth for KDP spine on export. */
+    /** Page count shown in preview — uploaded PDF page count wins over gappy reflow. */
     function getFormatterPreviewPageCount() {
         var maxP = (window.__kdpSpecs && window.__kdpSpecs.paperback && window.__kdpSpecs.paperback.max) || 828;
-        // Single source of truth: when the on-screen real-template preview (overlay) is active,
-        // its page count is exactly what the user sees on the Book Formatting screen. Use it so
-        // the "Total pages" label, the autosaved count, Publish, and the cover spine all agree.
+        var source = parseInt(window.__sourcePdfPageCount, 10);
+        if (Number.isFinite(source) && source > 0) return Math.min(maxP, source);
         var ipv = parseInt(window.__ipvPageCount, 10);
         if (window.__ipvActive && Number.isFinite(ipv) && ipv > 0) return Math.min(maxP, ipv);
         var total = Array.isArray(readerPages) ? readerPages.length : 0;
@@ -3296,8 +3296,13 @@
     /** Split TOC across as many pages as needed so entries are never clipped. */
     function buildTocPages(chapterIdxs, frontMatterOffset) {
         var items = [];
+        var lastTocKey = '';
         for (var i = 0; i < bookChapters.length; i++) {
             if (isImportedContentsChapter(bookChapters[i])) continue;
+            var tocTitle = String((bookChapters[i] && (bookChapters[i].chapterTitle || bookChapters[i].title)) || '')
+                .trim().toLowerCase().replace(/\s+/g, ' ');
+            if (tocTitle && tocTitle === lastTocKey) continue;
+            lastTocKey = tocTitle;
             items.push(buildTocItemLiHtml(bookChapters[i], i, chapterIdxs, frontMatterOffset));
         }
         if (!items.length) items.push('<li class="toc-item toc-item-empty">No chapters yet.</li>');
@@ -6023,6 +6028,28 @@
         return [st, sz, ln, mw, mh, meta, computeBookContentSignature(bookChapters)].join('||');
     }
 
+    /** Last-resort pages so a 50+ chapter book still appears if measure-pagination throws. */
+    function buildSimpleReaderPagesFallback() {
+        var pages = [];
+        var idxs = [];
+        for (var i = 0; i < bookChapters.length; i++) {
+            var ch = bookChapters[i];
+            if (isImportedContentsChapter(ch)) continue;
+            var title = (ch && ch.chapterTitle) || ('Chapter ' + (i + 1));
+            var body = (ch && ch.content && String(ch.content).trim()) || '<p class="text-gray-500">No content yet — generate or upload this chapter.</p>';
+            var heading = typeof buildFmtChapterHeading === 'function'
+                ? buildFmtChapterHeading(ch && ch.chapterNo != null ? ch.chapterNo : (i + 1), title)
+                : ('<h2 class="reader-page-title">' + escapeHtml(title) + '</h2>');
+            var formatted = typeof formatChapterContent === 'function' ? formatChapterContent(body) : body;
+            pages.push('<div class="reader-chapter-block" data-chapter-start="1">' + heading +
+                '<section class="reader-page-body">' + formatted + '</section></div>');
+            idxs.push(i);
+        }
+        readerPages = pages;
+        readerPageChapterIdx = idxs;
+        lastReaderBuildKey = '';
+    }
+
     function ensureReaderPages(force) {
         if (!Array.isArray(bookChapters) || !bookChapters.length) {
             readerPages = [];
@@ -7148,8 +7175,11 @@
         try { sessionStorage.setItem(FORMATTER_BOOK_KEY, String(bid)); } catch (e) {}
 
         if (serverBookPayload && serverBookPayload.success) {
-            writeCachedBookPayload(bid, serverBookPayload);
-            hydrateBookFromPayload(serverBookPayload, bid, { force: true, resetPage: true });
+            try {
+                hydrateBookFromPayload(serverBookPayload, bid, { force: true, resetPage: true });
+            } catch (eSlim) {
+                console.warn('[Book Formatter] slim payload hydrate failed', eSlim);
+            }
         }
 
         await loadBookContent(bid);
@@ -7182,6 +7212,11 @@
     function hydrateBookFromPayload(data, numId, options) {
         var opts = options || {};
         if (!data || !data.success) return false;
+        var sourcePages = parseInt(data.sourcePdfPageCount, 10);
+        if (Number.isFinite(sourcePages) && sourcePages > 0) {
+            window.__sourcePdfPageCount = sourcePages;
+            window.__pageCountSource = data.pageCountSource || 'source_pdf';
+        }
         if (data.bookId && parseInt(data.bookId, 10) !== numId) {
             console.error('[Book Formatter] bookId mismatch — refusing stale payload', data.bookId, numId);
             return false;
@@ -7272,7 +7307,15 @@
                 if (rootEarly) rootEarly.setAttribute('data-spread', '0');
             }
             syncFmtPreviewLayout();
-            ensureReaderPages(true);
+            try {
+                ensureReaderPages(true);
+            } catch (pageErr) {
+                console.warn('[Book Formatter] measured pagination failed; using simple pages', pageErr);
+                try { buildSimpleReaderPagesFallback(); } catch (e2) { /* keep titles visible */ }
+            }
+            if (!readerPages.length) {
+                try { buildSimpleReaderPagesFallback(); } catch (e3) { /* ignore */ }
+            }
             populateChapterJump();
             if (!opts.skipRestorePosition) restoreReaderPosition(numId);
             togglePreviewMode();
@@ -7338,8 +7381,8 @@
 
             if (response.status === 404) {
                 console.warn('[Book Formatter] GetFullBookContent 404');
-                // Blank / new book — show empty studio, not a scary error toast.
-                bookChapters = [];
+                // Blank / new book — keep any already-hydrated chapters (slim page payload).
+                if (!bookChapters.length) showNoDataState();
                 showLoadingState(false);
                 return;
             }
@@ -7378,6 +7421,11 @@
             }
             if (!data.chapters || !data.chapters.length) {
                 try { sessionStorage.removeItem(formatterBookPayloadKey(numId)); } catch (_) { /* ignore */ }
+                if (bookChapters.length) {
+                    // Keep titles already on screen; do not flash "No chapters yet".
+                    showLoadingState(false);
+                    return;
+                }
             } else {
                 writeCachedBookPayload(numId, data);
             }
@@ -7385,13 +7433,14 @@
                 force: true,
                 resetPage: !hadWarmCache
             });
-            if (!hydrated && !hadWarmCache) {
+            if (!hydrated && !hadWarmCache && !bookChapters.length) {
                 showErrorState(null, PREVIEW_ERROR_MSG);
                 showToast('Could not prepare preview.');
                 return;
             }
             if (!bookChapters.length) {
-                // Empty book / fresh upload slot — quiet studio, no error spam.
+                // Confirmed empty book — prompt to upload / write.
+                showNoDataState();
                 showLoadingState(false);
             } else if (!hadWarmCache) {
                 queueAutosave(400);
@@ -7400,11 +7449,15 @@
         } catch (err) {
             console.error('[Book Formatter] loadBookContent error:', err);
             const bid = parseInt(document.getElementById('selected-book-id')?.value || '0', 10);
-            if (!hadWarmCache && bookChapters.length === 0) {
-                // Keep blank studio quiet; only surface real failures when we had nothing to show.
-                showErrorState(null, PREVIEW_ERROR_MSG, bid > 0 ? bid : null);
+            if (bookChapters.length) {
+                // Large-book fetch can fail after titles already loaded — keep them visible.
+                populateChapterJump();
+                if (!readerPages.length) {
+                    try { buildSimpleReaderPagesFallback(); togglePreviewMode(); } catch (eKeep) { /* ignore */ }
+                }
+                showToast('Could not refresh full chapter text. Titles are still here.');
             } else if (!hadWarmCache) {
-                showToast('Could not refresh book.');
+                showErrorState(null, PREVIEW_ERROR_MSG, bid > 0 ? bid : null);
             }
         } finally {
             showLoadingState(false);

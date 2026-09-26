@@ -3778,6 +3778,19 @@ window.showPreviewEmptyState = function () {
     var previewHeader = document.getElementById('preview-chapter-header');
     if (!previewContent) return;
     if (window._previewChaptersMeta && window._previewChaptersMeta.length > 0) return;
+    var chDdl = document.getElementById('ChapterDropdown');
+    var namedChapters = 0;
+    if (chDdl) {
+        for (var ci = 0; ci < chDdl.options.length; ci++) {
+            var ov = parseInt(chDdl.options[ci].value, 10);
+            if (Number.isFinite(ov) && ov > 0) namedChapters++;
+        }
+    }
+    if (namedChapters > 0) {
+        // Chapters exist (often after a large import) — do not replace the book with
+        // "upload from AI Writer / no chapter yet".
+        return;
+    }
     window._writerFullBookMode = false;
     window._writerBookPages = null;
     if (previewHeader) {
@@ -5633,8 +5646,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (data.reloadFromServer) {
                             var userId = (document.getElementById('UserId') || {}).value;
                             if (userId) {
-                                var detRes = await fetch('/Books/GetBookDetails?userId=' + encodeURIComponent(userId) + '&bookId=' + encodeURIComponent(data.bookId), { credentials: 'same-origin' });
-                                var det = await detRes.json().catch(function () { return null; });
+                                var det = null;
+                                for (var attempt = 0; attempt < 3 && !(det && det.success && det.chapters && det.chapters.length); attempt++) {
+                                    try {
+                                        var detRes = await fetch('/Books/GetBookDetails?userId=' + encodeURIComponent(userId) + '&bookId=' + encodeURIComponent(data.bookId), { credentials: 'same-origin' });
+                                        det = await detRes.json().catch(function () { return null; });
+                                    } catch (eDet) { det = null; }
+                                    if (!(det && det.success && det.chapters && det.chapters.length) && attempt < 2) {
+                                        await new Promise(function (ok) { setTimeout(ok, 400 * (attempt + 1)); });
+                                    }
+                                }
                                 if (det && det.success && Array.isArray(det.chapters) && det.chapters.length) {
                                     multi = det.chapters.map(function (c) {
                                         return {
@@ -5652,12 +5673,19 @@ document.addEventListener('DOMContentLoaded', function() {
                                 fileName: (f && f.name) ? f.name : '',
                                 numbersAuthoritative: true
                             });
-                        } else if (typeof window.applyImportedChapterDocument === 'function') {
+                        } else if (typeof window.applyImportedChapterDocument === 'function' && data.text) {
                             window.applyImportedChapterDocument(data.text, {
                                 suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
                                 suggestedChapterTitle: (data.suggestedChapterTitle || '').trim(),
                                 suggestedChapterNo: data.suggestedChapterNo
                             });
+                        }
+                        if (typeof window.loadBookAllChaptersNumbers === 'function') {
+                            try { await window.loadBookAllChaptersNumbers(true); } catch (eNos) { /* keep applied list */ }
+                        }
+                        var uidFlip = (document.getElementById('UserId') || {}).value;
+                        if (uidFlip && data.bookId && typeof window.loadFullBookIntoPageFlip === 'function') {
+                            window.loadFullBookIntoPageFlip(parseInt(uidFlip, 10), parseInt(data.bookId, 10));
                         }
 
                         if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
@@ -8996,38 +9024,38 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             console.log("📚 API Response data :", data);
 
-             // Clear old items from Drop-Down
-              ddl.innerHTML = "";
-
            if (!data || data.length === 0) {
                   console.log("No chapters found in response");
-                  ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
-                  window.__writerChapterTitles = Object.create(null);
-                  if (typeof window.setActiveChapter === 'function') window.setActiveChapter(0);
-                  var hiddenEmpty = document.getElementById('ChapterNo');
-                  if (hiddenEmpty) hiddenEmpty.value = '0';
+                  if (!ddl.options.length) {
+                      ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
+                      window.__writerChapterTitles = Object.create(null);
+                      if (typeof window.setActiveChapter === 'function') window.setActiveChapter(0);
+                      var hiddenEmpty = document.getElementById('ChapterNo');
+                      if (hiddenEmpty) hiddenEmpty.value = '0';
+                  }
                   if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
                   return;
               }
 
               console.log(`Found ${data.length} chapters`);
 
-             // Show only real chapters (no confusing "Enter chapter title first" placeholder row).
+             // Show only real chapters. Use DOM APIs — innerHTML += breaks when a title
+             // has quotes / < / newlines (common after a big PDF split).
              ddl.innerHTML = "";
 
-             data.forEach((row, index) => {  // Added index parameter
-                  console.log(`Chapter ${index}:`, row);
-
-                  // Check if the expected properties exist
-                  const chapterNo = row.chapterNo || row.chapter || row.ChapterNumber || 'N/A';
+             data.forEach((row, index) => {
+                  const chapterNo = row.chapterNo || row.chapter || row.ChapterNumber || '';
+                  if (chapterNo === '' || chapterNo === 'N/A') return;
                   const chapterTitle = row.chapterTitle || row.title || row.Title || '';
-
-                  // Show both ChapterNo and ChapterTitle in dropdown
                   const displayText = (typeof window.formatChapterDropdownLabel === 'function')
                       ? window.formatChapterDropdownLabel(chapterNo, chapterTitle)
                       : (`Chapter ${chapterNo}` + (chapterTitle && chapterTitle !== 'Untitled Chapter' ? (' — ' + chapterTitle) : ''));
-
-                  ddl.innerHTML += `<option value="${chapterNo}" data-status="${row.chapterStatus || row.status || 'OK'}" data-title="${String(chapterTitle).replace(/"/g, '&quot;')}">${displayText.replace(/</g, '&lt;')}</option>`;
+                  var opt = document.createElement('option');
+                  opt.value = String(chapterNo);
+                  opt.textContent = displayText;
+                  opt.setAttribute('data-status', String(row.chapterStatus || row.status || 'OK'));
+                  opt.setAttribute('data-title', String(chapterTitle));
+                  ddl.appendChild(opt);
               });
 
               // Select the first chapter and update status
@@ -9052,13 +9080,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
           } catch (error) {
               console.error("Error loading chapters:", error);
-              // Keep soft placeholder — never invent "Chapter 1" when load fails / no book.
-              ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
-              if (statusInput) statusInput.value = "OK";
+              // Do not wipe a long chapter list on a flaky fetch — that is the "no chapters yet" bug.
+              if (!ddl.options.length) {
+                  ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
+              }
+              if (statusInput && !ddl.options.length) statusInput.value = "OK";
           }
           if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
 
      }
+     try { window.loadBookAllChaptersNumbers = loadBookAllChaptersNumbers; } catch (eBindCh) { /* ignore */ }
 
       //=============================================
      //   Update Chapter Form with Loaded Data
