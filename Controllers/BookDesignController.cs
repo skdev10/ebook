@@ -189,7 +189,7 @@ namespace EBookDashboard.Controllers
         /// <summary>Loads full book chapters for the Book Formatter preview (session-scoped).</summary>
         [HttpGet]
         [DisableRequestTimeout]
-        public async Task<IActionResult> GetFormatterBookContent(int bookId)
+        public async Task<IActionResult> GetFormatterBookContent(int bookId, bool includeBodies = true)
         {
             try
             {
@@ -200,7 +200,7 @@ namespace EBookDashboard.Controllers
                 if (bookId <= 0)
                     return Json(new { success = false, message = "Book ID is required." });
 
-                var result = await _bookService.GetBookDetailsForPreviewAsync(userId.Value, bookId);
+                var result = await _bookService.GetBookDetailsForPreviewAsync(userId.Value, bookId, includeBodies);
                 if (result == null || !result.Success)
                     return Json(new { success = false, message = result?.Message ?? "No book found." });
 
@@ -224,14 +224,16 @@ namespace EBookDashboard.Controllers
                     authorName = result.AuthorName ?? "",
                     coverImagePath = result.CoverImagePath ?? "",
                     totalChapters = result.TotalChapters,
-                    bookContentHtml = result.BookContentHtml ?? "",
                     sourcePdfPageCount = sourcePdfPages,
                     pageCountSource = sourcePdfPages > 0 ? "source_pdf" : "",
-                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
+                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select((c, i) => new
                     {
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
-                        content = c.Content ?? ""
+                        content = includeBodies
+                            ? (i < 4 ? (c.Content ?? "") : TruncateFormatterPreviewBody(c.Content, 2400))
+                            : "",
+                        hasContent = !string.IsNullOrWhiteSpace(c.Content)
                     }).ToList()
                 });
             }
@@ -1516,6 +1518,12 @@ namespace EBookDashboard.Controllers
             }
 
             return null;
+        }
+
+        private static string TruncateFormatterPreviewBody(string? html, int maxChars)
+        {
+            if (string.IsNullOrEmpty(html) || html.Length <= maxChars) return html ?? "";
+            return html.Substring(0, maxChars) + "…";
         }
 
         /// <summary>

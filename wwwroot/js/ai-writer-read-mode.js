@@ -380,6 +380,7 @@
         var splitFn = global.splitHtmlIntoReaderPages;
         if (typeof splitFn !== 'function') return { pages: chapterPages, idxs: chapterIdxs };
 
+        var measureNow = meta.length <= 6 ? meta.length : 3;
         for (var i = 0; i < meta.length; i++) {
             var ch = meta[i];
             if (!ch || ch.loading) continue;
@@ -393,11 +394,14 @@
             var pages;
             if (ch._pagesCache && ch._pagesCacheKey === key && ch._pagesCache.length) {
                 pages = ch._pagesCache;
-            } else {
+            } else if (i < measureNow) {
                 pages = splitFn(fullHtml, shell, viewport);
                 if (!pages.length) pages = [fullHtml];
                 ch._pagesCache = pages;
                 ch._pagesCacheKey = key;
+            } else {
+                // Later chapters: one unmeasured page so upload/open does not freeze the tab.
+                pages = [fullHtml];
             }
             for (var p = 0; p < pages.length; p++) {
                 var pageHtml = normalizeChapterPageHtml(pages[p]);
@@ -410,7 +414,7 @@
                 chapterIdxs.push(i);
             }
         }
-        if (global.BookReaderPagination && typeof global.BookReaderPagination.fillUnderfilledPages === 'function') {
+        if (meta.length <= 8 && global.BookReaderPagination && typeof global.BookReaderPagination.fillUnderfilledPages === 'function') {
             var mh = document.getElementById('previewMeasureHost');
             var box = typeof global.getReaderPageMeasureBox === 'function'
                 ? global.getReaderPageMeasureBox(shell, viewport)

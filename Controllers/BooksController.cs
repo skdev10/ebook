@@ -571,11 +571,11 @@ namespace EBookDashboard.Controllers
                         previewAccent = exportOpt.PreviewAccent ?? ""
                     },
                     interiorCss,
-                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select(c => new
+                    chapters = result.Chapters.OrderBy(c => c.ChapterNumber).Select((c, i) => new
                     {
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
-                        content = c.Content ?? ""
+                        content = i < 3 ? (c.Content ?? "") : TruncateBookPreviewBody(c.Content, 1600)
                     }).ToList()
                 });
             }
@@ -1885,7 +1885,7 @@ namespace EBookDashboard.Controllers
         //==============================================
         [HttpGet]
         [DisableRequestTimeout]
-        public async Task<IActionResult> GetBookDetails(int userId, int bookId)
+        public async Task<IActionResult> GetBookDetails(int userId, int bookId, bool includeBodies = true)
         {
             try
             {
@@ -1898,7 +1898,9 @@ namespace EBookDashboard.Controllers
 
                 // Get chapters from APIRawResponse with user filtering
 
-                var result = await _bookService.GetBookDetailsAsync(userId, bookId);
+                var result = includeBodies
+                    ? await _bookService.GetBookDetailsAsync(userId, bookId)
+                    : await _bookService.GetBookDetailsForPreviewAsync(userId, bookId, includeBodies: false);
                 if (result == null)
                 {
                     Console.WriteLine($"❌ [Controller] Book {bookId} not found for user {userId}");
@@ -1927,9 +1929,10 @@ namespace EBookDashboard.Controllers
                         responseId = c.ResponseId,
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
-                        chapterTopic = ChapterPromptComposer.ParseChapterTopicFromRequestData(c.RequestData),
-                        requestData = c.RequestData,
-                        content = c.Content,
+                        chapterTopic = includeBodies ? ChapterPromptComposer.ParseChapterTopicFromRequestData(c.RequestData) : "",
+                        requestData = includeBodies ? c.RequestData : "",
+                        content = includeBodies ? c.Content : "",
+                        hasContent = !string.IsNullOrWhiteSpace(c.Content) || !string.IsNullOrWhiteSpace(c.Title),
                         statusCode = c.StatusCode
                     }).ToList()
                 });
@@ -3837,33 +3840,15 @@ namespace EBookDashboard.Controllers
                         .Select(r => (int?)r.Chapter)
                         .MaxAsync(cancellationToken) ?? 0;
 
+                    var importBatch = new List<(int ChapterNo, string Title, string Body)>(splitChapters.Count);
                     foreach (var sc in splitChapters)
                     {
                         var no = ++lastChapterNo;
                         var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {no}" : sc.Title.Trim();
-                        try
-                        {
-                            var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                                userId, bookId, no, chTitle, sc.Body, null, "doc-import", cancellationToken);
-                            if (responseId <= 0)
-                                throw new InvalidOperationException($"Could not save chapter {no} to the database.");
-
-                            // Finalize + upsert into chapters table so formatting / export see the content.
-                            var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
-                                userId, bookId, no, responseId, cancellationToken);
-                            if (!promoted)
-                            {
-                                // Fallback: keep iteration current even if library upsert fails.
-                                await _chapterIterationService.PromoteAsCurrentVersionAsync(
-                                    userId, bookId, no, responseId, cancellationToken);
-                            }
-                            savedNumbers.Add(no);
-                        }
-                        catch (Exception oneEx)
-                        {
-                            _logger.LogWarning(oneEx, "ImportChapterFile: skipped chapter {No} ({Title}) for book {BookId}", no, chTitle, bookId);
-                        }
+                        importBatch.Add((no, chTitle, sc.Body ?? ""));
                     }
+                    savedNumbers.AddRange(await _chapterIterationService.PersistImportedChaptersBulkAsync(
+                        userId, bookId, importBatch, cancellationToken));
 
                     persisted = savedNumbers.Count > 0;
                     if (persisted)
@@ -4572,32 +4557,16 @@ namespace EBookDashboard.Controllers
                 }
 
                 var savedNumbers = new List<int>();
+                var importBatch = new List<(int ChapterNo, string Title, string Body)>(splitChapters.Count);
                 var chapterNo = 0;
                 foreach (var sc in splitChapters)
                 {
                     chapterNo++;
                     var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {chapterNo}" : sc.Title.Trim();
-                    try
-                    {
-                        var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                            userId, bookId, chapterNo, chTitle, sc.Body, null, "doc-import", cancellationToken);
-                        if (responseId <= 0)
-                            throw new InvalidOperationException($"Could not save chapter {chapterNo}.");
-
-                        var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
-                            userId, bookId, chapterNo, responseId, cancellationToken);
-                        if (!promoted)
-                        {
-                            await _chapterIterationService.PromoteAsCurrentVersionAsync(
-                                userId, bookId, chapterNo, responseId, cancellationToken);
-                        }
-                        savedNumbers.Add(chapterNo);
-                    }
-                    catch (Exception oneEx)
-                    {
-                        _logger.LogWarning(oneEx, "UploadManuscript: skipped chapter {No} ({Title}) for book {BookId}", chapterNo, chTitle, bookId);
-                    }
+                    importBatch.Add((chapterNo, chTitle, sc.Body ?? ""));
                 }
+                savedNumbers.AddRange(await _chapterIterationService.PersistImportedChaptersBulkAsync(
+                    userId, bookId, importBatch, cancellationToken));
 
                 if (savedNumbers.Count == 0)
                     return Json(new { success = false, message = "File was read but no chapters could be saved." });
@@ -6259,6 +6228,12 @@ namespace EBookDashboard.Controllers
                 .Select(s => s.Value)
                 .FirstOrDefaultAsync(cancellationToken);
             return int.TryParse(raw, out var n) && n > 0 ? n : 0;
+        }
+
+        private static string TruncateBookPreviewBody(string? html, int maxChars)
+        {
+            if (string.IsNullOrEmpty(html) || html.Length <= maxChars) return html ?? "";
+            return html.Substring(0, maxChars) + "…";
         }
 
         private async Task PersistSourcePdfPageCountAsync(int bookId, int sourcePages)

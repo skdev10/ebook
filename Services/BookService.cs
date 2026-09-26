@@ -765,7 +765,7 @@ namespace EBookDashboard.Services
         /// Lightweight book + chapters load for formatter/preview. Skips isActive updates for faster response.
         /// Use this for GetFullBookContent (Book Formatter page) so loading does not time out.
         /// </summary>
-        public async Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId)
+        public async Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId, bool includeBodies = true)
         {
             try
             {
@@ -779,7 +779,7 @@ namespace EBookDashboard.Services
                 List<ChapterDto> chapters;
                 try
                 {
-                    chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true, includeBodies: true);
+                    chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true, includeBodies: includeBodies);
                 }
                 catch (Exception bodyEx)
                 {
@@ -805,7 +805,7 @@ namespace EBookDashboard.Services
                     CoverImagePath = book.CoverImagePath,
                     TotalChapters = chapters.Count,
                     Chapters = chapters,
-                    BookContentHtml = book.BookContentHtml
+                    BookContentHtml = includeBodies ? (book.BookContentHtml ?? "") : ""
                 };
             }
             catch (Exception ex)

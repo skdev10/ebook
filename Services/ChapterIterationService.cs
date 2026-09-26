@@ -536,6 +536,151 @@ namespace EBookDashboard.Services
             || string.Equals(status, "Final", StringComparison.OrdinalIgnoreCase)
             || string.Equals(status, "Finalized", StringComparison.OrdinalIgnoreCase);
 
+        /// <inheritdoc />
+        public async Task<IReadOnlyList<int>> PersistImportedChaptersBulkAsync(
+            int userId,
+            int bookId,
+            IReadOnlyList<(int ChapterNo, string Title, string Body)> chapters,
+            CancellationToken cancellationToken = default)
+        {
+            if (userId <= 0 || bookId <= 0 || chapters == null || chapters.Count == 0)
+                return Array.Empty<int>();
+
+            var now = DateTime.UtcNow;
+            var raws = new List<APIRawResponse>(chapters.Count);
+            foreach (var ch in chapters)
+            {
+                if (ch.ChapterNo <= 0) continue;
+                var body = ch.Body ?? string.Empty;
+                if (body.Length > 2_000_000)
+                    body = body.Substring(0, 2_000_000) + "\n...[truncated for iteration storage]";
+                var title = string.IsNullOrWhiteSpace(ch.Title) ? $"Chapter {ch.ChapterNo}" : ch.Title.Trim();
+                if (title.Length > 500)
+                    title = title[..500];
+                raws.Add(new APIRawResponse
+                {
+                    Endpoint = "doc-import",
+                    Chapter = ch.ChapterNo,
+                    Title = title,
+                    RequestData = "{}",
+                    ResponseData = body.Length > 80_000
+                        ? "{\"data\":{\"content\":\"[stored in Content column]\"}}"
+                        : JsonConvert.SerializeObject(new { data = new { content = body } }),
+                    UserId = userId,
+                    BookId = bookId,
+                    StatusCode = "OK",
+                    Content = body,
+                    CreatedAt = now
+                });
+            }
+            if (raws.Count == 0)
+                return Array.Empty<int>();
+
+            _db.APIRawResponse.AddRange(raws);
+            await _db.SaveChangesAsync(cancellationToken);
+
+            var nos = raws.Select(r => r.Chapter).ToHashSet();
+            var existingLib = await _db.Chapters
+                .Where(c => c.BookId == bookId && nos.Contains(c.ChapterNumber))
+                .ToListAsync(cancellationToken);
+            var libByNo = existingLib.ToDictionary(c => c.ChapterNumber);
+
+            var existingIters = await _db.Set<ChapterIteration>()
+                .Where(i => i.UserId == userId && i.BookId == bookId && nos.Contains(i.ChapterNumber))
+                .Select(i => new { i.ChapterNumber, i.ChapterSeriesGuid, i.IterationNumber })
+                .ToListAsync(cancellationToken);
+            var seriesByNo = existingIters
+                .GroupBy(i => i.ChapterNumber)
+                .ToDictionary(g => g.Key, g =>
+                {
+                    var guid = g.Select(x => x.ChapterSeriesGuid).FirstOrDefault(x => x != Guid.Empty);
+                    return guid == Guid.Empty ? Guid.NewGuid() : guid;
+                });
+            var maxItByNo = existingIters
+                .GroupBy(i => i.ChapterNumber)
+                .ToDictionary(g => g.Key, g => g.Max(x => x.IterationNumber));
+
+            var siblings = await _db.Set<ChapterIteration>()
+                .Where(i => i.UserId == userId && i.BookId == bookId && nos.Contains(i.ChapterNumber) && i.IsFinalized)
+                .ToListAsync(cancellationToken);
+            foreach (var s in siblings)
+            {
+                s.IsFinalized = false;
+                s.IsLocked = false;
+                s.FinalizedDate = null;
+                s.FinalizedTime = null;
+            }
+
+            foreach (var raw in raws)
+            {
+                if (!seriesByNo.TryGetValue(raw.Chapter, out var guid) || guid == Guid.Empty)
+                    guid = Guid.NewGuid();
+                var nextIt = (maxItByNo.TryGetValue(raw.Chapter, out var m) ? m : 0) + 1;
+                maxItByNo[raw.Chapter] = nextIt;
+                seriesByNo[raw.Chapter] = guid;
+
+                var title = raw.Title ?? $"Chapter {raw.Chapter}";
+                var body = raw.Content ?? string.Empty;
+                _db.Set<ChapterIteration>().Add(new ChapterIteration
+                {
+                    ChapterSeriesGuid = guid,
+                    BookId = bookId,
+                    UserId = userId,
+                    ChapterNumber = raw.Chapter,
+                    IterationNumber = nextIt,
+                    ResponseId = raw.ResponseId,
+                    Title = title,
+                    Content = body,
+                    GenerationDate = now.Date,
+                    GenerationTime = now.TimeOfDay,
+                    IsFinalized = true,
+                    IsLocked = true,
+                    FinalizedDate = now.Date,
+                    FinalizedTime = now.TimeOfDay
+                });
+
+                var libTitle = title.Length > 200 ? title[..200] : title;
+                var wc = ApproximateWordCount(body);
+                if (libByNo.TryGetValue(raw.Chapter, out var row))
+                {
+                    row.Title = libTitle;
+                    row.Content = body;
+                    row.Status = "ReadOnly";
+                    row.WordCount = wc;
+                    row.UpdatedAt = now;
+                    row.UpdatedByUserId = userId;
+                    if (row.LanguageId <= 0) row.LanguageId = 1;
+                    if (row.SrNo <= 0) row.SrNo = raw.Chapter;
+                    if (row.OrderIndex <= 0) row.OrderIndex = raw.Chapter;
+                }
+                else
+                {
+                    var added = new Chapters
+                    {
+                        BookId = bookId,
+                        ChapterNumber = raw.Chapter,
+                        SrNo = raw.Chapter,
+                        OrderIndex = raw.Chapter,
+                        Title = libTitle,
+                        SubTitle = string.Empty,
+                        Content = body,
+                        LanguageId = 1,
+                        WordCount = wc,
+                        Status = "ReadOnly",
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                        UpdatedByUserId = userId,
+                        IsPublished = false
+                    };
+                    _db.Chapters.Add(added);
+                    libByNo[raw.Chapter] = added;
+                }
+            }
+
+            await _db.SaveChangesAsync(cancellationToken);
+            return raws.Select(r => r.Chapter).ToList();
+        }
+
         private static int ApproximateWordCount(string? html)
         {
             if (string.IsNullOrWhiteSpace(html))

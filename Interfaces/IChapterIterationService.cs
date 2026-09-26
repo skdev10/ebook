@@ -36,5 +36,15 @@ namespace EBookDashboard.Interfaces
         /// Inserts <c>apirawresponse</c> + a new <c>chapter_iterations</c> row (next sequence) for manual saves, imports, or inline edits — never overwrites prior versions.
         /// </summary>
         Task<int> RecordUserContentVersionAsync(int userId, int bookId, int chapterNumber, string chapterTitle, string bodyContent, string? topic, string endpointTag, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Fast PDF/Word import: one insert for all raw rows, then one upsert for library + iterations.
+        /// Avoids the per-chapter Serializable promote that freezes the upload after the file is sent.
+        /// </summary>
+        Task<IReadOnlyList<int>> PersistImportedChaptersBulkAsync(
+            int userId,
+            int bookId,
+            IReadOnlyList<(int ChapterNo, string Title, string Body)> chapters,
+            CancellationToken cancellationToken = default);
     }
 }
