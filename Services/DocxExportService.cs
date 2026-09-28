@@ -59,9 +59,9 @@ public class DocxExportService : IDocxExportService
             var narrativeOrdinal = 0;
             foreach (var ch in chapters)
             {
-                if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+                if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                     narrativeOrdinal++;
-                var displayOrd = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber)
+                var displayOrd = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title)
                     ? 1
                     : narrativeOrdinal;
                 var chTitle = BookChapterExportHelper.GetExportHeading(ch.Title, ch.ChapterNumber, displayOrd).Trim();

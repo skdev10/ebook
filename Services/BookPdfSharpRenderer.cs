@@ -44,9 +44,9 @@ public static class BookPdfSharpRenderer
         var narrative = 0;
         foreach (var ch in chapters)
         {
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                 narrative++;
-            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : narrative;
+            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 1 : narrative;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
             var heading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);

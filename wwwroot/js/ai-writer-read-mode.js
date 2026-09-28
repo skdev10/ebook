@@ -83,7 +83,7 @@
         var chNo = chapterNo != null ? parseInt(String(chapterNo), 10) : NaN;
         if (!Number.isFinite(chNo)) chNo = narrativeOrd;
         var t = (title || '').trim();
-        if (chNo <= 0) return t || 'Front matter';
+        if (chNo <= 0 || isFrontMatterMeta({ chapterNo: chNo, title: t })) return t || 'Front matter';
         if (!t || /^\s*Chapter\s*0\s*:?\s*$/i.test(t)) return 'Chapter ' + narrativeOrd;
         if (/^\s*Chapter\s+\d+/i.test(t)) return t;
         return 'Chapter ' + narrativeOrd + ': ' + t;
@@ -130,16 +130,26 @@
             '</div></div>';
     }
 
+    function isFrontMatterMeta(ch) {
+        var n = ch && ch.chapterNo != null ? parseInt(String(ch.chapterNo), 10) : NaN;
+        if (Number.isFinite(n) && n <= 0) return true;
+        var t = String((ch && (ch.title || ch.chapterTitle)) || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        t = t.replace(/^(?:chapter|ch\.?)\s*[0-9ivxlcdm]+\s*[:.\-–—]?\s*/i, '').trim();
+        return t === 'preface' || t === 'foreword' || t === 'dedication' || t === 'epigraph'
+            || t === 'introduction' || t === 'prologue' || t === 'acknowledgments' || t === 'acknowledgements';
+    }
+
     function buildTocPage(chaptersMeta, chapterStartPages, pageOffset) {
         var items = [];
         var narrative = 0;
         for (var i = 0; i < chaptersMeta.length; i++) {
             var ch = chaptersMeta[i];
             if (!ch || ch.loading) continue;
-            narrative++;
-            var title = (ch.title || '').trim() || ('Chapter ' + narrative);
-            var chNo = ch.chapterNo != null ? ch.chapterNo : (i + 1);
-            var line = getPreviewStyleHeading(title, chNo, narrative);
+            var isFm = isFrontMatterMeta(ch);
+            if (!isFm) narrative++;
+            var title = (ch.title || '').trim() || (isFm ? 'Front matter' : ('Chapter ' + narrative));
+            var chNo = ch.chapterNo != null ? ch.chapterNo : (isFm ? 0 : narrative);
+            var line = getPreviewStyleHeading(title, isFm ? 0 : chNo, isFm ? 1 : narrative);
             var subs = extractHeadingsFromHtml(ch.html || '');
             var startInChapters = chapterStartPages[i];
             var pageNo = (startInChapters != null ? startInChapters : 0) + pageOffset + 1;
@@ -333,14 +343,18 @@
         html = String(html || '');
         if (/fmt-chapter-opener/.test(html)) return html;
         var chNo = ch && ch.chapterNo != null ? parseInt(ch.chapterNo, 10) : narrativeOrd;
-        if (!Number.isFinite(chNo) || chNo < 1) chNo = narrativeOrd || 1;
         var title = pickChapterDisplayTitle(ch, html);
+        if (isFrontMatterMeta(ch) || (Number.isFinite(chNo) && chNo <= 0)) {
+            chNo = 0;
+        } else if (!Number.isFinite(chNo) || chNo < 1) {
+            chNo = narrativeOrd || 1;
+        }
         var opener = typeof global.buildPreviewChapterHeadingHtml === 'function'
             ? global.buildPreviewChapterHeadingHtml(title, escapeHtml, chNo)
             : ('<header class="fmt-chapter-opener manuscript-chapter-heading writer-chapter-opener">' +
                 '<span class="fmt-ch-flourish" aria-hidden="true">\u2766</span>' +
-                '<span class="fmt-ch-eyebrow">Chapter ' + chNo + '</span>' +
-                (title ? '<span class="fmt-ch-title">' + escapeHtml(title) + '</span>' : '') +
+                '<span class="fmt-ch-eyebrow">' + (chNo <= 0 ? escapeHtml(title || 'Preface') : ('Chapter ' + chNo)) + '</span>' +
+                (chNo > 0 && title ? '<span class="fmt-ch-title">' + escapeHtml(title) + '</span>' : '') +
                 '<span class="fmt-ch-rule" aria-hidden="true"></span></header>');
         try {
             var wrap = document.createElement('div');

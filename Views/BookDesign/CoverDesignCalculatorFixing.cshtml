@@ -3222,14 +3222,31 @@
 
     function isFrontMatterChapter(ch) {
         var n = ch && ch.chapterNo != null ? parseInt(String(ch.chapterNo), 10) : NaN;
-        return Number.isFinite(n) && n <= 0;
+        if (Number.isFinite(n) && n <= 0) return true;
+        var t = String((ch && (ch.chapterTitle || ch.title)) || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        t = t.replace(/^(?:chapter|ch\.?)\s*[0-9ivxlcdm]+\s*[:.\-–—]?\s*/i, '').trim();
+        if (!t) return false;
+        var exact = {
+            preface: 1, foreword: 1, dedication: 1, epigraph: 1,
+            acknowledgments: 1, acknowledgements: 1, introduction: 1, prologue: 1,
+            copyright: 1, 'copyright page': 1, 'copyright page content': 1,
+            'table of contents': 1, contents: 1, toc: 1,
+            'title page': 1, 'half title': 1
+        };
+        if (exact[t]) return true;
+        var prefixes = ['preface', 'foreword', 'dedication', 'epigraph', 'acknowledgments', 'acknowledgements', 'prologue'];
+        for (var i = 0; i < prefixes.length; i++) {
+            var p = prefixes[i];
+            if (t.length > p.length && t.indexOf(p) === 0 && /[\s:\-–—]/.test(t.charAt(p.length))) return true;
+        }
+        return false;
     }
 
     function getPreviewStyleHeading(title, chapterNo, narrativeOrd) {
         var chNo = chapterNo != null ? parseInt(String(chapterNo), 10) : NaN;
         if (!Number.isFinite(chNo)) chNo = narrativeOrd;
         var t = (title || '').trim();
-        if (chNo <= 0) return t || 'Front matter';
+        if (chNo <= 0 || isFrontMatterChapter({ chapterNo: chNo, chapterTitle: t })) return t || 'Front matter';
         if (!t || /^\s*Chapter\s*0\s*:?\s*$/i.test(t)) return 'Chapter ' + narrativeOrd;
         if (/^\s*Chapter\s+\d+/i.test(t)) return t;
         return 'Chapter ' + narrativeOrd + ': ' + t;

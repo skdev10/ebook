@@ -3441,24 +3441,39 @@ window.markReaderBlockChapterStart = function (html) {
     }
 };
 
-/** Visible chapter opener: always "Chapter N" + optional title (never empty). */
+/** Visible chapter opener: "Chapter N" for narrative; plain title for Preface / front matter. */
 window.buildPreviewChapterHeadingHtml = function (titleRaw, escFn, chapterNo) {
-    var n = parseInt(String(chapterNo), 10);
-    if (!Number.isFinite(n) || n < 1) {
-        var fromTitle = String(titleRaw || '').match(/chapter\s*(\d+)/i);
-        n = fromTitle ? parseInt(fromTitle[1], 10) : 1;
-        if (!Number.isFinite(n) || n < 1) n = 1;
-    }
-    var t = window.sanitizeChapterTitleForInput
-        ? window.sanitizeChapterTitleForInput(titleRaw)
-        : String(titleRaw == null ? '' : titleRaw).trim();
-    if (t && /^chapter\s+\d+$/i.test(t)) t = '';
     var esc = typeof escFn === 'function' ? escFn : function (x) {
         return String(x == null ? '' : x)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;');
     };
+    var t = window.sanitizeChapterTitleForInput
+        ? window.sanitizeChapterTitleForInput(titleRaw)
+        : String(titleRaw == null ? '' : titleRaw).trim();
+    var n = parseInt(String(chapterNo), 10);
+    var key = String(t || '').replace(/\s+/g, ' ').trim().toLowerCase()
+        .replace(/^(?:chapter|ch\.?)\s*[0-9ivxlcdm]+\s*[:.\-–—]?\s*/i, '').trim();
+    var frontExact = {
+        preface: 1, foreword: 1, dedication: 1, epigraph: 1,
+        acknowledgments: 1, acknowledgements: 1, introduction: 1, prologue: 1
+    };
+    var isFront = (Number.isFinite(n) && n <= 0) || !!frontExact[key];
+    if (isFront) {
+        var fmTitle = t || 'Preface';
+        return '<header class="fmt-chapter-opener manuscript-chapter-heading writer-chapter-opener">' +
+            '<span class="fmt-ch-flourish" aria-hidden="true">\u2766</span>' +
+            '<span class="fmt-ch-eyebrow">' + esc(fmTitle) + '</span>' +
+            '<span class="fmt-ch-rule" aria-hidden="true"></span>' +
+            '</header>';
+    }
+    if (!Number.isFinite(n) || n < 1) {
+        var fromTitle = String(titleRaw || '').match(/chapter\s*(\d+)/i);
+        n = fromTitle ? parseInt(fromTitle[1], 10) : 1;
+        if (!Number.isFinite(n) || n < 1) n = 1;
+    }
+    if (t && /^chapter\s+\d+$/i.test(t)) t = '';
     var titleHtml = t ? ('<span class="fmt-ch-title">' + esc(t) + '</span>') : '';
     return '<header class="fmt-chapter-opener manuscript-chapter-heading writer-chapter-opener">' +
         '<span class="fmt-ch-flourish" aria-hidden="true">\u2766</span>' +

@@ -3829,14 +3829,37 @@ namespace EBookDashboard.Controllers
                     }
 
                     var lastChapterNo = await _context.APIRawResponse.AsNoTracking()
-                        .Where(r => r.UserId == userId && r.BookId == bookId)
+                        .Where(r => r.UserId == userId && r.BookId == bookId && r.Chapter > 0)
                         .Select(r => (int?)r.Chapter)
                         .MaxAsync(cancellationToken) ?? 0;
 
                     foreach (var sc in splitChapters)
                     {
-                        var no = ++lastChapterNo;
-                        var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {no}" : sc.Title.Trim();
+                        var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? null : sc.Title.Trim();
+                        int no;
+                        if (BookChapterExportHelper.IsFrontMatterSectionTitle(chTitle))
+                        {
+                            // Persist as Notes front matter (chapter 0) — never as Chapter 1 / Chapter N.
+                            no = 0;
+                            chTitle ??= "Preface";
+                            var existingFm = await _context.Chapters.FirstOrDefaultAsync(
+                                c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
+                                cancellationToken);
+                            if (existingFm != null)
+                            {
+                                existingFm.Content = sc.Body;
+                                existingFm.UpdatedAt = DateTime.UtcNow;
+                                await _context.SaveChangesAsync(cancellationToken);
+                                savedNumbers.Add(0);
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            no = ++lastChapterNo;
+                            chTitle ??= $"Chapter {no}";
+                        }
+
                         var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
                             userId, bookId, no, chTitle, sc.Body, null, "doc-import", cancellationToken);
                         if (responseId <= 0)
@@ -3851,6 +3874,31 @@ namespace EBookDashboard.Controllers
                             await _chapterIterationService.PromoteAsCurrentVersionAsync(
                                 userId, bookId, no, responseId, cancellationToken);
                         }
+
+                        // Front-matter finalize may land as chapter > 0 depending on iteration service —
+                        // force a Notes row at chapter 0 with the section title.
+                        if (no == 0)
+                        {
+                            var fmRow = await _context.Chapters.FirstOrDefaultAsync(
+                                c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
+                                cancellationToken);
+                            if (fmRow == null)
+                            {
+                                _context.Chapters.Add(new Chapters
+                                {
+                                    BookId = bookId,
+                                    ChapterNumber = 0,
+                                    Title = chTitle,
+                                    Content = sc.Body,
+                                    Status = "Notes",
+                                    LanguageId = 1,
+                                    CreatedAt = DateTime.UtcNow,
+                                    UpdatedAt = DateTime.UtcNow
+                                });
+                                await _context.SaveChangesAsync(cancellationToken);
+                            }
+                        }
+
                         savedNumbers.Add(no);
                     }
 
@@ -4553,21 +4601,67 @@ namespace EBookDashboard.Controllers
                 var chapterNo = 0;
                 foreach (var sc in splitChapters)
                 {
-                    chapterNo++;
-                    var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? $"Chapter {chapterNo}" : sc.Title.Trim();
+                    var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? null : sc.Title.Trim();
+                    int persistNo;
+                    if (BookChapterExportHelper.IsFrontMatterSectionTitle(chTitle))
+                    {
+                        persistNo = 0;
+                        chTitle ??= "Preface";
+                        var existingFm = await _context.Chapters.FirstOrDefaultAsync(
+                            c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
+                            cancellationToken);
+                        if (existingFm != null)
+                        {
+                            existingFm.Content = sc.Body;
+                            existingFm.UpdatedAt = DateTime.UtcNow;
+                            await _context.SaveChangesAsync(cancellationToken);
+                            savedNumbers.Add(0);
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        chapterNo++;
+                        persistNo = chapterNo;
+                        chTitle ??= $"Chapter {persistNo}";
+                    }
+
                     var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                        userId, bookId, chapterNo, chTitle, sc.Body, null, "doc-import", cancellationToken);
+                        userId, bookId, persistNo, chTitle, sc.Body, null, "doc-import", cancellationToken);
                     if (responseId <= 0)
-                        throw new InvalidOperationException($"Could not save chapter {chapterNo}.");
+                        throw new InvalidOperationException($"Could not save chapter {persistNo}.");
 
                     var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
-                        userId, bookId, chapterNo, responseId, cancellationToken);
+                        userId, bookId, persistNo, responseId, cancellationToken);
                     if (!promoted)
                     {
                         await _chapterIterationService.PromoteAsCurrentVersionAsync(
-                            userId, bookId, chapterNo, responseId, cancellationToken);
+                            userId, bookId, persistNo, responseId, cancellationToken);
                     }
-                    savedNumbers.Add(chapterNo);
+
+                    if (persistNo == 0)
+                    {
+                        var fmRow = await _context.Chapters.FirstOrDefaultAsync(
+                            c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
+                            cancellationToken);
+                        if (fmRow == null)
+                        {
+                            _context.Chapters.Add(new Chapters
+                            {
+                                BookId = bookId,
+                                ChapterNumber = 0,
+                                Title = chTitle,
+                                Content = sc.Body,
+                                Status = "Notes",
+                                LanguageId = 1,
+                                CreatedAt = DateTime.UtcNow,
+                                UpdatedAt = DateTime.UtcNow
+                            });
+                            await _context.SaveChangesAsync(cancellationToken);
+                        }
+                    }
+
+                    savedNumbers.Add(persistNo);
                 }
 
                 if (savedNumbers.Count == 0)

@@ -70,9 +70,9 @@ public sealed class BookRenderService : IBookRenderService
         for (var i = 0; i < chapters.Count; i++)
         {
             var ch = chapters[i];
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                 tocNarrative++;
-            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : tocNarrative;
+            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 1 : tocNarrative;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
             chapterTitles.Add(BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum));

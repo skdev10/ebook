@@ -672,7 +672,7 @@ namespace EBookDashboard.Services
                 mapped = raw.Select(c => new ChapterDto
                 {
                     ResponseId = c.ResponseId,
-                    ChapterNumber = c.Chapter <= 0 ? 1 : c.Chapter,
+                    ChapterNumber = c.Chapter,
                     Title = c.Title ?? "Untitled Chapter",
                     RequestData = c.RequestData,
                     Content = ResolveChapterBodyContent(c.Content, null),
@@ -696,7 +696,7 @@ namespace EBookDashboard.Services
                 mapped = raw.Select(c => new ChapterDto
                 {
                     ResponseId = c.ResponseId,
-                    ChapterNumber = c.Chapter <= 0 ? 1 : c.Chapter,
+                    ChapterNumber = c.Chapter,
                     Title = c.Title ?? "Untitled Chapter",
                     RequestData = c.RequestData,
                     Content = string.Empty,
@@ -741,7 +741,7 @@ namespace EBookDashboard.Services
             return rawChapters.Select(c => new ChapterDto
             {
                 ResponseId = c.ResponseId,
-                ChapterNumber = c.Chapter <= 0 ? 1 : c.Chapter,
+                ChapterNumber = c.Chapter,
                 Title = c.Title ?? "Untitled Chapter",
                 RequestData = c.RequestData,
                 Content = ResolveChapterBodyContent(c.Content, null),
@@ -926,25 +926,50 @@ namespace EBookDashboard.Services
                 || string.Equals(status, "Final", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(status, "Finalized", StringComparison.OrdinalIgnoreCase);
 
+            // Chapter 0 Notes (Preface, Dedication, …): keep each unique title — do not collapse by number.
+            var frontMatterLibrary = libHeads
+                .Where(c => c.ChapterNumber <= 0 && (!includeBodies || HasBody(c.Content)))
+                .GroupBy(c => BookChapterExportHelper.NormalizeFrontMatterTitleKey(c.Title))
+                .Where(g => !string.IsNullOrEmpty(g.Key))
+                .Select(g => g
+                    .OrderByDescending(x => IsOfficialStatus(x.Status))
+                    .ThenByDescending(x => x.UpdatedAt)
+                    .First())
+                .ToList();
+
             var official = libHeads
-                .Where(c => IsOfficialStatus(c.Status) && (!includeBodies || HasBody(c.Content)))
+                .Where(c => c.ChapterNumber > 0 && IsOfficialStatus(c.Status) && (!includeBodies || HasBody(c.Content)))
                 .GroupBy(c => c.ChapterNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 
             var draftLibrary = libHeads
-                .Where(c => (!includeBodies || HasBody(c.Content)) && !official.ContainsKey(c.ChapterNumber))
+                .Where(c => c.ChapterNumber > 0 && (!includeBodies || HasBody(c.Content)) && !official.ContainsKey(c.ChapterNumber))
                 .GroupBy(c => c.ChapterNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 
             var numbers = official.Keys
                 .Union(draftLibrary.Keys)
-                .Union(rawLatest.Select(r => r.ChapterNumber))
-                .Union(iterByChapter.Keys)
+                .Union(rawLatest.Where(r => r.ChapterNumber > 0).Select(r => r.ChapterNumber))
+                .Union(iterByChapter.Keys.Where(k => k > 0))
                 .Distinct()
                 .OrderBy(n => n)
                 .ToList();
 
             var result = new List<ChapterDto>();
+            foreach (var fm in frontMatterLibrary
+                         .OrderBy(c => c.Title ?? "", StringComparer.OrdinalIgnoreCase))
+            {
+                result.Add(new ChapterDto
+                {
+                    ResponseId = 0,
+                    ChapterNumber = 0,
+                    Title = BookChapterExportHelper.GetDefaultStoredTitle(fm.Title, 0, 1),
+                    Content = includeBodies ? ChapterContentNormalizer.NormalizeForManuscript(fm.Content) : string.Empty,
+                    StatusCode = fm.Status,
+                    CreatedAt = fm.UpdatedAt != default ? fm.UpdatedAt : fm.CreatedAt
+                });
+            }
+
             var narrativeOrdinal = 0;
             foreach (var n in numbers)
             {
@@ -1002,6 +1027,8 @@ namespace EBookDashboard.Services
                     }
                 }
             }
+
+            result = BookChapterExportHelper.DeduplicateFrontMatterChapters(result);
 
             if (result.Count == 0 && includeBodies)
             {

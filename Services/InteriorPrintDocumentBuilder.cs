@@ -23,15 +23,15 @@ public static class InteriorPrintDocumentBuilder
         for (var i = 0; i < ordered.Count; i++)
         {
             var ch = ordered[i];
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                 narrativeOrdinal++;
 
-            var displayNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 0 : narrativeOrdinal;
+            var displayNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 0 : narrativeOrdinal;
             var phNum = displayNum > 0 ? displayNum : 1;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
             var displayHeading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
-            var titleHtml = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber)
+            var titleHtml = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title)
                 ? BookManuscriptHtmlFormatter.EscapeHtml(displayHeading)
                 : InteriorPageMarkup.BuildFormatterChapterTitleHtml(displayHeading, phNum, interior);
             var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, displayHeading);

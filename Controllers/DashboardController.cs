@@ -1693,9 +1693,9 @@ namespace EBookDashboard.Controllers
             for (var i = 0; i < chapters.Count; i++)
             {
                 var ch = chapters[i];
-                if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+                if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                     previewNarrative++;
-                var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : previewNarrative;
+                var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 1 : previewNarrative;
                 var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
                 var tRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
                 var fullHtml = BookManuscriptHtmlFormatter.FormatBodyToHtml(

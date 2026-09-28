@@ -51,10 +51,10 @@ public static class InteriorFrontMatterBuilder
         for (var i = 0; i < chapters.Count; i++)
         {
             var ch = chapters[i];
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber))
+            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                 tocNarrative++;
 
-            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber) ? 1 : tocNarrative;
+            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 1 : tocNarrative;
             var sectionId = i + 1;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
