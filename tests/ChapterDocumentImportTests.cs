@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using EBookDashboard.Models.DTO;
 using EBookDashboard.Services;
 using Xunit;
 
@@ -216,6 +217,93 @@ public class ChapterDocumentImportTests
         Assert.Contains("Getting Started", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("first chapter", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Next Steps", chapters[2].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SplitIntoChapters_preface_before_contents_is_not_swallowed()
+    {
+        var text = """
+            This is the real preface essay that must survive export.
+
+            Contents
+
+            Chapter 1 Getting Started
+            Chapter 2 Next Steps
+
+            Chapter 1: Getting Started
+
+            The first chapter explains the problem and the method.
+
+            Chapter 2: Next Steps
+
+            The second chapter continues the argument.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+
+        Assert.DoesNotContain(chapters, c =>
+            string.Equals(c.Title?.Trim(), "Contents", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(c.Title?.Trim(), "Table of Contents", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(chapters, c =>
+            c.Title.Contains("Preface", StringComparison.OrdinalIgnoreCase)
+            && c.Body.Contains("real preface", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(chapters, c =>
+            c.Title.Contains("Getting Started", StringComparison.OrdinalIgnoreCase)
+            && c.Body.Contains("first chapter", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SplitIntoChapters_and_export_preserve_200_plus_chapters_with_preface()
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Author note before any banner.");
+        sb.AppendLine();
+        sb.AppendLine("Contents");
+        sb.AppendLine();
+        for (var i = 1; i <= 213; i++)
+            sb.AppendLine($"Chapter {i} Title {i}");
+        sb.AppendLine();
+        for (var i = 1; i <= 213; i++)
+        {
+            sb.AppendLine($"Chapter {i}: Title {i}");
+            sb.AppendLine();
+            sb.AppendLine($"Body paragraph for chapter {i} with enough text to survive empty filters.");
+            sb.AppendLine();
+        }
+
+        var imported = ChapterDocumentImportService.SplitIntoChapters(sb.ToString());
+        Assert.True(imported.Count >= 214, $"Expected preface + 213 chapters, got {imported.Count}");
+        Assert.Contains(imported, c =>
+            c.Title.Contains("Preface", StringComparison.OrdinalIgnoreCase)
+            && c.Body.Contains("Author note", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(imported, c =>
+            c.Title.Contains("Title 1", StringComparison.OrdinalIgnoreCase)
+            && c.Body.Contains("Body paragraph for chapter 1", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(imported, c =>
+            string.Equals(c.Title?.Trim(), "Contents", StringComparison.OrdinalIgnoreCase));
+
+        var dtos = imported.Select((c, idx) => new EBookDashboard.Models.DTO.ChapterDto
+        {
+            ChapterNumber = BookChapterExportHelper.IsFrontMatterSectionTitle(c.Title) ? 0 : idx + 1,
+            Title = c.Title,
+            Content = c.Body
+        }).ToList();
+
+        var exported = BookChapterExportHelper.OrderForExport(dtos);
+        Assert.True(exported.Count >= 214, $"Export dropped chapters: {exported.Count}");
+        Assert.Contains(exported, c =>
+            c.Title!.Contains("Preface", StringComparison.OrdinalIgnoreCase)
+            && c.Content!.Contains("Author note", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(exported, c =>
+            c.Title!.Contains("Title 1", StringComparison.OrdinalIgnoreCase)
+            && c.Content!.Contains("Body paragraph for chapter 1", StringComparison.OrdinalIgnoreCase));
+
+        var html = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(
+            exported,
+            BookManuscriptHtmlFormatter.CreateBaseContext("Big Book", null, null, null, "Author"),
+            new BookPdfExportOptions { InteriorStyle = "Classic", TextSize = "Medium", LineSpacing = "1.6" });
+        Assert.Contains("Author note", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Body paragraph for chapter 1", html, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Body paragraph for chapter 213", html, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

@@ -21,7 +21,6 @@ public static class BookChapterExportHelper
         "acknowledgments", "acknowledgements",
         "introduction", "prologue",
         "copyright", "copyright page", "copyright page content",
-        "table of contents", "contents", "toc",
         "title page", "half title",
         "proofreading notes", "editing notes", "ghostwriting notes",
         "other back matter"
@@ -72,21 +71,22 @@ public static class BookChapterExportHelper
 
     /// <summary>
     /// Keep one Preface/Foreword/… per title; coerce those rows to chapter 0 so TOC/export never treat them as Chapter N.
+    /// Prefers the copy that still has body text (imported Preface wins over empty Book Creation Notes).
     /// </summary>
     public static List<ChapterDto> DeduplicateFrontMatterChapters(IEnumerable<ChapterDto>? chapters)
     {
         var list = (chapters ?? Enumerable.Empty<ChapterDto>()).ToList();
         if (list.Count == 0) return list;
 
-        var seen = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<ChapterDto>(list.Count);
+        var frontMatter = new Dictionary<string, ChapterDto>(StringComparer.Ordinal);
 
-        // Prefer chapter ≤ 0 rows first so Book Creation Notes win over imported duplicates.
-        foreach (var ch in list
-                     .OrderBy(c => IsFrontMatterSectionTitle(c.Title) ? 0 : 1)
-                     .ThenBy(c => c.ChapterNumber)
-                     .ThenBy(c => c.Title ?? "", StringComparer.OrdinalIgnoreCase))
+        foreach (var ch in list)
         {
+            // Never export an imported Contents dump as a body or front-matter chapter.
+            if (InteriorFrontMatterBuilder.IsImportedContentsChapter(ch.Title))
+                continue;
+
             if (!IsFrontMatterSectionTitle(ch.Title))
             {
                 result.Add(ch);
@@ -94,9 +94,25 @@ public static class BookChapterExportHelper
             }
 
             var key = NormalizeFrontMatterTitleKey(ch.Title);
-            if (string.IsNullOrEmpty(key) || !seen.Add(key))
+            if (string.IsNullOrEmpty(key))
                 continue;
 
+            if (!frontMatter.TryGetValue(key, out var existing))
+            {
+                frontMatter[key] = ch;
+                continue;
+            }
+
+            var existingHasBody = !string.IsNullOrWhiteSpace(existing.Content);
+            var candidateHasBody = !string.IsNullOrWhiteSpace(ch.Content);
+            if (candidateHasBody && !existingHasBody)
+                frontMatter[key] = ch;
+            else if (candidateHasBody == existingHasBody && ch.ChapterNumber <= 0 && existing.ChapterNumber > 0)
+                frontMatter[key] = ch;
+        }
+
+        foreach (var ch in frontMatter.Values)
+        {
             result.Add(new ChapterDto
             {
                 ResponseId = ch.ResponseId,

@@ -47,8 +47,45 @@ public class FrontMatterChapterTests
         var preface = cleaned.First(c =>
             BookChapterExportHelper.NormalizeFrontMatterTitleKey(c.Title) == "preface");
         Assert.Equal(0, preface.ChapterNumber);
-        Assert.Contains("book creation", preface.Content, StringComparison.OrdinalIgnoreCase);
+        // Both have body — either is fine; must not drop narrative chapter.
+        Assert.False(string.IsNullOrWhiteSpace(preface.Content));
         Assert.Contains(cleaned, c => c.Title == "Chapter Two" && c.ChapterNumber == 2);
+    }
+
+    [Fact]
+    public void DeduplicateFrontMatterChapters_prefers_imported_body_over_empty_notes()
+    {
+        var cleaned = BookChapterExportHelper.DeduplicateFrontMatterChapters(
+        [
+            new ChapterDto { ChapterNumber = 0, Title = "Preface", Content = "   " },
+            new ChapterDto { ChapterNumber = 1, Title = "Preface", Content = "<p>Real preface from the PDF.</p>" },
+            new ChapterDto { ChapterNumber = 1, Title = "Contents", Content = "<h2>Chapter 1</h2>" },
+            new ChapterDto { ChapterNumber = 2, Title = "Getting Started", Content = "<p>Chapter one body.</p>" }
+        ]);
+
+        Assert.DoesNotContain(cleaned, c => InteriorFrontMatterBuilder.IsImportedContentsChapter(c.Title));
+        var preface = Assert.Single(cleaned, c =>
+            BookChapterExportHelper.NormalizeFrontMatterTitleKey(c.Title) == "preface");
+        Assert.Contains("Real preface", preface.Content, StringComparison.Ordinal);
+        Assert.Contains(cleaned, c => c.Title == "Getting Started");
+    }
+
+    [Fact]
+    public void OrderForExport_preserves_preface_and_first_chapter_when_contents_present()
+    {
+        var ordered = BookChapterExportHelper.OrderForExport(
+        [
+            new ChapterDto { ChapterNumber = 0, Title = "Preface", Content = "<p>Lead-in essay.</p>" },
+            new ChapterDto { ChapterNumber = 1, Title = "Contents", Content = "<h2>Preface</h2><h2>Chapter 1</h2>" },
+            new ChapterDto { ChapterNumber = 2, Title = "Getting Started", Content = "<p>First chapter body.</p>" },
+            new ChapterDto { ChapterNumber = 3, Title = "Next Steps", Content = "<p>Second chapter body.</p>" }
+        ]);
+
+        Assert.Equal(3, ordered.Count);
+        Assert.Equal("Preface", ordered[0].Title);
+        Assert.Contains("Lead-in", ordered[0].Content, StringComparison.Ordinal);
+        Assert.Equal("Getting Started", ordered[1].Title);
+        Assert.Contains("First chapter", ordered[1].Content, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -3847,6 +3847,8 @@ namespace EBookDashboard.Controllers
                     foreach (var sc in splitChapters)
                     {
                         var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? null : sc.Title.Trim();
+                        if (InteriorFrontMatterBuilder.IsImportedContentsChapter(chTitle))
+                            continue;
                         if (BookChapterExportHelper.IsFrontMatterSectionTitle(chTitle))
                         {
                             // Persist as Notes front matter (chapter 0) — never as Chapter 1 / Chapter N.
@@ -4598,6 +4600,8 @@ namespace EBookDashboard.Controllers
                 foreach (var sc in splitChapters)
                 {
                     var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? null : sc.Title.Trim();
+                    if (InteriorFrontMatterBuilder.IsImportedContentsChapter(chTitle))
+                        continue;
                     if (BookChapterExportHelper.IsFrontMatterSectionTitle(chTitle))
                     {
                         chTitle ??= "Preface";

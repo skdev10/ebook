@@ -97,7 +97,7 @@ public static class InteriorFrontMatterBuilder
         return sb.ToString();
     }
 
-    internal static bool IsImportedContentsChapter(string? title)
+    public static bool IsImportedContentsChapter(string? title)
     {
         var t = Regex.Replace((title ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
         return t is "contents" or "table of contents" or "toc";

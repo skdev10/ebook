@@ -689,9 +689,10 @@ public class ManuscriptExportPrepTests
 
         Assert.Contains("Opening", html, StringComparison.Ordinal);
         Assert.Contains("Hello world.", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("id=\"ch-1\"", html, StringComparison.Ordinal);
-        Assert.Contains("id=\"ch-2\"", html, StringComparison.Ordinal);
+        // Contents is filtered in OrderForExport — Opening is the first exported section.
+        Assert.Contains("id=\"ch-1\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain(">Scene<", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Contents", html, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -924,6 +924,13 @@ public static class ChapterDocumentImportService
             RegexOptions.IgnoreCase);
     }
 
+    /// <summary>Imported TOC dump titles — app builds Contents; never persist/export these as body chapters.</summary>
+    internal static bool IsImportedContentsTitle(string? title)
+    {
+        var t = Regex.Replace((title ?? "").Trim().ToLowerInvariant(), @"\s+", " ");
+        return t is "contents" or "table of contents" or "toc";
+    }
+
     private static string ExtractExplicitChapterTitle(string line)
     {
         var t = Regex.Replace((line ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
@@ -1159,7 +1166,9 @@ public static class ChapterDocumentImportService
             return resplit.Count >= 2 ? resplit : result;
         }
 
-        // Keep text before the first heading (title page, preface, TOC leftovers) instead of dropping it.
+        // Keep text before the first heading (title page, preface) instead of dropping it.
+        // Never fold leading matter into a Contents/TOC chapter — export skips Contents and that
+        // used to delete the preface (and sometimes chapter 1 text stuck in the TOC dump).
         var chapterNo = 0;
         string? leadingMatter = null;
         if (boundaries[0].lineIdx > 0)
@@ -1172,7 +1181,9 @@ public static class ChapterDocumentImportService
                 leadingMatter = leadText;
         }
 
-        if (leadingMatter != null && !IsFrontMatterMarker(boundaries[0].title))
+        var firstTitle = boundaries[0].title ?? "";
+        if (leadingMatter != null
+            && (IsImportedContentsTitle(firstTitle) || !IsFrontMatterMarker(firstTitle)))
         {
             chapterNo++;
             result.Add(new ImportedChapter(chapterNo, "Preface", FormatChapterBodyHtml(leadingMatter, "Preface")));
@@ -1185,6 +1196,14 @@ public static class ChapterDocumentImportService
             var endLine = b + 1 < boundaries.Count ? boundaries[b + 1].lineIdx : lines.Length;
             var bodyBuilder = new StringBuilder();
             var chapterTitle = boundaries[b].title ?? "";
+
+            // Skip imported Contents/TOC — formatter builds its own table of contents.
+            if (IsImportedContentsTitle(chapterTitle))
+            {
+                leadingMatter = null;
+                continue;
+            }
+
             if (b == 0 && leadingMatter != null)
             {
                 bodyBuilder.AppendLine(leadingMatter);
@@ -1229,10 +1248,56 @@ public static class ChapterDocumentImportService
         {
             var resplit = ResplitSingleChapterOnHeadings(result[0]);
             if (resplit.Count >= 2)
-                return resplit;
+                return CollapseEmptyDuplicateChapterShells(resplit);
         }
 
-        return result;
+        return CollapseEmptyDuplicateChapterShells(result);
+    }
+
+    /// <summary>
+    /// Drop TOC listing shells (title only) when a later chapter with the same title has real body text.
+    /// This is what turned ~213 real chapters + TOC lines into ~95 exportable chapters.
+    /// </summary>
+    internal static List<ImportedChapter> CollapseEmptyDuplicateChapterShells(List<ImportedChapter>? chapters)
+    {
+        if (chapters == null || chapters.Count == 0)
+            return new List<ImportedChapter>();
+
+        static string TitleKey(string? title)
+        {
+            var t = NormalizeTitleKey(title);
+            t = Regex.Replace(t, @"^(?:chapter|ch\.?|part)\s*[0-9ivxlcdm]+\s*[:.\-\u2013\u2014]?\s*", "", RegexOptions.IgnoreCase);
+            return t.Trim();
+        }
+
+        static int PlainLen(string? body)
+        {
+            var plain = Regex.Replace(body ?? "", "<[^>]+>", " ");
+            return Regex.Replace(plain, @"\s+", " ").Trim().Length;
+        }
+
+        var keep = new List<ImportedChapter>(chapters.Count);
+        for (var i = 0; i < chapters.Count; i++)
+        {
+            var ch = chapters[i];
+            if (IsImportedContentsTitle(ch.Title))
+                continue;
+
+            var plain = PlainLen(ch.Body);
+            if (plain < 48)
+            {
+                var key = TitleKey(ch.Title);
+                if (!string.IsNullOrEmpty(key)
+                    && chapters.Skip(i + 1).Any(c => TitleKey(c.Title) == key && PlainLen(c.Body) >= 48))
+                    continue;
+            }
+
+            keep.Add(ch);
+        }
+
+        return keep
+            .Select((c, idx) => new ImportedChapter(idx + 1, c.Title, c.Body))
+            .ToList();
     }
 
     /// <summary>Format import body and strip a leading heading that duplicates the chapter title.</summary>
@@ -1296,8 +1361,14 @@ public static class ChapterDocumentImportService
             IsExplicitChapterMarker(c.Title ?? "") || LooksLikeNumberedChapterBanner(c.Title ?? "")) >= 2;
         var fallbackOverSplit = fallback.Count > Math.Max(20, structured.Count * 2)
             && fallback.Count(c => IsExplicitChapterMarker(c.Title ?? "")) < 3;
+        static int PlainLen(ImportedChapter c) =>
+            Regex.Replace(Regex.Replace(c.Body ?? "", "<[^>]+>", " "), @"\s+", " ").Trim().Length;
+        var fallbackMostlyEmpty = fallback.Count >= 10
+            && fallback.Count(c => PlainLen(c) < 40) > fallback.Count / 2;
         // Prefer a real Chapter 2 split over one blob that only has in-body headings —
-        // but never take a 50+ heading dump over a tighter structured book.
+        // but never take a 50+ heading dump (or mostly empty shells) over a tighter structured book.
+        if (fallbackMostlyEmpty && structured.Count >= 2)
+            return structured;
         if (fallbackLooksLikeRealChapters && fallback.Count > structured.Count && !structuredHasImages && !fallbackOverSplit)
             return fallback;
         if (structuredHasHeadings && fallback.Count > structured.Count && !fallbackLooksLikeRealChapters)
