@@ -39,13 +39,18 @@ public sealed class BookRenderService : IBookRenderService
         opt.Normalize();
 
         var title = (request.DisplayTitle ?? details.BookTitle ?? "").Trim();
-        if (string.IsNullOrEmpty(title)) title = "Untitled";
+        // Do not invent "Untitled" — title page / metadata only render when the user provided a title.
         var author = (request.DisplayAuthor ?? details.AuthorName ?? "").Trim();
         var genre = (request.DisplayGenre ?? details.Genre ?? "").Trim();
         var coverSrc = await ResolveCoverSrcAsync(request.CoverImageDataUrl, details.CoverImagePath, cancellationToken);
 
         var phBase = BookManuscriptHtmlFormatter.CreateBaseContext(
-            title, details.Subtitle, details.Description, genre, author);
+            string.IsNullOrEmpty(title) ? " " : title, details.Subtitle, details.Description, genre, author);
+
+        // Estimate page count for KDP gutter tiers (chars / ~1800 per trade page is a serviceable prior).
+        var bodyChars = details.Chapters?.Sum(c => (c.Content?.Length ?? 0) + (c.Title?.Length ?? 0)) ?? 0;
+        var estimatedPages = Math.Max(24, bodyChars / 1800);
+        KdpInteriorMarginCalculator.ApplyDefaults(opt, estimatedPages);
 
         var layout = BookPdfPlatformLayout.Resolve(opt, BookPdfLayoutOptions.FromConfiguration(_configuration));
         var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);

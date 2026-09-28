@@ -11,6 +11,7 @@ using SixLabors.ImageSharp.Processing;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Exceptions;
+using UglyToad.PdfPig.Outline;
 
 namespace EBookDashboard.Services;
 
@@ -174,7 +175,7 @@ public static class ChapterDocumentImportService
                     var lines = BuildPdfReadingOrderLines(page);
                     if (lines.Count > 0)
                     {
-                        foreach (var (lineText, avgFont, isBold, isCentered, _) in lines)
+                        foreach (var (lineText, avgFont, isBold, isCentered, _, _) in lines)
                         {
                             var text = RepairPdfImportText(lineText);
                             if (text.Length == 0)
@@ -424,6 +425,8 @@ public static class ChapterDocumentImportService
                 {
                     foreach (var img in page.GetImages())
                     {
+                        if (IsLikelyFullPageBackground(img, page.Width, page.Height))
+                            continue;
                         if (!TryDecodePdfImage(img, out var imgBytes, out var contentType))
                             continue;
                         blocks.Add((img.BoundingBox.Top, tie++, ToFigureHtml(imgBytes, contentType), "[figure]\n"));
@@ -436,33 +439,70 @@ public static class ChapterDocumentImportService
 
                 try
                 {
-                    var lines = BuildPdfReadingOrderLines(page);
-                    foreach (var (lineText, avgFont, isBold, isCentered, top) in lines)
+                    var lines = CoalesceLoneChapterNumbers(BuildPdfReadingOrderLines(page));
+                    var medianLineH = EstimateMedianLineHeight(lines);
+                    var para = new StringBuilder();
+                    double? paraTop = null;
+                    double? lastBottom = null;
+
+                    void FlushParagraph()
                     {
-                        var text = RepairPdfImportText(lineText);
+                        if (para.Length == 0)
+                            return;
+                        var marked = para.ToString();
+                        para.Clear();
+                        var text = RepairPdfImportText(PdfImportScriptMarkup.StripMarkers(marked));
                         if (text.Length == 0)
+                            return;
+                        // Re-apply script markers onto repaired plain when markers survived strip path:
+                        // Prefer HTML built from the marked buffer after Normalize keeps markers.
+                        var htmlInner = PdfImportScriptMarkup.ToHtml(PdfImportTextNormalizer.NormalizeKeepingMarkers(marked));
+                        if (string.IsNullOrWhiteSpace(htmlInner))
+                            htmlInner = System.Net.WebUtility.HtmlEncode(text);
+                        var top = paraTop ?? 0;
+                        blocks.Add((
+                            top,
+                            tie++,
+                            "<p class=\"manuscript-p\">" + htmlInner + "</p>",
+                            text + "\n"));
+                        paraTop = null;
+                        lastBottom = null;
+                    }
+
+                    foreach (var (lineText, avgFont, isBold, isCentered, top, bottom) in lines)
+                    {
+                        var plainLine = RepairPdfImportText(PdfImportScriptMarkup.StripMarkers(lineText));
+                        if (plainLine.Length == 0)
                             continue;
-                        if (LooksLikeNumberedChapterBanner(text) || LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out var mark))
+
+                        var isHeading = LooksLikeNumberedChapterBanner(plainLine)
+                                        || LooksLikePdfHeading(plainLine, avgFont, medianFont, isBold, isCentered, out var mark);
+                        if (isHeading)
                         {
-                            if (!LooksLikePdfHeading(text, avgFont, medianFont, isBold, isCentered, out mark))
+                            FlushParagraph();
+                            if (!LooksLikePdfHeading(plainLine, avgFont, medianFont, isBold, isCentered, out mark))
                                 mark = "#";
-                            if (LooksLikeNumberedChapterBanner(text))
+                            if (LooksLikeNumberedChapterBanner(plainLine) || IsFrontMatterMarker(plainLine) || IsBackMatterMarker(plainLine)
+                                || IsExplicitChapterMarker(plainLine))
                                 mark = "#";
                             var lvl = mark == "#" ? 1 : Math.Clamp(mark.Length, 2, 6);
                             var headingHtml = "<h" + lvl + " class=\"manuscript-heading manuscript-h" + lvl + "\">"
-                                              + System.Net.WebUtility.HtmlEncode(text)
+                                              + System.Net.WebUtility.HtmlEncode(plainLine)
                                               + "</h" + lvl + ">";
-                            blocks.Add((top, tie++, headingHtml, mark + " " + text + "\n"));
+                            blocks.Add((top, tie++, headingHtml, mark + " " + plainLine + "\n"));
+                            continue;
                         }
-                        else
-                        {
-                            blocks.Add((
-                                top,
-                                tie++,
-                                "<p class=\"manuscript-p\">" + System.Net.WebUtility.HtmlEncode(text) + "</p>",
-                                text + "\n"));
-                        }
+
+                        if (lastBottom != null
+                            && PdfImportTextNormalizer.LooksLikeParagraphBreak(lastBottom.Value, top, medianLineH))
+                            FlushParagraph();
+
+                        paraTop ??= top;
+                        PdfImportTextNormalizer.AppendLineToParagraph(para, lineText);
+                        lastBottom = bottom;
                     }
+
+                    FlushParagraph();
                 }
                 catch
                 {
@@ -484,10 +524,17 @@ public static class ChapterDocumentImportService
             combinedPlainText = RepairPdfImportText(plain.ToString());
             var htmlDoc = PromoteHeadingParagraphs(html.ToString());
             var fromHtml = SplitHtmlDocumentIntoChapters(htmlDoc);
-            if (fromHtml.Count > 0)
-                return CoalesceSectionHeadingChapters(fromHtml);
+            var chapters = fromHtml.Count > 0
+                ? CoalesceSectionHeadingChapters(fromHtml)
+                : CoalesceSectionHeadingChapters(SplitIntoChapters(combinedPlainText));
 
-            return CoalesceSectionHeadingChapters(SplitIntoChapters(combinedPlainText));
+            if (document.TryGetBookmarks(out var bookmarks) && bookmarks != null)
+            {
+                var outlineTitles = ExtractOutlineTitles(bookmarks);
+                chapters = AlignChaptersToOutline(chapters, outlineTitles);
+            }
+
+            return chapters;
         }
         catch (PdfDocumentEncryptedException)
         {
@@ -526,7 +573,7 @@ public static class ChapterDocumentImportService
         try
         {
             using var image = Image.Load(bytes);
-            const int maxEdge = 1200;
+            const int maxEdge = 2400; // ~8" @ 300 DPI for print figures
             if (image.Width > maxEdge || image.Height > maxEdge)
             {
                 image.Mutate(x => x.Resize(new ResizeOptions
@@ -537,7 +584,7 @@ public static class ChapterDocumentImportService
             }
 
             using var ms = new MemoryStream();
-            image.SaveAsJpeg(ms, new JpegEncoder { Quality = 72 });
+            image.SaveAsJpeg(ms, new JpegEncoder { Quality = 88 });
             if (ms.Length > 400 && ms.Length < bytes.Length)
             {
                 contentType = "image/jpeg";
@@ -550,6 +597,99 @@ public static class ChapterDocumentImportService
         }
 
         return bytes;
+    }
+
+    /// <summary>Flatten PDF outline/bookmark titles in document order (skip Contents entries).</summary>
+    internal static List<string> ExtractOutlineTitles(Bookmarks bookmarks)
+    {
+        var titles = new List<string>();
+        if (bookmarks?.Roots == null)
+            return titles;
+
+        void Walk(IEnumerable<BookmarkNode> nodes)
+        {
+            foreach (var node in nodes)
+            {
+                var t = (node.Title ?? "").Trim();
+                if (t.Length > 0 && !IsImportedContentsTitle(t))
+                    titles.Add(TruncateSuggestedTitle(t));
+                if (node.Children is { Count: > 0 })
+                    Walk(node.Children);
+            }
+        }
+
+        Walk(bookmarks.Roots);
+        return titles;
+    }
+
+    /// <summary>
+    /// When the PDF outline lists more real sections than heuristic split found,
+    /// retitle matching chapters from the outline (preserves body HTML / reading order).
+    /// </summary>
+    internal static List<ImportedChapter> AlignChaptersToOutline(
+        List<ImportedChapter> chapters,
+        IReadOnlyList<string> outlineTitles)
+    {
+        if (chapters == null || chapters.Count == 0 || outlineTitles == null || outlineTitles.Count < 2)
+            return chapters ?? new List<ImportedChapter>();
+
+        // If outline is much richer, prefer outline titles for chapters that look like front/back matter mismatches.
+        var result = new List<ImportedChapter>(chapters.Count);
+        var oi = 0;
+        foreach (var ch in chapters)
+        {
+            if (oi < outlineTitles.Count)
+            {
+                var outline = outlineTitles[oi];
+                var current = (ch.Title ?? "").Trim();
+                // Retitle when detected title is weak / generic but outline looks specific.
+                if (current.Length < 3
+                    || Regex.IsMatch(current, @"^chapter\s+\d+$", RegexOptions.IgnoreCase)
+                    || (!TitlesRoughlyMatch(current, outline)
+                        && (IsFrontMatterMarker(outline) || IsBackMatterMarker(outline) || LooksLikeNumberedChapterBanner(outline)
+                            || Regex.IsMatch(outline, @"^\d+\s+\S+", RegexOptions.IgnoreCase))))
+                {
+                    result.Add(new ImportedChapter(ch.ChapterNo, outline, ch.Body));
+                    oi++;
+                    continue;
+                }
+
+                if (TitlesRoughlyMatch(current, outline))
+                    oi++;
+            }
+
+            result.Add(ch);
+        }
+
+        return result;
+    }
+
+    private static bool TitlesRoughlyMatch(string a, string b)
+    {
+        static string Norm(string s) =>
+            Regex.Replace((s ?? "").ToLowerInvariant(), @"[^a-z0-9]+", "");
+        var na = Norm(a);
+        var nb = Norm(b);
+        if (na.Length == 0 || nb.Length == 0)
+            return false;
+        return na == nb || na.Contains(nb) || nb.Contains(na);
+    }
+
+    /// <summary>
+    /// Full-page decorative textures / paper backgrounds must not become inline figures
+    /// (they bloat print PDFs and obscure text). Charts and photos are smaller than the page.
+    /// </summary>
+    internal static bool IsLikelyFullPageBackground(IPdfImage img, double pageWidth, double pageHeight)
+    {
+        if (img == null || pageWidth <= 0 || pageHeight <= 0)
+            return false;
+        var box = img.BoundingBox;
+        var w = Math.Abs(box.Width);
+        var h = Math.Abs(box.Height);
+        if (w <= 0 || h <= 0)
+            return false;
+        // Cover ≥85% of both page axes → decorative page fill.
+        return w >= pageWidth * 0.85 && h >= pageHeight * 0.85;
     }
 
     internal static bool TryDecodePdfImage(IPdfImage img, out byte[] bytes, out string contentType)
@@ -569,7 +709,7 @@ public static class ChapterDocumentImportService
             {
                 bytes = png;
                 contentType = "image/png";
-                return true;
+                return TryFinalizePrintImage(ref bytes, ref contentType);
             }
         }
         catch
@@ -579,12 +719,39 @@ public static class ChapterDocumentImportService
 
         try
         {
-            var raw = img.RawBytes;
-            if (raw.Length > 800 && raw.Length >= 3 && raw[0] == 0xFF && raw[1] == 0xD8)
+            // PdfPig 0.1.x: some builds expose TryGetBytes via extension; fall through to RawBytes.
+            var rawProbe = img.RawBytes;
+            if (rawProbe.Length > 800)
             {
-                bytes = raw.ToArray();
-                contentType = "image/jpeg";
-                return true;
+                var arr = rawProbe.ToArray();
+                if (TryLoadAsRaster(arr, out bytes, out contentType))
+                    return TryFinalizePrintImage(ref bytes, ref contentType);
+            }
+        }
+        catch
+        {
+            /* some encodings throw */
+        }
+
+        try
+        {
+            var raw = img.RawBytes;
+            if (raw.Length > 800)
+            {
+                var arr = raw.ToArray();
+                if (arr.Length >= 3 && arr[0] == 0xFF && arr[1] == 0xD8)
+                {
+                    bytes = arr;
+                    contentType = "image/jpeg";
+                    return TryFinalizePrintImage(ref bytes, ref contentType);
+                }
+
+                if (arr.Length >= 8 && arr[0] == 0x89 && arr[1] == 0x50)
+                {
+                    bytes = arr;
+                    contentType = "image/png";
+                    return TryFinalizePrintImage(ref bytes, ref contentType);
+                }
             }
         }
         catch
@@ -593,6 +760,58 @@ public static class ChapterDocumentImportService
         }
 
         return false;
+    }
+
+    private static bool TryLoadAsRaster(byte[] arr, out byte[] bytes, out string contentType)
+    {
+        bytes = Array.Empty<byte>();
+        contentType = "image/png";
+        try
+        {
+            using var image = Image.Load(arr);
+            using var ms = new MemoryStream();
+            image.SaveAsPng(ms);
+            if (ms.Length < 400)
+                return false;
+            bytes = ms.ToArray();
+            contentType = "image/png";
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Flatten alpha onto white and stamp 300 DPI for print.</summary>
+    private static bool TryFinalizePrintImage(ref byte[] bytes, ref string contentType)
+    {
+        if (bytes is not { Length: > 400 })
+            return false;
+        try
+        {
+            using var image = Image.Load(bytes);
+            using var flat = new Image<SixLabors.ImageSharp.PixelFormats.Rgb24>(image.Width, image.Height);
+            flat.Mutate(ctx =>
+            {
+                ctx.BackgroundColor(SixLabors.ImageSharp.Color.White);
+                ctx.DrawImage(image, 1f);
+            });
+            flat.Metadata.HorizontalResolution = 300;
+            flat.Metadata.VerticalResolution = 300;
+            flat.Metadata.ResolutionUnits = SixLabors.ImageSharp.Metadata.PixelResolutionUnit.PixelsPerInch;
+            using var ms = new MemoryStream();
+            flat.SaveAsJpeg(ms, new JpegEncoder { Quality = 90 });
+            if (ms.Length < 400)
+                return false;
+            bytes = ms.ToArray();
+            contentType = "image/jpeg";
+            return true;
+        }
+        catch
+        {
+            return bytes.Length > 400;
+        }
     }
 
     /// <summary>Write data-URI figures to disk so large-book chapter HTML stays small enough to save.</summary>
@@ -870,20 +1089,10 @@ public static class ChapterDocumentImportService
         || LooksLikeNumberedChapterBanner(text);
 
     /// <summary>
-    /// Fix print-PDF artifacts from Zero-to-One style books: "billion- dollar" → "billion-dollar",
-    /// drop-caps "S TART" / "A S" → "START" / "AS".
+    /// Fix print-PDF artifacts: soft hyphens, drop-caps ("S TART"), punctuation/apostrophe gaps.
     /// </summary>
-    public static string RepairPdfImportText(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-        var s = text.Replace("\u00AD", "").Trim();
-        s = Regex.Replace(s, @"(\p{L})-\s+(\p{L})", "$1-$2");
-        // Drop-cap only at the start of a line/paragraph — not every "A WORD".
-        s = Regex.Replace(s, @"(?m)^([A-Z])\s+([A-Z]{2,})\b", "$1$2");
-        s = Regex.Replace(s, @"(?m)^([A-Z])\s+([A-Z])\b(?=\s+[A-Z])", "$1$2");
-        return s.Trim();
-    }
+    public static string RepairPdfImportText(string? text) =>
+        PdfImportTextNormalizer.MergeDropCapFragments(text);
 
     /// <summary>
     /// True only for a real chapter/part banner. Numbered points ("1. Setup") and
@@ -920,7 +1129,19 @@ public static class ChapterDocumentImportService
             return false;
         return Regex.IsMatch(
             t,
-            @"^(Preface|Foreword|Introduction|Acknowledgments?|Acknowledgements?|Dedication|Contents|Table of Contents)\b",
+            @"^(Preface|Foreword|Introduction|Acknowledgments?|Acknowledgements?|Dedication|Contents|Table of Contents|Conclusion|Epilogue|Afterword|Index|Illustration Credits|About the Authors?|About the Author)\b",
+            RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>Back-matter banners that must stay after chapters (never floated to the front).</summary>
+    internal static bool IsBackMatterMarker(string? text)
+    {
+        var t = Regex.Replace((text ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
+        if (t.Length == 0)
+            return false;
+        return Regex.IsMatch(
+            t,
+            @"^(Acknowledgments?|Acknowledgements?|Conclusion|Epilogue|Afterword|Index|Illustration Credits|About the Authors?|About the Author|Bibliography|Glossary|References)\b",
             RegexOptions.IgnoreCase);
     }
 
@@ -1356,6 +1577,9 @@ public static class ChapterDocumentImportService
             (c.Body ?? "").Contains("<img", StringComparison.OrdinalIgnoreCase));
         // Never throw away extracted diagrams just because the text-only split found more chapters.
         if (structuredHasImages && !fallbackHasImages)
+            return structured;
+        // Prefer structured whenever it has inline figures — empty text fallback loses all images.
+        if (structuredHasImages)
             return structured;
         var fallbackLooksLikeRealChapters = fallback.Count(c =>
             IsExplicitChapterMarker(c.Title ?? "") || LooksLikeNumberedChapterBanner(c.Title ?? "")) >= 2;
@@ -1921,12 +2145,75 @@ public static class ChapterDocumentImportService
         return false;
     }
 
-    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top)> BuildPdfReadingOrderLines(UglyToad.PdfPig.Content.Page page)
+    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> BuildPdfReadingOrderLines(UglyToad.PdfPig.Content.Page page)
     {
         var words = page.GetWords()?.ToList() ?? new List<UglyToad.PdfPig.Content.Word>();
-        if (words.Count == 0)
-            return new List<(string, double, bool, bool, double)>();
+        if (words.Count == 0 && page.Letters is { Count: > 0 })
+        {
+            // Scanned/unusual PDFs may expose letters without word grouping.
+            return BuildPdfLinesFromLetters(page.Letters.ToList(), page.Width);
+        }
 
+        if (words.Count == 0)
+            return new List<(string, double, bool, bool, double, double)>();
+
+        return BuildPdfLinesFromWords(words, page.Width);
+    }
+
+    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> BuildPdfLinesFromLetters(
+        List<UglyToad.PdfPig.Content.Letter> letters,
+        double pageWidth)
+    {
+        var ordered = letters
+            .OrderByDescending(l => l.BoundingBox.Top)
+            .ThenBy(l => l.BoundingBox.Left)
+            .ToList();
+
+        var lines = new List<List<UglyToad.PdfPig.Content.Letter>>();
+        const double lineToleranceRatio = 0.45;
+        foreach (var letter in ordered)
+        {
+            var letterHeight = Math.Max(1.0, letter.BoundingBox.Height);
+            var line = lines.Count > 0 ? lines[^1] : null;
+            if (line != null
+                && Math.Abs(line[0].BoundingBox.Top - letter.BoundingBox.Top) < letterHeight * lineToleranceRatio + 2)
+                line.Add(letter);
+            else
+                lines.Add(new List<UglyToad.PdfPig.Content.Letter> { letter });
+        }
+
+        var result = new List<(string, double, bool, bool, double, double)>();
+        foreach (var line in lines)
+        {
+            var sorted = line.OrderBy(l => l.BoundingBox.Left).ToList();
+            var text = JoinPdfLettersWithScripts(sorted);
+            var sizes = sorted.Select(l => l.FontSize).Where(s => s > 0).ToList();
+            var avgSize = sizes.Count > 0 ? sizes.Average() : 0.0;
+            var names = sorted.Select(l => l.FontName ?? string.Empty).ToList();
+            var boldCount = names.Count(n =>
+                n.Contains("Bold", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Black", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Heavy", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Semibold", StringComparison.OrdinalIgnoreCase)
+                || n.Contains("Demi", StringComparison.OrdinalIgnoreCase));
+            var isBold = names.Count > 0 && boldCount >= names.Count * 0.55;
+            var left = sorted[0].BoundingBox.Left;
+            var right = sorted[^1].BoundingBox.Right;
+            var mid = (left + right) / 2.0;
+            var isCentered = pageWidth > 0 && Math.Abs(mid - pageWidth / 2.0) < pageWidth * 0.18
+                             && (right - left) < pageWidth * 0.72;
+            var top = sorted.Max(l => l.BoundingBox.Top);
+            var bottom = sorted.Min(l => l.BoundingBox.Bottom);
+            result.Add((text, avgSize, isBold, isCentered, top, bottom));
+        }
+
+        return result;
+    }
+
+    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> BuildPdfLinesFromWords(
+        List<UglyToad.PdfPig.Content.Word> words,
+        double pageWidth)
+    {
         var ordered = words.OrderByDescending(w => w.BoundingBox.Top).ThenBy(w => w.BoundingBox.Left).ToList();
         var lines = new List<List<UglyToad.PdfPig.Content.Word>>();
         const double lineToleranceRatio = 0.4;
@@ -1941,8 +2228,7 @@ public static class ChapterDocumentImportService
                 lines.Add(new List<UglyToad.PdfPig.Content.Word> { word });
         }
 
-        var pageWidth = page.Width > 0 ? page.Width : 0;
-        var result = new List<(string, double, bool, bool, double)>();
+        var result = new List<(string, double, bool, bool, double, double)>();
         foreach (var line in lines)
         {
             var sortedLine = line.OrderBy(w => w.BoundingBox.Left).ToList();
@@ -1964,19 +2250,108 @@ public static class ChapterDocumentImportService
             var isCentered = pageWidth > 0 && Math.Abs(mid - pageWidth / 2.0) < pageWidth * 0.18
                              && (right - left) < pageWidth * 0.72;
             var top = sortedLine.Max(w => w.BoundingBox.Top);
-            result.Add((text, avgSize, isBold, isCentered, top));
+            var bottom = sortedLine.Min(w => w.BoundingBox.Bottom);
+            result.Add((text, avgSize, isBold, isCentered, top, bottom));
         }
+
         return result;
+    }
+
+    /// <summary>
+    /// Join letters on a line, detecting raised/lowered baselines as &lt;sup&gt;/&lt;sub&gt; markers
+    /// and avoiding spurious spaces before superscripts ("10"+"³⁰" → "10³⁰" not "10 30").
+    /// </summary>
+    private static string JoinPdfLettersWithScripts(List<UglyToad.PdfPig.Content.Letter> letters)
+    {
+        if (letters.Count == 0)
+            return string.Empty;
+
+        var baselines = letters.Select(l => l.StartBaseLine.Y).OrderBy(y => y).ToList();
+        var medianBaseline = baselines[baselines.Count / 2];
+        var sizes = letters.Select(l => l.FontSize).Where(s => s > 0).OrderBy(s => s).ToList();
+        var medianSize = sizes.Count > 0 ? sizes[sizes.Count / 2] : 12.0;
+
+        var sb = new StringBuilder();
+        var run = new StringBuilder();
+        var runScript = 0;
+        UglyToad.PdfPig.Content.Letter? prev = null;
+
+        void FlushRun()
+        {
+            if (run.Length == 0)
+                return;
+            sb.Append(PdfImportScriptMarkup.WrapRun(run.ToString(), runScript));
+            run.Clear();
+        }
+
+        foreach (var letter in letters)
+        {
+            var value = letter.Value ?? "";
+            if (value.Length == 0)
+                continue;
+
+            var script = PdfImportScriptMarkup.ClassifyScript(
+                letter.StartBaseLine.Y, medianBaseline, medianSize, letter.FontSize);
+
+            if (prev != null)
+            {
+                var gap = letter.BoundingBox.Left - prev.BoundingBox.Right;
+                var spaceGate = Math.Max(medianSize * 0.28, 1.2);
+                var needsSpace = gap > spaceGate
+                                 && script == 0
+                                 && runScript == 0
+                                 && !char.IsWhiteSpace(sb.Length > 0 ? sb[^1] : ' ')
+                                 && value[0] is not (',' or '.' or ';' or ':' or '!' or '?' or ')' or ']' or '%' or '\'' or '’' or '"' or '”');
+
+                // Never insert a space when entering/continuing a script run after a base glyph.
+                if (script != 0 && runScript == script)
+                    needsSpace = false;
+                if (script != 0 && runScript == 0)
+                    needsSpace = false;
+                if (script == 0 && runScript != 0)
+                {
+                    FlushRun();
+                    runScript = 0;
+                    needsSpace = gap > spaceGate;
+                }
+
+                if (script != runScript && run.Length > 0)
+                    FlushRun();
+
+                if (needsSpace)
+                {
+                    FlushRun();
+                    sb.Append(' ');
+                }
+            }
+
+            if (script != runScript)
+            {
+                FlushRun();
+                runScript = script;
+            }
+
+            run.Append(value);
+            prev = letter;
+        }
+
+        FlushRun();
+        return RepairPdfImportText(sb.ToString());
     }
 
     private static string JoinPdfWords(List<UglyToad.PdfPig.Content.Word> words)
     {
         if (words.Count == 0)
             return string.Empty;
+
         var sb = new StringBuilder();
         for (var i = 0; i < words.Count; i++)
         {
-            var current = words[i].Text ?? "";
+            var word = words[i];
+            var letters = word.Letters?.OrderBy(l => l.BoundingBox.Left).ToList();
+            var current = letters is { Count: > 0 }
+                ? JoinPdfLettersWithScripts(letters)
+                : (word.Text ?? "");
             if (current.Length == 0)
                 continue;
             if (sb.Length == 0)
@@ -1985,19 +2360,26 @@ public static class ChapterDocumentImportService
                 continue;
             }
 
-            var prev = sb[^1];
+            var prevPlain = PdfImportScriptMarkup.StripMarkers(sb.ToString());
+            var prev = prevPlain.Length > 0 ? prevPlain[^1] : ' ';
             var prevWord = words[i - 1].Text ?? "";
             var prevSize = AverageFontSize(words[i - 1]);
             var curSize = AverageFontSize(words[i]);
 
-            // Soft hyphen / line-wrap: "billion-" + "dollar" → "billion-dollar"
+            // Next word is entirely a superscript/subscript of the previous → no space ("10" + "30").
+            var curScriptOnly = letters is { Count: > 0 } && WordLooksLikeScriptRun(letters, prevSize);
+            if (curScriptOnly)
+            {
+                sb.Append(current);
+                continue;
+            }
+
             if (prev == '-' || prev == '\u00AD')
             {
                 sb.Append(current);
                 continue;
             }
 
-            // Drop-cap: huge "S" + "TART" → "START"
             if (prevWord.Length == 1 && char.IsLetter(prevWord[0])
                 && prevSize > 0 && curSize > 0 && prevSize >= curSize * 1.6)
             {
@@ -2009,6 +2391,65 @@ public static class ChapterDocumentImportService
         }
 
         return RepairPdfImportText(sb.ToString());
+    }
+
+    private static bool WordLooksLikeScriptRun(List<UglyToad.PdfPig.Content.Letter> letters, double prevWordFontSize)
+    {
+        if (letters.Count == 0 || prevWordFontSize <= 0)
+            return false;
+        var avgSize = letters.Select(l => l.FontSize).Where(s => s > 0).DefaultIfEmpty(0).Average();
+        if (avgSize <= 0 || avgSize > prevWordFontSize * 0.85)
+            return false;
+        var t = string.Concat(letters.Select(l => l.Value ?? ""));
+        // Superscripts/subscripts are short runs (ⁿ, 30, th, …) — never glue full words.
+        return t.Length is >= 1 and <= 4 && t.All(char.IsLetterOrDigit);
+    }
+
+    /// <summary>Merge a lone chapter number line with the following ALL-CAPS title ("2" + "PARTY LIKE…" → "2 PARTY LIKE…").</summary>
+    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> CoalesceLoneChapterNumbers(
+        List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> lines)
+    {
+        if (lines.Count < 2)
+            return lines;
+
+        var result = new List<(string, double, bool, bool, double, double)>(lines.Count);
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var cur = lines[i];
+            if (i + 1 < lines.Count
+                && Regex.IsMatch(cur.Text.Trim(), @"^\d{1,2}$")
+                && (IsAllCapsSectionTitle(lines[i + 1].Text) || LooksLikeStandaloneHeading(lines[i + 1].Text)))
+            {
+                var next = lines[i + 1];
+                var merged = cur.Text.Trim() + " " + next.Text.Trim();
+                result.Add((
+                    merged,
+                    Math.Max(cur.AvgFontSize, next.AvgFontSize),
+                    cur.IsBold || next.IsBold,
+                    cur.IsCentered || next.IsCentered,
+                    Math.Max(cur.Top, next.Top),
+                    Math.Min(cur.Bottom, next.Bottom)));
+                i++;
+                continue;
+            }
+
+            result.Add(cur);
+        }
+
+        return result;
+    }
+
+    private static double EstimateMedianLineHeight(
+        List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> lines)
+    {
+        var heights = lines
+            .Select(l => Math.Abs(l.Top - l.Bottom))
+            .Where(h => h > 1)
+            .OrderBy(h => h)
+            .ToList();
+        if (heights.Count == 0)
+            return 12;
+        return heights[heights.Count / 2];
     }
 
     private static double AverageFontSize(UglyToad.PdfPig.Content.Word word)

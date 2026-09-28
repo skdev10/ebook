@@ -45,7 +45,6 @@ public class BookPdfService : IBookPdfService
         var opt = exportOptions ?? new BookPdfExportOptions();
 
         var title = (displayTitle ?? details.BookTitle ?? "").Trim();
-        if (string.IsNullOrEmpty(title)) title = "Untitled";
         var author = (displayAuthor ?? details.AuthorName ?? "").Trim();
 
         var render = await _bookRenderService.BuildBookHtmlAsync(new BookRenderRequest
@@ -66,14 +65,13 @@ public class BookPdfService : IBookPdfService
             "PDF export book={BookId} engine={Engine} style={Style} htmlLen={Len}",
             details.BookId, PdfExportEngine.Resolve(_configuration), opt.InteriorStyle, html.Length);
 
-        // Professional per-page chrome: Chromium draws the running head (book title) and folio (page
-        // number) inside the reserved top/bottom page margins on EVERY page — exactly like a printed
-        // book. We enable them only for the interior export (no cover page) so the header/folio never
-        // overprint a full-bleed cover. The interior CSS reserves matching top/bottom @page margin so
-        // the chrome has space, hides the duplicate in-content running head, and trims the sheet's
-        // top/bottom padding by the reserved amount so the text block keeps its intended position.
-        var headerTemplate = opt.IncludeCoverPage ? string.Empty : PdfRunningHeaderFooter.BuildHeader(opt.InteriorStyle, title);
-        var footerTemplate = opt.IncludeCoverPage ? string.Empty : PdfRunningHeaderFooter.BuildFooter(opt.InteriorStyle);
+        // Prefer in-content running heads (CSS hides them on title / chapter-open pages).
+        // Chromium header templates paint on EVERY page and cannot be suppressed selectively.
+        // Keep folio (page number) via footer template so body pages are numbered.
+        var headerTemplate = string.Empty;
+        var footerTemplate = opt.IncludeCoverPage
+            ? string.Empty
+            : PdfRunningHeaderFooter.BuildFooter(opt.InteriorStyle);
 
         var configuredEngine = PdfExportEngine.Resolve(_configuration);
         if (configuredEngine != PdfExportEngine.PdfSharp)
@@ -90,6 +88,12 @@ public class BookPdfService : IBookPdfService
                     BookId = details.BookId
                 }, cancellationToken);
                 EnsureValidPdf(pdfBytes);
+
+                var preflight = KdpPrintPreflight.Validate(pdfBytes, opt, title, author);
+                _logger.LogInformation("{Report}", preflight.Format());
+                if (!preflight.Passed)
+                    _logger.LogWarning("KDP preflight reported failures for book {BookId}.", details.BookId);
+
                 _logger.LogInformation(
                     "{Engine} PDF: {Bytes} bytes, 6x9={W}x{H}, style={Style}, pageBg={PageBg}, book={BookId}",
                     htmlEngine.EngineName, pdfBytes.Length, layout.PdfWidth, layout.PdfHeight, opt.InteriorStyle,

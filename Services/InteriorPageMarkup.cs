@@ -26,7 +26,7 @@ public static class InteriorPageMarkup
             : $"reader-page-body {bodyExtraClass}";
 
         var measureMarker = FormattableString.Invariant(
-            $"""<span class="toc-measure-marker" data-toc-measure="{sectionId}" aria-hidden="true">TOCMEASURE_{sectionId}_END</span>""");
+            $"""<span class="toc-measure-marker" data-toc-measure="{sectionId}" aria-hidden="true"></span>""");
 
         return FormattableString.Invariant($"""
 <section class="chapter" id="ch-{sectionId}">

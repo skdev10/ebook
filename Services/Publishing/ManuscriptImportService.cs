@@ -522,6 +522,8 @@ public sealed class ManuscriptImportService
             {
                 foreach (var img in page.GetImages())
                 {
+                    if (ChapterDocumentImportService.IsLikelyFullPageBackground(img, page.Width, page.Height))
+                        continue;
                     if (!ChapterDocumentImportService.TryDecodePdfImage(img, out var imgBytes, out var contentType))
                         continue;
                     localImageCounter++;

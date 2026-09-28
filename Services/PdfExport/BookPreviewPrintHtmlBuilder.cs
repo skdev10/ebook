@@ -66,6 +66,10 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine("<!DOCTYPE html>");
         doc.AppendLine("<html lang=\"en\">");
         doc.AppendLine("<head><meta charset=\"utf-8\"/>");
+        if (!string.IsNullOrWhiteSpace(title))
+            doc.AppendLine(FormattableString.Invariant($"<title>{WebUtility.HtmlEncode(title.Trim())}</title>"));
+        if (!string.IsNullOrWhiteSpace(author))
+            doc.AppendLine(FormattableString.Invariant($"<meta name=\"author\" content=\"{WebUtility.HtmlEncode(author.Trim())}\" />"));
         doc.AppendLine(InteriorPrintDocumentBuilder.GoogleFontLinks());
         doc.AppendLine(fontCss);
         doc.AppendLine("<style>");
@@ -74,9 +78,20 @@ public static class BookPreviewPrintHtmlBuilder
         // from the per-style .book-preview-sheet padding). The cover export is full-bleed (margin 0).
         var pageMargin = includeCoverPage ? "0" : "18mm 0 16mm 0";
         doc.AppendLine(FormattableString.Invariant($"@page {{ size: {pageSizeCss}; margin: {pageMargin}; }}"));
+        // Suppress chrome on first pages via named pages when Chromium headers are disabled.
+        doc.AppendLine("@page front { margin: 0; }");
+        doc.AppendLine("@page chapter-open { margin: 18mm 0 16mm 0; }");
         doc.AppendLine("* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }");
         doc.AppendLine(FormattableString.Invariant($":root {{ --export-page-bg: {pageBg}; }}"));
         doc.AppendLine(themeCss);
+        // Front matter + every chapter start on a new (preferably right-hand) page.
+        doc.AppendLine(".title-page, .copyright-page, .toc-page { break-before: right; page-break-before: right; page: front; }");
+        doc.AppendLine(".title-page { break-before: auto; page-break-before: auto; }");
+        doc.AppendLine(".manuscript-root > section.chapter { break-before: right; page-break-before: right; page: chapter-open; }");
+        doc.AppendLine(".manuscript-root > section.chapter:first-of-type { break-before: right; page-break-before: right; }");
+        doc.AppendLine(".book-pdf-body { hyphens: auto; -webkit-hyphens: auto; }");
+        doc.AppendLine(".reader-page-body p, .manuscript-p { hyphens: auto; -webkit-hyphens: auto; text-align: justify; }");
+        doc.AppendLine(".manuscript-figure, .manuscript-figure img { break-inside: avoid; page-break-inside: avoid; max-width: 100%; height: auto; }");
         doc.AppendLine(".cover-page { page-break-after: always; width: 100%; min-height: 100vh; position: relative; margin: 0; padding: 0; background: #1e1b4b; }");
         doc.AppendLine(".cover-page-blank { background: var(--export-page-bg, #fff); min-height: 100vh; }");
         doc.AppendLine(".cover-img { width: 100%; height: 100vh; object-fit: cover; display: block; }");
@@ -131,12 +146,19 @@ public static class BookPreviewPrintHtmlBuilder
         doc.AppendLine("</style></head>");
         doc.AppendLine("<body class=\"book-pdf-body reader-content-wrap " + bodyTemplateClass + " " + previewShellClass + " " + previewWrapClass + "\">");
         doc.Append(coverBlock);
-        doc.AppendLine("<div class=\"title-page book-preview-sheet\">");
-        doc.Append("<h1>").Append(WebUtility.HtmlEncode(title)).AppendLine("</h1>");
-        doc.AppendLine(subtitleBlock);
-        doc.Append(metaLines);
-        doc.AppendLine("</div>");
-        doc.AppendLine(copyrightHtml);
+        // Title page: only title / subtitle / author from user settings — never invent placeholders.
+        if (!string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(subtitle) || !string.IsNullOrWhiteSpace(author))
+        {
+            doc.AppendLine("<div class=\"title-page book-preview-sheet\">");
+            if (!string.IsNullOrWhiteSpace(title))
+                doc.Append("<h1>").Append(WebUtility.HtmlEncode(title.Trim())).AppendLine("</h1>");
+            doc.AppendLine(subtitleBlock);
+            doc.Append(metaLines);
+            doc.AppendLine("</div>");
+        }
+
+        if (!string.IsNullOrWhiteSpace(copyrightHtml))
+            doc.AppendLine(copyrightHtml);
         doc.AppendLine(tocHtml);
         doc.AppendLine("""<div class="manuscript-root">""");
         doc.Append(chapterSections);

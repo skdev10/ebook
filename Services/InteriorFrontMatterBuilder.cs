@@ -12,18 +12,29 @@ namespace EBookDashboard.Services;
 /// </summary>
 public static class InteriorFrontMatterBuilder
 {
-    /// <summary>Copyright page — left-aligned legal block inside padded page.</summary>
+    /// <summary>Copyright page — left-aligned legal block inside padded page. Empty when title/author unset.</summary>
     public static string BuildCopyrightPageHtml(string title, string author, string? publisherDisplayName)
     {
+        title = (title ?? "").Trim();
+        author = (author ?? "").Trim();
+        // Never invent placeholder copyright copy — both title and author must come from settings.
+        if (string.IsNullOrEmpty(title) && string.IsNullOrEmpty(author))
+            return string.Empty;
+
         var y = DateTime.UtcNow.Year;
         var sb = new StringBuilder();
         sb.AppendLine("""<div class="front-matter-page copyright-page book-preview-sheet">""");
         sb.AppendLine("""<div class="copyright-block">""");
-        sb.AppendLine(CultureInvariant($"""<p class="cr-meta"><strong>{WebUtility.HtmlEncode(title)}</strong></p>"""));
+        if (!string.IsNullOrEmpty(title))
+            sb.AppendLine(CultureInvariant($"""<p class="cr-meta"><strong>{WebUtility.HtmlEncode(title)}</strong></p>"""));
         if (!string.IsNullOrEmpty(author))
             sb.AppendLine(CultureInvariant($"""<p class="cr-meta">{WebUtility.HtmlEncode(author)}</p>"""));
-        sb.AppendLine(CultureInvariant(
-            $"""<p class="cr-legal">Copyright © {y.ToString(CultureInfo.InvariantCulture)} {WebUtility.HtmlEncode(author)}. All rights reserved.</p>"""));
+        if (!string.IsNullOrEmpty(author))
+        {
+            sb.AppendLine(CultureInvariant(
+                $"""<p class="cr-legal">Copyright © {y.ToString(CultureInfo.InvariantCulture)} {WebUtility.HtmlEncode(author)}. All rights reserved.</p>"""));
+        }
+
         if (!string.IsNullOrEmpty(publisherDisplayName))
             sb.AppendLine(CultureInvariant(
                 $"""<p class="cr-legal cr-small">Prepared for publication by {WebUtility.HtmlEncode(publisherDisplayName)}.</p>"""));

@@ -141,6 +141,7 @@ public static class InteriorPrintDocumentBuilder
             sb.AppendLine("</style>");
         }
 
-        return embeddedAny ? sb.ToString() + GoogleFontLinks() : GoogleFontLinks();
+        // Prefer embedded TrueType only for print — Google Fonts WOFF often embeds as Type 3.
+        return embeddedAny ? sb.ToString() : GoogleFontLinks();
     }
 }

@@ -268,9 +268,17 @@ public static class InteriorExportTheme
             ".chapter-body .manuscript-h1, .chapter-body .manuscript-h2, .chapter-body .manuscript-h3, .chapter-body .manuscript-h4 { ",
             "page-break-before: avoid !important; break-before: avoid !important; page-break-after: avoid; break-after: avoid; ",
             "page-break-inside: avoid; break-inside: avoid; } ",
-            ".manuscript-root > section.chapter:first-of-type { break-before: auto; page-break-before: auto; } ",
-            ".manuscript-root > section.chapter ~ section.chapter { break-before: page; page-break-before: always; } ",
+            ".manuscript-root > section.chapter:first-of-type { break-before: right; page-break-before: right; } ",
+            ".manuscript-root > section.chapter ~ section.chapter { break-before: right; page-break-before: right; } ",
             ".manuscript-root > section.chapter:last-of-type { break-after: auto; page-break-after: auto; } ",
+            ".front-matter-page, .toc-page, .copyright-page { break-before: right; page-break-before: right; } ",
+            ".title-page { break-before: auto; page-break-before: auto; } ",
+            // Opening page of each chapter: hide in-content running head (Chromium header still suppressed via blank first line where supported).
+            ".book-pdf-body .reader-chapter-block[data-chapter-start=\"1\"] .book-page-running-head { visibility: hidden; } ",
+            ".book-pdf-body .title-page .book-page-running-head, .book-pdf-body .copyright-page .book-page-running-head, ",
+            ".book-pdf-body .toc-page .book-page-running-head, .book-pdf-body .cover-page .book-page-running-head { display: none !important; } ",
+            ".book-pdf-body .manuscript-figure { break-inside: avoid; page-break-inside: avoid; margin: 0.35in 0; text-align: center; } ",
+            ".book-pdf-body .manuscript-figure img { max-width: 100%; height: auto; break-inside: avoid; page-break-inside: avoid; } ",
             ".chapter-body .manuscript-chapter-heading, .chapter-body .manuscript-heading { font-family: var(--heading-font); color: var(--heading-color); } ",
             "img { max-width: 100%; height: auto; page-break-inside: avoid; break-inside: avoid; } ",
             "[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
@@ -399,10 +407,12 @@ public static class InteriorExportTheme
             ".book-pdf-body.", wrap, " .reader-page-title:not(:has(.fmt-chapter-opener)) { padding-top: 0; } ",
             ".book-pdf-body .reader-page-title + .reader-page-body { margin-top: 0.18in; } ");
 
-        if (interior is "ElegantTrade" or "ElegantTradePOD" or "Traditional" or "FineBook")
+        if (interior is "ElegantTrade" or "ElegantTradePOD" or "Traditional" or "FineBook" or "Classic")
         {
+            // Drop caps only on the first body paragraph of a chapter opener — never Acknowledgments lists / Index.
             css = string.Concat(css,
-                ".book-pdf-body.", wrap, " .reader-page-body > p:first-of-type::first-letter { ",
+                ".book-pdf-body.", wrap, " .reader-chapter-block[data-chapter-start=\"1\"] > .reader-page-body > p.manuscript-p:first-of-type::first-letter, ",
+                ".book-pdf-body.", wrap, " .reader-chapter-block[data-chapter-start=\"1\"] > .reader-page-body > p:first-of-type::first-letter { ",
                 "float: left; font-family: var(--heading-font); font-weight: 700; font-size: 4.2em; ",
                 "line-height: 0.72; padding-right: 6px; margin-top: 4px; color: var(--heading-color); } ");
         }

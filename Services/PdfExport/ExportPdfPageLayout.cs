@@ -46,8 +46,10 @@ public sealed class ExportPdfPageLayout
 
         if (opt.UseBleed)
         {
-            w += 0.25 * InchesToPt;
-            h += 0.25 * InchesToPt;
+            // KDP interior: +0.125" outside edge only on width, +0.125" top and bottom on height.
+            var bleed = EBookDashboard.Configuration.KdpSpecsAccessor.Current.BleedIn;
+            w += bleed * InchesToPt;
+            h += 2 * bleed * InchesToPt;
         }
 
         var top = opt.MarginTopIn is > 0 ? opt.MarginTopIn.Value * InchesToPt : ParseMarginMm(spec.MarginTop);

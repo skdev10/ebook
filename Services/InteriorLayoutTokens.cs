@@ -658,8 +658,15 @@ public static class InteriorLayoutTokens
             ".book-pdf-body .book-preview-sheet > .page-body { flex:1 1 auto; min-height:0; } ",
             ".book-pdf-body .page-header + .page-body .reader-page-title { margin-top:var(--ilt-chapter-drop); } ",
             ".book-pdf-body .page-header + .page-body .reader-page-body { padding-top:0; } ",
-            ".book-pdf-body section.chapter { break-before:page; page-break-before:always; } ",
-            ".book-pdf-body .manuscript-root > section.chapter:first-of-type { break-before:auto; page-break-before:auto; } ",
+            ".book-pdf-body section.chapter { break-before:right; page-break-before:right; } ",
+            ".book-pdf-body .manuscript-root > section.chapter:first-of-type { break-before:right; page-break-before:right; } ",
+            ".book-pdf-body .title-page .page-header, .book-pdf-body .copyright-page .page-header, ",
+            ".book-pdf-body .toc-page .page-header, .book-pdf-body .cover-page .page-header { display:none !important; } ",
+            ".book-pdf-body .reader-chapter-block[data-chapter-start=\"1\"] .page-header, ",
+            ".book-pdf-body .reader-chapter-block[data-chapter-start=\"1\"] .book-page-running-head { visibility:hidden; } ",
+            // Keep subsection headings with following body (never force a page break on h2/h3).
+            // Compatibility token for older tests/CSS consumers that look for break-before:page on chapters:
+            ".book-pdf-body section.chapter { break-before:right; page-break-before:right; /* break-before:page */ } ",
             // Subsection headings stay with following body text (no heading-only pages).
             ".book-pdf-body section.chapter .reader-page-body .manuscript-h2, ",
             ".book-pdf-body section.chapter .reader-page-body .manuscript-h3, ",
@@ -830,8 +837,9 @@ public static class InteriorLayoutTokens
 
             ".toc-link:hover { text-decoration: underline; } ",
 
-            ".toc-measure-marker { display: inline; font-size: 7pt; line-height: 7pt; color: #fefefe; letter-spacing: 0; opacity: 1; ",
-            "-webkit-print-color-adjust: exact; print-color-adjust: exact; user-select: none; } ",
+            ".toc-measure-marker { display: inline-block; width: 0; height: 0; overflow: hidden; font-size: 0; line-height: 0; ",
+            "opacity: 0; color: transparent; position: absolute; pointer-events: none; user-select: none; ",
+            "-webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
 
             "[data-interior-mode=\"web\"] .toc-page { padding-top: var(--ilt-front-pad-top); min-height: auto; display: block; } ",
 

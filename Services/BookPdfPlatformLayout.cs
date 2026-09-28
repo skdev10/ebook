@@ -42,13 +42,13 @@ public static class BookPdfPlatformLayout
             (tw, th) = TrimForInterior(opt.InteriorStyle);
         }
 
-        // POD styles or explicit bleed → page grows by 0.25in per dimension.
+        // POD styles or explicit bleed → KDP interior bleed (width +0.125, height +0.25).
         var style = InteriorExportTheme.NormalizeInteriorStyle(opt.InteriorStyle);
         var isPodBleed = style is "POD" or "ElegantTradePOD";
         if (opt.UseBleed || isPodBleed)
         {
-            tw = AddBleed(tw);
-            th = AddBleed(th);
+            tw = AddBleedWidth(tw);
+            th = AddBleedHeight(th);
         }
 
         var effectiveMargins = marginOverrides;
@@ -79,8 +79,17 @@ public static class BookPdfPlatformLayout
     private static string FormatIn(double inches) =>
         string.Concat(inches.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture), "in");
 
-    /// <summary>Adds bleed on both sides (2 × BleedIn from KdpSpecs) to an inches CSS dimension like "6in".</summary>
-    private static string AddBleed(string inches)
+    /// <summary>Adds KDP interior bleed: +BleedIn on outside width only, +2×BleedIn on height.</summary>
+    private static string AddBleedWidth(string inches)
+    {
+        var bleed = EBookDashboard.Configuration.KdpSpecsAccessor.Current.BleedIn;
+        var raw = inches.Replace("in", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+        return double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v)
+            ? string.Concat((v + bleed).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), "in")
+            : inches;
+    }
+
+    private static string AddBleedHeight(string inches)
     {
         var bleedTotal = 2 * EBookDashboard.Configuration.KdpSpecsAccessor.Current.BleedIn;
         var raw = inches.Replace("in", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();

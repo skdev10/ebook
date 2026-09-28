@@ -42,8 +42,8 @@ public class ModuleExportStep4Tests
             UseBleed = true
         };
         var layout = BookPdfPlatformLayout.Resolve(opt);
-        Assert.Equal("5.25in", layout.PdfWidth); // 5 + 0.25 bleed
-        Assert.Equal("8.25in", layout.PdfHeight);
+        Assert.Equal("5.125in", layout.PdfWidth); // 5 + 0.125 outside bleed only
+        Assert.Equal("8.25in", layout.PdfHeight); // 8 + 0.125 top + 0.125 bottom
         Assert.False(layout.PreferCssPageSize);
     }
 

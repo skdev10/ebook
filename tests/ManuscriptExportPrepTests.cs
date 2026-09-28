@@ -162,7 +162,8 @@ public class ManuscriptExportPrepTests
         Assert.Contains("page-header", html, StringComparison.Ordinal);
         Assert.Contains("page-body", html, StringComparison.Ordinal);
         Assert.Contains("book-page-running-head", html, StringComparison.Ordinal);
-        Assert.Contains("TOCMEASURE_1_END", html, StringComparison.Ordinal);
+        Assert.Contains("data-toc-measure=\"1\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("TOCMEASURE_", html, StringComparison.Ordinal);
         Assert.Contains("fmt-chapter-opener", html, StringComparison.Ordinal);
         Assert.Contains("fmt-ch-eyebrow", html, StringComparison.Ordinal);
     }
@@ -490,8 +491,8 @@ public class ManuscriptExportPrepTests
         var css = InteriorLayoutTokens.BuildPdfInContentPageChromeCss();
         Assert.DoesNotContain("manuscript-h2:not(:first-child)", css, StringComparison.Ordinal);
         Assert.Contains("page-break-before:avoid", css, StringComparison.Ordinal);
-        // Chapters still start on a fresh page — only subsections were relaxed.
-        Assert.Contains("section.chapter { break-before:page", css, StringComparison.Ordinal);
+        // Chapters still start on a fresh (recto) page — only subsections were relaxed.
+        Assert.Contains("section.chapter { break-before:right", css, StringComparison.Ordinal);
     }
 
     [Fact]

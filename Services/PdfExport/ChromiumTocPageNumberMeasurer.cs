@@ -51,25 +51,30 @@ public sealed class ChromiumTocPageNumberMeasurer : ITocPageNumberMeasurer
             ? string.Empty
             : PdfRunningHeaderFooter.BuildFooter(exportOptions.InteriorStyle);
 
-        var exporter = new ChromiumPdfExporter(_logger, _configuration);
-        var pdfBytes = await exporter.ExportAsync(
-            fullBookHtml, layout, headerTemplate, footerTemplate, cancellationToken);
+        // Prefer DOM layout measurement — markers are empty (no TOCMEASURE text in the PDF).
+        var pages = await MeasureChapterPagesViaHtmlLayoutAsync(
+            fullBookHtml, layout, expectedChapterCount, cancellationToken);
 
-        var pages = ExtractChapterPagesViaPdfPig(pdfBytes, expectedChapterCount);
         if (pages.Count != expectedChapterCount || pages.Any(p => p <= 0))
         {
             _logger.LogWarning(
-                "PdfPig TOC markers incomplete (got [{Pages}]); trying HTML layout fallback.",
+                "HTML TOC measurement incomplete (got [{Pages}]); trying PdfPig chapter-title heuristic.",
                 string.Join(", ", pages));
 
-            pages = await MeasureChapterPagesViaHtmlLayoutAsync(
-                fullBookHtml, layout, expectedChapterCount, cancellationToken);
+            var exporter = new ChromiumPdfExporter(_logger, _configuration);
+            var pdfBytes = await exporter.ExportAsync(
+                fullBookHtml, layout, headerTemplate, footerTemplate, cancellationToken);
 
-            if (pages.Count != expectedChapterCount || pages.Any(p => p <= 0))
-            {
-                throw new InvalidOperationException(
-                    $"TOC measurement could not resolve start pages for all chapters (got [{string.Join(", ", pages)}]).");
-            }
+            // Guard: internal marker strings must never appear in the print PDF text layer.
+            AssertNoInternalMarkersInPdf(pdfBytes);
+
+            pages = ExtractChapterPagesViaTitles(pdfBytes, chapterTitles, expectedChapterCount);
+        }
+
+        if (pages.Count != expectedChapterCount || pages.Any(p => p <= 0))
+        {
+            throw new InvalidOperationException(
+                $"TOC measurement could not resolve start pages for all chapters (got [{string.Join(", ", pages)}]).");
         }
 
         _logger.LogInformation(
@@ -81,7 +86,25 @@ public sealed class ChromiumTocPageNumberMeasurer : ITocPageNumberMeasurer
         return pages;
     }
 
-    private static List<int> ExtractChapterPagesViaPdfPig(byte[] pdfBytes, int chapterCount)
+    private static void AssertNoInternalMarkersInPdf(byte[] pdfBytes)
+    {
+        using var doc = PdfDocument.Open(pdfBytes);
+        foreach (var page in doc.GetPages())
+        {
+            var text = page.Text ?? "";
+            if (text.Contains("TOCMEASURE_", StringComparison.Ordinal)
+                || text.Contains("SECMARK", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "Internal TOC/section markers leaked into the print PDF text layer.");
+            }
+        }
+    }
+
+    private static List<int> ExtractChapterPagesViaTitles(
+        byte[] pdfBytes,
+        IReadOnlyList<string> chapterTitles,
+        int chapterCount)
     {
         var pageTexts = new List<(int Page, string Text)>();
         using (var doc = PdfDocument.Open(pdfBytes))
@@ -90,25 +113,26 @@ public sealed class ChromiumTocPageNumberMeasurer : ITocPageNumberMeasurer
             {
                 var sb = new StringBuilder();
                 foreach (var word in page.GetWords())
-                    sb.Append(word.Text);
+                    sb.Append(word.Text).Append(' ');
                 pageTexts.Add((page.Number, sb.ToString()));
             }
         }
 
-        var tocPages = pageTexts
-            .Where(x => x.Text.Contains("contents", StringComparison.OrdinalIgnoreCase))
-            .Select(x => x.Page)
-            .ToList();
-        var minPage = tocPages.Count > 0 ? tocPages.Max() : 0;
-
         var pages = new List<int>(chapterCount);
-        for (var i = 1; i <= chapterCount; i++)
+        var minPage = 0;
+        for (var i = 0; i < chapterCount; i++)
         {
-            var marker = "TOCMEASURE_" + i.ToString(CultureInfo.InvariantCulture) + "_END";
-            var hitPage = pageTexts
-                .Where(x => x.Page > minPage && x.Text.Contains(marker, StringComparison.Ordinal))
-                .Select(x => x.Page)
-                .FirstOrDefault();
+            var title = i < chapterTitles.Count ? (chapterTitles[i] ?? "").Trim() : "";
+            var hitPage = 0;
+            if (title.Length >= 4)
+            {
+                hitPage = pageTexts
+                    .Where(x => x.Page > minPage
+                                && x.Text.Contains(title, StringComparison.OrdinalIgnoreCase))
+                    .Select(x => x.Page)
+                    .FirstOrDefault();
+            }
+
             pages.Add(hitPage);
             if (hitPage > minPage) minPage = hitPage;
         }
