@@ -765,7 +765,7 @@ namespace EBookDashboard.Services
         /// Lightweight book + chapters load for formatter/preview. Skips isActive updates for faster response.
         /// Use this for GetFullBookContent (Book Formatter page) so loading does not time out.
         /// </summary>
-        public async Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId)
+        public async Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId, bool includeBodies = true)
         {
             try
             {
@@ -776,7 +776,18 @@ namespace EBookDashboard.Services
                 if (book == null)
                     return null;
 
-                var chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true);
+                List<ChapterDto> chapters;
+                try
+                {
+                    chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true, includeBodies: includeBodies);
+                }
+                catch (Exception bodyEx)
+                {
+                    // Huge manuscripts can fail the full-body read (packet/timeout). Still return titles
+                    // so Writer/Formatter never show "No chapters yet" for a book that has chapters.
+                    chapters = await GetMergedPreviewChaptersAsync(userId, bookId, noTracking: true, includeBodies: false);
+                    _ = bodyEx;
+                }
 
                 var authorName = await ResolveAuthorDisplayNameAsync(userId);
                 var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
@@ -794,7 +805,7 @@ namespace EBookDashboard.Services
                     CoverImagePath = book.CoverImagePath,
                     TotalChapters = chapters.Count,
                     Chapters = chapters,
-                    BookContentHtml = book.BookContentHtml
+                    BookContentHtml = includeBodies ? (book.BookContentHtml ?? "") : ""
                 };
             }
             catch (Exception ex)
@@ -920,11 +931,12 @@ namespace EBookDashboard.Services
                 libHeads = libRows.Select(c => (c.ChapterNumber, c.Title, c.Status, c.CreatedAt, c.UpdatedAt, "")).ToList();
             }
 
-            bool HasBody(string? content) => !string.IsNullOrWhiteSpace(content);
             bool IsOfficialStatus(string? status) =>
                 string.Equals(status, "ReadOnly", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(status, "Final", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(status, "Finalized", StringComparison.OrdinalIgnoreCase);
+
+            bool HasBody(string? content) => !string.IsNullOrWhiteSpace(content);
 
             // Chapter 0 Notes (Preface, Dedication, …): keep each unique title — do not collapse by number.
             var frontMatterLibrary = libHeads
@@ -937,13 +949,15 @@ namespace EBookDashboard.Services
                     .First())
                 .ToList();
 
+            // Keep title-only / newly added chapters in the list. Filtering empty bodies
+            // made large books look like "No chapters yet" after + or a big PDF import.
             var official = libHeads
-                .Where(c => c.ChapterNumber > 0 && IsOfficialStatus(c.Status) && (!includeBodies || HasBody(c.Content)))
+                .Where(c => c.ChapterNumber > 0 && IsOfficialStatus(c.Status))
                 .GroupBy(c => c.ChapterNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 
             var draftLibrary = libHeads
-                .Where(c => c.ChapterNumber > 0 && (!includeBodies || HasBody(c.Content)) && !official.ContainsKey(c.ChapterNumber))
+                .Where(c => c.ChapterNumber > 0 && !official.ContainsKey(c.ChapterNumber))
                 .GroupBy(c => c.ChapterNumber)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 

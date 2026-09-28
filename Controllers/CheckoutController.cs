@@ -4,6 +4,7 @@ using EBookDashboard.Models;
 using EBookDashboard.Models.DTO;
 using EBookDashboard.Models.Options;
 using EBookDashboard.Interfaces;
+using EBookDashboard.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -270,7 +271,12 @@ namespace EBookDashboard.Controllers
                 .FirstOrDefaultAsync(f => f.BookId == bookId && f.UserId == userId);
             exportOpt.MergeFromBookFormatting(fmtRow);
 
-            return _bookPageMetricsService.Estimate(details, exportOpt);
+            var sourceRaw = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == ManuscriptVersionStore.SourcePdfPageCountKey(bookId))
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync();
+            var sourcePages = int.TryParse(sourceRaw, out var n) && n > 0 ? n : (int?)null;
+            return _bookPageMetricsService.Estimate(details, exportOpt, sourcePages);
         }
 
         /// <summary>Stripe return URL: verify paid session, then set book status.</summary>

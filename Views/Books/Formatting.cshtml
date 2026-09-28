@@ -61,9 +61,9 @@
                     <div class="fmt-print-only" id="fmtPrintSettings" style="@(isPrint ? "" : "display:none")">
                         <label for="fmtTrimSize">Trim size</label>
                         <select id="fmtTrimSize" name="trimSize">
-                            <option value="6x9" data-w="6" data-h="9" selected>6 × 9 in</option>
+                            <option value="6x9" data-w="6" data-h="9">6 × 9 in</option>
                             <option value="5x8" data-w="5" data-h="8">5 × 8 in</option>
-                            <option value="5.5x8.5" data-w="5.5" data-h="8.5">5.5 × 8.5 in</option>
+                            <option value="5.5x8.5" data-w="5.5" data-h="8.5" selected>5.5 × 8.5 in (trade / Zero to One)</option>
                             <option value="8.5x11" data-w="8.5" data-h="11">8.5 × 11 in</option>
                             <option value="8x10" data-w="8" data-h="10">8 × 10 in</option>
                             <option value="8.5x8.5" data-w="8.5" data-h="8.5">8.5 × 8.5 in</option>
@@ -71,8 +71,8 @@
 
                         <label>Bleed</label>
                         <div class="fmt-radio-row">
-                            <label><input type="radio" name="fmtBleed" id="fmtBleedOff" value="off" checked /> No bleed</label>
-                            <label><input type="radio" name="fmtBleed" id="fmtBleedOn" value="on" /> Bleed (0.125″)</label>
+                            <label><input type="radio" name="fmtBleed" id="fmtBleedOff" value="off" /> No bleed</label>
+                            <label><input type="radio" name="fmtBleed" id="fmtBleedOn" value="on" checked /> Bleed (0.125″)</label>
                         </div>
 
                         <div class="fmt-check-row" style="margin-top:0.65rem;">
@@ -112,8 +112,8 @@
 
                     <label>Line spacing</label>
                     <div class="fmt-font-row" id="fmtLineSpacing">
-                        <button type="button" data-ls="1.4" class="@(lineSpacing == "1.4" ? "active" : "")">Tight 1.4</button>
-                        <button type="button" data-ls="1.6" class="@(lineSpacing == "1.6" || string.IsNullOrEmpty(lineSpacing) ? "active" : "")">Normal 1.6</button>
+                        <button type="button" data-ls="1.4" class="@(lineSpacing == "1.4" || string.IsNullOrEmpty(lineSpacing) ? "active" : "")">Tight 1.4</button>
+                        <button type="button" data-ls="1.6" class="@(lineSpacing == "1.6" ? "active" : "")">Normal 1.6</button>
                         <button type="button" data-ls="1.8" class="@(lineSpacing == "1.8" ? "active" : "")">Relaxed 1.8</button>
                         <button type="button" data-ls="2" class="@(lineSpacing == "2" || lineSpacing == "2.0" ? "active" : "")">Loose 2</button>
                     </div>

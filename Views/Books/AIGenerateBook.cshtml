@@ -2397,7 +2397,7 @@ window.ensureAiWriterFormattingLoaded = function (bookId) {
         .then(function (d) {
             if (!d || !d.success || !d.data) return window._aiWriterFormatting || {};
             window._aiWriterFormatting = {
-                interiorStyle: d.data.interiorStyle || 'Novel',
+                interiorStyle: d.data.interiorStyle || 'Classic',
                 textSize: d.data.textSize || 'Medium',
                 lineSpacing: d.data.lineSpacing || '1.6',
                 pageBackgroundColor: '',
@@ -3681,23 +3681,30 @@ window.refreshAiWriterTotalPages = async function () {
             wrap.classList.add('hidden');
         }
     };
-    // Live open-book pagination is the source of truth on AI Writer.
-    if (localPages > 0 && window._writerFullBookMode && window._writerBookPages && window._writerBookPages.length) {
-        showCount(localPages);
-        return;
-    }
-    if (localPages > 0) showCount(localPages);
     try {
         var r = await fetch('/Dashboard/BookPageMetrics?bookId=' + encodeURIComponent(bid), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
         var d = await r.json().catch(function () { return {}; });
+        var locked = parseInt(window.__sourcePdfPageCount, 10);
+        if (Number.isFinite(locked) && locked > 0) {
+            showCount(locked);
+            return;
+        }
         var apiCount = (d && d.success && d.pageCount > 0) ? parseInt(String(d.pageCount), 10) : 0;
-        // Prefer saved Formatting count only when we do not yet have a live page build.
-        if (apiCount > 0 && d && d.pageCountSource === 'formatter' && localPages <= 0) showCount(apiCount);
-        else if (apiCount > 0 && localPages <= 0) showCount(apiCount);
-        else if (apiCount > 0 && localPages > 0) showCount(Math.max(apiCount, localPages));
-        else if (!localPages) showCount(0);
+        // Uploaded PDF page count is exact — do not replace it with reflow pagination.
+        if (apiCount > 0 && d && d.pageCountSource === 'source_pdf') {
+            window.__sourcePdfPageCount = apiCount;
+            showCount(apiCount);
+            return;
+        }
+        if (apiCount > 0) {
+            showCount(apiCount);
+            return;
+        }
+        if (localPages > 0) showCount(localPages);
+        else showCount(0);
     } catch (e) {
-        if (!localPages) showCount(0);
+        if (localPages > 0) showCount(localPages);
+        else showCount(0);
     }
 };
 document.addEventListener('DOMContentLoaded', function () {
@@ -3789,6 +3796,19 @@ window.showPreviewEmptyState = function () {
     var previewHeader = document.getElementById('preview-chapter-header');
     if (!previewContent) return;
     if (window._previewChaptersMeta && window._previewChaptersMeta.length > 0) return;
+    var chDdl = document.getElementById('ChapterDropdown');
+    var namedChapters = 0;
+    if (chDdl) {
+        for (var ci = 0; ci < chDdl.options.length; ci++) {
+            var ov = parseInt(chDdl.options[ci].value, 10);
+            if (Number.isFinite(ov) && ov > 0) namedChapters++;
+        }
+    }
+    if (namedChapters > 0) {
+        // Chapters exist (often after a large import) — do not replace the book with
+        // "upload from AI Writer / no chapter yet".
+        return;
+    }
     window._writerFullBookMode = false;
     window._writerBookPages = null;
     if (previewHeader) {
@@ -4603,7 +4623,7 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
             try { window._aiBookPreviewContext = Object.assign({}, phBase); } catch (e) {}
             window._aiWriterCoverUrl = phBase.coverImagePath || '';
             window._aiWriterFormatting = {
-                interiorStyle: (data.formatting && data.formatting.interiorStyle) || 'Novel',
+                interiorStyle: (data.formatting && data.formatting.interiorStyle) || 'Classic',
                 textSize: (data.formatting && data.formatting.textSize) || 'Medium',
                 lineSpacing: (data.formatting && data.formatting.lineSpacing) || '1.6',
                 pageBackgroundColor: (data.formatting && data.formatting.pageBackgroundColor) || '',
@@ -4616,6 +4636,10 @@ window.loadFullBookIntoPageFlip = function(uid, bid, opts) {
             var esc = window.escapeHtml || function(x) {
                 return String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             };
+            if (data.sourcePdfPageCount > 0) {
+                window.__sourcePdfPageCount = parseInt(String(data.sourcePdfPageCount), 10) || 0;
+                window.__pageCountSource = data.pageCountSource || 'source_pdf';
+            }
             chapters.forEach(function(ch, idx) {
                 var titleRaw = (ch.chapterTitle || '').trim();
                 var chNo = parseInt(ch.chapterNo, 10);
@@ -5475,6 +5499,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (typeof window.updateGenerateBtnMode === 'function') window.updateGenerateBtnMode();
         };
 
+        if (meta.skipFullPreview) {
+            doneToast();
+            var brFast = document.getElementById('bookResult');
+            if (brFast) try { brFast.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (eFast) {}
+            return true;
+        }
+
         if (hasExisting && typeof window.setPreviewChaptersFromList === 'function') {
             // Build formatted meta for the new chapters and append to the existing list.
             var escFn = typeof window.escapeHtml === 'function' ? window.escapeHtml : function (x) {
@@ -5575,6 +5606,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var xhr = new XMLHttpRequest();
             xhr.open('POST', '/Books/ImportChapterFile', true);
             xhr.withCredentials = true;
+            xhr.timeout = 480000;
 
             xhr.upload.onprogress = function (e) {
                 if (e.lengthComputable) {
@@ -5584,6 +5616,12 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             xhr.upload.onload = function () { setDocProgress(70, 'Processing chapters…'); };
 
+            xhr.ontimeout = function () {
+                importInput.value = '';
+                if (typeof showNotification === 'function') showNotification('PDF import timed out. Try again — large books can take a few minutes.', 'error');
+                hideDocProgress(0);
+                setDocUploadBusy(false);
+            };
             xhr.onerror = function () {
                 importInput.value = '';
                 if (typeof showNotification === 'function') showNotification('Import failed. Please try again.', 'error');
@@ -5604,66 +5642,83 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
                 setDocProgress(90, 'Adding chapters…');
-                try {
-                    if (!data.saved || !data.bookId) {
-                        if (typeof showNotification === 'function') {
-                            showNotification(data.message || 'File read OK but chapters were not saved. Please try again.', 'error');
+                (async function () {
+                    try {
+                        if (!data.saved || !data.bookId) {
+                            if (typeof showNotification === 'function') {
+                                showNotification(data.message || 'File read OK but chapters were not saved. Please try again.', 'error');
+                            }
+                            hideDocProgress(0);
+                            setDocUploadBusy(false);
+                            return;
                         }
+
+                        var bidEl = document.getElementById('BookId');
+                        if (bidEl) bidEl.value = String(data.bookId);
+                        var bookDdl = document.getElementById('savedResponsesDropdown');
+                        if (bookDdl) {
+                            var hasOpt = false;
+                            for (var bo = 0; bo < bookDdl.options.length; bo++) {
+                                if (bookDdl.options[bo].value === String(data.bookId)) { hasOpt = true; break; }
+                            }
+                            if (!hasOpt) {
+                                var newOpt = document.createElement('option');
+                                newOpt.value = String(data.bookId);
+                                newOpt.textContent = (data.suggestedBookTitle || 'Imported book');
+                                bookDdl.appendChild(newOpt);
+                            }
+                            bookDdl.value = String(data.bookId);
+                        }
+                        if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(String(data.bookId));
+
+                        // Slim titles only — never re-download the whole manuscript here.
+                        // Full-book GetBookDetails + page-flip pagination is what froze the tab after upload.
+                        var multi = Array.isArray(data.chapters) ? data.chapters : [];
+                        var firstNo = (multi[0] && (multi[0].chapterNo || multi[0].suggestedChapterNo)) || data.suggestedChapterNo || 1;
+                        if (multi.length >= 1 && typeof window.applyImportedMultiChapterDocument === 'function') {
+                            window.applyImportedMultiChapterDocument(multi, {
+                                suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
+                                fileName: (f && f.name) ? f.name : '',
+                                numbersAuthoritative: true,
+                                skipFullPreview: true
+                            });
+                        }
+
+                        if (data.pageCount > 0) {
+                            window.__sourcePdfPageCount = parseInt(String(data.pageCount), 10) || 0;
+                            window.__pageCountSource = data.pageCountSource || 'source_pdf';
+                        }
+                        var cc = data.chapterCount || multi.length || 1;
+                        var pagesLabel = data.pageCount > 0 ? (' · ' + data.pageCount + ' PDF pages') : '';
+                        setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved' + pagesLabel);
+                        if (typeof showNotification === 'function') {
+                            showNotification(cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved' + pagesLabel + '. Opening first chapter…', 'success');
+                        }
+                        setDocUploadBusy(false);
+                        hideDocProgress(800);
+
+                        if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
+                        if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
+                        if (typeof window.refreshAiWriterTotalPages === 'function') window.refreshAiWriterTotalPages();
+
+                        setTimeout(function () {
+                            if (typeof window.loadBookAllChaptersNumbers === 'function') {
+                                window.loadBookAllChaptersNumbers(true).then(function () {
+                                    if (typeof loadBookChapterNos === 'function') loadBookChapterNos(firstNo);
+                                    else if (typeof window.loadBookChapterNos === 'function') window.loadBookChapterNos(firstNo);
+                                }).catch(function () {
+                                    if (typeof loadBookChapterNos === 'function') loadBookChapterNos(firstNo);
+                                });
+                            } else if (typeof loadBookChapterNos === 'function') {
+                                loadBookChapterNos(firstNo);
+                            }
+                        }, 40);
+                    } catch (e) {
+                        if (typeof showNotification === 'function') showNotification('Import processing failed.', 'error');
                         hideDocProgress(0);
                         setDocUploadBusy(false);
-                        return;
                     }
-
-                    // Adopt the saved book so formatting / chapter select use the same id.
-                    var bidEl = document.getElementById('BookId');
-                    if (bidEl) bidEl.value = String(data.bookId);
-                    var bookDdl = document.getElementById('savedResponsesDropdown');
-                    if (bookDdl) {
-                        var hasOpt = false;
-                        for (var bo = 0; bo < bookDdl.options.length; bo++) {
-                            if (bookDdl.options[bo].value === String(data.bookId)) { hasOpt = true; break; }
-                        }
-                        if (!hasOpt) {
-                            var newOpt = document.createElement('option');
-                            newOpt.value = String(data.bookId);
-                            newOpt.textContent = (data.suggestedBookTitle || 'Imported book');
-                            bookDdl.appendChild(newOpt);
-                        }
-                        bookDdl.value = String(data.bookId);
-                    }
-                    if (typeof window.persistFormatterBookId === 'function') window.persistFormatterBookId(String(data.bookId));
-
-                    var multi = Array.isArray(data.chapters) ? data.chapters : [];
-                    // Always prefer structured chapters when the server saved them (1 or many).
-                    if (multi.length >= 1 && typeof window.applyImportedMultiChapterDocument === 'function') {
-                        window.applyImportedMultiChapterDocument(multi, {
-                            suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
-                            fileName: (f && f.name) ? f.name : '',
-                            numbersAuthoritative: true
-                        });
-                    } else {
-                        window.applyImportedChapterDocument(data.text, {
-                            suggestedBookTitle: (data.suggestedBookTitle || '').trim(),
-                            suggestedChapterTitle: (data.suggestedChapterTitle || '').trim(),
-                            suggestedChapterNo: data.suggestedChapterNo
-                        });
-                    }
-
-                    // Unlock Book Formatting — uploaded chapters count as book content.
-                    if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
-                    if (typeof window.refreshBookFormattingButton === 'function') window.refreshBookFormattingButton(null);
-
-                    var cc = data.chapterCount || multi.length || 1;
-                    setDocProgress(100, '\u2705 ' + cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved');
-                    if (typeof showNotification === 'function') {
-                        showNotification(cc + ' chapter' + (cc === 1 ? '' : 's') + ' saved. Book Formatting is unlocked.', 'success');
-                    }
-                } catch (e) {
-                    if (typeof showNotification === 'function') showNotification('Import processing failed.', 'error');
-                } finally {
-                    hideDocProgress(1600);
-                    setDocUploadBusy(false);
-                }
+                })();
             };
 
             var fd = new FormData();
@@ -6600,8 +6655,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Load data from  Books + APIRawResponse
             const response = await (typeof window.apiJsonFetch === 'function'
-                ? window.apiJsonFetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`)
-                : fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}`));
+                ? window.apiJsonFetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}&includeBodies=false`)
+                : fetch(`/Books/GetBookDetails?userId=${userId}&bookId=${bookId}&includeBodies=false`));
             //   console.log("📨 Get Json result:", response);
 
             if (!response.ok)
@@ -6684,15 +6739,17 @@ document.addEventListener('DOMContentLoaded', function() {
                populateBookForm(result);   // Function to populate FORM's fields with book data
                // Full book preview: only claim "loaded" when real chapter content exists; otherwise prompt to start.
                var hasRealChapterContent = sortedCh.some(function (c) {
-                   if (!c || c.content == null) return false;
+                   if (!c) return false;
+                   if (c.hasContent === true) return true;
+                   if ((c.chapterTitle || c.title || '').toString().trim()) return true;
+                   if (c.content == null) return false;
                    return String(c.content).replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().length > 0;
                });
                if (hasRealChapterContent) {
-                   showNotification("Book loaded — full preview is ready.", "success");
-                   var uidLoad = parseInt(String(document.getElementById('UserId')?.value || userId || '0'), 10) || 0;
-                   var bidLoad = parseInt(String(bookId || '0'), 10) || 0;
-                   if (uidLoad > 0 && bidLoad > 0 && typeof window.loadFullBookIntoPageFlip === 'function') {
-                       window.loadFullBookIntoPageFlip(uidLoad, bidLoad);
+                   showNotification("Book loaded. Opening the selected chapter…", "success");
+                   var firstNo = latestChapter ? latestChapter.chapterNo : (sortedCh[0] && sortedCh[0].chapterNo);
+                   if (firstNo && typeof loadBookChapterNos === 'function') {
+                       setTimeout(function () { loadBookChapterNos(firstNo); }, 30);
                    }
                } else {
                    showNotification("Start writing your first chapter.", "info");
@@ -7464,8 +7521,8 @@ document.addEventListener('DOMContentLoaded', function() {
                   }
                   if (typeof window.syncChapterTopicLock === 'function') window.syncChapterTopicLock();
                   if (window.EbookUnsavedGuard) window.EbookUnsavedGuard.markSaved();
-                  if (typeof window.markChapterAsGenerated === 'function' && latestChapter && (latestChapter.responseId || latestChapter.response_id)) {
-                      window.markChapterAsGenerated();
+                  if (latestChapter && (latestChapter.content || latestChapter.responseId || latestChapter.response_id || latestChapter.chapterTitle)) {
+                      if (typeof window.markChapterAsGenerated === 'function') window.markChapterAsGenerated();
                       // Always paint the selected chapter body into the preview (same path as
                       // iteration switch). Previously we only reindexed a stale _previewChaptersMeta
                       // cache, so switching chapters left the old chapter on screen.
@@ -7664,6 +7721,7 @@ document.addEventListener('DOMContentLoaded', function() {
               showNotification(err.message || 'Error', 'error');
           }
       }
+      try { window.loadBookChapterNos = loadBookChapterNos; } catch (eBindChNo) { /* ignore */ }
 
     //====(2-37)==============================OK
     //  Run On Button Click 📖 Show
@@ -8983,38 +9041,38 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             console.log("📚 API Response data :", data);
 
-             // Clear old items from Drop-Down
-              ddl.innerHTML = "";
-
            if (!data || data.length === 0) {
                   console.log("No chapters found in response");
-                  ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
-                  window.__writerChapterTitles = Object.create(null);
-                  if (typeof window.setActiveChapter === 'function') window.setActiveChapter(0);
-                  var hiddenEmpty = document.getElementById('ChapterNo');
-                  if (hiddenEmpty) hiddenEmpty.value = '0';
+                  if (!ddl.options.length) {
+                      ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
+                      window.__writerChapterTitles = Object.create(null);
+                      if (typeof window.setActiveChapter === 'function') window.setActiveChapter(0);
+                      var hiddenEmpty = document.getElementById('ChapterNo');
+                      if (hiddenEmpty) hiddenEmpty.value = '0';
+                  }
                   if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
                   return;
               }
 
               console.log(`Found ${data.length} chapters`);
 
-             // Show only real chapters (no confusing "Enter chapter title first" placeholder row).
+             // Show only real chapters. Use DOM APIs — innerHTML += breaks when a title
+             // has quotes / < / newlines (common after a big PDF split).
              ddl.innerHTML = "";
 
-             data.forEach((row, index) => {  // Added index parameter
-                  console.log(`Chapter ${index}:`, row);
-
-                  // Check if the expected properties exist
-                  const chapterNo = row.chapterNo || row.chapter || row.ChapterNumber || 'N/A';
+             data.forEach((row, index) => {
+                  const chapterNo = row.chapterNo || row.chapter || row.ChapterNumber || '';
+                  if (chapterNo === '' || chapterNo === 'N/A') return;
                   const chapterTitle = row.chapterTitle || row.title || row.Title || '';
-
-                  // Show both ChapterNo and ChapterTitle in dropdown
                   const displayText = (typeof window.formatChapterDropdownLabel === 'function')
                       ? window.formatChapterDropdownLabel(chapterNo, chapterTitle)
                       : (`Chapter ${chapterNo}` + (chapterTitle && chapterTitle !== 'Untitled Chapter' ? (' — ' + chapterTitle) : ''));
-
-                  ddl.innerHTML += `<option value="${chapterNo}" data-status="${row.chapterStatus || row.status || 'OK'}" data-title="${String(chapterTitle).replace(/"/g, '&quot;')}">${displayText.replace(/</g, '&lt;')}</option>`;
+                  var opt = document.createElement('option');
+                  opt.value = String(chapterNo);
+                  opt.textContent = displayText;
+                  opt.setAttribute('data-status', String(row.chapterStatus || row.status || 'OK'));
+                  opt.setAttribute('data-title', String(chapterTitle));
+                  ddl.appendChild(opt);
               });
 
               // Select the first chapter and update status
@@ -9039,13 +9097,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
           } catch (error) {
               console.error("Error loading chapters:", error);
-              // Keep soft placeholder — never invent "Chapter 1" when load fails / no book.
-              ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
-              if (statusInput) statusInput.value = "OK";
+              // Do not wipe a long chapter list on a flaky fetch — that is the "no chapters yet" bug.
+              if (!ddl.options.length) {
+                  ddl.innerHTML = `<option value="" selected disabled>Add a chapter → click +</option>`;
+              }
+              if (statusInput && !ddl.options.length) statusInput.value = "OK";
           }
           if (typeof window.updateDeleteChapterButtonState === 'function') window.updateDeleteChapterButtonState();
 
      }
+     try { window.loadBookAllChaptersNumbers = loadBookAllChaptersNumbers; } catch (eBindCh) { /* ignore */ }
 
       //=============================================
      //   Update Chapter Form with Loaded Data

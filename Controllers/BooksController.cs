@@ -332,7 +332,9 @@ namespace EBookDashboard.Controllers
                 _logger.LogWarning(ex, "Formatting: could not load chapters for book {BookId}", bookId);
             }
 
-            var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(chapterSource);
+            var sourcePages = await GetSourcePdfPageCountAsync(bookId, cancellationToken);
+            var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(
+                chapterSource, sourcePages > 0 ? sourcePages : null);
             var versions = await ManuscriptVersionStore.LoadAsync(_context, bookId, cancellationToken);
             var active = versions.FirstOrDefault(v => v.Active) ?? versions.FirstOrDefault();
 
@@ -343,10 +345,10 @@ namespace EBookDashboard.Controllers
                 Format = format,
                 BindingType = binding,
                 PreviewMode = previewMode,
-                InteriorStyle = string.IsNullOrWhiteSpace(fmtRow?.InteriorStyle) ? "Novel" : fmtRow!.InteriorStyle,
+                InteriorStyle = string.IsNullOrWhiteSpace(fmtRow?.InteriorStyle) ? "Classic" : fmtRow!.InteriorStyle,
                 TextSize = string.IsNullOrWhiteSpace(fmtRow?.TextSize) ? "Medium" : fmtRow!.TextSize,
-                LineSpacing = string.IsNullOrWhiteSpace(fmtRow?.LineSpacing) ? "1.6" : fmtRow!.LineSpacing,
-                TrimSizeLabel = "6 x 9 in",
+                LineSpacing = string.IsNullOrWhiteSpace(fmtRow?.LineSpacing) ? "1.4" : fmtRow!.LineSpacing,
+                TrimSizeLabel = "5.5 x 8.5 in",
                 MarginTopIn = (decimal)InteriorSpacingTheme.MarginTopIn,
                 MarginBottomIn = (decimal)InteriorSpacingTheme.MarginBottomIn,
                 MarginInsideIn = (decimal)InteriorSpacingTheme.MarginInsideIn,
@@ -527,6 +529,7 @@ namespace EBookDashboard.Controllers
         // Get full book content (all chapters) for page-flip preview
         //=======================================================
         [HttpGet]
+        [DisableRequestTimeout]
         public async Task<IActionResult> GetFullBookContent(int bookId, int userId = 0)
         {
             try
@@ -547,6 +550,7 @@ namespace EBookDashboard.Controllers
                 var exportOpt = await LoadExportOptionsForBookAsync(effectiveUserId, bookId, CancellationToken.None);
                 var interiorCss = InteriorLayoutTokens.BuildFormatterSyncCss(exportOpt)
                     + InteriorExportTheme.BuildAiWriterThemeBridgeCss(exportOpt);
+                var sourcePdfPages = await GetSourcePdfPageCountAsync(bookId, CancellationToken.None);
 
                 return Json(new
                 {
@@ -559,6 +563,8 @@ namespace EBookDashboard.Controllers
                     authorName = result.AuthorName ?? "",
                     coverImagePath = result.CoverImagePath ?? "",
                     totalChapters = result.TotalChapters,
+                    sourcePdfPageCount = sourcePdfPages,
+                    pageCountSource = sourcePdfPages > 0 ? "source_pdf" : "",
                     formatting = new
                     {
                         interiorStyle = exportOpt.InteriorStyle ?? "Novel",
@@ -1881,7 +1887,8 @@ namespace EBookDashboard.Controllers
         // Load Selected Book from Drop-Down from Books table
         //==============================================
         [HttpGet]
-        public async Task<IActionResult> GetBookDetails(int userId, int bookId)
+        [DisableRequestTimeout]
+        public async Task<IActionResult> GetBookDetails(int userId, int bookId, bool includeBodies = true)
         {
             try
             {
@@ -1894,7 +1901,9 @@ namespace EBookDashboard.Controllers
 
                 // Get chapters from APIRawResponse with user filtering
 
-                var result = await _bookService.GetBookDetailsAsync(userId, bookId);
+                var result = includeBodies
+                    ? await _bookService.GetBookDetailsAsync(userId, bookId)
+                    : await _bookService.GetBookDetailsForPreviewAsync(userId, bookId, includeBodies: false);
                 if (result == null)
                 {
                     Console.WriteLine($"❌ [Controller] Book {bookId} not found for user {userId}");
@@ -1923,9 +1932,10 @@ namespace EBookDashboard.Controllers
                         responseId = c.ResponseId,
                         chapterNo = c.ChapterNumber,
                         chapterTitle = c.Title,
-                        chapterTopic = ChapterPromptComposer.ParseChapterTopicFromRequestData(c.RequestData),
-                        requestData = c.RequestData,
-                        content = c.Content,
+                        chapterTopic = includeBodies ? ChapterPromptComposer.ParseChapterTopicFromRequestData(c.RequestData) : "",
+                        requestData = includeBodies ? c.RequestData : "",
+                        content = includeBodies ? c.Content : "",
+                        hasContent = !string.IsNullOrWhiteSpace(c.Content) || !string.IsNullOrWhiteSpace(c.Title),
                         statusCode = c.StatusCode
                     }).ToList()
                 });
@@ -3679,7 +3689,9 @@ namespace EBookDashboard.Controllers
 
         [HttpPost]
         [IgnoreAntiforgeryToken]
-        [RequestSizeLimit(52_428_800)]
+        [DisableRequestTimeout]
+        [RequestSizeLimit(1024L * 1024L * 100L)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 1024L * 1024L * 100L)]
         [Route("Books/ImportChapterFile")]
         public async Task<IActionResult> ImportChapterFile(CancellationToken cancellationToken)
         {
@@ -3719,26 +3731,8 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                string text;
-                List<ChapterDocumentImportService.ImportedChapter> splitChapters;
-
-                // .docx → rich path that preserves embedded images inline (HTML chapter bodies).
-                if (ext == ".docx")
-                {
-                    var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
-                    text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
-                    var fallback = ChapterDocumentImportService.SplitIntoChapters(
-                        string.IsNullOrWhiteSpace(text)
-                            ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
-                            : text);
-                    splitChapters = ChapterDocumentImportService.PreferRicherChapterSplit(docxChapters, fallback);
-                }
-                else
-                {
-                    text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
-                    text = ChapterDocumentImportService.SanitizeImportedText(text);
-                    splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
-                }
+                var (text, splitChapters) = ChapterDocumentImportService.ImportUploadedDocument(
+                    bytes, ext, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(text) && splitChapters.Count == 0)
                     return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR). Paste the text instead." });
@@ -3828,19 +3822,35 @@ namespace EBookDashboard.Controllers
                         _logger.LogWarning(msEx, "ImportChapterFile: manuscript file save failed for book {BookId}", bookId);
                     }
 
+                    try
+                    {
+                        var figRel = Path.Combine(
+                            "uploads",
+                            userId.ToString(CultureInfo.InvariantCulture),
+                            "books",
+                            bookId.ToString(CultureInfo.InvariantCulture),
+                            "figures").Replace('\\', '/');
+                        ChapterDocumentImportService.MaterializeDataUriImages(
+                            splitChapters, _hostEnvironment.WebRootPath, figRel);
+                    }
+                    catch (Exception figEx)
+                    {
+                        _logger.LogDebug(figEx, "ImportChapterFile: figure materialize skipped for book {BookId}", bookId);
+                    }
+
                     var lastChapterNo = await _context.APIRawResponse.AsNoTracking()
                         .Where(r => r.UserId == userId && r.BookId == bookId && r.Chapter > 0)
                         .Select(r => (int?)r.Chapter)
                         .MaxAsync(cancellationToken) ?? 0;
 
+                    var importBatch = new List<(int ChapterNo, string Title, string Body)>(splitChapters.Count);
                     foreach (var sc in splitChapters)
                     {
                         var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? null : sc.Title.Trim();
-                        int no;
                         if (BookChapterExportHelper.IsFrontMatterSectionTitle(chTitle))
                         {
                             // Persist as Notes front matter (chapter 0) — never as Chapter 1 / Chapter N.
-                            no = 0;
+                            // Bulk import skips chapter <= 0, so upsert Notes here.
                             chTitle ??= "Preface";
                             var existingFm = await _context.Chapters.FirstOrDefaultAsync(
                                 c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
@@ -3849,40 +3859,8 @@ namespace EBookDashboard.Controllers
                             {
                                 existingFm.Content = sc.Body;
                                 existingFm.UpdatedAt = DateTime.UtcNow;
-                                await _context.SaveChangesAsync(cancellationToken);
-                                savedNumbers.Add(0);
-                                continue;
                             }
-                        }
-                        else
-                        {
-                            no = ++lastChapterNo;
-                            chTitle ??= $"Chapter {no}";
-                        }
-
-                        var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                            userId, bookId, no, chTitle, sc.Body, null, "doc-import", cancellationToken);
-                        if (responseId <= 0)
-                            throw new InvalidOperationException($"Could not save chapter {no} to the database.");
-
-                        // Finalize + upsert into chapters table so formatting / export see the content.
-                        var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
-                            userId, bookId, no, responseId, cancellationToken);
-                        if (!promoted)
-                        {
-                            // Fallback: keep iteration current even if library upsert fails.
-                            await _chapterIterationService.PromoteAsCurrentVersionAsync(
-                                userId, bookId, no, responseId, cancellationToken);
-                        }
-
-                        // Front-matter finalize may land as chapter > 0 depending on iteration service —
-                        // force a Notes row at chapter 0 with the section title.
-                        if (no == 0)
-                        {
-                            var fmRow = await _context.Chapters.FirstOrDefaultAsync(
-                                c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
-                                cancellationToken);
-                            if (fmRow == null)
+                            else
                             {
                                 _context.Chapters.Add(new Chapters
                                 {
@@ -3895,16 +3873,25 @@ namespace EBookDashboard.Controllers
                                     CreatedAt = DateTime.UtcNow,
                                     UpdatedAt = DateTime.UtcNow
                                 });
-                                await _context.SaveChangesAsync(cancellationToken);
                             }
+                            await _context.SaveChangesAsync(cancellationToken);
+                            savedNumbers.Add(0);
+                            continue;
                         }
 
-                        savedNumbers.Add(no);
+                        var no = ++lastChapterNo;
+                        chTitle ??= $"Chapter {no}";
+                        importBatch.Add((no, chTitle, sc.Body ?? ""));
                     }
+                    savedNumbers.AddRange(await _chapterIterationService.PersistImportedChaptersBulkAsync(
+                        userId, bookId, importBatch, cancellationToken));
 
                     persisted = savedNumbers.Count > 0;
                     if (persisted)
                     {
+                        var sourcePages = ext == ".pdf" ? ChapterDocumentImportService.CountPdfPages(bytes) : 0;
+                        if (sourcePages > 0)
+                            await PersistSourcePdfPageCountAsync(bookId, sourcePages);
                         HttpContext.Session.SetString("HasGeneratedBook", "1");
                         try
                         {
@@ -3943,17 +3930,18 @@ namespace EBookDashboard.Controllers
                     {
                         chapterNo = i < savedNumbers.Count ? savedNumbers[i] : c.ChapterNo,
                         title = c.Title,
-                        text = c.Body,
-                        characterCount = c.Body.Length
+                        text = "",
+                        characterCount = (c.Body ?? "").Length
                     })
                     .ToList();
-                var hasImages = chapters.Any(c => c.text.Contains("<img", StringComparison.OrdinalIgnoreCase));
+                var hasImages = splitChapters.Any(c => (c.Body ?? "").Contains("<img", StringComparison.OrdinalIgnoreCase));
+                var sourcePageCount = ext == ".pdf" ? ChapterDocumentImportService.CountPdfPages(bytes) : 0;
 
                 return Json(new
                 {
                     success = true,
                     fileName = file.FileName,
-                    text,
+                    text = "",
                     characterCount = text.Length,
                     suggestedBookTitle,
                     suggestedChapterNo = savedNumbers.Count > 0 ? savedNumbers[0] : suggestedChapterNo,
@@ -3963,7 +3951,10 @@ namespace EBookDashboard.Controllers
                     hasImages,
                     saved = true,
                     bookId,
-                    unlockFormatting = true
+                    unlockFormatting = true,
+                    reloadFromServer = true,
+                    pageCount = sourcePageCount,
+                    pageCountSource = sourcePageCount > 0 ? "source_pdf" : "estimate"
                 });
             }
             catch (Exception ex)
@@ -4339,9 +4330,9 @@ namespace EBookDashboard.Controllers
                 BookTitle = body.BookTitle ?? "",
                 AuthorName = body.AuthorName ?? "",
                 Language = body.Language ?? "English",
-                ChaptersCount = body.ChaptersCount > 0 ? body.ChaptersCount : 5,
-                MinWordsPerChapter = body.MinWordsPerChapter > 0 ? body.MinWordsPerChapter : 800,
-                ToneDescription = body.ToneDescription ?? "descriptive"
+                ChaptersCount = body.ChaptersCount > 0 ? body.ChaptersCount : 12,
+                MinWordsPerChapter = body.MinWordsPerChapter > 0 ? body.MinWordsPerChapter : 1800,
+                ToneDescription = body.ToneDescription ?? "published trade nonfiction — clear, argument-driven, 5.5×8.5 hardcover/paperback"
             };
 
             if (string.IsNullOrWhiteSpace(request.BookTitle))
@@ -4446,7 +4437,9 @@ namespace EBookDashboard.Controllers
         /// </summary>
         [HttpPost]
         [IgnoreAntiforgeryToken]
+        [DisableRequestTimeout]
         [RequestSizeLimit(1024L * 1024L * 100L)] // 100 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 1024L * 1024L * 100L)]
         [Route("Books/UploadManuscript/{bookId:int}")]
         [Route("Books/UploadManuscript")]
         public async Task<IActionResult> UploadManuscript(int bookId, IFormFile? file, CancellationToken cancellationToken = default)
@@ -4504,25 +4497,8 @@ namespace EBookDashboard.Controllers
 
             try
             {
-                string text;
-                List<ChapterDocumentImportService.ImportedChapter> splitChapters;
-
-                if (ext == ".docx")
-                {
-                    var docxChapters = ChapterDocumentImportService.ExtractDocxChapters(bytes, out var docxPlain);
-                    text = ChapterDocumentImportService.SanitizeImportedText(docxPlain);
-                    var fallback = ChapterDocumentImportService.SplitIntoChapters(
-                        string.IsNullOrWhiteSpace(text)
-                            ? ChapterDocumentImportService.ExtractDocxTextAsPlain(bytes)
-                            : text);
-                    splitChapters = ChapterDocumentImportService.PreferRicherChapterSplit(docxChapters, fallback);
-                }
-                else
-                {
-                    text = ChapterDocumentImportService.ExtractText(bytes, ext, cancellationToken);
-                    text = ChapterDocumentImportService.SanitizeImportedText(text);
-                    splitChapters = ChapterDocumentImportService.SplitIntoChapters(text);
-                }
+                var (text, splitChapters) = ChapterDocumentImportService.ImportUploadedDocument(
+                    bytes, ext, cancellationToken);
 
                 if (string.IsNullOrWhiteSpace(text) && splitChapters.Count == 0)
                     return Json(new { success = false, message = "No readable text found (scanned PDFs need OCR)." });
@@ -4581,6 +4557,9 @@ namespace EBookDashboard.Controllers
 
                 var versions = await ManuscriptVersionStore.RecordAsync(
                     _context, bookId, manuscriptUrl, safeFile, cancellationToken);
+                var sourcePageCount = ext == ".pdf" ? ChapterDocumentImportService.CountPdfPages(bytes) : 0;
+                if (sourcePageCount > 0)
+                    await PersistSourcePdfPageCountAsync(bookId, sourcePageCount);
 
                 // Re-upload replaces chapter structure so TOC matches the latest manuscript.
                 var existingNos = await _context.APIRawResponse.AsNoTracking()
@@ -4597,15 +4576,30 @@ namespace EBookDashboard.Controllers
                     await _bookService.DeleteWriterChapterAsync(userId, bookId, no, cancellationToken);
                 }
 
+                try
+                {
+                    var figRel = Path.Combine(
+                        "uploads",
+                        userId.ToString(CultureInfo.InvariantCulture),
+                        "books",
+                        bookId.ToString(CultureInfo.InvariantCulture),
+                        "figures").Replace('\\', '/');
+                    ChapterDocumentImportService.MaterializeDataUriImages(
+                        splitChapters, _hostEnvironment.WebRootPath, figRel);
+                }
+                catch (Exception figEx)
+                {
+                    _logger.LogDebug(figEx, "UploadManuscript: figure materialize skipped for book {BookId}", bookId);
+                }
+
                 var savedNumbers = new List<int>();
+                var importBatch = new List<(int ChapterNo, string Title, string Body)>(splitChapters.Count);
                 var chapterNo = 0;
                 foreach (var sc in splitChapters)
                 {
                     var chTitle = string.IsNullOrWhiteSpace(sc.Title) ? null : sc.Title.Trim();
-                    int persistNo;
                     if (BookChapterExportHelper.IsFrontMatterSectionTitle(chTitle))
                     {
-                        persistNo = 0;
                         chTitle ??= "Preface";
                         var existingFm = await _context.Chapters.FirstOrDefaultAsync(
                             c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
@@ -4614,37 +4608,8 @@ namespace EBookDashboard.Controllers
                         {
                             existingFm.Content = sc.Body;
                             existingFm.UpdatedAt = DateTime.UtcNow;
-                            await _context.SaveChangesAsync(cancellationToken);
-                            savedNumbers.Add(0);
-                            continue;
                         }
-                    }
-                    else
-                    {
-                        chapterNo++;
-                        persistNo = chapterNo;
-                        chTitle ??= $"Chapter {persistNo}";
-                    }
-
-                    var responseId = await _chapterIterationService.RecordUserContentVersionAsync(
-                        userId, bookId, persistNo, chTitle, sc.Body, null, "doc-import", cancellationToken);
-                    if (responseId <= 0)
-                        throw new InvalidOperationException($"Could not save chapter {persistNo}.");
-
-                    var promoted = await _chapterIterationService.FinalizeByResponseIdAsync(
-                        userId, bookId, persistNo, responseId, cancellationToken);
-                    if (!promoted)
-                    {
-                        await _chapterIterationService.PromoteAsCurrentVersionAsync(
-                            userId, bookId, persistNo, responseId, cancellationToken);
-                    }
-
-                    if (persistNo == 0)
-                    {
-                        var fmRow = await _context.Chapters.FirstOrDefaultAsync(
-                            c => c.BookId == bookId && c.ChapterNumber == 0 && c.Title == chTitle,
-                            cancellationToken);
-                        if (fmRow == null)
+                        else
                         {
                             _context.Chapters.Add(new Chapters
                             {
@@ -4657,12 +4622,18 @@ namespace EBookDashboard.Controllers
                                 CreatedAt = DateTime.UtcNow,
                                 UpdatedAt = DateTime.UtcNow
                             });
-                            await _context.SaveChangesAsync(cancellationToken);
                         }
+                        await _context.SaveChangesAsync(cancellationToken);
+                        savedNumbers.Add(0);
+                        continue;
                     }
 
-                    savedNumbers.Add(persistNo);
+                    chapterNo++;
+                    chTitle ??= $"Chapter {chapterNo}";
+                    importBatch.Add((chapterNo, chTitle, sc.Body ?? ""));
                 }
+                savedNumbers.AddRange(await _chapterIterationService.PersistImportedChaptersBulkAsync(
+                    userId, bookId, importBatch, cancellationToken));
 
                 if (savedNumbers.Count == 0)
                     return Json(new { success = false, message = "File was read but no chapters could be saved." });
@@ -4684,7 +4655,8 @@ namespace EBookDashboard.Controllers
                         Title: string.IsNullOrWhiteSpace(c.Title) ? $"Chapter {i + 1}" : c.Title.Trim(),
                         Body: c.Body ?? ""))
                     .ToList();
-                var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(structureSource);
+                var (chapters, toc, pages) = ManuscriptVersionStore.BuildStructure(
+                    structureSource, sourcePageCount > 0 ? sourcePageCount : null);
                 var active = versions.FirstOrDefault(v => v.Active) ?? versions.FirstOrDefault();
                 var chapterSummaries = chapters.Select(c => new
                 {
@@ -4708,7 +4680,9 @@ namespace EBookDashboard.Controllers
                     chapters = chapterSummaries,
                     toc,
                     pages,
-                    versions
+                    versions,
+                    pageCount = pages.Count,
+                    pageCountSource = sourcePageCount > 0 ? "source_pdf" : "estimate"
                 });
             }
             catch (Exception ex)
@@ -6312,6 +6286,30 @@ namespace EBookDashboard.Controllers
             var fullPath = Path.Combine(uploadsRoot, fileName);
             await System.IO.File.WriteAllBytesAsync(fullPath, bytes);
             return $"/uploads/{userId}/books/{bookId}/{fileName}";
+        }
+
+        private async Task<int> GetSourcePdfPageCountAsync(int bookId, CancellationToken cancellationToken = default)
+        {
+            var raw = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == ManuscriptVersionStore.SourcePdfPageCountKey(bookId))
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+            return int.TryParse(raw, out var n) && n > 0 ? n : 0;
+        }
+
+        private static string TruncateBookPreviewBody(string? html, int maxChars)
+        {
+            if (string.IsNullOrEmpty(html) || html.Length <= maxChars) return html ?? "";
+            return html.Substring(0, maxChars) + "…";
+        }
+
+        private async Task PersistSourcePdfPageCountAsync(int bookId, int sourcePages)
+        {
+            if (bookId <= 0 || sourcePages < 1)
+                return;
+            var pages = sourcePages.ToString(CultureInfo.InvariantCulture);
+            await UpsertSettingAsync(ManuscriptVersionStore.SourcePdfPageCountKey(bookId), pages, "Book");
+            await UpsertSettingAsync(ManuscriptVersionStore.PrintReadyPageCountKey(bookId), pages, "Book");
         }
 
         private async Task UpsertSettingAsync(string key, string value, string category)

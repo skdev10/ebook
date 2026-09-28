@@ -58,9 +58,9 @@ public class ExportGateAndHeadingRegressionTests
     }
 
     [Theory]
-    [InlineData("Small", "14", "18.67")]
-    [InlineData("Medium", "17", "22.67")]
-    [InlineData("Large", "19", "25.33")]
+    [InlineData("Small", "10", "13.33")]
+    [InlineData("Medium", "11", "14.67")]
+    [InlineData("Large", "12", "16")]
     public void Classic_pt_to_px_parity(string size, string expectedPt, string expectedPx)
     {
         var ty = InteriorTypographyPresets.Resolve(new Models.DTO.BookPdfExportOptions

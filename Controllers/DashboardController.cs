@@ -2475,16 +2475,16 @@ namespace EBookDashboard.Controllers
                 return Json(new { success = false, message = details?.Message ?? "Could not load book." });
 
             var exportOpt = await LoadExportOptionsAsync(sessionUserId.Value, bookId, cancellationToken);
-            var metrics = _bookPageMetricsService.Estimate(details, exportOpt);
+            var sourcePdfPages = await GetSourcePdfPageCountAsync(bookId, cancellationToken);
+            var metrics = _bookPageMetricsService.Estimate(details, exportOpt, sourcePdfPages > 0 ? sourcePdfPages : null);
 
-            // B3/B4: single source of truth for page count. When Book Formatting has run and
-            // persisted its measured reader-page count (printReadyPageCount / formattingDraft),
-            // prefer that — exactly what the Publish page uses — so AI Writer, Book Formatting
-            // and Publish all agree. Fall back to the word-count estimate only when nothing has
-            // been saved yet.
-            var savedFormatterPages = await ResolvePrintReadyPageCountAsync(bookId, cancellationToken);
-            var resolvedPageCount = savedFormatterPages > 0 ? savedFormatterPages : metrics.PageCount;
-            var pageCountSource = savedFormatterPages > 0 ? "formatter" : "estimate";
+            // Uploaded PDF page count wins. Then formatter-measured pages. Then word estimate.
+            var savedFormatterPages = sourcePdfPages > 0 ? 0 : await ResolvePrintReadyPageCountAsync(bookId, cancellationToken);
+            var resolvedPageCount = sourcePdfPages > 0
+                ? sourcePdfPages
+                : (savedFormatterPages > 0 ? savedFormatterPages : metrics.PageCount);
+            var pageCountSource = sourcePdfPages > 0 ? "source_pdf"
+                : (savedFormatterPages > 0 ? "formatter" : "estimate");
 
             return Json(new
             {
@@ -3243,9 +3243,21 @@ namespace EBookDashboard.Controllers
         }
 
         /// <summary>Preview page count saved from Book Formatting (printReadyPageCount or formattingDraft).</summary>
+        private async Task<int> GetSourcePdfPageCountAsync(int bookId, CancellationToken cancellationToken = default)
+        {
+            var raw = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == ManuscriptVersionStore.SourcePdfPageCountKey(bookId))
+                .Select(s => s.Value)
+                .FirstOrDefaultAsync(cancellationToken);
+            return int.TryParse(raw, out var n) && n > 0 ? n : 0;
+        }
+
         private async Task<int> ResolvePrintReadyPageCountAsync(int bookId, CancellationToken cancellationToken = default)
         {
             var max = Application.Kdp.Constants.KdpPaperbackConstants.MaxPageCount;
+            var sourcePdf = await GetSourcePdfPageCountAsync(bookId, cancellationToken);
+            if (sourcePdf > 0 && sourcePdf <= max)
+                return sourcePdf;
 
             var pageKey = $"book:{bookId}:printReadyPageCount";
             var saved = await _context.Settings.AsNoTracking()

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using EBookDashboard.Models.DTO;
+using EBookDashboard.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Logging;
 using PdfSharp.Drawing;
@@ -62,6 +63,8 @@ public sealed class PdfSharpBookExporter
         {
             foreach (var ch in chapters)
             {
+                if (InteriorFrontMatterBuilder.IsImportedContentsChapter(ch.Title))
+                    continue;
                 if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                     narrative++;
                 var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 1 : narrative;

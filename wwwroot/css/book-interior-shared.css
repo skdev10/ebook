@@ -86,13 +86,26 @@
 }
 
 #book-formatter-root .book-page-content img,
-[data-interior-mode="web"] .reader-page-body img {
+[data-interior-mode="web"] .reader-page-body img,
+[data-interior-mode="print"] .reader-page-body img,
+[data-interior-mode="print"] .manuscript-figure img {
     max-width: 100%;
     height: auto;
     display: block;
     margin: 0.75rem auto;
     page-break-inside: avoid;
     break-inside: avoid;
+}
+
+[data-interior-mode="print"] .manuscript-figure,
+[data-interior-mode="print"] .reader-page-body img {
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+[data-interior-mode="print"] .manuscript-figure img,
+[data-interior-mode="print"] .reader-page-body img {
+    max-height: 4.6in;
 }
 
 [data-interior-mode="print"] .book-preview-sheet {
@@ -126,8 +139,12 @@
     page-break-before: avoid;
 }
 [data-interior-mode="print"] .manuscript-root .manuscript-keep-next {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
+}
+[data-interior-mode="print"] .manuscript-root .manuscript-keep-next > :first-child {
+    break-after: avoid;
+    page-break-after: avoid;
 }
 
 [data-interior-mode="web"] .reader-page-body .manuscript-h2,

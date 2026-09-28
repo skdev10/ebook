@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using EBookDashboard.Models;
+using EBookDashboard.Services;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 using UglyToad.PdfPig.Exceptions;
@@ -516,23 +517,28 @@ public sealed class ManuscriptImportService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Best-effort embedded image extraction (position-agnostic — appended as figures per page image count only).
+            // Keep diagrams in the chapter HTML (previous code wrote files and never inserted them).
             try
             {
                 foreach (var img in page.GetImages())
                 {
-                    if (img.TryGetPng(out var png) && png.Length > 0)
-                    {
-                        localImageCounter++;
-                        Directory.CreateDirectory(imagesDir);
-                        var savedFileName = $"img_{Guid.NewGuid():N}.png";
-                        File.WriteAllBytes(Path.Combine(imagesDir, savedFileName), png);
-                    }
+                    if (!ChapterDocumentImportService.TryDecodePdfImage(img, out var imgBytes, out var contentType))
+                        continue;
+                    localImageCounter++;
+                    Directory.CreateDirectory(imagesDir);
+                    var ext = contentType.Contains("jpeg", StringComparison.OrdinalIgnoreCase) ? ".jpg" : ".png";
+                    var savedFileName = $"img_{Guid.NewGuid():N}{ext}";
+                    File.WriteAllBytes(Path.Combine(imagesDir, savedFileName), imgBytes);
+                    var url = $"{imagesUrlBase}/{savedFileName}";
+                    FlushParagraph(contentBuilder);
+                    contentBuilder.Append("<p class=\"manuscript-figure\" style=\"text-align:center;margin:1em 0;page-break-inside:avoid;\">")
+                        .Append("<img src=\"").Append(url)
+                        .Append("\" style=\"max-width:100%;height:auto;page-break-inside:avoid;\" alt=\"\" /></p>");
                 }
             }
             catch
             {
-                // Non-fatal: some PDF image encodings are not convertible to PNG.
+                // Non-fatal: some PDF image encodings are not convertible.
             }
 
             var lines = BuildReadingOrderLines(page);

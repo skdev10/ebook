@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using EBookDashboard.Models;
 using EBookDashboard.Models.ViewModels;
 using Microsoft.EntityFrameworkCore;
@@ -14,8 +15,11 @@ public static class ManuscriptVersionStore
 {
     public const int MaxVersions = 8;
     public const string SettingsKeySuffix = "manuscriptVersions";
+    public const string SourcePdfPageCountKeySuffix = "sourcePdfPageCount";
 
     public static string SettingsKey(int bookId) => $"book:{bookId}:{SettingsKeySuffix}";
+    public static string SourcePdfPageCountKey(int bookId) => $"book:{bookId}:{SourcePdfPageCountKeySuffix}";
+    public static string PrintReadyPageCountKey(int bookId) => $"book:{bookId}:printReadyPageCount";
 
     public static async Task<List<ManuscriptVersionItem>> LoadAsync(
         ApplicationDbContext db, int bookId, CancellationToken cancellationToken = default)
@@ -93,47 +97,58 @@ public static class ManuscriptVersionStore
         return list;
     }
 
-    /// <summary>Build TOC + pages from chapter list (word-count estimate ≈ 250 words/page @ 6×9).</summary>
+    /// <summary>Build TOC + pages. When <paramref name="sourcePageCount"/> is set (uploaded PDF), totals match that file.</summary>
     public static (List<FormattingChapterItem> Chapters, List<FormattingTocItem> Toc, List<FormattingPageItem> Pages)
-        BuildStructure(IEnumerable<(int No, string Title, string Body)> source)
+        BuildStructure(IEnumerable<(int No, string Title, string Body)> source, int? sourcePageCount = null)
     {
+        var rows = new List<(int No, string Title, string Body, string Matter, int Words, int Estimated)>();
+        foreach (var (no, title, body) in source)
+        {
+            var plain = StripTags(body);
+            var words = CountWords(plain);
+            var figureCount = Regex.Matches(body ?? "", "<img\\b", RegexOptions.IgnoreCase).Count;
+            var estimated = Math.Max(1, (int)Math.Ceiling(words / 250.0) + figureCount);
+            var matter = ClassifyMatter(title, no);
+            var safeTitle = string.IsNullOrWhiteSpace(title) ? $"Chapter {no}" : title.Trim();
+            rows.Add((no, safeTitle, body ?? "", matter, words, estimated));
+        }
+
+        var weights = rows.Select(r => r.Estimated).ToArray();
+        var allocated = AllocatePages(weights, sourcePageCount is > 0 ? sourcePageCount.Value : weights.Sum());
+
         var chapters = new List<FormattingChapterItem>();
         var toc = new List<FormattingTocItem>();
         var pages = new List<FormattingPageItem>();
         var page = 1;
 
-        foreach (var (no, title, body) in source)
+        for (var i = 0; i < rows.Count; i++)
         {
-            var plain = StripTags(body);
-            var words = CountWords(plain);
-            var pageCount = Math.Max(1, (int)Math.Ceiling(words / 250.0));
-            var matter = ClassifyMatter(title, no);
-            var safeTitle = string.IsNullOrWhiteSpace(title) ? $"Chapter {no}" : title.Trim();
-
+            var row = rows[i];
+            var pageCount = allocated[i];
             chapters.Add(new FormattingChapterItem
             {
-                ChapterNo = no,
-                Title = safeTitle,
-                Matter = matter,
-                ContentHtml = body ?? "",
-                WordCount = words,
+                ChapterNo = row.No,
+                Title = row.Title,
+                Matter = row.Matter,
+                ContentHtml = row.Body,
+                WordCount = row.Words,
                 StartPage = page,
                 PageCount = pageCount
             });
             toc.Add(new FormattingTocItem
             {
-                ChapterNo = no,
-                Title = safeTitle,
+                ChapterNo = row.No,
+                Title = row.Title,
                 StartPage = page,
-                Matter = matter
+                Matter = row.Matter
             });
             for (var p = 0; p < pageCount; p++)
             {
                 pages.Add(new FormattingPageItem
                 {
                     PageNumber = page + p,
-                    ChapterNo = no,
-                    Label = p == 0 ? safeTitle : $"… {safeTitle}"
+                    ChapterNo = row.No,
+                    Label = p == 0 ? row.Title : $"… {row.Title}"
                 });
             }
 
@@ -141,6 +156,39 @@ public static class ManuscriptVersionStore
         }
 
         return (chapters, toc, pages);
+    }
+
+    public static int[] AllocatePages(IReadOnlyList<int> weights, int targetTotal)
+    {
+        var n = weights?.Count ?? 0;
+        if (n == 0)
+            return Array.Empty<int>();
+        targetTotal = Math.Max(n, targetTotal);
+        var allocated = new int[n];
+        var weightSum = 0;
+        for (var i = 0; i < n; i++)
+            weightSum += Math.Max(1, weights![i]);
+
+        var remaining = targetTotal;
+        for (var i = 0; i < n; i++)
+        {
+            var left = n - i;
+            if (left == 1)
+            {
+                allocated[i] = Math.Max(1, remaining);
+                break;
+            }
+
+            var remainWeight = 0;
+            for (var j = i; j < n; j++)
+                remainWeight += Math.Max(1, weights![j]);
+            var share = (int)Math.Round(remaining * (Math.Max(1, weights![i]) / (double)remainWeight));
+            share = Math.Max(1, Math.Min(share, remaining - (left - 1)));
+            allocated[i] = share;
+            remaining -= share;
+        }
+
+        return allocated;
     }
 
     private static string ClassifyMatter(string title, int chapterNo)

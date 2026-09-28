@@ -55,7 +55,7 @@ namespace EBookDashboard.Interfaces
         /// <summary>Read-only book + merged chapters (same as preview). Does not mutate isActive.</summary>
         Task<BookDetailsResponseDto?> GetBookDetailsAsync(int userId, int bookId);
         /// <summary>Lightweight load for formatter/preview: no isActive updates, faster.</summary>
-        Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId);
+        Task<BookDetailsResponseDto?> GetBookDetailsForPreviewAsync(int userId, int bookId, bool includeBodies = true);
 
         /// <summary>Word count and description from DB + live chapter manuscript.</summary>
         Task<BookManuscriptStats.ManuscriptSummary> GetManuscriptSummaryAsync(int userId, int bookId);

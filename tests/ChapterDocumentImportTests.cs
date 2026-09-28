@@ -156,6 +156,151 @@ public class ChapterDocumentImportTests
         var text = "Preface text here. Chapter 1 The Beginning Once upon a time there was a story. Chapter 2 The Middle More story continues here. Chapter 3 The End Final words.";
         var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
         Assert.True(chapters.Count >= 3, $"Expected >= 3 chapters, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title + chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(chapters, c => c.Title.Contains("Beginning", StringComparison.OrdinalIgnoreCase)
+                                      || c.Body.Contains("Once upon a time", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void RepairPdfImportText_joins_hyphen_space_and_drop_caps()
+    {
+        Assert.Equal("billion-dollar", ChapterDocumentImportService.RepairPdfImportText("billion- dollar"));
+        Assert.Equal("co-founder", ChapterDocumentImportService.RepairPdfImportText("co- founder"));
+        Assert.Equal("START WITH A THOUGHT", ChapterDocumentImportService.RepairPdfImportText("S TART WITH A THOUGHT"));
+        Assert.Equal("AS MATURE INDUSTRIES", ChapterDocumentImportService.RepairPdfImportText("A S MATURE INDUSTRIES"));
+        Assert.Equal("EVERY GREAT COMPANY", ChapterDocumentImportService.RepairPdfImportText("E VERY GREAT COMPANY"));
+    }
+
+    [Fact]
+    public void SplitIntoChapters_keeps_numbered_allcaps_chapter_banners()
+    {
+        var text = """
+            Preface
+
+            This book opens with a note to the reader.
+
+            1 THE CHALLENGE OF THE FUTURE
+            The first chapter explains the problem.
+
+            10 THE MECHANICS OF MAFIA
+            Start with a thought experiment.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 3, $"Expected preface + 2 numbered chapters, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CHALLENGE", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("first chapter", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("MECHANICS", chapters[2].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SplitIntoChapters_keeps_preface_and_chapter_one()
+    {
+        var text = """
+            Preface
+
+            This book opens with a note to the reader about the diagrams inside.
+
+            Chapter 1: Getting Started
+
+            The first chapter explains the problem and the method.
+
+            Chapter 2: Next Steps
+
+            The second chapter continues the argument.
+            """;
+        var chapters = ChapterDocumentImportService.SplitIntoChapters(text);
+        Assert.True(chapters.Count >= 3, $"Expected preface + 2 chapters, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("diagrams", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Getting Started", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("first chapter", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Next Steps", chapters[2].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void SplitHtmlDocumentIntoChapters_keeps_headings_and_figures()
+    {
+        var html =
+            "<h1 class=\"manuscript-heading manuscript-h1\">Preface</h1>" +
+            "<p class=\"manuscript-p\">Opening note.</p>" +
+            "<p class=\"manuscript-figure\"><img src=\"data:image/png;base64,aaa\" alt=\"\" /></p>" +
+            "<h1 class=\"manuscript-heading manuscript-h1\">Chapter 1: The Start</h1>" +
+            "<h2 class=\"manuscript-heading manuscript-h2\">A Quiet Town</h2>" +
+            "<p class=\"manuscript-p\">People lived simply there.</p>";
+        var chapters = ChapterDocumentImportService.SplitHtmlDocumentIntoChapters(html);
+        Assert.True(chapters.Count >= 2, $"Expected preface + chapter 1, got {chapters.Count}");
+        Assert.Contains("Preface", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<img", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Start", chapters[1].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("A Quiet Town", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("manuscript-heading", chapters[1].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PreferRicherChapterSplit_keeps_images_over_text_only_split()
+    {
+        var withImages = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Preface", "<p>Hi</p><img src=\"data:image/png;base64,x\" />"),
+            new(2, "Chapter 1", "<p>Body</p>")
+        };
+        var textOnly = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Chapter 1", "Hi"),
+            new(2, "Chapter 2", "Body"),
+            new(3, "Chapter 3", "More")
+        };
+        var chosen = ChapterDocumentImportService.PreferRicherChapterSplit(withImages, textOnly);
+        Assert.Same(withImages, chosen);
+    }
+
+    [Fact]
+    public void SplitHtmlDocumentIntoChapters_keeps_allcaps_section_h2_in_same_chapter()
+    {
+        var html =
+            "<h1>Chapter 1: The Challenge of the Future</h1>" +
+            "<p class=\"manuscript-p\">Whenever I interview someone for a job I ask a question.</p>" +
+            "<h2>STARTUP THINKING</h2>" +
+            "<p class=\"manuscript-p\">Brilliant thinking is rare, but courage is rarer.</p>" +
+            "<h2>ZERO TO ONE: THE FUTURE OF PROGRESS</h2>" +
+            "<p class=\"manuscript-p\">Doing what we already know how to do takes the world from 1 to n.</p>";
+        var chapters = ChapterDocumentImportService.SplitHtmlDocumentIntoChapters(html);
+        Assert.Single(chapters);
+        Assert.Contains("Challenge", chapters[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("STARTUP THINKING", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ZERO TO ONE", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CoalesceSectionHeadingChapters_folds_tiny_allcaps_dumps()
+    {
+        var input = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "1 THE CHALLENGE OF THE FUTURE", "<p>Whenever I interview someone.</p>"),
+            new(2, "STARTUP THINKING", "<p>Short aside.</p>"),
+            new(3, "2 PARTY LIKE IT’S 1999", "<p>The first time I came to Silicon Valley.</p>")
+        };
+        var merged = ChapterDocumentImportService.CoalesceSectionHeadingChapters(input);
+        Assert.Equal(2, merged.Count);
+        Assert.Contains("CHALLENGE", merged[0].Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("STARTUP THINKING", merged[0].Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1999", merged[1].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PreferRicherChapterSplit_rejects_heading_dump_fallback()
+    {
+        var structured = new List<ChapterDocumentImportService.ImportedChapter>
+        {
+            new(1, "Preface", "<p>Note</p><h2 class=\"manuscript-heading\">STARTUP THINKING</h2><p>Body</p>"),
+            new(2, "Chapter 1", "<p>More</p>")
+        };
+        var dump = Enumerable.Range(1, 40)
+            .Select(i => new ChapterDocumentImportService.ImportedChapter(i, $"SECTION TITLE {i}", "<p>x</p>"))
+            .ToList();
+        var chosen = ChapterDocumentImportService.PreferRicherChapterSplit(structured, dump);
+        Assert.Same(structured, chosen);
     }
 
     [Fact]
@@ -438,6 +583,153 @@ public class ChapterDocumentImportTests
         }
         return ms.ToArray();
     }
+
+    [Fact]
+    public void CountPdfPages_returns_zero_for_non_pdf()
+    {
+        Assert.Equal(0, ChapterDocumentImportService.CountPdfPages(Encoding.UTF8.GetBytes("not a pdf")));
+        Assert.Equal(0, ChapterDocumentImportService.CountPdfPages(Array.Empty<byte>()));
+    }
+
+    [Fact]
+    public void ShrinkImportedImage_keeps_tiny_buffer()
+    {
+        var tiny = new byte[] { 1, 2, 3 };
+        var ct = "image/png";
+        var outBytes = ChapterDocumentImportService.ShrinkImportedImage(tiny, ref ct);
+        Assert.Equal(tiny, outBytes);
+    }
+
+    [Fact]
+    public void MaterializeDataUriImages_rewrites_data_uri_to_file()
+    {
+        var webRoot = Path.Combine(Path.GetTempPath(), "ebook-fig-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(webRoot);
+        try
+        {
+            var payload = new byte[600];
+            new Random(1).NextBytes(payload);
+            var html = "<p class=\"manuscript-figure\"><img src=\"data:image/jpeg;base64,"
+                       + Convert.ToBase64String(payload) + "\" alt=\"\" /></p><p>Body</p>";
+            var chapters = new List<ChapterDocumentImportService.ImportedChapter>
+            {
+                new(1, "One", html)
+            };
+            var n = ChapterDocumentImportService.MaterializeDataUriImages(chapters, webRoot, "uploads/figs");
+            Assert.Equal(1, n);
+            Assert.DoesNotContain("data:image", chapters[0].Body, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("/uploads/figs/fig-0001.jpg", chapters[0].Body, StringComparison.Ordinal);
+            Assert.True(File.Exists(Path.Combine(webRoot, "uploads", "figs", "fig-0001.jpg")));
+        }
+        finally
+        {
+            try { Directory.Delete(webRoot, true); } catch { /* temp */ }
+        }
+    }
+
+    [Fact]
+    public void ImportUploadedDocument_user_print_pdf_from_downloads()
+    {
+        var path = @"C:\Users\SK\Downloads\ebook-chapter-Sep-23-2248-241-print (5).pdf";
+        if (!File.Exists(path))
+            return;
+
+        var bytes = File.ReadAllBytes(path);
+        var pages = ChapterDocumentImportService.CountPdfPages(bytes);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var (text, chapters) = ChapterDocumentImportService.ImportUploadedDocument(bytes, ".pdf");
+        sw.Stop();
+
+        Assert.True(pages >= 20, $"Expected a long book, got {pages} PDF pages");
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.True(chapters.Count >= 1, "Expected imported chapters");
+        Assert.True(chapters.Count <= 28, $"Over-split into {chapters.Count} chapters: {string.Join(" | ", chapters.Select(c => c.Title).Take(16))}");
+        Assert.True(sw.Elapsed < TimeSpan.FromMinutes(3), $"Import hung: {sw.Elapsed}");
+        Console.WriteLine($"USER_PDF pages={pages} chapters={chapters.Count} chars={text.Length} elapsed={sw.Elapsed} titles={string.Join(" | ", chapters.Select(c => c.Title).Take(20))}");
+    }
+
+    [Fact]
+    public void ImportUploadedDocument_ninety_page_pdf_keeps_page_count_and_chapters()
+    {
+        var bytes = BuildLongTestPdf(90);
+        Assert.Equal(90, ChapterDocumentImportService.CountPdfPages(bytes));
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var (text, chapters) = ChapterDocumentImportService.ImportUploadedDocument(bytes, ".pdf");
+        sw.Stop();
+
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.True(chapters.Count >= 1, "Expected at least one imported chapter");
+        Assert.Contains("Page 1", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Page 90", text, StringComparison.OrdinalIgnoreCase);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(45), $"Import hung: {sw.Elapsed}");
+    }
+
+    private static byte[] BuildLongTestPdf(int pageCount)
+    {
+        var bodies = new List<string>(pageCount);
+        for (var i = 1; i <= pageCount; i++)
+        {
+            string heading;
+            if (i == 1) heading = "Preface";
+            else if ((i - 2) % 10 == 0) heading = "Chapter " + (((i - 2) / 10) + 1);
+            else heading = "";
+            var body = "Page " + i + " of the uploaded book. " + string.Join(" ", Enumerable.Repeat("story", 30));
+            var stream = "BT /F1 16 Tf 48 560 Td (" + PdfLiteral(heading) + ") Tj T* /F1 11 Tf (" + PdfLiteral(body) + ") Tj ET\n";
+            bodies.Add(stream);
+        }
+
+        var pageObj = new int[pageCount];
+        var streamObj = new int[pageCount];
+        var next = 4;
+        for (var i = 0; i < pageCount; i++)
+        {
+            pageObj[i] = next++;
+            streamObj[i] = next++;
+        }
+
+        var chunks = new List<string>
+        {
+            "%PDF-1.4\n",
+            "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n",
+            "2 0 obj << /Type /Pages /Count " + pageCount + " /Kids [" +
+                string.Join(" ", pageObj.Select(n => n + " 0 R")) + "] >> endobj\n",
+            "3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n"
+        };
+        for (var i = 0; i < pageCount; i++)
+        {
+            chunks.Add(pageObj[i] + " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 432 648] /Contents "
+                       + streamObj[i] + " 0 R /Resources << /Font << /F1 3 0 R >> >> >> endobj\n");
+            var stream = bodies[i];
+            chunks.Add(streamObj[i] + " 0 obj << /Length " + stream.Length + " >> stream\n" + stream + "endstream endobj\n");
+        }
+
+        var pos = 0;
+        var offsets = new int[next];
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            if (i > 0)
+                offsets[i] = pos;
+            pos += Encoding.ASCII.GetByteCount(chunks[i]);
+        }
+
+        var xref = new StringBuilder();
+        xref.Append("xref\n0 ").Append(next).Append('\n');
+        xref.Append("0000000000 65535 f \n");
+        for (var i = 1; i < next; i++)
+            xref.Append(offsets[i].ToString("D10")).Append(" 00000 n \n");
+
+        var bodyBytes = Encoding.ASCII.GetBytes(string.Concat(chunks));
+        var trailer = "trailer << /Size " + next + " /Root 1 0 R >>\nstartxref\n" + bodyBytes.Length + "\n%%EOF\n";
+        var tail = Encoding.ASCII.GetBytes(xref + trailer);
+        var pdf = new byte[bodyBytes.Length + tail.Length];
+        Buffer.BlockCopy(bodyBytes, 0, pdf, 0, bodyBytes.Length);
+        Buffer.BlockCopy(tail, 0, pdf, bodyBytes.Length, tail.Length);
+        return pdf;
+    }
+
+    private static string PdfLiteral(string text) =>
+        (text ?? "").Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
 }
 
 public class ManuscriptEmptyBlockTests

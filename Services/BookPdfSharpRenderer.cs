@@ -44,6 +44,8 @@ public static class BookPdfSharpRenderer
         var narrative = 0;
         foreach (var ch in chapters)
         {
+            if (InteriorFrontMatterBuilder.IsImportedContentsChapter(ch.Title))
+                continue;
             if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
                 narrative++;
             var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 1 : narrative;
