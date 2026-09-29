@@ -47,9 +47,24 @@ public sealed class BookRenderService : IBookRenderService
         var phBase = BookManuscriptHtmlFormatter.CreateBaseContext(
             string.IsNullOrEmpty(title) ? " " : title, details.Subtitle, details.Description, genre, author);
 
-        // Estimate page count for KDP gutter tiers (chars / ~1800 per trade page is a serviceable prior).
-        var bodyChars = details.Chapters?.Sum(c => (c.Content?.Length ?? 0) + (c.Title?.Length ?? 0)) ?? 0;
-        var estimatedPages = Math.Max(24, bodyChars / 1800);
+        // Estimate page count for KDP gutter tiers. Prefer a conservative (higher) estimate so
+        // gutters are not undersized when images/headings inflate the real page count.
+        // Count text only — ignore data-URI / attribute bloat so image-heavy books don't jump
+        // into the wrong gutter bracket.
+        var bodyChars = details.Chapters?.Sum(c =>
+        {
+            var html = c.Content ?? "";
+            html = System.Text.RegularExpressions.Regex.Replace(
+                html, @"\bsrc\s*=\s*""[^""]+""", " ",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            html = System.Text.RegularExpressions.Regex.Replace(html, "<[^>]+>", " ");
+            html = System.Text.RegularExpressions.Regex.Replace(html, @"\s+", " ");
+            return html.Length + (c.Title?.Length ?? 0);
+        }) ?? 0;
+        var imgCount = details.Chapters?.Sum(c =>
+            System.Text.RegularExpressions.Regex.Matches(c.Content ?? "", "<img\\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase).Count) ?? 0;
+        var estimatedPages = Math.Max(24, bodyChars / 1400 + imgCount * 1 + 8);
         KdpInteriorMarginCalculator.ApplyDefaults(opt, estimatedPages);
 
         var layout = BookPdfPlatformLayout.Resolve(opt, BookPdfLayoutOptions.FromConfiguration(_configuration));
@@ -86,7 +101,9 @@ public sealed class BookRenderService : IBookRenderService
         var chapterStartPages = await _tocPageNumberMeasurer.MeasureChapterStartPagesAsync(
             htmlForMeasure, opt, layout, title, chapterTitles, chapters.Count, cancellationToken);
 
-        var tocHtml = InteriorFrontMatterBuilder.BuildTocHtml(chapters, phBase, chapterStartPages, pdfTargetCounters: false);
+        var frontMatterPageCount = EstimateFrontMatterPageCount(chapters, chapterStartPages);
+        var tocHtml = InteriorFrontMatterBuilder.BuildTocHtml(
+            chapters, phBase, chapterStartPages, pdfTargetCounters: false, frontMatterPageCount);
         var html = BookPreviewPrintHtmlBuilder.Build(
             title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
             copyrightHtml, tocHtml, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
@@ -100,8 +117,41 @@ public sealed class BookRenderService : IBookRenderService
         {
             Html = html,
             Layout = layout,
-            Settings = BookFormattingSettings.FromExportOptions(opt)
+            Settings = BookFormattingSettings.FromExportOptions(opt),
+            FrontMatterPageCount = frontMatterPageCount,
+            ChapterStartPagesPhysical = chapterStartPages
         };
+    }
+
+    /// <summary>Physical pages before the first non-front-matter chapter.</summary>
+    internal static int EstimateFrontMatterPageCount(
+        IReadOnlyList<ChapterDto> chapters,
+        IReadOnlyList<int> chapterStartPages)
+    {
+        // Title + copyright + TOC occupy pages before chapter sections; chapterStartPages are section starts.
+        // Front-matter page count = first *body* chapter physical page − 1.
+        // Preface is front matter even when ChapterNumber was remapped; never treat it as body start.
+        for (var i = 0; i < chapters.Count && i < chapterStartPages.Count; i++)
+        {
+            var ch = chapters[i];
+            if (BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
+                continue;
+            // Guard: fill-forward / soft-fail can leave early zeros that would inflate front matter.
+            var bodyStart = chapterStartPages[i];
+            if (bodyStart <= 0)
+                continue;
+            // Typical title+copyright+toc is 2–6 pages; clamp wild estimates from bad TOC measure.
+            var estimate = Math.Max(0, bodyStart - 1);
+            return Math.Clamp(estimate, 2, 12);
+        }
+
+        if (chapterStartPages.Count > 0)
+        {
+            var first = chapterStartPages.FirstOrDefault(p => p > 0);
+            if (first > 0)
+                return Math.Clamp(first - 1, 2, 12);
+        }
+        return 3;
     }
 
     private static double? ComputeContentHeightPx(BookPdfPlatformLayout.PdfLayoutSpec layout)

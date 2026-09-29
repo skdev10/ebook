@@ -1,0 +1,100 @@
+=== ProvePrintPipeline ===
+Source: C:\Users\Hp\Downloads\Zero to One.pdf
+Out: C:\Users\Hp\Desktop\newEbook\test-output
+Poppler: C:\Users\Hp\AppData\Local\Microsoft\WinGet\Packages\oschwartz10612.Poppler_Microsoft.Winget.Source_8wekyb3d8bbwe\poppler-25.07.0\Library\bin
+Importing…
+Imported chapters=21 plainChars=263686
+  ch#1: Title Page (body=143168)
+  ch#2: Preface (body=3702)
+  ch#3: 1   The Challenge of the Future (body=92064)
+  ch#4: 2   Party Like It’s 1999 (body=207606)
+  ch#5: 3   All Happy Companies Are Different (body=284866)
+  ch#6: 4   The Ideology of Competition (body=181835)
+  ch#7: 5   Last Mover Advantage (body=216480)
+  ch#8: 6   You Are Not a Lottery Ticket (body=825898)
+  ch#9: 7   Follow the Money (body=263678)
+  ch#10: 8   Secrets (body=260835)
+  ch#11: 9   Foundations (body=16344)
+  ch#12: 10   The Mechanics of Mafia (body=40724)
+  ch#13: 11   If You Build It, Will They Come? (body=92752)
+  ch#14: 12   Man and Machine (body=191165)
+  ch#15: 13   Seeing Green (body=684615)
+  ch#16: 14   The Founder’s Paradox (body=2147067)
+  ch#17: Conclusion (body=162287)
+  ch#18: Acknowledgments (body=500)
+  ch#19: Illustration Credits (body=2183)
+  ch#20: Index (body=28721)
+  ch#21: About the Authors (body=1228)
+Source content images≈53; imported <img>=53
+Materialized data-URI figures to disk: 53
+TYPOGRAPHY defaults: body=11pt lh=1.5 margins T/B/I/O=0.6/0.6/0.5/0.5 in
+Rendering print PDF (Chromium)…
+Export bytes=15637787 elapsed=00:00:36.4943001
+Wrote C:\Users\Hp\Desktop\newEbook\test-output\zero-to-one-print.pdf
+ITEM1 FONTS: PASS (no Type 3)
+pdffonts:
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+AAAAAA+CormorantGaramond-Bold        CID TrueType      Identity-H       yes yes yes     11  0
+BAAAAA+CormorantGaramond-Regular     CID TrueType      Identity-H       yes yes yes     12  0
+CAAAAA+CormorantSC-SemiBold          CID TrueType      Identity-H       yes yes yes     31  0
+DAAAAA+PalatinoLinotype-Roman        CID TrueType      Identity-H       yes yes yes    215  0
+pdfinfo:
+Title:           Zero to One
+Author:          Peter Thiel with Blake Masters
+Creator:         EBookDashboard
+Producer:        PDFsharp 6.2.0 (Original: Skia/PDF m153)
+CreationDate:    Tue Sep 29 21:49:26 2026 Pakistan Standard Time
+ModDate:         Tue Sep 29 21:49:51 2026 Pakistan Standard Time
+Custom Metadata: no
+Metadata Stream: yes
+Tagged:          yes
+UserProperties:  no
+Suspects:        no
+Form:            none
+JavaScript:      no
+Pages:           199
+Encrypted:       no
+Page size:       432 x 648 pts
+Page rot:        0
+File size:       15637787 bytes
+Optimized:       no
+PDF version:     1.4
+ITEM4 META: PASS
+ITEM4 TOCMEASURE: PASS (0)
+ITEM4 WORD-DIFF: missing=0 realLosses=0 falsePositives=0 extra=290 PASS
+ITEM4 GLUED: PASS
+ITEM4 IMAGES: source≈53 output≈53 importedHtml=53
+ITEM4 IMAGES: PASS (53 vs 53)
+ITEM3 TYPO: finalPages=199 bodyPt=11 lh=1.5 inside=0.5 (need≥0.5) outside=0.5 top=0.6
+ITEM3 MARGINS: PASS
+ITEM3 DENSITY: PASS pages=199 (target 150–280 at 11pt/1.5lh)
+ITEM4 TOC chapters:
+  - Title Page
+  - Preface
+  - 1   The Challenge of the Future
+  - 2   Party Like It’s 1999
+  - 3   All Happy Companies Are Different
+  - 4   The Ideology of Competition
+  - 5   Last Mover Advantage
+  - 6   You Are Not a Lottery Ticket
+  - 7   Follow the Money
+  - 8   Secrets
+  - 9   Foundations
+  - 10   The Mechanics of Mafia
+  - 11   If You Build It, Will They Come?
+  - 12   Man and Machine
+  - 13   Seeing Green
+  - 14   The Founder’s Paradox
+  - Conclusion
+  - Acknowledgments
+  - Illustration Credits
+  - Index
+  - About the Authors
+ITEM4 TOC STRUCTURE: PASS (numbered≈14, preface=True, conclusion=True)
+ITEM2 ROMAN: stamped via PrintFolioStampService (title suppressed, front roman, body arabic from 1) — verify visually in PNGs
+ITEM5 PNG: wrote 12 samples under C:\Users\Hp\Desktop\newEbook\test-output\pages
+--- Word-exported PDF smoke ---
+ITEM6 WORD: PASS import chapters=1 chars=4898
+--- Scanned PDF message ---
+ITEM6 SCANNED: PASS — This PDF appears to be scanned (image-only) with little or no extractable text. OCR is not supported for manuscript import yet. Please upload a text-based PDF, a Word (.docx) file, or paste the text instead.

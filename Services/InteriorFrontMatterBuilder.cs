@@ -42,14 +42,15 @@ public static class InteriorFrontMatterBuilder
         return sb.ToString();
     }
 
-    /// <summary>Print-style table of contents with dotted leaders and page references.</summary>
-    /// <param name="chapterStartPages">Optional 1-based start pages per chapter (formatter preview). Ignored when <paramref name="pdfTargetCounters"/> is true.</param>
+    /// <param name="chapterStartPages">Optional 1-based start pages per chapter. When <paramref name="frontMatterPageCount"/> &gt; 0, body pages are shown as arabic restarting at 1 and front-matter as roman.</param>
     /// <param name="pdfTargetCounters">When true, page numbers are resolved at PDF print time via CSS <c>target-counter</c> (accurate pagination).</param>
+    /// <param name="frontMatterPageCount">Physical pages before body (for roman/arabic display in TOC).</param>
     public static string BuildTocHtml(
         IReadOnlyList<ChapterDto> chapters,
         BookManuscriptHtmlFormatter.PlaceholderContext phBase,
         IReadOnlyList<int>? chapterStartPages = null,
-        bool pdfTargetCounters = false)
+        bool pdfTargetCounters = false,
+        int frontMatterPageCount = 0)
     {
         var sb = new StringBuilder();
         sb.AppendLine("""<div class="front-matter-page toc-page book-preview-sheet">""");
@@ -65,15 +66,15 @@ public static class InteriorFrontMatterBuilder
             if (IsImportedContentsChapter(ch.Title))
                 continue;
 
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
+            var isFront = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title);
+            if (!isFront)
                 tocNarrative++;
 
-            var phNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 1 : tocNarrative;
+            var phNum = isFront ? 1 : tocNarrative;
             var sectionId = i + 1;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
             var chapterLine = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
-            // Real Contents pages list chapters only — body h2 dump (import artifacts) made TOC unreadable.
 
             sb.AppendLine("""<li class="toc-item">""");
             var refClass = pdfTargetCounters ? "toc-page-ref toc-page-ref--counter" : "toc-page-ref";
@@ -86,7 +87,8 @@ public static class InteriorFrontMatterBuilder
             }
             else if (chapterStartPages != null && i < chapterStartPages.Count)
             {
-                pageRef = chapterStartPages[i].ToString(CultureInfo.InvariantCulture);
+                var physical = chapterStartPages[i];
+                pageRef = FormatTocPageLabel(physical, isFront, frontMatterPageCount);
                 pageRefInner = $"""<span class="{refClass}">{pageRef}</span>""";
             }
             else
@@ -105,6 +107,38 @@ public static class InteriorFrontMatterBuilder
             sb.AppendLine("""<li class="toc-item toc-item-empty">No chapters yet.</li>""");
 
         sb.AppendLine("</ol></nav></div></div>");
+        return sb.ToString();
+    }
+
+    /// <summary>Front matter → lowercase roman; body → arabic restarting after frontMatterPageCount.</summary>
+    public static string FormatTocPageLabel(int physicalPage, bool isFrontMatter, int frontMatterPageCount)
+    {
+        if (physicalPage <= 0)
+            return "…";
+        if (isFrontMatter || physicalPage <= frontMatterPageCount)
+            return ToRoman(Math.Max(1, physicalPage)).ToLowerInvariant();
+        var body = physicalPage - Math.Max(0, frontMatterPageCount);
+        return Math.Max(1, body).ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string ToRoman(int number)
+    {
+        if (number <= 0) return number.ToString(CultureInfo.InvariantCulture);
+        var map = new (int Value, string Numeral)[]
+        {
+            (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"),
+            (100, "C"), (90, "XC"), (50, "L"), (40, "XL"),
+            (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I")
+        };
+        var sb = new StringBuilder();
+        foreach (var (value, numeral) in map)
+        {
+            while (number >= value)
+            {
+                sb.Append(numeral);
+                number -= value;
+            }
+        }
         return sb.ToString();
     }
 

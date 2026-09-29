@@ -1,0 +1,20 @@
+Title:           Zero to One
+Author:          Peter Thiel with Blake Masters
+Creator:         EBookDashboard
+Producer:        PDFsharp 6.2.0 (Original: Skia/PDF m153)
+CreationDate:    Tue Sep 29 21:49:26 2026 Pakistan Standard Time
+ModDate:         Tue Sep 29 21:49:51 2026 Pakistan Standard Time
+Custom Metadata: no
+Metadata Stream: yes
+Tagged:          yes
+UserProperties:  no
+Suspects:        no
+Form:            none
+JavaScript:      no
+Pages:           199
+Encrypted:       no
+Page size:       432 x 648 pts
+Page rot:        0
+File size:       15637787 bytes
+Optimized:       no
+PDF version:     1.4

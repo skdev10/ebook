@@ -53,8 +53,11 @@ public static class InteriorExportTheme
     public static string NormalizeLineSpacing(string? lineSpacing)
     {
         if (!double.TryParse((lineSpacing ?? "").Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out var lh))
-            lh = 1.6;
+            lh = 1.5; // print default — trade body 1.4–1.5
+        // Keep print-friendly steps: 1.4 / 1.5 / 1.6 / 1.8 / 2 (do NOT snap 1.5 → 1.6).
+        if (lh <= 1.35) return "1.4";
         if (lh <= 1.45) return "1.4";
+        if (lh <= 1.55) return "1.5";
         if (lh <= 1.7) return "1.6";
         if (lh <= 1.9) return "1.8";
         return "2";
@@ -67,7 +70,7 @@ public static class InteriorExportTheme
     public static string ResolveBodyFontSizePt(string? interiorStyle, string? textSize) =>
         InteriorTypographyPresets.ResolveBodyFontSizePt(interiorStyle, textSize);
 
-    /// <summary>Exact multiplier shared with formatter <c>--fmt-line-height</c> (1.4 / 1.6 / 1.8 / 2).</summary>
+    /// <summary>Exact multiplier shared with formatter <c>--fmt-line-height</c> (1.4 / 1.5 / 1.6 / 1.8 / 2).</summary>
     public static string ResolveLineHeight(string? lineSpacing) =>
         InteriorLayoutTokens.ResolveLineHeightExact(lineSpacing);
 

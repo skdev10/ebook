@@ -7,6 +7,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using HtmlAgilityPack;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.Processing;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
@@ -429,7 +430,7 @@ public static class ChapterDocumentImportService
                             continue;
                         if (!TryDecodePdfImage(img, out var imgBytes, out var contentType))
                             continue;
-                        blocks.Add((img.BoundingBox.Top, tie++, ToFigureHtml(imgBytes, contentType), "[figure]\n"));
+                        blocks.Add((img.BoundingBox.Top, tie++, ToFigureHtml(imgBytes, contentType, caption: null), "[figure]\n"));
                     }
                 }
                 catch
@@ -454,8 +455,6 @@ public static class ChapterDocumentImportService
                         var text = RepairPdfImportText(PdfImportScriptMarkup.StripMarkers(marked));
                         if (text.Length == 0)
                             return;
-                        // Re-apply script markers onto repaired plain when markers survived strip path:
-                        // Prefer HTML built from the marked buffer after Normalize keeps markers.
                         var htmlInner = PdfImportScriptMarkup.ToHtml(PdfImportTextNormalizer.NormalizeKeepingMarkers(marked));
                         if (string.IsNullOrWhiteSpace(htmlInner))
                             htmlInner = System.Net.WebUtility.HtmlEncode(text);
@@ -514,6 +513,8 @@ public static class ChapterDocumentImportService
                 if (blocks.Count == 0)
                     continue;
 
+                blocks = PairFigureCaptions(blocks);
+
                 foreach (var block in blocks.OrderByDescending(b => b.Top).ThenBy(b => b.Tie))
                 {
                     html.Append(block.Html);
@@ -522,7 +523,16 @@ public static class ChapterDocumentImportService
             }
 
             combinedPlainText = RepairPdfImportText(plain.ToString());
+            if (IsLikelyScannedPdf(pages, combinedPlainText))
+            {
+                throw new InvalidOperationException(
+                    "This PDF appears to be scanned (image-only) with little or no extractable text. "
+                    + "OCR is not supported for manuscript import yet. "
+                    + "Please upload a text-based PDF, a Word (.docx) file, or paste the text instead.");
+            }
+
             var htmlDoc = PromoteHeadingParagraphs(html.ToString());
+            htmlDoc = StripImportedContentsBlock(htmlDoc);
             var fromHtml = SplitHtmlDocumentIntoChapters(htmlDoc);
             var chapters = fromHtml.Count > 0
                 ? CoalesceSectionHeadingChapters(fromHtml)
@@ -530,8 +540,17 @@ public static class ChapterDocumentImportService
 
             if (document.TryGetBookmarks(out var bookmarks) && bookmarks != null)
             {
-                var outlineTitles = ExtractOutlineTitles(bookmarks);
+                var outlineTitles = ExtractOutlineTitles(bookmarks)
+                    .Select(NormalizeOutlineSectionTitle)
+                    .Where(t => t.Length > 0)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (!outlineTitles.Any(t => t.Equals("Preface", StringComparison.OrdinalIgnoreCase)))
+                    outlineTitles.Insert(0, "Preface");
+                if (!outlineTitles.Any(t => t.StartsWith("Conclusion", StringComparison.OrdinalIgnoreCase)))
+                    outlineTitles.Add("Conclusion");
                 chapters = AlignChaptersToOutline(chapters, outlineTitles);
+                chapters = ResplitBodiesByOutlineTitles(chapters, outlineTitles, htmlDoc);
             }
 
             return chapters;
@@ -556,13 +575,123 @@ public static class ChapterDocumentImportService
         }
     }
 
-    internal static string ToFigureHtml(byte[] bytes, string contentType)
+    internal static string ToFigureHtml(byte[] bytes, string contentType, string? caption = null)
     {
         var ct = string.IsNullOrWhiteSpace(contentType) ? "image/png" : contentType;
         bytes = ShrinkImportedImage(bytes, ref ct);
-        return "<p class=\"manuscript-figure\" style=\"text-align:center;margin:1em 0;page-break-inside:avoid;\">"
+        var cap = (caption ?? "").Trim();
+        var captionHtml = string.IsNullOrEmpty(cap)
+            ? ""
+            : "<figcaption class=\"manuscript-figcaption\">" + System.Net.WebUtility.HtmlEncode(cap) + "</figcaption>";
+        return "<figure class=\"manuscript-figure\" style=\"text-align:center;margin:1em 0;page-break-inside:avoid;break-inside:avoid;\">"
                + "<img src=\"data:" + ct + ";base64," + Convert.ToBase64String(bytes)
-               + "\" style=\"max-width:100%;height:auto;page-break-inside:avoid;\" alt=\"\" /></p>";
+               + "\" style=\"max-width:100%;height:auto;page-break-inside:avoid;\" alt=\""
+               + System.Net.WebUtility.HtmlEncode(cap) + "\" />"
+               + captionHtml
+               + "</figure>";
+    }
+
+    /// <summary>
+    /// Pair figure blocks with nearby caption lines (Figure/Fig./4.1 style) so image+caption stay one unit.
+    /// </summary>
+    internal static List<(double Top, int Tie, string Html, string Plain)> PairFigureCaptions(
+        List<(double Top, int Tie, string Html, string Plain)> blocks)
+    {
+        if (blocks.Count < 2)
+            return blocks;
+
+        var captionRx = new Regex(
+            @"^(?:Figure|Fig\.?|FIG\.?|Chart|Table|Illustration)\s*[\d.]+|^(\d{1,2}\.\d{1,2})\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        var used = new HashSet<int>();
+        var result = new List<(double Top, int Tie, string Html, string Plain)>(blocks.Count);
+
+        for (var i = 0; i < blocks.Count; i++)
+        {
+            if (used.Contains(i))
+                continue;
+
+            var cur = blocks[i];
+            if (!cur.Html.Contains("manuscript-figure", StringComparison.Ordinal))
+            {
+                result.Add(cur);
+                continue;
+            }
+
+            // Prefer caption below the image (lower Top in PDF coords), else above.
+            string? caption = null;
+            var captionIdx = -1;
+            for (var j = 0; j < blocks.Count; j++)
+            {
+                if (j == i || used.Contains(j))
+                    continue;
+                if (blocks[j].Html.Contains("manuscript-figure", StringComparison.Ordinal))
+                    continue;
+                var plain = (blocks[j].Plain ?? "").Trim();
+                if (plain.Length == 0 || plain.Length > 280)
+                    continue;
+                if (!captionRx.IsMatch(plain))
+                    continue;
+                var dy = cur.Top - blocks[j].Top; // positive → caption is below image
+                if (dy < -36 || dy > 120)
+                    continue;
+                // Prefer closest below, then closest above
+                if (captionIdx < 0
+                    || Math.Abs(dy) < Math.Abs(cur.Top - blocks[captionIdx].Top)
+                    || (dy > 0 && cur.Top - blocks[captionIdx].Top <= 0))
+                {
+                    caption = plain.Replace("\n", " ").Trim();
+                    captionIdx = j;
+                }
+            }
+
+            if (captionIdx >= 0 && caption != null)
+            {
+                used.Add(captionIdx);
+                // Rebuild figure with caption — extract data URI from existing img
+                var m = Regex.Match(cur.Html, @"src=""(data:image/[^""]+)""", RegexOptions.IgnoreCase);
+                if (m.Success)
+                {
+                    var dataUri = m.Groups[1].Value;
+                    var comma = dataUri.IndexOf(',');
+                    var meta = dataUri[..Math.Max(0, comma)];
+                    var b64 = comma > 0 ? dataUri[(comma + 1)..] : "";
+                    var ct = meta.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+                        ? meta["data:".Length..].Split(';')[0]
+                        : "image/jpeg";
+                    try
+                    {
+                        var bytes = Convert.FromBase64String(b64);
+                        result.Add((cur.Top, cur.Tie, ToFigureHtml(bytes, ct, caption), "[figure] " + caption + "\n"));
+                        continue;
+                    }
+                    catch
+                    {
+                        /* keep original figure */
+                    }
+                }
+            }
+
+            result.Add(cur);
+        }
+
+        return result;
+    }
+
+    private static bool IsLikelyScannedPdf(List<UglyToad.PdfPig.Content.Page> pages, string combinedPlain)
+    {
+        if (pages.Count == 0)
+            return false;
+        var letters = pages.Sum(p => p.Letters?.Count ?? 0);
+        var images = 0;
+        foreach (var p in pages.Take(Math.Min(pages.Count, 12)))
+        {
+            try { images += p.GetImages()?.Count() ?? 0; } catch { /* ignore */ }
+        }
+
+        var textLen = Regex.Replace(combinedPlain ?? "", @"\s+", "").Length;
+        return images >= Math.Max(3, pages.Count / 4) && letters < 80 && textLen < 120;
     }
 
     /// <summary>Downscale import figures so a 90-page PDF with diagrams does not hang the upload or browser.</summary>
@@ -597,6 +726,18 @@ public static class ChapterDocumentImportService
         }
 
         return bytes;
+    }
+
+    private static string NormalizeOutlineSectionTitle(string? title)
+    {
+        var t = (title ?? "").Trim();
+        if (t.Length == 0)
+            return "";
+        if (Regex.IsMatch(t, @"^Preface\b", RegexOptions.IgnoreCase))
+            return "Preface";
+        if (Regex.IsMatch(t, @"^Conclusion\b", RegexOptions.IgnoreCase))
+            return "Conclusion";
+        return TruncateSuggestedTitle(t);
     }
 
     /// <summary>Flatten PDF outline/bookmark titles in document order (skip Contents entries).</summary>
@@ -664,6 +805,258 @@ public static class ChapterDocumentImportService
         return result;
     }
 
+    /// <summary>
+    /// Drop the imported Contents/TOC dump so its numbered lines do not become empty fake chapters.
+    /// </summary>
+    internal static string StripImportedContentsBlock(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+            return html ?? "";
+        try
+        {
+            var doc = new HtmlDocument();
+            doc.LoadHtml("<div id=\"root\">" + html + "</div>");
+            var root = doc.GetElementbyId("root");
+            if (root == null)
+                return html;
+
+            var nodes = root.ChildNodes.Where(n => n.NodeType == HtmlNodeType.Element).ToList();
+            var dropping = false;
+            foreach (var node in nodes.ToList())
+            {
+                var text = System.Net.WebUtility.HtmlDecode(node.InnerText ?? "").Trim();
+                if (!dropping && IsImportedContentsTitle(text))
+                {
+                    dropping = true;
+                    node.Remove();
+                    continue;
+                }
+
+                if (!dropping)
+                    continue;
+
+                // Never drop figures that happen to sit near the Contents listing.
+                if (node.Name.Equals("figure", StringComparison.OrdinalIgnoreCase)
+                    || (node.InnerHtml?.Contains("<img", StringComparison.OrdinalIgnoreCase) ?? false))
+                {
+                    dropping = false; // resume body; keep the figure
+                    continue;
+                }
+
+                // Resume at the first real front-matter body after the listing (usually Preface).
+                if (Regex.IsMatch(text, @"^(Preface|Foreword|Introduction)\b", RegexOptions.IgnoreCase)
+                    && !Regex.IsMatch(text, @":\s*\S", RegexOptions.IgnoreCase)) // skip "Preface: Zero to One" TOC line
+                {
+                    dropping = false;
+                    continue;
+                }
+
+                // Also resume at first numbered chapter body heading that does not look like a TOC row.
+                if (LooksLikeNumberedChapterBanner(text)
+                    && !Regex.IsMatch(text, @"[\.…]{2,}\s*\d+\s*$")
+                    && !Regex.IsMatch(text, @"\s\d{1,3}\s*$"))
+                {
+                    dropping = false;
+                    continue;
+                }
+
+                node.Remove();
+            }
+
+            return root.InnerHtml;
+        }
+        catch
+        {
+            return html;
+        }
+    }
+
+    /// <summary>
+    /// When many chapters have empty bodies but outline titles exist in the combined HTML,
+    /// re-slice bodies so each outline section owns its content.
+    /// Prefers heading occurrences after the Contents dump (never TOC listing rows).
+    /// </summary>
+    internal static List<ImportedChapter> ResplitBodiesByOutlineTitles(
+        List<ImportedChapter> chapters,
+        IReadOnlyList<string> outlineTitles,
+        string? combinedHtml)
+    {
+        if (chapters == null || chapters.Count == 0 || outlineTitles == null || outlineTitles.Count < 2)
+            return chapters ?? new List<ImportedChapter>();
+
+        var emptyish = chapters.Count(c =>
+            Regex.Replace(Regex.Replace(c.Body ?? "", "<[^>]+>", " "), @"\s+", " ").Trim().Length < 80);
+        if (emptyish < chapters.Count / 3 && chapters.Count >= outlineTitles.Count - 1)
+            return chapters;
+
+        var html = combinedHtml;
+        if (string.IsNullOrWhiteSpace(html))
+            html = string.Join("", chapters.Select(c => c.Body ?? ""));
+        if (string.IsNullOrWhiteSpace(html))
+            return chapters;
+
+        // Start searching after Contents / before real Preface body so TOC rows are ignored.
+        var searchFrom = 0;
+        var contentsHit = Regex.Match(html, @"<(h[1-6]|p)[^>]*>\s*Contents\s*</\1>", RegexOptions.IgnoreCase);
+        if (contentsHit.Success)
+            searchFrom = contentsHit.Index + contentsHit.Length;
+        var prefaceHit = Regex.Match(
+            html[searchFrom..],
+            @"<(h[1-6])[^>]*>\s*Preface\b[^<]*</\1>",
+            RegexOptions.IgnoreCase);
+        if (prefaceHit.Success)
+            searchFrom += prefaceHit.Index;
+
+        var markers = new List<(int Index, string Title)>();
+        foreach (var title in outlineTitles)
+        {
+            var t = (title ?? "").Trim();
+            if (t.Length < 2)
+                continue;
+
+            var idx = FindOutlineHeadingIndex(html, t, searchFrom);
+            if (idx < 0 && searchFrom > 0)
+                idx = FindOutlineHeadingIndex(html, t, 0);
+            if (idx < 0)
+                continue;
+            if (markers.Count > 0 && idx <= markers[^1].Index)
+                continue;
+            markers.Add((idx, t));
+        }
+
+        if (markers.Count < 2)
+            return chapters;
+
+        var result = new List<ImportedChapter>();
+
+        // Preserve title-page / half-title / front figures that sit before the first outline heading.
+        // Without this, Resplit dropped every image and paragraph before Preface (e.g. page-3 art).
+        if (markers[0].Index > 0)
+        {
+            var lead = html[..markers[0].Index].Trim();
+            var leadHasFigure = lead.Contains("<img", StringComparison.OrdinalIgnoreCase)
+                                || lead.Contains("manuscript-figure", StringComparison.OrdinalIgnoreCase);
+            var leadPlain = Regex.Replace(Regex.Replace(lead, "<[^>]+>", " "), @"\s+", " ").Trim();
+            if (leadHasFigure || leadPlain.Length >= 40)
+            {
+                result.Add(new ImportedChapter(
+                    result.Count + 1,
+                    "Title Page",
+                    FormatChapterBodyHtml(lead, "Title Page")));
+            }
+        }
+
+        for (var i = 0; i < markers.Count; i++)
+        {
+            var start = markers[i].Index;
+            var end = i + 1 < markers.Count ? markers[i + 1].Index : html.Length;
+            if (end <= start)
+                continue;
+            var slice = html[start..end];
+            slice = Regex.Replace(slice, @"^<h[1-6][^>]*>[\s\S]*?</h[1-6]>", "", RegexOptions.IgnoreCase);
+            var plainLen = Regex.Replace(Regex.Replace(slice, "<[^>]+>", " "), @"\s+", " ").Trim().Length;
+            var hasFigure = slice.Contains("<img", StringComparison.OrdinalIgnoreCase)
+                            || slice.Contains("manuscript-figure", StringComparison.OrdinalIgnoreCase);
+            // Reject obviously empty TOC-only slices (keep slices that still hold figures).
+            if (plainLen < 40 && !hasFigure && i + 1 < markers.Count)
+                continue;
+            result.Add(new ImportedChapter(result.Count + 1, markers[i].Title, FormatChapterBodyHtml(slice, markers[i].Title)));
+        }
+
+        // Keep resplit only if it actually recovered body text.
+        var recovered = result.Count(c =>
+            Regex.Replace(Regex.Replace(c.Body ?? "", "<[^>]+>", " "), @"\s+", " ").Trim().Length >= 200);
+        return recovered >= Math.Max(3, outlineTitles.Count / 3) ? result : chapters;
+    }
+
+    private static int FindOutlineHeadingIndex(string html, string title, int searchFrom)
+    {
+        if (searchFrom < 0 || searchFrom >= html.Length)
+            searchFrom = 0;
+
+        var candidates = new List<string> { title };
+        var stripped = Regex.Replace(title, @"^\d{1,2}\s*[\.\-–—:]?\s*", "");
+        if (stripped.Length >= 4 && !string.Equals(stripped, title, StringComparison.Ordinal))
+            candidates.Add(stripped);
+        if (stripped.Length >= 4)
+            candidates.Add(stripped.ToUpperInvariant());
+        if (title.StartsWith("Conclusion", StringComparison.OrdinalIgnoreCase))
+            candidates.Add("Conclusion");
+        if (title.Equals("Preface", StringComparison.OrdinalIgnoreCase))
+            candidates.Add("Preface");
+
+        // Wrapped ALL-CAPS banners often break mid-title ("ALL HAPPY COMPANIES ARE" / "DIFFERENT").
+        if (stripped.Length >= 12)
+        {
+            var words = Regex.Split(stripped, @"\s+").Where(w => w.Length > 0).ToArray();
+            if (words.Length >= 3)
+                candidates.Add(string.Join(" ", words.Take(Math.Min(4, words.Length))).ToUpperInvariant());
+        }
+
+        var best = -1;
+        foreach (var cand in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var encoded = System.Net.WebUtility.HtmlEncode(cand);
+            var headingRx = new Regex(
+                @"<(h[1-6])[^>]*>\s*" + Regex.Escape(encoded).Replace(@"\ ", @"[\s\u00A0]+") + @"[^<]*</\1>",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var m = headingRx.Match(html, searchFrom);
+            if (m.Success)
+            {
+                if (best < 0 || m.Index < best)
+                    best = m.Index;
+                continue;
+            }
+
+            var idx = html.IndexOf(encoded, searchFrom, StringComparison.OrdinalIgnoreCase);
+            var last = -1;
+            while (idx >= 0)
+            {
+                last = idx;
+                idx = html.IndexOf(encoded, idx + encoded.Length, StringComparison.OrdinalIgnoreCase);
+            }
+            if (best < 0 && last >= 0)
+                best = last;
+        }
+
+        // Numbered chapter: match any heading that starts with that number (handles nbsp / punctuation drift).
+        if (best < 0)
+        {
+            var num = Regex.Match(title, @"^(\d{1,2})\b");
+            if (num.Success)
+            {
+                var numRx = new Regex(
+                    @"<(h[1-6])[^>]*>\s*" + num.Groups[1].Value + @"[\s\u00A0.\-–—:]+[^<]{3,90}</\1>",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                var m = numRx.Match(html, searchFrom);
+                if (m.Success)
+                    best = m.Index;
+            }
+        }
+
+        // ALL-CAPS section title without leading number (common in print PDFs after a lone digit page).
+        if (best < 0 && stripped.Length >= 8)
+        {
+            var capsLead = string.Join(
+                @"[\s\u00A0]+",
+                Regex.Split(stripped.ToUpperInvariant(), @"\s+")
+                    .Where(w => w.Length > 0)
+                    .Take(4)
+                    .Select(Regex.Escape));
+            if (capsLead.Length > 0)
+            {
+                var capsRx = new Regex(
+                    @"<(h[1-6])[^>]*>\s*" + capsLead + @"[^<]*</\1>",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                var m = capsRx.Match(html, searchFrom);
+                if (m.Success)
+                    best = m.Index;
+            }
+        }
+
+        return best;
+    }
+
     private static bool TitlesRoughlyMatch(string a, string b)
     {
         static string Norm(string s) =>
@@ -679,7 +1072,7 @@ public static class ChapterDocumentImportService
     /// Full-page decorative textures / paper backgrounds must not become inline figures
     /// (they bloat print PDFs and obscure text). Charts and photos are smaller than the page.
     /// </summary>
-    internal static bool IsLikelyFullPageBackground(IPdfImage img, double pageWidth, double pageHeight)
+    public static bool IsLikelyFullPageBackground(IPdfImage img, double pageWidth, double pageHeight)
     {
         if (img == null || pageWidth <= 0 || pageHeight <= 0)
             return false;
@@ -692,20 +1085,25 @@ public static class ChapterDocumentImportService
         return w >= pageWidth * 0.85 && h >= pageHeight * 0.85;
     }
 
-    internal static bool TryDecodePdfImage(IPdfImage img, out byte[] bytes, out string contentType)
+    /// <summary>Decode a PDF image to raster bytes for print. Public for diagnostics / proof tools.</summary>
+    public static bool TryDecodePdfImage(IPdfImage img, out byte[] bytes, out string contentType)
     {
         bytes = Array.Empty<byte>();
         contentType = "image/png";
-        if (img == null || img.IsImageMask)
+        if (img == null)
+            return false;
+
+        // Soft masks alone are not figures; the companion color image is extracted separately.
+        if (img.IsImageMask && img.WidthInSamples > 0 && img.WidthInSamples < 48)
             return false;
 
         if (img.WidthInSamples > 0 && img.HeightInSamples > 0
-            && img.WidthInSamples < 32 && img.HeightInSamples < 32)
+            && img.WidthInSamples < 24 && img.HeightInSamples < 24)
             return false;
 
         try
         {
-            if (img.TryGetPng(out var png) && png is { Length: > 800 })
+            if (img.TryGetPng(out var png) && png is { Length: > 200 })
             {
                 bytes = png;
                 contentType = "image/png";
@@ -719,9 +1117,8 @@ public static class ChapterDocumentImportService
 
         try
         {
-            // PdfPig 0.1.x: some builds expose TryGetBytes via extension; fall through to RawBytes.
             var rawProbe = img.RawBytes;
-            if (rawProbe.Length > 800)
+            if (rawProbe.Length > 200)
             {
                 var arr = rawProbe.ToArray();
                 if (TryLoadAsRaster(arr, out bytes, out contentType))
@@ -736,17 +1133,16 @@ public static class ChapterDocumentImportService
         try
         {
             var raw = img.RawBytes;
-            if (raw.Length > 800)
+            if (raw.Length > 200)
             {
                 var arr = raw.ToArray();
-                if (arr.Length >= 3 && arr[0] == 0xFF && arr[1] == 0xD8)
+                if (LooksLikeJpeg(arr))
                 {
                     bytes = arr;
                     contentType = "image/jpeg";
                     return TryFinalizePrintImage(ref bytes, ref contentType);
                 }
-
-                if (arr.Length >= 8 && arr[0] == 0x89 && arr[1] == 0x50)
+                if (LooksLikePng(arr))
                 {
                     bytes = arr;
                     contentType = "image/png";
@@ -759,6 +1155,69 @@ public static class ChapterDocumentImportService
             /* ignore */
         }
 
+        // Last resort: rasterize opaque filter bytes (JPX/JBIG2/raw samples).
+        try
+        {
+            var raw = img.RawBytes;
+            if (raw.Length > 200)
+            {
+                var arr = raw.ToArray();
+                if (TryRasterizeRawSamples(img, arr, out bytes, out contentType))
+                    return TryFinalizePrintImage(ref bytes, ref contentType);
+            }
+        }
+        catch
+        {
+            /* ignore */
+        }
+
+        return false;
+    }
+
+    private static bool LooksLikeJpeg(byte[] b) =>
+        b.Length > 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF;
+
+    private static bool LooksLikePng(byte[] b) =>
+        b.Length > 8 && b[0] == 0x89 && b[1] == (byte)'P' && b[2] == (byte)'N' && b[3] == (byte)'G';
+
+    /// <summary>Build a grayscale/RGB bitmap from raw sample bytes when filters are opaque to ImageSharp.</summary>
+    private static bool TryRasterizeRawSamples(IPdfImage img, byte[] raw, out byte[] bytes, out string contentType)
+    {
+        bytes = Array.Empty<byte>();
+        contentType = "image/png";
+        var w = img.WidthInSamples;
+        var h = img.HeightInSamples;
+        if (w < 24 || h < 24 || w > 8000 || h > 8000)
+            return false;
+        try
+        {
+            // Prefer 8-bit gray when buffer length matches.
+            if (raw.Length >= w * h)
+            {
+                using var image = new Image<SixLabors.ImageSharp.PixelFormats.L8>(w, h);
+                image.ProcessPixelRows(accessor =>
+                {
+                    var i = 0;
+                    for (var y = 0; y < h; y++)
+                    {
+                        var row = accessor.GetRowSpan(y);
+                        for (var x = 0; x < w; x++)
+                        {
+                            row[x] = new SixLabors.ImageSharp.PixelFormats.L8(raw[Math.Min(i++, raw.Length - 1)]);
+                        }
+                    }
+                });
+                using var ms = new MemoryStream();
+                image.SaveAsPng(ms);
+                bytes = ms.ToArray();
+                contentType = "image/png";
+                return bytes.Length > 200;
+            }
+        }
+        catch
+        {
+            /* ignore */
+        }
         return false;
     }
 
@@ -814,7 +1273,8 @@ public static class ChapterDocumentImportService
         }
     }
 
-    /// <summary>Write data-URI figures to disk so large-book chapter HTML stays small enough to save.</summary>
+    /// <summary>Write data-URI figures to disk so large-book chapter HTML stays small enough to save.
+    /// Uses absolute <c>file:///</c> URLs so Chromium <c>SetContentAsync</c> (no http base) can load them.</summary>
     public static int MaterializeDataUriImages(List<ImportedChapter> chapters, string webRootPath, string relativeUrlDir)
     {
         if (chapters == null || chapters.Count == 0 || string.IsNullOrWhiteSpace(webRootPath))
@@ -844,9 +1304,13 @@ public static class ChapterDocumentImportService
                     if (bytes.Length < 400)
                         return m.Value;
                     saved++;
-                    var name = $"fig-{saved:0000}.jpg";
-                    File.WriteAllBytes(Path.Combine(absDir, name), bytes);
-                    return "src=\"/" + rel + "/" + name + "\"";
+                    var mime = m.Groups[1].Value.ToLowerInvariant();
+                    var ext = mime.Contains("png") ? ".png" : mime.Contains("webp") ? ".webp" : ".jpg";
+                    var name = $"fig-{saved:0000}{ext}";
+                    var absFile = Path.Combine(absDir, name);
+                    File.WriteAllBytes(absFile, bytes);
+                    var fileUrl = new Uri(absFile).AbsoluteUri;
+                    return "src=\"" + fileUrl + "\"";
                 }
                 catch
                 {
@@ -1112,29 +1576,44 @@ public static class ChapterDocumentImportService
                || LooksLikeNumberedChapterBanner(t);
     }
 
-    /// <summary>Print-book banners like "10 THE MECHANICS OF MAFIA" (not a lone page number).</summary>
+    /// <summary>Print-book banners like "10 THE MECHANICS OF MAFIA" or "1 The Challenge of the Future".</summary>
     internal static bool LooksLikeNumberedChapterBanner(string? text)
     {
         var t = Regex.Replace((text ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
         if (t.Length == 0 || LooksLikePointHeading(t))
             return false;
-        return Regex.IsMatch(t, @"^\d{1,2}\s+[A-Z][A-Z0-9\s,'’\-]{6,}$");
+        // ALL-CAPS: "10 THE MECHANICS OF MAFIA"
+        if (Regex.IsMatch(t, @"^\d{1,2}\s+[A-Z][A-Z0-9\s,'’\-]{6,}$"))
+            return true;
+        // Title Case / em-dash: "1—The Challenge…", "1. The Challenge…", "1   The Challenge…"
+        if (Regex.IsMatch(
+                t,
+                @"^\d{1,2}\s*[\.\-–—:]\s*[A-Z].{4,90}$",
+                RegexOptions.CultureInvariant))
+            return true;
+        if (Regex.IsMatch(
+                t,
+                @"^\d{1,2}\s{1,6}[A-Z][A-Za-z0-9'’,\-][^.]{3,90}$",
+                RegexOptions.CultureInvariant))
+            return true;
+        return false;
     }
 
     /// <summary>Preface / foreword / introduction banners must become their own chapters, not get dropped.</summary>
-    internal static bool IsFrontMatterMarker(string? text)
+    public static bool IsFrontMatterMarker(string? text)
     {
         var t = Regex.Replace((text ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
         if (t.Length == 0)
             return false;
+        // Only true front matter — never Conclusion/Index/About (those are back matter).
         return Regex.IsMatch(
             t,
-            @"^(Preface|Foreword|Introduction|Acknowledgments?|Acknowledgements?|Dedication|Contents|Table of Contents|Conclusion|Epilogue|Afterword|Index|Illustration Credits|About the Authors?|About the Author)\b",
+            @"^(Title Page|Half[- ]Title|Copyright|Preface|Foreword|Introduction|Dedication|Epigraph|Prologue|Contents|Table of Contents)\b",
             RegexOptions.IgnoreCase);
     }
 
     /// <summary>Back-matter banners that must stay after chapters (never floated to the front).</summary>
-    internal static bool IsBackMatterMarker(string? text)
+    public static bool IsBackMatterMarker(string? text)
     {
         var t = Regex.Replace((text ?? string.Empty).Trim(), @"^#+\s*", string.Empty);
         if (t.Length == 0)
@@ -2418,7 +2897,9 @@ public static class ChapterDocumentImportService
             var cur = lines[i];
             if (i + 1 < lines.Count
                 && Regex.IsMatch(cur.Text.Trim(), @"^\d{1,2}$")
-                && (IsAllCapsSectionTitle(lines[i + 1].Text) || LooksLikeStandaloneHeading(lines[i + 1].Text)))
+                && (IsAllCapsSectionTitle(lines[i + 1].Text)
+                    || LooksLikeStandaloneHeading(lines[i + 1].Text)
+                    || LooksLikeChapterTitle(lines[i + 1].Text)))
             {
                 var next = lines[i + 1];
                 var merged = cur.Text.Trim() + " " + next.Text.Trim();

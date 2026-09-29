@@ -432,13 +432,13 @@ public static class InteriorLayoutTokens
 
         {
 
-            if (lh <= 1.45) return InteriorSpacingTheme.LineHeightTight.ToString("0.#", CultureInfo.InvariantCulture);
-
-            if (lh <= 1.7) return InteriorSpacingTheme.LineHeightNormal.ToString("0.#", CultureInfo.InvariantCulture);
-
-            if (lh <= 1.9) return InteriorSpacingTheme.LineHeightRelaxed.ToString("0.#", CultureInfo.InvariantCulture);
-
-            return InteriorSpacingTheme.LineHeightLoose.ToString("0.#", CultureInfo.InvariantCulture);
+            // Pass through canonical print values; only snap legacy UI buckets.
+            if (Math.Abs(lh - 1.4) < 0.01) return InteriorSpacingTheme.LineHeightTight.ToString("0.##", CultureInfo.InvariantCulture);
+            if (Math.Abs(lh - 1.5) < 0.01) return InteriorSpacingTheme.LineHeightNormal.ToString("0.##", CultureInfo.InvariantCulture);
+            if (lh <= 1.35) return InteriorSpacingTheme.LineHeightTight.ToString("0.##", CultureInfo.InvariantCulture);
+            if (lh <= 1.55) return InteriorSpacingTheme.LineHeightNormal.ToString("0.##", CultureInfo.InvariantCulture);
+            if (lh <= 1.75) return InteriorSpacingTheme.LineHeightRelaxed.ToString("0.##", CultureInfo.InvariantCulture);
+            return InteriorSpacingTheme.LineHeightLoose.ToString("0.##", CultureInfo.InvariantCulture);
 
         }
 

@@ -102,15 +102,21 @@ public static class InteriorPrintDocumentBuilder
         ("Merriweather", "700", "Merriweather-Bold.ttf"),
         ("Playfair Display", "700", "PlayfairDisplay-Bold.ttf"),
         ("Inter", "400", "Inter-Regular.ttf"),
-        ("Inter", "700", "Inter-Bold.ttf"),
+        ("Inter", "700", "Inter-Regular.ttf"),
         ("Cormorant Garamond", "400", "CormorantGaramond-Regular.ttf"),
         ("Cormorant Garamond", "700", "CormorantGaramond-Bold.ttf"),
         ("Cormorant Garamond", "400 italic", "CormorantGaramond-Italic.ttf"),
+        ("Cormorant SC", "600", "CormorantSC-SemiBold.ttf"),
+        ("Cormorant SC", "400", "CormorantSC-SemiBold.ttf"),
         ("EB Garamond", "400", "EBGaramond-Regular.ttf"),
+        ("EB Garamond", "700", "EBGaramond-Bold.ttf"),
         ("Lora", "400", "Lora-Regular.ttf"),
+        ("Libre Baskerville", "400", "LibreBaskerville-Regular.ttf"),
+        ("Libre Baskerville", "700", "LibreBaskerville-Bold.ttf"),
+        ("Libre Baskerville", "400 italic", "LibreBaskerville-Italic.ttf"),
     ];
 
-    /// <summary>Embedded @font-face (offline) + Google Fonts fallback — same fonts as BookPreview.</summary>
+    /// <summary>Embedded @font-face (offline). Print PDFs must use static TrueType/OpenType — never variable/WOFF (Type 3).</summary>
     public static string BuildFontStylesForExport(string? webRootPath)
     {
         var sb = new StringBuilder();
@@ -127,21 +133,54 @@ public static class InteriorPrintDocumentBuilder
                 var path = Path.Combine(fontDir, file);
                 if (!File.Exists(path)) continue;
                 var info = new FileInfo(path);
-                if (info.Length > 900_000) continue;
-
+                // Skip huge packs and variable fonts (fvar) — Chromium embeds those as Type 3.
+                if (info.Length > 3_000_000) continue;
                 var bytes = File.ReadAllBytes(path);
+                if (FontBytesLookVariable(bytes)) continue;
+
                 var b64 = Convert.ToBase64String(bytes);
                 var isItalic = weight.Contains("italic", StringComparison.OrdinalIgnoreCase);
-                var weightNum = weight.Contains("700") ? "700" : "400";
+                var weightNum = weight.Contains("700") ? "700" : weight.Contains("600") ? "600" : "400";
                 var style = isItalic ? "italic" : "normal";
+                var format = path.EndsWith(".otf", StringComparison.OrdinalIgnoreCase) ? "opentype" : "truetype";
+                var mime = format == "opentype" ? "font/otf" : "font/ttf";
                 sb.AppendLine(FormattableString.Invariant(
-                    $"@font-face {{ font-family: '{family}'; font-style: {style}; font-weight: {weightNum}; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-display: swap; }}"));
+                    $"@font-face {{ font-family: '{family}'; font-style: {style}; font-weight: {weightNum}; src: url(data:{mime};base64,{b64}) format('{format}'); font-display: block; }}"));
                 embeddedAny = true;
             }
             sb.AppendLine("</style>");
         }
 
-        // Prefer embedded TrueType only for print — Google Fonts WOFF often embeds as Type 3.
-        return embeddedAny ? sb.ToString() : GoogleFontLinks();
+        // Never append Google Fonts for print — WOFF/variable often embed as Type 3.
+        if (!embeddedAny)
+        {
+            sb.AppendLine("<style>");
+            sb.AppendLine("body, .book-pdf-body { font-family: 'Times New Roman', Georgia, 'Libre Baskerville', serif; }");
+            sb.AppendLine("</style>");
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>True when a TTF/OTF contains an <c>fvar</c> table (variable font → Type 3 in Chromium/Skia).</summary>
+    internal static bool FontBytesLookVariable(byte[] bytes)
+    {
+        if (bytes == null || bytes.Length < 12)
+            return false;
+        // sfnt: offset 4 = numTables (ushort BE)
+        var numTables = (bytes[4] << 8) | bytes[5];
+        if (numTables <= 0 || numTables > 64)
+            return false;
+        for (var i = 0; i < numTables; i++)
+        {
+            var off = 12 + i * 16;
+            if (off + 4 > bytes.Length)
+                break;
+            // Tag is 4 ASCII chars
+            if (bytes[off] == (byte)'f' && bytes[off + 1] == (byte)'v'
+                && bytes[off + 2] == (byte)'a' && bytes[off + 3] == (byte)'r')
+                return true;
+        }
+        return false;
     }
 }

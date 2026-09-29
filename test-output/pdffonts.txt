@@ -1,0 +1,6 @@
+name                                 type              encoding         emb sub uni object ID
+------------------------------------ ----------------- ---------------- --- --- --- ---------
+AAAAAA+CormorantGaramond-Bold        CID TrueType      Identity-H       yes yes yes     11  0
+BAAAAA+CormorantGaramond-Regular     CID TrueType      Identity-H       yes yes yes     12  0
+CAAAAA+CormorantSC-SemiBold          CID TrueType      Identity-H       yes yes yes     31  0
+DAAAAA+PalatinoLinotype-Roman        CID TrueType      Identity-H       yes yes yes    215  0

@@ -65,13 +65,10 @@ public class BookPdfService : IBookPdfService
             "PDF export book={BookId} engine={Engine} style={Style} htmlLen={Len}",
             details.BookId, PdfExportEngine.Resolve(_configuration), opt.InteriorStyle, html.Length);
 
-        // Prefer in-content running heads (CSS hides them on title / chapter-open pages).
-        // Chromium header templates paint on EVERY page and cannot be suppressed selectively.
-        // Keep folio (page number) via footer template so body pages are numbered.
+        // Prefer in-content running heads. Folios are stamped after print (roman front / arabic body).
+        // Chromium's continuous pageNumber cannot restart at 1 or switch numeral style mid-book.
         var headerTemplate = string.Empty;
-        var footerTemplate = opt.IncludeCoverPage
-            ? string.Empty
-            : PdfRunningHeaderFooter.BuildFooter(opt.InteriorStyle);
+        var footerTemplate = string.Empty;
 
         var configuredEngine = PdfExportEngine.Resolve(_configuration);
         if (configuredEngine != PdfExportEngine.PdfSharp)
@@ -89,15 +86,22 @@ public class BookPdfService : IBookPdfService
                 }, cancellationToken);
                 EnsureValidPdf(pdfBytes);
 
+                pdfBytes = PrintFolioStampService.Stamp(
+                    pdfBytes,
+                    render.FrontMatterPageCount,
+                    title,
+                    author,
+                    suppressFrontPages: new[] { 0 }); // title page: no folio
+
                 var preflight = KdpPrintPreflight.Validate(pdfBytes, opt, title, author);
                 _logger.LogInformation("{Report}", preflight.Format());
                 if (!preflight.Passed)
                     _logger.LogWarning("KDP preflight reported failures for book {BookId}.", details.BookId);
 
                 _logger.LogInformation(
-                    "{Engine} PDF: {Bytes} bytes, 6x9={W}x{H}, style={Style}, pageBg={PageBg}, book={BookId}",
+                    "{Engine} PDF: {Bytes} bytes, 6x9={W}x{H}, style={Style}, pageBg={PageBg}, book={BookId}, frontPages={Front}",
                     htmlEngine.EngineName, pdfBytes.Length, layout.PdfWidth, layout.PdfHeight, opt.InteriorStyle,
-                    opt.ResolvePageBackgroundColor(), details.BookId);
+                    opt.ResolvePageBackgroundColor(), details.BookId, render.FrontMatterPageCount);
                 return pdfBytes;
             }
             catch (Exception ex)

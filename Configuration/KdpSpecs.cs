@@ -113,11 +113,17 @@ public sealed class PaperThicknessOptions
 
 public sealed class InteriorMarginOptions
 {
-    /// <summary>Recommended outside/top/bottom when bleed is off (inches).</summary>
-    public double RecommendedOuterNoBleedIn { get; set; } = 0.25;
+    /// <summary>KDP minimum outside margin without bleed (inches).</summary>
+    public double MinOuterNoBleedIn { get; set; } = 0.25;
+
+    /// <summary>Readable default outside margin without bleed (inches).</summary>
+    public double RecommendedOuterNoBleedIn { get; set; } = 0.5;
+
+    /// <summary>Readable default top/bottom margin (inches).</summary>
+    public double RecommendedVerticalIn { get; set; } = 0.6;
 
     /// <summary>Recommended outside/top/bottom when bleed is on (inches).</summary>
-    public double RecommendedOuterWithBleedIn { get; set; } = 0.375;
+    public double RecommendedOuterWithBleedIn { get; set; } = 0.5;
 
     public List<GutterTierOption> GutterTiers { get; set; } =
     [

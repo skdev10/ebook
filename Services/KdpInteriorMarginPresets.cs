@@ -11,7 +11,7 @@ public static class KdpInteriorMarginPresets
     private static KdpSpecs S => KdpSpecsAccessor.Current;
 
     public static double BleedIn => S.BleedIn;
-    public static double MinOuterNoBleedIn => S.InteriorMargins.RecommendedOuterNoBleedIn;
+    public static double MinOuterNoBleedIn => S.InteriorMargins.MinOuterNoBleedIn;
     public static double ComfortOuterNoBleedIn => S.InteriorMargins.RecommendedOuterNoBleedIn;
     public static double SafeFromTrimWithBleedIn => S.InteriorMargins.RecommendedOuterWithBleedIn;
 

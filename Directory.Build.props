@@ -6,10 +6,12 @@
     project — stale generated *.cs there would compile twice (CS0579). Exclude them explicitly.
   -->
   <PropertyGroup>
-    <BaseIntermediateOutputPath>$(USERPROFILE)\.msbuild-out\EBookDashboard\obj\</BaseIntermediateOutputPath>
-    <BaseOutputPath>$(USERPROFILE)\.msbuild-out\EBookDashboard\bin\</BaseOutputPath>
-    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'Tests'">$(USERPROFILE)\.msbuild-out\EBookDashboard.Tests\obj\</BaseIntermediateOutputPath>
-    <BaseOutputPath Condition="'$(MSBuildProjectName)' == 'Tests'">$(USERPROFILE)\.msbuild-out\EBookDashboard.Tests\bin\</BaseOutputPath>
+    <!-- Main web app keeps the EBookDashboard folder; every other project gets its own to avoid GenerateDepsFile duplicate-key crashes. -->
+    <_EBookOutName Condition="'$(MSBuildProjectName)' == 'newEbook' or '$(MSBuildProjectName)' == 'EBookDashboard'">EBookDashboard</_EBookOutName>
+    <_EBookOutName Condition="'$(_EBookOutName)' == '' and '$(MSBuildProjectName)' == 'Tests'">EBookDashboard.Tests</_EBookOutName>
+    <_EBookOutName Condition="'$(_EBookOutName)' == ''">$(MSBuildProjectName)</_EBookOutName>
+    <BaseIntermediateOutputPath>$(USERPROFILE)\.msbuild-out\$(_EBookOutName)\obj\</BaseIntermediateOutputPath>
+    <BaseOutputPath>$(USERPROFILE)\.msbuild-out\$(_EBookOutName)\bin\</BaseOutputPath>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\obj\**</DefaultItemExcludes>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\bin\**</DefaultItemExcludes>
   </PropertyGroup>

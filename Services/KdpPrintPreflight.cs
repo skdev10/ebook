@@ -12,18 +12,26 @@ namespace EBookDashboard.Services;
 /// </summary>
 public static class KdpPrintPreflight
 {
-    public sealed record Check(string Code, bool Pass, string Message);
+    public sealed record Check(string Code, bool Pass, string Message, string Severity = "FAIL");
 
     public sealed record Report(IReadOnlyList<Check> Checks)
     {
-        public bool Passed => Checks.All(c => c.Pass);
+        /// <summary>True when every hard-fail check passed (WARN severity does not block).</summary>
+        public bool Passed => Checks.All(c => c.Pass || string.Equals(c.Severity, "WARN", StringComparison.OrdinalIgnoreCase));
 
         public string Format()
         {
+            var hardFail = Checks.Any(c => !c.Pass && !string.Equals(c.Severity, "WARN", StringComparison.OrdinalIgnoreCase));
+            var hasWarn = Checks.Any(c => !c.Pass && string.Equals(c.Severity, "WARN", StringComparison.OrdinalIgnoreCase));
             var sb = new StringBuilder();
-            sb.AppendLine(Passed ? "KDP PREFLIGHT: PASS" : "KDP PREFLIGHT: FAIL");
+            sb.AppendLine(!hardFail
+                ? (hasWarn ? "KDP PREFLIGHT: PASS (with warnings)" : "KDP PREFLIGHT: PASS")
+                : "KDP PREFLIGHT: FAIL");
             foreach (var c in Checks)
-                sb.AppendLine(CultureInfo.InvariantCulture, $"  [{(c.Pass ? "OK" : "FAIL")}] {c.Code}: {c.Message}");
+            {
+                var tag = c.Pass ? "OK" : (string.Equals(c.Severity, "WARN", StringComparison.OrdinalIgnoreCase) ? "WARN" : "FAIL");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"  [{tag}] {c.Code}: {c.Message}");
+            }
             return sb.ToString();
         }
     }
@@ -168,7 +176,8 @@ public static class KdpPrintPreflight
                 lowDpi == 0,
                 lowDpi == 0
                     ? FormattableString.Invariant($"All {imgCount} content images meet ≥300 DPI (placed).")
-                    : FormattableString.Invariant($"{lowDpi} image(s) below 300 DPI effective.")));
+                    : FormattableString.Invariant($"{lowDpi} image(s) below 300 DPI effective."),
+                Severity: "WARN"));
 
             if (expectedImageCount is >= 0)
             {

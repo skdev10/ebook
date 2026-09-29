@@ -30,4 +30,10 @@ public sealed class BookRenderResult
     public required string Html { get; init; }
     public required BookPdfPlatformLayout.PdfLayoutSpec Layout { get; init; }
     public required BookFormattingSettings Settings { get; init; }
+
+    /// <summary>Physical pages before the first body chapter (title/copyright/toc/preface…). Arabic folio 1 starts after this.</summary>
+    public int FrontMatterPageCount { get; init; }
+
+    /// <summary>1-based physical start page per export chapter (same order as OrderForExport).</summary>
+    public IReadOnlyList<int> ChapterStartPagesPhysical { get; init; } = Array.Empty<int>();
 }

@@ -30,19 +30,15 @@ public static class KdpInteriorMarginCalculator
     }
 
     /// <summary>
-    /// Apply KDP margin defaults onto export options when the user has not set explicit margins.
+    /// Apply KDP readable margin defaults for print export (outside ≥0.5″, top/bottom ≥0.6″, gutter by page-count tier).
     /// </summary>
     public static void ApplyDefaults(BookPdfExportOptions opt, int estimatedPageCount)
     {
         if (opt == null) return;
         var (top, bottom, inside, outside) = KdpInteriorMarginPresets.RecommendedMargins(estimatedPageCount, opt.UseBleed);
-        if (opt.MarginInsideIn is null or <= 0)
-            opt.MarginInsideIn = inside;
-        if (opt.MarginOutsideIn is null or <= 0)
-            opt.MarginOutsideIn = outside;
-        if (opt.MarginTopIn is null or <= 0)
-            opt.MarginTopIn = top;
-        if (opt.MarginBottomIn is null or <= 0)
-            opt.MarginBottomIn = bottom;
+        opt.MarginInsideIn = inside;
+        opt.MarginOutsideIn = outside;
+        opt.MarginTopIn = top;
+        opt.MarginBottomIn = bottom;
     }
 }

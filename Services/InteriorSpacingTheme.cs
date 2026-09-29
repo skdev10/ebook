@@ -122,13 +122,13 @@ public static class InteriorSpacingTheme
 
     public const double LineHeightTight = 1.4;
 
-    public const double LineHeightNormal = 1.6;
+    public const double LineHeightNormal = 1.5;
 
-    public const double LineHeightMedium = 1.6;
+    public const double LineHeightMedium = 1.5;
 
-    public const double LineHeightRelaxed = 1.8;
+    public const double LineHeightRelaxed = 1.65;
 
-    public const double LineHeightLoose = 2.0;
+    public const double LineHeightLoose = 1.8;
 
     public static double InToMm(double inches) => inches * MmPerInch;
 

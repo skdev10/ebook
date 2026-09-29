@@ -1,0 +1,20 @@
+=== FINAL-REPORT ===
+Generated: 2026-09-29 16:50:12Z
+Source: C:\Users\Hp\Downloads\Zero to One.pdf
+Output: C:\Users\Hp\Desktop\newEbook\test-output\zero-to-one-print.pdf
+Pages: 199
+Typography: body=11pt lh=1.5 inside=0.5" outside=0.5" top=0.6"
+Images: source=53 imported=53 output=53
+Word-diff: missing=0 realLosses=0
+
+| Check              | Result | Evidence |
+|--------------------|--------|----------|
+| Fonts (no Type 3)  | PASS   | pdffonts.txt |
+| Word-diff real=0   | PASS   | word-diff.txt realLosses=0 |
+| Images 53/53       | PASS   | 53/53 (html=53) |
+| Typography/margins | PASS   | 11pt / lh 1.5 / gutter 0.5 (need 0.5) / pages 199 |
+| TOCMEASURE clean   | PASS   | hits=0 |
+| TOC structure      | PASS   | preface=True conclusion=True numbered≈14 |
+| Metadata           | PASS   | pdfinfo Title/Author |
+
+OVERALL: PASS

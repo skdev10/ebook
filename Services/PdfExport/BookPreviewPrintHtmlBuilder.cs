@@ -70,7 +70,7 @@ public static class BookPreviewPrintHtmlBuilder
             doc.AppendLine(FormattableString.Invariant($"<title>{WebUtility.HtmlEncode(title.Trim())}</title>"));
         if (!string.IsNullOrWhiteSpace(author))
             doc.AppendLine(FormattableString.Invariant($"<meta name=\"author\" content=\"{WebUtility.HtmlEncode(author.Trim())}\" />"));
-        doc.AppendLine(InteriorPrintDocumentBuilder.GoogleFontLinks());
+        // Print PDFs must use local TTF/OTF only — Google Fonts CSS serves variable/WOFF2 → Type 3.
         doc.AppendLine(fontCss);
         doc.AppendLine("<style>");
         // Page margins: the interior export (no cover) reserves top/bottom space so Chromium can draw

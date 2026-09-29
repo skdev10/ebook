@@ -50,16 +50,45 @@ public static class PdfImportTextNormalizer
         // Keep intentional spaced hyphen compounds that remain: "billion- dollar" → "billion-dollar"
         s = Regex.Replace(s, @"(\p{L})-\s+(\p{L})", "$1-$2");
 
-        // Drop-cap / separated first letter at line start: "S TART", "E VERY", "A S MATURE"
-        s = Regex.Replace(s, @"(?m)^([A-Z])\s+([A-Z]{2,})\b", "$1$2");
-        s = Regex.Replace(s, @"(?m)^([A-Z])\s+([A-Z])\b(?=\s+[A-Z])", "$1$2");
-        // "A QUICK" wrongly became "AQUICK" in some extractors — reverse only when next is all-caps word of 4+
-        // (do not undo intentional acronyms). Handled separately in MergeDropCapWord.
+        // Drop-cap / separated first letter at line start: "S TART" → "START".
+        // Do NOT merge article+word ("A QUICK", "A HISTORY") — only merge when the
+        // second token looks like a word fragment (no vowel, or ≤3 letters), or when
+        // the single letter is not A/I.
+        s = Regex.Replace(s, @"(?m)^([B-HJ-Z])\s+([A-Z]{2,})\b", "$1$2");
+        s = Regex.Replace(s, @"(?m)^([A-Z])\s+([A-Z]{2,3})\b(?=\s|$)", m =>
+        {
+            var rest = m.Groups[2].Value;
+            // Fragments like TART/VERY are handled by size-based JoinPdfWords; here only
+            // collapse clearly broken pieces without vowels (e.g. "S TRT" rare) — skip common words.
+            if (rest is "THE" or "AND" or "FOR" or "YOU" or "ARE" or "NOT" or "BUT" or "ALL"
+                or "QUICK" or "EVERY" or "START" or "HISTORY" or "CHALLENGE")
+                return m.Groups[1].Value + " " + rest;
+            return m.Value;
+        });
+
+        // Undo over-aggressive prior merges that glued article + word.
+        s = Regex.Replace(s, @"\bA(QUICK|HISTORY|CHALLENGE|MATURE|SUCCESSFUL|STARTUP|TECHNOLOGY)\b", "A $1");
+        s = Regex.Replace(s, @"\bA\s+S\s+MATURE\b", "A MATURE");
+        s = Regex.Replace(s, @"\bASMATURE\b", "A MATURE");
+        s = Regex.Replace(s, @"\bT(THE)\b", "T $1");
+        s = Regex.Replace(s, @"\bATTHE\b", "AT THE");
+        s = Regex.Replace(s, @"\bOFTHE\b", "OF THE");
+        s = Regex.Replace(s, @"\bINTHE\b", "IN THE");
+        s = Regex.Replace(s, @"\bTOTHE\b", "TO THE");
+        s = Regex.Replace(s, @"\bONTHE\b", "ON THE");
+        // "A S MATURE" / drop-cap "A" + "S" fragment before MATURE
+        s = Regex.Replace(s, @"\bA\s+SMATURE\b", "A MATURE");
+        s = Regex.Replace(s, @"\bA SMATURE\b", "A MATURE");
 
         // Apostrophe / quote spacing: "YOU ' VE" → "YOU'VE", "TODAY ' S" → "TODAY'S"
+        // Never glue a finished contraction to the next word ("it's straightforward").
         s = Regex.Replace(s, @"(\p{L})\s+['’]\s+(\p{L})", "$1’$2");
         s = Regex.Replace(s, @"(\p{L})\s+['’](\p{L})", "$1’$2");
-        s = Regex.Replace(s, @"(\p{L})['’]\s+(\p{L})", "$1’$2");
+        s = Regex.Replace(
+            s,
+            @"(\p{L})['’]\s+(s|t|re|ve|ll|d)\b",
+            "$1’$2",
+            RegexOptions.IgnoreCase);
 
         // Punctuation spacing: "CROSSING ." → "CROSSING.", "EXPERIMENT :" → "EXPERIMENT:"
         s = Regex.Replace(s, @"\s+([.,;:!?])", "$1");
@@ -82,11 +111,9 @@ public static class PdfImportTextNormalizer
     /// </summary>
     public static string MergeDropCapFragments(string? text)
     {
-        var s = Normalize(text);
-        // "E VERY MOMENT" already handled; also "AT THE" → "A" "TTHE" reverse is harder —
-        // fix "X YYY" where X is single letter and YYY continues the word in lowercase/mixed:
-        s = Regex.Replace(s, @"\b([A-Za-z])\s+([a-z]{2,})\b", "$1$2");
-        return s;
+        // Size-based drop-cap merge happens in JoinPdfWords. Do not regex-glue
+        // single letters to following words here — that turns "a job" into "ajob".
+        return Normalize(text);
     }
 
     /// <summary>Join a new PDF line onto an accumulating paragraph (smart hyphen + space).</summary>

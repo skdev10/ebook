@@ -73,8 +73,10 @@ public sealed class ChromiumTocPageNumberMeasurer : ITocPageNumberMeasurer
 
         if (pages.Count != expectedChapterCount || pages.Any(p => p <= 0))
         {
-            throw new InvalidOperationException(
-                $"TOC measurement could not resolve start pages for all chapters (got [{string.Join(", ", pages)}]).");
+            _logger.LogWarning(
+                "TOC measurement incomplete (got [{Pages}]); filling forward with best-effort page estimates.",
+                string.Join(", ", pages));
+            pages = FillForwardChapterPages(pages, expectedChapterCount);
         }
 
         _logger.LogInformation(
@@ -84,6 +86,27 @@ public sealed class ChromiumTocPageNumberMeasurer : ITocPageNumberMeasurer
             string.Join(", ", pages.Take(Math.Min(8, pages.Count))));
 
         return pages;
+    }
+
+    /// <summary>Replace missing/zero entries by carrying forward the previous known page (monotonic).</summary>
+    private static List<int> FillForwardChapterPages(IReadOnlyList<int> pages, int expected)
+    {
+        var result = new List<int>(expected);
+        var last = 1;
+        for (var i = 0; i < expected; i++)
+        {
+            var p = i < pages.Count ? pages[i] : 0;
+            if (p > 0)
+                last = Math.Max(last, p);
+            else
+                last = Math.Max(1, last);
+            result.Add(last);
+            // Next unknown chapter at least one page after this one when current was missing.
+            if (i < pages.Count && pages[i] <= 0)
+                last++;
+        }
+
+        return result;
     }
 
     private static void AssertNoInternalMarkersInPdf(byte[] pdfBytes)
@@ -157,6 +180,7 @@ public sealed class ChromiumTocPageNumberMeasurer : ITocPageNumberMeasurer
         });
         await using var page = await browser.NewPageAsync();
         await page.EmulateMediaTypeAsync(PuppeteerSharp.Media.MediaType.Print);
+        html = ChromiumPdfExporter.InlineLocalImageSources(html);
         await page.SetContentAsync(html, new NavigationOptions
         {
             WaitUntil = [WaitUntilNavigation.DOMContentLoaded, WaitUntilNavigation.Load],

@@ -45,10 +45,11 @@ public sealed class KdpCalculationService
     {
         var pages = Math.Max(1, pageCount);
         var inside = ResolveInsideMarginIn(pages);
-        var outer = hasBleed
-            ? _specs.InteriorMargins.RecommendedOuterWithBleedIn
-            : _specs.InteriorMargins.RecommendedOuterNoBleedIn;
-        return RoundMargins(outer, outer, outer, inside);
+        var outside = hasBleed
+            ? Math.Max(_specs.InteriorMargins.RecommendedOuterWithBleedIn, 0.375)
+            : Math.Max(_specs.InteriorMargins.RecommendedOuterNoBleedIn, 0.5);
+        var vertical = Math.Max(_specs.InteriorMargins.RecommendedVerticalIn, 0.6);
+        return RoundMargins(vertical, vertical, outside, inside);
     }
 
     /// <summary>Active gutter band label for UI, e.g. "151–300 pages".</summary>

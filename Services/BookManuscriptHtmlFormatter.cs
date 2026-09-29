@@ -43,6 +43,7 @@ public static class BookManuscriptHtmlFormatter
     {
         "p", "br", "hr", "ul", "ol", "li", "strong", "b", "em", "i", "u",
         "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre", "span", "div", "img",
+        "figure", "figcaption",
         // Keep structured chapter chrome so we can strip it cleanly (do not flatten to InnerText).
         "header", "article", "nav", "section"
     };
@@ -117,6 +118,8 @@ public static class BookManuscriptHtmlFormatter
         if (s.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return true;
         if (s.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) return true;
         if (s.StartsWith("/", StringComparison.Ordinal)) return true;
+        // Local materialised figures for Chromium print (inlined to data: before SetContent).
+        if (s.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)) return true;
         return false;
     }
 

@@ -18,34 +18,50 @@ public static class BookChapterExportHelper
     private static readonly HashSet<string> FrontMatterExactTitles = new(StringComparer.OrdinalIgnoreCase)
     {
         "preface", "foreword", "dedication", "epigraph",
-        "acknowledgments", "acknowledgements",
         "introduction", "prologue",
         "copyright", "copyright page", "copyright page content",
         "title page", "half title",
-        "proofreading notes", "editing notes", "ghostwriting notes",
-        "other back matter"
+        "proofreading notes", "editing notes", "ghostwriting notes"
     };
 
     /// <summary>Titles that may carry a subtitle after a colon/dash (e.g. "Preface: Why this book").</summary>
     private static readonly string[] FrontMatterPrefixTitles =
     [
-        "preface", "foreword", "dedication", "epigraph",
-        "acknowledgments", "acknowledgements", "prologue"
+        "preface", "foreword", "dedication", "epigraph", "prologue", "introduction"
+    ];
+
+    private static readonly HashSet<string> BackMatterExactTitles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "conclusion", "epilogue", "afterword",
+        "acknowledgments", "acknowledgements",
+        "index", "illustration credits", "bibliography", "glossary", "references",
+        "about the author", "about the authors", "other back matter"
+    };
+
+    private static readonly string[] BackMatterPrefixTitles =
+    [
+        "conclusion", "epilogue", "afterword", "acknowledgments", "acknowledgements",
+        "about the author", "about the authors"
     ];
 
     public static bool IsFrontMatter(int chapterNumber) => chapterNumber <= 0;
 
     /// <summary>
-    /// Front matter by storage number <b>or</b> known section title (imported "Preface" at chapter 1+).
+    /// Front matter by known section title (Preface/…). ChapterNumber ≤ 0 alone is not enough —
+    /// back-matter rows may also use 0 in some imports.
     /// </summary>
     public static bool IsFrontMatter(int chapterNumber, string? title) =>
-        chapterNumber <= 0 || IsFrontMatterSectionTitle(title);
+        IsFrontMatterSectionTitle(title) || (chapterNumber <= 0 && !IsBackMatterSectionTitle(title));
+
+    public static bool IsBackMatter(int chapterNumber, string? title) =>
+        IsBackMatterSectionTitle(title);
 
     /// <summary>True when the title is a known front-matter section name (Preface, Foreword, …).</summary>
     public static bool IsFrontMatterSectionTitle(string? title)
     {
         var key = NormalizeFrontMatterTitleKey(title);
         if (string.IsNullOrEmpty(key)) return false;
+        if (IsBackMatterSectionTitle(title)) return false;
         if (FrontMatterExactTitles.Contains(key)) return true;
 
         foreach (var prefix in FrontMatterPrefixTitles)
@@ -56,6 +72,22 @@ public static class BookChapterExportHelper
                 return true;
         }
 
+        return false;
+    }
+
+    /// <summary>True when the title is a known back-matter section (Conclusion, Index, …).</summary>
+    public static bool IsBackMatterSectionTitle(string? title)
+    {
+        var key = NormalizeFrontMatterTitleKey(title);
+        if (string.IsNullOrEmpty(key)) return false;
+        if (BackMatterExactTitles.Contains(key)) return true;
+        foreach (var prefix in BackMatterPrefixTitles)
+        {
+            if (key.Length > prefix.Length
+                && key.StartsWith(prefix, StringComparison.Ordinal)
+                && (key[prefix.Length] is ' ' or ':' or '-' or '\u2013' or '\u2014'))
+                return true;
+        }
         return false;
     }
 
@@ -126,10 +158,17 @@ public static class BookChapterExportHelper
         }
 
         return result
-            .OrderBy(c => IsFrontMatter(c.ChapterNumber, c.Title) ? 0 : 1)
+            .OrderBy(c => ExportBucket(c))
             .ThenBy(c => c.ChapterNumber)
             .ThenBy(c => c.Title ?? "", StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    private static int ExportBucket(ChapterDto c)
+    {
+        if (IsFrontMatterSectionTitle(c.Title)) return 0;
+        if (IsBackMatterSectionTitle(c.Title)) return 2;
+        return 1;
     }
 
     public static List<ChapterDto> OrderForExport(IEnumerable<ChapterDto>? chapters) =>

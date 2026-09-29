@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using EBookDashboard.Models.DTO;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -47,6 +48,11 @@ public sealed class ChromiumPdfExporter
         await using var browser = await Puppeteer.LaunchAsync(launchOptions);
         await using var page = await browser.NewPageAsync();
         await page.EmulateMediaTypeAsync(MediaType.Print);
+
+        // SetContentAsync has origin about:blank — file:// and /uploads img src will not load.
+        // Inline local images as data URIs so figures survive Chromium print.
+        html = InlineLocalImageSources(html);
+
         await page.SetContentAsync(html, new NavigationOptions
         {
             WaitUntil = [WaitUntilNavigation.DOMContentLoaded, WaitUntilNavigation.Load],
@@ -115,5 +121,64 @@ public sealed class ChromiumPdfExporter
         }
 
         return o;
+    }
+
+    /// <summary>Rewrite file:// and absolute local paths in img src to data URIs for about:blank SetContent.</summary>
+    internal static string InlineLocalImageSources(string html)
+    {
+        if (string.IsNullOrEmpty(html) || html.IndexOf("src=", StringComparison.OrdinalIgnoreCase) < 0)
+            return html;
+
+        return Regex.Replace(
+            html,
+            @"src=""(file:///[^""]+|/[^""]+)""",
+            m =>
+            {
+                try
+                {
+                    var raw = m.Groups[1].Value;
+                    string path;
+                    if (raw.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        path = Uri.UnescapeDataString(new Uri(raw).LocalPath);
+                    }
+                    else if (raw.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase)
+                             || raw.StartsWith("/fonts/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Relative to process cwd / content root when possible.
+                        var candidates = new[]
+                        {
+                            Path.Combine(Environment.CurrentDirectory, "wwwroot", raw.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)),
+                            Path.Combine(AppContext.BaseDirectory, "wwwroot", raw.TrimStart('/').Replace('/', Path.DirectorySeparatorChar)),
+                            Path.Combine(Environment.CurrentDirectory, raw.TrimStart('/').Replace('/', Path.DirectorySeparatorChar))
+                        };
+                        path = candidates.FirstOrDefault(File.Exists) ?? "";
+                    }
+                    else
+                        return m.Value;
+
+                    if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                        return m.Value;
+
+                    var bytes = File.ReadAllBytes(path);
+                    if (bytes.Length < 400 || bytes.Length > 12_000_000)
+                        return m.Value;
+                    var ext = Path.GetExtension(path).ToLowerInvariant();
+                    var mime = ext switch
+                    {
+                        ".png" => "image/png",
+                        ".gif" => "image/gif",
+                        ".webp" => "image/webp",
+                        ".svg" => "image/svg+xml",
+                        _ => "image/jpeg"
+                    };
+                    return "src=\"data:" + mime + ";base64," + Convert.ToBase64String(bytes) + "\"";
+                }
+                catch
+                {
+                    return m.Value;
+                }
+            },
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 }
