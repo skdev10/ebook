@@ -19,15 +19,16 @@ namespace EBookDashboard.Services;
 /// <summary>Reads plain text from uploaded chapter documents for AI Writer import.</summary>
 public static class ChapterDocumentImportService
 {
-    private static readonly string[] SupportedExtensions = [".pdf", ".txt", ".text", ".md", ".markdown", ".docx"];
+    private static readonly string[] SupportedExtensions =
+        [".pdf", ".txt", ".text", ".md", ".markdown", ".docx", ".epub"];
 
-    private const int MaxImportedChars = 2_000_000;
+    private const int MaxImportedChars = 8_000_000;
 
     public static bool IsSupportedExtension(string ext)
         => SupportedExtensions.Contains(ext, StringComparer.OrdinalIgnoreCase);
 
     public static string SupportedFormatsMessage()
-        => "Supported formats: PDF, Word (.docx), plain text (.txt), and Markdown (.md).";
+        => "Supported formats: PDF, Word (.docx), EPUB (.epub), plain text (.txt), and Markdown (.md).";
 
     /// <summary>Guess extension from filename, content type, or file signature.</summary>
     public static string ResolveExtension(string? fileName, string? contentType, byte[] bytes)
@@ -39,6 +40,8 @@ public static class ChapterDocumentImportService
         var ct = contentType ?? string.Empty;
         if (ct.Contains("pdf", StringComparison.OrdinalIgnoreCase))
             return ".pdf";
+        if (ct.Contains("epub", StringComparison.OrdinalIgnoreCase))
+            return ".epub";
         if (ct.Contains("wordprocessingml", StringComparison.OrdinalIgnoreCase)
             || ct.Contains("msword", StringComparison.OrdinalIgnoreCase))
             return ".docx";
@@ -49,7 +52,18 @@ public static class ChapterDocumentImportService
         if (bytes.Length >= 4 && bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46)
             return ".pdf";
         if (bytes.Length >= 4 && bytes[0] == 0x50 && bytes[1] == 0x4B)
+        {
+            // ZIP container: EPUB vs DOCX
+            try
+            {
+                using var ms = new MemoryStream(bytes, writable: false);
+                using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: false);
+                if (zip.GetEntry("META-INF/container.xml") != null || zip.GetEntry("mimetype") != null)
+                    return ".epub";
+            }
+            catch { /* fall through */ }
             return ".docx";
+        }
 
         return string.Empty;
     }
@@ -65,6 +79,11 @@ public static class ChapterDocumentImportService
             return ExtractPdfTextAsPlain(bytes, cancellationToken);
         if (ext == ".docx")
             return ExtractDocxTextAsPlain(bytes);
+        if (ext == ".epub")
+        {
+            ExtractEpubChapters(bytes, out var epubPlain);
+            return epubPlain;
+        }
         if (ext is ".txt" or ".text" or ".md" or ".markdown")
             return DecodeTextFile(bytes);
 
@@ -73,7 +92,7 @@ public static class ChapterDocumentImportService
 
     /// <summary>
     /// Import a manuscript for Writer/Formatting: keep preface, chapter 1, in-body headings,
-    /// and embedded figures (DOCX + PDF). Plain-text split is only a fallback.
+    /// and embedded figures (DOCX + PDF + EPUB). Plain-text split is only a fallback.
     /// </summary>
     public static (string PlainText, List<ImportedChapter> Chapters) ImportUploadedDocument(
         byte[] bytes,
@@ -99,7 +118,19 @@ public static class ChapterDocumentImportService
             return (text, CoalesceSectionHeadingChapters(PreferRicherChapterSplit(pdfChapters, fallback)));
         }
 
+        if (ext == ".epub")
+        {
+            var epubChapters = ExtractEpubChapters(bytes, out var epubPlain);
+            var text = SanitizeImportedText(epubPlain);
+            if (epubChapters.Count > 0)
+                return (text, CoalesceSectionHeadingChapters(epubChapters));
+            return (text, CoalesceSectionHeadingChapters(SplitIntoChapters(text)));
+        }
+
         var plain = SanitizeImportedText(ExtractText(bytes, ext, cancellationToken));
+        // Poetry / verse: preserve line breaks when the source looks line-oriented.
+        if (LooksLikeVerseDocument(plain))
+            return (plain, CoalesceSectionHeadingChapters(SplitVerseIntoChapters(plain)));
         return (plain, CoalesceSectionHeadingChapters(SplitIntoChapters(plain)));
     }
 
@@ -1570,7 +1601,9 @@ public static class ChapterDocumentImportService
         return Regex.IsMatch(t,
                    @"^(?:Chapter|CHAPTER)\s+(?:[0-9]+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve)\b",
                    RegexOptions.IgnoreCase)
-               || Regex.IsMatch(t, @"^(?:Part|PART)\s+(?:[0-9]+|[IVXLC]+)\b", RegexOptions.IgnoreCase)
+               || Regex.IsMatch(t,
+                   @"^(?:Part|PART)\s+(?:[0-9]+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)\b",
+                   RegexOptions.IgnoreCase)
                || Regex.IsMatch(t, @"^(?:Prologue|Epilogue)\b", RegexOptions.IgnoreCase)
                || IsFrontMatterMarker(t)
                || LooksLikeNumberedChapterBanner(t);
@@ -1820,6 +1853,243 @@ public static class ChapterDocumentImportService
             @"(?<![\n\r])\s+((?:Chapter|CHAPTER|Part|PART)\s+(?:[0-9]+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve)\b)",
             "\n\n$1",
             RegexOptions.None);
+    }
+
+    /// <summary>True when the document is line-oriented verse (short median lines, many line breaks).</summary>
+    internal static bool LooksLikeVerseDocument(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length < 200)
+            return false;
+        var lines = text.Replace("\r\n", "\n").Replace("\r", "\n")
+            .Split('\n')
+            .Select(l => l.TrimEnd())
+            .Where(l => l.Length > 0)
+            .Take(400)
+            .ToList();
+        if (lines.Count < 40)
+            return false;
+        var lengths = lines.Select(l => l.Length).OrderBy(n => n).ToList();
+        var median = lengths[lengths.Count / 2];
+        var shortRatio = lengths.Count(n => n <= 60) / (double)lengths.Count;
+        return median <= 48 && shortRatio >= 0.72;
+    }
+
+    /// <summary>Split verse into poem/section chapters while preserving line breaks in HTML.</summary>
+    public static List<ImportedChapter> SplitVerseIntoChapters(string text)
+    {
+        var result = new List<ImportedChapter>();
+        if (string.IsNullOrWhiteSpace(text))
+            return result;
+
+        text = text.Replace("\r\n", "\n").Replace("\r", "\n");
+        // Prefer explicit poem titles / BOOK / PART / numbered section markers.
+        var boundaries = new List<(int Index, string Title)>();
+        foreach (Match m in Regex.Matches(
+                     text,
+                     @"(?m)^(BOOK\s+[IVXLC\d]+|PART\s+[IVXLC\d]+|CHAPTER\s+[IVXLC\d]+|[A-Z][A-Z0-9 ,'’\-]{3,60})$"))
+        {
+            if (boundaries.Count > 0 && m.Index - boundaries[^1].Index < 80)
+                continue;
+            boundaries.Add((m.Index, TruncateSuggestedTitle(m.Groups[1].Value.Trim())));
+        }
+
+        if (boundaries.Count < 2)
+        {
+            result.Add(new ImportedChapter(1, "Poems", FormatVerseBodyHtml(text)));
+            return result;
+        }
+
+        if (boundaries[0].Index > 0)
+        {
+            var lead = text[..boundaries[0].Index].Trim();
+            if (lead.Length > 40)
+                result.Add(new ImportedChapter(result.Count + 1, "Front Matter", FormatVerseBodyHtml(lead)));
+        }
+
+        for (var i = 0; i < boundaries.Count; i++)
+        {
+            var start = boundaries[i].Index;
+            var end = i + 1 < boundaries.Count ? boundaries[i + 1].Index : text.Length;
+            var slice = text[start..end].Trim();
+            // Drop the heading line from body
+            var nl = slice.IndexOf('\n');
+            var body = nl > 0 ? slice[(nl + 1)..].Trim() : "";
+            result.Add(new ImportedChapter(result.Count + 1, boundaries[i].Title, FormatVerseBodyHtml(body)));
+        }
+
+        return result;
+    }
+
+    /// <summary>Encode verse as one line per &lt;p class="verse-line"&gt; so print CSS never reflows lines.</summary>
+    internal static string FormatVerseBodyHtml(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return "";
+        var sb = new StringBuilder();
+        sb.Append("<div class=\"manuscript-verse\">");
+        foreach (var line in body.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                sb.Append("<div class=\"verse-stanza-break\"></div>");
+                continue;
+            }
+            sb.Append("<p class=\"verse-line\">")
+              .Append(System.Net.WebUtility.HtmlEncode(line.TrimEnd()))
+              .Append("</p>");
+        }
+        sb.Append("</div>");
+        return sb.ToString();
+    }
+
+    /// <summary>Import EPUB: spine-ordered XHTML → chapters (figures as data-URI when present).</summary>
+    public static List<ImportedChapter> ExtractEpubChapters(byte[] bytes, out string combinedPlainText)
+    {
+        combinedPlainText = "";
+        var chapters = new List<ImportedChapter>();
+        if (bytes == null || bytes.Length < 64)
+            return chapters;
+
+        try
+        {
+            using var ms = new MemoryStream(bytes, writable: false);
+            using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read, leaveOpen: false);
+            var container = zip.GetEntry("META-INF/container.xml");
+            if (container == null)
+                return chapters;
+
+            string rootPath;
+            using (var cr = new StreamReader(container.Open(), Encoding.UTF8))
+            {
+                var cxml = cr.ReadToEnd();
+                var m = Regex.Match(cxml, @"full-path\s*=\s*""([^""]+)""", RegexOptions.IgnoreCase);
+                if (!m.Success)
+                    return chapters;
+                rootPath = m.Groups[1].Value.Replace('\\', '/');
+            }
+
+            var opfEntry = zip.GetEntry(rootPath);
+            if (opfEntry == null)
+                return chapters;
+
+            string opfXml;
+            using (var or = new StreamReader(opfEntry.Open(), Encoding.UTF8))
+                opfXml = or.ReadToEnd();
+
+            var opfDir = rootPath.Contains('/') ? rootPath[..rootPath.LastIndexOf('/')] : "";
+            var idToHref = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (Match im in Regex.Matches(
+                         opfXml,
+                         @"<item\b[^>]*\bid\s*=\s*""([^""]+)""[^>]*\bhref\s*=\s*""([^""]+)""",
+                         RegexOptions.IgnoreCase))
+                idToHref[im.Groups[1].Value] = im.Groups[2].Value;
+            foreach (Match im in Regex.Matches(
+                         opfXml,
+                         @"<item\b[^>]*\bhref\s*=\s*""([^""]+)""[^>]*\bid\s*=\s*""([^""]+)""",
+                         RegexOptions.IgnoreCase))
+                idToHref[im.Groups[2].Value] = im.Groups[1].Value;
+
+            var spineIds = Regex.Matches(opfXml, @"<itemref\b[^>]*\bidref\s*=\s*""([^""]+)""", RegexOptions.IgnoreCase)
+                .Select(m => m.Groups[1].Value)
+                .ToList();
+
+            var plain = new StringBuilder();
+            foreach (var id in spineIds)
+            {
+                if (!idToHref.TryGetValue(id, out var href))
+                    continue;
+                var full = string.IsNullOrEmpty(opfDir) ? href : opfDir + "/" + href;
+                full = full.Replace("\\", "/");
+                while (full.Contains("../"))
+                    full = Regex.Replace(full, @"[^/]+/\.\./", "");
+                var entry = zip.GetEntry(Uri.UnescapeDataString(full))
+                            ?? zip.Entries.FirstOrDefault(e =>
+                                e.FullName.Replace('\\', '/').EndsWith(href.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase));
+                if (entry == null)
+                    continue;
+
+                string xhtml;
+                using (var sr = new StreamReader(entry.Open(), Encoding.UTF8))
+                    xhtml = sr.ReadToEnd();
+
+                var doc = new HtmlDocument();
+                doc.LoadHtml(xhtml);
+                var body = doc.DocumentNode.SelectSingleNode("//body") ?? doc.DocumentNode;
+                // Drop nav/toc-only spines
+                var titleNode = body.SelectSingleNode(".//h1|.//h2|.//title");
+                var title = System.Net.WebUtility.HtmlDecode(titleNode?.InnerText ?? "").Trim();
+                if (string.IsNullOrWhiteSpace(title))
+                    title = $"Section {chapters.Count + 1}";
+                if (IsImportedContentsTitle(title))
+                    continue;
+
+                // Inline images from the package
+                foreach (var img in body.SelectNodes(".//img[@src]")?.ToList() ?? Enumerable.Empty<HtmlNode>())
+                {
+                    var src = img.GetAttributeValue("src", "");
+                    if (string.IsNullOrWhiteSpace(src) || src.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    var imgPath = ResolveEpubRelative(full, src);
+                    var imgEntry = zip.GetEntry(Uri.UnescapeDataString(imgPath))
+                                   ?? zip.Entries.FirstOrDefault(e =>
+                                       e.FullName.Replace('\\', '/').EndsWith(src.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase));
+                    if (imgEntry == null)
+                        continue;
+                    using var ims = new MemoryStream();
+                    imgEntry.Open().CopyTo(ims);
+                    var bytesImg = ims.ToArray();
+                    if (bytesImg.Length < 200)
+                        continue;
+                    var ct = "image/jpeg";
+                    if (src.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) ct = "image/png";
+                    else if (src.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)) ct = "image/gif";
+                    bytesImg = ShrinkImportedImage(bytesImg, ref ct);
+                    img.SetAttributeValue("src", "data:" + ct + ";base64," + Convert.ToBase64String(bytesImg));
+                    img.SetAttributeValue("style", "max-width:100%;height:auto;");
+                }
+
+                var htmlBody = body.InnerHtml ?? "";
+                var text = System.Net.WebUtility.HtmlDecode(Regex.Replace(htmlBody, "<[^>]+>", " "));
+                text = Regex.Replace(text, @"\s+", " ").Trim();
+                if (text.Length < 20 && !htmlBody.Contains("<img", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                plain.AppendLine(text);
+                chapters.Add(new ImportedChapter(
+                    chapters.Count + 1,
+                    TruncateSuggestedTitle(title),
+                    FormatChapterBodyHtml(htmlBody, title)));
+            }
+
+            combinedPlainText = SanitizeImportedText(plain.ToString());
+            return chapters;
+        }
+        catch
+        {
+            combinedPlainText = "";
+            return new List<ImportedChapter>();
+        }
+    }
+
+    private static string ResolveEpubRelative(string fromFile, string relative)
+    {
+        relative = relative.Replace('\\', '/');
+        if (relative.StartsWith('/'))
+            return relative.TrimStart('/');
+        var dir = fromFile.Contains('/') ? fromFile[..fromFile.LastIndexOf('/')] : "";
+        var combined = string.IsNullOrEmpty(dir) ? relative : dir + "/" + relative;
+        var parts = new List<string>();
+        foreach (var p in combined.Split('/'))
+        {
+            if (p is "" or ".") continue;
+            if (p == "..")
+            {
+                if (parts.Count > 0) parts.RemoveAt(parts.Count - 1);
+                continue;
+            }
+            parts.Add(p);
+        }
+        return string.Join('/', parts);
     }
 
     /// <summary>
@@ -2690,6 +2960,52 @@ public static class ChapterDocumentImportService
     }
 
     private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> BuildPdfLinesFromWords(
+        List<UglyToad.PdfPig.Content.Word> words,
+        double pageWidth)
+    {
+        // Multi-column pages: read left column top→bottom, then right column (never interleave).
+        if (TrySplitWordsIntoColumns(words, pageWidth, out var columns))
+        {
+            var merged = new List<(string, double, bool, bool, double, double)>();
+            foreach (var col in columns)
+                merged.AddRange(BuildPdfLinesFromWordsSingleColumn(col, pageWidth));
+            return merged;
+        }
+
+        return BuildPdfLinesFromWordsSingleColumn(words, pageWidth);
+    }
+
+    /// <summary>
+    /// Detect a two-column layout when words cluster on both sides of a clear mid-page gutter.
+    /// </summary>
+    private static bool TrySplitWordsIntoColumns(
+        List<UglyToad.PdfPig.Content.Word> words,
+        double pageWidth,
+        out List<List<UglyToad.PdfPig.Content.Word>> columns)
+    {
+        columns = new List<List<UglyToad.PdfPig.Content.Word>>();
+        if (words.Count < 40 || pageWidth < 200)
+            return false;
+
+        var mid = pageWidth / 2.0;
+        var gutter = pageWidth * 0.04;
+        var left = words.Where(w => w.BoundingBox.Right < mid - gutter).ToList();
+        var right = words.Where(w => w.BoundingBox.Left > mid + gutter).ToList();
+        var middle = words.Count - left.Count - right.Count;
+        // Need both columns substantial and few words sitting in the gutter.
+        if (left.Count < 15 || right.Count < 15)
+            return false;
+        if (middle > words.Count * 0.12)
+            return false;
+        if (left.Count + right.Count < words.Count * 0.75)
+            return false;
+
+        columns.Add(left);
+        columns.Add(right);
+        return true;
+    }
+
+    private static List<(string Text, double AvgFontSize, bool IsBold, bool IsCentered, double Top, double Bottom)> BuildPdfLinesFromWordsSingleColumn(
         List<UglyToad.PdfPig.Content.Word> words,
         double pageWidth)
     {

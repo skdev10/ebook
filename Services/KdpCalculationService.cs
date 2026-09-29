@@ -95,8 +95,9 @@ public sealed class KdpCalculationService
 
         if (pageCount > max)
         {
-            return $"Your {kind} has more than the recommended maximum pages for Amazon KDP " +
-                   $"({max} pages). You can still export the PDF, but KDP may not accept this configuration.";
+            return $"Your {kind} exceeds the Amazon KDP maximum of {max} pages for this trim/paper. " +
+                   $"Choose a larger trim size, reduce the body font (min 10.5pt), or tighten line spacing. " +
+                   $"KDP will reject interiors over {max} pages.";
         }
 
         return null;

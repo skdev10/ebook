@@ -569,13 +569,14 @@ static class PdfImportRegression
     private static bool IsFalsePositiveToken(string token, string outputRaw)
     {
         if (token.Length == 0) return true;
-        if (token is "the" or "of" or "and" or "a" or "to" or "in" or "you" or "not" or "are"
-            or "if" or "it" or "will" or "they" or "this" or "our" or "every" or "page"
-            or "or" or "for" or "on" or "is" or "be" or "as" or "by" or "an" or "at")
-            return true;
-        var spaced = string.Join(@"\s*", token.Select(c => Regex.Escape(c.ToString())));
-        if (Regex.IsMatch(outputRaw, spaced, RegexOptions.IgnoreCase))
-            return true;
+        // Letter-spaced display heads only: require whitespace BETWEEN letters
+        // (do not use \s* — that also matches the contiguous word itself).
+        if (token.Length >= 4)
+        {
+            var spaced = string.Join(@"\s+", token.Select(c => Regex.Escape(c.ToString())));
+            if (Regex.IsMatch(outputRaw, spaced, RegexOptions.IgnoreCase))
+                return true;
+        }
         return false;
     }
 
@@ -602,10 +603,8 @@ static class PdfImportRegression
 
     private static bool IsLikelyHeadingOnlyToken(string token, string source)
     {
-        // Short function words that are over-counted due to TOC duplication are not body losses.
-        if (token is "the" or "of" or "and" or "a" or "to" or "in" or "you" or "not" or "are" or "if" or "it" or "will" or "they" or "this" or "our" or "every" or "page")
-            return true;
-        return false;
+        // Only ultra-short tokens that cannot be unique body words.
+        return token.Length <= 1;
     }
 
     private static string Context(string text, string token)

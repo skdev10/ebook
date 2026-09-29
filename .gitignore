@@ -65,3 +65,9 @@ DataProtection-Keys/
 persistent/
 wwwroot/exports/
 
+
+## Corpus prove artifacts (regenerate locally)
+test-output/
+test-corpus/
+wwwroot/uploads/corpus/
+

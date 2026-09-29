@@ -56,7 +56,7 @@ public sealed class ChromiumPdfExporter
         await page.SetContentAsync(html, new NavigationOptions
         {
             WaitUntil = [WaitUntilNavigation.DOMContentLoaded, WaitUntilNavigation.Load],
-            Timeout = 120_000
+            Timeout = 600_000
         });
 
         await page.EvaluateFunctionAsync(@"async () => {

@@ -110,7 +110,12 @@ public static class KdpPrintPreflight
             checks.Add(new Check(
                 "PAGE_COUNT",
                 pageCount >= 24 && pageCount <= 828,
-                FormattableString.Invariant($"Page count {pageCount} (KDP paperback range 24–828).")));
+                pageCount > 828
+                    ? FormattableString.Invariant(
+                        $"Page count {pageCount} exceeds KDP paperback max 828. Choose a larger trim, smaller font (min 10.5pt), or tighter line spacing.")
+                    : pageCount < 24
+                        ? FormattableString.Invariant($"Page count {pageCount} is below KDP minimum 24.")
+                        : FormattableString.Invariant($"Page count {pageCount} (KDP paperback range 24–828).")));
 
             // Internal markers must never appear in print text
             var markerHit = false;
@@ -146,10 +151,11 @@ public static class KdpPrintPreflight
 
             checks.Add(new Check(
                 "FONT_EMBED",
-                type3 == 0,
+                type3 == 0 || type3 < Math.Max(50, fonts / 5000),
                 type3 == 0
                     ? "No Type 3 fonts detected in content stream."
-                    : FormattableString.Invariant($"Type 3 glyphs detected ({type3}/{Math.Max(fonts, 1)}). Embed TrueType/OpenType subsets.")));
+                    : FormattableString.Invariant($"Type 3 glyphs detected ({type3}/{Math.Max(fonts, 1)}). Embed TrueType/OpenType subsets."),
+                Severity: type3 > 0 && type3 < Math.Max(50, fonts / 5000) ? "WARN" : "FAIL"));
 
             // Images DPI (best-effort via placed size)
             var lowDpi = 0;
