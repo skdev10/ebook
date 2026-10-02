@@ -4466,6 +4466,9 @@ namespace EBookDashboard.Controllers
             if (file == null || file.Length == 0)
                 return Json(new { success = false, message = "Select a DOCX or PDF manuscript." });
 
+            if (ChapterDocumentImportService.IsHeicUpload(file.FileName, file.ContentType))
+                return Json(new { success = false, message = ChapterDocumentImportService.HeicUploadMessage });
+
             var userId = sessionUserId.Value;
             Books? book = null;
             if (bookId > 0)
@@ -4553,6 +4556,28 @@ namespace EBookDashboard.Controllers
 
                 book.ManuscriptPath = manuscriptUrl;
                 book.UpdatedAt = DateTime.UtcNow;
+                var documentAuthor = DocumentAuthorResolver.Resolve(bytes, ext);
+                if (!string.IsNullOrWhiteSpace(documentAuthor))
+                {
+                    var authorKey = $"book:{bookId}:documentAuthor";
+                    var authorRow = await _context.Settings.FirstOrDefaultAsync(s => s.Key == authorKey, cancellationToken);
+                    if (authorRow == null)
+                    {
+                        _context.Settings.Add(new Settings
+                        {
+                            Key = authorKey,
+                            Value = documentAuthor,
+                            Category = "Book",
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow
+                        });
+                    }
+                    else
+                    {
+                        authorRow.Value = documentAuthor;
+                        authorRow.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
                 if (string.IsNullOrWhiteSpace(book.Title) && !string.IsNullOrWhiteSpace(suggestedBookTitle))
                     book.Title = suggestedBookTitle;
                 await _context.SaveChangesAsync(cancellationToken);
@@ -4716,6 +4741,9 @@ namespace EBookDashboard.Controllers
 
             if (!Request.HasFormContentType || Request.Form.Files.Count == 0)
                 return Json(new { success = false, message = "Select one or more PNG or JPG page images." });
+
+            if (Request.Form.Files.Any(f => ChapterDocumentImportService.IsHeicUpload(f.FileName, f.ContentType)))
+                return Json(new { success = false, message = ChapterDocumentImportService.HeicUploadMessage });
 
             var allowedExt = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -5147,6 +5175,8 @@ namespace EBookDashboard.Controllers
             var sessionUserId = _currentUser.GetUserId();
             if (sessionUserId == null) return Unauthorized();
             if (file == null || file.Length == 0) return BadRequest(new { success = false, message = "No file uploaded." });
+            if (ChapterDocumentImportService.IsHeicUpload(file.FileName, file.ContentType))
+                return BadRequest(new { success = false, message = ChapterDocumentImportService.HeicUploadMessage });
 
             var allowed = new[] { ".png", ".jpg", ".jpeg", ".webp" };
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();

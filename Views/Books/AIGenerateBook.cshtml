@@ -2845,55 +2845,17 @@ window._readerEscHtml = function (t) {
  * Uses binary search on words for p / headings; falls back to one clipped page if needed.
  */
 window.splitOversizedHtmlSegment = function (segmentHtml, maxH, mh) {
-    var tmp = document.createElement('div');
-    tmp.innerHTML = segmentHtml;
-    var el = tmp.firstElementChild;
-    if (!el) return ['<div class="reader-chapter-block">' + segmentHtml + '</div>'];
-    var text = (el.textContent || '').trim();
-    var words = text.split(/\s+/).filter(Boolean);
-    if (!words.length) return ['<div class="reader-chapter-block">' + segmentHtml + '</div>'];
-    var tag = el.tagName.toLowerCase();
-    var openTag;
-    var closeTag;
-    if (tag === 'p') {
-        openTag = '<p class="manuscript-p">';
-        closeTag = '</p>';
-    } else if (/^h[1-6]$/.test(tag) || (el.className && String(el.className).indexOf('manuscript-heading') >= 0)) {
+    var brp = window.BookReaderPagination;
+    if (!brp || typeof brp.paginateBlockPreservingInline !== 'function') {
         return ['<div class="reader-chapter-block">' + segmentHtml + '</div>'];
-    } else {
-        openTag = '<div class="manuscript-p">';
-        closeTag = '</div>';
     }
-    var esc = window._readerEscHtml;
-    var out = [];
-    var start = 0;
-    while (start < words.length) {
-        var lo = start + 1;
-        var hi = words.length;
-        var best = start;
-        while (lo <= hi) {
-            var mid = (lo + hi) >> 1;
-            var chunk = words.slice(start, mid).join(' ');
-            mh.innerHTML = '<div class="reader-chapter-block">' + openTag + esc(chunk) + closeTag + '</div>';
-            var ht = mh.firstElementChild ? mh.firstElementChild.scrollHeight : 0;
-            if (ht <= maxH) {
-                best = mid;
-                lo = mid + 1;
-            } else hi = mid - 1;
-        }
-        if (best <= start) best = start + 1;
-        while (best > start + 1) {
-            var tryChunk = words.slice(start, best).join(' ');
-            mh.innerHTML = '<div class="reader-chapter-block">' + openTag + esc(tryChunk) + closeTag + '</div>';
-            var tryHt = mh.firstElementChild ? mh.firstElementChild.scrollHeight : 0;
-            if (tryHt <= maxH) break;
-            best--;
-        }
-        var chunkW = words.slice(start, best).join(' ');
-        out.push('<div class="reader-chapter-block">' + openTag + esc(chunkW) + closeTag + '</div>');
-        start = best;
-    }
-    return out.length ? out : ['<div class="reader-chapter-block">' + segmentHtml + '</div>'];
+    var parts = brp.paginateBlockPreservingInline(segmentHtml, function (html) {
+        mh.innerHTML = '<div class="reader-chapter-block">' + html + '</div>';
+        var ht = mh.firstElementChild ? mh.firstElementChild.scrollHeight : 0;
+        return ht <= maxH;
+    });
+    if (!parts.length) return ['<div class="reader-chapter-block">' + segmentHtml + '</div>'];
+    return parts.map(function (p) { return '<div class="reader-chapter-block">' + p + '</div>'; });
 };
 
 /**

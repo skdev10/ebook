@@ -43,7 +43,8 @@ public static class BookManuscriptHtmlFormatter
     {
         "p", "br", "hr", "ul", "ol", "li", "strong", "b", "em", "i", "u",
         "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "code", "pre", "span", "div", "img",
-        "figure", "figcaption",
+        "figure", "figcaption", "sup", "sub", "small", "a",
+        "table", "thead", "tbody", "tr", "th", "td", "caption",
         // Keep structured chapter chrome so we can strip it cleanly (do not flatten to InnerText).
         "header", "article", "nav", "section"
     };
@@ -154,8 +155,18 @@ public static class BookManuscriptHtmlFormatter
                         continue;
                     }
 
-                    var replacement = HtmlNode.CreateNode(EscapeHtml(el.InnerText));
-                    el.ParentNode?.ReplaceChild(replacement, el);
+                    // Unwrap in document order. Replacing the element with InnerText
+                    // drops nested markup and can move inline runs after the plain text.
+                    var parent = el.ParentNode;
+                    if (parent == null)
+                    {
+                        el.Remove();
+                        continue;
+                    }
+
+                    foreach (var child in el.ChildNodes.ToList())
+                        parent.InsertBefore(child, el);
+                    el.Remove();
                     continue;
                 }
 
@@ -196,7 +207,7 @@ public static class BookManuscriptHtmlFormatter
                     el.Remove();
             }
 
-            return doc.DocumentNode.InnerHtml;
+            return BookHtmlNormalizer.NormalizeFragment(doc.DocumentNode.InnerHtml);
         }
         catch
         {

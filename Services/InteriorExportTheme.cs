@@ -105,7 +105,7 @@ public static class InteriorExportTheme
         var tplCss = interior switch
         {
             "Minimalist" => "body.tpl-minimalist h1 { font-size: 1.15em; font-weight: 600; letter-spacing: -0.02em; border-bottom: 1px solid #e5e5e5; } ",
-            "Classic" => "body.tpl-classic h1 { font-variant: small-caps; font-style: italic; letter-spacing: 0.12em; border-bottom: 3px double #d6c4a8; padding-bottom: 0.4em; } body.tpl-classic p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 600; color: #78350f; } ",
+            "Classic" => "body.tpl-classic h1 { font-variant: small-caps; font-style: italic; letter-spacing: 0.12em; border-bottom: 3px double #d6c4a8; padding-bottom: 0.4em; } body.tpl-classic .has-drop-cap p.drop-cap-start::first-letter { initial-letter: 3; font-weight: 600; line-height: 1; margin-right: 0.08em; color: #78350f; } ",
             "ElegantTrade" => "body.tpl-elegant-trade h1 { font-weight: 600; letter-spacing: 0.04em; color: #3d2914; border-bottom: 1px solid #c9b8a0; padding-bottom: 0.35em; } ",
             _ => "body.tpl-novel h1 { font-weight: 700; color: #6f2f10; border-bottom: 1px solid rgba(111, 47, 16, 0.18); padding-bottom: 0.35em; text-align: center; } "
         };
@@ -273,20 +273,22 @@ public static class InteriorExportTheme
             "page-break-inside: avoid; break-inside: avoid; } ",
             ".manuscript-root > section.chapter:first-of-type { break-before: right; page-break-before: right; } ",
             ".manuscript-root > section.chapter ~ section.chapter { break-before: right; page-break-before: right; } ",
+            ".manuscript-root > section.chapter.front-matter-flow { break-before: auto; page-break-before: auto; } ",
             ".manuscript-root > section.chapter:last-of-type { break-after: auto; page-break-after: auto; } ",
-            ".front-matter-page, .toc-page, .copyright-page { break-before: right; page-break-before: right; } ",
+            ".toc-page { break-before: right; page-break-before: right; } ",
+            ".copyright-page { break-before: left; page-break-before: left; } ",
             ".title-page { break-before: auto; page-break-before: auto; } ",
             // Opening page of each chapter: hide in-content running head (Chromium header still suppressed via blank first line where supported).
             ".book-pdf-body .reader-chapter-block[data-chapter-start=\"1\"] .book-page-running-head { visibility: hidden; } ",
             ".book-pdf-body .title-page .book-page-running-head, .book-pdf-body .copyright-page .book-page-running-head, ",
             ".book-pdf-body .toc-page .book-page-running-head, .book-pdf-body .cover-page .book-page-running-head { display: none !important; } ",
-            ".book-pdf-body .manuscript-figure { break-inside: avoid; page-break-inside: avoid; margin: 0.35in 0; text-align: center; } ",
-            ".book-pdf-body .manuscript-figure img { max-width: 100%; height: auto; break-inside: avoid; page-break-inside: avoid; } ",
+            ".book-pdf-body .manuscript-figure { margin: 0.15in 0; text-align: center; break-inside: avoid; page-break-inside: avoid; max-height: var(--text-block-h); } ",
+            ".book-pdf-body .manuscript-figure img { max-width: 100%; max-height: var(--text-block-h); width: auto; height: auto; break-inside: avoid; page-break-inside: avoid; } ",
             ".book-pdf-body .manuscript-verse { margin: 0.2in 0; } ",
             ".book-pdf-body .manuscript-verse .verse-line { margin: 0; padding: 0; text-indent: 0 !important; text-align: left; white-space: pre-wrap; line-height: 1.35; } ",
             ".book-pdf-body .manuscript-verse .verse-stanza-break { height: 0.7em; } ",
             ".chapter-body .manuscript-chapter-heading, .chapter-body .manuscript-heading { font-family: var(--heading-font); color: var(--heading-color); } ",
-            "img { max-width: 100%; height: auto; page-break-inside: avoid; break-inside: avoid; } ",
+            "img { max-width: 100%; max-height: var(--text-block-h); width: auto; height: auto; } ",
             "[style] { -webkit-print-color-adjust: exact; print-color-adjust: exact; } ",
             ".book-pdf-body.interior-modern .reader-page-body p { border-left-color: var(--fmt-accent, #6366f1); } ",
             ".book-pdf-body blockquote { border-left-color: var(--fmt-accent, #c4b5fd); } ",
@@ -345,7 +347,7 @@ public static class InteriorExportTheme
         sb.Append(".book-pdf-body.interior-elegant-trade .fmt-chapter-opener .fmt-ch-eyebrow, .book-pdf-body.interior-elegant-trade-pod .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(gold).Append("; letter-spacing: 0.2em; } ");
         sb.Append(".book-pdf-body.interior-elegant-trade .fmt-chapter-opener .fmt-ch-title, .book-pdf-body.interior-elegant-trade-pod .fmt-chapter-opener .fmt-ch-title { font-variant: small-caps; letter-spacing: 0.06em; color: #2c241a; } ");
         sb.Append(".book-pdf-body.interior-elegant-trade .fmt-chapter-opener .fmt-ch-rule, .book-pdf-body.interior-elegant-trade-pod .fmt-chapter-opener .fmt-ch-rule, .book-pdf-body.interior-fine-book .fmt-chapter-opener .fmt-ch-rule { display: block; height: 2px; background: ").Append(gold).Append("; width: 1.6in; max-width: 45%; margin: 0.14in auto 0; } ");
-        sb.Append(".book-pdf-body.interior-elegant-trade .reader-page-body > p:first-of-type::first-letter, .book-pdf-body.interior-elegant-trade-pod .reader-page-body > p:first-of-type::first-letter, .book-pdf-body.interior-fine-book .reader-page-body > p:first-of-type::first-letter { color: ").Append(gold).Append(" !important; } ");
+        sb.Append(".book-pdf-body.interior-elegant-trade .has-drop-cap p.drop-cap-start::first-letter, .book-pdf-body.interior-elegant-trade-pod .has-drop-cap p.drop-cap-start::first-letter, .book-pdf-body.interior-fine-book .has-drop-cap p.drop-cap-start::first-letter { color: ").Append(gold).Append(" !important; } ");
 
         // Contemporary (blue accents)
         sb.Append(".book-pdf-body.interior-contemporary .fmt-chapter-opener .fmt-ch-eyebrow { color: ").Append(blue).Append("; letter-spacing: 0.25em; text-transform: uppercase; } ");
@@ -359,14 +361,9 @@ public static class InteriorExportTheme
     }
 
     /// <summary>
-    /// Reconciles the printed-sheet padding with the per-page Chromium chrome:
-    /// (1) for the interior export (no cover page) Chromium draws a running head + folio on EVERY page
-    /// inside reserved top/bottom page margins (18mm/16mm, see <see cref="BookPreviewPrintHtmlBuilder"/>
-    /// <c>@page</c> + <c>ChromiumPdfExporter</c>). We therefore hide the duplicate in-content running
-    /// head and trim the sheet's top/bottom padding by the reserved amount so the text block keeps its
-    /// intended trim-relative position;
-    /// (2) POD styles add a 0.125in bleed per side, so the sheet padding gains 0.125in to keep text
-    /// inside the trim safe zone.
+    /// The print margin lives on <c>@page</c> only. Clear the sheet padding so it is not applied again,
+    /// and hide the in-content running head (folios are stamped onto the PDF after render).
+    /// Cover exports keep sheet padding, plus the POD bleed, because the cover page box is full-bleed.
     /// </summary>
     private static string BuildRunningChromeCompensationCss(BookPdfExportOptions opt, string interior)
     {
@@ -377,19 +374,9 @@ public static class InteriorExportTheme
 
         if (!opt.IncludeCoverPage)
         {
-            // Running header/folio active: hide the duplicate in-content head and reserve top/bottom
-            // margin (plus the POD bleed where applicable). Horizontal bleed padding is added for POD.
-            var sides = isPod
-                ? $"padding-left: calc(var(--ilt-pad-left) + {bleed}); padding-right: calc(var(--ilt-pad-right) + {bleed}); "
-                : string.Empty;
             return string.Concat(
                 ".book-pdf-body .book-preview-sheet > .page-header { display: none !important; } ",
-                ".book-pdf-body .book-preview-sheet { ",
-                // Reserve matches the @page header(18mm)/footer(16mm) margins, minus ~2mm so the text
-                // block keeps its intended trim-relative position.
-                "padding-top: max(0px, calc(var(--ilt-pad-top) + ", bleed, " - 16mm)); ",
-                "padding-bottom: max(0px, calc(var(--ilt-pad-bottom) + ", bleed, " - 14mm)); ",
-                sides, "} ");
+                ".book-pdf-body .book-preview-sheet { padding: 0 !important; } ");
         }
 
         // Cover export (no running chrome). Only POD needs all-sides bleed padding.
@@ -417,10 +404,8 @@ public static class InteriorExportTheme
         {
             // Drop caps only on the first body paragraph of a chapter opener — never Acknowledgments lists / Index.
             css = string.Concat(css,
-                ".book-pdf-body.", wrap, " .reader-chapter-block[data-chapter-start=\"1\"] > .reader-page-body > p.manuscript-p:first-of-type::first-letter, ",
-                ".book-pdf-body.", wrap, " .reader-chapter-block[data-chapter-start=\"1\"] > .reader-page-body > p:first-of-type::first-letter { ",
-                "float: left; font-family: var(--heading-font); font-weight: 700; font-size: 4.2em; ",
-                "line-height: 0.72; padding-right: 6px; margin-top: 4px; color: var(--heading-color); } ");
+                ".book-pdf-body.", wrap, " .reader-chapter-block.has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { ",
+                "initial-letter: 3; font-weight: 700; line-height: 1; margin-right: 0.08em; color: var(--heading-color); } ");
         }
 
         // Scene-break ornament — replace the plain rule with a centered glyph per style
@@ -460,8 +445,7 @@ public static class InteriorExportTheme
             scope, ".interior-modern .reader-page-body p { text-indent: 0; border-left: 3px solid #6366f1; padding-left: 0.9em; margin-bottom: 0.85em; } ",
             scope, ".interior-classic .reader-page-title { font-family: var(--heading-font, 'Cormorant Garamond', 'Times New Roman', Times, serif); font-style: italic; font-variant: small-caps; letter-spacing: 0.12em; text-align: center; border-bottom: 3px double #d6c4a8; color: var(--heading-color, #000000); } ",
             scope, ".interior-classic .reader-page-body { font-family: var(--body-font, 'Cormorant Garamond', 'Times New Roman', Times, serif); text-align: justify; color: var(--body-color, #231f1a); } ",
-            scope, ".interior-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter, ",
-            scope, ".interior-classic .reader-page-body p.classic-first-para::first-letter { float: left; font-size: 3.4em; line-height: 0.8; padding-right: 0.1em; font-weight: 600; color: var(--heading-color, #111); font-family: var(--heading-font, 'Cormorant Garamond', 'Times New Roman', Times, serif); } ",
+            scope, ".interior-classic .reader-chapter-block.has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { initial-letter: 3; font-weight: 600; line-height: 1; margin-right: 0.08em; color: var(--heading-color, #111); } ",
             scope, ".interior-minimalist .reader-page-title { font-family: var(--heading-font, 'Inter', system-ui, sans-serif); font-weight: 600; color: var(--heading-color, #111827); text-align: left; border-bottom: 1px solid #ececec; } ",
             scope, ".interior-minimalist .reader-page-body { font-family: var(--body-font, 'Inter', system-ui, sans-serif); color: var(--body-color, #3f3f46); } ",
             scope, ".interior-minimalist .reader-page-body p { text-indent: 0; margin-bottom: 1.1em; } ",
@@ -551,7 +535,7 @@ public static class InteriorExportTheme
             "text-indent: 1.25em; margin-bottom: 0;",
             "border-left: 3px solid #999999; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #333333;",
             "border-bottom: none;",
-            ".book-pdf-body.tpl-classic .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.85; padding-right: 0.08em; font-weight: 700; color: #000000; } "),
+            ".book-pdf-body.tpl-classic .has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { initial-letter: 3; font-weight: 700; line-height: 1; margin-right: 0.08em; color: #000000; } "),
         // STYLE 6 — Fine Book: Spectral body / Playfair Display italic headings, gold ornaments.
         "FineBook" => new ThemeSpec(
             "'Spectral', Georgia, 'Times New Roman', Times, serif",
@@ -571,7 +555,7 @@ public static class InteriorExportTheme
             "text-indent: 1.25em; margin-bottom: 0;",
             "border-left: 3px solid #cccccc; margin: 3mm 0 3mm 6mm; padding-left: 4mm; color: #333333;",
             "border-bottom: none;",
-            ".book-pdf-body.tpl-traditional .manuscript-p:first-of-type::first-letter { float: left; font-size: 3em; line-height: 0.85; padding-right: 0.08em; font-weight: 700; color: #222222; } "),
+            ".book-pdf-body.tpl-traditional .has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { initial-letter: 3; font-weight: 700; line-height: 1; margin-right: 0.08em; color: #222222; } "),
         // STYLE 10 — POD: Crimson Pro body / Nunito Sans headings, rule below heading.
         "POD" => new ThemeSpec(
             "'Crimson Pro', Georgia, 'Times New Roman', Times, serif",
@@ -591,7 +575,7 @@ public static class InteriorExportTheme
             "text-indent: 1.5em; margin-bottom: 0;",
             "border-left: 3px solid #c9b8a0; margin: 3mm 0 3mm 6mm; padding-left: 4mm; font-style: italic; color: #3d2914;",
             "border-bottom: none;",
-            ".book-pdf-body.tpl-elegant-trade-pod .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.82; padding-right: 0.08em; font-weight: 600; color: #1c1c1c; } "),
+            ".book-pdf-body.tpl-elegant-trade-pod .has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { initial-letter: 3; font-weight: 600; line-height: 1; margin-right: 0.08em; color: #1c1c1c; } "),
         // STYLE 1 — Elegant Trade: Cormorant Garamond body / Cormorant SC small-caps headings, drop cap.
         "ElegantTrade" => new ThemeSpec(
             "'Cormorant Garamond', 'EB Garamond', 'Palatino Linotype', Palatino, Georgia, serif",
@@ -601,7 +585,7 @@ public static class InteriorExportTheme
             "text-indent: 1.5em; margin-bottom: 0;",
             "border-left: 3px solid #c9b8a0; margin: 3mm 0 3mm 6mm; padding-left: 4mm; font-style: italic; color: #3d2914;",
             "border-bottom: none;",
-            ".book-pdf-body.tpl-elegant-trade .manuscript-p:first-of-type::first-letter { float: left; font-size: 3.2em; line-height: 0.82; padding-right: 0.08em; font-weight: 600; color: #1c1c1c; } "),
+            ".book-pdf-body.tpl-elegant-trade .has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { initial-letter: 3; font-weight: 600; line-height: 1; margin-right: 0.08em; color: #1c1c1c; } "),
         // STYLE 3 — Novel: Palatino / Book Antiqua, plain bold left headings, mass-market feel.
         _ => new ThemeSpec(
             "'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'Times New Roman', Times, serif",

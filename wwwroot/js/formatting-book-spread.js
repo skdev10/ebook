@@ -101,6 +101,18 @@
         try { return JSON.parse(node.textContent || 'null'); } catch (_) { return null; }
     }
 
+    function isInlineTag(tag) {
+        return /^(a|abbr|b|br|cite|code|em|i|img|small|span|strong|sub|sup|u|s|mark|q)$/.test(tag);
+    }
+
+    function elementIsInlineFlow(el) {
+        var kids = el.children || [];
+        for (var i = 0; i < kids.length; i++) {
+            if (!isInlineTag((kids[i].tagName || '').toLowerCase())) return false;
+        }
+        return true;
+    }
+
     /** Split chapter HTML into block-level segments (paragraphs, headings, figures). */
     function htmlToBlocks(html) {
         var wrap = document.createElement('div');
@@ -136,10 +148,21 @@
                 blocks.push(el.outerHTML);
                 return;
             }
-            // Nested: flatten children if possible
-            if (el.children.length) {
-                Array.prototype.forEach.call(el.children, function (child) {
-                    blocks = blocks.concat(htmlToBlocks(child.outerHTML));
+            // Mixed inline content stays one block so <em>/<sup> are not peeled into later paragraphs.
+            if (elementIsInlineFlow(el)) {
+                blocks.push(el.outerHTML);
+                return;
+            }
+            // Nested: walk every child in document order. Using .children skips
+            // text nodes and used to drop the words that sit beside <em>/<sup>.
+            if (el.childNodes.length) {
+                Array.prototype.forEach.call(el.childNodes, function (child) {
+                    if (child.nodeType === 3) {
+                        var t = (child.textContent || '').trim();
+                        if (t) blocks.push('<p class="fmt-spread-p">' + esc(t) + '</p>');
+                    } else if (child.nodeType === 1) {
+                        blocks = blocks.concat(htmlToBlocks(child.outerHTML));
+                    }
                 });
             } else {
                 var plain = (el.textContent || '').trim();
@@ -255,11 +278,22 @@
                     flush();
                     measure.innerHTML = (isFirstPageOfChapter ? opener : '') + blockHtml;
                     applyImageConstraints(measure);
-                    // Single block taller than page — still place it (image may dominate page)
+                }
+                if (measure.scrollHeight > contentH + 1
+                    && window.BookReaderPagination
+                    && typeof window.BookReaderPagination.paginateBlockPreservingInline === 'function') {
+                    var parts = window.BookReaderPagination.paginateBlockPreservingInline(blockHtml, function (html) {
+                        measure.innerHTML = (isFirstPageOfChapter ? opener : '') + acc.join('') + html;
+                        applyImageConstraints(measure);
+                        return measure.scrollHeight <= contentH + 1;
+                    });
+                    parts.forEach(function (part, idx) {
+                        acc.push(part);
+                        if (idx < parts.length - 1) flush();
+                    });
+                } else if (measure.scrollHeight > contentH + 1) {
                     acc = [blockHtml];
-                    if (measure.scrollHeight > contentH + 1) {
-                        flush();
-                    }
+                    flush();
                 } else {
                     acc.push(blockHtml);
                 }

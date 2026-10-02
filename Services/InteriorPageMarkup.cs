@@ -18,22 +18,28 @@ public static class InteriorPageMarkup
         string runningHeadTitle,
         string titleHtml,
         string bodyHtml,
-        string? bodyExtraClass = null)
+        string? bodyExtraClass = null,
+        string? chapterBlockClass = null,
+        string? sectionClass = null)
     {
         var head = WebUtility.HtmlEncode(TruncateRunningHead(runningHeadTitle));
         var bodyClass = string.IsNullOrEmpty(bodyExtraClass)
             ? "reader-page-body"
             : $"reader-page-body {bodyExtraClass}";
+        var blockClass = string.IsNullOrEmpty(chapterBlockClass)
+            ? "reader-chapter-block"
+            : $"reader-chapter-block {chapterBlockClass}";
 
         var measureMarker = FormattableString.Invariant(
             $"""<span class="toc-measure-marker" data-toc-measure="{sectionId}" aria-hidden="true"></span>""");
 
+        var sectionCls = string.IsNullOrEmpty(sectionClass) ? "chapter" : "chapter " + sectionClass;
         return FormattableString.Invariant($"""
-<section class="chapter" id="ch-{sectionId}">
+<section class="{sectionCls}" id="ch-{sectionId}">
   <div class="book-preview-sheet">
     <div class="page-header book-page-running-head" aria-hidden="false">{head}</div>
     <div class="page-body">
-      <div class="reader-chapter-block" data-chapter-start="1">
+      <div class="{blockClass}" data-chapter-start="1">
         <article class="reader-page-title">{titleHtml}{measureMarker}</article>
         <section class="{bodyClass}">{bodyHtml}</section>
       </div>
@@ -59,8 +65,13 @@ public static class InteriorPageMarkup
     /// <summary>
     /// Structured chapter opener (flourish / eyebrow / title / rule) — same DOM as Book Formatter preview.
     /// </summary>
-    public static string BuildFormatterChapterTitleHtml(string displayHeading, int narrativeOrdinal, string? interiorStyle = null)
+    public static string BuildFormatterChapterTitleHtml(
+        string displayHeading,
+        int narrativeOrdinal,
+        string? interiorStyle = null,
+        string? chapterNumberStyle = null)
     {
+        var inline = string.Equals(chapterNumberStyle, "Inline", StringComparison.OrdinalIgnoreCase);
         var eyebrow = FormattableString.Invariant($"Chapter {narrativeOrdinal}");
         // Never show "Chapter N: …" again under the eyebrow — strip redundant prefix.
         var title = BookChapterHeadingFormatter.GetDisplayTitle(displayHeading, narrativeOrdinal);
@@ -68,6 +79,11 @@ public static class InteriorPageMarkup
             && !string.IsNullOrWhiteSpace(displayHeading)
             && !ChapterLooksLikeNumberOnly(displayHeading))
             title = (displayHeading ?? "").Trim();
+
+        if (!inline)
+            title = System.Text.RegularExpressions.Regex.Replace(title, @"^\d{1,3}\s+", "");
+        else if (!System.Text.RegularExpressions.Regex.IsMatch(title, @"^\d"))
+            title = FormattableString.Invariant($"{narrativeOrdinal} {title}");
 
         var showTitle = !string.IsNullOrEmpty(title)
             && !System.Text.RegularExpressions.Regex.IsMatch(title, @"^chapter\s+\d+\s*:?\s*$", System.Text.RegularExpressions.RegexOptions.IgnoreCase)
@@ -77,8 +93,9 @@ public static class InteriorPageMarkup
         var sb = new System.Text.StringBuilder();
         sb.Append("<header class=\"fmt-chapter-opener manuscript-chapter-heading\">");
         sb.Append("""<span class="fmt-ch-flourish" aria-hidden="true">❦</span>""");
-        sb.Append(FormattableString.Invariant(
-            $"""<span class="fmt-ch-eyebrow">{WebUtility.HtmlEncode(eyebrow)}</span>"""));
+        if (!inline)
+            sb.Append(FormattableString.Invariant(
+                $"""<span class="fmt-ch-eyebrow">{WebUtility.HtmlEncode(eyebrow)}</span>"""));
         if (showTitle)
             sb.Append(FormattableString.Invariant(
                 $"""<span class="fmt-ch-title">{WebUtility.HtmlEncode(title)}</span>"""));

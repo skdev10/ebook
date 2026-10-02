@@ -1798,6 +1798,20 @@ namespace EBookDashboard.Controllers
                 var publisherLabel = userRow?.FullName;
                 if (string.IsNullOrWhiteSpace(publisherLabel)) publisherLabel = userRow?.UserEmail;
 
+                var manuscriptChars = orderedChapters.Sum(c => (c.Content ?? "").Length);
+                if (!req.RenderInline && !req.DownloadAnyway && manuscriptChars >= BookPrintExportQueue.BackgroundHtmlChars)
+                {
+                    var queue = HttpContext.RequestServices.GetRequiredService<IBookPrintExportQueue>();
+                    var jobId = queue.Start(sessionUserId.Value, req, publisherLabel);
+                    return Json(new
+                    {
+                        success = true,
+                        background = true,
+                        jobId,
+                        message = "This book is large, so it is rendering in the background. Keep this page open."
+                    });
+                }
+
                 var pdfBytes = await _bookPdfService.RenderFullBookPdfAsync(
                     details,
                     req.CoverImageDataUrl,
@@ -1821,6 +1835,42 @@ namespace EBookDashboard.Controllers
                 var fileName = $"{safe}-{req.BookId}.pdf";
                 Response.Headers["X-Book-Page-Count"] = metrics.PageCount.ToString();
                 Response.Headers["X-Pdf-Interior"] = $"{exportOpt.InteriorStyle}|{exportOpt.TextSize}|{exportOpt.LineSpacing}";
+                BookIntegrityChecker.Report? integrity = null;
+                try
+                {
+                    var sourceHtml = string.Concat((details.Chapters ?? new List<ChapterDto>()).Select(c => c.Content));
+                    integrity = BookIntegrityChecker.CheckAgainstPdf(sourceHtml, pdfBytes, details.Chapters);
+                    var reportDir = Path.Combine(_env.ContentRootPath, "App_Data", "integrity");
+                    BookIntegrityChecker.Save(reportDir, req.BookId.ToString(), integrity);
+                }
+                catch (Exception integrityEx)
+                {
+                    _logger.LogWarning(integrityEx, "Integrity check failed to run for book {BookId}", req.BookId);
+                }
+
+                if (integrity != null && !integrity.Passed && !req.DownloadAnyway)
+                {
+                    var queue = HttpContext.RequestServices.GetRequiredService<IBookPrintExportQueue>();
+                    var token = queue.Hold(sessionUserId.Value, pdfBytes, fileName, integrity);
+                    return StatusCode(409, new
+                    {
+                        success = false,
+                        integrityFailed = true,
+                        downloadToken = token,
+                        message = "The text check failed. Review the pages below, or download the file anyway.",
+                        similarity = integrity.Similarity,
+                        deletions = integrity.Deletions,
+                        reorders = integrity.Reorders,
+                        insertions = integrity.Insertions,
+                        sourceImages = integrity.SourceImages,
+                        outputImages = integrity.OutputImages,
+                        titlePageCount = integrity.TitlePageCount,
+                        copyrightPageCount = integrity.CopyrightPageCount,
+                        tocPageCount = integrity.TocPageCount,
+                        sectionLabels = integrity.SectionLabels.Take(40).ToList(),
+                        hits = integrity.Hits.Take(30).Select(h => new { h.Kind, h.Page, h.Context }).ToList()
+                    });
+                }
 
                 try
                 {
@@ -1840,6 +1890,58 @@ namespace EBookDashboard.Controllers
                 _logger.LogError(ex, "DownloadBookPdf failed for book {BookId}", req.BookId);
                 return StatusCode(500, new { success = false, message = "PDF generation failed. If this persists, verify Chromium (Puppeteer) can run on this server." });
             }
+        }
+
+        /// <summary>Progress for a background print job.</summary>
+        [HttpGet]
+        [Route("BookPdfExportStatus")]
+        public IActionResult BookPdfExportStatus(string jobId)
+        {
+            var sessionUserId = _currentUser.GetUserId();
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+            var queue = HttpContext.RequestServices.GetRequiredService<IBookPrintExportQueue>();
+            var snap = queue.Get(jobId, sessionUserId.Value);
+            if (snap == null)
+                return NotFound(new { success = false, message = "Export job not found." });
+            var integrity = snap.Integrity;
+            return Json(new
+            {
+                success = true,
+                status = snap.Status,
+                percent = snap.Percent,
+                message = snap.Message,
+                error = snap.Error,
+                fileName = snap.FileName,
+                integrityFailed = snap.Status == "blocked",
+                similarity = integrity?.Similarity,
+                deletions = integrity?.Deletions,
+                reorders = integrity?.Reorders,
+                insertions = integrity?.Insertions,
+                sourceImages = integrity?.SourceImages,
+                outputImages = integrity?.OutputImages,
+                titlePageCount = integrity?.TitlePageCount,
+                copyrightPageCount = integrity?.CopyrightPageCount,
+                tocPageCount = integrity?.TocPageCount,
+                sectionLabels = integrity?.SectionLabels.Take(40).ToList(),
+                hits = integrity?.Hits.Take(30).Select(h => new { h.Kind, h.Page, h.Context }).ToList()
+            });
+        }
+
+        /// <summary>Download a finished or held print PDF. Blocked jobs require <paramref name="downloadAnyway"/>.</summary>
+        [HttpGet]
+        [Route("BookPdfExportFile")]
+        public IActionResult BookPdfExportFile(string jobId, bool downloadAnyway = false)
+        {
+            var sessionUserId = _currentUser.GetUserId();
+            if (sessionUserId == null)
+                return Unauthorized(new { success = false, message = "Please sign in." });
+            var queue = HttpContext.RequestServices.GetRequiredService<IBookPrintExportQueue>();
+            var snap = queue.Get(jobId, sessionUserId.Value);
+            var bytes = queue.ReadPdf(jobId, sessionUserId.Value, downloadAnyway);
+            if (bytes == null || snap == null)
+                return StatusCode(409, new { success = false, integrityFailed = snap?.Status == "blocked", message = "The file is not ready to download." });
+            return File(bytes, "application/pdf", snap.FileName ?? "book.pdf");
         }
 
         /// <summary>Marks a book published after a successful export (used when download is client-side only).</summary>

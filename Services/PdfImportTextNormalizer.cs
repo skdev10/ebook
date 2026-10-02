@@ -117,7 +117,15 @@ public static class PdfImportTextNormalizer
     }
 
     /// <summary>Join a new PDF line onto an accumulating paragraph (smart hyphen + space).</summary>
-    public static void AppendLineToParagraph(StringBuilder para, string line)
+    public static void AppendLineToParagraph(StringBuilder para, string line) =>
+        AppendLineToParagraph(para, line, vocabulary: null);
+
+    /// <summary>
+    /// Join a line. When <paramref name="vocabulary"/> is supplied, a line-end hyphen
+    /// is removed only if the joined word already occurs in the book. Real compounds
+    /// (self-driving, co-founder) keep the hyphen.
+    /// </summary>
+    public static void AppendLineToParagraph(StringBuilder para, string line, ISet<string>? vocabulary)
     {
         var t = NormalizeKeepingMarkers(line);
         if (t.Length == 0)
@@ -129,25 +137,20 @@ public static class PdfImportTextNormalizer
             return;
         }
 
-        // Previous ends with soft hyphen → glue
         if (para[^1] == '-' || para[^1] == '\u00AD')
         {
-            // Decide soft vs hard hyphen using next chars
             var without = para.ToString().TrimEnd('-', '\u00AD');
-            var candidate = without + t;
-            var compound = without[(without.LastIndexOf(' ') + 1)..] + "-" + PdfImportScriptMarkup.StripMarkers(t).Split(' ')[0];
-            if (KnownHyphenCompounds.Contains(compound.ToLowerInvariant()))
-            {
-                para.Clear();
-                para.Append(without);
+            var stem = without[(without.LastIndexOf(' ') + 1)..];
+            var nextWord = PdfImportScriptMarkup.StripMarkers(t).Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+            var compound = stem + "-" + nextWord;
+            var joined = stem + nextWord;
+            var keepHyphen = KnownHyphenCompounds.Contains(compound.ToLowerInvariant())
+                             || (vocabulary != null && !vocabulary.Contains(joined.ToLowerInvariant()));
+            para.Clear();
+            para.Append(without);
+            if (keepHyphen)
                 para.Append('-');
-                para.Append(t);
-            }
-            else
-            {
-                para.Clear();
-                para.Append(candidate);
-            }
+            para.Append(t);
             return;
         }
 

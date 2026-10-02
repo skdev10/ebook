@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml.Spreadsheet;
 using EBookDashboard.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,7 +27,6 @@ public static class ExportGating
         })
         { StatusCode = StatusCodes.Status402PaymentRequired };
     }
-
     public static async Task<IActionResult?> RequirePaidRedirectAsync(HttpContext http, int bookId, bool paperback, bool hardcover, CancellationToken cancellationToken = default)
     {
         var userId = http.Session.GetInt32("UserId");

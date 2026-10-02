@@ -44,8 +44,8 @@ public class BookPdfService : IBookPdfService
     {
         var opt = exportOptions ?? new BookPdfExportOptions();
 
-        var title = (displayTitle ?? details.BookTitle ?? "").Trim();
-        var author = (displayAuthor ?? details.AuthorName ?? "").Trim();
+        var title = FirstNonEmpty(displayTitle, details.BookTitle);
+        var author = FirstNonEmpty(displayAuthor, details.AuthorName);
 
         var render = await _bookRenderService.BuildBookHtmlAsync(new BookRenderRequest
         {
@@ -213,6 +213,18 @@ public class BookPdfService : IBookPdfService
         if (pageIn is null || top is null || bottom is null) return null;
         var content = (pageIn.Value - top.Value - bottom.Value) * 96.0;
         return content > 100 ? content : null;
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            var text = (value ?? "").Trim();
+            if (text.Length > 0)
+                return text;
+        }
+
+        return "";
     }
 
     private static double? ParseInches(string? value)

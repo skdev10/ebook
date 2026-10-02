@@ -43,6 +43,27 @@ public partial class AdminController
         return View(workspace);
     }
 
+    /// <summary>Books whose saved HTML lost inline tags that are still in the original upload.</summary>
+    [HttpGet]
+    public async Task<IActionResult> FlattenedImports(CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync())
+            return Forbid();
+        var scan = await _reimport.ScanAsync(cancellationToken);
+        return Json(new { success = true, booksWithOriginal = scan.BooksWithOriginal, affected = scan.Affected, books = scan.Books });
+    }
+
+    /// <summary>One-time rebuild of a book from its stored original file.</summary>
+    [HttpPost]
+    [IgnoreAntiforgeryToken]
+    public async Task<IActionResult> ReimportFromOriginal(int bookId, CancellationToken cancellationToken)
+    {
+        if (!await IsCurrentUserAdminAsync())
+            return Forbid();
+        var (ok, message, chapters) = await _reimport.ReimportAsync(bookId, cancellationToken);
+        return Json(new { success = ok, message, chapters });
+    }
+
     /// <summary>JSON book workspace for admin book-list modals.</summary>
     [HttpGet]
     public async Task<IActionResult> GetBookDetails(int bookId)

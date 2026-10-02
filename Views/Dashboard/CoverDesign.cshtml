@@ -3465,6 +3465,27 @@
                         });
                 }).then(function (r) {
                     var ct = (r.headers.get('content-type') || '').toLowerCase();
+                    if (ct.indexOf('application/json') >= 0 || r.status === 409) {
+                        return r.json().then(function (j) {
+                            if (j && j.integrityFailed && j.downloadToken) {
+                                var lines = (j.hits || []).slice(0, 8).map(function (h) {
+                                    return (h.page ? ('Page ' + h.page + ' — ') : '') + (h.kind || '') + ': ' + (h.context || '');
+                                }).join('<br>');
+                                return Swal.fire({
+                                    title: 'Text check failed',
+                                    html: '<p>Similarity ' + Math.round((j.similarity || 0) * 1000) / 10 + '%.</p><p style="text-align:left;font-size:13px;">' + lines + '</p>',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Download anyway',
+                                    cancelButtonText: 'Cancel'
+                                }).then(function (choice) {
+                                    if (!choice.isConfirmed) return { ok: false, msg: 'Download cancelled.' };
+                                    return fetch('/Dashboard/BookPdfExportFile?jobId=' + encodeURIComponent(j.downloadToken) + '&downloadAnyway=true', { credentials: 'same-origin' })
+                                        .then(function (fileRes) { return fileRes.blob().then(function (blob) { return { ok: true, blob: blob }; }); });
+                                });
+                            }
+                            return { ok: false, msg: (j && j.message) ? j.message : 'PDF failed' };
+                        });
+                    }
                     if (!r.ok) {
                         return r.json().then(function (j) { return { ok: false, msg: (j && j.message) ? j.message : 'PDF failed' }; })
                             .catch(function () { return { ok: false, msg: 'PDF failed (HTTP ' + r.status + ')' }; });

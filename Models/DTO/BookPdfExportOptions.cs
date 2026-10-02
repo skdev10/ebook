@@ -24,6 +24,24 @@ public class BookPdfExportOptions
     public double? MarginOutsideIn { get; set; }
 
     public bool IncludeCoverPage { get; set; } = true;
+
+    /// <summary>
+    /// When true (default), a copyright page already in the upload is kept and the
+    /// generated copyright page is not added. Set false to replace it with ours.
+    /// </summary>
+    public bool KeepOriginalCopyrightPage { get; set; } = true;
+
+    /// <summary>
+    /// When the upload contains a title-page image, print that image as page 1 and
+    /// skip the generated title page. Set false to always use the generated title page.
+    /// </summary>
+    public bool UseSourceTitlePage { get; set; } = true;
+
+    /// <summary>
+    /// How the chapter number is shown. Eyebrow (default) prints "Chapter 10" above the title.
+    /// Inline prints the number once in front of the title and hides the eyebrow.
+    /// </summary>
+    public string ChapterNumberStyle { get; set; } = "Eyebrow";
     public string InteriorStyle { get; set; } = "Novel";
     public string TextSize { get; set; } = "Medium";
     public string LineSpacing { get; set; } = "1.6";
@@ -62,6 +80,18 @@ public class BookPdfExportOptions
                 if (c.ValueKind == JsonValueKind.True) o.IncludeCoverPage = true;
                 else if (c.ValueKind == JsonValueKind.False) o.IncludeCoverPage = false;
             }
+            if (root.TryGetProperty("keepOriginalCopyrightPage", out var k))
+            {
+                if (k.ValueKind == JsonValueKind.True) o.KeepOriginalCopyrightPage = true;
+                else if (k.ValueKind == JsonValueKind.False) o.KeepOriginalCopyrightPage = false;
+            }
+            if (root.TryGetProperty("useSourceTitlePage", out var titlePage))
+            {
+                if (titlePage.ValueKind == JsonValueKind.True) o.UseSourceTitlePage = true;
+                else if (titlePage.ValueKind == JsonValueKind.False) o.UseSourceTitlePage = false;
+            }
+            if (TryGetString(root, "chapterNumberStyle", out s))
+                o.ChapterNumberStyle = NormalizeChapterNumberStyle(s);
         }
         catch
         {
@@ -95,6 +125,10 @@ public class BookPdfExportOptions
         if (string.IsNullOrWhiteSpace(PublishingPlatforms)) return "";
         return PublishingPlatforms.Split(',')[0].Trim();
     }
+
+    /// <summary>Eyebrow or Inline. Anything else falls back to the eyebrow.</summary>
+    public static string NormalizeChapterNumberStyle(string? value) =>
+        string.Equals(value?.Trim(), "Inline", StringComparison.OrdinalIgnoreCase) ? "Inline" : "Eyebrow";
 
     private static string NormalizeFormatToken(string s)
     {

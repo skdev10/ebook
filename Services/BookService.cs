@@ -789,7 +789,7 @@ namespace EBookDashboard.Services
                     _ = bodyEx;
                 }
 
-                var authorName = await ResolveAuthorDisplayNameAsync(userId);
+                var authorName = await ResolveBookAuthorAsync(userId, book);
                 var displayTitle = await BookTitleResolver.ResolveDisplayTitleAsync(
                     _context, userId, book.BookId, book.Title);
 
@@ -1057,16 +1057,31 @@ namespace EBookDashboard.Services
             return result;
         }
 
-        private async Task<string?> ResolveAuthorDisplayNameAsync(int userId)
+        /// <summary>
+        /// Title-page author: manuscript metadata saved at import, then a linked author profile.
+        /// The signed-in account name is not used.
+        /// </summary>
+        private async Task<string?> ResolveBookAuthorAsync(int userId, Books book)
         {
-            var row = await _context.Users
-                .AsNoTracking()
-                .Where(u => u.UserId == userId)
-                .Select(u => new { u.FullName, u.UserEmail })
+            var key = $"book:{book.BookId}:documentAuthor";
+            var stored = await _context.Settings.AsNoTracking()
+                .Where(s => s.Key == key)
+                .Select(s => s.Value)
                 .FirstOrDefaultAsync();
-            if (row == null) return null;
-            if (!string.IsNullOrWhiteSpace(row.FullName)) return row.FullName.Trim();
-            return string.IsNullOrWhiteSpace(row.UserEmail) ? null : row.UserEmail.Trim();
+            if (!string.IsNullOrWhiteSpace(stored))
+                return stored.Trim();
+
+            if (book.AuthorId > 0 && book.AuthorId != userId)
+            {
+                var profile = await _context.Authors.AsNoTracking()
+                    .Where(a => a.AuthorId == book.AuthorId)
+                    .Select(a => a.FullName)
+                    .FirstOrDefaultAsync();
+                if (!string.IsNullOrWhiteSpace(profile))
+                    return profile.Trim();
+            }
+
+            return null;
         }
         
         //=======================================

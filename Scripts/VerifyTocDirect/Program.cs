@@ -42,6 +42,15 @@ var host = Host.CreateDefaultBuilder(args)
 
 using var scope = host.Services.CreateScope();
 var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+if (string.Equals(Environment.GetEnvironmentVariable("SCAN_FLATTENED"), "1", StringComparison.Ordinal))
+{
+    var webEnv = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+    var scan = await new BookOriginalReimportService(db, webEnv, null!, null!).ScanAsync();
+    Console.WriteLine($"originals={scan.BooksWithOriginal} affected={scan.Affected}");
+    foreach (var row in scan.Books)
+        Console.WriteLine($"{row.BookId}\t{row.Title}\t{row.ManuscriptPath}");
+    return;
+}
 var pdfSvc = scope.ServiceProvider.GetRequiredService<IBookPdfService>();
 
 var book = await db.Books.AsNoTracking().FirstOrDefaultAsync(b => b.BookId == bookId)

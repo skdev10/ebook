@@ -724,12 +724,11 @@
         text-indent: 0;
         margin: 0 0 0.38em;
     }
+    .reader-content-wrap.interior-classic .reader-chapter-block.has-drop-cap .reader-page-body.classic-body p.drop-cap-start::first-letter,
     .reader-content-wrap.interior-classic .reader-page-body.classic-body p.classic-first-para::first-letter {
-        float: left;
-        font-size: 2.4em;
-        line-height: 0.8;
-        padding: 0.02em 0.1em 0 0;
-        margin-top: 0.02em;
+        initial-letter: 2;
+        line-height: 1;
+        margin-right: 0.08em;
         font-weight: 600;
         color: #111;
         font-family: 'Cormorant Garamond', 'Times New Roman', Times, serif;
@@ -1086,15 +1085,13 @@
         border-top: 0;
         font-weight: 700;
     }
-    #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-chapter-block[data-chapter-start="1"] .reader-page-body > p:first-of-type::first-letter {
+    #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-chapter-block.has-drop-cap .reader-page-body > p.drop-cap-start::first-letter {
         font-family: 'Lora', serif;
-        font-size: 2.1em;
+        initial-letter: 2;
         line-height: 1;
         font-weight: 600;
         color: #3d2914;
-        padding-right: 0.05em;
-        float: left;
-        margin-top: 0.06em;
+        margin-right: 0.08em;
     }
     #book-formatter-root .reader-content-wrap.interior-elegant-trade .reader-page-body .manuscript-hr {
         border: 0;
@@ -4109,32 +4106,13 @@
         if (!nodes.length) return [bodyHtml];
         if (nodes.length === 1 && nodes[0].nodeType === 1) {
             var el = nodes[0];
-            var text = (el.textContent || '').trim();
-            var words = text.split(/\s+/).filter(Boolean);
-            if (words.length > 1 && measureFn(bodyHtml) > getFmtPageMaxHeightPx()) {
-                var tag = el.tagName ? el.tagName.toLowerCase() : 'p';
-                var openTag = '<' + tag + (el.className ? ' class="' + el.className + '"' : '') + '>';
-                var closeTag = '</' + tag + '>';
-                var out = [];
-                var start = 0;
-                while (start < words.length) {
-                    var lo = start + 1;
-                    var hi = words.length;
-                    var best = start;
-                    while (lo <= hi) {
-                        var mid = (lo + hi) >> 1;
-                        var chunk = words.slice(start, mid).join(' ');
-                        var trial = openTag + escapeHtml(chunk) + closeTag;
-                        if (measureFn(trial) <= getFmtPageMaxHeightPx()) {
-                            best = mid;
-                            lo = mid + 1;
-                        } else hi = mid - 1;
-                    }
-                    if (best <= start) best = start + 1;
-                    out.push(openTag + escapeHtml(words.slice(start, best).join(' ')) + closeTag);
-                    start = best;
-                }
-                return out.length ? out : [bodyHtml];
+            if (measureFn(bodyHtml) > getFmtPageMaxHeightPx()
+                && window.BookReaderPagination
+                && typeof window.BookReaderPagination.paginateBlockPreservingInline === 'function') {
+                var kept = window.BookReaderPagination.paginateBlockPreservingInline(el.outerHTML, function (html) {
+                    return measureFn(html) <= getFmtPageMaxHeightPx();
+                });
+                return kept.length ? kept : [bodyHtml];
             }
         }
         var segments = [];
@@ -4218,28 +4196,24 @@
 
     function splitSegmentForRemainingSpace(segmentHtml, currentBodyHtml, measureFn) {
         var seg = String(segmentHtml || '').trim();
-        if (!seg) return null;
+        var brp = window.BookReaderPagination;
+        if (!seg || !brp || typeof brp.sliceWords !== 'function') return null;
         var tmp = document.createElement('div');
         tmp.innerHTML = seg;
         if (!tmp.firstElementChild || tmp.children.length !== 1) return null;
         var el = tmp.firstElementChild;
         var tag = (el.tagName || '').toLowerCase();
         if (!/^p$/.test(tag)) return null;
-        var words = (el.textContent || '').split(/\s+/).filter(Boolean);
+        var words = (el.textContent || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
         if (words.length < 2) return null;
-
-        var attrs = '';
-        if (el.className) attrs += ' class="' + escapeHtml(el.className) + '"';
-        var openTag = '<' + tag + attrs + '>';
-        var closeTag = '</' + tag + '>';
         var base = String(currentBodyHtml || '');
+        var maxH = getFmtPageMaxHeightPx();
         var lo = 1;
         var hi = words.length - 1;
         var best = 0;
         while (lo <= hi) {
             var mid = (lo + hi) >> 1;
-            var candidate = openTag + escapeHtml(words.slice(0, mid).join(' ')) + closeTag;
-            if (measureFn(base + candidate) <= getFmtPageMaxHeightPx()) {
+            if (measureFn(base + brp.sliceWords(el, 0, mid)) <= maxH) {
                 best = mid;
                 lo = mid + 1;
             } else {
@@ -4247,10 +4221,10 @@
             }
         }
         if (best <= 0) return null;
-        var fit = openTag + escapeHtml(words.slice(0, best).join(' ')) + closeTag;
-        var restWords = words.slice(best);
-        var rest = restWords.length ? (openTag + escapeHtml(restWords.join(' ')) + closeTag) : '';
-        return { fitHtml: fit, restHtml: rest };
+        return {
+            fitHtml: brp.sliceWords(el, 0, best),
+            restHtml: brp.sliceWords(el, best, words.length)
+        };
     }
 
     function classicParaToBodySegment(para, dropCap) {
@@ -4327,45 +4301,12 @@
     function splitFlowSegmentByWords(segHtml, opts, prefixBody) {
         var seg = String(segHtml || '').trim();
         if (!seg) return [];
-        var tmp = document.createElement('div');
-        tmp.innerHTML = seg;
-        var el = tmp.firstElementChild;
-        if (!el) return [seg];
-        var tag = (el.tagName || 'p').toLowerCase();
-        // #4: split text-bearing blocks (not just <p>) so long content flows to the next
-        // page instead of being clipped. Skip blocks with media/nested lists/tables that
-        // cannot be word-split safely.
-        var hasComplexChild = el.querySelector && el.querySelector('img,table,ul,ol,figure,pre,svg,iframe,video');
-        if (!/^(p|blockquote|div|li|figcaption)$/.test(tag) || hasComplexChild) return [seg];
-        var words = (el.textContent || '').split(/\s+/).filter(Boolean);
-        if (words.length < 2) return [seg];
-        var cls = el.className ? (' class="' + escapeHtml(el.className) + '"') : '';
-        var openTag = '<' + tag + cls + '>';
-        var closeTag = '</' + tag + '>';
-        var parts = [];
-        var start = 0;
+        var brp = window.BookReaderPagination;
+        if (!brp || typeof brp.paginateBlockPreservingInline !== 'function') return [seg];
         var base = String(prefixBody || '');
-        while (start < words.length) {
-            var lo = start + 1;
-            var hi = words.length;
-            var best = start;
-            while (lo <= hi) {
-                var mid = (lo + hi) >> 1;
-                var chunk = openTag + escapeHtml(words.slice(start, mid).join(' ')) + closeTag;
-                var block = buildReaderPageBlockHtml(base + chunk, opts);
-                if (fmtPageContentFits(block)) {
-                    best = mid;
-                    lo = mid + 1;
-                } else {
-                    hi = mid - 1;
-                }
-            }
-            if (best <= start) best = start + 1;
-            parts.push(openTag + escapeHtml(words.slice(start, best).join(' ')) + closeTag);
-            start = best;
-            base = '';
-            opts = Object.assign({}, opts, { includeTitle: false, chapterStart: false });
-        }
+        var parts = brp.paginateBlockPreservingInline(seg, function (html) {
+            return fmtPageContentFits(buildReaderPageBlockHtml(base + html, opts));
+        });
         return parts.length ? parts : [seg];
     }
 
@@ -8836,29 +8777,22 @@
         lm.className = 'ipv-para' + (first ? ' first' : '') + (cont ? ' cont' : '');
         lm.style.width = geo.contentW + 'px';
         applyTypo(lm);
-        lm.textContent = text;
-        var lh = lineHeightPx();
-        if (lm.offsetHeight <= available) return { fits:text, rest:'' };
-        var words = text.split(' ');
-        var lo = 1, hi = words.length, best = 0;
-        while (lo <= hi) {
-            var mid = (lo + hi) >> 1;
-            lm.textContent = words.slice(0, mid).join(' ');
-            if (lm.offsetHeight <= available) { best = mid; lo = mid + 1; } else hi = mid - 1;
+        var brp = window.BookReaderPagination;
+        if (!brp || typeof brp.paginateBlockPreservingInline !== 'function')
+            return { fits: text, rest: '' };
+        var raw = String(text || '');
+        var html = /<[a-z]/i.test(raw) ? raw : ('<p>' + raw.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</p>');
+        var parts = brp.paginateBlockPreservingInline(html, function (piece) {
+            lm.innerHTML = piece;
+            return lm.offsetHeight <= available;
+        });
+        function visible(h) {
+            var d = document.createElement('div');
+            d.innerHTML = h;
+            return (d.textContent || '').replace(/\s+/g, ' ').trim();
         }
-        lm.textContent = words.slice(0, best).join(' ');
-        var fitsLines = Math.round(lm.offsetHeight / lh);
-        if (best === 0 || fitsLines < 2) return { fits:'', rest:text };
-        var restWords = words.length - best;
-        while (restWords > 0) {
-            lm.textContent = words.slice(best).join(' ');
-            var restLines = Math.round(lm.offsetHeight / lh);
-            if (restLines >= 2 || restLines === 0) break;
-            best--; restWords++;
-            lm.textContent = words.slice(0, best).join(' ');
-            if (Math.round(lm.offsetHeight / lh) < 2) { best++; break; }
-        }
-        return { fits:words.slice(0, best).join(' '), rest:words.slice(best).join(' ') };
+        if (!parts || parts.length <= 1) return { fits: text, rest: '' };
+        return { fits: visible(parts[0]), rest: parts.slice(1).map(visible).join(' ') };
     }
 
     function paginate() {

@@ -633,7 +633,7 @@ public static class InteriorLayoutTokens
 
         sb.Append("} ");
 
-        sb.Append("img { max-width:100%; height:auto; page-break-inside:avoid; break-inside:avoid; display:block; margin:0.75rem auto; } ");
+        sb.Append("img { max-width:100%; max-height:var(--text-block-h, 7.8in); width:auto; height:auto; page-break-inside:avoid; break-inside:avoid; display:block; margin:0.4rem auto; } ");
 
         return sb.ToString();
 
@@ -1159,11 +1159,11 @@ public static class InteriorLayoutTokens
 
         {
 
-            sb.Append(".book-pdf-body.tpl-classic .reader-page-body.classic-body .manuscript-p:first-of-type::first-letter, ");
+            sb.Append(".book-pdf-body.tpl-classic .has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter, ");
 
-            sb.Append("#book-formatter-root #paginatedReaderShell.interior-classic .reader-page-body.classic-body p.classic-first-para::first-letter { ");
+            sb.Append("#book-formatter-root #paginatedReaderShell.interior-classic .reader-chapter-block.has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { ");
 
-            sb.Append("float:left; font-size:3.2em; line-height:0.85; padding-right:0.08em; font-weight:600; color:#78350f; } ");
+            sb.Append("initial-letter:3; line-height:1; margin-right:0.08em; font-weight:600; color:#78350f; } ");
 
         }
 

@@ -8,7 +8,8 @@ public static class BookGenerationHtmlSanitizer
 {
     private static readonly HashSet<string> AllowedTags = new(StringComparer.OrdinalIgnoreCase)
     {
-        "h1", "h2", "h3", "p", "blockquote", "ul", "ol", "li", "hr", "strong", "em", "br"
+        "h1", "h2", "h3", "p", "blockquote", "ul", "ol", "li", "hr", "strong", "em", "br",
+        "sup", "sub", "small", "i", "b", "figure", "figcaption", "img"
     };
 
     private static readonly Regex CodeFenceRegex = new(

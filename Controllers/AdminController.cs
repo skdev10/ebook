@@ -23,14 +23,16 @@ namespace EBookDashboard.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IDashboardService _dashboardService;
         private readonly IAdminPanelSyncService _panelSync;
+        private readonly BookOriginalReimportService _reimport;
 
-        public AdminController(IUserService userService, IBookService bookService, ApplicationDbContext context, IDashboardService dashboardService, IAdminPanelSyncService panelSync)
+        public AdminController(IUserService userService, IBookService bookService, ApplicationDbContext context, IDashboardService dashboardService, IAdminPanelSyncService panelSync, BookOriginalReimportService reimport)
         {
             _userService = userService;
             _bookService = bookService;
             _context = context;
             _dashboardService = dashboardService;
             _panelSync = panelSync;
+            _reimport = reimport;
         }
 
         // Helper method to check if current user is Admin

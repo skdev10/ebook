@@ -27,21 +27,22 @@ public static class BookChapterExportHelper
     /// <summary>Titles that may carry a subtitle after a colon/dash (e.g. "Preface: Why this book").</summary>
     private static readonly string[] FrontMatterPrefixTitles =
     [
-        "preface", "foreword", "dedication", "epigraph", "prologue", "introduction"
+        "preface", "foreword", "dedication", "epigraph", "prologue"
     ];
 
     private static readonly HashSet<string> BackMatterExactTitles = new(StringComparer.OrdinalIgnoreCase)
     {
         "conclusion", "epilogue", "afterword",
         "acknowledgments", "acknowledgements",
-        "index", "illustration credits", "bibliography", "glossary", "references",
+        "index", "illustration credits", "illustration credit", "credits",
+        "bibliography", "glossary", "references", "notes", "endnotes",
         "about the author", "about the authors", "other back matter"
     };
 
     private static readonly string[] BackMatterPrefixTitles =
     [
         "conclusion", "epilogue", "afterword", "acknowledgments", "acknowledgements",
-        "about the author", "about the authors"
+        "illustration credits", "about the author", "about the authors"
     ];
 
     public static bool IsFrontMatter(int chapterNumber) => chapterNumber <= 0;
@@ -55,6 +56,10 @@ public static class BookChapterExportHelper
 
     public static bool IsBackMatter(int chapterNumber, string? title) =>
         IsBackMatterSectionTitle(title);
+
+    /// <summary>Front matter and back matter are printed without a "Chapter N" label.</summary>
+    public static bool IsUnnumberedSection(int chapterNumber, string? title) =>
+        IsFrontMatter(chapterNumber, title) || IsBackMatterSectionTitle(title);
 
     /// <summary>True when the title is a known front-matter section name (Preface, Foreword, …).</summary>
     public static bool IsFrontMatterSectionTitle(string? title)
@@ -182,8 +187,8 @@ public static class BookChapterExportHelper
     /// </summary>
     public static string GetPreviewStyleHeading(string? title, int storageChapterNumber, int narrativeOrdinal)
     {
-        if (IsFrontMatter(storageChapterNumber, title))
-            return GetExportHeading(title, 0, narrativeOrdinal);
+        if (IsUnnumberedSection(storageChapterNumber, title))
+            return GetExportHeading(title, storageChapterNumber, narrativeOrdinal);
 
         var t = (title ?? "").Trim();
         if (string.IsNullOrEmpty(t) || ChapterZeroOnlyRegex.IsMatch(t))
@@ -202,9 +207,10 @@ public static class BookChapterExportHelper
     {
         var t = (title ?? "").Trim();
 
-        if (IsFrontMatter(storageChapterNumber, title))
+        if (IsUnnumberedSection(storageChapterNumber, title))
         {
-            if (string.IsNullOrEmpty(t)) return "Front matter";
+            if (string.IsNullOrEmpty(t))
+                return IsBackMatterSectionTitle(title) ? "Back matter" : "Front matter";
             if (ChapterZeroOnlyRegex.IsMatch(t)) return t;
             var cleaned = BookChapterHeadingFormatter.GetDisplayTitle(t, 1);
             return string.IsNullOrWhiteSpace(cleaned) || cleaned.Equals("Part 1", StringComparison.OrdinalIgnoreCase)

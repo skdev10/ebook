@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using EBookDashboard.Models.DTO;
+using EBookDashboard.Services;
 
 namespace EBookDashboard.Services.PdfExport;
 
@@ -27,7 +28,8 @@ public static class BookPreviewPrintHtmlBuilder
         string previewShellClass,
         string previewWrapClass,
         string? webRootPath,
-        double? contentHeightPx = null)
+        double? contentHeightPx = null,
+        string? sourceTitleHtml = null)
     {
         var themeCss = InteriorExportTheme.BuildPdfThemeCss(opt);
         var fontCss = InteriorPrintDocumentBuilder.BuildFontStylesForExport(webRootPath);
@@ -73,25 +75,31 @@ public static class BookPreviewPrintHtmlBuilder
         // Print PDFs must use local TTF/OTF only — Google Fonts CSS serves variable/WOFF2 → Type 3.
         doc.AppendLine(fontCss);
         doc.AppendLine("<style>");
-        // Page margins: the interior export (no cover) reserves top/bottom space so Chromium can draw
-        // the running head + folio on EVERY page (left/right stay 0 — the horizontal text inset comes
-        // from the per-style .book-preview-sheet padding). The cover export is full-bleed (margin 0).
-        var pageMargin = includeCoverPage ? "0" : "18mm 0 16mm 0";
-        doc.AppendLine(FormattableString.Invariant($"@page {{ size: {pageSizeCss}; margin: {pageMargin}; }}"));
-        // Suppress chrome on first pages via named pages when Chromium headers are disabled.
-        doc.AppendLine("@page front { margin: 0; }");
-        doc.AppendLine("@page chapter-open { margin: 18mm 0 16mm 0; }");
+        // One margin box, from InteriorSpacingTheme. Sheet padding is cleared in @media print
+        // so these insets are not applied a second time. Cover stays full-bleed.
+        var pageHeight = InteriorSpacingTheme.PageHeightToken(pageSizeCss);
+        doc.AppendLine(FormattableString.Invariant($"@page {{ size: {pageSizeCss}; }}"));
+        doc.AppendLine(InteriorSpacingTheme.AtPageMarginRules(opt.InteriorStyle));
+        doc.AppendLine("@page cover { margin: 0; }");
         doc.AppendLine("* { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }");
-        doc.AppendLine(FormattableString.Invariant($":root {{ --export-page-bg: {pageBg}; }}"));
+        doc.AppendLine(FormattableString.Invariant(
+            $":root {{ --export-page-bg: {pageBg}; {InteriorSpacingTheme.MarginCssVariables(opt.InteriorStyle, pageHeight)} }}"));
         doc.AppendLine(themeCss);
         // Front matter + every chapter start on a new (preferably right-hand) page.
-        doc.AppendLine(".title-page, .copyright-page, .toc-page { break-before: right; page-break-before: right; page: front; }");
-        doc.AppendLine(".title-page { break-before: auto; page-break-before: auto; }");
-        doc.AppendLine(".manuscript-root > section.chapter { break-before: right; page-break-before: right; page: chapter-open; }");
-        doc.AppendLine(".manuscript-root > section.chapter:first-of-type { break-before: right; page-break-before: right; }");
+        // Title (recto) → copyright (verso) → contents (recto) → preface → chapter 1 (recto).
+        doc.AppendLine(".title-page { break-before: auto; page-break-before: auto; page-break-after: always; break-after: page; }");
+        doc.AppendLine(".copyright-page { break-before: left; page-break-before: left; }");
+        doc.AppendLine(".toc-page { break-before: right; page-break-before: right; }");
+        doc.AppendLine(".manuscript-root > section.chapter { break-before: right; page-break-before: right; }");
+        doc.AppendLine(".manuscript-root > section.chapter.front-matter-flow { break-before: auto; page-break-before: auto; }");
+        doc.AppendLine(".source-title-page img { max-width: 100%; max-height: var(--text-block-h); width: auto; height: auto; margin: 0 auto; }");
+        doc.AppendLine(".book-pdf-body .copyright-page.source-copyright { display: block; text-align: left; justify-content: flex-start; }");
+        doc.AppendLine(".book-pdf-body .copyright-page.source-copyright .copyright-block { text-align: left; font-size: 8pt; line-height: 1.35; }");
+        doc.AppendLine(".book-pdf-body .copyright-page.source-copyright .copyright-block p, .book-pdf-body .copyright-page.source-copyright .copyright-block h1, .book-pdf-body .copyright-page.source-copyright .copyright-block h2, .book-pdf-body .copyright-page.source-copyright .copyright-block h3 { text-align: left; font-size: 8pt; font-weight: 400; margin: 0 0 0.35em; line-height: 1.35; }");
         doc.AppendLine(".book-pdf-body { hyphens: auto; -webkit-hyphens: auto; }");
         doc.AppendLine(".reader-page-body p, .manuscript-p { hyphens: auto; -webkit-hyphens: auto; text-align: justify; }");
-        doc.AppendLine(".manuscript-figure, .manuscript-figure img { break-inside: avoid; page-break-inside: avoid; max-width: 100%; height: auto; }");
+        doc.AppendLine(".manuscript-figure { break-inside: avoid; page-break-inside: avoid; margin: 0.15in 0; max-height: var(--text-block-h); }");
+        doc.AppendLine(".manuscript-figure img, .book-pdf-body img { max-width: 100%; max-height: var(--text-block-h); width: auto; height: auto; }");
         doc.AppendLine(".cover-page { page-break-after: always; width: 100%; min-height: 100vh; position: relative; margin: 0; padding: 0; background: #1e1b4b; }");
         doc.AppendLine(".cover-page-blank { background: var(--export-page-bg, #fff); min-height: 100vh; }");
         doc.AppendLine(".cover-img { width: 100%; height: 100vh; object-fit: cover; display: block; }");
@@ -138,17 +146,26 @@ public static class BookPreviewPrintHtmlBuilder
         // following text, and images/tables/blockquotes never split across pages. The print page
         // geometry (trim size, margins, running heads, folios, chapter page breaks) is unchanged.
         doc.AppendLine("@media print {");
+        doc.AppendLine("  .book-pdf-body .book-preview-sheet { padding: 0 !important; }");
+        doc.AppendLine("  .book-pdf-body .title-page, .book-pdf-body .front-matter-page, .book-pdf-body .copyright-page, .book-pdf-body .toc-page { min-height: var(--text-block-h) !important; height: auto !important; }");
         doc.AppendLine("  body.book-pdf-body .manuscript-root, body.book-pdf-body .reader-page-body, body.book-pdf-body .reader-page-body p, body.book-pdf-body .reader-page-body .manuscript-p, body.book-pdf-body .manuscript-p { orphans: 3; widows: 3; }");
         doc.AppendLine("  body.book-pdf-body .reader-page-title, body.book-pdf-body .manuscript-h1, body.book-pdf-body .manuscript-h2, body.book-pdf-body .manuscript-h3 { break-after: avoid; page-break-after: avoid; break-inside: avoid; page-break-inside: avoid; }");
-        doc.AppendLine("  body.book-pdf-body img, body.book-pdf-body figure, body.book-pdf-body table, body.book-pdf-body blockquote, body.book-pdf-body pre { break-inside: avoid; page-break-inside: avoid; }");
-        doc.AppendLine("  body.book-pdf-body img { max-width: 100%; height: auto; }");
+        doc.AppendLine("  body.book-pdf-body table, body.book-pdf-body blockquote, body.book-pdf-body pre { break-inside: avoid; page-break-inside: avoid; }");
+        doc.AppendLine("  body.book-pdf-body figure, body.book-pdf-body figure img { break-inside: avoid; page-break-inside: avoid; }");
+        doc.AppendLine("  body.book-pdf-body figure { text-align: center; margin: 0.15in 0; max-height: var(--text-block-h); }");
+        doc.AppendLine("  body.book-pdf-body img { max-width: 100%; max-height: var(--text-block-h); width: auto; height: auto; }");
+        doc.AppendLine("  body.book-pdf-body figure:has(figcaption) img { max-height: calc(var(--text-block-h) - 0.35in); }");
+        doc.AppendLine("  body.book-pdf-body sup, body.book-pdf-body sub { font-size: 0.75em; line-height: 0; }");
+        doc.AppendLine("  body.book-pdf-body .has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter { initial-letter: 3; font-weight: 700; line-height: 1; margin-right: 0.08em; }");
         doc.AppendLine("}");
         doc.AppendLine("</style></head>");
         doc.AppendLine("<body class=\"book-pdf-body reader-content-wrap " + bodyTemplateClass + " " + previewShellClass + " " + previewWrapClass + "\">");
         doc.Append(coverBlock);
-        // Title page: only title / subtitle / author from user settings — never invent placeholders.
-        if (!string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(subtitle) || !string.IsNullOrWhiteSpace(author))
+        if (!string.IsNullOrWhiteSpace(sourceTitleHtml))
+            doc.AppendLine(sourceTitleHtml);
+        else if (!string.IsNullOrWhiteSpace(title) || !string.IsNullOrWhiteSpace(subtitle) || !string.IsNullOrWhiteSpace(author))
         {
+            // Generated title: only title / subtitle / author from settings — never invent placeholders.
             doc.AppendLine("<div class=\"title-page book-preview-sheet\">");
             if (!string.IsNullOrWhiteSpace(title))
                 doc.Append("<h1>").Append(WebUtility.HtmlEncode(title.Trim())).AppendLine("</h1>");

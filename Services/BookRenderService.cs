@@ -38,9 +38,9 @@ public sealed class BookRenderService : IBookRenderService
         var opt = request.ExportOptions ?? new BookPdfExportOptions();
         opt.Normalize();
 
-        var title = (request.DisplayTitle ?? details.BookTitle ?? "").Trim();
+        var title = FirstNonEmpty(request.DisplayTitle, details.BookTitle);
         // Do not invent "Untitled" — title page / metadata only render when the user provided a title.
-        var author = (request.DisplayAuthor ?? details.AuthorName ?? "").Trim();
+        var author = FirstNonEmpty(request.DisplayAuthor, details.AuthorName);
         var genre = (request.DisplayGenre ?? details.Genre ?? "").Trim();
         var coverSrc = await ResolveCoverSrcAsync(request.CoverImageDataUrl, details.CoverImagePath, cancellationToken);
 
@@ -68,10 +68,22 @@ public sealed class BookRenderService : IBookRenderService
         KdpInteriorMarginCalculator.ApplyDefaults(opt, estimatedPages);
 
         var layout = BookPdfPlatformLayout.Resolve(opt, BookPdfLayoutOptions.FromConfiguration(_configuration));
-        var chapters = BookChapterExportHelper.OrderForExport(details.Chapters);
+        var arranged = BookChapterExportHelper.OrderForExport(details.Chapters).ToList();
+        BookHtmlNormalizer.TakePrintedFrontMatter(
+            arranged,
+            opt.UseSourceTitlePage,
+            opt.KeepOriginalCopyrightPage,
+            out var sourceTitleHtml,
+            out var sourceCopyrightHtml);
+        var chapters = BookHtmlNormalizer.OmitDuplicateFrontMatter(
+            arranged,
+            opt.KeepOriginalCopyrightPage,
+            title);
+        sourceCopyrightHtml ??= BookHtmlNormalizer.PullCopyrightPage(chapters, opt.KeepOriginalCopyrightPage);
         var sections = InteriorPrintDocumentBuilder.BuildChapterSectionsHtml(chapters, phBase, opt);
-        var copyrightHtml = InteriorFrontMatterBuilder.BuildCopyrightPageHtml(
-            title, author, request.PublisherDisplayName);
+        var copyrightHtml = sourceCopyrightHtml
+            ?? InteriorFrontMatterBuilder.BuildCopyrightPageHtml(
+                title, author, request.PublisherDisplayName);
         var bodyTpl = InteriorExportTheme.PdfBodyTemplateClass(opt.InteriorStyle);
         var shellCls = InteriorPrintDocumentBuilder.PreviewShellClass(opt.InteriorStyle);
         var wrapCls = InteriorPrintDocumentBuilder.PreviewInteriorWrapClass(opt.InteriorStyle);
@@ -83,7 +95,8 @@ public sealed class BookRenderService : IBookRenderService
             title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
             copyrightHtml, tocPlaceholder, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
             _env.WebRootPath,
-            contentHeightPx);
+            contentHeightPx,
+            sourceTitleHtml);
 
         var chapterTitles = new List<string>(chapters.Count);
         var tocNarrative = 0;
@@ -108,7 +121,8 @@ public sealed class BookRenderService : IBookRenderService
             title, author, genre, details.Subtitle, coverSrc, opt.IncludeCoverPage,
             copyrightHtml, tocHtml, sections, opt, layout.PageSizeCss, bodyTpl, shellCls, wrapCls,
             _env.WebRootPath,
-            contentHeightPx);
+            contentHeightPx,
+            sourceTitleHtml);
 
         if (ChapterContentNormalizer.LooksLikeJsonEnvelope(html))
             _logger.LogWarning("Render HTML still contains JSON wrapper for book {BookId}.", details.BookId);
@@ -164,6 +178,18 @@ public sealed class BookRenderService : IBookRenderService
         if (pageIn is null || top is null || bottom is null) return null;
         var content = (pageIn.Value - top.Value - bottom.Value) * 96.0;
         return content > 100 ? content : null;
+    }
+
+    private static string FirstNonEmpty(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            var text = (value ?? "").Trim();
+            if (text.Length > 0)
+                return text;
+        }
+
+        return "";
     }
 
     private static double? ParseInches(string? value)

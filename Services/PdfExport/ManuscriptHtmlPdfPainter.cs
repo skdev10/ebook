@@ -153,8 +153,10 @@ public sealed class ManuscriptHtmlPdfPainter
 
     private void DrawTextSegment(string? raw, RunStyle style, bool center = false)
     {
-        var text = HtmlEntity.DeEntitize(raw ?? "").Replace('\r', ' ').Replace('\n', ' ').Trim();
-        if (text.Length == 0) return;
+        // Do not Trim each run. Trimming deletes the space that sits beside <em> or <sup>
+        // and glues the next word on ("only" + "1" → "only1").
+        var text = HtmlEntity.DeEntitize(raw ?? "").Replace('\r', ' ').Replace('\n', ' ');
+        if (text.Trim().Length == 0) return;
 
         var font = MakeFont(style.Family, style.SizePt, style.Bold, style.Italic);
         var brush = style.Brush ?? XBrushes.Black;

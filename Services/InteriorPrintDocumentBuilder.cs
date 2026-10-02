@@ -16,7 +16,10 @@ public static class InteriorPrintDocumentBuilder
     {
         var interior = InteriorExportTheme.NormalizeInteriorStyle(opt.InteriorStyle);
         var bodyExtraClass = interior == "Classic" ? "classic-body" : "";
-        var ordered = BookChapterExportHelper.OrderForExport(chapters);
+        var ordered = BookHtmlNormalizer.OmitDuplicateFrontMatter(
+            BookChapterExportHelper.OrderForExport(chapters),
+            opt.KeepOriginalCopyrightPage,
+            phBase.BookTitle);
         var sb = new StringBuilder();
         var narrativeOrdinal = 0;
 
@@ -26,24 +29,32 @@ public static class InteriorPrintDocumentBuilder
             if (InteriorFrontMatterBuilder.IsImportedContentsChapter(ch.Title))
                 continue;
 
-            if (!BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title))
+            var unnumbered = BookChapterExportHelper.IsUnnumberedSection(ch.ChapterNumber, ch.Title);
+            if (!unnumbered)
                 narrativeOrdinal++;
 
-            var displayNum = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title) ? 0 : narrativeOrdinal;
+            var displayNum = unnumbered ? 0 : narrativeOrdinal;
             var phNum = displayNum > 0 ? displayNum : 1;
             var ph = phBase.WithChapter(ch.Title ?? "", phNum, ch.ChapterNumber > 0 ? ch.ChapterNumber : phNum);
             var chTitleRaw = BookManuscriptHtmlFormatter.ApplyPlaceholders(ch.Title ?? "", ph);
             var displayHeading = BookChapterExportHelper.GetPreviewStyleHeading(chTitleRaw, ch.ChapterNumber, phNum);
-            var titleHtml = BookChapterExportHelper.IsFrontMatter(ch.ChapterNumber, ch.Title)
+            var numberStyle = BookPdfExportOptions.NormalizeChapterNumberStyle(opt.ChapterNumberStyle);
+            var titleHtml = unnumbered
                 ? BookManuscriptHtmlFormatter.EscapeHtml(displayHeading)
-                : InteriorPageMarkup.BuildFormatterChapterTitleHtml(displayHeading, phNum, interior);
+                : InteriorPageMarkup.BuildFormatterChapterTitleHtml(displayHeading, phNum, interior, numberStyle);
             var bodyHtml = BookManuscriptHtmlFormatter.PrepareChapterBodyForExport(ch.Content, ph, displayHeading);
+            if (BookHtmlNormalizer.AllowsDropCap(ch.Title))
+                bodyHtml = BookHtmlNormalizer.MarkDropCapParagraph(bodyHtml);
             var bodyClass = string.IsNullOrEmpty(bodyExtraClass) ? null : bodyExtraClass;
             var sectionId = i + 1;
             var runningHead = InteriorPageMarkup.TruncateRunningHead(phBase.BookTitle);
+            var blockClass = BookHtmlNormalizer.AllowsDropCap(ch.Title) ? "has-drop-cap" : null;
+            var sectionClass = BookChapterExportHelper.IsFrontMatterSectionTitle(ch.Title)
+                ? "front-matter-flow"
+                : null;
 
             sb.Append(InteriorPageMarkup.BuildChapterSection(
-                sectionId, runningHead, titleHtml, bodyHtml, bodyClass));
+                sectionId, runningHead, titleHtml, bodyHtml, bodyClass, blockClass, sectionClass));
         }
 
         if (sb.Length == 0)

@@ -121,6 +121,14 @@ namespace EBookDashboard.Models.DTO
 
         [JsonPropertyName("marginOutsideIn")]
         public double? MarginOutsideIn { get; set; }
+
+        /// <summary>Return the PDF even when the integrity check failed.</summary>
+        [JsonPropertyName("downloadAnyway")]
+        public bool DownloadAnyway { get; set; }
+
+        /// <summary>Render inside this request. Large books otherwise run as a background job.</summary>
+        [JsonPropertyName("renderInline")]
+        public bool RenderInline { get; set; }
     }
 
     /// <summary>POST /Dashboard/GeneratePrintReadyCover — auto-generate back+spine+front cover set.</summary>

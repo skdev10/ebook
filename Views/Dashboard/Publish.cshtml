@@ -1987,6 +1987,66 @@
         });
     }
 
+    function showIntegrityWarning(payload) {
+        return new Promise(function (resolve, reject) {
+            var hits = (payload.hits || []).slice(0, 10).map(function (h) {
+                var page = h.page || h.Page;
+                var kind = h.kind || h.Kind || 'change';
+                var context = h.context || h.Context || '';
+                return (page ? ('Page ' + page + ' — ') : '') + kind + ': ' + context;
+            }).join('\n');
+            var pct = Math.round(((payload.similarity || 0) * 1000)) / 10;
+            var box = document.createElement('div');
+            box.setAttribute('role', 'dialog');
+            box.style.cssText = 'position:fixed;inset:0;background:rgba(28,25,23,.45);z-index:100000;display:flex;align-items:center;justify-content:center;padding:24px;';
+            box.innerHTML = '<div style="max-width:560px;width:100%;background:#fff;border-radius:16px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.2);font:15px/1.45 Georgia,serif;color:#1c1917;">'
+                + '<h2 style="margin:0 0 8px;font-size:20px;">Text check failed</h2>'
+                + '<p style="margin:0 0 10px;">Similarity ' + pct + '%. Deletions ' + (payload.deletions || 0) + ', reorders ' + (payload.reorders || 0) + '.</p>'
+                + '<pre style="white-space:pre-wrap;max-height:220px;overflow:auto;background:#faf7f2;padding:10px;border-radius:8px;font:13px/1.4 ui-monospace,monospace;">' + hits.replace(/[&<>]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]); }) + '</pre>'
+                + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">'
+                + '<button type="button" data-cancel style="padding:8px 14px;border-radius:8px;border:1px solid #d6d3d1;background:#fff;">Cancel</button>'
+                + '<button type="button" data-anyway style="padding:8px 14px;border-radius:8px;border:0;background:#7c3aed;color:#fff;font-weight:700;">Download anyway</button>'
+                + '</div></div>';
+            document.body.appendChild(box);
+            box.querySelector('[data-cancel]').onclick = function () { box.remove(); reject(new Error('Download cancelled.')); };
+            box.querySelector('[data-anyway]').onclick = function () { box.remove(); resolve(true); };
+        });
+    }
+
+    function readPdfResponse(res) {
+        var serverName = parseFilenameFromDisposition(res.headers.get('Content-Disposition'));
+        return res.blob().then(validatePdfBlob).then(function (blob) {
+            return { blob: blob, fileName: serverName };
+        });
+    }
+
+    function pollBookPdfJob(jobId) {
+        return new Promise(function (resolve, reject) {
+            function tick() {
+                fetch('/Dashboard/BookPdfExportStatus?jobId=' + encodeURIComponent(jobId), { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (j) {
+                        if (!j || j.success === false) throw new Error((j && j.message) || 'Export status failed.');
+                        if (j.status === 'error') throw new Error(j.error || j.message || 'Export failed.');
+                        if (j.status === 'ready') {
+                            return fetch('/Dashboard/BookPdfExportFile?jobId=' + encodeURIComponent(jobId), { credentials: 'same-origin' })
+                                .then(readPdfResponse).then(resolve);
+                        }
+                        if (j.status === 'blocked' || j.integrityFailed) {
+                            return showIntegrityWarning(j).then(function () {
+                                return fetch('/Dashboard/BookPdfExportFile?jobId=' + encodeURIComponent(jobId) + '&downloadAnyway=true', { credentials: 'same-origin' })
+                                    .then(readPdfResponse).then(resolve);
+                            });
+                        }
+                        showTransientMessage('info', (j.message || 'Rendering') + ' (' + (j.percent || 0) + '%)');
+                        setTimeout(tick, 2000);
+                    })
+                    .catch(reject);
+            }
+            tick();
+        });
+    }
+
     function fetchPdfExport(url, body) {
         showTransientMessage('info', 'Saving your formatting, then building PDF…');
         var init = {
@@ -1997,20 +2057,22 @@
         };
         return ensureFormatterSavedOnServer(2).then(function (saved) {
             if (!saved) showTransientMessage('warning', 'Could not sync formatting — using last saved settings.');
-            return fetchExportOnce(url, init, true).catch(function (err) {
-                var msg = err && err.message ? err.message : '';
-                if (/500|pdf|chromium|empty|failed/i.test(msg)) {
-                    showTransientMessage('info', 'First PDF can take up to a minute — retrying…');
-                    return new Promise(function (resolve) {
-                        setTimeout(function () { resolve(fetchExportOnce(url, init, true)); }, 2500);
+            return fetch(url, init).then(function (res) {
+                var ct = (res.headers.get('Content-Type') || '').toLowerCase();
+                if (ct.indexOf('application/json') >= 0 || res.status === 409) {
+                    return res.json().then(function (j) {
+                        if (j && j.background && j.jobId) return pollBookPdfJob(j.jobId);
+                        if (j && j.integrityFailed && j.downloadToken) {
+                            return showIntegrityWarning(j).then(function () {
+                                return fetch('/Dashboard/BookPdfExportFile?jobId=' + encodeURIComponent(j.downloadToken) + '&downloadAnyway=true', { credentials: 'same-origin' })
+                                    .then(readPdfResponse);
+                            });
+                        }
+                        throw new Error((j && j.message) ? j.message : 'Export failed.');
                     });
                 }
-                throw err;
-            }).then(function (res) {
-                var serverName = parseFilenameFromDisposition(res.headers.get('Content-Disposition'));
-                return res.blob().then(validatePdfBlob).then(function (blob) {
-                    return { blob: blob, fileName: serverName };
-                });
+                if (!res.ok) return parseExportErrorResponse(res, 'Could not generate PDF.');
+                return readPdfResponse(res);
             });
         });
     }

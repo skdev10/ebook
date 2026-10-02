@@ -526,6 +526,7 @@
         <p id="lhProbe" class="para"></p>
     </div>
 
+    <script src="~/js/book-reader-pagination.js" asp-append-version="true"></script>
     <script>
         /* ============================================================================
            1. THEME DEFINITIONS — each is a COMPLETE design system
@@ -721,43 +722,22 @@
             lineMeasure.style.width = geo.contentW + 'px';
             lineMeasure.style.setProperty('--body-size', SIZES[state.size]);
             lineMeasure.style.setProperty('--line-height', state.lh);
-
-            lineMeasure.textContent = text;
-            const lh = lineHeightPx();
-            const fullH = lineMeasure.offsetHeight;
-            if (fullH <= available) return { fits: text, rest: '' };
-
-            const words = text.split(' ');
-            let lo = 1,
-                hi = words.length,
-                best = 0;
-            while (lo <= hi) {
-                const mid = (lo + hi) >> 1;
-                lineMeasure.textContent = words.slice(0, mid).join(' ');
-                if (lineMeasure.offsetHeight <= available) { best = mid;
-                    lo = mid + 1; } else hi = mid - 1;
+            var brp = window.BookReaderPagination;
+            if (!brp || typeof brp.paginateBlockPreservingInline !== 'function')
+                return { fits: text, rest: '' };
+            var raw = String(text || '');
+            var html = /<[a-z]/i.test(raw) ? raw : ('<p>' + raw.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</p>');
+            var parts = brp.paginateBlockPreservingInline(html, function (piece) {
+                lineMeasure.innerHTML = piece;
+                return lineMeasure.offsetHeight <= available;
+            });
+            function visible(h) {
+                var d = document.createElement('div');
+                d.innerHTML = h;
+                return (d.textContent || '').replace(/\s+/g, ' ').trim();
             }
-
-            lineMeasure.textContent = words.slice(0, best).join(' ');
-            let fitsLines = Math.round(lineMeasure.offsetHeight / lh);
-            if (best === 0 || fitsLines < 2) return { fits: '', rest: text };
-
-            let restWords = words.length - best;
-            while (restWords > 0) {
-                const restText = words.slice(best).join(' ');
-                lineMeasure.textContent = restText;
-                const restLines = Math.round(lineMeasure.offsetHeight / lh);
-                if (restLines >= 2 || restLines === 0) break;
-                best--;
-                restWords++;
-                lineMeasure.textContent = words.slice(0, best).join(' ');
-                if (Math.round(lineMeasure.offsetHeight / lh) < 2) { best++; break; }
-            }
-
-            return {
-                fits: words.slice(0, best).join(' '),
-                rest: words.slice(best).join(' ')
-            };
+            if (!parts || parts.length <= 1) return { fits: text, rest: '' };
+            return { fits: visible(parts[0]), rest: parts.slice(1).map(visible).join(' ') };
         }
 
         function paginate() {

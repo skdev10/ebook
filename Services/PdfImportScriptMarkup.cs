@@ -13,6 +13,10 @@ public static class PdfImportScriptMarkup
     public const char SupEnd = '\uE001';
     public const char SubStart = '\uE002';
     public const char SubEnd = '\uE003';
+    public const char EmStart = '\uE004';
+    public const char EmEnd = '\uE005';
+    public const char StrongStart = '\uE006';
+    public const char StrongEnd = '\uE007';
 
     /// <summary>Convert marked plain text to HTML with &lt;sup&gt;/&lt;sub&gt;.</summary>
     public static string ToHtml(string? markedPlain)
@@ -45,9 +49,29 @@ public static class PdfImportScriptMarkup
                 continue;
             }
 
+            if (ch == EmStart)
+            {
+                i++;
+                var end = markedPlain.IndexOf(EmEnd, i);
+                if (end < 0) end = markedPlain.Length;
+                sb.Append("<em>").Append(WebUtility.HtmlEncode(markedPlain[i..end])).Append("</em>");
+                i = end < markedPlain.Length ? end + 1 : end;
+                continue;
+            }
+
+            if (ch == StrongStart)
+            {
+                i++;
+                var end = markedPlain.IndexOf(StrongEnd, i);
+                if (end < 0) end = markedPlain.Length;
+                sb.Append("<strong>").Append(WebUtility.HtmlEncode(markedPlain[i..end])).Append("</strong>");
+                i = end < markedPlain.Length ? end + 1 : end;
+                continue;
+            }
+
             var next = i;
             while (next < markedPlain.Length
-                   && markedPlain[next] is not (SupStart or SubStart))
+                   && markedPlain[next] is not (SupStart or SubStart or EmStart or StrongStart))
                 next++;
             sb.Append(WebUtility.HtmlEncode(markedPlain[i..next]));
             i = next;
@@ -65,7 +89,11 @@ public static class PdfImportScriptMarkup
             .Replace(SupStart.ToString(), "")
             .Replace(SupEnd.ToString(), "")
             .Replace(SubStart.ToString(), "")
-            .Replace(SubEnd.ToString(), "");
+            .Replace(SubEnd.ToString(), "")
+            .Replace(EmStart.ToString(), "")
+            .Replace(EmEnd.ToString(), "")
+            .Replace(StrongStart.ToString(), "")
+            .Replace(StrongEnd.ToString(), "");
     }
 
     /// <summary>True when a letter's baseline is raised/lowered vs the line median.</summary>

@@ -382,6 +382,11 @@ public sealed class ManuscriptImportService
                 encoded = $"<em>{encoded}</em>";
             if (props?.Underline != null && props.Underline.Val?.Value != UnderlineValues.None)
                 encoded = $"<u>{encoded}</u>";
+            var vert = props?.VerticalTextAlignment?.Val?.Value;
+            if (vert == VerticalPositionValues.Superscript)
+                encoded = $"<sup>{encoded}</sup>";
+            else if (vert == VerticalPositionValues.Subscript)
+                encoded = $"<sub>{encoded}</sub>";
             sb.Append(encoded);
         }
         imageCounter = localCounter;

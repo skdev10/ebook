@@ -283,6 +283,8 @@ builder.Services.AddSingleton<EBookDashboard.Services.PdfExport.PdfHtmlExportSer
 builder.Services.AddScoped<IBookRenderService, BookRenderService>();
 builder.Services.AddScoped<ITocPageNumberMeasurer, ChromiumTocPageNumberMeasurer>();
 builder.Services.AddScoped<IBookPdfService, BookPdfService>();
+builder.Services.AddSingleton<EBookDashboard.Services.PdfExport.IBookPrintExportQueue, EBookDashboard.Services.PdfExport.BookPrintExportQueue>();
+builder.Services.AddScoped<EBookDashboard.Services.BookOriginalReimportService>();
 builder.Services.AddScoped<IPrintWrapGenerationService, PrintWrapGenerationService>();
 builder.Services.AddScoped<IBookCoverDesignService, BookCoverDesignService>();
 builder.Services.AddSingleton<SpineRenderer>();

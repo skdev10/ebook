@@ -79,7 +79,72 @@ public static class InteriorSpacingTheme
     /// <summary>First-line indent — ≈1.5 characters at 11pt.</summary>
     public const double FirstLineIndentMm = 3.5;
 
-    // ── Chromium @page margin box (legacy reference — HTML padding is authoritative) ──
+    // ── Print margin box (the only inset on a PDF page — do not also pad the sheet) ──
+
+    /// <summary>Inside (gutter) margin. Mirrored onto the right of a left-hand page.</summary>
+    public const double PrintInsideIn = 0.75;
+
+    /// <summary>Outside (fore-edge) margin. Mirrored onto the left of a left-hand page.</summary>
+    public const double PrintOutsideIn = 0.5;
+
+    /// <summary>Top margin, trim to the text block.</summary>
+    public const double PrintTopIn = 0.6;
+
+    /// <summary>Bottom margin, text block to the trim.</summary>
+    public const double PrintBottomIn = 0.6;
+
+    /// <summary>One template's print margins. Add an entry to override the trade default.</summary>
+    public readonly record struct PrintBox(double InsideIn, double OutsideIn, double TopIn, double BottomIn);
+
+    private static readonly Dictionary<string, PrintBox> TemplatePrintBoxes = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Print margins for a template. Every template uses the trade box unless listed above.</summary>
+    public static PrintBox BoxForTemplate(string? interiorStyle)
+    {
+        var key = (interiorStyle ?? "").Trim();
+        return TemplatePrintBoxes.TryGetValue(key, out var box)
+            ? box
+            : new PrintBox(PrintInsideIn, PrintOutsideIn, PrintTopIn, PrintBottomIn);
+    }
+
+    /// <summary>CSS variables for the single margin box. <paramref name="pageHeight"/> is a CSS length such as <c>9in</c>.</summary>
+    public static string MarginCssVariables(string? interiorStyle, string? pageHeight)
+    {
+        var box = BoxForTemplate(interiorStyle);
+        var height = string.IsNullOrWhiteSpace(pageHeight) ? "9in" : pageHeight.Trim();
+        return string.Concat(
+            "--margin-inside: ", In(box.InsideIn), "; ",
+            "--margin-outside: ", In(box.OutsideIn), "; ",
+            "--margin-top: ", In(box.TopIn), "; ",
+            "--margin-bottom: ", In(box.BottomIn), "; ",
+            "--page-height: ", height, "; ",
+            "--text-block-h: calc(var(--page-height) - var(--margin-top) - var(--margin-bottom)); ");
+    }
+
+    /// <summary>
+    /// <c>@page :left</c> / <c>:right</c> rules. Literals, not variables — Chromium does not resolve
+    /// custom properties inside <c>@page</c> margins. Values come from <see cref="BoxForTemplate"/>.
+    /// </summary>
+    public static string AtPageMarginRules(string? interiorStyle)
+    {
+        var box = BoxForTemplate(interiorStyle);
+        var top = In(box.TopIn);
+        var bottom = In(box.BottomIn);
+        var inside = In(box.InsideIn);
+        var outside = In(box.OutsideIn);
+        return string.Concat(
+            "@page :left { margin-top: ", top, "; margin-bottom: ", bottom,
+            "; margin-left: ", outside, "; margin-right: ", inside, "; } ",
+            "@page :right { margin-top: ", top, "; margin-bottom: ", bottom,
+            "; margin-left: ", inside, "; margin-right: ", outside, "; } ");
+    }
+
+    /// <summary>The second token of a CSS page size (<c>6in 9in</c> → <c>9in</c>).</summary>
+    public static string PageHeightToken(string? pageSizeCss)
+    {
+        var parts = (pageSizeCss ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? parts[^1] : "9in";
+    }
 
     public static double PrintMarginTopMm => PageTopPaddingMm;
 

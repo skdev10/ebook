@@ -1013,15 +1013,11 @@
     padding-top: 0.4rem;
 }
 
-.book-open-page-inner [data-chapter-start] p:first-of-type::first-letter,
-.book-open-page-inner .drop-cap-start::first-letter,
-.book-open-page-inner .reader-chapter-block[data-chapter-start] > p:first-of-type::first-letter,
-.book-open-page-inner .reader-chapter-block[data-chapter-start="1"] .reader-page-body > p:first-of-type::first-letter {
-    float: left;
-    font-size: 3.1em;
-    line-height: 0.85;
-    padding: 0.05em 0.08em 0 0;
+.book-open-page-inner .reader-chapter-block.has-drop-cap > .reader-page-body > p.drop-cap-start::first-letter {
+    initial-letter: 3;
     font-weight: 600;
+    line-height: 1;
+    margin-right: 0.08em;
     color: #1c1917;
 }
 

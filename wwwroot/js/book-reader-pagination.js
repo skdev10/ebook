@@ -335,6 +335,130 @@
         return { pages: outP, chapterIdxs: outC };
     }
 
+    function countWordsIn(el) {
+        var n = 0;
+        var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        var node;
+        while ((node = walker.nextNode())) {
+            var s = node.nodeValue || '';
+            for (var i = 0; i < s.length; i++) {
+                if (/\s/.test(s.charAt(i))) continue;
+                while (i < s.length && !/\s/.test(s.charAt(i))) i++;
+                n++;
+                i--;
+            }
+        }
+        return n;
+    }
+
+    function findWordEnd(el, wordsOnLeft) {
+        var seen = 0;
+        var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        var node;
+        while ((node = walker.nextNode())) {
+            var s = node.nodeValue || '';
+            for (var i = 0; i < s.length; i++) {
+                if (/\s/.test(s.charAt(i))) continue;
+                while (i < s.length && !/\s/.test(s.charAt(i))) i++;
+                seen++;
+                if (seen === wordsOnLeft) return { node: node, offset: i };
+                i--;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Split one element at a word boundary. Inline ancestors stay open on both halves.
+     * Text of left + text of right equals the original text.
+     */
+    function splitElementAtWord(element, wordsOnLeft) {
+        var point = findWordEnd(element, wordsOnLeft);
+        if (!point) return null;
+
+        function splitAt(el, textNode, offset) {
+            var right = el.cloneNode(false);
+            var onRight = false;
+            var children = Array.prototype.slice.call(el.childNodes);
+            for (var i = 0; i < children.length; i++) {
+                var child = children[i];
+                if (!onRight) {
+                    if (child === textNode) {
+                        var full = child.nodeValue || '';
+                        var leftText = full.slice(0, offset);
+                        var rightText = full.slice(offset);
+                        child.nodeValue = leftText;
+                        if (rightText) right.appendChild(document.createTextNode(rightText));
+                        onRight = true;
+                    } else if (child.nodeType === 1 && child.contains(textNode)) {
+                        var rightChild = splitAt(child, textNode, offset);
+                        if (rightChild && (rightChild.childNodes.length || (rightChild.textContent || '').length))
+                            right.appendChild(rightChild);
+                        onRight = true;
+                    }
+                } else {
+                    right.appendChild(child);
+                }
+            }
+            return right;
+        }
+
+        return splitAt(element, point.node, point.offset);
+    }
+
+    function sliceWords(sourceEl, from, to) {
+        var host = document.createElement('div');
+        host.appendChild(sourceEl.cloneNode(true));
+        var el = host.firstElementChild;
+        var total = countWordsIn(el);
+        if (to < total) splitElementAtWord(el, to);
+        if (from > 0) {
+            var rest = splitElementAtWord(el, from);
+            if (rest) el = rest;
+        }
+        return el ? el.outerHTML : '';
+    }
+
+    /**
+     * Paginate one block without flattening inline tags to textContent.
+     * fits(html) is true when that HTML fits the current page.
+     */
+    function paginateBlockPreservingInline(blockHtml, fits) {
+        var html = String(blockHtml || '').trim();
+        if (!html) return [];
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        var el = tmp.firstElementChild;
+        if (!el || typeof fits !== 'function') return [html];
+        var tag = (el.tagName || '').toLowerCase();
+        if (/^h[1-6]$/.test(tag)) return [html];
+        if (el.querySelector && el.querySelector('img,table,ul,ol,figure,svg,pre,video')) return [html];
+        if (fits(html)) return [html];
+        var total = countWordsIn(el);
+        if (total < 2) return [html];
+        var parts = [];
+        var start = 0;
+        var guard = 0;
+        while (start < total && guard++ < total + 2) {
+            var lo = start + 1;
+            var hi = total;
+            var best = start;
+            while (lo <= hi) {
+                var mid = (lo + hi) >> 1;
+                if (fits(sliceWords(el, start, mid))) {
+                    best = mid;
+                    lo = mid + 1;
+                } else {
+                    hi = mid - 1;
+                }
+            }
+            if (best <= start) best = Math.min(total, start + 1);
+            parts.push(sliceWords(el, start, best));
+            start = best;
+        }
+        return parts.length ? parts : [html];
+    }
+
     global.BookReaderPagination = {
         isHeadingElement: isHeadingElement,
         isHeadingSegmentHtml: isHeadingSegmentHtml,
@@ -345,6 +469,9 @@
         mergeHeadingOnlyChapterBlockPages: mergeHeadingOnlyChapterBlockPages,
         splitAccBeforeFlush: splitAccBeforeFlush,
         flattenKeepTogetherUnits: flattenKeepTogetherUnits,
-        fillUnderfilledPages: fillUnderfilledPages
+        fillUnderfilledPages: fillUnderfilledPages,
+        splitElementAtWord: splitElementAtWord,
+        sliceWords: sliceWords,
+        paginateBlockPreservingInline: paginateBlockPreservingInline
     };
 })(typeof window !== 'undefined' ? window : globalThis);
